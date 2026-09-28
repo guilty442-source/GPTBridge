@@ -219,19 +219,9 @@ class StartupExecutorPhasesMixin:
             )
             await app.model_service_activation.start()
         _lap("model_activation_ms")
-        if getattr(app, "self_learning_driver", None) is None:
-            from tasks.self_learning_driver import SelfLearningDriver
-
-            # A554/§1.1：星澄 self-learning 排程——經 AutomationCore 註冊
-            # 到共享排程（deny 不回落私有迴圈）；循環本身在工具行程內
-            # 經 governed system channel 執行（inference_exclusion 需要
-            # 行程本地 engine cache 才有效）。
-            app.self_learning_driver = SelfLearningDriver(
-                app,
-                app.toolbox_service,
-                project_root=app.project_root,
-            )
-            await app.self_learning_driver.start()
+        # self-learning driver retired (B167/B38): JAX/XLA and Python
+        # training are retired with no transitional period; no scheduler
+        # may submit xingcheng_self_learning_cycle.
         _lap("self_learning_driver_ms")
         if getattr(app, "codex_amendment_intake", None) is None:
             from tasks.codex_amendment_intake import (

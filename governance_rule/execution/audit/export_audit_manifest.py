@@ -107,7 +107,6 @@ _NATIVE_COVERED = frozenset({
     "check_contract_axes",
     "check_sql_anti_patterns",         # baseline + export-time live diff
     "check_gpu_coordinator_lazy_torch",
-    "check_jax_sft_retrace_bound",
     "check_renderer_idle_gating",
 })
 
@@ -773,19 +772,9 @@ def build_manifest(root: Path) -> dict[str, object]:
              ["def _torch()", "_query_via_nvidia_smi",
               "_query_via_torch"])
 
-    # check_jax_sft_retrace_bound — 部分歸約：fused step / bucketed
-    # collation / traced-lr 簽名的 literal markers 原生檢查；
-    # _COLLATE_BUCKET 數值 regex 與 donate_argnums 鄰近視窗語義留
-    # delegated。
-    _sft = (
-        "Standalone tools/local-model/src/backend/services/xingcheng/"
-        "infrastructure/native_transformer/jax_backend/sft.py")
-    contains("jax-sft:fused-step-markers", _sft,
-             ["_COLLATE_BUCKET", "train_step = jax.jit(",
-              "donate_argnums",
-              "def _train_step(params, opt_state, input_ids, labels, lr)",
-              "eval_loss = jax.jit(", "collate_bucket",
-              "def _choose_bucket"])
+    # check_jax_sft_retrace_bound — RETIRED (B167): JAX/XLA retired with
+    # zero source/dependency/artifact role and no transitional period;
+    # the former framework=jax verification is retired.
 
     # Python test-lane retirement (native-test-runner-register /
     # test-framework-final-ownership) — the forbidden artifacts must
@@ -1581,13 +1570,7 @@ def build_manifest(root: Path) -> dict[str, object]:
                   "\nfrom torch ", "\nfrom torch."])
 
     # --- check_jax_sft_retrace_bound ------------------------------------
-    contains("jax-sft:retrace-bound",
-             "Standalone tools/local-model/src/backend/services/xingcheng/"
-             "infrastructure/native_transformer/jax_backend/sft.py",
-             ["_COLLATE_BUCKET", "train_step = jax.jit(",
-              "donate_argnums",
-              "def _train_step(params, opt_state, input_ids, labels, lr)",
-              "eval_loss = jax.jit(", "collate_bucket", "def _choose_bucket"])
+    # RETIRED (B167): jax_backend/sft.py removed with the JAX framework.
 
     # --- check_renderer_idle_gating --------------------------------------
     _renderer_base = root / "main-system" / "src-ui" / "renderer"

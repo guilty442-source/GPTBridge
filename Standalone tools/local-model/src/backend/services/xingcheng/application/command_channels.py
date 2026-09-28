@@ -238,33 +238,16 @@ class CommandChannelsMixin:
                 ),
                 "model_version": self.native_model.VERSION,
                 "model_architecture": (
-                    "governed-native-self-trained-transformer+deterministic-specialists+"
+                    "governed-native-transformer+deterministic-specialists+"
                     "statistical-safety-fallback"
                 ),
                 "model_mode": "governed-native-transformer-llm",
                 "generative_ai": True,
+                # B167/B38: JAX/XLA + Python training retired, zero role,
+                # no transitional period — report the retirement honestly.
                 "self_training": {
-                    "mode": "continuous-verified-self-distillation",
-                    "training_coordinator_model": self.NATIVE_RUNTIME_MODEL,
-                    "quality_gate_required": True,
-                    "native_training": {
-                        "enabled": True,
-                        "transport": "in-process-native-engine",
-                        "external_entry": False,
-                        "external_ai_used": False,
-                        "internal_owner": self.NATIVE_MODEL_ID,
-                        "automatic": True,
-                        "interval_seconds": self.INTERNAL_TRAINING_INTERVAL_SECONDS,
-                        "training_models": [self.NATIVE_RUNTIME_MODEL],
-                        "candidate_only": True,
-                        "direct_model_database_write": False,
-                        "star_native_database_write_after_quality_gate": True,
-                        "automatic_database_update": True,
-                        "latest": dict(self._latest_internal_training),
-                        "direct_weight_access": False,
-                        "star_quality_gate_required": True,
-                        "maximum_examples_per_request": self.training_gate.MAX_EXAMPLES,
-                    },
+                    "retired": True,
+                    "authority": "B167/B38",
                     "models": {
                         profile.model_id: self.model_engines.for_profile(
                             profile

@@ -73,16 +73,6 @@
     "enabled": true,
     "surfaces": [
       {
-        "id": "xingcheng-internal-maintenance",
-        "kind": "private-loop",
-        "method": "_internal_maintenance_loop"
-      },
-      {
-        "id": "self-learning",
-        "kind": "governed-command",
-        "command": "xingcheng_self_learning_cycle"
-      },
-      {
         "id": "retention",
         "kind": "governed-command",
         "command": "xingcheng_retention_sweep"

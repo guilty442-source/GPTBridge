@@ -33,60 +33,6 @@ class LocalAiLifecycleMixin:
         event.set()
         return True
 
-    async def _handle_self_learning(
-        self, command: str, payload: dict[str, Any]
-    ) -> tuple[str, dict[str, Any]]:
-        """``xingcheng_self_learning_cycle``：受管排程觸發的一輪自我學習。
-
-        §1.1/A554：main-system ``self_learning_driver`` 經 AutomationCore
-        排程、由 governed system channel 送達本行程；循環必須在工具
-        行程內執行——``inference_exclusion``（§2.7-4）檢查的是行程本地
-        engine cache，外掛行程無法判定。
-        重入鎖保證 lease 重排／連續 tick 不會並行兩輪訓練；所有政策閘
-        （enabled、min_new_examples、min_interval、quiet hours、GPU
-        退避、熔斷、每日上限）由 ``run_cycle`` 權威判定，本 handler 不
-        複製任何閘門。
-        """
-        if command != "xingcheng_self_learning_cycle":
-            return "error", {
-                "ok": False,
-                "error_code": "UNKNOWN_COMMAND",
-                "message": f"未知命令: {command}",
-            }
-        lock = self._self_learning_cycle_lock
-        if not lock.acquire(blocking=False):
-            return "xingcheng_self_learning_cycle_result", {
-                "ok": True,
-                "action": "already-running",
-                "reason": "another self-learning cycle is in flight",
-            }
-        # 鎖的釋放在執行緒函式內的 finally——若 governed worker 取消本
-        # coroutine（request_cancelled），to_thread 的訓練執行緒仍在跑；
-        # 在 coroutine 層釋放會讓下一輪請求誤判空閒而並行第二輪訓練。
-        result = await asyncio.to_thread(
-            self._run_self_learning_cycle, payload
-        )
-        return "xingcheng_self_learning_cycle_result", result
-
-    def _run_self_learning_cycle(self, payload: dict[str, Any]) -> dict[str, Any]:
-        try:
-            from ..infrastructure.native_transformer.self_learning import (
-                run_cycle,
-            )
-
-            return run_cycle(
-                self.tool_root,
-                force=bool(payload.get("force")),
-            )
-        except Exception as exc:  # noqa: BLE001 — 循環結果必須回到請求方
-            return {
-                "ok": False,
-                "action": "error",
-                "error": f"{type(exc).__name__}: {exc}",
-            }
-        finally:
-            self._self_learning_cycle_lock.release()
-
     async def _handle_retention_sweep(
         self, command: str, payload: dict[str, Any]
     ) -> tuple[str, dict[str, Any]]:
@@ -371,15 +317,9 @@ class LocalAiLifecycleMixin:
             asyncio.to_thread(self._run_self_maintenance),
             asyncio.to_thread(self.native_runtime.probe),
         )
-        if (
-            self.native_runtime.enabled
-            and self._internal_maintenance_loop_task is None
-        ):
+        if self.native_runtime.enabled and self._default_model_preload_task is None:
             self._default_model_preload_task = asyncio.create_task(
                 asyncio.to_thread(self.native_runtime.preload)
-            )
-            self._internal_maintenance_loop_task = asyncio.create_task(
-                self._internal_maintenance_loop()
             )
 
     async def shutdown(self) -> None:
@@ -387,29 +327,6 @@ class LocalAiLifecycleMixin:
         self._default_model_preload_task = None
         if preload is not None:
             await asyncio.gather(preload, return_exceptions=True)
-        task = self._internal_maintenance_loop_task
-        self._internal_maintenance_loop_task = None
-        if task is not None:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-        training = self._internal_training_task
-        self._internal_training_task = None
-        if training is not None and not training.done():
-            training.cancel()
-            await asyncio.gather(training, return_exceptions=True)
-
-    async def _internal_maintenance_loop(self) -> None:
-        while True:
-            await asyncio.sleep(60)
-            if self._request_cancel_events or not self._internal_training_due():
-                continue
-            self._internal_training_task = asyncio.create_task(
-                self._run_internal_native_training()
-            )
-            await asyncio.gather(
-                self._internal_training_task,
-                return_exceptions=True,
-            )
 
     async def handle(self, command: str, payload: dict[str, Any], _latest: Any = None
     ) -> tuple[str, dict[str, Any]]:

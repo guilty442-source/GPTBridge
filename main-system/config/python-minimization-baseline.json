@@ -68,7 +68,7 @@
   "zero_targets": {
     "INFERENCE": {
       "files": 48,
-      "loc": 12716
+      "loc": 12708
     },
     "RAG": {
       "files": 90,
@@ -84,7 +84,7 @@
     },
     "PROC_MGMT": {
       "files": 59,
-      "loc": 15986
+      "loc": 15903
     },
     "FILE_IO": {
       "files": 98,
@@ -96,11 +96,16 @@
     },
     "BUSINESS": {
       "files": 229,
-      "loc": 41155
+      "loc": 41131
     },
     "GENERAL_APP": {
-      "files": 531,
-      "loc": 106733
+      "files": 528,
+      "loc": 104834
+    },
+    "GOVERNANCE": {
+      "files": 246,
+      "loc": 67056,
+      "policy": "thin-to-minimum, stays-python"
     }
   },
   "allowed_zones": {
@@ -110,9 +115,9 @@
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {
-      "files": 26,
-      "loc": 8972,
-      "policy": "on-demand"
+      "files": 7,
+      "loc": 1920,
+      "policy": "misclassified-live-surfaces-only; executor/framework retired per B167/B38"
     },
     "VERIFICATION": {
       "files": 0,
@@ -409,5 +414,7 @@
       ]
     },
     "fallback_bucket": "GENERAL_APP"
-  }
+  },
+  "baseline_rev": "rev12-pyret-training-retired",
+  "revision_note": "rev12 tighten (measured): TRAINING 26/8972 -> 7/1920 (-19f/-7052): B167/B38 sealed — JAX/XLA+PyTorch retired zero-role no-transition; deleted jax_backend(4)+training/(11)+self_learning(2)+maturity+training_job_executor/worker+self_learning_driver; local_ai_training mixin removed and severed from service/commands/lifecycle/teaching/infer paths; manifest jax-sft checks retired; requirements unpinned jax+numpy. Remaining 7 TRAINING files are misclassified live surfaces (tokenizer/bpe/endpoint/dataset-bridges data plumbing, no framework). GENERAL_APP 531->528/104834, GOVERNANCE 246/67056, BUSINESS 229/41131, PROC_MGMT 59/15903, INFERENCE 48/12708 — worker flows + retirement cuts. Downward-only."
 }

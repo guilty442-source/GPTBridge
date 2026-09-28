@@ -327,10 +327,18 @@ class InferPlanningMixin:
                 "train star natively",
             )
         ):
-            result = await self._train_with_native(payload)
-            result["intent"] = "native_model_training"
-            self._identify_model(result, self.models.primary)
-            return "xingcheng_infer_result", result
+            # B167/B38: JAX/XLA and Python training retired — fail closed
+            # with a typed unavailable instead of a training path.
+            return "xingcheng_infer_result", {
+                "ok": False,
+                "error_code": "TRAINING_RETIRED",
+                "message": (
+                    "原生模型訓練已依治理法典退役（B167/B38）："
+                    "JAX/XLA 與 Python 訓練零角色、零過渡期。"
+                ),
+                "intent": "native_model_training",
+                "operation_executed": False,
+            }
         if (
             not native_model_requested
             and "參數" in prompt

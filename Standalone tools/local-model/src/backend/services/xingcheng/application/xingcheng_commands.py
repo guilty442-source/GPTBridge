@@ -840,20 +840,13 @@ def _create_teaching_commands() -> list:
     ]
 
 
-def _create_self_learning_commands() -> list:
-    """Create self-learning command specifications."""
+def _create_maintenance_commands() -> list:
+    """Create retention/search command specifications.
+
+    ``xingcheng_self_learning_cycle`` retired (B167/B38): JAX/XLA and
+    Python training are retired with no transitional period.
+    """
     return [
-        CommandSpec(
-            name="xingcheng_self_learning_cycle",
-            handler="_handle_self_learning",
-            category="self_learning",
-            description=(
-                "執行一輪自我學習循環（main-system 排程經 system channel 觸發）"
-            ),
-            aliases=(),
-            parameters=(),
-            examples=("xingcheng_self_learning_cycle",),
-        ),
         CommandSpec(
             name="xingcheng_retention_sweep",
             handler="_handle_retention_sweep",
@@ -1018,7 +1011,7 @@ def _create_all_commands() -> list:
     all_commands.extend(_create_diagnostics_commands())
     all_commands.extend(_create_codex_commands())
     all_commands.extend(_create_teaching_commands())
-    all_commands.extend(_create_self_learning_commands())
+    all_commands.extend(_create_maintenance_commands())
     all_commands.extend(_create_chat_commands())
     all_commands.extend(_create_infer_command())
     return all_commands

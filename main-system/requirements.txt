@@ -15,9 +15,6 @@ setuptools>=75,<80
 # Local-model / standalone-tool dependencies — ON-DEMAND ONLY (not resident)
 # Install only when needed: `pip install -e .[local-model]` / `uv pip install -e .[local-model]`
 imageio-ffmpeg==0.6.0
-numpy==2.5.3; python_version >= "3.12"
-numpy>=2.4,<2.6; python_version < "3.12"
 Pillow>=10.0,<14
-# A612/A621: torch/sentence-transformers/triton retired (migration-only lineage);
-# JAX+XLA is the sole training framework.
-jax>=0.10,<0.12
+# B167/B38: numpy and JAX/XLA retired with zero source/dependency/
+# artifact/execution/fallback role and no transitional period.

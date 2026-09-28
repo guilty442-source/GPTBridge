@@ -8,100 +8,16 @@ from typing import Any
 
 class LocalAiTeachingMixin:
     def _submit_teaching_example(self, payload: dict[str, Any]) -> dict[str, Any]:
-        intent = str(payload.get("training_intent") or "reasoning").strip().casefold()
-        input_text = str(payload.get("input_text") or payload.get("instruction") or "").strip()
-        target_text = str(payload.get("target_text") or payload.get("ideal_response") or "").strip()
-        reference_text = str(payload.get("reference_text") or "").strip()
-        if intent not in self.training_gate.ALLOWED_INTENTS:
-            return {
-                "ok": False,
-                "error_code": "TEACHING_INTENT_NOT_ALLOWED",
-                "message": "這個教學分類不在允許範圍內。",
-                "allowed_intents": sorted(self.training_gate.ALLOWED_INTENTS),
-            }
-        if not input_text or not target_text:
-            return {
-                "ok": False,
-                "error_code": "TEACHING_EXAMPLE_REQUIRED",
-                "message": "請同時提供指令與理想回答。",
-            }
-        candidate_digest = self.training_gate.digest(
-            f"{intent}\0{input_text}\0{target_text}\0{reference_text}"
-        )
-        evaluated = self.training_gate.evaluate(
-            [
-                {
-                    "candidate_id": f"owner-example-{candidate_digest[:20]}",
-                    "intent": intent,
-                    "input_text": input_text,
-                    "target_text": target_text,
-                }
-            ],
-            requested_intent=intent,
-            reference_text=reference_text,
-            response_digest=candidate_digest,
-            source_type=str(
-                payload.get("source_type")
-                or "owner-governed-teaching-candidate"
-            ),
-            received_via=str(
-                payload.get("received_via")
-                or "star-chat-governance-authenticated-ai-channel"
-            ),
-        )
-        updates: list[dict[str, Any]] = []
-        for candidate in evaluated["accepted"]:
-            updates.append(self._apply_self_training(self.models.MAIN, candidate))
-        accepted = bool(updates and updates[0].get("accepted") is True)
-        learned_now = bool(updates and updates[0].get("learned_now") is True)
-        repository = self._repository_for(self.models.MAIN)
-        preference_pending = 0
-        for rejection in evaluated["rejected"]:
-            if str(rejection.get("candidate_id") or "") != str(
-                f"owner-example-{candidate_digest[:20]}"
-            ):
-                continue
-            try:
-                repository.record_rejected_teaching_candidate(
-                    intent=intent,
-                    input_text=input_text,
-                    rejected_text=target_text,
-                    source_type=str(
-                        payload.get("source_type")
-                        or "owner-governed-teaching-candidate"
-                    ),
-                    gate_verdict=rejection,
-                )
-                preference_pending += 1
-            except ValueError:
-                continue
-        preference_pairs_completed = 0
-        if accepted:
-            preference_pairs_completed = repository.complete_preference_pairs(
-                intent=intent,
-                input_text=input_text,
-                chosen_text=target_text,
-                chosen_example_id=str(updates[0].get("example_id") or ""),
-            )
+        # B167/B38: JAX/XLA and Python training are retired with zero role
+        # and no transitional period — teaching examples have no live
+        # training consumer; fail closed instead of collecting dead data.
         return {
-            "preference_pairs_pending": preference_pending,
-            "preference_pairs_completed": preference_pairs_completed,
-            "ok": accepted,
+            "ok": False,
+            "error_code": "TRAINING_RETIRED",
             "message": (
-                "教學樣本已通過星澄驗證並立即加入本機學習層。"
-                if learned_now
-                else "教學樣本已存在，保留原有版本。"
-                if accepted
-                else "教學樣本未通過品質與事實一致性檢查。"
+                "教學/自訓管線已依治理法典退役（B167/B38）："
+                "不再接受訓練樣本提交。"
             ),
-            "accepted_count": int(evaluated["accepted_count"]),
-            "rejected_count": int(evaluated["rejected_count"]),
-            "rejections": list(evaluated["rejected"]),
-            "model_updates": updates,
-            "direct_weight_access": False,
-            "automatic_foundation_weight_replacement": False,
-            "rollback": "deactivate-versioned-example-and-rebuild-learning-layer",
-            "version": "1.0",
         }
 
     async def _tune_investment_parameters(

@@ -29,11 +29,9 @@ class InferFinalizeMixin:
                 },
                 market_research,
             )
-        training_candidate = output.pop("_training_candidate", None)
-        output["self_training"] = self._apply_self_training(
-            attempted_profile,
-            training_candidate if isinstance(training_candidate, dict) else {},
-        )
+        # self-training collection retired (B167/B38): strip the internal
+        # candidate key and emit no self_training section.
+        output.pop("_training_candidate", None)
         output["module_execution"] = self.modules.execution_report(
             planned_intents,
             coordinator_model=(

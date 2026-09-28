@@ -36,7 +36,6 @@ from .local_ai_command import LocalAiCommandMixin
 from .local_ai_market import LocalAiMarketMixin
 from .local_ai_lifecycle import LocalAiLifecycleMixin
 from .local_ai_health import LocalAiHealthMixin
-from .local_ai_training import LocalAiTrainingMixin
 from .local_ai_maintenance import LocalAiMaintenanceMixin
 from .local_ai_utility import LocalAiUtilityMixin
 from .local_ai_capability import LocalAiCapabilityMixin
@@ -69,7 +68,6 @@ class LocalAiService(
     LocalAiCommandMixin,
     LocalAiMarketMixin,
     LocalAiHealthMixin,
-    LocalAiTrainingMixin,
     LocalAiMaintenanceMixin,
     LocalAiUtilityMixin,
     LocalAiCapabilityMixin,
@@ -137,7 +135,6 @@ class LocalAiService(
         "reasoning": "native-model-reasoning-owner",
         "complex-work": "understand-allocate-role-integrate-execute-inspect-result",
         "data": "native-model-enterprise-investment-data",
-        "native-training": "native-self-training",
         "capability-composition": "native-model-governed",
         "autonomous-agent": "traditional-chinese-first-governed-workflow",
         "star-native-model": "task-participation-denied",
@@ -168,60 +165,8 @@ class LocalAiService(
     CAPABILITY_VOTER_MODELS = (NATIVE_RUNTIME_MODEL,)
     MAX_SEARCH_CACHE_ENTRIES = 8
     SELF_MAINTENANCE_INTERVAL_SECONDS = 300
-    INTERNAL_TRAINING_INTERVAL_SECONDS = 86_400
-    INTERNAL_TRAINING_INITIAL_DELAY_SECONDS = 600
     COMMAND_UNDERSTANDING_CACHE_TTL_SECONDS = 300
     COMMAND_UNDERSTANDING_CACHE_MAX_ENTRIES = 128
-    INTERNAL_TRAINING_TOPICS = (
-        (
-            "conversation",
-            "繁體中文命令理解、否定條件、限制與輸出格式遵循",
-        ),
-        (
-            "reasoning",
-            "以可核對步驟完成推理，資料不足時明確要求補充輸入",
-        ),
-        (
-            "coding",
-            "先理解需求與安全邊界，再產生可測試且不修改治理規則的程式建議",
-        ),
-        (
-            "reading",
-            "依使用者提供內容回答，保留來源依據且不補造文件事實",
-        ),
-        (
-            "analysis",
-            "資料比較與趨勢解讀：只依據提供的數據下結論並標示不確定性",
-        ),
-        (
-            "statistics",
-            "統計量的正確使用：平均、中位數、標準差、百分比與樣本限制",
-        ),
-        (
-            "calculation",
-            "逐步算術與單位換算：列出計算過程並驗算結果一致性",
-        ),
-        (
-            "data_organization",
-            "資料分類、去重、排序與表格化摘要，保留原始數值不竄改",
-        ),
-        (
-            "repair",
-            "錯誤訊息判讀、根因假設排序與最小風險修復步驟",
-        ),
-        (
-            "capabilities",
-            "星澄可協助的事項與治理邊界：唯讀工具、需確認的寫入、禁止事項",
-        ),
-        (
-            "risk",
-            "投資與操作風險辨識：情境列舉、影響評估與緩解措施",
-        ),
-        (
-            "self_upgrade",
-            "提出受治理的系統修改提案：說明動機、影響範圍與驗證方式，不直接執行",
-        ),
-    )
     COMMANDS = {
         "xingcheng_chat",
         "xingcheng_status",
@@ -252,7 +197,6 @@ class LocalAiService(
         "xingcheng_codex_alignment",
         "xingcheng_codex_mirror_check",
         "xingcheng_submit_teaching",
-        "xingcheng_self_learning_cycle",
         "xingcheng_retention_sweep",
     }
 
@@ -324,23 +268,8 @@ class LocalAiService(
         self._command_understanding_cache_lock = threading.Lock()
         self._last_self_maintenance_at = 0.0
         self._latest_self_maintenance: dict[str, Any] = {}
-        self._latest_internal_training = self.repositories[
-            self.models.MAIN.model_id
-        ].latest_internal_training_run()
-        self._internal_training_task: asyncio.Task[dict[str, Any]] | None = None
-        self._internal_maintenance_loop_task: asyncio.Task[None] | None = None
         self._default_model_preload_task: asyncio.Task[Any] | None = None
-        self._internal_training_topic_index = 0
-        self._internal_training_not_before = time.time() + (
-            0
-            if self._latest_internal_training
-            else self.INTERNAL_TRAINING_INITIAL_DELAY_SECONDS
-        )
         self._request_cancel_events: dict[str, threading.Event] = {}
-        # §1.1/A554：self-learning 週期由 main-system 經受管 system channel
-        # 排程觸發；claim lease 到期重排或連續 tick 可能造成重複請求，
-        # 此鎖保證同一行程內任一時刻只有一個 run_cycle 在跑。
-        self._self_learning_cycle_lock = threading.Lock()
         # §10.67：retention sweep 重入鎖（與訓練鎖分離——保留清理不阻塞
         # 訓練互斥語意，但同行程仍只允許一輪）。
         self._retention_sweep_lock = threading.Lock()

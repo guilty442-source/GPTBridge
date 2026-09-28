@@ -5,9 +5,6 @@ optimisation work (commits ``d0307ec2`` / ``e0d65d24`` / ``91959d4b``):
 
 - ``check_gpu_coordinator_lazy_torch`` — ``gpu_coordinator.py`` must not
   import torch at module level (per-consumer import + CUDA-context cost);
-- ``check_jax_sft_retrace_bound`` — the JAX SFT step must keep bucketed
-  collation and a single fused ``jax.jit`` train step with ``lr`` as a
-  traced scalar, plus a jitted eval loss;
 - ``check_renderer_idle_gating`` — renderer timers must stay gated on
   ``document.visibilityState`` (hidden window = no heartbeat/SLO IPC);
 - ``check_bootstrap_native_entry`` — the C# bootstrap entry project must
@@ -31,10 +28,6 @@ from pathlib import Path
 
 _GPU_COORDINATOR = (
     "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py"
-)
-_SFT = (
-    "Standalone tools/local-model/src/backend/services/xingcheng/"
-    "infrastructure/native_transformer/jax_backend/sft.py"
 )
 _RSM = "main-system/src-ui/renderer/services/RuntimeServiceManager.js"
 _SLO = "main-system/src-ui/renderer/ui/AppSloDrawer.jsx"
@@ -105,40 +98,6 @@ def check_gpu_coordinator_lazy_torch(root: Path, errors: list[str]) -> None:
         errors.append(
             f"{_GPU_COORDINATOR}: query_gpu must try nvidia-smi before "
             "the torch fallback"
-        )
-
-
-def check_jax_sft_retrace_bound(root: Path, errors: list[str]) -> None:
-    """Bucketed collation + one fused jitted step + jitted eval."""
-    source = _read(root, _SFT)
-    if source is None:
-        errors.append(f"missing {_SFT}")
-        return
-    if not re.search(r"^_COLLATE_BUCKET\s*=\s*\d+", source, re.M):
-        errors.append(f"{_SFT}: _COLLATE_BUCKET constant missing")
-    if "train_step = jax.jit(" not in source:
-        errors.append(
-            f"{_SFT}: fused train step must be jax.jit-wrapped"
-        )
-    elif "donate_argnums" not in source.split("train_step = jax.jit(", 1)[1][:200]:
-        errors.append(
-            f"{_SFT}: fused train step must donate params/opt_state "
-            "buffers (donate_argnums)"
-        )
-    if not re.search(
-        r"def _train_step\(params, opt_state, input_ids, labels, lr\)",
-        source,
-    ):
-        errors.append(
-            f"{_SFT}: _train_step must take lr as a traced scalar "
-            "argument (closure-baked lr forces per-step recompile)"
-        )
-    if "eval_loss = jax.jit(" not in source:
-        errors.append(f"{_SFT}: eval loss must be jax.jit-wrapped")
-    if "collate_bucket" not in source or "def _choose_bucket" not in source:
-        errors.append(
-            f"{_SFT}: adaptive bucket hook missing — JaxSFTConfig."
-            "collate_bucket + _choose_bucket must stay wired"
         )
 
 
@@ -377,7 +336,6 @@ def main() -> int:
     errors: list[str] = []
     for check in (
         check_gpu_coordinator_lazy_torch,
-        check_jax_sft_retrace_bound,
         check_renderer_idle_gating,
         check_bootstrap_native_entry,
         check_channel_gateway_csharp,

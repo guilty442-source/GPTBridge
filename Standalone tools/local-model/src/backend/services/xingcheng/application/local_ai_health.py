@@ -92,21 +92,9 @@ class LocalAiHealthMixin:
             "transformer_training_database": (
                 self.transformer_training_repository.database_status()
             ),
-            "self_training": "continuous-verified-self-distillation",
-            "internal_native_training": {
-                "enabled": True,
-                "external_entry": False,
-                "external_ai_used": False,
-                "owner": self.NATIVE_MODEL_ID,
-                "interval_seconds": self.INTERNAL_TRAINING_INTERVAL_SECONDS,
-                "quality_gate_required": True,
-                "automatic_database_update": True,
-                "running": bool(
-                    self._internal_training_task is not None
-                    and not self._internal_training_task.done()
-                ),
-                "latest": dict(self._latest_internal_training),
-            },
+            # B167/B38: JAX/XLA + Python training retired — honest status.
+            "self_training": "retired",
+            "internal_native_training": {"retired": True, "authority": "B167/B38"},
             "self_maintenance": dict(self._latest_self_maintenance),
             "coding_capability": self.coding_expert.__class__.__name__,
             "reading_capability": self.reading_expert.__class__.__name__,
