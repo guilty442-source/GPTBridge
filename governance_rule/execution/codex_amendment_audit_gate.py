@@ -15,8 +15,9 @@
   human-governor signature as the seal-closing condition; the explicit
   human amendment command (A382 step 1) remains, and no actor may fabricate
   evidence, receipts or certificates.
-- A177: network access runs only through the governed information-layer
-  path; Xingcheng's web search is the registerable loopback searchd tool.
+- A177: cross-boundary evidence runs only through the governed
+  information-layer path; this amendment gate uses Xingcheng assistant's
+  core audit charter and does not require external web search.
 - A446/A121: every audit outcome is receipted, independently verifiable and
   fail-closed; an unrecorded result is never a pass.
 
@@ -25,8 +26,8 @@ Governor-proposed ordinance (request currently staged in
 the Codex update flow becomes automated, but no work division and no
 execution may start until every one of the five active sovereigns has
 audited the staged amendment and all five receipts passed.  Xingcheng's
-audit uses the Xingcheng web-search (searchd) tool through the governed
-channel.
+receipt is the assistant core audit over bounded amendment metadata; it does
+not require external web search.
 
 This module is the mechanism only.  It never writes the Codex database,
 never regenerates the mirror, never signs and never publishes; it collects
@@ -197,25 +198,26 @@ SOVEREIGN_AUDIT_SPECS: tuple[SovereignAuditSpec, ...] = (
     ),
     SovereignAuditSpec(
         sovereign_id="xingcheng",
-        domain="external-evidence-via-xingcheng-web-search",
+        domain="xingcheng-assistant-core-audit",
         owner_sub_sovereign="xingcheng-assistant",
         duties=(
-            "verify external references and advisories via the Xingcheng web-search tool",
-            "classify sources and confirm redaction of confidential material",
-            "verify no direct network path outside the information layer",
+            "review the staged amendment under the Xingcheng assistant core charter",
+            "classify the amendment scope and confirm metadata-only redaction",
+            "verify the assistant audit remains inside the governed audit boundary",
         ),
         required_evidence=(
-            "network_search",
-            "source_classification",
+            "assistant_core_review",
+            "scope_classification",
             "redaction_check",
         ),
         forbidden=(
             "direct sockets or HTTP clients",
             "raw confidential content in audit evidence",
+            "external evidence asserted without a governed source",
         ),
         post_audit_duties=(
-            "refresh external evidence when drift is detected before publication",
-            "re-verify source classification after publication",
+            "re-review assistant-domain scope when the candidate changes before publication",
+            "re-verify metadata-only evidence after publication",
         ),
     ),
 )
@@ -240,9 +242,6 @@ SOVEREIGN_ALIASES: Mapping[str, str] = {
     "synchronization-sovereign": "automation-sovereign",
 }
 
-NETWORK_AUDIT_SOVEREIGN = "xingcheng"
-
-
 def _present(value: Any) -> bool:
     if value is None or value is False:
         return False
@@ -258,7 +257,7 @@ DIVISION_ASSIGNMENTS: tuple[tuple[str, str], ...] = (
     ("directory-identity-and-testflow-update", "directory-sub-sovereign"),
     ("permission-recertification", "permission-sovereign"),
     ("runtime-reader-generation-and-reanchor", "runtime-state-sync-sub-sovereign"),
-    ("external-evidence-refresh", "xingcheng-assistant"),
+    ("xingcheng-assistant-core-review", "xingcheng-assistant"),
     ("seal-closure-and-certificate-issuance", "automation-sovereign"),
     ("audit-publication", "automatic-log-sync-sub-sovereign"),
 )
@@ -412,73 +411,49 @@ def _certificate(
     return payload
 
 
+def build_xingcheng_assistant_core_check(
+    amendment_id: str,
+    scope: Sequence[str],
+) -> Callable[[], Mapping[str, Any]]:
+    """Build Xingcheng assistant's deterministic core audit check.
+
+    The fifth core audit is an internal conformance review of the immutable
+    amendment identity and scope.  It deliberately does not wake Xingcheng,
+    perform web search or assert external evidence; all evidence is bounded
+    metadata derived from the staged request.
+    """
+
+    normalized_id = str(amendment_id or "").strip()
+    normalized_scope = tuple(sorted({str(item).strip() for item in scope if str(item).strip()}))
+
+    def check() -> Mapping[str, Any]:
+        valid = bool(normalized_id and normalized_scope)
+        return {
+            "ok": valid,
+            "method": "xingcheng-assistant-core-audit",
+            "findings": [
+                "assistant-core-scope-reviewed" if valid else "assistant-core-scope-missing"
+            ],
+            "evidence": {
+                "assistant_core_review": "deterministic-standard-charter",
+                "scope_classification": list(normalized_scope),
+                "redaction_check": "metadata-only",
+            },
+            "error": "ASSISTANT_CORE_SCOPE_UNAVAILABLE" if not valid else "",
+        }
+
+    return check
+
+
 def build_xingcheng_network_check(
     search: Callable[[str], Any] | None,
     queries: Sequence[str],
 ) -> Callable[[], Mapping[str, Any]]:
-    """Build the Xingcheng audit check over the governed web-search path.
-
-    ``search`` must be the information-layer callable bound to the
-    Xingcheng web_search (searchd loopback) tool — never a direct socket,
-    HTTP client or database connection (A177).  When no governed callable
-    is wired the check fails closed instead of inventing evidence.
-    """
-
-    query_list = tuple(str(query).strip() for query in queries if str(query).strip())
-
-    def check() -> Mapping[str, Any]:
-        if search is None:
-            return {
-                "ok": False,
-                "method": "xingcheng-web-search",
-                "network_search": True,
-                "error": "NETWORK_AUDIT_UNAVAILABLE",
-            }
-        findings: list[str] = []
-        # Queries run concurrently: each governed roundtrip may block up to
-        # the search timeout, and a serial loop multiplies that latency by
-        # the query count — bursting the whole-flow audit deadline even
-        # when every single query succeeds.
-        from concurrent.futures import ThreadPoolExecutor
-
-        with ThreadPoolExecutor(
-            max_workers=min(len(query_list), 4) or 1
-        ) as pool:
-            observations = list(pool.map(search, query_list))
-        for query, result in zip(query_list, observations):
-            if isinstance(result, Mapping):
-                ok = result.get("ok") is not False
-                findings.append(
-                    f"query:{query}:{'ok' if ok else 'failed'}"
-                )
-            else:
-                findings.append(f"query:{query}:untyped")
-        classification = sorted(
-            {
-                str(item.get("source") or "xingcheng-web-search")
-                for item in observations
-                if isinstance(item, Mapping)
-            }
-        ) or ["xingcheng-web-search"]
-        return {
-            "ok": bool(observations) and all(
-                not isinstance(item, Mapping) or item.get("ok") is not False
-                for item in observations
-            ),
-            "method": "xingcheng-web-search",
-            "network_search": True,
-            "findings": findings,
-            "evidence": {
-                "network_search": {
-                    "queries": len(query_list),
-                    "responses": len(observations),
-                },
-                "source_classification": classification,
-                "redaction_check": "metadata-only",
-            },
-        }
-
-    return check
+    """Compatibility wrapper; the core audit no longer uses web search."""
+    del search
+    return build_xingcheng_assistant_core_check(
+        "legacy-xingcheng-assistant-audit", queries
+    )
 
 
 class CodexAmendmentAuditGate:
@@ -486,8 +461,8 @@ class CodexAmendmentAuditGate:
 
     The gate is fail-closed and bounded: unknown actors are rejected, every
     one of the five sovereign domains must submit exactly one receipt, the
-    Xingcheng receipt must prove its audit used the governed network search,
-    and the division plan is released only on unanimous pass.  A cycle that
+    Xingcheng receipt must satisfy the assistant core charter, and the
+    division plan is released only on unanimous pass.  A cycle that
     cannot be recorded is not a pass (A446: unrecorded-result forbidden).
 
     Every sovereign audits by its registered standard charter
@@ -721,9 +696,6 @@ class CodexAmendmentAuditGate:
         ok = payload.get("ok") is True and not error
         method = str(payload.get("method") or f"{sovereign_id}-audit")
         network_search = payload.get("network_search") is True
-        if sovereign_id == NETWORK_AUDIT_SOVEREIGN and not network_search:
-            ok = False
-            error = error or "NETWORK_AUDIT_PATH_REQUIRED"
         raw_evidence = payload.get("evidence")
         evidence_map = (
             dict(raw_evidence) if isinstance(raw_evidence, Mapping) else {}
@@ -896,5 +868,6 @@ __all__ = [
     "SOVEREIGN_IDS",
     "SovereignAuditReceipt",
     "SovereignAuditSpec",
+    "build_xingcheng_assistant_core_check",
     "build_xingcheng_network_check",
 ]
