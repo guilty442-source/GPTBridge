@@ -618,11 +618,11 @@ def _release_verification(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 
 # ---------------------------------------------------------------------------
-# RULE_CODEX_CONVERGENCE_V1 (A77)
+# RULE_CODEX_CONVERGENCE (A77)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_CODEX_CONVERGENCE_V1")
+@register_rule("RULE_CODEX_CONVERGENCE")
 def _codex_convergence(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A77): no conflicting active duplicate, dynamic fact encoded
     only in Article, superseded effective/default-search result, multiple formal
@@ -658,11 +658,11 @@ def _codex_convergence(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 
 # ---------------------------------------------------------------------------
-# RULE_DELEGATED_A498_V1 (A498)
+# RULE_DELEGATED_A498 (A498)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_DELEGATED_A498_V1")
+@register_rule("RULE_DELEGATED_A498")
 def _delegated_a498(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A498): machine_schema_registry is sole canonical typed contract
     registry including field types, nullability, enums, ranges, compatibility,
@@ -709,11 +709,11 @@ def _delegated_a498(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 
 # ---------------------------------------------------------------------------
-# RULE_DELEGATION_VALIDATION_V1 (A334)
+# RULE_DELEGATION_VALIDATION (A334)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_DELEGATION_VALIDATION_V1")
+@register_rule("RULE_DELEGATION_VALIDATION")
 def _delegation_validation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A334): validate in declared order; any mandatory failure denies;
     replay, expiry, scope expansion deny."""
@@ -745,11 +745,11 @@ def _delegation_validation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 
 
 # ---------------------------------------------------------------------------
-# RULE_EXECUTION_VERIFICATION_SEPARATION_V1 (A446)
+# RULE_EXECUTION_VERIFICATION_SEPARATION (A446)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_EXECUTION_VERIFICATION_SEPARATION_V1")
+@register_rule("RULE_EXECUTION_VERIFICATION_SEPARATION")
 def _execution_verification_separation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A446): independent verification required operations cannot
     use executor as sole verifier; missing evidence is incomplete; mismatch fails."""
@@ -774,11 +774,11 @@ def _execution_verification_separation(facts: Mapping[str, Any]) -> tuple[bool, 
 
 
 # ---------------------------------------------------------------------------
-# RULE_FILE_OPERATION_RELIABILITY_V1 (A446)
+# RULE_FILE_OPERATION_RELIABILITY (A446)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_FILE_OPERATION_RELIABILITY_V1")
+@register_rule("RULE_FILE_OPERATION_RELIABILITY")
 def _file_operation_reliability(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A446): state-changing file operation requires declared lock,
     staging, integrity, journal, recovery and final receipt evidence."""
@@ -809,11 +809,11 @@ def _file_operation_reliability(facts: Mapping[str, Any]) -> tuple[bool, str, st
 
 
 # ---------------------------------------------------------------------------
-# RULE_MATURE_CAPABILITY_PRESERVATION_V1 (A77)
+# RULE_MATURE_CAPABILITY_PRESERVATION (A77)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_MATURE_CAPABILITY_PRESERVATION_V1")
+@register_rule("RULE_MATURE_CAPABILITY_PRESERVATION")
 def _mature_capability_preservation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A77): capability removal, degradation, or loss of contract,
     test, or evidence path without explicit supersession fails."""
@@ -849,42 +849,42 @@ def _registered_domain_evidence(
     return True, "PASS", f"{domain} evidence validated"
 
 
-@register_rule("RULE_GIT_WORKTREE_V1")
+@register_rule("RULE_GIT_WORKTREE")
 def _git_worktree(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return _registered_domain_evidence(facts, "git-worktree")
 
 
-@register_rule("RULE_RAG_PROVENANCE_V1")
+@register_rule("RULE_RAG_PROVENANCE")
 def _rag_provenance(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return _registered_domain_evidence(facts, "rag-provenance")
 
 
-@register_rule("RULE_NATIVE_PROMOTION_V1")
+@register_rule("RULE_NATIVE_PROMOTION")
 def _native_promotion(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return _registered_domain_evidence(facts, "native-promotion")
 
 
-@register_rule("RULE_BACKEND_HANDOFF_V1")
+@register_rule("RULE_BACKEND_HANDOFF")
 def _backend_handoff(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return _registered_domain_evidence(facts, "backend-handoff")
 
 
-@register_rule("RULE_MODEL_DIALOGUE_MODE_V1")
+@register_rule("RULE_MODEL_DIALOGUE_MODE")
 def _model_dialogue_mode(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return _registered_domain_evidence(facts, "model-dialogue-mode")
 
 
-@register_rule("RULE_TOOL_RUNTIME_V1")
+@register_rule("RULE_TOOL_RUNTIME")
 def _tool_runtime(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return _registered_domain_evidence(facts, "tool-runtime")
 
 
 # ---------------------------------------------------------------------------
-# RULE_RUNTIME_AUTHORITY_RESOLUTION_V1 (A334)
+# RULE_RUNTIME_AUTHORITY_RESOLUTION (A334)
 # ---------------------------------------------------------------------------
 
 
-@register_rule("RULE_RUNTIME_AUTHORITY_RESOLUTION_V1")
+@register_rule("RULE_RUNTIME_AUTHORITY_RESOLUTION")
 def _runtime_authority_resolution(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A334): registered active module; exactly one assignment; active
     parent; valid separated authorities; executor exact match; current
@@ -1133,7 +1133,7 @@ def _multi_core_parallel(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "allocation within five-core budget"
 
 
-@register_rule("RULE_CAPABILITY_DISPATCH_V1")
+@register_rule("RULE_CAPABILITY_DISPATCH")
 def _capability_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A592/A604): delegation to a retired sub-sovereign identity
     resolves via exactly one active capability_dispatch_registry row; absent,
@@ -1145,7 +1145,7 @@ def _capability_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return evaluate_dispatch(facts)
 
 
-@register_rule("RULE_LANGUAGE_REALLOCATION_V1")
+@register_rule("RULE_LANGUAGE_REALLOCATION")
 def _language_reallocation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A605): C23/C++23/C#14(.NET 10) primary adaptive, Python
     reduced, .NET GC + unified format and automatic memory management.
@@ -1175,7 +1175,7 @@ def _language_reallocation(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "language reallocation validated (.NET 10 GC/C23/C++23)"
 
 
-@register_rule("RULE_NATIVE_COMPUTE_C23_V1")
+@register_rule("RULE_NATIVE_COMPUTE_C23")
 def _native_compute_c23(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A606): native-compute-core C23 migration."""
     lang = str(facts.get("language_id") or facts.get("language") or "").lower()
@@ -1184,7 +1184,7 @@ def _native_compute_c23(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "native-compute-core C23 validated"
 
 
-@register_rule("RULE_MAIN_SYSTEM_CSHARP14_V1")
+@register_rule("RULE_MAIN_SYSTEM_CSHARP14")
 def _main_system_csharp14(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A607): main-system C#14/.NET 10 migration."""
     lang = str(facts.get("language_id") or facts.get("language") or "").lower()
@@ -1193,7 +1193,7 @@ def _main_system_csharp14(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "main-system C#14 validated"
 
 
-@register_rule("RULE_RESOURCE_GOVERNOR_CPP23_V1")
+@register_rule("RULE_RESOURCE_GOVERNOR_CPP23")
 def _resource_governor_cpp23(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A608): resource-governor C++23 migration."""
     lang = str(facts.get("language_id") or facts.get("language") or "").lower()
@@ -1207,7 +1207,7 @@ ALLOWED_PYTHON_ZONES = frozenset(
 )
 
 
-@register_rule("RULE_PYTHON_MINIMIZATION_V1")
+@register_rule("RULE_PYTHON_MINIMIZATION")
 def _python_minimization(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A605): Python minimization acceptance line.
 
@@ -1233,7 +1233,7 @@ def _python_minimization(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "python minimization validated"
 
 
-@register_rule("RULE_LANGUAGE_VERSIONS_V1")
+@register_rule("RULE_LANGUAGE_VERSIONS")
 def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A609): language versions unified to C23/C++23/C#14/.NET10/F#10/Rust1.98.1/Go1.27.1/Python3.14.7/NumPy2.5.3."""
     # Check that required language versions are present if supplied
@@ -1242,7 +1242,7 @@ def _language_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "language versions validated"
 
 
-@register_rule("RULE_VECTOR_ENGINE_RUST_V1")
+@register_rule("RULE_VECTOR_ENGINE_RUST")
 def _vector_engine_rust(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A611): Rust Vector Engine 1.98.1."""
     engine = str(facts.get("vector_engine") or facts.get("engine") or "").lower()
@@ -1251,7 +1251,7 @@ def _vector_engine_rust(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "vector engine validated"
 
 
-@register_rule("RULE_JAX_PYTORCH_V1")
+@register_rule("RULE_JAX_FRAMEWORK")
 def _jax_pytorch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A612): JAX replaces PyTorch."""
     framework = str(facts.get("framework") or facts.get("ml_framework") or "").lower()
@@ -1260,7 +1260,7 @@ def _jax_pytorch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "JAX validated"
 
 
-@register_rule("RULE_JS_NATIVE_V1")
+@register_rule("RULE_JS_NATIVE")
 def _js_native(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A613): Native JavaScript is the canonical frontend."""
     lang = str(facts.get("language_id") or facts.get("language") or "").lower()
@@ -1269,7 +1269,7 @@ def _js_native(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "JS native validated"
 
 
-@register_rule("RULE_GO_RUST_NODE_V1")
+@register_rule("RULE_GO_RUST_RUNTIME")
 def _go_rust_node(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A614): Go/Rust replace Node.js (Node retired)."""
     runtime = str(facts.get("runtime") or facts.get("language_id") or "").lower()
@@ -1278,7 +1278,7 @@ def _go_rust_node(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "Go/Rust validated"
 
 
-@register_rule("RULE_INFRA_VERSIONS_V1")
+@register_rule("RULE_INFRA_VERSIONS")
 def _infra_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A610): PostgreSQL18.6/Git2.55.0."""
     pg = str(facts.get("postgres_version") or facts.get("postgresql") or "").strip()
@@ -1292,37 +1292,37 @@ def _infra_versions(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "infra versions validated"
 
 
-@register_rule("RULE_RETIRED_DEPENDENCIES_V1")
+@register_rule("RULE_RETIRED_DEPENDENCIES")
 def _retired_deps(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "retired dependencies validated"
 
 
-@register_rule("RULE_TEST_AUDIT_RESPONSIBILITY_V1")
+@register_rule("RULE_TEST_AUDIT_RESPONSIBILITY")
 def _test_audit_responsibility(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "test audit responsibility validated"
 
 
-@register_rule("RULE_TEST_TOOLS_V1")
+@register_rule("RULE_TEST_TOOLS")
 def _test_tools(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "test tools validated"
 
 
-@register_rule("RULE_RUST_TESTS_V1")
+@register_rule("RULE_RUST_TESTS")
 def _rust_tests(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "rust tests validated"
 
 
-@register_rule("RULE_JAX_PARITY_V1")
+@register_rule("RULE_JAX_PARITY")
 def _jax_parity(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "jax parity validated"
 
 
-@register_rule("RULE_FINAL_ARCHITECTURE_V1")
+@register_rule("RULE_FINAL_ARCHITECTURE")
 def _final_architecture(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     return True, "PASS", "final architecture validated"
 
 
-@register_rule("RULE_LANGUAGE_TABLE_OFFICIAL_V1")
+@register_rule("RULE_LANGUAGE_TABLE_OFFICIAL")
 def _language_table_official(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     """Predicate (A615): Official language table exactly as provided."""
     # Accept any fact set; real validation is via registry lookup of table rows

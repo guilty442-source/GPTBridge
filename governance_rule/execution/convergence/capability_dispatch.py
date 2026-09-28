@@ -2,7 +2,7 @@
 
 ``MODULE_CAPABILITY_REGISTRY`` replaces the A334 fixed ``managing_sub_sovereign``
 assignment with capability matching.  This module defines the registry schema,
-its validation, and the deterministic ``RULE_CAPABILITY_DISPATCH_V1`` evaluator
+its validation, and the deterministic ``RULE_CAPABILITY_DISPATCH`` evaluator
 skeleton.  It is a framework: no runtime dispatch is wired yet, and every check
 is fail-closed.
 
@@ -34,7 +34,7 @@ REQUIRED_FIELDS = (
 )
 
 ACTIVE_STATES = ("active", "ready")
-RULE_CODE = "RULE_CAPABILITY_DISPATCH_V1"
+RULE_CODE = "RULE_CAPABILITY_DISPATCH"
 
 
 class DispatchError(RuntimeError):
@@ -90,7 +90,7 @@ def validate_module_capability(row: Mapping[str, Any]) -> list[str]:
 
 
 def evaluate_dispatch(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-    """``RULE_CAPABILITY_DISPATCH_V1`` predicate (fail-closed).
+    """``RULE_CAPABILITY_DISPATCH`` predicate (fail-closed).
 
     Facts: ``requirements`` (capability codes + resource/permission/contract
     constraints), ``candidates`` (registry rows), ``lease``, ``decision``,

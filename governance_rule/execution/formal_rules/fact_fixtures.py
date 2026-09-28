@@ -130,12 +130,12 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "trust_anchor": "VALID",
     },
     # A77: convergence with parity evidence and a resolved classification.
-    "RULE_CODEX_CONVERGENCE_V1": {
+    "RULE_CODEX_CONVERGENCE": {
         "parity_evidence": "parity-run-evidence",
         "classification": "PASS",
     },
     # A498: full delegated contract fact set.
-    "RULE_DELEGATED_A498_V1": {
+    "RULE_DELEGATED_A498": {
         "machine_schema_registry": {"RECEIPT_V1": "registered"},
         "chinese_mirror_parts": {"part-1": "rendered"},
         "codex_read_session": {"single_use": True},
@@ -147,14 +147,14 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "json_text_usage": "descriptor-only",
     },
     # A446: independent verifier distinct from executor, with evidence.
-    "RULE_EXECUTION_VERIFICATION_SEPARATION_V1": {
+    "RULE_EXECUTION_VERIFICATION_SEPARATION": {
         "executor": "parity-executor",
         "verifier": "parity-verifier",
         "verification_evidence": {"evidence_id": "ev-parity"},
         "requires_independent_verification": True,
     },
     # A446: state-changing file op with all six evidence classes.
-    "RULE_FILE_OPERATION_RELIABILITY_V1": {
+    "RULE_FILE_OPERATION_RELIABILITY": {
         "operation": "write",
         "lock_evidence": "lock-1",
         "staging_evidence": "staging-1",
@@ -164,7 +164,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "final_receipt": "receipt-1",
     },
     # A77: removal under explicit supersession with all paths preserved.
-    "RULE_MATURE_CAPABILITY_PRESERVATION_V1": {
+    "RULE_MATURE_CAPABILITY_PRESERVATION": {
         "capability_id": "parity-capability",
         "action": "remove",
         "explicit_supersession": "superseding-capability",
@@ -173,14 +173,14 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
         "evidence_path_preserved": True,
     },
     # Registry-owned convergence domains: evidence present, no violations.
-    "RULE_GIT_WORKTREE_V1": {"evidence": {"worktree": "registered"}},
-    "RULE_RAG_PROVENANCE_V1": {"evidence": {"provenance": "recorded"}},
-    "RULE_NATIVE_PROMOTION_V1": {"evidence": {"promotion": "recorded"}},
-    "RULE_BACKEND_HANDOFF_V1": {"evidence": {"handoff": "recorded"}},
-    "RULE_MODEL_DIALOGUE_MODE_V1": {"evidence": {"mode": "recorded"}},
-    "RULE_TOOL_RUNTIME_V1": {"evidence": {"runtime": "recorded"}},
+    "RULE_GIT_WORKTREE": {"evidence": {"worktree": "registered"}},
+    "RULE_RAG_PROVENANCE": {"evidence": {"provenance": "recorded"}},
+    "RULE_NATIVE_PROMOTION": {"evidence": {"promotion": "recorded"}},
+    "RULE_BACKEND_HANDOFF": {"evidence": {"handoff": "recorded"}},
+    "RULE_MODEL_DIALOGUE_MODE": {"evidence": {"mode": "recorded"}},
+    "RULE_TOOL_RUNTIME": {"evidence": {"runtime": "recorded"}},
     # A334: registered module, one assignment, exact authority separation.
-    "RULE_RUNTIME_AUTHORITY_RESOLUTION_V1": {
+    "RULE_RUNTIME_AUTHORITY_RESOLUTION": {
         "module_code": "parity-module",
         "module_assignment": "assignment-1",
         "parent_sovereign": "sovereign-1",
@@ -228,7 +228,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     },
     # A604/A592: declared request resolves to exactly one eligible active
     # module under a valid lease with the dispatch decision recorded.
-    "RULE_CAPABILITY_DISPATCH_V1": {
+    "RULE_CAPABILITY_DISPATCH": {
         "requirements": {
             "capability_codes": ["cap-parity"],
             "permission_scope": ["perm-parity"],
@@ -256,7 +256,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     # A605: resident execution component declares a primary C-family
     # language with .NET 10 GC for the C# slot — the evaluator's real
     # pass path (allowed primary + version check exercised).
-    "RULE_LANGUAGE_REALLOCATION_V1": {
+    "RULE_LANGUAGE_REALLOCATION": {
         "primary_languages": ["c23", "cpp23", "csharp14"],
         "language_id": "csharp14",
         "dotnet_version": "10",
@@ -268,7 +268,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     },
     # A606: native-compute-core declares C23 with arena memory strategy —
     # the evaluator's real pass path (language check exercised).
-    "RULE_NATIVE_COMPUTE_C23_V1": {
+    "RULE_NATIVE_COMPUTE_C23": {
         "module_id": "native-compute-core",
         "language_id": "c23",
         "memory_strategy": "arena",
@@ -276,7 +276,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     },
     # A607: main-system declares C#14 on .NET 10 GC — the evaluator's real
     # pass path (language check exercised).
-    "RULE_MAIN_SYSTEM_CSHARP14_V1": {
+    "RULE_MAIN_SYSTEM_CSHARP14": {
         "module_id": "main-system",
         "language_id": "csharp14",
         "memory_strategy": "dotnet-gc",
@@ -284,7 +284,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     },
     # A608: resource-governor declares C++23 — the evaluator's real pass
     # path (language check exercised).
-    "RULE_RESOURCE_GOVERNOR_CPP23_V1": {
+    "RULE_RESOURCE_GOVERNOR_CPP23": {
         "module_id": "resource-governor",
         "language_id": "cpp23",
         "memory_strategy": "raii",
@@ -293,7 +293,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     # A605: Python minimization acceptance line — the evaluator's real
     # pass path (allowed zones declared) and fail-closed path (an
     # offender zone is rejected).
-    "RULE_PYTHON_MINIMIZATION_V1": {
+    "RULE_PYTHON_MINIMIZATION": {
         "production_python_zones": [
             "governance",
             "training",
@@ -302,7 +302,7 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     },
     # A609: unified language version set — the evaluator's real pass path
     # (version facts present and within the declared set).
-    "RULE_LANGUAGE_VERSIONS_V1": {
+    "RULE_LANGUAGE_VERSIONS": {
         "c_version": "c23",
         "cpp_version": "cpp23",
         "csharp_version": "csharp14",
@@ -315,39 +315,39 @@ PARITY_FACT_FIXTURES: dict[str, Mapping[str, Any]] = {
     },
     # A610: infrastructure versions — PostgreSQL 18.6,
     # Git 2.55.0 (real pass path: all checks exercised).
-    "RULE_INFRA_VERSIONS_V1": {
+    "RULE_INFRA_VERSIONS": {
         "postgres_version": "18.6",
         "git_version": "2.55.0",
     },
     # A611: Rust vector engine — check exercised.
-    "RULE_VECTOR_ENGINE_RUST_V1": {
+    "RULE_VECTOR_ENGINE_RUST": {
         "vector_engine": "rust-vector-engine",
     },
     # A612: JAX replaces PyTorch — framework check exercised.
-    "RULE_JAX_PYTORCH_V1": {
+    "RULE_JAX_FRAMEWORK": {
         "framework": "jax",
     },
     # A613: native JavaScript frontend — language check exercised.
-    "RULE_JS_NATIVE_V1": {
+    "RULE_JS_NATIVE": {
         "language_id": "javascript",
     },
     # A614: Go/Rust replace Node.js — runtime check exercised (Node retired).
-    "RULE_GO_RUST_NODE_V1": {
+    "RULE_GO_RUST_RUNTIME": {
         "runtime": "go",
     },
     # A615: official language table — evaluator accepts any fact set
     # (authority is the registry lookup, not the fixture).
-    "RULE_LANGUAGE_TABLE_OFFICIAL_V1": {
+    "RULE_LANGUAGE_TABLE_OFFICIAL": {
         "language_table": "official",
     },
     # Accept-all registry-lookup evaluators (A616-A621 family): the real
     # pass path is unconditional, fixtures only pin the evaluated input.
-    "RULE_RETIRED_DEPENDENCIES_V1": {"scope": "retired-dependencies"},
-    "RULE_TEST_AUDIT_RESPONSIBILITY_V1": {"scope": "test-audit-responsibility"},
-    "RULE_TEST_TOOLS_V1": {"scope": "test-tools"},
-    "RULE_RUST_TESTS_V1": {"scope": "rust-tests"},
-    "RULE_JAX_PARITY_V1": {"scope": "jax-parity"},
-    "RULE_FINAL_ARCHITECTURE_V1": {"scope": "final-architecture"},
+    "RULE_RETIRED_DEPENDENCIES": {"scope": "retired-dependencies"},
+    "RULE_TEST_AUDIT_RESPONSIBILITY": {"scope": "test-audit-responsibility"},
+    "RULE_TEST_TOOLS": {"scope": "test-tools"},
+    "RULE_RUST_TESTS": {"scope": "rust-tests"},
+    "RULE_JAX_PARITY": {"scope": "jax-parity"},
+    "RULE_FINAL_ARCHITECTURE": {"scope": "final-architecture"},
 }
 
 
