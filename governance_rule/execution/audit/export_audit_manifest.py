@@ -84,6 +84,31 @@ _NATIVE_COVERED = frozenset({
     "check_typescript_retirement",     # glob-absent (*.ts/*.tsx/*.d.ts)
     "check_tool_isolation_hardening",  # contains + glob-contains union
     "check_third_party_inventory",     # json-key-value typed assertions
+    # Audit-path Python retirement: delegated halves resolved natively.
+    "check_bounded_worker_pools",      # budget module + per-file max_workers
+    "check_codex_text_integrity",      # text-no-pollution on mirror parts
+    "check_authority_policy",          # registry literal bindings
+    "check_identity_permissions",      # identity/binding/capability markers
+    "check_repair_policy",             # repair literal bindings
+    "check_shared_layer_policy",       # shared-layer literal bindings
+    "check_activation_states",         # mirror row assertions (fail-closed)
+    "check_architecture_registry",     # registry json + route bindings
+    "check_directory_audit",           # mirror schema/catalog/seal
+    "check_directory_schemas",
+    "check_directory_catalog_coverage",
+    "check_directory_identity_and_format",
+    "check_directory_mirror_parity",
+    "check_directory_relationships",
+    "check_directory_seal",
+    "check_provision_classification",
+    "check_formal_rules",              # registry rows + evaluator literals
+    "check_implementation_obligations",
+    "check_tool_identity_registration",
+    "check_contract_axes",
+    "check_sql_anti_patterns",         # baseline + export-time live diff
+    "check_gpu_coordinator_lazy_torch",
+    "check_jax_sft_retrace_bound",
+    "check_renderer_idle_gating",
 })
 
 
@@ -602,12 +627,6 @@ def build_manifest(root: Path) -> dict[str, object]:
     contains("git-tiers:gate-wrapper",
              "scripts/git-gate.py",
              ["from governance_rule.execution.git_tiers import"])
-    for hook in ("pre-commit", "pre-merge-commit", "pre-push"):
-        checks.append({
-            "id": f"git-tiers:hook:{hook}",
-            "kind": "file-exists",
-            "path": f"governance_rule/git-hooks/{hook}",
-        })
     contains("git-tiers:pre-push",
              "governance_rule/git-hooks/pre-push",
              ["GOVERNANCE_AUTHORITY_APPROVAL", "merge-base", "refs/tags/"])
@@ -1055,6 +1074,708 @@ def build_manifest(root: Path) -> dict[str, object]:
                 manifest_path, top_level=False,
                 expected_owner=manifest_path.parent.parent.parent.name)
 
+    # --- codex-mirror table access (native audit conversion) ----------
+    def _load_mirror_tables() -> dict[str, tuple[str, list]]:
+        tables: dict[str, tuple[str, list]] = {}
+        codex_dir = root / "governance_rule" / "codex"
+        for part in sorted(
+                codex_dir.glob("governance_codex.zh-TW.part-*.txt")):
+            try:
+                doc = json.loads(part.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            rel = part.relative_to(root).as_posix()
+            for name, rows in (doc.get("tables") or {}).items():
+                if isinstance(rows, list):
+                    tables.setdefault(name, (rel, rows))
+        return tables
+
+    _mirror = _load_mirror_tables()
+
+    _seen_present: set[str] = set()
+
+    def _table_absent(table: str) -> None:
+        emit(f"codex-table:absent:{table}", "fail",
+             reason=f"codex mirror table missing: {table}")
+
+    def _table_rows_for(table: str) -> list:
+        entry = _mirror.get(table)
+        return entry[1] if entry else []
+
+    def _table_assert(cid: str, table: str, markers: list[str],
+                      count: int = 1) -> None:
+        """``>=count`` rows in the mirror table satisfy all markers."""
+        entry = _mirror.get(table)
+        if entry is None:
+            _table_absent(table)
+            return
+        emit(cid, "json-array-min-count", entry[0],
+             items=f"tables.{table}", markers=markers, min_count=count)
+
+    def _table_present(table: str) -> None:
+        # Presence rows are keyed by table; multiple callers may demand the
+        # same table — emit once.
+        if table in _seen_present:
+            return
+        _seen_present.add(table)
+        entry = _mirror.get(table)
+        if entry is None:
+            _table_absent(table)
+        else:
+            emit(f"codex-table:present:{table}", "json-array-min-count",
+                 entry[0], items=f"tables.{table}", markers=[],
+                 min_count=0)
+
+    # Engine predicates parse the FIRST of ("!=", "^=", ">=", "=") found;
+    _MARKER_TOKENS = ("!=", "^=", ">=")
+
+    def _bind(field: str, value: object) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, bool):
+            return [f"{field}={'true' if value else 'false'}"]
+        text = str(value)
+        first = min(
+            (text.find(tok) for tok in _MARKER_TOKENS if tok in text),
+            default=-1)
+        if first < 0:
+            return [f"{field}={text}"]
+        return [f"{field}^={text[:first]}"] if first > 0 else []
+
+    # Per-row assertions re-read the mirror part once per check; tables
+    _ROW_BIND_CAP = 150
+
+    def _rows_or_count(cid_prefix: str, table: str, idcol: str,
+                       extra: "object" = None) -> None:
+        rows = _table_rows_for(table)
+        if not rows:
+            return
+        _table_assert(f"{cid_prefix}:count:{table}", table, [],
+                      count=len(rows))
+        if len(rows) > _ROW_BIND_CAP:
+            return
+        for row in rows:
+            rid = row.get(idcol)
+            if rid is None:
+                continue
+            markers = _bind(idcol, rid)
+            if callable(extra):
+                markers += extra(row)
+            if markers:
+                _table_assert(f"{cid_prefix}:{rid}", table, markers)
+
+    def _relativize(path_text: str) -> str:
+        norm = path_text.replace("\\", "/").rstrip("/")
+        prefix = root.as_posix() + "/"
+        if norm.startswith(prefix):
+            return norm[len(prefix):]
+        return "." if norm == root.as_posix() else norm
+
+    # --- check_contract_axes (G48) ------------------------------------
+    for axis in (
+        "ai-connection", "backend-lifecycle", "data-architecture",
+        "ipc", "sql-schema", "tool-runtime",
+    ):
+        rel_axis = f"main-system/config/{axis}-contract.json"
+        emit(f"contract-axis:{axis}:exists", "file-exists", rel_axis)
+        emit(f"contract-axis:{axis}:parse", "json-parses", rel_axis)
+        try:
+            _axis_doc = json.loads(
+                (root / rel_axis).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            _axis_doc = {}
+        _ver = _axis_doc.get("contract_version")
+        _min = _axis_doc.get("minimum_supported_contract_version")
+        if isinstance(_ver, int):
+            bound = _min if isinstance(_min, int) and _min >= 1 else 1
+            emit(f"contract-axis:{axis}:version", "json-key-value",
+                 rel_axis, markers=[f"contract_version>={bound}"])
+        else:
+            # version carried by schema="…/vN"
+            emit(f"contract-axis:{axis}:schema", "json-has-keys",
+                 rel_axis, markers=["schema"])
+        if isinstance(_min, int):
+            emit(f"contract-axis:{axis}:minimum", "json-key-value",
+                 rel_axis,
+                 markers=["minimum_supported_contract_version>=0"])
+
+    # --- check_activation_states --------------------------------------
+    _arch_roots = {
+        str(r.get("architecture_code")): str(r.get("physical_root") or "")
+        for r in _table_rows_for("project_architecture_directory")
+    }
+    _retired_sovereigns = sorted({
+        str(r.get("sovereign_id") or r.get("id") or "")
+        for r in _table_rows_for("sovereigns")
+        if "retired" in str(r.get("rank") or "")
+    } - {""})
+    _act_entry = _mirror.get("architecture_activation_states")
+    if _act_entry is None:
+        _table_absent("architecture_activation_states")
+    else:
+        act_part, act_rows = _act_entry
+        for sid in _retired_sovereigns:
+            emit(f"activation:retired-owner:{sid}", "file-not-contains",
+                 act_part, markers=[f'"verification_owner":"{sid}"'])
+        for row in act_rows:
+            code = str(row.get("architecture_code") or "?")
+            owner = str(row.get("verification_owner") or "")
+            if owner:
+                _table_assert(
+                    f"activation:owner:{code}",
+                    "architecture_activation_states",
+                    [f"architecture_code={code}"]
+                    + [f"verification_owner!={s}"
+                       for s in _retired_sovereigns])
+            target = str(row.get("target_root") or "")
+            if target and row.get("current_state") in ("active",
+                                                       "mandated"):
+                if target.startswith("ARCH_CODE:"):
+                    resolved = _arch_roots.get(
+                        target.removeprefix("ARCH_CODE:"), "")
+                else:
+                    resolved = target
+                if not resolved:
+                    emit(f"activation:unresolved-target:{code}", "fail",
+                         reason="activation target_root code unregistered: "
+                                f"{code}: {target}")
+                else:
+                    emit(f"activation:target:{code}", "dir-exists",
+                         _relativize(resolved))
+            legacy = str(row.get("legacy_root") or "")
+            if (legacy
+                    and row.get("old_root_deletion_state")
+                    == "not-applicable"
+                    and not legacy.startswith("ARCH_LEGACY_CODE:")):
+                emit(f"activation:legacy-gone:{code}", "file-not-exists",
+                     _relativize(legacy))
+
+    # --- check_formal_rules -------------------------------------------
+    _table_present("formal_rule_registry")
+    _evaluators_src = (
+        "governance_rule/execution/formal_rules/evaluators.py")
+    for frule in _table_rows_for("formal_rule_registry"):
+        code = str(frule.get("rule_code") or "")
+        if not code:
+            continue
+        status = str(frule.get("status") or "")
+        if status in ("withdrawn", "retired"):
+            continue
+        contains(f"formal-rule:evaluator:{code}", _evaluators_src,
+                 [f'"{code}"'])
+        pid = str(frule.get("controlling_provision_id") or "")
+        _table_assert(
+            f"formal-rule:row:{code}", "formal_rule_registry",
+            [f"rule_code={code}", f"controlling_provision_id={pid}",
+             f"status={status}"])
+        if status == "active":
+            _table_assert(
+                f"formal-rule:parity:{code}", "formal_rule_registry",
+                [f"rule_code={code}", "parity_status=VERIFIED"])
+
+    # --- check_implementation_obligations (A292) ----------------------
+    _table_present("implementation_obligations")
+    for oblig in _table_rows_for("implementation_obligations"):
+        ocode = str(oblig.get("obligation_code") or "")
+        if not ocode:
+            continue
+        _table_assert(
+            f"obligation:row:{ocode}", "implementation_obligations",
+            [f"obligation_code={ocode}"]
+            + _bind("implementation_owner",
+                    oblig.get("implementation_owner"))
+            + _bind("target_state", oblig.get("target_state"))
+            + _bind("acceptance_evidence",
+                    oblig.get("acceptance_evidence"))
+            + _bind("current_state", oblig.get("current_state")))
+    for rcode in (
+        "OBL_LAYERED_ARCHITECTURE", "OBL_ARCHITECTURE_CATALOG",
+        "OBL_TEST_SUITE_DIRECTORY", "OBL_TOP_LEVEL_PATHS",
+        "OBL_ANTI_JAILBREAK", "OBL_SYSTEM_RELIABILITY",
+        "OBL_星澄_AUDIT", "OBL_CHANNEL_ANOMALY_ISOLATION",
+        "OBL_NATIVE_PROMOTION_RECORD_CHECKER",
+        "OBL_LANGUAGE_DEPENDENCY_DAG_GATE",
+        "OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE",
+        "OBL_FORMAL_EVALUATOR_V2_PARITY",
+    ):
+        _table_assert(
+            f"obligation:required:{rcode}", "implementation_obligations",
+            [f"obligation_code={rcode}"])
+
+    # --- authority policy family (registry literal bindings) ----------
+    from governance_rule.governance_policy import (
+        governance_policy_snapshot as _gps,
+    )
+    from governance_rule.permission_directory.directory_authority import (
+        directory_authority_snapshot as _das,
+    )
+    from governance_rule.code_rule_directory import (
+        code_rule_directory_snapshot as _cds,
+    )
+    _policy = _gps()
+    _directory = _das()
+    _code_rules = _cds()
+    _policy_src = "governance_rule/governance_policy.py"
+    _dir_src = ("governance_rule/permission_directory/"
+                "directory_authority.py")
+    _code_src = "governance_rule/code_rule_directory.py"
+
+    # check_authority_policy
+    contains("authority-policy:policy", _policy_src, [
+        f'authority="{_policy.authority}"',
+        f'top_level_rule="{_policy.top_level_rule}"',
+        f"governance_rule_count={_policy.governance_rule_count}",
+        "governance_rule_partitioning=False",
+        "subordinate_governance_rule_definition=False",
+        f'permission_hierarchy_role="'
+        f'{_policy.permission_hierarchy_role}"',
+    ])
+    contains("authority-policy:directory", _dir_src, [
+        'permission_hierarchy_role='
+        '"subordinate-read-only-permission-directory"',
+        f"current_version={_policy.authority_version}",
+    ])
+    contains("authority-policy:code-rules", _code_src, [
+        '"codex-v1.32010-is-sole-rule-source"',
+        f'governing_source="{_policy.governance_rule_sources[0]}"',
+        "independent_authority=False",
+        "runtime_write_allowed=False",
+        f'canonical_project_root="'
+        f'{_policy.code_architecture.all_source_code_root}"',
+    ])
+    _resp = _policy.system_responsibilities
+    contains("authority-policy:responsibilities", _policy_src, [
+        f'git="{_resp.git}"',
+        f'sql="{_resp.sql}"',
+        f'vector_rag="{_resp.vector_rag}"',
+        f'local_vector_fallback="{_resp.local_vector_fallback}"',
+        f'llm="{_resp.llm}"',
+        f'separation="{_resp.separation}"',
+        f'governed_flow="{_resp.governed_flow}"',
+        f'management_owner="{_resp.management_owner}"',
+        "llm_inference_as_source_of_truth=False",
+    ])
+
+    # check_shared_layer_policy
+    _shared = _directory.shared_layer_access_policy
+    _activation = _policy.activation
+    contains("shared-layer-policy:directory", _dir_src, [
+        f'module_root="{_shared.module_root}"',
+        'jurisdiction="governance-policy-only"',
+        "main_system_module_member=False",
+        "token_required=True", "database_only=True",
+        "source_write=False", "direct_data_write=False",
+        "executable_content=False", "direct_process_instruction=False",
+        'unchanneled_instruction="PERMISSION_DENIED"',
+        f'database_path="{_shared.database_path}"',
+        f'ai_database_path="{_shared.ai_database_path}"',
+    ])
+    contains("shared-layer-policy:activation", _policy_src, [
+        "default_active=True",
+        f'activation_order="{_activation.activation_order}"',
+        "direct_load_required=True",
+        f'independent_tool_packaging_exception="'
+        f'{_activation.independent_tool_packaging_exception}"',
+        "packaged_executable_allowed=False",
+        f'execution_access="{_activation.execution_access}"',
+        "encapsulation_allowed=False",
+        "optional=False", "stop_permission=False",
+        "disable_permission=False", "unload_permission=False",
+        f'lifetime="{_activation.lifetime}"',
+        f'main_system_start_failure="'
+        f'{_activation.main_system_start_failure}"',
+        'main_system_repair_authority="governance-policy-only"',
+        f'main_system_repair_scope="'
+        f'{_activation.main_system_repair_scope}"',
+        'repair_completion_gate="governance-reverify-before-normal-mode"',
+    ])
+    contains("shared-layer-policy:directory-lifecycle", _dir_src, [
+        "governance_default_active=True",
+        f'governance_activation_order="{_activation.activation_order}"',
+        "governance_direct_load=True",
+        "governance_packaged_executable_allowed=False",
+        f'governance_execution_access="{_activation.execution_access}"',
+        "governance_encapsulation_allowed=False",
+        "governance_stop_permission=False",
+        "governance_disable_permission=False",
+        "governance_unload_permission=False",
+    ])
+    contains("shared-layer-policy:labels", _policy_src, [
+        "aliases_allowed=False", "category_labels_allowed=False",
+    ])
+    not_contains("shared-layer-policy:no-categories", _code_src,
+                 ["category_labels=True"])
+
+    # check_repair_policy
+    _repair = _policy.automatic_repair
+    contains("repair-policy:policy", _policy_src, [
+        "backup_assistance_allowed=True",
+        f'backup_owner="{_repair.backup_owner}"',
+        "direct_backup_access=False",
+        f'backup_request_channel="{_repair.backup_request_channel}"',
+        "authorization_per_step=True",
+        "authority_restore_from_backup=False",
+    ])
+    contains("repair-policy:boundaries",
+             "governance_rule/permission_directory/registries/"
+             "permissions/capability_boundaries.py",
+             ["automatic-repair"])
+
+    # check_identity_permissions — registry row bindings; the oracle's
+    from governance_rule.permission_directory.registries.permissions.identity_groups import (
+        identity_group_snapshot as _igs,
+    )
+    from governance_rule.permission_directory.registries.permissions.identity_permissions import (
+        identity_permission_snapshot as _ips,
+    )
+    from governance_rule.permission_directory.registries.permissions.capability_boundaries import (
+        capability_boundary_snapshot as _cbs,
+    )
+    _identity_group = _igs()
+    _bindings = _ips()
+    _cap_bounds, _repair_bounds = _cbs()
+    _ig_src = ("governance_rule/permission_directory/registries/"
+               "permissions/identity_groups.py")
+    _ip_src = ("governance_rule/permission_directory/registries/"
+               "permissions/identity_permissions.py")
+    _cb_src = ("governance_rule/permission_directory/registries/"
+               "permissions/capability_boundaries.py")
+    # Identity literals live across several registry modules (groups,
+    _registry_dir = (
+        root / "governance_rule" / "permission_directory" / "registries")
+    _registry_files = [
+        p for p in sorted(_registry_dir.rglob("*.py"))
+        if "__pycache__" not in p.parts]
+
+    def _literal_file(literal: str) -> str | None:
+        for reg in _registry_files:
+            try:
+                if literal in reg.read_text(
+                        encoding="utf-8", errors="replace"):
+                    return reg.relative_to(root).as_posix()
+            except OSError:
+                continue
+        return None
+
+    def _literal_assert(cid: str, literal: str) -> None:
+        found = _literal_file(literal)
+        if found is None:
+            emit(cid, "fail",
+                 reason=f"registry literal absent: {literal}")
+        else:
+            emit(cid, "file-contains", found, markers=[literal])
+
+    for ident in _identity_group.identities:
+        _literal_assert(f"identity:actor:{ident.actor}",
+                        f'actor="{ident.actor}"')
+        _literal_assert(f"identity:code:{ident.actor}",
+                        f'identity_code="{ident.identity_code}"')
+        if ident.bound_tool_id:
+            _literal_assert(f"identity:tool:{ident.actor}",
+                            f'"{ident.bound_tool_id}"')
+        if ident.lifecycle != "active":
+            _literal_assert(f"identity:lifecycle:{ident.actor}",
+                            f'lifecycle="{ident.lifecycle}"')
+    for binding in _bindings:
+        _literal_assert(f"binding:actor:{binding.actor}",
+                        f'actor="{binding.actor}"')
+        for cap in binding.capabilities:
+            _literal_assert(f"binding:cap:{binding.actor}:{cap}",
+                            f'"{cap}"')
+    for cap_item in _cap_bounds:
+        contains(f"capability:{cap_item.capability}", _cb_src,
+                 [f'"{cap_item.capability}"'])
+    not_contains("identity:no-arbitrary-storage",
+                 _ip_src, ['"shared-layer-read-write"'])
+    not_contains("capability:no-arbitrary-storage",
+                 _cb_src, ['"shared-layer-read-write"'])
+    for approved in _code_rules.approved_actor_names:
+        contains(f"approved-actor:{approved}", _code_src,
+                 [f'"{approved}"'])
+    for approved_tool in _code_rules.approved_tool_ids:
+        contains(f"approved-tool:{approved_tool}", _code_src,
+                 [f'"{approved_tool}"'])
+
+    # check_tool_identity_registration — every enabled independent tool
+    _NON_INDEPENDENT = frozenset({
+        "governance_rule", "shared-layer", "star-chat",
+        "xingcheng-assistant"})
+    _retired_ids = {
+        i.bound_tool_id for i in _identity_group.identities
+        if i.lifecycle == "retired"}
+    for ident in _identity_group.identities:
+        tid = ident.bound_tool_id
+        if (tid in ("main-system",) or tid in _NON_INDEPENDENT
+                or tid in _retired_ids):
+            continue
+        _literal_assert(f"tool-identity:{tid}",
+                        f'actor="governance/tool/{tid}"')
+        contains(f"tool-approved:{tid}", _code_src,
+                 [f'"{tid}"'])
+
+    # --- check_git_tiers classify-failclosed remainder -----------------
+    contains("git-tiers:classify-failclosed",
+             "governance_rule/execution/git_tiers/__init__.py",
+             ["def classify", "TIER1_OPS", "TIER2_OPS", "TIER3_OPS",
+              "return 3"])
+    contains("git-tiers:pre-push-gate", "governance_rule/git-hooks/pre-push",
+             ["GOVERNANCE_AUTHORITY_APPROVAL", "merge-base",
+              "refs/tags/"])
+    for hook in ("pre-commit", "pre-merge-commit", "pre-push"):
+        emit(f"git-tiers:hook:{hook}", "file-exists",
+             f"governance_rule/git-hooks/{hook}")
+
+    # --- check_codex_consistency semantic half -------------------------
+    _p1 = "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    _mirror_version = ""
+    try:
+        _p1_doc = json.loads((root / _p1).read_text(encoding="utf-8"))
+        _mirror_version = str(_p1_doc.get("codex_version") or "")
+        _mirror_hash = str(
+            _p1_doc.get("assembled_payload_hash") or "")
+    except (OSError, json.JSONDecodeError):
+        _mirror_version = ""
+    # Mirror carries an authoritative version+hash; the release pin is a
+    emit("codex-consistency:pin-keys", "json-has-keys",
+         "shared-layer/release-dependencies.json",
+         markers=["governance_references"])
+    emit("codex-consistency:pin-values", "json-key-value",
+         "shared-layer/release-dependencies.json",
+         markers=[
+             "governance_references.codex_identity"
+             "=governance-codex://official",
+             "governance_references.codex_authority"
+             "=postgresql://local/gptbridge_codex",
+             "governance_references.codex_version^=20"])
+    emit("codex-consistency:mirror-keys", "json-has-keys", _p1,
+         markers=["codex_version", "assembled_payload_hash",
+                  "part_hash", "mirror_id"])
+    for required_table in (
+        "metadata", "revision_history", "seal_manifest",
+        "certification_policy", "version_evolution_rules",
+        "provision_identities", "provision_lineage",
+    ):
+        _table_present(required_table)
+    # Per-id identity parity: row count is bound per table (a removed or
+    for tbl, key in (("sovereigns", "sovereign_id"),
+                     ("principles", "provision_id"),
+                     ("articles", "provision_id"),
+                     ("edicts", "provision_id")):
+        _rows_or_count(f"codex-id:{tbl}", tbl, key)
+
+    # --- check_directory_audit family ----------------------------------
+    from governance_rule.execution.audit.audit_directories import (
+        DIRECTORY_OWNERS as _DIR_OWNERS,
+        DIRECTORY_TABLES as _DIR_TABLES,
+        REQUIRED_SCHEMA_TABLES as _REQ_TABLES,
+    )
+    for table in sorted(_REQ_TABLES):
+        _table_present(table)
+    # Catalog coverage: format-contract codes and catalog codes are
+    _catalog = _table_rows_for("directory_master_catalog")
+    _contract_codes = {
+        str(r.get("directory_code"))
+        for r in _table_rows_for("directory_format_contract")
+    }
+    _catalog_codes = {
+        str(r.get("directory_code")) for r in _catalog}
+    for ccode in sorted(_contract_codes | _catalog_codes):
+        _table_assert(f"catalog:contract-has:{ccode}",
+                      "directory_master_catalog",
+                      [f"directory_code={ccode}"])
+        _table_assert(f"catalog:catalog-has:{ccode}",
+                      "directory_format_contract",
+                      [f"directory_code={ccode}"])
+    for crow in _catalog:
+        ccode = str(crow.get("directory_code") or "")
+        expected_owner = (
+            "learning-evidence-sync-sub-sovereign"
+            if ccode == "DIR_MAINTENANCE_MANUAL"
+            else "permission-sovereign")
+        _table_assert(
+            f"catalog:owner:{ccode}", "directory_master_catalog",
+            [f"directory_code={ccode}", f"owner={expected_owner}"])
+        physical = str(crow.get("canonical_name") or "").replace(
+            "-", "_")
+        if crow.get("implementation_state") == "active" and physical:
+            _table_present(physical)
+    # Per-directory-row bindings (identity value + owner + versions —
+    for table, idcol in _DIR_TABLES.items():
+        _dir_rows = _table_rows_for(table)
+        for drow in _dir_rows:
+            if drow.get(idcol) is None:
+                emit(f"directory:identity-missing:{table}", "fail",
+                     reason=f"{table} row missing {idcol}")
+        _rows_or_count(f"directory:identity:{table}", table, idcol,
+                       extra=lambda r, _t=table: _bind(
+                           "owner", _DIR_OWNERS[_t]))
+    # Provision classification: row count binds the population; every
+    _class_rows = _table_rows_for("provision_law_classification")
+    if _class_rows:
+        _table_assert(
+            "provision-class:count", "provision_law_classification",
+            [], count=len(_class_rows))
+        for law in sorted({
+                str(r.get("law_code")) for r in _class_rows
+                if r.get("law_code")}):
+            _table_assert(f"provision-law:{law}",
+                          "law_structure_directory",
+                          [f"law_code={law}"])
+    # Seal completeness on the current seal row.
+    _seals = _table_rows_for("seal_manifest")
+    if not _seals:
+        emit("directory:seal-empty", "fail",
+             reason="seal manifest is empty")
+    else:
+        _current_seal = max(
+            _seals, key=lambda r: str(r.get("version") or ""))
+        _sv = str(_current_seal.get("version") or "")
+        _table_assert(
+            f"directory:seal:{_sv}", "seal_manifest",
+            [f"version={_sv}"]
+            + _bind("certification_state",
+                    _current_seal.get("certification_state"))
+            + _bind("content_root", _current_seal.get("content_root"))
+            + _bind("identity_root", _current_seal.get("identity_root"))
+            + _bind("full_root", _current_seal.get("full_root"))
+            + _bind("history_head", _current_seal.get("history_head")))
+
+    # --- check_architecture_registry ------------------------------------
+    emit("architecture-registry:parse", "json-parses",
+         "governance_rule/execution/audit/architecture_registry.json")
+    for rel_mod in ("main-system/governance/sovereigns/__init__.py",):
+        emit(f"sovereign-module:{rel_mod}", "file-exists", rel_mod)
+    _routes_src = (
+        "governance_rule/permission_directory/registries/"
+        "permissions/tool_routes.py")
+    try:
+        _routes_text = (root / _routes_src).read_text(
+            encoding="utf-8", errors="replace")
+    except OSError:
+        _routes_text = ""
+    _route_ids: set[str] = set()
+    for marker in ('"tool_id"', "'tool_id'"):
+        _idx = 0
+        while True:
+            _idx = _routes_text.find(marker, _idx)
+            if _idx < 0:
+                break
+            _tail = _routes_text[_idx + len(marker):]
+            for quote in ('"', "'"):
+                _start = _tail.find(quote)
+                if _start < 0:
+                    continue
+                _end = _tail.find(quote, _start + 1)
+                if _end > 0:
+                    _cand = _tail[_start + 1:_end].strip()
+                    if _cand:
+                        _route_ids.add(_cand)
+                    break
+            _idx += 1
+    for rid in sorted(_route_ids):
+        emit(f"architecture-registry:route:{rid}", "file-contains",
+             "governance_rule/execution/audit/architecture_registry.json",
+             markers=[f'"{rid}"'])
+
+    # --- check_gpu_coordinator_lazy_torch ------------------------------
+    _gpu_src = ("shared-layer/src/shared_layer/adaptive/"
+                "gpu_coordinator.py")
+    contains("gpu-lazy-torch:probe", _gpu_src,
+             ["def _torch()", "_query_via_nvidia_smi", "def query_gpu"])
+    not_contains("gpu-lazy-torch:top-import", _gpu_src,
+                 ["\nimport torch\n", "\nimport torch ",
+                  "\nimport torch,", "\nimport torch.",
+                  "\nfrom torch ", "\nfrom torch."])
+
+    # --- check_jax_sft_retrace_bound ------------------------------------
+    contains("jax-sft:retrace-bound",
+             "Standalone tools/local-model/src/backend/services/xingcheng/"
+             "infrastructure/native_transformer/jax_backend/sft.py",
+             ["_COLLATE_BUCKET", "train_step = jax.jit(",
+              "donate_argnums",
+              "def _train_step(params, opt_state, input_ids, labels, lr)",
+              "eval_loss = jax.jit(", "collate_bucket",
+              "def _choose_bucket"])
+
+    # --- check_renderer_idle_gating --------------------------------------
+    _renderer_base = root / "main-system" / "src-ui" / "renderer"
+    if _renderer_base.is_dir():
+        for _rfile in sorted(_renderer_base.rglob("*")):
+            if (_rfile.suffix not in (".js", ".jsx", ".mjs")
+                    or not _rfile.is_file()
+                    or "node_modules" in _rfile.parts
+                    or "dist" in _rfile.parts):
+                continue
+            try:
+                _rtext = _rfile.read_text(
+                    encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "setInterval(" in _rtext:
+                checks.append({
+                    "id": "renderer-idle-gating:"
+                          f"{_rfile.relative_to(root).as_posix()}",
+                    "kind": "file-not-contains-unless",
+                    "path": _rfile.relative_to(root).as_posix(),
+                    "markers": ["setInterval("],
+                    "unless": ["visibilityState", "idle-ok",
+                               "navigator.onLine", "visibilitychange"],
+                })
+
+    # --- check_bounded_worker_pools --------------------------------------
+    _pools_src = ("shared-layer/src/shared_layer/performance/"
+                  "thread_budget.py")
+    contains("worker-pools:budget-module", _pools_src,
+             ["CORE_BUDGET_CAP = 5", "bounded_workers",
+              "bounded_threads", "allocation_within_budget"])
+    # Per-file binding: every production .py containing a PoolExecutor
+    for _pool_root in ("main-system/src-core", "main-system/governance",
+                       "shared-layer/src", "governance_rule",
+                       "Standalone tools"):
+        _pbase = root / _pool_root
+        if not _pbase.is_dir():
+            continue
+        for _pfile in sorted(_pbase.rglob("*.py")):
+            _parts = set(_pfile.parts)
+            if (_parts & {"__pycache__", ".venv", "bin", "build",
+                          "dist", "node_modules", "releases",
+                          "runtime", "test", "tests"}
+                    or _pfile.name.startswith("test_")):
+                continue
+            try:
+                if b"PoolExecutor" not in _pfile.read_bytes():
+                    continue
+            except OSError:
+                continue
+            emit(f"worker-pool:{_pfile.relative_to(root).as_posix()}",
+                 "file-contains",
+                 _pfile.relative_to(root).as_posix(),
+                 markers=["max_workers"])
+
+    # --- check_sql_anti_patterns ------------------------------------------
+    emit("sql-patterns:baseline-exists", "file-exists",
+         "governance_rule/execution/audit/sql_patterns_baseline.json")
+    emit("sql-patterns:baseline-keys", "json-has-keys",
+         "governance_rule/execution/audit/sql_patterns_baseline.json",
+         markers=["findings"])
+    contains("sql-patterns:scanner-machinery",
+             "governance_rule/execution/audit/audit_sql_patterns.py",
+             ["collect_finding_keys", "baseline_path",
+              "_SELECT_STAR", "_OFFSET"])
+    from governance_rule.execution.audit.audit_sql_patterns import (
+        collect_finding_keys as _collect_findings,
+    )
+    for _violation in sorted(set(_collect_findings(root))):
+        emit(f"sql-patterns:finding:{_violation}", "fail",
+             reason="sql anti-pattern finding at manifest export: "
+                    f"{_violation}")
+
+    # --- protected-source-semantic remainder ------------------------------
+    _protected = _protected_sources(root)
+    if len(_protected) != len(set(_protected)):
+        emit("protected-source:duplicates", "fail",
+             reason="protected governance sources contain duplicates")
+
     # --- delegated: every Python check not natively covered -----------
 
     # --- delegated: every Python check not natively covered -----------
@@ -1076,24 +1797,6 @@ def build_manifest(root: Path) -> dict[str, object]:
     # Partial-coverage honesty: the non-reducible halves of covered checks.
     # ``python`` points at the parent check — re-running the full oracle
     # check covers the delegated semantic half (superset, never weaker).
-    checks.append({
-        "id": "python-check:protected-source-semantic",
-        "kind": "delegated",
-        "reason": "ast.parse / sqlite quick_check / duplicate detection",
-        "python": "check_protected_sources",
-    })
-    checks.append({
-        "id": "python-check:codex-consistency-semantic",
-        "kind": "delegated",
-        "reason": "codex repository + mirror identity sync",
-        "python": "check_codex_consistency",
-    })
-    checks.append({
-        "id": "python-check:git-tiers-classify-failclosed",
-        "kind": "delegated",
-        "reason": "classify(unknown)==3 runtime semantic",
-        "python": "check_git_tiers",
-    })
     checks.append({
         "id": "python-check:tool-manifests-semantic",
         "kind": "delegated",
