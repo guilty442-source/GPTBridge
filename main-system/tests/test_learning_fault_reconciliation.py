@@ -217,9 +217,6 @@ async def test_reconcile_loop_eliminates_messages_automatically(
     assert armed["commanded"] is True
     try:
         deadline = datetime.now(timezone.utc) + timedelta(seconds=5)
-        while datetime.now(timezone.utc) < deadline and read_pending_actions(tmp_path):
-            await asyncio.sleep(0.05)
-        assert read_pending_actions(tmp_path) == []
         audit_path = (
             tmp_path
             / "main-system"
@@ -227,6 +224,11 @@ async def test_reconcile_loop_eliminates_messages_automatically(
             / "state"
             / "learning-fault-reconciliation.jsonl"
         )
+        while datetime.now(timezone.utc) < deadline and (
+            read_pending_actions(tmp_path) or not audit_path.is_file()
+        ):
+            await asyncio.sleep(0.05)
+        assert read_pending_actions(tmp_path) == []
         entries = [
             json.loads(line)
             for line in audit_path.read_text(encoding="utf-8").splitlines()

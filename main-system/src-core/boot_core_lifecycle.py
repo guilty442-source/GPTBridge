@@ -99,12 +99,18 @@ class BootCoreLifecycleMixin:
         """
 
         sink = None
+        sink_warned_reason: str | None = None
         try:
             sink = get_backend_log_sink(
                 self.workspace_root / "main-system" / "runtime" / "logs"
             )
         except Exception as error:
             self._warn_log_sink_failure(error)
+        if sink is not None and sink.disabled:
+            # Warn before draining: the diagnostic must precede relayed
+            # payload lines in the in-memory buffer, never displace them.
+            self._warn_log_sink_failure(sink.disabled_reason)
+            sink_warned_reason = sink.disabled_reason
 
         # pythonw.exe / detached launchers have sys.stdout=None (or a dead
         # pipe).  The relay must keep draining the child's stdout anyway —
@@ -178,7 +184,11 @@ class BootCoreLifecycleMixin:
                 except queue.Full:
                     continue
             writer.join(timeout=5.0)
-            if sink is not None and sink.disabled:
+            if (
+                sink is not None
+                and sink.disabled
+                and sink.disabled_reason != sink_warned_reason
+            ):
                 self._warn_log_sink_failure(
                     sink.disabled_reason, emit_stderr=False
                 )
