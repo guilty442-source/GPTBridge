@@ -144,6 +144,15 @@ class IndexState:
     postgresql_record_id: Optional[str] = None
     generation_id: Optional[str] = None  # A486: bind to index generation
     status: str = "indexed"  # read barrier: only 'indexed'/'active' may serve
+    # Lineage version fields (index_state minimum record set): the write
+    # path must populate these, not rely on schema defaults.
+    source_revision: int = 1
+    embedding_version: int = 1
+    chunking_version: int = 1
+    parser_version: int = 1
+    rag_schema_version: int = 1
+    pipeline_version: int = 1
+    backend_generation: int = 1
 
 
 @dataclass(frozen=True)

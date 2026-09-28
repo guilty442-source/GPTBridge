@@ -262,8 +262,16 @@ _INDEX_STATE_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
       (resource_id, module_id, embedding_model, embedding_dimension,
        chunk_size, chunk_overlap, indexed_at, content_hash,
        vector_point_id, postgresql_record_id,
-       vector_collection, chunk_count, status)
-   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'indexed')
+       vector_collection, chunk_count, status,
+       source_revision, embedding_version, chunking_version,
+       parser_version, rag_schema_version, pipeline_version,
+       backend_generation)
+   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'indexed',
+       %s, %s, %s, %s, %s, %s,
+       COALESCE((
+           SELECT generation
+           FROM gptbridge_index.backend_generation_state
+           ORDER BY generation DESC LIMIT 1), 1))
    ON CONFLICT (resource_id) DO UPDATE SET
        module_id = EXCLUDED.module_id,
        embedding_model = EXCLUDED.embedding_model,
@@ -276,6 +284,13 @@ _INDEX_STATE_UPSERT_SQL = """INSERT INTO gptbridge_rag.index_state
        postgresql_record_id = EXCLUDED.postgresql_record_id,
        vector_collection = EXCLUDED.vector_collection,
        chunk_count = EXCLUDED.chunk_count,
+       source_revision = EXCLUDED.source_revision,
+       embedding_version = EXCLUDED.embedding_version,
+       chunking_version = EXCLUDED.chunking_version,
+       parser_version = EXCLUDED.parser_version,
+       rag_schema_version = EXCLUDED.rag_schema_version,
+       pipeline_version = EXCLUDED.pipeline_version,
+       backend_generation = EXCLUDED.backend_generation,
        status = 'indexed',
        updated_at = now()"""
 
@@ -377,6 +392,13 @@ class PostgreSQLMetadataAuthority(
             vector_point_id=row[8],
             postgresql_record_id=row[9],
             status=str(row[10] or "indexed"),
+            source_revision=int(row[11] or 1),
+            embedding_version=int(row[12] or 1),
+            chunking_version=int(row[13] or 1),
+            parser_version=int(row[14] or 1),
+            rag_schema_version=int(row[15] or 1),
+            pipeline_version=int(row[16] or 1),
+            backend_generation=int(row[17] or 1),
         )
 
     async def get_index_state(self, module_id: str, resource_id: str) -> Optional[IndexState]:
@@ -388,7 +410,10 @@ class PostgreSQLMetadataAuthority(
                 await cur.execute(
                     """SELECT resource_id, module_id, embedding_model, embedding_dimension,
                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                          vector_point_id, postgresql_record_id, status
+                          vector_point_id, postgresql_record_id, status,
+                          source_revision, embedding_version, chunking_version,
+                          parser_version, rag_schema_version, pipeline_version,
+                          backend_generation
                        FROM gptbridge_rag.index_state
                        WHERE resource_id = %s AND module_id = %s""",
                     (resource_id, module_id),
@@ -412,7 +437,10 @@ class PostgreSQLMetadataAuthority(
                 await cur.execute(
                     """SELECT resource_id, module_id, embedding_model, embedding_dimension,
                           chunk_size, chunk_overlap, indexed_at, content_hash,
-                          vector_point_id, postgresql_record_id, status
+                          vector_point_id, postgresql_record_id, status,
+                          source_revision, embedding_version, chunking_version,
+                          parser_version, rag_schema_version, pipeline_version,
+                          backend_generation
                        FROM gptbridge_rag.index_state
                        WHERE module_id = %s AND resource_id = ANY(%s)""",
                     (module_id, [str(r) for r in resource_ids]),
@@ -454,6 +482,12 @@ class PostgreSQLMetadataAuthority(
                         state.postgresql_record_id,
                         collection_name,
                         int(chunk_count),
+                        int(state.source_revision),
+                        int(state.embedding_version),
+                        int(state.chunking_version),
+                        int(state.parser_version),
+                        int(state.rag_schema_version),
+                        int(state.pipeline_version),
                     ),
                 )
             return True

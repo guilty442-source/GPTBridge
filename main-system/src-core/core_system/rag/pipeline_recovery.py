@@ -320,11 +320,17 @@ class PipelineRecoveryMixin:
 
     async def _rebuild_document(
         self, item: Any, module_id: str
-    ) -> tuple[dict[str, Any], list[dict[str, Any]], list[list[float]]]:
-        """Re-fetch source content, re-chunk, re-embed (never replay vectors)."""
-        if self._document_fetcher is None or self._embed_texts is None:
+    ) -> tuple[dict[str, Any], list[dict[str, Any]], list[Any]]:
+        """Re-fetch source content, re-chunk, re-embed (never replay vectors).
+
+        The owning engine is asked for canonical f64-le records first
+        (PERF-07); the injected provider stays the capability fallback.
+        Either way a fresh embedding is computed — degraded vectors are
+        never replayed into the canonical collection.
+        """
+        if self._document_fetcher is None:
             raise CanonicalCheckError(
-                "reconciler requires document_fetcher + embed_texts"
+                "reconciler requires document_fetcher"
             )
         doc = await self._call_maybe_async(
             self._document_fetcher, module_id, item.locator_id
@@ -335,13 +341,30 @@ class PipelineRecoveryMixin:
                 f"source content unavailable for {module_id}:{item.resource_id}"
             )
         texts = self._rechunk(content)
-        vectors = await self._call_maybe_async(self._embed_texts, texts)
+        vectors: list[Any] = []
+        embed_engine = getattr(self.vector, "embed_texts", None)
+        if embed_engine is not None:
+            vectors = list(await embed_engine(texts) or [])
+        if not vectors:
+            if self._embed_texts is None:
+                raise CanonicalCheckError(
+                    "reconciler requires embed_texts when the engine "
+                    "cannot produce canonical embedding records"
+                )
+            vectors = list(
+                await self._call_maybe_async(self._embed_texts, texts) or []
+            )
         if len(vectors) != len(texts):
             raise CanonicalCheckError("RAG_EMBEDDING_COUNT_MISMATCH")
         for vector in vectors:
-            if len(vector) != self.config.embedding_dimension:
+            dim = (
+                len(vector) // 8
+                if isinstance(vector, (bytes, bytearray, memoryview))
+                else len(vector)
+            )
+            if dim != self.config.embedding_dimension:
                 raise CanonicalCheckError(
-                    f"EMBEDDING_DIMENSION_MISMATCH: {len(vector)}-dim vector "
+                    f"EMBEDDING_DIMENSION_MISMATCH: {dim}-dim vector "
                     f"cannot enter the {self.config.embedding_dimension}-dim "
                     "canonical collection — degraded vectors are never replayed"
                 )

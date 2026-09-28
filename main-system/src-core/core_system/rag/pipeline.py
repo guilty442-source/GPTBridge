@@ -322,6 +322,9 @@ class CanonicalRagPipeline(
             indexed_at_utc=now_utc,
             content_hash=content_hash,
             vector_point_id=point_id,
+            source_revision=int(
+                metadata.get("version") or metadata.get("source_version") or 1
+            ),
         )
         await self.postgresql.upsert_index_state(index_state)
         return index_state

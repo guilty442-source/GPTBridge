@@ -10,7 +10,9 @@ pending_rag_mutation for idempotent replay.
 
 from __future__ import annotations
 
+import array
 import logging
+import sys
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -21,6 +23,17 @@ from .canonical_vector_runtime import IndexState, sanitize_payload
 from .runtime_state import RagRuntimeState
 
 _logger = logging.getLogger("gptbridge.rag")
+
+
+def _record_to_floats(record: Any) -> list[float]:
+    """Decode a canonical f64-le embedding record; float lists pass through."""
+    if isinstance(record, (bytes, bytearray, memoryview)):
+        vector = array.array("d")
+        vector.frombytes(bytes(record))
+        if sys.byteorder == "big":  # pragma: no cover - governed host is LE
+            vector.byteswap()
+        return list(vector)
+    return [float(v) for v in record]
 
 
 class PipelineDocumentsMixin:
@@ -166,7 +179,19 @@ class PipelineDocumentsMixin:
         if not await self.vector.ensure_collection(collection_dimension):
             return False
         points = self._document_text_points(document, chunks, module_id, resource_id)
-        if not (points and await self.vector.upsert_text_points(points)):
+        upserted = bool(points) and await self.vector.upsert_text_points(points)
+        if not upserted:
+            # Capability fallback: engines without the text endpoint still
+            # take the vector-bearing upsert built from the same records.
+            vector_points = self._document_points(
+                document, chunks,
+                [_record_to_floats(record) for record in embedding_records],
+                module_id, resource_id,
+            )
+            upserted = bool(vector_points) and await self.vector.upsert_points(
+                vector_points
+            )
+        if not upserted:
             mark = getattr(self.postgresql, "mark_outbox", None)
             if mark is not None:
                 await mark(
@@ -362,6 +387,7 @@ class PipelineDocumentsMixin:
             content_hash=str(document.get("sha256") or document.get("content_hash") or ""),
             vector_point_id=first_point,
             postgresql_record_id=resource_id,
+            source_revision=int(document.get("version") or 1),
         )
         return await self.postgresql.upsert_index_state(
             state,

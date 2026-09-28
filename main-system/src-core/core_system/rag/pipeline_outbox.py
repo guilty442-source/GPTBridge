@@ -121,16 +121,25 @@ class PipelineOutboxMixin:
         # Chunks that already carry a stored vector are projected as a
         # copy; only chunks missing one (rows predating the canonical
         # embedding column) are re-embedded and backfilled into PG first.
-        vectors: list[list[float] | None] = [c.get("embedding") for c in chunks]
+        vectors: list[Any] = [c.get("embedding") for c in chunks]
         missing = [i for i, v in enumerate(vectors) if v is None]
         if missing:
-            if self._embed_texts is None:
-                raise RuntimeError(
-                    "outbox replay requires embed_texts for chunks "
-                    "missing a canonical embedding"
-                )
             texts = [str(chunks[i].get("content") or "") for i in missing]
-            fresh = await self._call_maybe_async(self._embed_texts, texts)
+            # PERF-07: the owning engine produces canonical f64-le records
+            # first; the injected provider stays the capability fallback.
+            fresh = None
+            embed_engine = getattr(self.vector, "embed_texts", None)
+            if embed_engine is not None:
+                fresh = list(await embed_engine(texts) or [])
+            if not fresh:
+                if self._embed_texts is None:
+                    raise RuntimeError(
+                        "outbox replay requires embed_texts for chunks "
+                        "missing a canonical embedding"
+                    )
+                fresh = list(
+                    await self._call_maybe_async(self._embed_texts, texts) or []
+                )
             if len(fresh) != len(missing):
                 return False
             for i, vector in zip(missing, fresh):
@@ -140,33 +149,73 @@ class PipelineOutboxMixin:
                 {chunks[i]["chunk_id"]: vectors[i] for i in missing},
             )
         for vector in vectors:
-            if len(vector) != self.config.embedding_dimension:
+            dim = (
+                len(vector) // 8
+                if isinstance(vector, (bytes, bytearray, memoryview))
+                else len(vector)
+            )
+            if dim != self.config.embedding_dimension:
                 raise RuntimeError(
-                    f"EMBEDDING_DIMENSION_MISMATCH: {len(vector)}-dim cannot "
+                    f"EMBEDDING_DIMENSION_MISMATCH: {dim}-dim cannot "
                     f"enter {self.config.embedding_dimension}-dim collection"
                 )
 
-        points = [
-            PointStruct(
-                id=str(c.get("vector_point_id") or c.get("point_id")),
-                vector=[float(v) for v in vector],
-                payload=sanitize_payload(
-                    {
-                        "module_id": module_id,
-                        "document_resource_id": resource_id,
-                        "chunk_id": c["chunk_id"],
-                        "generation_id": generation_id or "",
-                        "content_hash": c.get("payload", {}).get(
-                            "content_hash", ""
-                        ),
-                    }
-                ),
-            )
-            for c, vector in zip(chunks, vectors)
-        ]
-        if not await self.vector.upsert_points(
-            points, generation_id=generation_id
+        # PERF-07: when the engine owns the embedder and every chunk row
+        # carries content, vectord re-derives the projection in-engine —
+        # no vector JSON crosses the boundary on replay either.
+        text_points = None
+        if getattr(self.vector, "upsert_text_points", None) is not None and all(
+            str(c.get("content") or "") for c in chunks
         ):
+            text_points = [
+                {
+                    "id": str(c.get("vector_point_id") or c.get("point_id")),
+                    "text": str(c["content"]),
+                    "payload": sanitize_payload(
+                        {
+                            "module_id": module_id,
+                            "document_resource_id": resource_id,
+                            "chunk_id": c["chunk_id"],
+                            "generation_id": generation_id or "",
+                            "content_hash": c.get("payload", {}).get(
+                                "content_hash", ""
+                            ),
+                        }
+                    ),
+                }
+                for c in chunks
+            ]
+        upserted = False
+        if text_points is not None:
+            upserted = await self.vector.upsert_text_points(
+                text_points, generation_id=generation_id
+            )
+        if not upserted:
+            # Capability/transport fallback: vector-bearing upsert keeps the
+            # replay contract alive on engines without the text endpoint.
+            from .pipeline_documents import _record_to_floats
+            points = [
+                PointStruct(
+                    id=str(c.get("vector_point_id") or c.get("point_id")),
+                    vector=_record_to_floats(vector),
+                    payload=sanitize_payload(
+                        {
+                            "module_id": module_id,
+                            "document_resource_id": resource_id,
+                            "chunk_id": c["chunk_id"],
+                            "generation_id": generation_id or "",
+                            "content_hash": c.get("payload", {}).get(
+                                "content_hash", ""
+                            ),
+                        }
+                    ),
+                )
+                for c, vector in zip(chunks, vectors)
+            ]
+            upserted = await self.vector.upsert_points(
+                points, generation_id=generation_id
+            )
+        if not upserted:
             return False
         # index_state writeback only after vectord confirms
         await self.postgresql.upsert_index_state(
@@ -191,6 +240,7 @@ class PipelineOutboxMixin:
                 first.get("vector_point_id") or first.get("point_id") or ""
             ),
             postgresql_record_id=str(event["resource_id"]),
+            source_revision=int(event.get("source_version") or 1),
         )
 
     # -- replay driver ----------------------------------------------------------
