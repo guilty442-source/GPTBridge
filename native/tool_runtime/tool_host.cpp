@@ -797,9 +797,18 @@ jsonlite::JsonValue ToolHost::metrics_snapshot() const {
         std::lock_guard<std::mutex> lk(impl_->waiter_mu);
         waiters = static_cast<int64_t>(impl_->waiters.size());
     }
+    int64_t pending = 0;
+    {
+        std::lock_guard<std::mutex> lk(impl_->pending_mu);
+        pending = static_cast<int64_t>(impl_->pending_conns.size());
+    }
     return jobj({
         {"channel_health", ch},
         {"worker_queue_size", jnum(static_cast<double>(waiters))},
+        {"conn_queue_size", jnum(static_cast<double>(pending))},
+        {"conn_workers", jnum(static_cast<double>(impl_->conn_workers))},
+        {"conn_rejected",
+         jnum(static_cast<double>(impl_->n_conn_rejected.load()))},
         {"processing_channels", processing},
         {"notification_queue_size", jnum(0)},
         {"last_notification", jl::JsonValue{}},

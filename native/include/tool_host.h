@@ -144,6 +144,7 @@ public:
 private:
     void accept_loop();
     void conn_worker();   /* bounded-concurrency/v1：固定池工作緒 */
+    void drain_connections(); /* 排空 pending＋conns＋join 池 */
     void conn_loop(intptr_t sock);
     void ws_loop(intptr_t sock, std::string pending);
     void handle_ws_message(intptr_t sock, const std::string& text);
