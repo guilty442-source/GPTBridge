@@ -68,7 +68,8 @@ class LocalRagRetrievalMixin:
                 if not chunk_id:
                     continue
                 record = fused.setdefault(chunk_id, dict(item))
-                record.update({key: value for key, value in item.items() if key not in record})
+                for key, value in item.items():
+                    record.setdefault(key, value)
                 record["rrf_score"] = float(record.get("rrf_score") or 0.0) + 1.0 / (60 + rank)
                 record[f"{channel}_rank"] = rank
         ranked = list(fused.values())
