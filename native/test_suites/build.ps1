@@ -177,9 +177,13 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor.cpp"; exe = "resource_governor_suite.exe"
-        # A608: resource-governor C++23 控制律等價（假引擎，零 OS 副作用）
+        # A608: resource-governor C++23 控制律等價（假引擎，零 OS 副作用）。
+        # A185 split: control-law units only (no Win32 engine / host layer).
         extra = @(
-            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp")
+            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp")
         )
     }
 )
@@ -292,7 +296,10 @@ $govExe = Join-Path $govRoot "bin\resource-governor.exe"
 $govObj = Join-Path $out "obj\resource-governor"
 New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
 New-Item -ItemType Directory -Force -Path $govObj | Out-Null
-Add-BuildJob "resource-governor" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$govExe`" /Fo:$govObj\ `"$govRoot\resource_governor.cpp`" `"$govRoot\main.cpp`" /link /LTCG >nul || exit /b 1")
+# A185 split: compile+link every implementation unit in resource_governor/.
+$govSrcFiles = Get-ChildItem -Path $govRoot -Filter "*.cpp" -File | Sort-Object Name
+$govSources = (@($govSrcFiles | ForEach-Object { '"' + $_.FullName + '"' })) -join " "
+Add-BuildJob "resource-governor" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$govExe`" /Fo:$govObj\ $govSources /link /LTCG >nul || exit /b 1")
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"

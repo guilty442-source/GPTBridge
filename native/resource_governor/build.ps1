@@ -12,10 +12,14 @@ New-Item -ItemType Directory -Force -Path $obj | Out-Null
 
 $exe = Join-Path $out "resource-governor.exe"
 $bat = Join-Path $out "_build_governor.bat"
+# A185 split: all implementation units (control law + Win32 engine + host + entry).
+$srcFiles = Get-ChildItem -Path $here -Filter "*.cpp" -File | Sort-Object Name
+$quoted = @($srcFiles | ForEach-Object { '"' + $_.FullName + '"' })
+$sources = $quoted -join " "
 $lines = @(
     "@echo off",
     "call `"$vcvars`" >nul || exit /b 1",
-    "cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /W4 /WX- /I`"$includeDir`" /Fe`"$exe`" /Fo:$obj\ `"$(Join-Path $here 'resource_governor.cpp')`" `"$(Join-Path $here 'main.cpp')`" /link /LTCG >nul || exit /b 1"
+    "cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /W4 /WX- /I`"$includeDir`" /Fe`"$exe`" /Fo:$obj\ $sources /link /LTCG >nul || exit /b 1"
 )
 Set-Content -Path $bat -Value $lines -Encoding ASCII
 & cmd.exe /c "`"$bat`""
