@@ -1,0 +1,24 @@
+{
+  "id": "python-minimization-baseline-adjudication-request-20260928-r12",
+  "date": "2026-09-28",
+  "worker": "devin-cli",
+  "type": "adjudication-request",
+  "authority": "governance-rule-only",
+  "subject": "PYTHON_MINIMIZATION_BASELINE ratchet drift after source-ownership native migration: GOVERNANCE 67183>67125 (+58) — gate red until adjudicated",
+  "invariant": "native check python-minimization:bucket-budget (kind py-bucket-budget) measures live worktree vs baseline; growth requires governor adjudication; the gate runs in pre-commit so every commit is blocked while the drift stands",
+  "measured_at": "2026-09-29T00:05:00+08:00",
+  "live_state": {
+    "GOVERNANCE": {"files_ok": true, "loc": 67183, "baseline_loc": 67125, "net_drift_loc": 58}
+  },
+  "drift_sources": {
+    "GOVERNANCE": [
+      "export_audit_manifest.py source-ownership section (oracle-only source_ownership_errors semantics reduced natively): owned-source file-exists rows, forbidden-source file-not-exists rows, per-package layer/extra-file checks, cross-import tree-not-contains rows over OWNED_IMPORT_PREFIXES, shared-layer/main-system forbidden-term tree scans, ai-assistant forbidden-network scan, unowned-shared-layer fail rows — ~+66 gross lines, net +58 after existing emit() compression",
+      "requires the new engine kind tree-not-contains (recursive glob-not-contains with directory exclude set), added to audit_engine.cpp with suite coverage kind_tree_not_contains"
+    ]
+  },
+  "notes": [
+    "Same class as adjudications_rev11 (export_audit_manifest.py native-migration check-emission growth): delegated/oracle-only Python semantics -> native structural rows; shrinking further would require removing coverage.",
+    "Ratchet semantics preserved: this request records measured values only; no baseline edit by worker."
+  ],
+  "requested_disposition": "adjudicated re-anchor of GOVERNANCE zero_target/allowed_zone to measured value 67183 with revision note, or instruction to compress/move the exporter block"
+}
