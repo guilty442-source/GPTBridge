@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from shared_layer.performance import process_metrics
+from shared_layer.performance.thread_budget import bounded_workers
 
 from core_system.tool_isolation_types import ToolIsolationEntry
 
@@ -623,7 +624,8 @@ class ToolIsolationHealthMixin:
         tick_deadline = max(30.0, min(600.0, float(interval) * 5))
         if self._monitor_executor is None:
             self._monitor_executor = ThreadPoolExecutor(
-                max_workers=1, thread_name_prefix="tool-isolation-tick"
+                max_workers=bounded_workers(1),
+                thread_name_prefix="tool-isolation-tick",
             )
         while not self._stop_event.is_set():
             try:
