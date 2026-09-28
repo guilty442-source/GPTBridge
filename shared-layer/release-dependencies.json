@@ -9,11 +9,11 @@
     "version_range": {
       "min": [
         3,
-        11
+        14
       ],
       "max_exclusive": [
         3,
-        12
+        15
       ]
     }
   },
@@ -123,15 +123,15 @@
   ],
   "runtime_environment": {
     "python": {
-      "version": "3.11.9",
+      "version": "3.14.7",
       "version_range": {
         "min": [
           3,
-          11
+          14
         ],
         "max_exclusive": [
           3,
-          12
+          15
         ]
       },
       "arch": "AMD64",
@@ -143,7 +143,7 @@
       "user_site": "forbidden",
       "pythonpath": "forbidden",
       "require_built_at_final_location": true,
-      "pyvenv_cfg_sha256": "c868d87fe921ab73b64fd754d71db110fa3893a14407d26377f7605a148a411f",
+      "pyvenv_cfg_sha256": "03b8c6664dd276712d40e3c128cb084b7dd02181f0d389f3162c6bd1afac1b6a",
       "note": "RC venv rebuilt at main-system/runtime/releases/rc-2026-09-21/venv (G76)"
     },
     "site_packages_roots": [
@@ -283,8 +283,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-25T03:00:26Z",
-    "codex_sha256": "3090c647082fea3b1f78350c002ce47b7ea06f327664081154d0b1a72b838aa4",
+    "codex_version": "2026-09-28T03:56:09Z",
+    "codex_sha256": "b46f9b3d5da3ed3fef1c818e3232b598c18dfe81cca4e963eff62620b1ad7002",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -357,32 +357,29 @@
     }
   },
   "frontend_release": {
-    "release_identity": "603145f54437642e7164cf3a4cdbec49412651fa444aacd5615b456d57968884",
-    "package": "gptbridge-auto-agent-ide@1.0.0",
-    "electron_version": "39.8.10",
-    "node_runtime": {
-      "node_version": "22.22.1",
-      "abi": 140,
-      "napi": 10,
-      "chrome": "142.0.7444.265",
-      "source": "ELECTRON_RUN_AS_NODE probe 2026-09-21"
+    "release_identity": "7598de1d36ea9bae42642ecbf2ef68864708754da071dca4dd62c1f9eafe56b2",
+    "package": "gptbridge-shell@1.0.0",
+    "host_runtime": {
+      "kind": "tauri-rust-shell",
+      "identifier": "ai.gptbridge.shell",
+      "version": "1.0.0",
+      "config": "main-system/src-tauri/tauri.conf.json",
+      "note": "Electron runtime retired (A618/A621/A625); the Rust Tauri shell hosts all tool windows"
     },
     "artifacts": {
       "paths": {
-        "main": "main-system/dist-ui/main/index.js",
-        "preload": "main-system/dist-ui/main/preload.js",
-        "renderer": "main-system/dist-ui/renderer/index.html"
+        "renderer": "main-system/dist-ui/renderer/index.html",
+        "shell": "main-system/src-tauri/target/release/gptbridge-shell.exe"
       },
       "hashes": {
-        "main": "0ba9f520930b1be8d985adf2e658eca594278b5c26170f1df5b08012b247b349",
-        "preload": "0131242e2ff454ad92c2953efa20c09552505d2748d0936c086bfbed3cd245fe",
-        "renderer": "d2c2d6986fcd6b462c0d9cfb7e2fd19163bcfc473bf5abe909b138be9fdd9fca"
+        "renderer": "7598de1d36ea9bae42642ecbf2ef68864708754da071dca4dd62c1f9eafe56b2",
+        "shell": "98e0da4539656dbcea96812e0ee1aa402e7aec69a6a2dc5808b7075511039d6f"
       },
-      "renderer_asset_count": 2
+      "renderer_asset_count": 4
     },
     "dependency_lock": {
       "file": "main-system/package-lock.json",
-      "sha256": "70c7dad00d1e728da6a7f97a29945126318eb79cb44cbdd2e68727758683ae2a",
+      "sha256": "5469dc22b0a64dddee28e3a92908f56e0216e59d9bdbd4c6c4e57d10e896ba05",
       "production_dependencies": [
         "react",
         "react-dom"
@@ -478,13 +475,13 @@
   },
   "config_contract": {
     "required_files": {
-      "main-system/config/tool-runtime-contract.json": "3bb666c43e07ac0862fe5435d113c6bf7ebb7f25a0a37aea15564bda2fd546e1",
-      "main-system/config/tool-isolation-policy.json": "6c227073a14e2599901b60555aa2e432e89b81dda86c0a88c27759ba25131e6e",
-      "main-system/config/startup_manifest.json": "6d52fcae8b00cc8f59bdea3434acd43f402721ab733c711faf90fde5e40b8cb9",
+      "main-system/config/tool-runtime-contract.json": "4677327c3aa089799b8d4b719c0c061a87a2b862c05949aae8b75f4754c57318",
+      "main-system/config/tool-isolation-policy.json": "608838c12ab8f2504d8818f7567918b0e32bd0cc0cdd82ed423de9bffa441205",
+      "main-system/config/startup_manifest.json": "d6822763e8a4710f80e8704552969ad08c8ce996d806834af8938414208955bb",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
-      "shared-layer/database-release.json": "526cfa61b16370fdef0bf6fce1e205a8f3a7149809b6017553b214ca8db0f7c2",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "9181fe6ed948a4a8a391f98cf12810a0442a74617c175f522ef8257cf18b5676"
+      "shared-layer/database-release.json": "388f304da1a8549aa08a9dc88061658bee9507f9291fa671b1f3c48dd0287d3e",
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "115809d8970a16bd2b26acaf1949070f2d3d284ce054977e5696df48e0e49f1d"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
