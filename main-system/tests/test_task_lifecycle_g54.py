@@ -41,6 +41,10 @@ class _NativeHarness(native.XingchengNativeMixin):
     def verified_basis(*tokens: str) -> tuple[str, ...]:
         return tokens
 
+    @staticmethod
+    async def verified_basis_async(*tokens: str) -> tuple[str, ...]:
+        return tokens
+
 
 def test_g54_happy_path_persists_all_states(monkeypatch, tmp_path: Path) -> None:
     path = tmp_path / "tasks.jsonl"

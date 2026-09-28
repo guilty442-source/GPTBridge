@@ -25,24 +25,31 @@ from startup_core.phases_execution import (  # noqa: E402
 
 
 class _FakeCursor:
+    def __init__(self, rows):
+        self._rows = rows
+
     def fetchone(self):
-        return (1,)
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return list(self._rows)
 
 
 class _FakeConn:
-    def __init__(self, fail: bool = False) -> None:
-        self._fail = fail
+    """Single-query schemata probe fake: missing schemas model faults."""
 
-    def __enter__(self):
-        if self._fail:
-            raise RuntimeError("connect-failed")
-        return self
-
-    def __exit__(self, *exc):
-        return False
+    def __init__(self, failures: set[str]) -> None:
+        self._failures = failures
 
     def execute(self, *args, **kwargs):
-        return _FakeCursor()
+        expected = list(args[1][0]) if len(args) > 1 else []
+        return _FakeCursor(
+            [
+                {"schema_name": schema}
+                for schema in expected
+                if schema not in self._failures
+            ]
+        )
 
 
 def _patch_connect(monkeypatch: pytest.MonkeyPatch, failures: set[str]) -> None:
@@ -50,9 +57,7 @@ def _patch_connect(monkeypatch: pytest.MonkeyPatch, failures: set[str]) -> None:
 
     @contextmanager
     def fake_connect(schema, *args, **kwargs):
-        if schema in failures:
-            raise RuntimeError("schema-unreachable")
-        yield _FakeConn()
+        yield _FakeConn(failures)
 
     monkeypatch.setattr(pg_adapter, "connect", fake_connect)
 
@@ -84,7 +89,7 @@ def test_private_state_single_schema_fault_fails_closed(
     _patch_connect(monkeypatch, {"gptbridge_legacy"})
     result = _probe_private_state(tmp_path)
     assert result["ready"] is False
-    assert result["stores"]["updates"] != "ok:postgresql:gptbridge_legacy"
+    assert result["stores"]["updates"] == "missing:postgresql:gptbridge_legacy"
 
 
 def test_recovery_ready_with_inspectable_outbox(

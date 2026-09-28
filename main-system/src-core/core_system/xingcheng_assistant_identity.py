@@ -33,11 +33,12 @@ PG_SCHEMA = "gptbridge_xingcheng"
 class XingchengAssistantIdentityStore:
     """Owns the assistant's dedicated identity store — nothing else."""
 
-    def __init__(self, project_root: Path) -> None:
-        self.assistant_path = f"postgresql:{PG_SCHEMA}"
+    def __init__(self, project_root: Path, schema: str = PG_SCHEMA) -> None:
+        self._schema = schema
+        self.assistant_path = f"postgresql:{self._schema}"
 
     def initialize(self) -> None:
-        with pg_adapter.connect(PG_SCHEMA) as connection:
+        with pg_adapter.connect(self._schema) as connection:
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS assistant_identity_group ("
                 "group_id TEXT PRIMARY KEY CHECK(group_id = "
