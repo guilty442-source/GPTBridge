@@ -52,6 +52,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
+from shared_layer.performance.thread_budget import bounded_workers
+
 from .connection_watchdog_types import (
     CONNECTION_DEAD_THRESHOLD,
     CONNECTION_PROBE_INTERVAL,
@@ -137,7 +139,7 @@ class ConnectionWatchdog(
         # is bounded at one worker, and every stall is counted + reported.
         self.tick_deadline_s = max(30.0, min(600.0, probe_timeout * 10))
         self._tick_executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="connwd-tick"
+            max_workers=bounded_workers(1), thread_name_prefix="connwd-tick"
         )
         self._tick_future: Any = None
         self._tick_stalls = 0
