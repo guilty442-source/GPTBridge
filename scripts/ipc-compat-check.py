@@ -82,7 +82,7 @@ def _scan_sources(
     base: Path, pattern: re.Pattern[str], *, per_line: bool = True
 ) -> dict[str, list[str]]:
     hits: dict[str, set[str]] = {}
-    for path in list(base.rglob("*.ts")) + list(base.rglob("*.tsx")):
+    for path in list(base.rglob("*.js")) + list(base.rglob("*.jsx")):
         if "node_modules" in path.parts or "dist" in path.parts:
             continue
         try:

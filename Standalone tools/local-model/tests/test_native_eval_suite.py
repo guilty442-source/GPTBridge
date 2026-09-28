@@ -1,4 +1,8 @@
 """native_eval_suite：套件載入、metrics 評估、閘門判定、寫入評估表。"""
+import pytest
+
+pytest.importorskip("torch")  # A57: on-demand dep, absent from resident venv
+
 import json
 from pathlib import Path
 

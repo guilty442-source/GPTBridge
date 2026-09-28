@@ -18,6 +18,15 @@ from typing import Any, Iterable
 from shared_layer.local import pg_adapter
 
 PG_SCHEMA = "gptbridge_ai_nexus"
+#: Tests and sandboxed runs point the store at a throwaway schema via this
+#: env var (A57/A621 isolation; production default stays gptbridge_ai_nexus).
+PG_SCHEMA_ENV = "AI_NEXUS_PG_SCHEMA"
+
+
+def _pg_schema() -> str:
+    import os
+
+    return os.environ.get(PG_SCHEMA_ENV) or PG_SCHEMA
 
 SCHEMA_VERSION = 2
 
@@ -318,7 +327,7 @@ class TradingStore:
 
     def __init__(self, tool_root: Path) -> None:
         self._root = Path(tool_root)
-        self._db_path = f"postgresql:{PG_SCHEMA}"
+        self._db_path = f"postgresql:{_pg_schema()}"
         self._conn: Any = None
 
     @property
@@ -326,7 +335,7 @@ class TradingStore:
         return self._db_path
 
     def open(self) -> None:
-        self._conn = pg_adapter.connect(PG_SCHEMA, autocommit=False)
+        self._conn = pg_adapter.connect(_pg_schema(), autocommit=False)
         existing = self._conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
         ).fetchone()

@@ -99,12 +99,11 @@ def stop_running_executable_for_upgrade(
 
 
 def restart_packaged_executable(executable_file: Path) -> bool:
-    """Restart an upgraded tool without inheriting Codex/Electron test mode."""
+    """Restart an upgraded tool without inheriting test mode."""
 
     if not executable_file.is_file():
         return False
     environment = os.environ.copy()
-    environment.pop("ELECTRON_RUN_AS_NODE", None)
     environment.pop("GPTBRIDGE_START_HIDDEN", None)
     creation_flags = 0
     if os.name == "nt":

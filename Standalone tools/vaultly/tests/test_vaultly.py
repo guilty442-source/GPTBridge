@@ -62,6 +62,39 @@ from vaultly.domain.rules import (  # noqa: E402
 from vaultly.infrastructure.repository import VaultlyRepository  # noqa: E402
 
 
+@pytest.fixture
+def vaultly_schema():
+    """A621 isolation: a throwaway PG schema per test — never the live
+    ``gptbridge_vaultly`` store."""
+    import uuid
+
+    schema = "vaultly_test_" + uuid.uuid4().hex[:12]
+    import psycopg
+
+    from shared_layer.security.dsn_policy import DsnPurpose, resolve_dsn
+
+    dsn = resolve_dsn(DsnPurpose.ADMIN).dsn
+    with psycopg.connect(dsn, connect_timeout=5) as c:
+        c.execute(f'CREATE SCHEMA "{schema}"')
+        c.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO gptbridge_runtime')
+        c.commit()
+    try:
+        yield schema
+    finally:
+        try:
+            with psycopg.connect(dsn, connect_timeout=5) as c:
+                c.execute(f'DROP SCHEMA "{schema}" CASCADE')
+                c.commit()
+        except Exception:
+            pass
+        try:
+            from shared_layer.local import pg_adapter
+
+            pg_adapter.close_pool()  # drop idle conns held for throwaway schemas
+        except Exception:
+            pass
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
@@ -277,20 +310,19 @@ def test_mp4_payload_requires_complete_boxes_and_video_track() -> None:
 
 
 def test_repository_uses_tool_owned_database_and_round_trips_settings(
-    tmp_path: Path,
+    tmp_path: Path, vaultly_schema: str
 ) -> None:
-    repository = VaultlyRepository(tmp_path)
-    assert repository.db_path == tmp_path / "runtime" / "state" / "vaultly.sqlite3"
-    assert repository.db_path.is_file()
+    repository = VaultlyRepository(tmp_path, schema=vaultly_schema)
+    assert repository.db_path == f"postgresql:{vaultly_schema}"
     assert repository.get_setting("missing", {"fallback": True}) == {"fallback": True}
     repository.set_setting("download", {"enabled": True, "limit": 5})
     assert repository.get_setting("download") == {"enabled": True, "limit": 5}
 
 
 def test_repository_filter_terms_are_case_insensitive_and_reversible(
-    tmp_path: Path,
+    tmp_path: Path, vaultly_schema: str
 ) -> None:
-    repository = VaultlyRepository(tmp_path)
+    repository = VaultlyRepository(tmp_path, schema=vaultly_schema)
     assert repository.add_filter_terms(["Alpha", "alpha", "Beta", ""]) == 2
     assert [term.casefold() for term in repository.list_filter_terms()] == ["alpha", "beta"]
     assert repository.remove_filter_terms(["ALPHA"]) == 1

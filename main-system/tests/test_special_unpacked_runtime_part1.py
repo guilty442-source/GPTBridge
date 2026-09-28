@@ -370,7 +370,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
         / "renderer"
         / "shared"
         / "hooks"
-        / "useBackendSocket.ts"
+        / "useBackendSocket.js"
     ).read_text("utf-8")
     hmr = (
         root
@@ -378,7 +378,7 @@ def test_hot_reload_and_connection_recovery_are_generation_safe() -> None:
         / "renderer"
         / "shared"
         / "services"
-        / "hmrService.ts"
+        / "hmrService.js"
     ).read_text("utf-8")
 
     # P7: reload is wrapped in a hard deadline — the loop can never stall.

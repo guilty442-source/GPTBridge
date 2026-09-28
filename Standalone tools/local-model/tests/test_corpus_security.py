@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")  # A57: on-demand dep, absent from resident venv
+
 import json
 import sys
 from pathlib import Path

@@ -6,8 +6,8 @@ from _test_model_registry_helpers import _make_service
 
 import json
 
-import torch
-
+import pytest
+torch = pytest.importorskip("torch")  # A57: on-demand dep, absent from resident venv
 from xingcheng.infrastructure import native_engine as native_engine_module
 from xingcheng.infrastructure.native_transformer import (
     XingChengConfig,

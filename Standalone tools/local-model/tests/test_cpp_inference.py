@@ -14,8 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
-import torch
-
+torch = pytest.importorskip("torch")  # A57: on-demand dep, absent from resident venv
 SERVICE_ROOT = Path(__file__).resolve().parents[1] / "src" / "backend" / "services"
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVICE_ROOT))

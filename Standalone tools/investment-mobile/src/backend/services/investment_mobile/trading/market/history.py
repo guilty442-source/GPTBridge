@@ -22,12 +22,20 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+import os
 from pathlib import Path
 from typing import Any
 
 from shared_layer.local import pg_adapter
 
 PG_SCHEMA = "gptbridge_investment_mobile"
+#: Tests and sandboxed runs point the store at a throwaway schema via this
+#: env var (A57/A621 isolation; production default stays gptbridge_investment_mobile).
+PG_SCHEMA_ENV = "INVESTMENT_MOBILE_PG_SCHEMA"
+
+
+def _pg_schema() -> str:
+    return os.environ.get(PG_SCHEMA_ENV) or PG_SCHEMA
 
 from .calendar import TradingCalendar
 from .contracts import MarketCandle, utcnow
@@ -89,11 +97,11 @@ class CandleStore:
         # Legacy callers pass a filesystem path; the store now lives in
         # the tool-private PG schema (A610/A621), so the argument is
         # accepted for signature parity and ignored.
-        self._path = f"postgresql:{PG_SCHEMA}"
+        self._path = f"postgresql:{_pg_schema()}"
         self._conn: Any = None
 
     def open(self) -> None:
-        self._conn = pg_adapter.connect(PG_SCHEMA, autocommit=False)
+        self._conn = pg_adapter.connect(_pg_schema(), autocommit=False)
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
@@ -113,7 +121,11 @@ class CandleStore:
         """Batch upsert — same key + higher revision supersedes."""
         inserted = superseded = rejected = 0
         db = self._db()
-        with db:  # single transaction — batch write, not per-row commits
+        # PgConnection.__exit__ releases the pooled backend (close) — sqlite3
+        # never did.  The persistent store connection must not be closed by
+        # a transaction boundary, so commit/rollback explicitly instead of
+        # ``with db:``.
+        try:
             for candle in candles:
                 if candle.validate():
                     rejected += 1
@@ -162,6 +174,10 @@ class CandleStore:
                         candle.adjustment_type, utcnow().isoformat(),
                     ),
                 )
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
         return {"inserted": inserted, "superseded": superseded, "rejected": rejected}
 
     # ------------------------------------------------------------------
@@ -186,8 +202,7 @@ class CandleStore:
             params.append(end.astimezone(timezone.utc).isoformat())
         sql += " ORDER BY candle_start"
         out: list[MarketCandle] = []
-        for row in self._db().execute(sql, params).fetchall():
-            out.append(MarketCandle(
+        for row in self._db().execute(sql, params).fetchall():            out.append(MarketCandle(
                 instrument_id=row["instrument_id"], market=row["market"],
                 timeframe=row["timeframe"],
                 open=Decimal(row["open"]), high=Decimal(row["high"]),

@@ -195,16 +195,17 @@ _INDEXES_SCRIPT = """
 
 
 class SchemaMixin:
-    def __init__(self, project_root: Path) -> None:
+    def __init__(self, project_root: Path, schema: str = PG_SCHEMA) -> None:
         # A610/A621: PostgreSQL is the sole structured-data authority; the
         # retired vaultly.sqlite3 store was migrated into the
         # ``gptbridge_vaultly`` schema via the governed sqlite_to_pg
         # pipeline with ledger evidence.
-        self.db_path = f"postgresql:{PG_SCHEMA}"
+        self._schema = schema
+        self.db_path = f"postgresql:{schema}"
         self._ensure_schema()
 
     def _connect(self) -> Any:
-        return pg_adapter.connect(PG_SCHEMA)
+        return pg_adapter.connect(self._schema)
 
     def _ensure_schema(self) -> None:
         with self._connect() as connection:

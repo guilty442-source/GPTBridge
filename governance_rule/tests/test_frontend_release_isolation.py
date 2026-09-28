@@ -1,11 +1,10 @@
 """Frontend release isolation tests (Main/Preload/Renderer + data isolation).
 
 Verifies: one packaged frontend fixes the Main/Preload/Renderer combination
-(artifact hashes), Electron/Node runtime identity, dependency lock, IPC
-contract identity, security baseline and token-exposure policy; persistent
-data / runtime config / model weights never live inside a release payload.
-Synthetic repositories live in temporary directories; the shipped frontend
-release is validated read-only.
+(artifact hashes), dependency lock, IPC contract identity, security baseline
+and token-exposure policy; persistent data / runtime config / model weights
+never live inside a release payload. Synthetic repositories live in temporary
+directories; the shipped frontend release is validated read-only.
 """
 from __future__ import annotations
 
@@ -44,11 +43,6 @@ def _synthetic_repo(tmp_path: Path, *, token_policy: str = "forbidden") -> dict[
         path = repo / relative
         path.write_text(f"// {name}\n", encoding="utf-8")
         hashes[name] = _sha(path)
-    electron_dir = repo / "main-system" / "node_modules" / "electron"
-    electron_dir.mkdir(parents=True)
-    (electron_dir / "package.json").write_text(
-        json.dumps({"version": "39.8.10"}), encoding="utf-8"
-    )
     lock = repo / "main-system" / "package-lock.json"
     lock.write_text('{"lockfileVersion": 3}\n', encoding="utf-8")
     surface = repo / "main-system" / "config" / "ipc-surface-frontend.json"
@@ -60,7 +54,6 @@ def _synthetic_repo(tmp_path: Path, *, token_policy: str = "forbidden") -> dict[
         "repo": repo,
         "contract": {
             "frontend_release": {
-                "electron_version": "39.8.10",
                 "artifacts": {"paths": artifacts, "hashes": hashes},
                 "dependency_lock": {
                     "file": "main-system/package-lock.json",
@@ -98,18 +91,6 @@ def test_artifact_hash_mismatch_rejected(tmp_path: Path) -> None:
     )
     errors = validate_frontend_release(data["contract"], repo_root=data["repo"])
     assert "FRONTEND_ARTIFACT_HASH_MISMATCH:preload" in errors
-
-
-def test_electron_version_mismatch_rejected(tmp_path: Path) -> None:
-    data = _synthetic_repo(tmp_path, token_policy="acknowledged-gap-G86")
-    (data["repo"] / "main-system" / "node_modules" / "electron" / "package.json").write_text(
-        json.dumps({"version": "40.0.0"}), encoding="utf-8"
-    )
-    errors = validate_frontend_release(data["contract"], repo_root=data["repo"])
-    assert any(
-        error.startswith("FRONTEND_ELECTRON_VERSION_MISMATCH")
-        for error in errors
-    )
 
 
 def test_lock_mismatch_rejected(tmp_path: Path) -> None:

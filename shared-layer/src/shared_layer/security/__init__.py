@@ -8,7 +8,6 @@ Covered here:
   * credential rotation with grace period and emergency revocation,
   * security generation fence for sensitive writes,
   * secret metadata registry (no plaintext in PostgreSQL),
-  * SQLite file/path/scope boundaries,
   * mandatory Qdrant query scoping,
   * credential audit events.
 """
@@ -68,15 +67,6 @@ from .session_identity import (
     apply_session_identity,
     identity_sql_statements,
 )
-from .sqlite_scope import (
-    SqliteAccessRequest,
-    SqliteScopeBinding,
-    SqliteScopeError,
-    assess_access,
-    assert_binding,
-    expected_acl_commands,
-    writable_roots,
-)
 
 __all__ = [
     "AUDIT_INSERT_QUERY_KEY",
@@ -103,9 +93,6 @@ __all__ = [
     "SecretRegistry",
     "SecurityGenerationError",
     "SessionIdentity",
-    "SqliteAccessRequest",
-    "SqliteScopeBinding",
-    "SqliteScopeError",
     "apply_session_identity",
     "assert_generation_current",
     "assert_metadata_only",
@@ -113,10 +100,7 @@ __all__ = [
     "assert_no_secret_material",
     "assert_payload_scoped",
     "assert_separated_credentials",
-    "assess_access",
-    "assert_binding",
     "certification_errors",
-    "expected_acl_commands",
     "fingerprint",
     "identity_sql_statements",
     "least_privilege_report",
@@ -124,5 +108,4 @@ __all__ = [
     "resolve_dsn",
     "runtime_context_active",
     "verify_fingerprint",
-    "writable_roots",
 ]

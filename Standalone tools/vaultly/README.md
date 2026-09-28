@@ -45,4 +45,4 @@ Vaultly 2.3.2 是正式版主程式內的獨立下載中心。它使用 Vaultly 
 - 平台轉接器：`platform_tools/vaultly/src/backend/services/vaultly/adapters.py`
 - 條件規則：`platform_tools/vaultly/src/backend/services/vaultly/rules.py`
 - 持久化資料庫：`platform_tools/vaultly/src/backend/services/vaultly/repository.py`
-- 獨立下載介面：`platform_tools/vaultly/src/ui/VaultlyDownloadCenter.tsx`
+- 獨立下載介面：`platform_tools/vaultly/src/ui/VaultlyDownloadCenter.jsx`

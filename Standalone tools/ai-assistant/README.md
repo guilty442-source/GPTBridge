@@ -27,8 +27,8 @@ Project ID: `ai-assistant`
 - `investment_mobile_bridge.py`：已分離手機工具的最小橋接介面。
 - `investment-mobile/`：手機介面與連線程式的共用原始碼；手機版仍以 `investment-mobile` 獨立工具 ID 啟停，但設定、資料與投資業務只由 投資管家的共用 repository 保存，兩者共用 `ai-investment-manager-v1` 業務權限。
 - 手機版快取集中於 `ai-assistant/runtime/cache/companions/investment-mobile`；備份由受管封存庫保存於 `system-rescue/data/business/backups/ai-assistant`，不在手機介面建立快取或備份根目錄。
-- `ExcelMappingEditor.tsx`、`HoldingEditor.tsx`：獨立表單元件；持股編輯採固定視窗，不受頁面捲動位置影響。
-- `StarAccountingPanel.tsx`：帳務的精簡專屬工作區。
+- `ExcelMappingEditor.jsx`、`HoldingEditor.jsx`：獨立表單元件；持股編輯採固定視窗，不受頁面捲動位置影響。
+- `StarAccountingPanel.jsx`：帳務的精簡專屬工作區。
 
 ## 啟動與修復
 

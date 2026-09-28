@@ -110,11 +110,6 @@ def _build_fixture(base: Path) -> dict[str, object]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"// {name}\n", encoding="utf-8")
         hashes[name] = _sha(path)
-    electron_dir = repo / "main-system" / "node_modules" / "electron"
-    electron_dir.mkdir(parents=True)
-    (electron_dir / "package.json").write_text(
-        json.dumps({"version": "39.8.10"}), encoding="utf-8"
-    )
     lock = repo / "main-system" / "package-lock.json"
     lock.write_text('{"lockfileVersion": 3}\n', encoding="utf-8")
 
@@ -179,7 +174,6 @@ def _build_fixture(base: Path) -> dict[str, object]:
             },
         },
         "frontend_release": {
-            "electron_version": "39.8.10",
             "artifacts": {"paths": artifacts, "hashes": hashes},
             "dependency_lock": {
                 "file": "main-system/package-lock.json",

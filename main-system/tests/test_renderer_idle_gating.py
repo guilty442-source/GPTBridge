@@ -10,10 +10,10 @@ Pins the 2026-09-27 optimisation contract on the grandfathered UI shell:
 - both timers must remain bounded intervals with cleanup, never
   unbounded self-rescheduling timeouts.
 
-These are source-contract tests: the renderer files are TypeScript and
-the dev harness (``scripts/test_*.ts``) covers runtime behaviour; here we
-pin the structural invariant so a refactor that drops the gate fails CI
-without an Electron instance.
+These are source-contract tests: the renderer files are JavaScript-ESM and
+the dev harness covers runtime behaviour; here we pin the structural
+invariant so a refactor that drops the gate fails CI without a desktop
+shell instance.
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC_UI = ROOT / "main-system" / "src-ui" / "renderer"
-RSM = SRC_UI / "services" / "RuntimeServiceManager.ts"
-SLO = SRC_UI / "ui" / "AppSloDrawer.tsx"
+RSM = SRC_UI / "services" / "RuntimeServiceManager.js"
+SLO = SRC_UI / "ui" / "AppSloDrawer.jsx"
 
 _HIDDEN_GATE = re.compile(
     r"document\.visibilityState\s*===\s*['\"]hidden['\"]"
@@ -51,7 +51,7 @@ def test_heartbeat_skips_ipc_when_hidden() -> None:
     source = RSM.read_text(encoding="utf-8")
     body = _interval_body(source)
     gate = _HIDDEN_GATE.search(body)
-    ipc = body.find("invoke('app:get-status'")
+    ipc = body.find("app:get-status")
     assert gate, "heartbeat interval lost its hidden-window gate"
     assert ipc > 0, "heartbeat no longer invokes app:get-status"
     assert gate.start() < ipc, (
@@ -62,9 +62,11 @@ def test_heartbeat_skips_ipc_when_hidden() -> None:
 def test_heartbeat_is_bounded_and_cleaned_up() -> None:
     source = RSM.read_text(encoding="utf-8")
     assert re.search(r"setInterval\(async \(\) =>", source)
-    assert "}, 30000)" in source, "heartbeat must stay a fixed 30s interval"
+    assert "}, 30000)" in source or "}, 30_000)" in source or "}, 3e4)" in source, (
+        "heartbeat must stay a fixed 30s interval"
+    )
     assert "clearInterval(this.heartbeatTimer)" in source
-    assert "removeEventListener('ipc_event'" in source
+    assert 'removeEventListener("ipc_event"' in source or "removeEventListener('ipc_event'" in source
 
 
 def test_slo_poll_skips_ipc_when_hidden() -> None:
@@ -81,7 +83,7 @@ def test_slo_poll_skips_ipc_when_hidden() -> None:
 
 def test_slo_poll_is_bounded_and_cleaned_up() -> None:
     source = SLO.read_text(encoding="utf-8")
-    assert "POLL_INTERVAL_MS = 30_000" in source
+    assert "POLL_INTERVAL_MS = 30_000" in source or "POLL_INTERVAL_MS = 3e4" in source
     assert "window.clearInterval(timer)" in source
     # The interval must live inside the `open`-gated effect — a poll that
     # runs while the drawer is closed would be pure waste.
@@ -100,7 +102,7 @@ def test_no_self_rescheduling_timeout_in_heartbeat() -> None:
 
 def _renderer_interval_sites():
     """(path, lineno) for every setInterval call in the renderer tree."""
-    for path in sorted(SRC_UI.rglob("*.ts")) + sorted(SRC_UI.rglob("*.tsx")):
+    for path in sorted(SRC_UI.rglob("*.js")) + sorted(SRC_UI.rglob("*.jsx")):
         if "node_modules" in path.parts or "dist" in path.parts:
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -147,11 +149,11 @@ def test_idle_ok_exemptions_documented() -> None:
     so the audit exemption stays auditable."""
     for rel, reason in (
         (
-            "shared/hooks/useBackendSocket.ts",
+            "shared/hooks/useBackendSocket.js",
             "stale sampler is a local O(1) check, no IPC",
         ),
         (
-            "shared/services/hmrService.ts",
+            "shared/services/hmrService.js",
             "recovery-pending is already the idle gate",
         ),
     ):

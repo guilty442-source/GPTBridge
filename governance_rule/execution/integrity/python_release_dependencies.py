@@ -974,11 +974,11 @@ def validate_frontend_release(
 ) -> list[str]:
     """Packaged frontend: one fixed Main/Preload/Renderer + lock + security.
 
-    Verifies the artifact hashes, the Electron runtime identity, the
-    dependency lock, the IPC contract identity and the security baseline
-    (contextIsolation on, nodeIntegration off, sandbox on, channel
-    allowlist).  A backend token exposed to the renderer is a violation
-    unless the contract records it as an acknowledged gap.
+    Verifies the artifact hashes, the dependency lock, the IPC contract
+    identity and the security baseline (contextIsolation on,
+    nodeIntegration off, sandbox on, channel allowlist).  A backend token
+    exposed to the renderer is a violation unless the contract records it
+    as an acknowledged gap.
     """
     import hashlib
 
@@ -999,16 +999,6 @@ def validate_frontend_release(
         actual = _sha256_file(path)
         if str(hashes.get(name) or "") != actual:
             errors.append(f"FRONTEND_ARTIFACT_HASH_MISMATCH:{name}")
-
-    electron_expected = section.get("electron_version")
-    electron_package = root / "main-system" / "node_modules" / "electron" / "package.json"
-    if electron_expected:
-        try:
-            installed = json.loads(electron_package.read_text(encoding="utf-8")).get("version")
-        except (OSError, ValueError):
-            installed = None
-        if installed != electron_expected:
-            errors.append(f"FRONTEND_ELECTRON_VERSION_MISMATCH:{installed}")
 
     lock = section.get("dependency_lock") or {}
     if lock.get("file") and lock.get("sha256"):

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import _xingcheng_test_support as _support  # noqa: F401
 
-import torch
 import pytest
+
+torch = pytest.importorskip("torch")  # A57: on-demand dep, absent from resident venv
 
 from xingcheng.infrastructure.native_engine import (
     NativeTransformerEngine,

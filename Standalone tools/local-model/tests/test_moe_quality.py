@@ -5,7 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import torch
+import pytest
+torch = pytest.importorskip("torch")  # A57: on-demand dep, absent from resident venv
 import torch.nn as nn
 from torch.profiler import ProfilerActivity, profile
 

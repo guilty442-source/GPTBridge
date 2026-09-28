@@ -26,7 +26,6 @@ def build_platform_renderer(
     tool_dir: Path | None = None,
 ) -> dict[str, Any]:
     env = os.environ.copy()
-    env.pop("ELECTRON_RUN_AS_NODE", None)
     env["GPTBRIDGE_PLATFORM_TOOL_ID"] = tool_id
     if tool_dir is not None:
         env["GPTBRIDGE_PLATFORM_TOOL_ROOT"] = str(tool_dir.resolve())

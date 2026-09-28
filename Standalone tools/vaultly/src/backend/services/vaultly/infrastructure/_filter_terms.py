@@ -8,14 +8,26 @@ from ._helpers import _utc_now
 class FilterTermsMixin:
     @staticmethod
     def _normalize_filter_terms(terms: Iterable[str]) -> list[str]:
-        return sorted(
-            {
-                str(term).strip()[:120]
-                for term in terms
-                if str(term).strip()
-            },
-            key=str.casefold,
-        )
+        # Case-insensitive identity (sqlite COLLATE NOCASE parity): dedupe
+        # on casefold while preserving the first-seen casing.
+        seen: dict[str, str] = {}
+        for term in terms:
+            cleaned = str(term).strip()[:120]
+            if cleaned:
+                seen.setdefault(cleaned.casefold(), cleaned)
+        return sorted(seen.values(), key=str.casefold)
+
+    def _filter_term_row(self, connection: Any, term: str) -> Any | None:
+        # ``term`` carries a case-insensitive identity — PG has no NOCASE
+        # collation, so compare on lower().
+        return connection.execute(
+            """
+            SELECT term, created_at, is_active, deactivated_at
+            FROM vaultly_filter_terms
+            WHERE lower(term) = lower(?)
+            """,
+            (term,),
+        ).fetchone()
 
     def list_filter_terms(self) -> list[str]:
         with self._connect() as connection:
@@ -37,12 +49,7 @@ class FilterTermsMixin:
         now = _utc_now()
         with self._connect() as connection:
             for term in normalized:
-                existing = self._row_by_key(
-                    connection,
-                    "vaultly_filter_terms",
-                    "term",
-                    term,
-                )
+                existing = self._filter_term_row(connection, term)
                 if existing is not None and bool(existing["is_active"]):
                     continue
                 self._record_row_history(
@@ -52,29 +59,31 @@ class FilterTermsMixin:
                     "superseded",
                     existing,
                 )
-                connection.execute(  # sql-ok: bounded config list with interleaved row-history audit per term
-                    """
-                    INSERT INTO vaultly_filter_terms (
-                        term, created_at, is_active, deactivated_at
+                if existing is None:
+                    connection.execute(  # sql-ok: bounded config list with interleaved row-history audit per term
+                        """
+                        INSERT INTO vaultly_filter_terms (
+                            term, created_at, is_active, deactivated_at
+                        )
+                        VALUES (?, ?, 1, '')
+                        """,
+                        (term, now),
                     )
-                    VALUES (?, ?, 1, '')
-                    ON CONFLICT(term) DO UPDATE SET
-                        is_active = 1,
-                        deactivated_at = ''
-                    """,
-                    (term, now),
-                )
+                else:
+                    connection.execute(  # sql-ok: reactivate the stored-casing row — identity is case-insensitive
+                        """
+                        UPDATE vaultly_filter_terms
+                        SET is_active = 1, deactivated_at = ''
+                        WHERE term = ?
+                        """,
+                        (str(existing["term"]),),
+                    )
                 self._record_row_history(
                     connection,
                     "filter_term",
                     term,
                     "created" if existing is None else "reactivated",
-                    self._row_by_key(
-                        connection,
-                        "vaultly_filter_terms",
-                        "term",
-                        term,
-                    ),
+                    self._filter_term_row(connection, term),
                 )
                 changed += 1
         return changed
@@ -84,14 +93,15 @@ class FilterTermsMixin:
         if not normalized:
             return 0
         placeholders = ",".join("?" for _ in normalized)
+        folded = tuple(term.casefold() for term in normalized)
         now = _utc_now()
         with self._connect() as connection:
             rows = connection.execute(  # sql-ok: generated ? placeholder list
                 f"""
                 SELECT term, created_at, is_active, deactivated_at FROM vaultly_filter_terms
-                WHERE term IN ({placeholders}) AND is_active = 1
+                WHERE lower(term) IN ({placeholders}) AND is_active = 1
                 """,
-                tuple(normalized),
+                folded,
             ).fetchall()
             for row in rows:
                 self._record_row_history(
@@ -105,9 +115,9 @@ class FilterTermsMixin:
                 f"""
                 UPDATE vaultly_filter_terms
                 SET is_active = 0, deactivated_at = ?
-                WHERE term IN ({placeholders}) AND is_active = 1
+                WHERE lower(term) IN ({placeholders}) AND is_active = 1
                 """,
-                (now, *normalized),
+                (now, *folded),
             )
             for row in rows:
                 term = str(row["term"])

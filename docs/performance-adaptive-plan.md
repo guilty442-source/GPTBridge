@@ -36,10 +36,10 @@
 
 | 檔案 | 變更 |
 | --- | --- |
-| `RuntimeServiceManager.ts` | 30s anti-stale heartbeat 於 `document.visibilityState === 'hidden'` 時整拍跳過 IPC |
-| `AppSloDrawer.tsx` | SLO 輪詢同樣 hidden-gating |
+| `RuntimeServiceManager.js` | 30s anti-stale heartbeat 於 `document.visibilityState === 'hidden'` 時整拍跳過 IPC |
+| `AppSloDrawer.jsx` | SLO 輪詢同樣 hidden-gating |
 
-既有 timer 設計已健全（bounded + early-return），本輪補上背景視窗仍每 30s 打 IPC 的浪費。`tsc --noEmit` 通過。
+既有 timer 設計已健全（bounded + early-return），本輪補上背景視窗仍每 30s 打 IPC 的浪費。
 
 ### 4. C# / F# — JIT vs Native AOT 實測
 

@@ -197,7 +197,7 @@ def translate(statement: str, pk_resolver: Any = None) -> str:
     stmt = _SQLITE_MASTER_RE.sub(
         lambda m: (
             "SELECT table_name AS name FROM information_schema.tables "
-            "WHERE table_type='BASE TABLE'"
+            "WHERE table_type='BASE TABLE' AND table_schema = current_schema()"
             + (
                 f" AND table_name='{m.group(1)}'"
                 if m.group(1) is not None

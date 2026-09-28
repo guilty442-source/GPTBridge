@@ -363,7 +363,6 @@ def test_sql_governance_closure_and_migration_authority() -> None:
         "migration_chain_hash": "hash-2",
         "live_schema_hash": "schema-1",
         "security_projection_hash": "hash-3",
-        "sqlite_scope_hash": "hash-4",
         "reconciliation_hash": "hash-5",
         "audit_contract_hash": "hash-6",
         "transport_contract_hash": "hash-7",

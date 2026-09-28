@@ -267,7 +267,7 @@
     {
       "path": "shared-layer/src/shared_layer/local",
       "class": "PERSISTENT_STATE",
-      "evidence": "owner-private SQLite / degraded fallback; never copied as authority"
+      "evidence": "retired local-state shim; PostgreSQL sole authority; never copied as authority"
     },
     {
       "path": "shared-layer/tests",
@@ -354,50 +354,6 @@
       "frontend_surface_version": "c7b5af574186845ee615cae054c863e51b7471ecdd76978fab2f896f4168bd4b",
       "backend_surface_version": "71bba81daaeb9d3383ea5f1281674830ede8408a015a599eb7b32fb2bb61ea4d",
       "rule": "frontend-sends-subset-of-backend-commands; backend-features-subset-of-frontend-support"
-    }
-  },
-  "frontend_release": {
-    "release_identity": "7598de1d36ea9bae42642ecbf2ef68864708754da071dca4dd62c1f9eafe56b2",
-    "package": "gptbridge-shell@1.0.0",
-    "host_runtime": {
-      "kind": "tauri-rust-shell",
-      "identifier": "ai.gptbridge.shell",
-      "version": "1.0.0",
-      "config": "main-system/src-tauri/tauri.conf.json",
-      "note": "Electron runtime retired (A618/A621/A625); the Rust Tauri shell hosts all tool windows"
-    },
-    "artifacts": {
-      "paths": {
-        "renderer": "main-system/dist-ui/renderer/index.html",
-        "shell": "main-system/src-tauri/target/release/gptbridge-shell.exe"
-      },
-      "hashes": {
-        "renderer": "7598de1d36ea9bae42642ecbf2ef68864708754da071dca4dd62c1f9eafe56b2",
-        "shell": "98e0da4539656dbcea96812e0ee1aa402e7aec69a6a2dc5808b7075511039d6f"
-      },
-      "renderer_asset_count": 4
-    },
-    "dependency_lock": {
-      "file": "main-system/package-lock.json",
-      "sha256": "c04961daec7cc4e8eb1e4ef0cf6c938c53977422f6de7594e990b3ca0f593877",
-      "production_dependencies": [
-        "react",
-        "react-dom"
-      ],
-      "development_dependency_count": 10
-    },
-    "ipc_contract_identity": "c7b5af574186845ee615cae054c863e51b7471ecdd76978fab2f896f4168bd4b",
-    "compatible_backend_contract_range": {
-      "min_ipc_contract_version": 1,
-      "max_ipc_contract_version": 1
-    },
-    "security": {
-      "context_isolation": true,
-      "node_integration": false,
-      "sandbox": true,
-      "channel_allowlist": true,
-      "exposes_backend_token_to_renderer": true,
-      "token_exposure_policy": "acknowledged-gap-G85"
     }
   },
   "persistent_data_isolation": {
@@ -532,18 +488,6 @@
     "MODEL_ROOT": "Standalone tools/local-model/xingcheng/runtime/models",
     "CONFIG_ROOT": "main-system/config",
     "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
-  },
-  "sqlite_inventory": {
-    "registry": "postgresql://local/gptbridge_codex (governed_sqlite_database_registry)",
-    "registered_rows": 44,
-    "canonical": false,
-    "rule": "module-private operational state only; reconcile to PostgreSQL; never packaged into a release",
-    "excluded": [
-      "codex database",
-      "staging/candidate copies",
-      "IDE files",
-      "model-cache databases (cache class)"
-    ]
   },
   "native_measurement": {
     "measured_at": "2026-09-21",
