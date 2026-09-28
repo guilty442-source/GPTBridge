@@ -1,0 +1,148 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "architecture-artifact-sync-20260928",
+  "title": "Rebind architecture_diagram_artifact_registry to regenerated artifacts",
+  "summary": "Automation architecture-artifact-sync detected 9 active artifact rows whose registered content_hash no longer matches the on-disk file bytes: governance_rule/codex/architecture-languages.md, governance_rule/codex/architecture-project.md, governance_rule/codex/architecture-tool-ai-assistant.md, governance_rule/codex/architecture-tool-ai-collaboration.md, governance_rule/codex/architecture-tool-file-sorter.md, governance_rule/codex/architecture-tool-investment-mobile.md, governance_rule/codex/architecture-tool-local-model.md, governance_rule/codex/architecture-tool-model-dialogue.md, governance_rule/codex/architecture-tool-vaultly.md",
+  "requested_by": "automation-sovereign",
+  "origin": "architecture-artifact-sync driver drift detection (registry SYNCED_CURRENT must match artifact bytes)",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T09:56:22Z",
+    "version_identity": "E2:2026-09-28T09:56:22Z",
+    "version_epoch": 2,
+    "history_head": "9da04c47321ef012df474333184dcade13f5a4c8d1cb05c01aefcbef3f2cb7d0",
+    "revision_sequence": 133
+  },
+  "problem": {
+    "summary": "active registry rows pin stale content_hash / source_codex_version; SYNCED_CURRENT no longer evidences current sync"
+  },
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "397dc7df715a311fcc49ac315eb3e830545cece69b8e94987af07cd4a42c62f5",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "48260fe2a523c1c419ba5183bfea22d34ad5bc99e460947f530a9baf454265a3",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-ai-assistant.md"
+      },
+      "set": {
+        "content_hash": "fe238bc69f853997d49e25ff65e1c3a2a5217099120838f95a8d5a16c758576a",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-ai-collaboration.md"
+      },
+      "set": {
+        "content_hash": "6dcabb58d600c94d8ed2e2cdb2f4095c86ff42a7fa8cdd1b118da0a5485f6108",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-file-sorter.md"
+      },
+      "set": {
+        "content_hash": "e7ab8de71a77470d2f5ca713f43ebe3e8b98699c457887275c3b20f73e4d2393",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-investment-mobile.md"
+      },
+      "set": {
+        "content_hash": "fb80c558534bec455dcf9fd08ce777c34644e7122beb9d3c844503ac7bc847bd",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-local-model.md"
+      },
+      "set": {
+        "content_hash": "671c54bfcf84627c065958d187509784c323a2941959873b5b0782b7dfaa5dc8",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-model-dialogue.md"
+      },
+      "set": {
+        "content_hash": "4d1de2fe205a1523975459ef7a69da36844d24ea62143cab709f9dcd32d00b4c",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-tool-vaultly.md"
+      },
+      "set": {
+        "content_hash": "7c17c41c8c11071b1ca65f1cbb797530619dcfef1b045493ab3a59f86057b4e0",
+        "source_codex_version": "2026-09-28T09:56:22Z",
+        "validated_at_utc": "2026-09-28T09:57:48Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T09:57:48Z",
+    "expected_audit_result": "active rows carry content_hash matching live artifact bytes and the current codex version"
+  }
+}

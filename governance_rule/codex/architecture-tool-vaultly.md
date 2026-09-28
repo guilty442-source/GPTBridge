@@ -22,3 +22,7 @@ flowchart TB
 憑證存放於 PostgreSQL `gptbridge_security.credential`（migration `087_security_identity_control.sql`），只允許中繼資料並以 HMAC-SHA256 驗證摘要識別；明文一律拒絕（`assert_metadata_only`）。輪替流程為 create → verify → switch → grace → revoke，並支援嚴格緊急撤銷（disable → terminate → rotate → 提升 generation → 稽核）；提升 generation 後，未跟上世代之敏感寫入 fail-closed。Vaultly 下載狀態與媒體屬自身域，不得跨工具暴露或作為他工具權威。
 
 本工具規範只存於本工具邊界；中央僅保存定位與權限索引，不複製規範內容。
+
+## 法典檔案保護
+
+檔案唯讀只作為最小必要的完整性保護，不代表權威。保留目前五份機器產生的中文法典鏡像、已註冊治理套件入口及已註冊共享層執法來源為唯讀；架構圖及其他非鏡像工作區檔案均採受管可寫，由 PostgreSQL 權限、交易、版本、current binding、同步證據與稽核維持完整性。發布程序可暫時解除鏡像唯讀，但完成驗證後必須恢復。

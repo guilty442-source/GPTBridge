@@ -285,6 +285,21 @@ class StartupExecutorPhasesMixin:
             )
             await app.package_version_driver.start()
         _lap("package_version_driver_ms")
+        if getattr(app, "architecture_artifact_sync", None) is None:
+            from tasks.architecture_artifact_sync import (
+                ArchitectureArtifactSyncDriver,
+            )
+
+            # 架構 artifact registry 收斂——偵測 hash 漂移只投遞
+            # codex-amendment-request；落地由 codex-amendment-intake
+            # 管線完成，driver 永不直寫權威庫。
+            app.architecture_artifact_sync = ArchitectureArtifactSyncDriver(
+                app,
+                app.toolbox_service,
+                project_root=app.project_root,
+            )
+            await app.architecture_artifact_sync.start()
+        _lap("architecture_artifact_sync_ms")
         if getattr(app, "resource_mode_advisor", None) is None:
             from tasks.resource_mode_advisor import ResourceModeAdvisor
 
