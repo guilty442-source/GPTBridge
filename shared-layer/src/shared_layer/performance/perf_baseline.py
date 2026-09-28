@@ -72,13 +72,8 @@ def capture_environment_profile() -> EnvironmentProfile:
     except Exception:
         pass
 
-    # Detect numpy version
+    # numpy retired: report an empty version marker (PYRET-005 dependency closure)
     numpy_version = ""
-    try:
-        import numpy
-        numpy_version = numpy.__version__
-    except ImportError:
-        pass
 
     # Detect pybind11 version
     pybind11_version = ""
