@@ -343,6 +343,32 @@
      "Standalone tools/investment-mobile/native/oms"
     ]
    }
+  },
+  "go-system": {
+   "mode": "upgrade",
+   "detect": {
+    "kind": "command",
+    "argv": [
+     "C:/Program Files/Go/bin/go.exe",
+     "version"
+    ],
+    "pattern": "go(\\d+\\.\\d+\\.\\d+)"
+   },
+   "upgrade": {
+    "cwd": ".",
+    "argv": [
+     "winget",
+     "upgrade",
+     "--id",
+     "GoLang.Go",
+     "-e",
+     "--silent",
+     "--accept-source-agreements",
+     "--accept-package-agreements",
+     "--disable-interactivity"
+    ]
+   },
+   "codex_refs": []
   }
  }
 }
