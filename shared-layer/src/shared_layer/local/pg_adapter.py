@@ -68,6 +68,12 @@ _POOL_MAX_SIZE = 4
 # checkout instead of being probed — quiet processes must not pin
 # server-side slots indefinitely.
 _POOL_IDLE_TTL_S = float(os.environ.get("GPTBRIDGE_PG_ADAPTER_IDLE_TTL_S", "120"))
+# Perf: a conn idle for less than this interval is almost certainly live —
+# skip the SELECT 1 loopback probe and hand it out directly (one RTT saved
+# per hot-path checkout).
+_POOL_PROBE_MIN_IDLE_S = float(
+    os.environ.get("GPTBRIDGE_PG_ADAPTER_PROBE_MIN_IDLE_S", "2")
+)
 _pool_lock = threading.Lock()
 _pool: dict[tuple[Any, ...], list[tuple[Any, float]]] = {}
 
@@ -84,10 +90,12 @@ def _pool_checkout(key: tuple[Any, ...]) -> Any | None:
         if entry is None:
             return None
         conn, since = entry
+        idle_s = time.monotonic() - since
         try:
-            if time.monotonic() - since > _POOL_IDLE_TTL_S:
+            if idle_s > _POOL_IDLE_TTL_S:
                 raise TimeoutError("idle pool entry expired")
-            conn.execute("SELECT 1")  # loopback liveness probe
+            if idle_s > _POOL_PROBE_MIN_IDLE_S:
+                conn.execute("SELECT 1")  # loopback liveness probe
         except Exception:
             try:
                 conn.close()
@@ -99,7 +107,11 @@ def _pool_checkout(key: tuple[Any, ...]) -> Any | None:
 
 def _pool_release(key: tuple[Any, ...], conn: Any) -> None:
     try:
-        conn.rollback()  # no-op on clean/autocommit backends
+        # Session reset only when a transaction is actually open —
+        # transaction_status is local state, so an IDLE conn skips the
+        # rollback round trip entirely.
+        if conn.info.transaction_status.name != "IDLE":
+            conn.rollback()
     except Exception:
         pass
     try:

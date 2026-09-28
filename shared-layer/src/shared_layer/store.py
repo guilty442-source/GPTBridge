@@ -71,6 +71,10 @@ class _ConnectionPool:
         self._in_use: set[int] = set()
         self._creating = 0
         self._lock = threading.Lock()
+        # Waiters block on this cond instead of 50ms polling — a released
+        # conn wakes the next borrower immediately (perf: up to ~50ms saved
+        # per contended acquire).
+        self._cond = threading.Condition(self._lock)
         self._closed = False
         import psycopg
         # Pre-create minimum connections
@@ -156,8 +160,14 @@ class _ConnectionPool:
                     ):
                         self._creating += 1
                         reserved = True
-                    elif not reserved and time.monotonic() >= deadline:
-                        raise TimeoutError("connection pool exhausted")
+                    elif not reserved:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise TimeoutError("connection pool exhausted")
+                        # Condition wait: a released conn notifies the next
+                        # waiter instantly; bounded by the deadline.
+                        self._cond.wait(timeout=remaining)
+                        continue
                 if reserved:
                     conn = self._new_conn()
                     with self._lock:
@@ -165,9 +175,6 @@ class _ConnectionPool:
                         reserved = False
                         self._in_use.add(id(conn))
                     return conn
-                # Low-CPU: 50ms granularity is ample for a multi-second
-                # pool timeout; avoids 100Hz spin.
-                time.sleep(0.05)
         except BaseException:
             if reserved:
                 with self._lock:
@@ -195,6 +202,7 @@ class _ConnectionPool:
                 # idle reaper still bounds slot hold time.
                 if not self._closed and len(self._pool) < self._max and not conn.closed:
                     self._pool.append((conn, time.monotonic()))
+                    self._cond.notify()  # wake one waiter on the freed conn
                 else:
                     try:
                         conn.close()
@@ -207,6 +215,7 @@ class _ConnectionPool:
             entries = self._pool
             self._pool = []
             self._in_use.clear()
+            self._cond.notify_all()  # wake waiters so they see _closed
         for conn, _since in entries:
             try:
                 conn.close()

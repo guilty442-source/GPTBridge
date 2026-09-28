@@ -51,6 +51,7 @@ def fake_factory(monkeypatch):
 
     monkeypatch.setattr(cp, "_new_readonly_connection", factory)
     cp._thread_local.readonly_conn = None
+    cp.close_cached_connections()  # drop real conns cached by earlier tests
     monkeypatch.setattr(cp, "_CODEX_CONN_CACHE_MAX", 3)
     monkeypatch.setattr(cp, "_CODEX_CONN_IDLE_TTL_S", 10_000.0)
     yield made
