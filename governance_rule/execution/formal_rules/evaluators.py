@@ -1015,52 +1015,56 @@ def _sql_migration_authority(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
 # PASS).  A453-style governor amendments may replace a predicate with a
 # dedicated evaluator without changing the rule code.
 
+# Anchors follow the active successor identities — the 2026-09-28T07:01Z
+# codex renumbering (provision_renumbering_registry) moved the original
+# A5xx/A6xx anchors into the A/B/C/D taxonomy; rule codes and predicates
+# are unchanged.
 _DECLARED_PROVISION_RULES: dict[str, str] = {
-    "FR-LANG-LAYERING": "A551",
-    "FR-GPU-ACCEL-TRACK": "A552",
-    "FR-MODEL-MOE": "A553",
+    "FR-LANG-LAYERING": "B131",
+    "FR-GPU-ACCEL-TRACK": "B132",
+    "FR-MODEL-MOE": "B133",
     # A554 superseded by A598 (autonomous-training authority); anchor follows
     # the active successor — rule code and predicate are unchanged.
-    "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE": "A598",
-    "FR-GIT-SQL-RAG-CAG-DAG-DIVISION": "A555",
-    "FR-MODEL-MATURITY": "A556",
-    "FR-MODEL-TRAINING-TIERS": "A557",
-    "FR-PRETRAIN-DATA-PIPELINE": "A558",
-    "FR-SINGLE-BLUEPRINT": "A559",
-    "FR-TRAIN-NTP-CORRECTNESS": "A560",
-    "FR-SMALL-MODEL-BASELINE": "A561",
-    "FR-XINGCHENG-PRIMARY-GOAL": "A562",
-    "FR-MODEL-SCALING": "A563",
-    "FR-MOE-QC": "A564",
-    "FR-DIALOGUE-TRAINING": "A565",
-    "FR-INFER-CONSISTENCY": "A566",
-    "FR-KV-CACHE-TESTS": "A567",
-    "FR-EVAL-SUITE": "A568",
-    "FR-WEIGHT-EVOLUTION": "A569",
-    "FR-CONVERGENCE-PLAN": "A570",
-    "FR-CONNECTION-RECOVERY": "A571",
-    "FR-MAINT-UPDATE-INTEGRATION": "A572",
-    "FR-TASK-LIFECYCLE": "A573",
-    "FR-EXECUTION-LEASE": "A574",
-    "FR-RELEASE-MANIFEST": "A575",
-    "FR-DEV-RUNTIME-SEPARATION": "A576",
-    "FR-BACKEND-LIFECYCLE": "A577",
-    "FR-INTEGRATION-SEQUENCE": "A578",
-    "FR-REQUEST-REGISTRY": "A579",
-    "FR-REQUEST-LIFECYCLE": "A580",
-    "FR-CONNECTION-STATE": "A581",
-    "FR-INTEGRATED-GOALS": "A582",
-    "FR-IMPL-PRECEDENCE": "A583",
-    "FR-MULTI-CONFIG-GPT": "A584",
-    "FR-TOOL-CALLING-COMPETENCE": "A585",
-    "FR-OLLAMA-ON-DEMAND": "A586",
-    "FR-ONDEMAND-MODULES": "A587",
-    "FR-SINGLE-PURPOSE-MODULE": "A588",
-    "FR-MODULE-HASH-CHAIN": "A589",
+    "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE": "A134",
+    "FR-GIT-SQL-RAG-CAG-DAG-DIVISION": "C107",
+    "FR-MODEL-MATURITY": "B134",
+    "FR-MODEL-TRAINING-TIERS": "B135",
+    "FR-PRETRAIN-DATA-PIPELINE": "C108",
+    "FR-SINGLE-BLUEPRINT": "C109",
+    "FR-TRAIN-NTP-CORRECTNESS": "D132",
+    "FR-SMALL-MODEL-BASELINE": "B136",
+    "FR-XINGCHENG-PRIMARY-GOAL": "B137",
+    "FR-MODEL-SCALING": "B138",
+    "FR-MOE-QC": "B139",
+    "FR-DIALOGUE-TRAINING": "B140",
+    "FR-INFER-CONSISTENCY": "B141",
+    "FR-KV-CACHE-TESTS": "D133",
+    "FR-EVAL-SUITE": "B142",
+    "FR-WEIGHT-EVOLUTION": "B143",
+    "FR-CONVERGENCE-PLAN": "B144",
+    "FR-CONNECTION-RECOVERY": "C110",
+    "FR-MAINT-UPDATE-INTEGRATION": "C111",
+    "FR-TASK-LIFECYCLE": "B145",
+    "FR-EXECUTION-LEASE": "B146",
+    "FR-RELEASE-MANIFEST": "D134",
+    "FR-DEV-RUNTIME-SEPARATION": "B147",
+    "FR-BACKEND-LIFECYCLE": "B148",
+    "FR-INTEGRATION-SEQUENCE": "D135",
+    "FR-REQUEST-REGISTRY": "B149",
+    "FR-REQUEST-LIFECYCLE": "B150",
+    "FR-CONNECTION-STATE": "B151",
+    "FR-INTEGRATED-GOALS": "A130",
+    "FR-IMPL-PRECEDENCE": "A131",
+    "FR-MULTI-CONFIG-GPT": "B152",
+    "FR-TOOL-CALLING-COMPETENCE": "B153",
+    "FR-OLLAMA-ON-DEMAND": "B154",
+    "FR-ONDEMAND-MODULES": "B155",
+    "FR-SINGLE-PURPOSE-MODULE": "B156",
+    "FR-MODULE-HASH-CHAIN": "D136",
     # A591/A592 superseded by A604 (authority convergence); anchors follow the
     # active successor — rule codes and predicates are unchanged.
-    "FR-SOVEREIGN-TO-CORE-ENGINE": "A604",
-    "FR-NO-SUB-SOVEREIGN-ALL-MODULES": "A604",
+    "FR-SOVEREIGN-TO-CORE-ENGINE": "B162",
+    "FR-NO-SUB-SOVEREIGN-ALL-MODULES": "B162",
 }
 
 
@@ -1104,7 +1108,7 @@ def _multi_core_parallel(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
     allocation stays inside the fixed five-core budget —
     threads_per_worker × parallel_workers ≤ budget_cores ≤ 5, and no
     unbounded worker pools."""
-    passed, code, reason = _declared_provision_evaluator("A590")(facts)
+    passed, code, reason = _declared_provision_evaluator("B157")(facts)
     if not passed:
         return passed, code, reason
     try:

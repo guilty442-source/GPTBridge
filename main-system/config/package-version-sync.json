@@ -12,49 +12,49 @@
       "mode": "detect",
       "detect": {"kind": "command", "argv": ["main-system/.venv/Scripts/python.exe", "--version"], "pattern": "Python (\\d+\\.\\d+\\.\\d+)"},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "Python (\\d+\\.\\d+\\.\\d+)"},
-        {"provision_id": "A35", "field": "rule", "pattern": "python(\\d+\\.\\d+\\.\\d+)"}
+        {"provision_id": "B170", "field": "rule", "pattern": "Python (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "B4", "field": "rule", "pattern": "python(\\d+\\.\\d+\\.\\d+)"}
       ]
     },
     "go-toolchain": {
       "mode": "detect",
       "detect": {"kind": "command", "argv": [".tools/go/go/bin/go.exe", "version"], "pattern": "go(\\d+\\.\\d+\\.\\d+)"},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "Go (\\d+\\.\\d+\\.\\d+)"},
-        {"provision_id": "A35", "field": "rule", "pattern": "go(\\d+\\.\\d+\\.\\d+)"}
+        {"provision_id": "B170", "field": "rule", "pattern": "Go (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "B4", "field": "rule", "pattern": "go(\\d+\\.\\d+\\.\\d+)"}
       ]
     },
     "rust-toolchain": {
       "mode": "detect",
       "detect": {"kind": "command", "argv": ["rustc", "--version"], "pattern": "rustc (\\d+\\.\\d+\\.\\d+)"},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "Rust (\\d+\\.\\d+\\.\\d+)"},
-        {"provision_id": "A35", "field": "rule", "pattern": "rust(\\d+\\.\\d+\\.\\d+)"}
+        {"provision_id": "B170", "field": "rule", "pattern": "Rust (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "B4", "field": "rule", "pattern": "rust(\\d+\\.\\d+\\.\\d+)"}
       ]
     },
     "dotnet-runtime": {
       "mode": "detect",
       "detect": {"kind": "command", "argv": ["dotnet", "--list-sdks"], "pattern": "(\\d+)\\.", "extract": "major"},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"},
-        {"provision_id": "A610", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"},
-        {"provision_id": "A35", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"}
+        {"provision_id": "B170", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"},
+        {"provision_id": "B166", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"},
+        {"provision_id": "B4", "field": "rule", "pattern": "\\.NET (\\d+)", "render": ".NET {v}"}
       ]
     },
     "postgresql": {
       "mode": "detect",
       "detect": {"kind": "postgres", "query": "SHOW server_version", "pattern": "(\\d+\\.\\d+)"},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "PostgreSQL (\\d+\\.\\d+)"},
-        {"provision_id": "A610", "field": "rule", "pattern": "PostgreSQL=(\\d+\\.\\d+)", "render": "PostgreSQL={v}"},
-        {"provision_id": "A35", "field": "rule", "pattern": "sql-postgresql(\\d+\\.\\d+)", "render": "sql-postgresql{v}"}
+        {"provision_id": "B170", "field": "rule", "pattern": "PostgreSQL (\\d+\\.\\d+)"},
+        {"provision_id": "B166", "field": "rule", "pattern": "PostgreSQL=(\\d+\\.\\d+)", "render": "PostgreSQL={v}"},
+        {"provision_id": "B4", "field": "rule", "pattern": "sql-postgresql(\\d+\\.\\d+)", "render": "sql-postgresql{v}"}
       ]
     },
     "git": {
       "mode": "detect",
       "detect": {"kind": "command", "argv": ["git", "--version"], "pattern": "git version (\\d+\\.\\d+\\.\\d+)"},
       "codex_refs": [
-        {"provision_id": "A610", "field": "rule", "pattern": "Git=(\\d+\\.\\d+\\.\\d+)", "render": "Git={v}"}
+        {"provision_id": "B166", "field": "rule", "pattern": "Git=(\\d+\\.\\d+\\.\\d+)", "render": "Git={v}"}
       ]
     },
     "react": {
@@ -63,8 +63,8 @@
       "detect": {"kind": "manifest-json", "path": "main-system/package.json", "field": "dependencies.react", "pattern": "(\\d+\\.\\d+\\.\\d+)"},
       "upgrade": {"cwd": "main-system", "argv": ["npm", "update", "react"]},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "React (\\d+\\.\\d+\\.\\d+)"},
-        {"provision_id": "A610", "field": "rule", "pattern": "React=(\\d+\\.\\d+\\.\\d+)", "render": "React={v}"}
+        {"provision_id": "B170", "field": "rule", "pattern": "React (\\d+\\.\\d+\\.\\d+)"},
+        {"provision_id": "B166", "field": "rule", "pattern": "React=(\\d+\\.\\d+\\.\\d+)", "render": "React={v}"}
       ]
     },
     "numpy": {
@@ -72,7 +72,7 @@
       "detect": {"kind": "pip", "package": "numpy", "pattern": "(\\d+\\.\\d+\\.\\d+)"},
       "upgrade": {"cwd": ".", "argv": ["main-system/.venv/Scripts/python.exe", "-m", "pip", "install", "--upgrade", "numpy"]},
       "codex_refs": [
-        {"provision_id": "A615", "field": "rule", "pattern": "NumPy (\\d+\\.\\d+\\.\\d+)"}
+        {"provision_id": "B170", "field": "rule", "pattern": "NumPy (\\d+\\.\\d+\\.\\d+)"}
       ]
     },
     "cargo-deps": {

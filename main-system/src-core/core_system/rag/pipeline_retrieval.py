@@ -23,13 +23,58 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-import threading
 from typing import Any, Callable, Optional
+
+from shared_layer.adaptive.bounded_executor import (
+    OverflowPolicy,
+    PoolPolicy,
+    pool_for,
+)
+from shared_layer.adaptive.types import PriorityClass
 
 _logger = logging.getLogger("gptbridge.rag")
 
 # RRF constant (standard k=60 from the original paper).
 _RRF_K: int = 60
+
+# bounded-concurrency/v1: resolving an awaitable from a synchronous
+# caller that lives inside a running loop previously spawned one
+# thread per call.  It now enters this dedicated pool instead — worker
+# threads own no running loop so ``asyncio.run`` is safe there, and
+# pool tasks make progress independently of the caller's pool (no
+# circular wait: a loop-resolve task never blocks on rag admission).
+_RESOLVE_POOL = PoolPolicy(
+    pool="rag.loop-resolve",
+    work_class="rag",
+    min_workers=1,
+    max_workers=4,
+    queue_capacity=128,
+    deadline_ms=60_000,
+    overflow=OverflowPolicy.REJECT,
+    backpressure_wait_ms=2_000,
+)
+
+
+def _run_awaitable_sync(awaitable: Any, description: str) -> Any:
+    """Resolve one awaitable for a synchronous caller — never a new
+    thread per call.  No running loop → ``asyncio.run`` inline; running
+    loop → submit to the bounded resolve pool and block on the future.
+    Queue-full/deadline propagate as the pool's rejection errors."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable)
+    future = pool_for(_RESOLVE_POOL).submit(
+        asyncio.run,
+        awaitable,
+        priority=PriorityClass.INTERACTIVE,
+        wait_ms=_RESOLVE_POOL.backpressure_wait_ms,
+    )
+    try:
+        return future.result()
+    except BaseException as exc:
+        _logger.debug("loop-resolve %s failed: %s", description, exc)
+        raise
 
 
 def reciprocal_rank_fusion(
@@ -74,25 +119,7 @@ def _resolve(value: Any) -> Any:
     """
     if not inspect.isawaitable(value):
         return value
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(value)
-    outcome: list[Any] = []
-    failure: list[BaseException] = []
-
-    def _worker() -> None:
-        try:
-            outcome.append(asyncio.run(value))
-        except BaseException as exc:  # noqa: BLE001 - propagate to caller
-            failure.append(exc)
-
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
-    thread.join()
-    if failure:
-        raise failure[0]
-    return outcome[0]
+    return _run_awaitable_sync(value, "channel")
 
 
 async def _as_coro(value: Any) -> Any:
@@ -124,21 +151,7 @@ def _resolve_pair(first: Any, second: Any) -> tuple[Any, Any]:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(_gather_pair(first, second))
-    outcome: list[Any] = []
-    failure: list[BaseException] = []
-
-    def _worker() -> None:
-        try:
-            outcome.append(asyncio.run(_gather_pair(first, second)))
-        except BaseException as exc:  # noqa: BLE001 - propagate to caller
-            failure.append(exc)
-
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
-    thread.join()
-    if failure:
-        raise failure[0]
-    return outcome[0]
+    return _run_awaitable_sync(_gather_pair(first, second), "channel-pair")
 
 
 def _channel_name(index: int) -> str:

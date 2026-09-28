@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .local_rag_answer import LocalRagAnswerMixin
 from .local_rag_constants import LocalRagConstants
 from .local_rag_documents import LocalRagDocumentsMixin
 from .local_rag_index import LocalRagIndexMixin
@@ -11,6 +12,7 @@ class LocalRagService(
     LocalRagDocumentsMixin,
     LocalRagIndexMixin,
     LocalRagRetrievalMixin,
+    LocalRagAnswerMixin,
 ):
     """Governed hybrid retrieval over centrally labelled, module-owned data.
 

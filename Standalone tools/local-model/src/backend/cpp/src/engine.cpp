@@ -1223,6 +1223,7 @@ ByteLevelBPETokenizer ByteLevelBPETokenizer::load(const std::string& tokenizer_j
         const auto it = tokenizer.vocab_.find(text);
         if (it != tokenizer.vocab_.end()) {
             tokenizer.special_tokens_.push_back({text, it->second});
+            tokenizer.special_ids_.insert(it->second);
         }
     }
     std::sort(
@@ -1310,7 +1311,7 @@ std::vector<int64_t> ByteLevelBPETokenizer::encode_segment(const std::string& te
 std::string ByteLevelBPETokenizer::decode(
     const std::vector<int64_t>& ids,
     bool skip_special) const {
-    const std::unordered_set<int64_t> special_ids = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    const std::unordered_set<int64_t>& special_ids = special_ids_;
     std::string bytes;
     for (const int64_t id : ids) {
         if (id < 0 || id >= static_cast<int64_t>(id_to_token_.size())) {
@@ -2649,11 +2650,27 @@ std::vector<int64_t> NativeInferenceEngine::generate(
             }
         }
     }
+    // Byte-spelled turn end: SFT weights terminate turns by emitting the
+    // literal text "<|eot|>" (the bundle vocab carries no dedicated token),
+    // so the token-id EOS alone never fires. Governed callers truncate the
+    // visible reply at that marker — stopping here skips the ramble the
+    // model would generate past turn end (saves decode steps; the visible
+    // reply is unchanged).
+    std::string turn_tail;
+    turn_tail.reserve(64);
     for (int64_t step = 0; step < max_new_tokens; ++step) {
         const int64_t token = sample_next(next_logits, sequence_, sampling, rng_state);
         generated.push_back(token);
         sequence_.push_back(token);
-        if (token == cfg.eos_token_id || step + 1 >= max_new_tokens) break;
+        turn_tail += tokenizer_->decode({token}, false);
+        if (turn_tail.size() > 64) {
+            turn_tail.erase(0, turn_tail.size() - 64);
+        }
+        if (token == cfg.eos_token_id || step + 1 >= max_new_tokens ||
+            (turn_tail.size() >= 7 &&
+             turn_tail.compare(turn_tail.size() - 7, 7, "<|eot|>") == 0)) {
+            break;
+        }
         next_logits = forward_last_logits({token}, kv_lens_[0], true);
     }
     return generated;
@@ -2683,6 +2700,7 @@ std::vector<std::vector<int64_t>> NativeInferenceEngine::generate_batch(
         std::vector<int64_t> generated;
         std::vector<int64_t> context;
         std::vector<double> logits;
+        std::string tail;
         bool done = false;
     };
     std::vector<SeqState> seqs(prompts.size());
@@ -2741,7 +2759,13 @@ std::vector<std::vector<int64_t>> NativeInferenceEngine::generate_batch(
             seq.generated.push_back(token);
             seq.context.push_back(token);
             step_tokens[i] = token;
-            if (token == cfg.eos_token_id || step + 1 >= max_new_tokens) {
+            seq.tail += tokenizer_->decode({token}, false);
+            if (seq.tail.size() > 64) {
+                seq.tail.erase(0, seq.tail.size() - 64);
+            }
+            if (token == cfg.eos_token_id || step + 1 >= max_new_tokens ||
+                (seq.tail.size() >= 7 &&
+                 seq.tail.compare(seq.tail.size() - 7, 7, "<|eot|>") == 0)) {
                 seq.done = true;
                 kv_free_slot(seq.slot);  // continuous: release mid-batch
             } else {

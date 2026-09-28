@@ -14,6 +14,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -131,6 +132,11 @@ private:
     std::vector<std::pair<std::string, std::string>> merges_;
     std::unordered_map<std::string, int64_t> merge_rank_;
     std::vector<SpecialToken> special_tokens_;
+    // Ids of special_tokens_ actually present in vocab_ — decode()
+    // skip_special consults this set instead of a hardcoded id range, so
+    // ordinary tokens (bundle vocab: '!' '"' '#' '$' '%' at ids 4-8) are
+    // never dropped when the bundle carries fewer special tokens.
+    std::unordered_set<int64_t> special_ids_;
     std::vector<std::string> byte_to_token_;
     std::unordered_map<std::string, unsigned char> token_to_byte_;
     int64_t vocab_size_ = 0;
