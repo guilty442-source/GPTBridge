@@ -2,9 +2,33 @@ from __future__ import annotations
 
 import copy
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from difflib import SequenceMatcher
 from typing import Any
+
+from shared_layer.adaptive.bounded_executor import (
+    AdmissionRejected,
+    OverflowPolicy,
+    PoolPaused,
+    PoolPolicy,
+    WorkExpired,
+    pool_for,
+)
+from shared_layer.adaptive.types import PriorityClass
+
+# bounded-concurrency/v1 (A116): one shared pool — never a
+# ThreadPoolExecutor per request.  Envelope bounds are module-declared;
+# the effective worker count is the governor "network" class quota.
+_MARKET_POOL = PoolPolicy(
+    pool="xingcheng.market-data",
+    work_class="network",
+    min_workers=1,
+    max_workers=8,
+    queue_capacity=384,
+    deadline_ms=60_000,
+    overflow=OverflowPolicy.REJECT,
+    backpressure_wait_ms=2_000,
+)
 
 from .market_data_helpers import (
     MARKET_SUFFIXES,
@@ -33,22 +57,20 @@ class MarketDataSearchMixin:
         ][:300]
         results: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []
-        # 統一執行緒策略入口（§10.30／A590）：worker 數受五核預算收斂。
-        from shared_layer.performance.thread_budget import bounded_workers
-
-        workers = bounded_workers(
-            int(payload.get("max_workers") or 4), workload="network"
-        )
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {
-                executor.submit(
-                    self._search_holding_cached,
-                    holding,
-                    force_refresh=payload.get("force_refresh") is True,
-                ): holding
-                for holding in holdings
-            }
-            for future in as_completed(futures):
+        # bounded-concurrency/v1：共享 rag/network 池承載 holding 扇出；
+        # 佇列滿 → 該 holding 記為容量拒絕錯誤，不再新建執行緒池。
+        executor = pool_for(_MARKET_POOL)
+        futures: dict[Any, dict[str, Any]] = {}
+        for holding in holdings:
+            future = executor.submit(
+                self._search_holding_cached,
+                holding,
+                force_refresh=payload.get("force_refresh") is True,
+                priority=PriorityClass.INTERACTIVE,
+                wait_ms=_MARKET_POOL.backpressure_wait_ms,
+            )
+            futures[future] = holding
+        for future in as_completed(futures):
                 holding = futures[future]
                 try:
                     result = future.result()

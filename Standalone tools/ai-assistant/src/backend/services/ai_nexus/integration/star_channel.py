@@ -7,8 +7,34 @@ import subprocess
 import time
 from typing import Any
 
+from shared_layer.adaptive.bounded_executor import (
+    AdmissionRejected,
+    OverflowPolicy,
+    PoolPaused,
+    PoolPolicy,
+    WorkExpired,
+    pool_for,
+)
+from shared_layer.adaptive.types import PriorityClass
+
 
 OLLAMA_MODEL = "ibm/granite4.2:30b-q4_K_M"
+
+# bounded-concurrency/v1 (A116): every `ollama run` subprocess loads a
+# ~30B model — admission must be bounded before the process spawns.
+# Envelope bounds are module-declared; the effective worker count is the
+# governor "model" class quota (concurrency-budget/v1).  A full queue or
+# a governor-paused class rejects instead of spawning another process.
+_OLLAMA_POOL = PoolPolicy(
+    pool="ai-assistant.ollama",
+    work_class="model",
+    min_workers=1,
+    max_workers=2,
+    queue_capacity=8,
+    deadline_ms=60_000,
+    overflow=OverflowPolicy.REJECT,
+    backpressure_wait_ms=3_000,
+)
 
 
 class InvestmentAiConnections:
@@ -83,7 +109,34 @@ class InvestmentAiConnections:
         json_mode: bool = False,
         timeout_seconds: int = 120,
     ) -> dict[str, Any]:
-        """Synchronous Ollama CLI generate call."""
+        """Bounded admission: queued onto the governor-sized model pool."""
+        executor = pool_for(_OLLAMA_POOL)
+        future = executor.submit(
+            self._ollama_run_sync,
+            prompt,
+            json_mode=json_mode,
+            timeout_seconds=timeout_seconds,
+            priority=PriorityClass.INTERACTIVE,
+            deadline_ms=_OLLAMA_POOL.deadline_ms,
+            wait_ms=_OLLAMA_POOL.backpressure_wait_ms,
+        )
+        try:
+            return future.result(timeout=timeout_seconds + 30)
+        except (AdmissionRejected, PoolPaused, WorkExpired):
+            return {
+                "ok": False,
+                "error_code": "OLLAMA_CAPACITY_EXHAUSTED",
+                "message": "Ollama 推論佇列已滿或暫停，請稍後再試。",
+            }
+
+    def _ollama_run_sync(
+        self,
+        prompt: str,
+        *,
+        json_mode: bool = False,
+        timeout_seconds: int = 120,
+    ) -> dict[str, Any]:
+        """Synchronous Ollama CLI generate call (runs on the pool)."""
         try:
             result = subprocess.run(
                 ["ollama", "run", "--nowordwrap", OLLAMA_MODEL, prompt],
