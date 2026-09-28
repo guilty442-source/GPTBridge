@@ -1,10 +1,10 @@
 {
   "schema": "star-audit-manifest/v1",
-  "generated_at": "2026-09-28T12:06:55Z",
+  "generated_at": "2026-09-28T13:08:10Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "coverage": {
-    "native_checks": 344,
-    "delegated_checks": 29,
+    "native_checks": 427,
+    "delegated_checks": 28,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -12,9 +12,11 @@
       "dir-exists",
       "file-contains",
       "file-not-contains",
+      "file-not-contains-unless",
       "text-no-pollution",
       "json-parses",
       "json-has-keys",
+      "json-key-absent",
       "glob-min-count",
       "glob-not-contains",
       "glob-absent",
@@ -2365,6 +2367,18 @@
       "optional": true
     },
     {
+      "id": "embedded-browser:no-async-playwright:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
+      "kind": "file-not-contains-unless",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/browser_automation.py",
+      "markers": [
+        "async_playwright"
+      ],
+      "unless": [
+        "InProcessEmbeddedBrowser"
+      ],
+      "optional": true
+    },
+    {
       "id": "embedded-browser:no-playwright:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
       "kind": "file-not-contains",
       "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
@@ -2375,12 +2389,36 @@
       "optional": true
     },
     {
+      "id": "embedded-browser:no-async-playwright:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
+      "kind": "file-not-contains-unless",
+      "path": "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration/integration/provider_session.py",
+      "markers": [
+        "async_playwright"
+      ],
+      "unless": [
+        "InProcessEmbeddedBrowser"
+      ],
+      "optional": true
+    },
+    {
       "id": "embedded-browser:no-playwright:Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
       "kind": "file-not-contains",
       "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
       "markers": [
         "from playwright",
         "import playwright"
+      ],
+      "optional": true
+    },
+    {
+      "id": "embedded-browser:no-async-playwright:Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
+      "kind": "file-not-contains-unless",
+      "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/browser_session.py",
+      "markers": [
+        "async_playwright"
+      ],
+      "unless": [
+        "InProcessEmbeddedBrowser"
       ],
       "optional": true
     },
@@ -2805,20 +2843,29 @@
       ]
     },
     {
-      "id": "python-retirement:adapter-exists",
-      "kind": "file-exists",
+      "id": "python-retirement:forbidden:governance_rule/execution/legacy_python_verification_adapter.py",
+      "kind": "file-not-exists",
       "path": "governance_rule/execution/legacy_python_verification_adapter.py"
     },
     {
-      "id": "python-retirement:adapter-gates",
-      "kind": "file-contains",
-      "path": "governance_rule/execution/legacy_python_verification_adapter.py",
-      "markers": [
-        "LegacyPythonVerificationAdapter",
-        "TEST_RESULT_V1",
-        "inventory_class",
-        "PYTEST_RETIREMENT_INVENTORY"
-      ]
+      "id": "python-retirement:forbidden:pytest.ini",
+      "kind": "file-not-exists",
+      "path": "pytest.ini"
+    },
+    {
+      "id": "python-retirement:forbidden:conftest.py",
+      "kind": "file-not-exists",
+      "path": "conftest.py"
+    },
+    {
+      "id": "python-retirement:forbidden:native/test_suites/proxy_wire_agent.py",
+      "kind": "file-not-exists",
+      "path": "native/test_suites/proxy_wire_agent.py"
+    },
+    {
+      "id": "python-retirement:forbidden:scripts/devin-cli-p6-test-sla.py",
+      "kind": "file-not-exists",
+      "path": "scripts/devin-cli-p6-test-sla.py"
     },
     {
       "id": "python-retirement:inventory-parses",
@@ -2946,6 +2993,609 @@
       ]
     },
     {
+      "id": "tool-manifest:parse:governance_rule/manifest.json",
+      "kind": "json-parses",
+      "path": "governance_rule/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:governance_rule/manifest.json",
+      "kind": "json-key-value",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=none",
+        "status=running",
+        "lifecycle.startup=default-before-main-system",
+        "lifecycle.directLoad=true",
+        "lifecycle.encapsulated=false",
+        "lifecycle.optional=false",
+        "lifecycle.stoppable=false",
+        "lifecycle.disableable=false",
+        "lifecycle.unloadable=false"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:governance_rule/manifest.json",
+      "kind": "json-key-absent",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "name",
+        "executable"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:governance_rule/manifest.json",
+      "kind": "json-has-keys",
+      "path": "governance_rule/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:governance_rule/manifest.json",
+      "kind": "file-exists",
+      "path": "governance_rule/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:governance_rule/manifest.json",
+      "kind": "json-parses",
+      "path": "governance_rule/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:governance_rule/manifest.json",
+      "kind": "json-has-keys",
+      "path": "governance_rule/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:shared-layer/manifest.json",
+      "kind": "json-parses",
+      "path": "shared-layer/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:shared-layer/manifest.json",
+      "kind": "json-key-value",
+      "path": "shared-layer/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:shared-layer/manifest.json",
+      "kind": "json-key-absent",
+      "path": "shared-layer/manifest.json",
+      "markers": [
+        "name"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:shared-layer/manifest.json",
+      "kind": "json-has-keys",
+      "path": "shared-layer/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:shared-layer/manifest.json",
+      "kind": "file-exists",
+      "path": "shared-layer/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:shared-layer/manifest.json",
+      "kind": "json-parses",
+      "path": "shared-layer/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:shared-layer/manifest.json",
+      "kind": "json-has-keys",
+      "path": "shared-layer/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/ai-assistant/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/ai-assistant/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/ai-assistant/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/ai-assistant/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/ai-assistant/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/ai-assistant/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/ai-assistant/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/ai-assistant/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/ai-assistant/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-assistant/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/ai-assistant/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/ai-assistant/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/ai-assistant/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/ai-assistant/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/ai-collaboration/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/ai-collaboration/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/ai-collaboration/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/ai-collaboration/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/ai-collaboration/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/ai-collaboration/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/ai-collaboration/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/ai-collaboration/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/file-sorter/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/file-sorter/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/file-sorter/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/file-sorter/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/file-sorter/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/file-sorter/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/file-sorter/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/file-sorter/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/file-sorter/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/file-sorter/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/file-sorter/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/file-sorter/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/file-sorter/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/file-sorter/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/investment-mobile/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/investment-mobile/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/investment-mobile/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/investment-mobile/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/investment-mobile/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/investment-mobile/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/investment-mobile/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/investment-mobile/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/investment-mobile/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/investment-mobile/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/investment-mobile/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/local-model/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/local-model/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/local-model/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/local-model/manifest.json",
+      "markers": [
+        "name"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/local-model/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/local-model/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/local-model/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/local-model/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/vaultly/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/vaultly/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/vaultly/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/vaultly/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/vaultly/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/vaultly/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/vaultly/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/vaultly/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/vaultly/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/vaultly/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/vaultly/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/vaultly/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/vaultly/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/vaultly/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/model-dialogue/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "physical_owner_root=local-model"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/local-model/model-dialogue/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/model-dialogue/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/local-model/model-dialogue/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/xingcheng/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/xingcheng/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "physical_owner_root=local-model"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/local-model/xingcheng/manifest.json",
+      "markers": [
+        "name",
+        "window.title"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/xingcheng/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/xingcheng/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/xingcheng/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/local-model/xingcheng/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/xingcheng/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
+      "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "json-key-value",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "markers": [
+        "name_key=tool.name",
+        "physical_owner_root=local-model"
+      ]
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "json-key-absent",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "markers": [
+        "name"
+      ]
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "kind": "json-has-keys",
+      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ]
+    },
+    {
       "id": "python-check:check_bounded_worker_pools",
       "kind": "delegated",
       "reason": "python oracle (transition)",
@@ -3060,12 +3710,6 @@
       "python": "check_tool_identity_registration"
     },
     {
-      "id": "python-check:check_tool_manifests",
-      "kind": "delegated",
-      "reason": "python oracle (transition)",
-      "python": "check_tool_manifests"
-    },
-    {
       "id": "python-check:check_contract_axes",
       "kind": "delegated",
       "reason": "python oracle (transition)",
@@ -3114,10 +3758,10 @@
       "python": "check_git_tiers"
     },
     {
-      "id": "python-check:embedded-browser-async-playwright",
+      "id": "python-check:tool-manifests-semantic",
       "kind": "delegated",
-      "reason": "async_playwright ∧ ¬InProcessEmbeddedBrowser 複合條件",
-      "python": "check_embedded_browser"
+      "reason": "cross-manifest identity parity / label regex / capability registry semantics",
+      "python": "check_tool_manifests"
     }
   ]
 }
