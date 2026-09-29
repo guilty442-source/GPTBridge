@@ -11,6 +11,9 @@ mod console;
 mod diagnostics;
 mod governance;
 mod profiling;
+mod tool_file_sorter;
+mod tool_vaultly;
+mod tool_window;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Panel {
@@ -72,7 +75,25 @@ impl eframe::App for ConsoleApp {
     }
 }
 
+fn is_tool_window_mode() -> bool {
+    std::env::args().any(|a| a == "--tool-window")
+}
+
 fn main() -> eframe::Result<()> {
+    // Governed tool-window mode: `gptbridge-egui.exe --tool-window
+    // --tool-id=<id>` replaces the retired WebView2 renderer for tools
+    // with a registered native surface.
+    if is_tool_window_mode() {
+        let cfg = match tool_window::ToolWindowConfig::from_env() {
+            Some(cfg) => cfg,
+            None => {
+                eprintln!("CONFIG_INVALID:tool-window-environment");
+                std::process::exit(2);
+            }
+        };
+        return tool_window::run_tool_window(cfg);
+    }
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1100.0, 720.0]),
         ..Default::default()
