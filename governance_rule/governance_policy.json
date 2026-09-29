@@ -6,26 +6,11 @@
       "authority_version": 1,
       "authority": "governance-codex-v1.32010-derived-enforcement-policy",
       "permission_hierarchy_role": "only-top-level-permission-authority",
-      "authority_files": [
-        "governance_rule/governance_policy.json",
-        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
-        "governance_rule/code_rule_directory.json",
-        "governance_rule/permission_directory/directory_authority.json"
-      ],
-      "runtime_mutable_authority_files": [
-        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
-        "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
-      ],
+      "authority_files": [],
+      "runtime_mutable_authority_files": [],
       "top_level_rule": "governance_codex",
       "governance_rule_sources": [
-        "governance_rule/codex/data/governance_codex.sql"
+        "governance-codex://official"
       ],
       "governance_rule_count": 1,
       "governance_rule_partitioning": false,
@@ -493,7 +478,7 @@
       ],
       "top_level_rule": "governance_codex",
       "governance_rule_sources": [
-        "governance_rule/codex/data/governance_codex.sql"
+        "governance-codex://official"
       ],
       "governance_rule_count": 1,
       "governance_rule_partitioning": false,
@@ -968,7 +953,7 @@
         "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
         "top_level_rule",
         "governance_rule_sources",
-        "governance_rule/codex/data/governance_codex.sql"
+        "governance-codex://official"
       ],
           "governance_rule_count": 1,
           "governance_rule_partitioning": false,

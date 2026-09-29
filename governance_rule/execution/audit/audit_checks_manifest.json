@@ -26,71 +26,6 @@
       "path": "platform_tools"
     },
     {
-      "id": "protected-source:governance_rule/governance_policy.json",
-      "kind": "file-exists",
-      "path": "governance_rule/governance_policy.json"
-    },
-    {
-      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-1.txt",
-      "kind": "file-exists",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-1.txt",
-      "kind": "file-readonly",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
-    },
-    {
-      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-2.txt",
-      "kind": "file-exists",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-2.txt",
-      "kind": "file-readonly",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
-    },
-    {
-      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-3.txt",
-      "kind": "file-exists",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-3.txt",
-      "kind": "file-readonly",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
-    },
-    {
-      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-4.txt",
-      "kind": "file-exists",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-4.txt"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-4.txt",
-      "kind": "file-readonly",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-4.txt"
-    },
-    {
-      "id": "protected-source:governance_rule/codex/governance_codex.zh-TW.part-5.txt",
-      "kind": "file-exists",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
-    },
-    {
-      "id": "protected-source-readonly:governance_rule/codex/governance_codex.zh-TW.part-5.txt",
-      "kind": "file-readonly",
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
-    },
-    {
-      "id": "protected-source:governance_rule/code_rule_directory.json",
-      "kind": "file-exists",
-      "path": "governance_rule/code_rule_directory.json"
-    },
-    {
-      "id": "protected-source:governance_rule/permission_directory/directory_authority.json",
-      "kind": "file-exists",
-      "path": "governance_rule/permission_directory/directory_authority.json"
-    },
-    {
       "id": "protected-source:governance_rule/permission_directory/registries/permissions/identity_groups.json",
       "kind": "file-exists",
       "path": "governance_rule/permission_directory/registries/permissions/identity_groups.json"
@@ -7058,7 +6993,7 @@
       "kind": "file-contains",
       "markers": [
         "\"codex-v1.32010-is-sole-rule-source\"",
-        "\"governing_source\": \"governance_rule/codex/data/governance_codex.sql\"",
+        "\"governing_source\": \"governance-codex://official\"",
         "\"independent_authority\": false",
         "\"runtime_write_allowed\": false",
         "\"canonical_project_root\": \"E:/GPTBridge\""
@@ -27153,7 +27088,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3520,
+    "native_checks": 3507,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27176,7 +27111,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T10:18:20Z",
+  "generated_at": "2026-09-29T10:21:21Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

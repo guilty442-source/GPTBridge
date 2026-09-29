@@ -3,7 +3,7 @@
   "contract_version": 1,
   "minimum_supported_contract_version": 1,
   "authority": "governance-rule-only",
-  "description": "INTEGRATION-CROSS-LANGUAGE 收斂：全專案跨語言呼叫、資料交換、錯誤表示與記憶體所有權的唯一索引。本檔只做索引與規則，不複製任何既有 registry 的內容；各 boundary 的詳細 schema 仍以其 owner registry 為準。修訂與世代只存在 metadata，不得出現在 identity 名稱。",
+  "description": "INTEGRATION-CROSS-LANGUAGE 唯一索引：全專案跨語言呼叫、交接、錯誤表示、記憶體擁有權規則的唯一索引；本檔只做索引與規範，不複製任何 registry 內容；boundary 詳細 schema 仍以各 owner registry 為準；修訂與世代存於 metadata，不得由此推斷 identity 名稱。",
   "revision_policy": "identity names are stable (no version suffix, no final/latest/generation tokens). Revisions live in metadata only: contract_revision, generation, content_hash, producer, consumer, compatibility, created_at, source_revision.",
   "metadata": {
     "contract_revision": 1,
