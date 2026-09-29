@@ -144,9 +144,14 @@ void build_layout(HWND content) {
     L.hint(tr::kWorkspaceHint);
     L.label(tr::kTargetLabel, ix, L.y, 200, 16, g_app.font_small);
     L.y += 18;
-    u.target_edit = L.edit(IDC_TARGET_EDIT, ix, L.y, iw, 28, 0,
+    u.target_edit = L.edit(IDC_TARGET_EDIT, ix, L.y, iw - 92, 28, 0,
                            tr::kTargetHint);
     SetPropW(u.target_edit, theme::kPropOnCard, (HANDLE)1);
+    u.btn_browse = L.mk(L"BUTTON", IDC_BTN_BROWSE,
+                        BS_OWNERDRAW | WS_TABSTOP, ix + iw - 82, L.y, 82, 28);
+    set_text(u.btn_browse, tr::kBtnBrowse);
+    theme::mark_accent(u.btn_browse);
+    widgets::install_hover(u.btn_browse);
     L.y += 32;
     u.folder_status = L.stat_(IDC_FOLDER_STATUS, "", ix, iw);
     u.ws_state = L.stat_(IDC_WS_STATE, tr::kWaitWorkspace, ix, iw);

@@ -44,7 +44,7 @@ $flags = @(
 )
 New-Item -ItemType Directory -Force -Path (Join-Path $bin "obj") | Out-Null
 $sources = Get-ChildItem (Join-Path $src "*.cpp") | ForEach-Object { $_.FullName }
-$libs = "user32.lib gdi32.lib comctl32.lib shell32.lib ws2_32.lib uxtheme.lib msimg32.lib dwmapi.lib"
+$libs = "user32.lib gdi32.lib comctl32.lib shell32.lib ws2_32.lib uxtheme.lib msimg32.lib dwmapi.lib ole32.lib"
 
 $cmd = "`"$vcvars`" >nul && cl $opt $flags $sources /link /SUBSYSTEM:WINDOWS $libs"
 Write-Host "[file-sorter-ui] cl $opt ..."

@@ -9,6 +9,7 @@
 #include <commctrl.h>
 #include <dwmapi.h>
 #include <shellapi.h>
+#include <shobjidl.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -51,6 +52,34 @@ HWND find_ctrl(int id) { return GetDlgItem(g_app.content, id); }
 
 constexpr unsigned kShortTimeoutG() { return 20; }
 constexpr unsigned kRunTimeoutG() { return 30 * 60; }
+
+void browse_target_folder() {
+    AppState& s = g_app.st;
+    IFileOpenDialog* dlg = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr,
+                                  CLSCTX_ALL, IID_PPV_ARGS(&dlg));
+    if (FAILED(hr) || !dlg) return;
+    DWORD opts = 0;
+    dlg->GetOptions(&opts);
+    dlg->SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM |
+                          FOS_DONTADDTORECENT);
+    dlg->SetTitle(widen(tr::kBrowseTitle).c_str());
+    if (SUCCEEDED(dlg->Show(g_app.hwnd))) {
+        IShellItem* item = nullptr;
+        if (SUCCEEDED(dlg->GetResult(&item)) && item) {
+            PWSTR path = nullptr;
+            if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path)) &&
+                path) {
+                s.target_dir = narrow(path);
+                set_text(g_app.ui.target_edit, s.target_dir);
+                s.validate_target();
+                CoTaskMemFree(path);
+            }
+            item->Release();
+        }
+    }
+    dlg->Release();
+}
 
 void handle_command(int id, int code) {
     AppState& s = g_app.st;
@@ -130,6 +159,9 @@ void handle_command(int id, int code) {
                 s.enqueue(RunKind::ApplyPlan,
                           {target, "--apply-plan", fsp::plan_id(s.sort_plan)},
                           kRunTimeoutG(), tr::kMsgApply, tr::kMsgApplyDone);
+            break;
+        case IDC_BTN_BROWSE:
+            browse_target_folder();
             break;
         case IDC_BTN_SCAN:
             s.enqueue_folder_scan();
@@ -548,6 +580,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     INITCOMMONCONTROLSEX icc{sizeof(icc), ICC_BAR_CLASSES | ICC_PROGRESS_CLASS |
                                           ICC_STANDARD_CLASSES | ICC_UPDOWN_CLASS};
     InitCommonControlsEx(&icc);
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     g_app.hwnd = nullptr;
     g_confirm_parent = nullptr;
@@ -626,5 +659,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         }
     }
     g_app.st.backend.close();
+    CoUninitialize();
     return 0;
 }

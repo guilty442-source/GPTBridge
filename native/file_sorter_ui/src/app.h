@@ -11,7 +11,7 @@ namespace fsui {
 
 /* Control ids. */
 enum {
-    IDC_TARGET_EDIT = 100,
+    IDC_TARGET_EDIT = 100, IDC_BTN_BROWSE,
     IDC_FOLDER_STATUS, IDC_WS_STATE,
     IDC_CHK_AUTO_ORGANIZE, IDC_AUTO_STATUS,
     IDC_CHK_DUP_TRASH, IDC_DUP_STATUS,
@@ -37,7 +37,7 @@ enum {
 };
 
 struct Ui {
-    HWND target_edit, folder_status, ws_state;
+    HWND target_edit, btn_browse, folder_status, ws_state;
     HWND chk_auto, auto_status, chk_dup, dup_status;
     HWND btn_preview, btn_undo, btn_history;
     HWND sort_msg, output_edit;
