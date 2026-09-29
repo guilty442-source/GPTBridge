@@ -241,6 +241,33 @@ std::vector<std::string> parse_keywords(const std::string& value) {
     return pass2;
 }
 
+/* `- [程式碼] kw → folder` / `- [資料夾] kw → folder` lines. */
+std::vector<KeywordRule> parse_keyword_rules(const std::string& stdout_text) {
+    std::vector<KeywordRule> out;
+    const std::string arrow = "\xE2\x86\x92"; /* → */
+    size_t pos = 0;
+    while (pos <= stdout_text.size()) {
+        size_t nl = stdout_text.find('\n', pos);
+        std::string line = trim_copy(
+            nl == std::string::npos ? stdout_text.substr(pos)
+                                    : stdout_text.substr(pos, nl - pos));
+        pos = nl == std::string::npos ? stdout_text.size() + 1 : nl + 1;
+        if (line.size() < 4 || line.rfind("- [", 0) != 0) continue;
+        size_t close = line.find(']');
+        if (close == std::string::npos) continue;
+        std::string src = line.substr(3, close - 3);
+        std::string rest = trim_copy(line.substr(close + 1));
+        size_t ar = rest.find(arrow);
+        if (ar == std::string::npos) continue;
+        KeywordRule rule;
+        rule.keyword = trim_copy(rest.substr(0, ar));
+        rule.folder = trim_copy(rest.substr(ar + arrow.size()));
+        rule.source = (src == "資料夾") ? "folder" : "custom";
+        if (!rule.keyword.empty()) out.push_back(std::move(rule));
+    }
+    return out;
+}
+
 const char* category_label(const std::string& category) {
     if (category == "non_person_image_candidate") return "可能不含人物";
     if (category == "large_video_file") return "過大影片";

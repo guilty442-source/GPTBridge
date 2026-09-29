@@ -83,6 +83,7 @@ void AppState::reset_workspace() {
     dup_trash = false;
     keyword_folder.clear();
     destination_folders.clear();
+    keyword_rules.clear();
     folder_scan_status.clear();
     auto_organize_status.clear();
     dup_trash_status.clear();
@@ -265,6 +266,10 @@ void AppState::finish_run(const ActiveRun& run, const JsonValue& payload) {
                 : "已找到 " + std::to_string(folders.size()) + " 個目的地資料夾";
             destination_folders = folders;
             folders_loaded = true;
+            /* refresh the visible rules list alongside the folder set */
+            enqueue(RunKind::ListKeywords,
+                    {fsp::trim(target_dir), "--list-keywords"},
+                    kShortTimeout, kMsgListKw, kMsgListKwDone);
             break;
         }
         case RunKind::Profiles:
@@ -344,11 +349,21 @@ void AppState::finish_run(const ActiveRun& run, const JsonValue& payload) {
             history_output = so.empty() ? msg : so;
             break;
         }
-        case RunKind::ListKeywords:
+        case RunKind::ListKeywords: {
+            run_state = RunState::Success;
+            message = pending_success_label;
+            output = out;
+            keyword_rules = fsp::parse_keyword_rules(so);
+            break;
+        }
         case RunKind::MutateKeywords: {
             run_state = RunState::Success;
             message = pending_success_label;
             output = out;
+            /* re-list so the rules listbox reflects the mutation */
+            enqueue(RunKind::ListKeywords,
+                    {fsp::trim(target_dir), "--list-keywords"},
+                    kShortTimeout, kMsgListKw, kMsgListKwDone);
             break;
         }
         case RunKind::Cleanup: {

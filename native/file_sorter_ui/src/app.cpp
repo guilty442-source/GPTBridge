@@ -119,6 +119,19 @@ void handle_command(int id, int code) {
                     s.keyword_folder = s.destination_folders[sel];
             }
             return;
+        case IDC_RULES_LIST:
+            if (code == LBN_SELCHANGE) {
+                int sel = (int)SendMessageW(u.rules_list, LB_GETCURSEL, 0, 0);
+                if (sel >= 0 && sel < (int)s.keyword_rules.size()) {
+                    const auto& rule = s.keyword_rules[sel];
+                    s.current_keyword = rule.keyword;
+                    set_text(u.kw_cur, rule.keyword);
+                    if (!rule.folder.empty())
+                        s.keyword_folder = rule.folder;
+                    sync_ui();
+                }
+            }
+            return;
         default: break;
     }
     if (code != BN_CLICKED) return;

@@ -228,8 +228,13 @@ void build_layout(HWND content) {
                              L.y + 4, 220);
     SetPropW(u.chk_autoscan, theme::kPropOnCard, (HANDLE)1);
     L.y += 36;
+    L.label(tr::kRulesTitle, ix, L.y, 200, 16, g_app.font_small);
+    L.y += 18;
+    u.rules_list = L.listbox(IDC_RULES_LIST, ix, L.y, iw, 66);
+    SetPropW(u.rules_list, theme::kPropOnCard, (HANDLE)1);
+    L.y += 72;
     u.btn_list_rules = L.button(IDC_BTN_LIST_RULES, tr::kBtnListRules, ix, 110);
-    u.btn_upsert = L.button(IDC_BTN_UPSERT, tr::kBtnUpsert, ix + 122, 150);
+    u.btn_upsert = L.button(IDC_BTN_UPSERT, tr::kBtnUpsert, ix + 122, 150, true);
     L.y += 40;
     L.label(tr::kModifyLbl, ix, L.y, 200, 18, g_app.font_bold);
     L.y += 22;

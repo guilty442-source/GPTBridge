@@ -36,6 +36,16 @@ const JsonValue* plan_actions(const JsonValue& plan); /* array or null */
 unsigned long long plan_action_count(const JsonValue& plan);
 std::vector<std::string> parse_keywords(const std::string& value);
 
+/* One keyword→folder rule row parsed from `--list-keywords` output
+ * (`- [程式碼|資料夾] kw → folder`). */
+struct KeywordRule {
+    std::string keyword;
+    std::string folder;
+    std::string source; /* "custom" or "folder" */
+};
+
+std::vector<KeywordRule> parse_keyword_rules(const std::string& stdout_text);
+
 const char* category_label(const std::string& category);
 std::string format_file_size(double size);
 std::string cleanup_file_summary(const JsonValue& file);

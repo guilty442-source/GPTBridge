@@ -42,6 +42,7 @@ void sync_list(HWND h, const std::vector<std::string>& rows,
 }
 
 std::string g_plan_cache, g_hist_cache, g_files_cache, g_combo_cache;
+std::string g_rules_cache;
 
 } // namespace
 
@@ -166,8 +167,20 @@ void sync_ui() {
         set_text(u.dest_combo, tr::kDestEmpty);
     enable(u.dest_combo, can);
     enable(u.btn_scan, can);
+    enable(u.rules_list, !busy);
     set_check(u.chk_autoscan, s.auto_scan_folders);
     enable(u.chk_autoscan, !busy);
+
+    /* visible rules list: `[程式碼] kw → folder` rows */
+    std::vector<std::string> rule_rows;
+    for (const auto& r : s.keyword_rules) {
+        std::string row = "[" +
+            std::string(r.source == "folder" ? "資料夾" : "程式碼") +
+            "]  " + r.keyword + "  →  " + r.folder;
+        rule_rows.push_back(row);
+    }
+    if (rule_rows.empty()) rule_rows.push_back(tr::kRulesEmpty);
+    sync_list(u.rules_list, rule_rows, &g_rules_cache);
 
     auto kws = fsp::parse_keywords(s.keyword_input);
     bool has_dest = fsp::is_direct_child_folder_name(s.keyword_folder) &&

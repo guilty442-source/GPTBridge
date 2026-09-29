@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "jsonlite.h"
+#include "parse.h"
 #include "ws_client.h"
 
 namespace fsui {
@@ -66,6 +67,7 @@ struct AppState {
     std::string keyword_folder;
     std::string current_keyword;
     std::string updated_keyword;
+    std::vector<fsp::KeywordRule> keyword_rules; /* last --list-keywords */
 
     RunState run_state = RunState::Idle;
     std::string message;

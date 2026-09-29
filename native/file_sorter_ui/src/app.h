@@ -21,7 +21,7 @@ enum {
     IDC_PLAN_CONFIRM, IDC_BTN_APPLY,
     IDC_HISTORY_TITLE, IDC_HISTORY_LIST, IDC_HISTORY_EDIT,
     IDC_KW_EDIT, IDC_DEST_COMBO, IDC_BTN_SCAN, IDC_CHK_AUTOSCAN,
-    IDC_BTN_LIST_RULES, IDC_BTN_UPSERT,
+    IDC_RULES_LIST, IDC_BTN_LIST_RULES, IDC_BTN_UPSERT,
     IDC_KW_CUR, IDC_KW_NEW, IDC_BTN_MODIFY,
     IDC_CHK_IMG, IDC_CHK_SIMIMG, IDC_CHK_VID, IDC_CHK_SIMVID,
     IDC_TB_THRESHOLD, IDC_LBL_THRESHOLD,
@@ -44,7 +44,7 @@ struct Ui {
     HWND plan_title, plan_summary, plan_warn, plan_list, plan_confirm, btn_apply;
     HWND hist_title, hist_list, hist_edit;
     HWND kw_edit, dest_combo, btn_scan, chk_autoscan;
-    HWND btn_list_rules, btn_upsert;
+    HWND rules_list, btn_list_rules, btn_upsert;
     HWND kw_cur, kw_new, btn_modify;
     HWND chk_img, chk_simimg, chk_vid, chk_simvid;
     HWND tb_threshold, lbl_threshold, tb_speed, lbl_speed;
