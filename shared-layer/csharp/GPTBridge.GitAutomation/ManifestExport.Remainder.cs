@@ -17,12 +17,14 @@ internal static partial class ManifestExport
         var root = ctx.Root;
 
         e.Contains("git-tiers:classify-failclosed",
-            "governance_rule/execution/git_tiers/__init__.py",
+            "shared-layer/csharp/GPTBridge.GitAutomation/Governance.cs",
             new[]
             {
-                "def classify", "TIER1_OPS", "TIER2_OPS",
-                "TIER3_OPS", "return 3",
+                "Classify", "Tier1", "Tier2",
+                "Tier3", "return 3",
             });
+        e.Emit("git-tiers:module-py", "file-not-exists",
+            "governance_rule/execution/git_tiers/__init__.py");
         e.Contains("git-tiers:pre-push-gate",
             "governance_rule/git-hooks/pre-push",
             new[]
@@ -209,66 +211,38 @@ internal static partial class ManifestExport
         e.Emit(
             "sovereign-module:main-system/governance/" +
             "sovereigns/__init__.py",
-            "file-exists",
+            "file-not-exists",
             "main-system/governance/sovereigns/__init__.py");
-        var routesText = ReadText(Rel(root,
-            "governance_rule/permission_directory/registries/" +
-            "permissions/tool_routes.py"));
+        e.Contains("sovereign-module:transition-registry",
+            "governance_rule/execution/audit/" +
+            "sovereign_transition_registry.json",
+            new[] { "sovereign-transition-registry", "A604" });
         var routeIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var marker in new[] { "\"tool_id\"", "'tool_id'" })
-        {
-            var idx = 0;
-            for (;;)
-            {
-                idx = routesText.IndexOf(marker, idx,
-                    StringComparison.Ordinal);
-                if (idx < 0) break;
-                var tail = routesText[(idx + marker.Length)..];
-                foreach (var quote in new[] { '"', '\'' })
-                {
-                    var start = tail.IndexOf(quote);
-                    if (start < 0) continue;
-                    var end = tail.IndexOf(quote, start + 1);
-                    if (end > 0)
-                    {
-                        var cand = tail[(start + 1)..end].Trim();
-                        if (cand.Length > 0) routeIds.Add(cand);
-                        break;
-                    }
-                }
-                idx += 1;
-            }
-        }
+        foreach (var listName in new[]
+                 { "AUTHORIZED_TOOL_IDS", "AI_CHANNEL_TOOL_IDS" })
+            foreach (var rid in ModuleStrings(root,
+                "governance_rule/permission_directory/registries/" +
+                "permissions/tool_routes.py", listName))
+                routeIds.Add(rid);
+        foreach (var scalarName in new[] { "MOBILE_TOOL_ID", "STAR_TOOL_ID" })
+            if (PyLit.AsStr(ModuleVar(root,
+                    "governance_rule/permission_directory/registries/" +
+                    "permissions/tool_routes.py", scalarName))
+                is { } scalarId && scalarId.Length > 0)
+                routeIds.Add(scalarId);
         foreach (var rid in routeIds.OrderBy(s => s,
                      StringComparer.Ordinal))
             e.Contains($"architecture-registry:route:{rid}", archReg,
                 new[] { $"\"{rid}\"" });
 
         // --- gpu torch-free (B167/B38) ----------------------------------
-        // Python oracle emits both pairs: the older gpu-coordinator:*
-        // ids and the newer gpu-torch-free:* ids.
+        // The Python gpu_coordinator lane is retired; the torch-free
+        // invariant is now structural (no Python source may return).
         const string gpuSrc =
             "shared-layer/src/shared_layer/adaptive/" +
             "gpu_coordinator.py";
-        e.Contains("gpu-coordinator:native-probe-markers", gpuSrc, new[]
-        {
-            "_query_via_nvidia_smi", "def query_gpu",
-        });
-        e.NotContains("gpu-coordinator:torch-free", gpuSrc, new[]
-        {
-            "import torch", "from torch", "_query_via_torch",
-            "torch.cuda", "def _torch(", "_TORCH",
-        });
-        e.Contains("gpu-torch-free:probe", gpuSrc, new[]
-        {
-            "_query_via_nvidia_smi", "def query_gpu",
-        });
-        e.NotContains("gpu-torch-free:no-retired-framework", gpuSrc,
-            new[]
-            {
-                "import torch", "from torch", "_query_via_torch",
-                "torch.cuda", "def _torch(",
-            });
+        e.Emit("gpu-coordinator:retired", "file-not-exists", gpuSrc);
+        e.Emit("gpu-torch-free:retired", "file-not-exists", gpuSrc);
 
         // --- renderer idle gating ---------------------------------------
         var rendererBase = Rel(root, "main-system/src-ui/renderer");
@@ -313,13 +287,15 @@ internal static partial class ManifestExport
 
         // --- bounded worker pools ---------------------------------------
         e.Contains("worker-pools:budget-module",
-            "shared-layer/src/shared_layer/performance/" +
-            "thread_budget.py",
+            "native/resource_governor/governor_budget.h",
             new[]
             {
-                "CORE_BUDGET_CAP = 5", "bounded_workers",
-                "bounded_threads", "allocation_within_budget",
+                "BudgetPolicy", "ClassBudget",
+                "ConcurrencyBudget",
             });
+        e.Emit("worker-pools:budget-module-py", "file-not-exists",
+            "shared-layer/src/shared_layer/performance/" +
+            "thread_budget.py");
         var poolSkip = new HashSet<string>(StringComparer.Ordinal)
         {
             "__pycache__", ".venv", "bin", "build", "dist",
@@ -374,12 +350,15 @@ internal static partial class ManifestExport
             ["markers"] = Emitter.Arr(new[] { "findings" }),
         });
         e.Contains("sql-patterns:scanner-machinery",
-            "governance_rule/execution/audit/audit_sql_patterns.py",
+            "shared-layer/csharp/GPTBridge.GitAutomation/" +
+            "ManifestExport.Remainder.SqlScan.cs",
             new[]
             {
-                "collect_finding_keys", "baseline_path",
-                "_SELECT_STAR", "_OFFSET",
+                "CollectFindingKeys", "SqlScanRoots",
+                "SelectStar", "OffsetRe",
             });
+        e.Emit("sql-patterns:scanner-py", "file-not-exists",
+            "governance_rule/execution/audit/audit_sql_patterns.py");
         foreach (var violation in CollectFindingKeys(root)
                      .Distinct(StringComparer.Ordinal)
                      .OrderBy(s => s, StringComparer.Ordinal))

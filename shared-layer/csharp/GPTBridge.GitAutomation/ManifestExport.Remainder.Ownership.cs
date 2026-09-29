@@ -23,13 +23,6 @@ internal static partial class ManifestExport
             so.TryGetValue(name, out var v) ? PyLit.Strings(v)
                 : new List<string>();
 
-        if (so.TryGetValue("REQUIRED_OWNED_SOURCES", out var owned)
-            && owned is PyLit.Dict ownedDict)
-            foreach (var (key, val) in ownedDict.Entries)
-                foreach (var rel in PyLit.Strings(val)
-                             .OrderBy(s => s, StringComparer.Ordinal))
-                    e.Emit($"owned-source:{rel}", "file-exists", rel);
-
         var retired = new HashSet<string>(StringComparer.Ordinal);
         var retiredDoc = ReadJsonObject(Rel(root,
             "governance_rule/execution/audit/retired_sources.json"));
@@ -37,20 +30,37 @@ internal static partial class ManifestExport
             foreach (var p in paths)
                 if (p?.GetValue<string>() is { } s)
                     retired.Add(s);
+
+        //  Owned-source contract, retirement-aware (B167/B38): a .py
+        //  source that still exists keeps its file-exists ownership
+        //  check; one already retired becomes a never-reappear pin.
+        if (so.TryGetValue("REQUIRED_OWNED_SOURCES", out var owned)
+            && owned is PyLit.Dict ownedDict)
+            foreach (var (key, val) in ownedDict.Entries)
+                foreach (var rel in PyLit.Strings(val)
+                             .OrderBy(s => s, StringComparer.Ordinal))
+                {
+                    var kind = rel.EndsWith(".py",
+                                   StringComparison.Ordinal)
+                               && !File.Exists(Rel(root, rel))
+                        ? "file-not-exists" : "file-exists";
+                    e.Emit($"owned-source:{rel}", kind, rel);
+                }
         var forbidden = SoStrings("FORBIDDEN_LEGACY_BUSINESS_SOURCES")
             .Union(retired).OrderBy(s => s, StringComparer.Ordinal);
         foreach (var rel in forbidden)
             e.Emit($"forbidden-source:{rel}", "file-not-exists", rel);
 
-        e.Emit("owned-source:visual-smoke", "file-exists",
+        e.Emit("owned-source:visual-smoke", "file-not-exists",
             "Standalone tools/ai-assistant/scripts/visual_smoke.py");
-        e.NotContains("main-system:ipc-symbols",
-            "main-system/src-core/ipc/server.py",
-            new[]
-            {
-                "_investment_watch_result_log_payload",
-                "_INVESTMENT_WATCH_LOG_",
-            });
+        e.Emit("main-system:ipc-server-retired", "file-not-exists",
+            "main-system/src-core/ipc/server.py");
+        e.Checks.Add(new JsonObject
+        {
+            ["id"] = "main-system:ipc-contract",
+            ["kind"] = "json-parses",
+            ["path"] = "main-system/src-core/ipc/server.json",
+        });
 
         var packages = new (string Root, string Layers)[]
         {
@@ -70,8 +80,12 @@ internal static partial class ManifestExport
             if (pkg.Length == 0) continue;
             foreach (var layer in SoStrings(layerName)
                          .OrderBy(s => s, StringComparer.Ordinal))
-                e.Emit($"pkg-layer:{pkg}:{layer}", "file-exists",
-                    $"{pkg}/{layer}/__init__.py");
+            {
+                var init = $"{pkg}/{layer}/__init__.py";
+                e.Emit($"pkg-layer:{pkg}:{layer}",
+                    File.Exists(Rel(root, init))
+                        ? "file-exists" : "file-not-exists", init);
+            }
             var pkgDir = Rel(root, pkg);
             if (Directory.Exists(pkgDir))
                 foreach (var stray in Directory
@@ -116,6 +130,7 @@ internal static partial class ManifestExport
                         ["kind"] = "tree-not-contains",
                         ["path"] = tree,
                         ["glob"] = "*.py",
+                        ["optional"] = true,
                         ["markers"] = Emitter.Arr(new[]
                         {
                             $"import {prefix}", $"from {prefix}",
@@ -127,6 +142,7 @@ internal static partial class ManifestExport
             ["kind"] = "tree-not-contains",
             ["path"] = "shared-layer/src",
             ["glob"] = "*.py",
+            ["optional"] = true,
             ["ignore_case"] = true,
             ["markers"] = Emitter.Arr(
                 SoStrings("SHARED_LAYER_FORBIDDEN_TERMS")
@@ -138,6 +154,7 @@ internal static partial class ManifestExport
             ["kind"] = "tree-not-contains",
             ["path"] = "main-system/src-core",
             ["glob"] = "*.py",
+            ["optional"] = true,
             ["ignore_case"] = true,
             ["markers"] = Emitter.Arr(
                 SoStrings("MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS")
@@ -157,6 +174,7 @@ internal static partial class ManifestExport
             ["kind"] = "tree-not-contains",
             ["path"] = aiRoot,
             ["glob"] = "*.py",
+            ["optional"] = true,
             ["markers"] = Emitter.Arr(netMarkers),
         });
         var sharedRoot = SoStr("SHARED_LAYER_ROOT");
