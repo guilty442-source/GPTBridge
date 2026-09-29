@@ -12,7 +12,7 @@ use tauri::{Manager, WebviewUrl};
 
 use gptbridge_core::app::{self, manage_backend};
 use gptbridge_core::lifecycle;
-use gptbridge_core::native::paths;
+use gptbridge_core::native::{paths, sizes};
 
 use crate::js_bridge;
 use crate::webview_host;
@@ -99,6 +99,21 @@ fn start_load_watchdog(app: tauri::AppHandle) {
             }
             _ => {}
         }
+    });
+}
+
+/// Warm the platform-tool size cache during shell startup.  A cold
+/// workspace walk (.git / .worktrees / target trees) can exceed the
+/// renderer's platform-tools startup budget — starting the scan before
+/// the webview asks makes the first ``app:get-platform-tool-sizes`` call
+/// a cache hit (or a short remainder) instead of a full cold walk.
+fn start_sizes_warmup() {
+    std::thread::spawn(|| {
+        let root = paths::path_library().workspace_root.clone();
+        let tools = sizes::platform_tool_sizes(&root, false);
+        let main_system = sizes::main_system_size(&root, false);
+        let shared_layer = sizes::shared_layer_size(&root, false);
+        let _ = sizes::workspace_size(&root, &tools, &main_system, &shared_layer, false);
     });
 }
 
@@ -198,6 +213,7 @@ pub fn run() {
             create_main_window(&app.handle())?;
             start_renderer_watch(app.handle().clone());
             start_load_watchdog(app.handle().clone());
+            start_sizes_warmup();
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
             js_bridge::loopback::start_embedded_browser_bridge(&app.handle());

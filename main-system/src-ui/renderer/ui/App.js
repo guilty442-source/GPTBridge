@@ -280,7 +280,10 @@ export function mountApp() {
 	};
 
 	function update() {
+		window.__updateCalls = (window.__updateCalls || 0) + 1;
+		try {
 		const s = appState.get();
+		window.__appStateProbe = () => ({ ...appState.get(), socketState: appState.get().backendSocket });
 		const tbState = toolbox.get();
 		const globalFaults = getRuntimeStatusField("global_faults");
 		const nativeModel = getRuntimeStatusField("xingcheng_native_model_runtime");
@@ -342,6 +345,11 @@ export function mountApp() {
 		drawerApi.sagaVisualizer?.setConnected?.(s.connected);
 
 		if (toolboxEntry?.update) guardedUpdate(tb.title, () => toolboxEntry.update());
+		window.__updateLastError = null;
+		} catch (error) {
+			window.__updateLastError = String(error && error.stack || error);
+			throw error;
+		}
 	}
 
 	const footerVersion = h("span", null, "GPTBridge v1.0");

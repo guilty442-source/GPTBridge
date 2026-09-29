@@ -31,6 +31,7 @@ const DEFAULT_PORT: u16 = 8765;
 const MAX_WS_CONNECTIONS: u64 = 32;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(20);
+const STATUS_EVAL_INTERVAL: Duration = Duration::from_secs(2);
 
 static ACTIVE_CONNECTIONS: AtomicU64 = AtomicU64::new(0);
 static NEXT_CONNECTION: AtomicU64 = AtomicU64::new(1);
@@ -222,6 +223,7 @@ fn handle_connection(mut stream: TcpStream) {
     status["push"] = json!(true);
     status["immediate"] = json!(true);
     let _ = socket.send(&json!({"event": "runtime_status_push", "payload": status}));
+    let mut next_status_eval = Instant::now() + STATUS_EVAL_INTERVAL;
 
     // Parity with the Python session loop: a latched-dead startup enters
     // degraded mode so the client stays connected and can observe status.
@@ -248,6 +250,19 @@ fn handle_connection(mut stream: TcpStream) {
         if now >= next_ping {
             next_ping = now + HEARTBEAT_INTERVAL;
             if !socket.send(&json!({"event": "heartbeat_ping", "payload": {}})) {
+                break;
+            }
+        }
+        // Retired-Python parity: the backend re-pushes a status report on
+        // every cycle — the renderer never polls, so a lost or stale push
+        // must self-heal; change-detection alone leaves a client that
+        // missed the immediate push stuck in Synchronizing forever.
+        if now >= next_status_eval {
+            next_status_eval = now + STATUS_EVAL_INTERVAL;
+            let current = health::health_payload("brief");
+            if !socket
+                .send(&json!({"event": "runtime_status_push", "payload": current}))
+            {
                 break;
             }
         }

@@ -234,7 +234,10 @@ export async function startStartupPipeline() {
 		return;
 	}
 	const config = await serviceManager.registerAndRun("config", "Config", async () => api.invoke("app:get-status"), 3e3);
-	const startupChecks = [serviceManager.registerAndRun("platform-tools", "Platform Tools", async () => inspectPlatformTools(api), 5e3), serviceManager.registerAndRun("websocket", "WebSocket", async () => waitForWebSocketReady(), 16e3)];
+	// Platform-tools budget covers a cold workspace size walk (.git /
+	// .worktrees / build trees); the shell warm-up usually beats it, but a
+	// genuinely cold disk can legitimately take tens of seconds.
+	const startupChecks = [serviceManager.registerAndRun("platform-tools", "Platform Tools", async () => inspectPlatformTools(api), 3e4), serviceManager.registerAndRun("websocket", "WebSocket", async () => waitForWebSocketReady(), 16e3)];
 	if (config?.backendManaged === false) {
 		serviceManager.markSkipped("backend", "Backend", "Managed externally");
 	} else {
