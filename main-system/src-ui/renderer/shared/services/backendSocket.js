@@ -3,7 +3,7 @@ import { eventBus } from "../RuntimeEventBus.js";
 import { getAuthenticatedBackendWebSocketUrl } from "./backendSession.js";
 import { resetBackendRecovery } from "./backendRecovery.js";
 import { mainSystemLocale } from "@/locales/main-system";
-import { INITIAL_STATE, WS_RECONNECT_BASE_DELAY_MS, WS_RECONNECT_MAX_DELAY_MS, WS_CONNECT_TIMEOUT_MS, WS_COMMAND_QUEUE_MAX, WS_COMMAND_QUEUE_TTL_MS, WS_STALE_CONNECTION_MS, OUTBOX_CURSOR_KEY, OUTBOX_GENERATION_KEY, updateBackendConnectionSnapshot, getBackendConnectionSnapshot } from "./backendSocketTypes.js";
+import { INITIAL_STATE, WS_RECONNECT_BASE_DELAY_MS, WS_RECONNECT_MAX_DELAY_MS, WS_CONNECT_TIMEOUT_MS, WS_COMMAND_QUEUE_MAX, WS_COMMAND_QUEUE_TTL_MS, WS_STALE_CONNECTION_MS, OUTBOX_CURSOR_KEY, OUTBOX_GENERATION_KEY, updateBackendConnectionSnapshot } from "./backendSocketTypes.js";
 import { handleOutboxSession, handleOutboxStateEvent } from "./backendSocketOutbox.js";
 import { applyRuntimeStatusReport } from "./runtimeStatusStore.js";
 import { createStore } from "../mini/dom.js";
@@ -379,7 +379,6 @@ export const createBackendSocket = () => {
 		}
 	}, 1e4);
 	void connect();
-	window.__backendSocketProbe = { getState: () => store.get(), snapshot: () => getBackendConnectionSnapshot() };
 
 	return {
 		getState() {
