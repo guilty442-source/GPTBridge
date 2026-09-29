@@ -1,0 +1,151 @@
+{
+  "AI_CHANNEL_ID": "shared-layer/ai-channel",
+  "AUTHORIZED_TOOL_IDS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "ai-assistant",
+        "xingcheng",
+        "ai-collaboration",
+        "star-chat"
+      ]
+    ],
+    "$kw": {}
+  },
+  "AI_CHANNEL_TOOL_IDS": [
+    [
+      "ai-assistant",
+      "xingcheng",
+      "ai-collaboration",
+      "star-chat",
+      "investment-mobile",
+      "model-dialogue"
+    ]
+  ],
+  "SELF_HOSTED_TOOL_EXEMPTIONS": {
+    "model-dialogue": "model-dialogue"
+  },
+  "XINGCHENG_AUTOMATIC_WORKFLOW_SEQUENCE": [
+    "receive-original-traditional-chinese",
+    "native-understand-command-and-normalize-taiwan-chinese",
+    "native-analyze-code-stem-and-tool-calling-at-workflow-front",
+    "extract-actions-objects-parameters-constraints",
+    "classify-task-and-intensity",
+    "apply-safety-and-permission-gates",
+    "decompose-and-route-subtasks",
+    "execute-and-collect-results",
+    "cross-validate-repair-or-escalate",
+    "integrate-localize-apply-verify-and-report"
+  ],
+  "_TOOL_ACTOR_PREFIX": "governance/tool/",
+  "_GOVERNANCE_MAIN_ACTOR": "governance/main-system",
+  "AI_ROUTE_COMMANDS": {
+    "$dict": [
+      [
+        [
+          "ai-assistant",
+          "xingcheng"
+        ],
+        {
+          "$call": "frozenset",
+          "$args": [
+            [
+              "xingcheng_status",
+              "xingcheng_infer",
+              "xingcheng_search_investments",
+              "xingcheng_analyze_investments",
+              "xingcheng_discuss_investment_analysis",
+              "xingcheng_manage_investment_accounting",
+              "xingcheng_evaluate_upgrade",
+              "xingcheng_memory_list",
+              "xingcheng_memory_review"
+            ]
+          ],
+          "$kw": {}
+        }
+      ],
+      [
+        [
+          "star-chat",
+          "xingcheng"
+        ],
+        {
+          "$call": "frozenset",
+          "$args": [
+            [
+              "xingcheng_status",
+              "xingcheng_infer",
+              "xingcheng_codex_alignment",
+              "xingcheng_codex_mirror_check"
+            ]
+          ],
+          "$kw": {}
+        }
+      ],
+      [
+        [
+          "model-dialogue",
+          "xingcheng"
+        ],
+        {
+          "$call": "frozenset",
+          "$args": [
+            [
+              "xingcheng_status",
+              "xingcheng_infer",
+              "xingcheng_codex_alignment",
+              "xingcheng_codex_mirror_check",
+              "xingcheng_sql_get_personality",
+              "xingcheng_sql_save_personality"
+            ]
+          ],
+          "$kw": {}
+        }
+      ],
+      [
+        [
+          "xingcheng",
+          "ai-collaboration"
+        ],
+        {
+          "$call": "frozenset",
+          "$args": [
+            [
+              "ai_nexus_send_message"
+            ]
+          ],
+          "$kw": {}
+        }
+      ],
+      [
+        [
+          "xingcheng",
+          "ai-assistant"
+        ],
+        {
+          "$call": "frozenset",
+          "$args": [
+            [
+              "investment_mobile_get_snapshot",
+              "investment_mobile_submit_instruction"
+            ]
+          ],
+          "$kw": {}
+        }
+      ]
+    ]
+  },
+  "MOBILE_TOOL_ID": "investment-mobile",
+  "STAR_TOOL_ID": "xingcheng",
+  "MOBILE_ACTOR": "governance/tool/investment-mobile",
+  "MOBILE_ROUTE_COMMAND": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "xingcheng_mobile_get_investment_snapshot",
+        "xingcheng_mobile_submit_investment_instruction"
+      ]
+    ],
+    "$kw": {}
+  }
+}

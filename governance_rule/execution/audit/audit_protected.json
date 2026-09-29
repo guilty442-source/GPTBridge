@@ -1,0 +1,24 @@
+{
+  "FORBIDDEN_LEGACY_SOURCES": [
+    "main-system/src-core/core_logger.py",
+    "main-system/src-core/core_system/boundaries.py",
+    "main-system/src-core/governance",
+    "main-system/scripts/audit_runtime_governance.py",
+    "platform_tools"
+  ],
+  "REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "governance_rule/execution/authentication/__init__.py",
+        "governance_rule/execution/integrity/__init__.py",
+        "governance_rule/execution/versioning/__init__.py",
+        "governance_rule/execution/git_tiers/__init__.py",
+        "governance_rule/permission_directory/execution/identity_registry/__init__.py",
+        "governance_rule/permission_directory/execution/path_guard/__init__.py",
+        "main-system/src-core/core_system/governance_runtime.py"
+      ]
+    ],
+    "$kw": {}
+  }
+}

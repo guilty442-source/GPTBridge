@@ -11,8 +11,29 @@ internal static partial class ManifestExport
         var e = ctx.E;
         var root = ctx.Root;
 
+        e.Emit("metadata-contract:retired", "file-not-exists",
+            "shared-layer/src/shared_layer/metadata_contract.py");
         e.Emit("metadata-contract:ownership-doc", "file-exists",
             "shared-layer/docs/DATA_OWNERSHIP_CONTRACT.md");
+
+        var shared = ctx.PolicyKw("shared_layer");
+        //  source_root (shared-layer/src) is the retired Python root —
+        //  it must NOT be required to exist; the never-reappear pins
+        //  below keep governing it.
+        foreach (var relative in new[]
+                 {
+                     KwStr(shared, "module_root"),
+                     KwStr(shared, "data_root"),
+                 })
+            if (relative is not null)
+                e.Emit($"shared-layer-dir:{relative}", "dir-exists",
+                    relative);
+        var sourceRoot = KwStr(shared, "source_root") ?? "shared-layer/src";
+        //  Python sources retired (B167/B38): the owned-source contract is
+        //  now the pin that they must never reappear.
+        foreach (var name in new[] { "__init__.py", "channel.py", "store.py" })
+            e.Emit($"shared-layer-source:{name}", "file-not-exists",
+                $"{sourceRoot}/shared_layer/{name}");
 
         foreach (var path in new[]
         {
@@ -52,7 +73,22 @@ internal static partial class ManifestExport
             });
         e.Emit("embedded-browser:module", "file-exists",
             "main-system/src-tauri/src/webview_host/mod.rs");
+        e.Emit("embedded-browser:client", "file-not-exists",
+            "shared-layer/src/shared_layer/embedded_browser_client.py");
 
+        e.Emit("orphan-scanner:retired", "file-not-exists",
+            "shared-layer/src/shared_layer/database/orphan_scanner.py");
+
+        e.Contains("git-tiers:module",
+            "shared-layer/csharp/GPTBridge.GitAutomation/Governance.cs",
+            new[]
+            {
+                "TierGate", "Tier1", "Tier2", "Tier3",
+                "Classify", "GateResult Execute",
+            });
+        e.Contains("git-tiers:gate-wrapper",
+            "governance_rule/git-hooks/pre-commit",
+            new[] { "GPTBridge.GitAutomation", "--hook" });
         e.Contains("git-tiers:pre-push",
             "governance_rule/git-hooks/pre-push",
             new[]
@@ -75,6 +111,53 @@ internal static partial class ManifestExport
                 "state",
             }),
         });
+
+        e.Contains("architecture:shared-database-canonical",
+            "shared-layer/csharp/GPTBridge.CodexPipeline/PgDsn.cs",
+            new[] { "postgresql://local/gptbridge_codex" });
+        e.Contains("architecture:local-vector-degraded",
+            "Standalone tools/vectord-rs/src/store.rs",
+            new[]
+            {
+                "never the formal data authority",
+                "PostgreSQL owns canonical",
+            });
+        foreach (var name in new[]
+                 { "market_data.json",
+                   "xingcheng_tools/search/searchd.json" })
+        {
+            var path = "Standalone tools/local-model/src/backend/services/" +
+                       $"xingcheng/infrastructure/{name}";
+            e.Contains($"architecture:network-allowlist:{name}", path,
+                new[] { "NETWORK_DESTINATION_ALLOWLIST" });
+        }
+
+        //  Python shared-layer reconcile modules retired; the
+        //  decision-surface invariants collapse to never-reappear pins.
+        e.Emit("reconcile:state-store",
+            "file-not-exists",
+            "shared-layer/src/shared_layer/reconcile.py");
+        e.Emit("reconcile:no-decision-surface",
+            "file-not-exists",
+            "shared-layer/src/shared_layer/reconcile.py");
+        e.Emit("reconcile:decision-owner",
+            "file-not-exists",
+            "main-system/src-core/core_system/data_reconciliation.py");
+
+        e.Emit("main-system:no-legacy-enforcer",
+            "file-not-exists", "main-system/src-core/main.py");
+        e.Emit("main-system:no-persistent-logger",
+            "file-not-exists", "main-system/src-core/main.py");
+        e.Emit("main-system:governance-denied",
+            "file-not-exists",
+            "main-system/src-core/core_system/governance_runtime.py");
+        e.Contains("main-system:launcher-attested",
+            "shared-layer/csharp/GPTBridge.MainSystem/StartupGate.cs",
+            new[]
+            {
+                "gate_ok", "STARTUP_PHASE_MAX_WORKERS",
+                "STARTUP_GATE_DEADLINE_SECONDS",
+            });
 
         const string bootstrapDir =
             "main-system/launcher/src/GPTBridge.Bootstrap";
@@ -135,6 +218,13 @@ internal static partial class ManifestExport
                 "\"hello\"", "\"claim\"", "\"respond\"",
                 "\"request_cancelled\"", "\"notification_stamp\"",
             });
+        e.Contains("tool-host:spawn-exe-branch",
+            "main-system/config/tool-runtime-contract.json",
+            new[] { "\"allowed_modes\"", "\"executable\"" });
+        e.Contains("tool-host:resolver-native-entry",
+            "main-system/config/tool-runtime-contract.json",
+            new[] { "\"special-unpackaged\"", "\"exe_required\"" });
+
         var tsExclude = new[]
         {
             "venv", "node_modules", "__pycache__", "dist", "dist-ui",
@@ -144,15 +234,6 @@ internal static partial class ManifestExport
             e.Checks.Add(new JsonObject
             {
                 ["id"] = $"typescript-retirement:{pattern}",
-                ["kind"] = "glob-absent",
-                ["path"] = "",
-                ["glob"] = pattern,
-                ["exclude"] = Emitter.Arr(tsExclude),
-            });
-        foreach (var pattern in new[] { "*.py", "*.pyc" })
-            e.Checks.Add(new JsonObject
-            {
-                ["id"] = $"python-retirement:glob-absent:{pattern}",
                 ["kind"] = "glob-absent",
                 ["path"] = "",
                 ["glob"] = pattern,
@@ -203,14 +284,13 @@ internal static partial class ManifestExport
         });
 
         e.Contains("global-cleaner-retired:identity",
-            SourceRel(root,
-                "governance_rule/permission_directory/registries/" +
-                "permissions/identity_groups.py"),
+            "governance_rule/permission_directory/registries/" +
+            "permissions/identity_groups.json",
             new[]
             {
                 "GLOBAL_CLEANER_IDENTITY",
-                "bound_tool_id=\"global-cleaner\"",
-                "lifecycle=\"retired\"",
+                "\"bound_tool_id\": \"global-cleaner\"",
+                "\"lifecycle\": \"retired\"",
             });
         e.Checks.Add(new JsonObject
         {
@@ -218,6 +298,23 @@ internal static partial class ManifestExport
             ["kind"] = "file-not-exists",
             ["path"] = "Standalone tools/global-cleaner",
         });
+
+        e.Contains("tool-isolation:controls",
+            "main-system/config/tool-isolation-policy.json",
+            new[]
+            {
+                "\"isolate_on_crash\": true",
+                "\"notify_main_system\": true",
+                "\"kill_on_job_close\": true",
+            });
+        e.Contains("tool-isolation:spawn-containment",
+            "main-system/config/tool-isolation-policy.json",
+            new[]
+            {
+                "\"allow_breakaway\": false",
+                "\"kill_on_job_close\": true",
+                "\"wait_for_children\": true",
+            });
 
         const string inventory =
             "governance_rule/execution/third_party_management/" +
@@ -243,6 +340,13 @@ internal static partial class ManifestExport
                 "tools[local-rag].formality=bounded-degraded-fallback",
             }),
         });
+
+        e.Contains("worker-pools:thread-budget-module",
+            "native/resource_governor/governor_budget.h",
+            new[]
+            {
+                "concurrency-budget", "interactive_share",
+            });
 
         foreach (var axis in new[]
         {

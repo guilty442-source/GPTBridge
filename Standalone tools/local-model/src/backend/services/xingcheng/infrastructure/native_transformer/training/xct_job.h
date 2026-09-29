@@ -1,0 +1,285 @@
+// xct_job.h — B94 fragment of xingcheng_trainer.cpp (job/load_data/run_job/smoke).
+// Included once by xingcheng_trainer.cpp inside namespace xct.
+#pragma once
+
+// ------------------------------------------------------------------- job --
+
+struct Example {
+    std::vector<int> ids, labels;              // sft/pretrain
+    std::vector<int> rej_ids, rej_labels;      // dpo
+};
+
+static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt,
+                                      int max_rows, int max_len) {
+    std::vector<Example> out;
+    std::string path = j_str(d, "path", "");
+    std::ifstream f(path);
+    if (!f) throw "data: path unreadable";
+    std::string line;
+    while ((int)out.size() < max_rows && std::getline(f, line)) {
+        if (line.empty()) continue;
+        JsonValue row;
+        try { row = JsonParser(line).parse(); } catch (...) { continue; }
+        Example e;
+        if (fmt == "dpo") {
+            const JsonValue* ch = row.get("chosen");
+            const JsonValue* rj = row.get("rejected");
+            if (!ch || !rj) continue;
+            e.ids = j_ids(ch, "input_ids");
+            e.labels = j_ids(ch, "labels");
+            if (e.labels.empty()) e.labels = e.ids;
+            e.rej_ids = j_ids(rj, "input_ids");
+            e.rej_labels = j_ids(rj, "labels");
+            if (e.rej_labels.empty()) e.rej_labels = e.rej_ids;
+        } else {
+            e.ids = j_ids(&row, "input_ids");
+            if (fmt == "sft") {
+                e.labels = j_ids(&row, "labels");
+                if (e.labels.empty()) e.labels = e.ids;
+            } else {
+                e.labels = e.ids;              // pretrain: shifted CE
+            }
+        }
+        if ((int)e.ids.size() > max_len) { e.ids.resize(max_len); e.labels.resize(max_len); }
+        if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
+        if (e.ids.size() >= 2) out.push_back(std::move(e));
+    }
+    return out;
+}
+
+struct TrainCfg {
+    float lr = 3e-4f, wd = 0.01f, clip = 1.0f, beta = 0.1f;
+    int warmup = 0, max_steps = 100, log_every = 10, ckpt_every = 0;
+    uint64_t seed = 42;
+    double deadline_s = 0.0;                   // 0 = unbounded (bounded by steps)
+    std::string init_ckpt, emit_ckpt, decay = "cosine";
+    bool overwrite = false;
+};
+
+static double now_s() {
+    return std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// cross-entropy with next-token shift inside a row
+static void shift_labels(std::vector<int>& lab) {
+    if (lab.size() < 2) return;
+    for (size_t i = 0; i + 1 < lab.size(); ++i) lab[i] = lab[i + 1];
+    lab.back() = -100;
+}
+
+static JsonValue run_job(const JsonValue& job) {
+    const JsonValue* mj = job.get("model");
+    const JsonValue* tj = job.get("train");
+    const JsonValue* dj = job.get("data");
+    std::string task = j_str(&job, "task", "sft");
+
+    ModelConfig c = parse_model(mj);
+    TrainCfg tc;
+    tc.lr = (float)j_num(tj, "lr", tc.lr);
+    tc.wd = (float)j_num(tj, "weight_decay", tc.wd);
+    tc.clip = (float)j_num(tj, "grad_clip", tc.clip);
+    tc.beta = (float)j_num(tj, "beta", tc.beta);
+    tc.warmup = j_int(tj, "warmup_steps", 0);
+    tc.max_steps = j_int(tj, "max_steps", tc.max_steps);
+    tc.log_every = j_int(tj, "log_every", tc.log_every);
+    tc.ckpt_every = j_int(tj, "checkpoint_every", 0);
+    tc.seed = (uint64_t)j_num(tj, "seed", tc.seed);
+    tc.deadline_s = j_num(tj, "deadline_s", 0);
+    tc.decay = j_str(tj, "lr_decay", tc.decay);
+    tc.init_ckpt = j_str(tj, "init_checkpoint", "");
+    tc.emit_ckpt = j_str(tj, "emit_checkpoint", "");
+    tc.overwrite = j_bool(tj, "overwrite", false);
+    int max_rows = j_int(dj, "max_rows", 10000);
+    int max_len = j_int(dj, "max_len", c.max_pos);
+
+    Params p;
+    init_params(p, c, tc.seed);
+    ModelConfig file_cfg = c;
+    if (!tc.init_ckpt.empty()) {
+        if (!ckpt_load(p, file_cfg, tc.init_ckpt))
+            throw "init_checkpoint: unreadable or shape mismatch";
+    }
+    // DPO reference: frozen copy of the initial weights
+    Params ref;
+    if (task == "dpo") { ref = p; }
+
+    std::vector<Example> data = load_data(dj, j_str(dj, "format", task), max_rows, max_len);
+    if (data.empty()) throw "data: no usable rows";
+
+    std::mt19937 rng((uint32_t)tc.seed);
+    std::shuffle(data.begin(), data.end(), rng);
+
+    std::string log;
+    std::vector<float> losses;
+    double t0 = now_s();
+    int step = 0;
+    bool deadline_hit = false;
+    Fwd fw;
+    std::vector<float> dlogits;
+
+    while (step < tc.max_steps) {
+        for (auto& ex : data) {
+            if (step >= tc.max_steps) break;
+            if (tc.deadline_s > 0 && now_s() - t0 > tc.deadline_s) {
+                deadline_hit = true; break;
+            }
+            p.zero_grad();
+            float loss = 0.0f;
+            if (task == "dpo") {
+                // policy chosen
+                fw.layers.clear(); fw.moe_aux = 0.0f;
+                fwd(p, c, ex.ids, fw);
+                float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
+                Fwd fc; fwd(ref, c, ex.ids, fc);
+                float rp_c = seq_logprob(fc.logits, ex.labels, (int)ex.ids.size(), c.vocab);
+                Fwd fr; fwd(p, c, ex.rej_ids, fr);
+                float lp_r = seq_logprob(fr.logits, ex.rej_labels, (int)ex.rej_ids.size(), c.vocab);
+                Fwd frr; fwd(ref, c, ex.rej_ids, frr);
+                float rp_r = seq_logprob(frr.logits, ex.rej_labels, (int)ex.rej_ids.size(), c.vocab);
+                float margin = (lp_c - rp_c) - (lp_r - rp_r);
+                float sig = 1.0f / (1.0f + std::exp(-tc.beta * margin));
+                loss = -std::log(sig + 1e-9f);
+                // dL/dlp_chosen = -beta*sigma(-beta*margin) = -beta*(1-sig);
+                // dL/dlp_rejected = +beta*(1-sig). soft_grad emits
+                // scale*(p - 1[y]) = scale*d(-lp)/dz, so scale = beta*(1-sig).
+                float s = tc.beta * (1.0f - sig);
+                std::vector<float> dl_c(fw.logits.size(), 0.0f), dl_r(fr.logits.size(), 0.0f);
+                auto soft_grad = [&](const std::vector<float>& lg,
+                                     const std::vector<int>& lab, int T,
+                                     float scale, std::vector<float>& dl) {
+                    for (int t = 0; t < T; ++t) {
+                        int y = lab[t];
+                        if (y < 0 || y >= c.vocab) continue;
+                        const float* lr = lg.data() + (size_t)t * c.vocab;
+                        float mx = *std::max_element(lr, lr + c.vocab), sum = 0.0f;
+                        for (int i = 0; i < c.vocab; ++i) sum += std::exp(lr[i] - mx);
+                        float* d = dl.data() + (size_t)t * c.vocab;
+                        for (int i = 0; i < c.vocab; ++i) d[i] = scale * std::exp(lr[i] - mx) / sum;
+                        d[y] -= scale;
+                    }
+                };
+                soft_grad(fw.logits, ex.labels, (int)ex.ids.size(), s, dl_c);
+                soft_grad(fr.logits, ex.rej_labels, (int)ex.rej_ids.size(), -s, dl_r);
+                bwd(p, c, ex.ids, fw, dl_c, 0.0f);
+                Fwd fr2 = std::move(fr);        // reuse caches for rej backward
+                bwd(p, c, ex.rej_ids, fr2, dl_r, 0.0f);
+            } else {
+                std::vector<int> lab = ex.labels;
+                if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
+                    shift_labels(lab);
+                fw.layers.clear(); fw.moe_aux = 0.0f;
+                fwd(p, c, ex.ids, fw);
+                loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
+                       + fw.moe_aux;
+                bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+            }
+            // grad clip (global norm)
+            double gnorm = 0.0f;
+            for (auto& n : p.order)
+                for (float x : p.g[n].d) gnorm += (double)x * x;
+            gnorm = std::sqrt(gnorm);
+            float gscale = (tc.clip > 0 && gnorm > tc.clip) ? tc.clip / (float)gnorm : 1.0f;
+            // adamw
+            float lr_t = tc.lr;
+            if (tc.warmup > 0 && step < tc.warmup) lr_t *= (float)(step + 1) / tc.warmup;
+            else if (tc.decay == "cosine" && tc.max_steps > tc.warmup) {
+                float pr = (float)(step - tc.warmup) / (tc.max_steps - tc.warmup);
+                lr_t *= 0.5f * (1.0f + std::cos(3.14159265f * std::min(1.0f, pr)));
+            }
+            float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
+            float bc1 = 1.0f - std::pow(b1, step + 1), bc2 = 1.0f - std::pow(b2, step + 1);
+            for (auto& n : p.order) {
+                Tensor& w = p.w[n]; Tensor& g = p.g[n];
+                Tensor& m = p.m[n]; Tensor& v = p.v[n];
+                for (size_t i = 0; i < w.d.size(); ++i) {
+                    float gi = g.d[i] * gscale;
+                    m.d[i] = b1 * m.d[i] + (1 - b1) * gi;
+                    v.d[i] = b2 * v.d[i] + (1 - b2) * gi * gi;
+                    float mh = m.d[i] / bc1, vh = v.d[i] / bc2;
+                    w.d[i] -= lr_t * (mh / (std::sqrt(vh) + eps) + tc.wd * w.d[i]);
+                }
+            }
+            losses.push_back(loss);
+            ++step;
+            if (tc.ckpt_every > 0 && step % tc.ckpt_every == 0 && !tc.emit_ckpt.empty())
+                ckpt_save(p, c, tc.emit_ckpt, /*overwrite*/true);
+        }
+        if (deadline_hit) break;
+    }
+
+    bool finite = true;
+    for (auto& n : p.order)
+        for (float x : p.w[n].d)
+            if (!std::isfinite(x)) finite = false;
+
+    bool emitted = false;
+    if (!tc.emit_ckpt.empty()) emitted = ckpt_save(p, c, tc.emit_ckpt, tc.overwrite);
+
+    JsonValue r; r.type = JsonValue::Type::Object;
+    auto put = [&](const char* k, JsonValue v) { r.object.emplace_back(k, std::move(v)); };
+    auto num = [](double x) { JsonValue v; v.type = JsonValue::Type::Number; v.number = x; return v; };
+    auto str = [](const char* s) { JsonValue v; v.type = JsonValue::Type::String; v.string = s; return v; };
+    auto bol = [](bool b) { JsonValue v; v.type = JsonValue::Type::Bool; v.boolean = b; return v; };
+    put("schema", str("star-native-train-report/v1"));
+    put("task", str(task.c_str()));
+    put("steps", num(step));
+    put("examples", num((double)data.size()));
+    put("deadline_hit", bol(deadline_hit));
+    put("params_finite", bol(finite));
+    put("checkpoint_emitted", bol(emitted));
+    put("checkpoint_path", str(tc.emit_ckpt.c_str()));
+    if (!losses.empty()) {
+        put("loss_first", num(losses.front()));
+        put("loss_last", num(losses.back()));
+        float mn = *std::min_element(losses.begin(), losses.end());
+        put("loss_min", num(mn));
+        JsonValue tail; tail.type = JsonValue::Type::Array;
+        size_t st = losses.size() > 10 ? losses.size() - 10 : 0;
+        for (size_t i = st; i < losses.size(); ++i) tail.array.push_back(num(losses[i]));
+        put("loss_tail", tail);
+    }
+    put("elapsed_s", num(now_s() - t0));
+    return r;
+}
+
+// ------------------------------------------------------------------ smoke --
+
+static int smoke() {
+    // L0-L2 maturity probe: structure init finite, fwd/bwd finite,
+    // optimizer steps decrease loss on a fixed 8-sample set.
+    std::string job = R"({
+        "task":"sft",
+        "model":{"vocab_size":64,"hidden_size":32,"intermediate_size":64,
+                 "num_hidden_layers":2,"num_attention_heads":4,
+                 "num_key_value_heads":2,"max_position_embeddings":32},
+        "train":{"lr":0.05,"max_steps":30,"grad_clip":1.0,"warmup_steps":0,
+                 "lr_decay":"constant","seed":7,"log_every":5},
+        "data":{"path":"","format":"sft","max_rows":8,"max_len":12}
+    })";
+    // synthesize 8 samples in-memory: patch data path with a temp file
+    std::string tmp = "_xct_smoke_data.jsonl";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        std::mt19937 rng(7);
+        std::uniform_int_distribution<int> tok(3, 63);
+        for (int i = 0; i < 8; ++i) {
+            f << "{\"input_ids\":[";
+            for (int t = 0; t < 12; ++t) f << (t ? "," : "") << tok(rng);
+            f << "]}\n";
+        }
+    }
+    std::string::size_type pos = job.find("\"path\":\"\"");
+    job.replace(pos, 9, "\"path\":\"" + tmp + "\"");
+    JsonValue j = JsonParser(job).parse();
+    JsonValue r = run_job(j);
+    std::remove(tmp.c_str());
+    double l0 = r.get("loss_first")->number, l1 = r.get("loss_last")->number;
+    bool ok = r.get("params_finite")->boolean && std::isfinite(l0) &&
+              std::isfinite(l1) && l1 < l0;
+    std::printf("smoke: loss_first=%.4f loss_last=%.4f finite=%d -> %s\n",
+                l0, l1, (int)r.get("params_finite")->boolean, ok ? "PASS" : "FAIL");
+    std::fputs(gptbridge::jsonlite::json_serialize(r).c_str(), stdout);
+    std::fputc('\n', stdout);
+    return ok ? 0 : 1;
+}

@@ -5,12 +5,19 @@
 //! the retired Python ``boot_core``/``main.py`` chain: single resident
 //! process, bounded connection pool, fail-closed auth on every channel.
 
+mod audit;
 mod auth;
+mod fault;
 mod health;
+mod outbox;
+mod pg;
+mod resource_mode;
+mod saga;
 mod tools;
 
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -26,6 +33,16 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(20);
 
 static ACTIVE_CONNECTIONS: AtomicU64 = AtomicU64::new(0);
+static NEXT_CONNECTION: AtomicU64 = AtomicU64::new(1);
+
+/// A195 outbox publisher — lazily constructed on the first
+/// ``state_event_hello``; ``None`` when the governed PostgreSQL DSN is
+/// unavailable (parity with the Python publisher never being created).
+static OUTBOX: OnceLock<Option<Arc<outbox::OutboxHub>>> = OnceLock::new();
+
+fn outbox_hub() -> Option<&'static Arc<outbox::OutboxHub>> {
+    OUTBOX.get_or_init(outbox::try_new).as_ref()
+}
 
 fn ipc_port() -> u16 {
     std::env::var("GPTBRIDGE_IPC_PORT")
@@ -76,13 +93,67 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
                 "backend_runtime_ready": r.backend_runtime_ready,
                 "dependencies_ready": r.dependencies_ready,
                 "authenticated_ipc_connected": r.authenticated_ipc,
+                "startup_dead": r.startup_dead,
+                "startup_failures": r.startup_failures,
                 "dependencies": r.dependencies,
             })
         }
-        "heartbeat_pong" | "state_event_hello" => json!({"ok": true}),
+        "app:get-resource-mode" => resource_mode::get(payload),
+        "app:set-resource-mode" => resource_mode::set(payload),
+        "app:get-saga-operations" | "app:get-saga-operation" => {
+            saga::handle(command, payload)
+        }
+        "app:get-fault-analysis" => fault::handle(payload),
         _ => json!({
             "ok": false,
             "error": format!("COMMAND_UNKNOWN:{command}"),
+        }),
+    }
+}
+
+/// In-band session commands — ordered against event delivery, exactly like
+/// the retired Python ``_websocket_session`` loop.  Returns ``Some(event)``
+/// when a frame must go out on the socket; ``None`` means consumed silently.
+fn session_command(
+    conn: u64,
+    socket: &ServerSocket,
+    command: &str,
+    payload: &Value,
+) -> Option<Value> {
+    match command {
+        // Frontend replies to heartbeat_ping; liveness is any inbound frame.
+        "heartbeat_pong" => None,
+        // A195 outbox control channel.
+        "state_event_hello" => outbox_hub().map(|hub| {
+            let hello = hub.handle_hello(
+                conn,
+                &socket.writer(),
+                &payload["cursor"],
+                &payload["generation"],
+            );
+            json!({"event": "state_event_session", "payload": hello})
+        }),
+        "state_event_ack" => {
+            if let Some(hub) = outbox_hub() {
+                hub.handle_ack(conn, &payload["cursor"]);
+            }
+            None
+        }
+        "state_event_resync" => outbox_hub().map(|hub| {
+            match hub.handle_resync(conn, &payload["cursor"]) {
+                Some(result) => json!({
+                    "event": "state_event_resync_result",
+                    "payload": result,
+                }),
+                None => json!({
+                    "event": "state_event_session",
+                    "payload": hub.handle_hello(conn, &socket.writer(), &json!(0), &json!("")),
+                }),
+            }
+        }),
+        _ => Some({
+            let result = dispatch_command(command, payload);
+            json!({"event": format!("{command}_result"), "payload": result})
         }),
     }
 }
@@ -140,6 +211,7 @@ fn handle_connection(mut stream: TcpStream) {
     let Some(socket) = ServerSocket::new(stream) else {
         return;
     };
+    let conn = NEXT_CONNECTION.fetch_add(1, Ordering::SeqCst);
     ACTIVE_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
     health::note_authenticated_connect();
 
@@ -148,6 +220,20 @@ fn handle_connection(mut stream: TcpStream) {
     status["push"] = json!(true);
     status["immediate"] = json!(true);
     let _ = socket.send(&json!({"event": "runtime_status_push", "payload": status}));
+
+    // Parity with the Python session loop: a latched-dead startup enters
+    // degraded mode so the client stays connected and can observe status.
+    if health::startup_dead() {
+        let readiness = health::evaluate();
+        let _ = socket.send(&json!({
+            "event": "runtime_degraded",
+            "payload": {
+                "ok": false,
+                "runtime_state": "degraded",
+                "startup_failures": readiness.startup_failures,
+            },
+        }));
+    }
 
     // Command loop: the socket's reader thread feeds events; this loop
     // answers commands and drives the application heartbeat — ping every
@@ -173,16 +259,19 @@ fn handle_connection(mut stream: TcpStream) {
                 if command.is_empty() {
                     continue;
                 }
-                let result = dispatch_command(&command, &msg["payload"]);
-                let event = format!("{command}_result");
-                if !socket.send(&json!({"event": event, "payload": result})) {
-                    break;
+                if let Some(frame) = session_command(conn, &socket, &command, &msg["payload"]) {
+                    if !socket.send(&frame) {
+                        break;
+                    }
                 }
             }
             Ok(ServerEvent::Closed) => break,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         }
+    }
+    if let Some(hub) = OUTBOX.get().and_then(|o| o.as_ref()) {
+        hub.unregister(conn);
     }
     drop(socket);
     ACTIVE_CONNECTIONS.fetch_sub(1, Ordering::SeqCst);

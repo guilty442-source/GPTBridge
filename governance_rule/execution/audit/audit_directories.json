@@ -1,0 +1,45 @@
+{
+  "DIRECTORY_TABLES": {
+    "fault_code_directory": "fault_code",
+    "command_code_directory": "command_code",
+    "maintenance_manual_directory": "manual_code",
+    "test_flow_directory": "test_flow_code",
+    "project_architecture_directory": "architecture_code",
+    "special_law_directory": "special_law_code",
+    "law_structure_directory": "law_code"
+  },
+  "KEBAB_IDENTITY_COLUMNS": {
+    "command_code_directory": "canonical_command_id",
+    "fault_code_directory": "canonical_name",
+    "maintenance_manual_directory": "canonical_name",
+    "test_flow_directory": "canonical_name",
+    "project_architecture_directory": "canonical_name",
+    "special_law_directory": "canonical_name",
+    "law_structure_directory": "canonical_name"
+  },
+  "REQUIRED_SCHEMA_TABLES": [
+    "fault_code_directory",
+    "command_code_directory",
+    "maintenance_manual_directory",
+    "test_flow_directory",
+    "project_architecture_directory",
+    "special_law_directory",
+    "law_structure_directory",
+    "directory_master_catalog",
+    "directory_format_contract",
+    "directory_coverage_requirements",
+    "directory_relationship_requirements",
+    "provision_law_classification",
+    "seal_manifest",
+    "metadata"
+  ],
+  "_UPPER_SNAKE": {
+    "$ref": "re.compile"
+  },
+  "_KEBAB": {
+    "$ref": "re.compile"
+  },
+  "__all__": [
+    "check_directory_audit"
+  ]
+}

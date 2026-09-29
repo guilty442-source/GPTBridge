@@ -1,0 +1,1416 @@
+{
+  "GOVERNANCE_POLICY": {
+    "$call": "GovernancePolicy",
+    "$args": [],
+    "$kw": {
+      "authority_version": 1,
+      "authority": "governance-codex-v1.32010-derived-enforcement-policy",
+      "permission_hierarchy_role": "only-top-level-permission-authority",
+      "authority_files": [
+        "governance_rule/governance_policy.json",
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
+        "governance_rule/code_rule_directory.json",
+        "governance_rule/permission_directory/directory_authority.json"
+      ],
+      "runtime_mutable_authority_files": [
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
+      ],
+      "top_level_rule": "governance_codex",
+      "governance_rule_sources": [
+        "governance_rule/codex/data/governance_codex.sql"
+      ],
+      "governance_rule_count": 1,
+      "governance_rule_partitioning": false,
+      "subordinate_governance_rule_definition": false,
+      "managed_directory_sources": [
+        "governance_rule/permission_directory/directory_authority.json"
+      ],
+      "managed_code_rule_directory_sources": [
+        "governance_rule/code_rule_directory.json"
+      ],
+      "governance_execution_roots": [
+        "governance_rule/execution"
+      ],
+      "managed_program_authority": "none-read-and-execute-only",
+      "storage_model": "independent-read-only-programming-language-database",
+      "module_root": "governance_rule",
+      "implementation": "programming-language-code",
+      "source_code_requirement": "programming-language-only",
+      "localization_requirement": "external-language-plugin-files-only",
+      "localized_text_in_source": "prohibited",
+      "runtime_access": "read-only",
+      "runtime_writers": [],
+      "mutation_channels": [],
+      "main_system_access": "read-only",
+      "independent_tool_access": "read-only-snapshot-only",
+      "hot_update_access": "read-only-no-replacement",
+      "authority_file_protection": "operating-system-read-only-and-runtime-write-deny",
+      "authority_integrity_validation": "required-before-load-and-before-enforcement",
+      "activation": {
+        "$call": "GovernanceActivationPolicy",
+        "$args": [],
+        "$kw": {
+          "default_active": true,
+          "activation_order": "before-main-system-and-all-other-modules",
+          "direct_load_required": true,
+          "independent_tool_packaging_exception": "governance_rule-only",
+          "packaged_executable_allowed": false,
+          "execution_access": "read-only-direct-execution",
+          "encapsulation_allowed": false,
+          "optional": false,
+          "stop_permission": false,
+          "disable_permission": false,
+          "unload_permission": false,
+          "lifetime": "entire-host-runtime",
+          "main_system_start_failure": "enter-automatic-repair",
+          "main_system_repair_authority": "governance-policy-only",
+          "main_system_repair_scope": "main-system-stability-only",
+          "repair_completion_gate": "governance-reverify-before-normal-mode",
+          "failure_behavior": "deny-main-system-startup-with-permission-denied"
+        }
+      },
+      "code_version_policy_source": "directory-authority-only",
+      "authority_overwrite_allowed": false,
+      "authority_overwrite_prohibited_channels": [
+        "backup",
+        "restore",
+        "hot-update",
+        "automatic-repair",
+        "main-system-runtime",
+        "independent-tool-runtime"
+      ],
+      "automatic_repair": {
+        "$call": "AutomaticRepairPolicy",
+        "$args": [],
+        "$kw": {
+          "required_for": [
+            "main-system",
+            "each-independent-tool",
+            "shared-layer"
+          ],
+          "purpose": "restore-system-stability-only",
+          "boundary": "main-system-central-program-with-target-isolated-database-only",
+          "authorization_source": "governance-policy-only",
+          "execution_model": "main-system-executes-central-repair-with-per-target-isolated-database-only",
+          "unauthorized_repair": false,
+          "governance_mutation": false,
+          "authority_expansion": false,
+          "business_feature_changes": false,
+          "business_rule_changes": false,
+          "backup_assistance_allowed": true,
+          "backup_owner": "main-system-automation-only",
+          "direct_backup_access": false,
+          "backup_request_channel": "governed-shared-layer-request-channel-only",
+          "authorization_per_step": true,
+          "authority_restore_from_backup": false
+        }
+      },
+      "code_architecture": {
+        "$call": "CodeArchitecturePolicy",
+        "$args": [],
+        "$kw": {
+          "all_source_code_root": "E:/GPTBridge",
+          "independent_tool_root": "E:/GPTBridge/{tool_id}",
+          "independent_tool_folder_outside_project_root": false,
+          "independent_tool_direct_child_only": true,
+          "nested_independent_tool_folder": false,
+          "cross_tool_storage": false,
+          "independent_tool_root_listing": false,
+          "implicit_own_root_read": false,
+          "declared_entry_execution_only": true,
+          "capability_specific_file_access_only": true,
+          "source_code_outside_project_root": false,
+          "source_code_creation_outside_project_root": false,
+          "source_code_modification_outside_project_root": false,
+          "source_code_move_outside_project_root": false,
+          "source_code_update_outside_project_root": false,
+          "source_execution_target_outside_project_root": false,
+          "layered_architecture": true,
+          "modular_architecture": true,
+          "module_responsibility": "single-responsibility",
+          "cross_layer_access": "declared-contracts-only",
+          "persistent_state": "business-settings-and-runtime-state-database-backed",
+          "database_scope": "per-owner-authority-isolated",
+          "non_database_filesystem_artifact_scope": [
+            "external-language-plugins-global-cleaner-backup-only"
+          ],
+          "non_database_filesystem_artifact_owner": "declared-owner-only",
+          "permission_model": "separation-of-duties",
+          "capability_boundary_model": "strictly-separated",
+          "capability_authority_source": "directory-authority-only",
+          "explicit_capability_owner_required": true,
+          "cross_boundary_capability_access": "declared-authenticated-contracts-only",
+          "capability_sharing": false,
+          "capability_inheritance": false,
+          "combined_authority": false,
+          "permission_bypass": false,
+          "canonical_path_authority": "E:/GPTBridge",
+          "runtime_path_resolution": "authority-path-modules-only",
+          "working_directory_path_authority": false,
+          "environment_path_override": false
+        }
+      },
+      "boundary_escape": {
+        "$call": "BoundaryEscapePolicy",
+        "$args": [],
+        "$kw": {
+          "authorization_model": "explicit-allowlist-only",
+          "allowlist_dimensions": [
+            "actor",
+            "capability",
+            "action",
+            "target",
+            "data-scope"
+          ],
+          "explicit_allow_required": true,
+          "default_decision": "deny",
+          "fail_closed": true,
+          "implicit_permission": false,
+          "wildcard_permission": false,
+          "deny_precedence": true,
+          "prompt_override": false,
+          "environment_override": false,
+          "identity_impersonation": false,
+          "delegated_or_proxy_write": false,
+          "path_traversal": false,
+          "symbolic_link_escape": false,
+          "capability_token_required": true,
+          "canonical_path_validation": true,
+          "unknown_actor_access": "denied",
+          "authorization_failure_code": "PERMISSION_DENIED",
+          "authorization_failure_localization_key": "errors.permission_denied",
+          "authorization_failure_message_source": "external-language-plugin",
+          "internal_permission_detail_disclosure": false
+        }
+      },
+      "permission_distribution": {
+        "$call": "PermissionDistributionPolicy",
+        "$args": [],
+        "$kw": {
+          "authority": "governance-policy-only",
+          "permission_hierarchy_role": "only-top-level-permission-authority",
+          "directory_source": "directory-authority-read-only",
+          "decision_model": "explicit-allowlist",
+          "grant_format": "scoped-authenticated-capability-token",
+          "grant_scope": "actor-capability-action-target-and-data-scope",
+          "identity_group_requirement": "active-governance-identity-group-only",
+          "legacy_identity_compatibility": false,
+          "identity_aliases": false,
+          "self_grant": false,
+          "delegation": false,
+          "inheritance": false,
+          "privilege_expansion": false,
+          "enforcement_requirement": "every-privileged-operation-must-be-authorized",
+          "main_system_inherent_permission": false,
+          "independent_tool_inherent_permission": false,
+          "sole_permission_source": "single-governance-policy-capability-token",
+          "governance_activation_precondition": [
+            "verified-single-governance-rule-required"
+          ],
+          "authority_activation_order": [
+            "governance-policy",
+            "code-rule-directory",
+            "permission-directory",
+            "managed-execution-programs",
+            "main-system-and-independent-tools"
+          ],
+          "all_registered_independent_tools_enabled": true,
+          "independent_tool_grant_scope": [
+            "own-declared-capability-boundary-plus-governed-shared-layer"
+          ],
+          "cross_tool_access": false,
+          "permission_directory_independent_authority": false
+        }
+      },
+      "identity_authentication": {
+        "$call": "IdentityAuthenticationPolicy",
+        "$args": [],
+        "$kw": {
+          "mechanism": "launcher-attested-governance-signed-capability-token",
+          "signature_algorithm": "hmac-sha256",
+          "issuer": "governance-policy",
+          "audience": "gptbridge-runtime",
+          "active_identity_group_source": "directory-authority-only",
+          "identity_registry_source": "directory-authority-immutable-registry-only",
+          "permission_registry_source": "directory-authority-immutable-registry-only",
+          "key_management_source": "directory-authority-immutable-policy-only",
+          "verification_authority": "governance-execution-authenticator-only",
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "identifier_labels": {
+        "$call": "IdentifierLabelPolicy",
+        "$args": [],
+        "$kw": {
+          "schema": "gptbridge-identifier-label-v1",
+          "machine_identifier_language": "ascii",
+          "tool_id_pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "actor_pattern": [
+            "^governance/(?:main-system|tool/[a-z0-9][a-z0-9_-]*)$"
+          ],
+          "capability_pattern": "^[a-z][a-z0-9-]*$",
+          "action_pattern": "^[a-z][a-z0-9-]*$",
+          "target_pattern": "^[a-z][a-z0-9-]*(?::\\{?[a-z0-9_-]\u002B\\}?)?$",
+          "data_scope_pattern": [
+            "^(?:none|[a-z][a-z0-9-]*)(?::\\{?[a-z0-9_-]\u002B\\}?)?$"
+          ],
+          "locale_key_pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]\u002B)*$",
+          "approved_name_source": "code-rule-directory-only",
+          "display_label_source": "owner-external-locale-plugin-only",
+          "manifest_literal_display_label": false,
+          "aliases_allowed": false,
+          "category_labels_allowed": false,
+          "case_sensitive": true,
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "localization": {
+        "$call": "LocalizationPolicy",
+        "$args": [],
+        "$kw": {
+          "authority": "governance-policy-schema-owner-content-owner-tool",
+          "owner_root_template": "{owner_root}",
+          "plugin_root_template": "{owner_root}/locales",
+          "traditional_chinese_filename": "zh-TW.json",
+          "format": "json-object-string-values-only",
+          "encoding": "utf-8",
+          "required_key_source": "code-rule-directory-only",
+          "manifest_name_key_field": "name_key",
+          "manifest_window_title_key_field": "window.title_key",
+          "permission_denied_key": "errors.permission_denied",
+          "literal_localized_display_text_in_manifest": false,
+          "localized_text_in_source_code": false,
+          "shared_cross_tool_locale_plugin": false,
+          "missing_key_behavior": "permission-denied",
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "workflow": {
+        "$call": "GovernanceWorkflowPolicy",
+        "$args": [],
+        "$kw": {
+          "authority_activation_flow": [
+            "directly-load-default-single-governance-policy-before-main-system",
+            "verify-governance-policy-version-and-read-only-integrity",
+            "load-and-verify-code-rule-directory",
+            "load-and-verify-subordinate-permission-directory",
+            "load-and-verify-identity-permission-and-capability-registries",
+            "enable-governance-managed-execution-programs",
+            "enable-registered-identities-with-own-boundaries-only",
+            "keep-governance-active-for-entire-host-runtime",
+            "deny-activation-on-any-failure-with-permission-denied"
+          ],
+          "privileged_operation_flow": [
+            "load-and-verify-governance-policy-database",
+            "load-and-verify-managed-directory-authority-database",
+            "verify-launcher-signed-process-bound-identity",
+            "query-directory-identity-capability-action-target-data-and-path",
+            "governance-policy-authorize-explicit-grant",
+            "issue-short-lived-single-use-capability-token",
+            "managed-execution-module-execute-authorized-operation-only",
+            "verify-post-operation-boundary-and-result"
+          ],
+          "code_update_flow": [
+            "receive-explicit-target-version",
+            "verify-target-version-increments-current-manifest-version",
+            "verify-main-system-hot-update-capability",
+            "verify-target-tool-manifest-and-canonical-code-path",
+            "execute-versioned-code-update-only",
+            "verify-code-and-manifest-target-version-match",
+            "reject-or-roll-forward-with-newer-version-on-failure"
+          ],
+          "authority_release_flow": [
+            "stop-runtime-authority-writers-none",
+            "receive-signed-full-release-with-explicit-higher-version",
+            "verify-release-signature-and-both-authority-digests",
+            "replace-both-authority-databases-as-one-release",
+            "set-authority-databases-operating-system-read-only",
+            "restart-and-verify-matching-authority-version"
+          ],
+          "backup_flow": [
+            "verify-global-cleaner-managed-backup-capability",
+            "verify-requester-is-main-system-or-matching-independent-tool",
+            "read-owner-source-without-source-write",
+            "create-new-owner-scoped-staged-backup",
+            "verify-new-backup-integrity",
+            "publish-new-backup",
+            "delete-excess-backups-for-same-owner-only",
+            "verify-each-owner-backup-count-is-at-most-one"
+          ],
+          "automatic_repair_flow": [
+            "detect-stability-failure",
+            "request-governance-authorized-repair-capability",
+            "verify-own-runtime-boundary-and-prohibited-scopes",
+            "optionally-request-backup-extraction-through-shared-layer",
+            "global-cleaner-authorize-owner-and-verify-backup-integrity",
+            "global-cleaner-stage-requested-recovery-data-in-shared-layer-temp",
+            "return-extraction-evidence-through-shared-layer",
+            "authorize-recovery-data-use-before-application",
+            "execute-listed-stability-repair-actions-only",
+            "verify-no-codex-code-or-business-rule-change"
+          ],
+          "shared_layer_write_flow": [
+            "load-and-verify-single-governance-policy",
+            "verify-registered-independent-tool-identity",
+            "verify-shared-layer-request-capabilities",
+            "verify-write-action-target-data-scope-and-canonical-path",
+            "issue-short-lived-single-use-capability-token",
+            "shared-layer-module-authenticate-and-consume-token",
+            "reject-any-unchanneled-instruction-with-permission-denied",
+            "write-shared-layer-request-transaction-only",
+            "verify-no-source-code-or-authority-file-write",
+            "deny-on-any-failure-with-permission-denied"
+          ],
+          "failure_behavior": "fail-closed-with-permission-denied",
+          "step_reordering": false,
+          "step_skipping": false,
+          "executor_defined_steps": false
+        }
+      },
+      "independent_tool_separation": {
+        "$call": "IndependentToolSeparationPolicy",
+        "$args": [],
+        "$kw": {
+          "global_scope_definition": "E:/GPTBridge-only",
+          "global_cleaner_identity": "governance/tool/global-cleaner",
+          "global_cleaner_authority": [
+            "gptbridge-global-garbage-cleanup",
+            "delete-excess-logs",
+            "create-verify-retain-per-owner-managed-backups",
+            "governed-backup-extraction-staging",
+            "gptbridge-read-only-system-health-check",
+            "own-business-settings-and-database"
+          ],
+          "global_cleaner_prohibited": [
+            "modify-codex"
+          ],
+          "shared_identity": false,
+          "shared_source_root": false,
+          "permission_inheritance": false,
+          "delegated_or_proxy_execution": false,
+          "owner_execution_request_required": true,
+          "request_authentication": "governance-policy-issued-capability-token-only",
+          "requester_write_authority": false,
+          "request_failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "shared_layer": {
+        "$call": "SharedLayerPolicy",
+        "$args": [],
+        "$kw": {
+          "module_root": "shared-layer",
+          "jurisdiction": "governance-policy-only",
+          "main_system_module_member": false,
+          "main_system_inherent_access": false,
+          "independent_module": true,
+          "source_root": "shared-layer/src",
+          "data_root": "shared-layer/data",
+          "database_path": "postgresql:gptbridge_transport:system",
+          "ai_database_path": "postgresql:gptbridge_transport:ai",
+          "temporary_root": "main-system/runtime/temp/shared-layer",
+          "central_index_engine": "postgresql",
+          "central_index_schema": "gptbridge_index",
+          "central_index_role": "structured-index-relations-status-and-audit-source-of-truth",
+          "original_data_storage": "owner-module-private-ntfs",
+          "source_write_access": "governance-versioned-release-only",
+          "data_read_access": [
+            "registered-independent-tools-with-explicit-capability-token-only"
+          ],
+          "data_write_access": [
+            "registered-independent-tools-with-explicit-capability-token-only"
+          ],
+          "write_authorization": [
+            "governance-policy-actor-action-target-data-path-and-token-required"
+          ],
+          "direct_filesystem_write": false,
+          "executable_content": false,
+          "runtime_code_loading": false,
+          "direct_main_to_tool_instruction": false,
+          "direct_tool_to_tool_instruction": false,
+          "unchanneled_instruction_decision": "PERMISSION_DENIED",
+          "automatic_repair_authority": "governance-policy-only",
+          "automatic_repair_scope": "shared-database-stability-only",
+          "path_escape": false,
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "system_responsibilities": {
+        "$call": "SystemResponsibilityPolicy",
+        "$args": [],
+        "$kw": {
+          "git": "system-version-and-development-history",
+          "sql": "structured-mutable-official-data-postgresql",
+          "vector_rag": "rust-vector-engine-semantic-knowledge-index",
+          "local_vector_fallback": "bounded-observable-degraded-cache-only-never-canonical",
+          "llm": "understanding-reasoning-and-operations",
+          "separation": "git-postgresql-rust-vector-engine-rag-and-llm-roles-must-not-replace-one-another",
+          "governed_flow": "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes",
+          "management_owner": "xingcheng-core-orchestrator-under-governance-rule",
+          "management_source_basis": [
+            "governance-rule-for-authority-permissions-and-boundaries",
+            "git-for-system-version-and-development-history",
+            "sql-for-structured-mutable-official-data",
+            "rust-vector-engine-semantic-knowledge-index-for-semantic-retrieval-candidates"
+          ],
+          "llm_inference_as_source_of_truth": false
+        }
+      },
+      "replacement_policy": "explicit-versioned-full-release-only",
+      "enforcement_role": "managed-execution-programs-enforce-but-have-no-authority"
+    }
+  },
+  "_SEALED_GOVERNANCE_POLICY": {
+    "$call": "GovernancePolicy",
+    "$args": [],
+    "$kw": {
+      "authority_version": 1,
+      "authority": "governance-codex-v1.32010-derived-enforcement-policy",
+      "permission_hierarchy_role": "only-top-level-permission-authority",
+      "authority_files": [
+        "governance_rule/governance_policy.json",
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
+        "governance_rule/code_rule_directory.json",
+        "governance_rule/permission_directory/directory_authority.json"
+      ],
+      "runtime_mutable_authority_files": [
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt"
+      ],
+      "top_level_rule": "governance_codex",
+      "governance_rule_sources": [
+        "governance_rule/codex/data/governance_codex.sql"
+      ],
+      "governance_rule_count": 1,
+      "governance_rule_partitioning": false,
+      "subordinate_governance_rule_definition": false,
+      "managed_directory_sources": [
+        "governance_rule/permission_directory/directory_authority.json"
+      ],
+      "managed_code_rule_directory_sources": [
+        "governance_rule/code_rule_directory.json"
+      ],
+      "governance_execution_roots": [
+        "governance_rule/execution"
+      ],
+      "managed_program_authority": "none-read-and-execute-only",
+      "storage_model": "independent-read-only-programming-language-database",
+      "module_root": "governance_rule",
+      "implementation": "programming-language-code",
+      "source_code_requirement": "programming-language-only",
+      "localization_requirement": "external-language-plugin-files-only",
+      "localized_text_in_source": "prohibited",
+      "runtime_access": "read-only",
+      "runtime_writers": [],
+      "mutation_channels": [],
+      "main_system_access": "read-only",
+      "independent_tool_access": "read-only-snapshot-only",
+      "hot_update_access": "read-only-no-replacement",
+      "authority_file_protection": "operating-system-read-only-and-runtime-write-deny",
+      "authority_integrity_validation": "required-before-load-and-before-enforcement",
+      "activation": {
+        "$call": "GovernanceActivationPolicy",
+        "$args": [],
+        "$kw": {
+          "default_active": true,
+          "activation_order": "before-main-system-and-all-other-modules",
+          "direct_load_required": true,
+          "independent_tool_packaging_exception": "governance_rule-only",
+          "packaged_executable_allowed": false,
+          "execution_access": "read-only-direct-execution",
+          "encapsulation_allowed": false,
+          "optional": false,
+          "stop_permission": false,
+          "disable_permission": false,
+          "unload_permission": false,
+          "lifetime": "entire-host-runtime",
+          "main_system_start_failure": "enter-automatic-repair",
+          "main_system_repair_authority": "governance-policy-only",
+          "main_system_repair_scope": "main-system-stability-only",
+          "repair_completion_gate": "governance-reverify-before-normal-mode",
+          "failure_behavior": "deny-main-system-startup-with-permission-denied"
+        }
+      },
+      "code_version_policy_source": "directory-authority-only",
+      "authority_overwrite_allowed": false,
+      "authority_overwrite_prohibited_channels": [
+        "backup",
+        "restore",
+        "hot-update",
+        "automatic-repair",
+        "main-system-runtime",
+        "independent-tool-runtime"
+      ],
+      "automatic_repair": {
+        "$call": "AutomaticRepairPolicy",
+        "$args": [],
+        "$kw": {
+          "required_for": [
+            "main-system",
+            "each-independent-tool",
+            "shared-layer"
+          ],
+          "purpose": "restore-system-stability-only",
+          "boundary": "main-system-central-program-with-target-isolated-database-only",
+          "authorization_source": "governance-policy-only",
+          "execution_model": "main-system-executes-central-repair-with-per-target-isolated-database-only",
+          "unauthorized_repair": false,
+          "governance_mutation": false,
+          "authority_expansion": false,
+          "business_feature_changes": false,
+          "business_rule_changes": false,
+          "backup_assistance_allowed": true,
+          "backup_owner": "main-system-automation-only",
+          "direct_backup_access": false,
+          "backup_request_channel": "governed-shared-layer-request-channel-only",
+          "authorization_per_step": true,
+          "authority_restore_from_backup": false
+        }
+      },
+      "code_architecture": {
+        "$call": "CodeArchitecturePolicy",
+        "$args": [],
+        "$kw": {
+          "all_source_code_root": "E:/GPTBridge",
+          "independent_tool_root": "E:/GPTBridge/{tool_id}",
+          "independent_tool_folder_outside_project_root": false,
+          "independent_tool_direct_child_only": true,
+          "nested_independent_tool_folder": false,
+          "cross_tool_storage": false,
+          "independent_tool_root_listing": false,
+          "implicit_own_root_read": false,
+          "declared_entry_execution_only": true,
+          "capability_specific_file_access_only": true,
+          "source_code_outside_project_root": false,
+          "source_code_creation_outside_project_root": false,
+          "source_code_modification_outside_project_root": false,
+          "source_code_move_outside_project_root": false,
+          "source_code_update_outside_project_root": false,
+          "source_execution_target_outside_project_root": false,
+          "layered_architecture": true,
+          "modular_architecture": true,
+          "module_responsibility": "single-responsibility",
+          "cross_layer_access": "declared-contracts-only",
+          "persistent_state": "business-settings-and-runtime-state-database-backed",
+          "database_scope": "per-owner-authority-isolated",
+          "non_database_filesystem_artifact_scope": [
+            "external-language-plugins-global-cleaner-backup-only"
+          ],
+          "non_database_filesystem_artifact_owner": "declared-owner-only",
+          "permission_model": "separation-of-duties",
+          "capability_boundary_model": "strictly-separated",
+          "capability_authority_source": "directory-authority-only",
+          "explicit_capability_owner_required": true,
+          "cross_boundary_capability_access": "declared-authenticated-contracts-only",
+          "capability_sharing": false,
+          "capability_inheritance": false,
+          "combined_authority": false,
+          "permission_bypass": false,
+          "canonical_path_authority": "E:/GPTBridge",
+          "runtime_path_resolution": "authority-path-modules-only",
+          "working_directory_path_authority": false,
+          "environment_path_override": false
+        }
+      },
+      "boundary_escape": {
+        "$call": "BoundaryEscapePolicy",
+        "$args": [],
+        "$kw": {
+          "authorization_model": "explicit-allowlist-only",
+          "allowlist_dimensions": [
+            "actor",
+            "capability",
+            "action",
+            "target",
+            "data-scope"
+          ],
+          "explicit_allow_required": true,
+          "default_decision": "deny",
+          "fail_closed": true,
+          "implicit_permission": false,
+          "wildcard_permission": false,
+          "deny_precedence": true,
+          "prompt_override": false,
+          "environment_override": false,
+          "identity_impersonation": false,
+          "delegated_or_proxy_write": false,
+          "path_traversal": false,
+          "symbolic_link_escape": false,
+          "capability_token_required": true,
+          "canonical_path_validation": true,
+          "unknown_actor_access": "denied",
+          "authorization_failure_code": "PERMISSION_DENIED",
+          "authorization_failure_localization_key": "errors.permission_denied",
+          "authorization_failure_message_source": "external-language-plugin",
+          "internal_permission_detail_disclosure": false
+        }
+      },
+      "permission_distribution": {
+        "$call": "PermissionDistributionPolicy",
+        "$args": [],
+        "$kw": {
+          "authority": "governance-policy-only",
+          "permission_hierarchy_role": "only-top-level-permission-authority",
+          "directory_source": "directory-authority-read-only",
+          "decision_model": "explicit-allowlist",
+          "grant_format": "scoped-authenticated-capability-token",
+          "grant_scope": "actor-capability-action-target-and-data-scope",
+          "identity_group_requirement": "active-governance-identity-group-only",
+          "legacy_identity_compatibility": false,
+          "identity_aliases": false,
+          "self_grant": false,
+          "delegation": false,
+          "inheritance": false,
+          "privilege_expansion": false,
+          "enforcement_requirement": "every-privileged-operation-must-be-authorized",
+          "main_system_inherent_permission": false,
+          "independent_tool_inherent_permission": false,
+          "sole_permission_source": "single-governance-policy-capability-token",
+          "governance_activation_precondition": [
+            "verified-single-governance-rule-required"
+          ],
+          "authority_activation_order": [
+            "governance-policy",
+            "code-rule-directory",
+            "permission-directory",
+            "managed-execution-programs",
+            "main-system-and-independent-tools"
+          ],
+          "all_registered_independent_tools_enabled": true,
+          "independent_tool_grant_scope": [
+            "own-declared-capability-boundary-plus-governed-shared-layer"
+          ],
+          "cross_tool_access": false,
+          "permission_directory_independent_authority": false
+        }
+      },
+      "identity_authentication": {
+        "$call": "IdentityAuthenticationPolicy",
+        "$args": [],
+        "$kw": {
+          "mechanism": "launcher-attested-governance-signed-capability-token",
+          "signature_algorithm": "hmac-sha256",
+          "issuer": "governance-policy",
+          "audience": "gptbridge-runtime",
+          "active_identity_group_source": "directory-authority-only",
+          "identity_registry_source": "directory-authority-immutable-registry-only",
+          "permission_registry_source": "directory-authority-immutable-registry-only",
+          "key_management_source": "directory-authority-immutable-policy-only",
+          "verification_authority": "governance-execution-authenticator-only",
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "identifier_labels": {
+        "$call": "IdentifierLabelPolicy",
+        "$args": [],
+        "$kw": {
+          "schema": "gptbridge-identifier-label-v1",
+          "machine_identifier_language": "ascii",
+          "tool_id_pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "actor_pattern": [
+            "^governance/(?:main-system|tool/[a-z0-9][a-z0-9_-]*)$"
+          ],
+          "capability_pattern": "^[a-z][a-z0-9-]*$",
+          "action_pattern": "^[a-z][a-z0-9-]*$",
+          "target_pattern": "^[a-z][a-z0-9-]*(?::\\{?[a-z0-9_-]\u002B\\}?)?$",
+          "data_scope_pattern": [
+            "^(?:none|[a-z][a-z0-9-]*)(?::\\{?[a-z0-9_-]\u002B\\}?)?$"
+          ],
+          "locale_key_pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]\u002B)*$",
+          "approved_name_source": "code-rule-directory-only",
+          "display_label_source": "owner-external-locale-plugin-only",
+          "manifest_literal_display_label": false,
+          "aliases_allowed": false,
+          "category_labels_allowed": false,
+          "case_sensitive": true,
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "localization": {
+        "$call": "LocalizationPolicy",
+        "$args": [],
+        "$kw": {
+          "authority": "governance-policy-schema-owner-content-owner-tool",
+          "owner_root_template": "{owner_root}",
+          "plugin_root_template": "{owner_root}/locales",
+          "traditional_chinese_filename": "zh-TW.json",
+          "format": "json-object-string-values-only",
+          "encoding": "utf-8",
+          "required_key_source": "code-rule-directory-only",
+          "manifest_name_key_field": "name_key",
+          "manifest_window_title_key_field": "window.title_key",
+          "permission_denied_key": "errors.permission_denied",
+          "literal_localized_display_text_in_manifest": false,
+          "localized_text_in_source_code": false,
+          "shared_cross_tool_locale_plugin": false,
+          "missing_key_behavior": "permission-denied",
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "workflow": {
+        "$call": "GovernanceWorkflowPolicy",
+        "$args": [],
+        "$kw": {
+          "authority_activation_flow": [
+            "directly-load-default-single-governance-policy-before-main-system",
+            "verify-governance-policy-version-and-read-only-integrity",
+            "load-and-verify-code-rule-directory",
+            "load-and-verify-subordinate-permission-directory",
+            "load-and-verify-identity-permission-and-capability-registries",
+            "enable-governance-managed-execution-programs",
+            "enable-registered-identities-with-own-boundaries-only",
+            "keep-governance-active-for-entire-host-runtime",
+            "deny-activation-on-any-failure-with-permission-denied"
+          ],
+          "privileged_operation_flow": [
+            "load-and-verify-governance-policy-database",
+            "load-and-verify-managed-directory-authority-database",
+            "verify-launcher-signed-process-bound-identity",
+            "query-directory-identity-capability-action-target-data-and-path",
+            "governance-policy-authorize-explicit-grant",
+            "issue-short-lived-single-use-capability-token",
+            "managed-execution-module-execute-authorized-operation-only",
+            "verify-post-operation-boundary-and-result"
+          ],
+          "code_update_flow": [
+            "receive-explicit-target-version",
+            "verify-target-version-increments-current-manifest-version",
+            "verify-main-system-hot-update-capability",
+            "verify-target-tool-manifest-and-canonical-code-path",
+            "execute-versioned-code-update-only",
+            "verify-code-and-manifest-target-version-match",
+            "reject-or-roll-forward-with-newer-version-on-failure"
+          ],
+          "authority_release_flow": [
+            "stop-runtime-authority-writers-none",
+            "receive-signed-full-release-with-explicit-higher-version",
+            "verify-release-signature-and-both-authority-digests",
+            "replace-both-authority-databases-as-one-release",
+            "set-authority-databases-operating-system-read-only",
+            "restart-and-verify-matching-authority-version"
+          ],
+          "backup_flow": [
+            "verify-global-cleaner-managed-backup-capability",
+            "verify-requester-is-main-system-or-matching-independent-tool",
+            "read-owner-source-without-source-write",
+            "create-new-owner-scoped-staged-backup",
+            "verify-new-backup-integrity",
+            "publish-new-backup",
+            "delete-excess-backups-for-same-owner-only",
+            "verify-each-owner-backup-count-is-at-most-one"
+          ],
+          "automatic_repair_flow": [
+            "detect-stability-failure",
+            "request-governance-authorized-repair-capability",
+            "verify-own-runtime-boundary-and-prohibited-scopes",
+            "optionally-request-backup-extraction-through-shared-layer",
+            "global-cleaner-authorize-owner-and-verify-backup-integrity",
+            "global-cleaner-stage-requested-recovery-data-in-shared-layer-temp",
+            "return-extraction-evidence-through-shared-layer",
+            "authorize-recovery-data-use-before-application",
+            "execute-listed-stability-repair-actions-only",
+            "verify-no-codex-code-or-business-rule-change"
+          ],
+          "shared_layer_write_flow": [
+            "load-and-verify-single-governance-policy",
+            "verify-registered-independent-tool-identity",
+            "verify-shared-layer-request-capabilities",
+            "verify-write-action-target-data-scope-and-canonical-path",
+            "issue-short-lived-single-use-capability-token",
+            "shared-layer-module-authenticate-and-consume-token",
+            "reject-any-unchanneled-instruction-with-permission-denied",
+            "write-shared-layer-request-transaction-only",
+            "verify-no-source-code-or-authority-file-write",
+            "deny-on-any-failure-with-permission-denied"
+          ],
+          "failure_behavior": "fail-closed-with-permission-denied",
+          "step_reordering": false,
+          "step_skipping": false,
+          "executor_defined_steps": false
+        }
+      },
+      "independent_tool_separation": {
+        "$call": "IndependentToolSeparationPolicy",
+        "$args": [],
+        "$kw": {
+          "global_scope_definition": "E:/GPTBridge-only",
+          "global_cleaner_identity": "governance/tool/global-cleaner",
+          "global_cleaner_authority": [
+            "gptbridge-global-garbage-cleanup",
+            "delete-excess-logs",
+            "create-verify-retain-per-owner-managed-backups",
+            "governed-backup-extraction-staging",
+            "gptbridge-read-only-system-health-check",
+            "own-business-settings-and-database"
+          ],
+          "global_cleaner_prohibited": [
+            "modify-codex"
+          ],
+          "shared_identity": false,
+          "shared_source_root": false,
+          "permission_inheritance": false,
+          "delegated_or_proxy_execution": false,
+          "owner_execution_request_required": true,
+          "request_authentication": "governance-policy-issued-capability-token-only",
+          "requester_write_authority": false,
+          "request_failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "shared_layer": {
+        "$call": "SharedLayerPolicy",
+        "$args": [],
+        "$kw": {
+          "module_root": "shared-layer",
+          "jurisdiction": "governance-policy-only",
+          "main_system_module_member": false,
+          "main_system_inherent_access": false,
+          "independent_module": true,
+          "source_root": "shared-layer/src",
+          "data_root": "shared-layer/data",
+          "database_path": "postgresql:gptbridge_transport:system",
+          "ai_database_path": "postgresql:gptbridge_transport:ai",
+          "temporary_root": "main-system/runtime/temp/shared-layer",
+          "central_index_engine": "postgresql",
+          "central_index_schema": "gptbridge_index",
+          "central_index_role": "structured-index-relations-status-and-audit-source-of-truth",
+          "original_data_storage": "owner-module-private-ntfs",
+          "source_write_access": "governance-versioned-release-only",
+          "data_read_access": [
+            "registered-independent-tools-with-explicit-capability-token-only"
+          ],
+          "data_write_access": [
+            "registered-independent-tools-with-explicit-capability-token-only"
+          ],
+          "write_authorization": [
+            "governance-policy-actor-action-target-data-path-and-token-required"
+          ],
+          "direct_filesystem_write": false,
+          "executable_content": false,
+          "runtime_code_loading": false,
+          "direct_main_to_tool_instruction": false,
+          "direct_tool_to_tool_instruction": false,
+          "unchanneled_instruction_decision": "PERMISSION_DENIED",
+          "automatic_repair_authority": "governance-policy-only",
+          "automatic_repair_scope": "shared-database-stability-only",
+          "path_escape": false,
+          "failure_code": "PERMISSION_DENIED"
+        }
+      },
+      "system_responsibilities": {
+        "$call": "SystemResponsibilityPolicy",
+        "$args": [],
+        "$kw": {
+          "git": "system-version-and-development-history",
+          "sql": "structured-mutable-official-data-postgresql",
+          "vector_rag": "rust-vector-engine-semantic-knowledge-index",
+          "local_vector_fallback": "bounded-observable-degraded-cache-only-never-canonical",
+          "llm": "understanding-reasoning-and-operations",
+          "separation": "git-postgresql-rust-vector-engine-rag-and-llm-roles-must-not-replace-one-another",
+          "governed_flow": "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes",
+          "management_owner": "xingcheng-core-orchestrator-under-governance-rule",
+          "management_source_basis": [
+            "governance-rule-for-authority-permissions-and-boundaries",
+            "git-for-system-version-and-development-history",
+            "sql-for-structured-mutable-official-data",
+            "rust-vector-engine-semantic-knowledge-index-for-semantic-retrieval-candidates"
+          ],
+          "llm_inference_as_source_of_truth": false
+        }
+      },
+      "replacement_policy": "explicit-versioned-full-release-only",
+      "enforcement_role": "managed-execution-programs-enforce-but-have-no-authority"
+    }
+  },
+  "GOVERNANCE_RULE_CATALOG": [
+    "governance_codex"
+  ],
+  "DEFAULT_ACTIVE_GOVERNANCE_RULES": [
+    "governance_codex"
+  ],
+  "governance_policy_snapshot": {
+    "$call": "_sealed_policy_reader",
+    "$args": [
+      {
+        "$call": "GovernancePolicy",
+        "$args": [],
+        "$kw": {
+          "authority_version": 1,
+          "authority": "governance-codex-v1.32010-derived-enforcement-policy",
+          "permission_hierarchy_role": "only-top-level-permission-authority",
+          "authority_files": [
+        "governance_rule/governance_policy.json",
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
+        "governance_rule/code_rule_directory.json",
+        "governance_rule/permission_directory/directory_authority.json",
+        "runtime_mutable_authority_files",
+        "governance_rule/codex/governance_codex.zh-TW.part-1.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-2.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-3.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-4.txt",
+        "governance_rule/codex/governance_codex.zh-TW.part-5.txt",
+        "top_level_rule",
+        "governance_rule_sources",
+        "governance_rule/codex/data/governance_codex.sql"
+      ],
+          "governance_rule_count": 1,
+          "governance_rule_partitioning": false,
+          "subordinate_governance_rule_definition": false,
+          "managed_directory_sources": [
+        "governance_rule/permission_directory/directory_authority.json"
+      ],
+          "managed_code_rule_directory_sources": [
+        "governance_rule/code_rule_directory.json"
+      ],
+          "governance_execution_roots": [
+            "governance_rule/execution"
+          ],
+          "managed_program_authority": "none-read-and-execute-only",
+          "storage_model": "independent-read-only-programming-language-database",
+          "module_root": "governance_rule",
+          "implementation": "programming-language-code",
+          "source_code_requirement": "programming-language-only",
+          "localization_requirement": "external-language-plugin-files-only",
+          "localized_text_in_source": "prohibited",
+          "runtime_access": "read-only",
+          "runtime_writers": [],
+          "mutation_channels": [],
+          "main_system_access": "read-only",
+          "independent_tool_access": "read-only-snapshot-only",
+          "hot_update_access": "read-only-no-replacement",
+          "authority_file_protection": "operating-system-read-only-and-runtime-write-deny",
+          "authority_integrity_validation": "required-before-load-and-before-enforcement",
+          "activation": {
+            "$call": "GovernanceActivationPolicy",
+            "$args": [],
+            "$kw": {
+              "default_active": true,
+              "activation_order": "before-main-system-and-all-other-modules",
+              "direct_load_required": true,
+              "independent_tool_packaging_exception": "governance_rule-only",
+              "packaged_executable_allowed": false,
+              "execution_access": "read-only-direct-execution",
+              "encapsulation_allowed": false,
+              "optional": false,
+              "stop_permission": false,
+              "disable_permission": false,
+              "unload_permission": false,
+              "lifetime": "entire-host-runtime",
+              "main_system_start_failure": "enter-automatic-repair",
+              "main_system_repair_authority": "governance-policy-only",
+              "main_system_repair_scope": "main-system-stability-only",
+              "repair_completion_gate": "governance-reverify-before-normal-mode",
+              "failure_behavior": "deny-main-system-startup-with-permission-denied"
+            }
+          },
+          "code_version_policy_source": "directory-authority-only",
+          "authority_overwrite_allowed": false,
+          "authority_overwrite_prohibited_channels": [
+            "backup",
+            "restore",
+            "hot-update",
+            "automatic-repair",
+            "main-system-runtime",
+            "independent-tool-runtime"
+          ],
+          "automatic_repair": {
+            "$call": "AutomaticRepairPolicy",
+            "$args": [],
+            "$kw": {
+              "required_for": [
+                "main-system",
+                "each-independent-tool",
+                "shared-layer"
+              ],
+              "purpose": "restore-system-stability-only",
+              "boundary": "main-system-central-program-with-target-isolated-database-only",
+              "authorization_source": "governance-policy-only",
+              "execution_model": "main-system-executes-central-repair-with-per-target-isolated-database-only",
+              "unauthorized_repair": false,
+              "governance_mutation": false,
+              "authority_expansion": false,
+              "business_feature_changes": false,
+              "business_rule_changes": false,
+              "backup_assistance_allowed": true,
+              "backup_owner": "main-system-automation-only",
+              "direct_backup_access": false,
+              "backup_request_channel": "governed-shared-layer-request-channel-only",
+              "authorization_per_step": true,
+              "authority_restore_from_backup": false
+            }
+          },
+          "code_architecture": {
+            "$call": "CodeArchitecturePolicy",
+            "$args": [],
+            "$kw": {
+              "all_source_code_root": "E:/GPTBridge",
+              "independent_tool_root": "E:/GPTBridge/{tool_id}",
+              "independent_tool_folder_outside_project_root": false,
+              "independent_tool_direct_child_only": true,
+              "nested_independent_tool_folder": false,
+              "cross_tool_storage": false,
+              "independent_tool_root_listing": false,
+              "implicit_own_root_read": false,
+              "declared_entry_execution_only": true,
+              "capability_specific_file_access_only": true,
+              "source_code_outside_project_root": false,
+              "source_code_creation_outside_project_root": false,
+              "source_code_modification_outside_project_root": false,
+              "source_code_move_outside_project_root": false,
+              "source_code_update_outside_project_root": false,
+              "source_execution_target_outside_project_root": false,
+              "layered_architecture": true,
+              "modular_architecture": true,
+              "module_responsibility": "single-responsibility",
+              "cross_layer_access": "declared-contracts-only",
+              "persistent_state": "business-settings-and-runtime-state-database-backed",
+              "database_scope": "per-owner-authority-isolated",
+              "non_database_filesystem_artifact_scope": [
+                "external-language-plugins-global-cleaner-backup-only"
+              ],
+              "non_database_filesystem_artifact_owner": "declared-owner-only",
+              "permission_model": "separation-of-duties",
+              "capability_boundary_model": "strictly-separated",
+              "capability_authority_source": "directory-authority-only",
+              "explicit_capability_owner_required": true,
+              "cross_boundary_capability_access": "declared-authenticated-contracts-only",
+              "capability_sharing": false,
+              "capability_inheritance": false,
+              "combined_authority": false,
+              "permission_bypass": false,
+              "canonical_path_authority": "E:/GPTBridge",
+              "runtime_path_resolution": "authority-path-modules-only",
+              "working_directory_path_authority": false,
+              "environment_path_override": false
+            }
+          },
+          "boundary_escape": {
+            "$call": "BoundaryEscapePolicy",
+            "$args": [],
+            "$kw": {
+              "authorization_model": "explicit-allowlist-only",
+              "allowlist_dimensions": [
+                "actor",
+                "capability",
+                "action",
+                "target",
+                "data-scope"
+              ],
+              "explicit_allow_required": true,
+              "default_decision": "deny",
+              "fail_closed": true,
+              "implicit_permission": false,
+              "wildcard_permission": false,
+              "deny_precedence": true,
+              "prompt_override": false,
+              "environment_override": false,
+              "identity_impersonation": false,
+              "delegated_or_proxy_write": false,
+              "path_traversal": false,
+              "symbolic_link_escape": false,
+              "capability_token_required": true,
+              "canonical_path_validation": true,
+              "unknown_actor_access": "denied",
+              "authorization_failure_code": "PERMISSION_DENIED",
+              "authorization_failure_localization_key": "errors.permission_denied",
+              "authorization_failure_message_source": "external-language-plugin",
+              "internal_permission_detail_disclosure": false
+            }
+          },
+          "permission_distribution": {
+            "$call": "PermissionDistributionPolicy",
+            "$args": [],
+            "$kw": {
+              "authority": "governance-policy-only",
+              "permission_hierarchy_role": "only-top-level-permission-authority",
+              "directory_source": "directory-authority-read-only",
+              "decision_model": "explicit-allowlist",
+              "grant_format": "scoped-authenticated-capability-token",
+              "grant_scope": "actor-capability-action-target-and-data-scope",
+              "identity_group_requirement": "active-governance-identity-group-only",
+              "legacy_identity_compatibility": false,
+              "identity_aliases": false,
+              "self_grant": false,
+              "delegation": false,
+              "inheritance": false,
+              "privilege_expansion": false,
+              "enforcement_requirement": "every-privileged-operation-must-be-authorized",
+              "main_system_inherent_permission": false,
+              "independent_tool_inherent_permission": false,
+              "sole_permission_source": "single-governance-policy-capability-token",
+              "governance_activation_precondition": [
+                "verified-single-governance-rule-required"
+              ],
+              "authority_activation_order": [
+                "governance-policy",
+                "code-rule-directory",
+                "permission-directory",
+                "managed-execution-programs",
+                "main-system-and-independent-tools"
+              ],
+              "all_registered_independent_tools_enabled": true,
+              "independent_tool_grant_scope": [
+                "own-declared-capability-boundary-plus-governed-shared-layer"
+              ],
+              "cross_tool_access": false,
+              "permission_directory_independent_authority": false
+            }
+          },
+          "identity_authentication": {
+            "$call": "IdentityAuthenticationPolicy",
+            "$args": [],
+            "$kw": {
+              "mechanism": "launcher-attested-governance-signed-capability-token",
+              "signature_algorithm": "hmac-sha256",
+              "issuer": "governance-policy",
+              "audience": "gptbridge-runtime",
+              "active_identity_group_source": "directory-authority-only",
+              "identity_registry_source": "directory-authority-immutable-registry-only",
+              "permission_registry_source": "directory-authority-immutable-registry-only",
+              "key_management_source": "directory-authority-immutable-policy-only",
+              "verification_authority": "governance-execution-authenticator-only",
+              "failure_code": "PERMISSION_DENIED"
+            }
+          },
+          "identifier_labels": {
+            "$call": "IdentifierLabelPolicy",
+            "$args": [],
+            "$kw": {
+              "schema": "gptbridge-identifier-label-v1",
+              "machine_identifier_language": "ascii",
+              "tool_id_pattern": "^[a-z0-9][a-z0-9_-]*$",
+              "actor_pattern": [
+                "^governance/(?:main-system|tool/[a-z0-9][a-z0-9_-]*)$"
+              ],
+              "capability_pattern": "^[a-z][a-z0-9-]*$",
+              "action_pattern": "^[a-z][a-z0-9-]*$",
+              "target_pattern": "^[a-z][a-z0-9-]*(?::\\{?[a-z0-9_-]\u002B\\}?)?$",
+              "data_scope_pattern": [
+                "^(?:none|[a-z][a-z0-9-]*)(?::\\{?[a-z0-9_-]\u002B\\}?)?$"
+              ],
+              "locale_key_pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]\u002B)*$",
+              "approved_name_source": "code-rule-directory-only",
+              "display_label_source": "owner-external-locale-plugin-only",
+              "manifest_literal_display_label": false,
+              "aliases_allowed": false,
+              "category_labels_allowed": false,
+              "case_sensitive": true,
+              "failure_code": "PERMISSION_DENIED"
+            }
+          },
+          "localization": {
+            "$call": "LocalizationPolicy",
+            "$args": [],
+            "$kw": {
+              "authority": "governance-policy-schema-owner-content-owner-tool",
+              "owner_root_template": "{owner_root}",
+              "plugin_root_template": "{owner_root}/locales",
+              "traditional_chinese_filename": "zh-TW.json",
+              "format": "json-object-string-values-only",
+              "encoding": "utf-8",
+              "required_key_source": "code-rule-directory-only",
+              "manifest_name_key_field": "name_key",
+              "manifest_window_title_key_field": "window.title_key",
+              "permission_denied_key": "errors.permission_denied",
+              "literal_localized_display_text_in_manifest": false,
+              "localized_text_in_source_code": false,
+              "shared_cross_tool_locale_plugin": false,
+              "missing_key_behavior": "permission-denied",
+              "failure_code": "PERMISSION_DENIED"
+            }
+          },
+          "workflow": {
+            "$call": "GovernanceWorkflowPolicy",
+            "$args": [],
+            "$kw": {
+              "authority_activation_flow": [
+                "directly-load-default-single-governance-policy-before-main-system",
+                "verify-governance-policy-version-and-read-only-integrity",
+                "load-and-verify-code-rule-directory",
+                "load-and-verify-subordinate-permission-directory",
+                "load-and-verify-identity-permission-and-capability-registries",
+                "enable-governance-managed-execution-programs",
+                "enable-registered-identities-with-own-boundaries-only",
+                "keep-governance-active-for-entire-host-runtime",
+                "deny-activation-on-any-failure-with-permission-denied"
+              ],
+              "privileged_operation_flow": [
+                "load-and-verify-governance-policy-database",
+                "load-and-verify-managed-directory-authority-database",
+                "verify-launcher-signed-process-bound-identity",
+                "query-directory-identity-capability-action-target-data-and-path",
+                "governance-policy-authorize-explicit-grant",
+                "issue-short-lived-single-use-capability-token",
+                "managed-execution-module-execute-authorized-operation-only",
+                "verify-post-operation-boundary-and-result"
+              ],
+              "code_update_flow": [
+                "receive-explicit-target-version",
+                "verify-target-version-increments-current-manifest-version",
+                "verify-main-system-hot-update-capability",
+                "verify-target-tool-manifest-and-canonical-code-path",
+                "execute-versioned-code-update-only",
+                "verify-code-and-manifest-target-version-match",
+                "reject-or-roll-forward-with-newer-version-on-failure"
+              ],
+              "authority_release_flow": [
+                "stop-runtime-authority-writers-none",
+                "receive-signed-full-release-with-explicit-higher-version",
+                "verify-release-signature-and-both-authority-digests",
+                "replace-both-authority-databases-as-one-release",
+                "set-authority-databases-operating-system-read-only",
+                "restart-and-verify-matching-authority-version"
+              ],
+              "backup_flow": [
+                "verify-global-cleaner-managed-backup-capability",
+                "verify-requester-is-main-system-or-matching-independent-tool",
+                "read-owner-source-without-source-write",
+                "create-new-owner-scoped-staged-backup",
+                "verify-new-backup-integrity",
+                "publish-new-backup",
+                "delete-excess-backups-for-same-owner-only",
+                "verify-each-owner-backup-count-is-at-most-one"
+              ],
+              "automatic_repair_flow": [
+                "detect-stability-failure",
+                "request-governance-authorized-repair-capability",
+                "verify-own-runtime-boundary-and-prohibited-scopes",
+                "optionally-request-backup-extraction-through-shared-layer",
+                "global-cleaner-authorize-owner-and-verify-backup-integrity",
+                "global-cleaner-stage-requested-recovery-data-in-shared-layer-temp",
+                "return-extraction-evidence-through-shared-layer",
+                "authorize-recovery-data-use-before-application",
+                "execute-listed-stability-repair-actions-only",
+                "verify-no-codex-code-or-business-rule-change"
+              ],
+              "shared_layer_write_flow": [
+                "load-and-verify-single-governance-policy",
+                "verify-registered-independent-tool-identity",
+                "verify-shared-layer-request-capabilities",
+                "verify-write-action-target-data-scope-and-canonical-path",
+                "issue-short-lived-single-use-capability-token",
+                "shared-layer-module-authenticate-and-consume-token",
+                "reject-any-unchanneled-instruction-with-permission-denied",
+                "write-shared-layer-request-transaction-only",
+                "verify-no-source-code-or-authority-file-write",
+                "deny-on-any-failure-with-permission-denied"
+              ],
+              "failure_behavior": "fail-closed-with-permission-denied",
+              "step_reordering": false,
+              "step_skipping": false,
+              "executor_defined_steps": false
+            }
+          },
+          "independent_tool_separation": {
+            "$call": "IndependentToolSeparationPolicy",
+            "$args": [],
+            "$kw": {
+              "global_scope_definition": "E:/GPTBridge-only",
+              "global_cleaner_identity": "governance/tool/global-cleaner",
+              "global_cleaner_authority": [
+                "gptbridge-global-garbage-cleanup",
+                "delete-excess-logs",
+                "create-verify-retain-per-owner-managed-backups",
+                "governed-backup-extraction-staging",
+                "gptbridge-read-only-system-health-check",
+                "own-business-settings-and-database"
+              ],
+              "global_cleaner_prohibited": [
+                "modify-codex"
+              ],
+              "shared_identity": false,
+              "shared_source_root": false,
+              "permission_inheritance": false,
+              "delegated_or_proxy_execution": false,
+              "owner_execution_request_required": true,
+              "request_authentication": "governance-policy-issued-capability-token-only",
+              "requester_write_authority": false,
+              "request_failure_code": "PERMISSION_DENIED"
+            }
+          },
+          "shared_layer": {
+            "$call": "SharedLayerPolicy",
+            "$args": [],
+            "$kw": {
+              "module_root": "shared-layer",
+              "jurisdiction": "governance-policy-only",
+              "main_system_module_member": false,
+              "main_system_inherent_access": false,
+              "independent_module": true,
+              "source_root": "shared-layer/src",
+              "data_root": "shared-layer/data",
+              "database_path": "postgresql:gptbridge_transport:system",
+              "ai_database_path": "postgresql:gptbridge_transport:ai",
+              "temporary_root": "main-system/runtime/temp/shared-layer",
+              "central_index_engine": "postgresql",
+              "central_index_schema": "gptbridge_index",
+              "central_index_role": "structured-index-relations-status-and-audit-source-of-truth",
+              "original_data_storage": "owner-module-private-ntfs",
+              "source_write_access": "governance-versioned-release-only",
+              "data_read_access": [
+                "registered-independent-tools-with-explicit-capability-token-only"
+              ],
+              "data_write_access": [
+                "registered-independent-tools-with-explicit-capability-token-only"
+              ],
+              "write_authorization": [
+                "governance-policy-actor-action-target-data-path-and-token-required"
+              ],
+              "direct_filesystem_write": false,
+              "executable_content": false,
+              "runtime_code_loading": false,
+              "direct_main_to_tool_instruction": false,
+              "direct_tool_to_tool_instruction": false,
+              "unchanneled_instruction_decision": "PERMISSION_DENIED",
+              "automatic_repair_authority": "governance-policy-only",
+              "automatic_repair_scope": "shared-database-stability-only",
+              "path_escape": false,
+              "failure_code": "PERMISSION_DENIED"
+            }
+          },
+          "system_responsibilities": {
+            "$call": "SystemResponsibilityPolicy",
+            "$args": [],
+            "$kw": {
+              "git": "system-version-and-development-history",
+              "sql": "structured-mutable-official-data-postgresql",
+              "vector_rag": "rust-vector-engine-semantic-knowledge-index",
+              "local_vector_fallback": "bounded-observable-degraded-cache-only-never-canonical",
+              "llm": "understanding-reasoning-and-operations",
+              "separation": "git-postgresql-rust-vector-engine-rag-and-llm-roles-must-not-replace-one-another",
+              "governed_flow": "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes",
+              "management_owner": "xingcheng-core-orchestrator-under-governance-rule",
+              "management_source_basis": [
+                "governance-rule-for-authority-permissions-and-boundaries",
+                "git-for-system-version-and-development-history",
+                "sql-for-structured-mutable-official-data",
+                "rust-vector-engine-semantic-knowledge-index-for-semantic-retrieval-candidates"
+              ],
+              "llm_inference_as_source_of_truth": false
+            }
+          },
+          "replacement_policy": "explicit-versioned-full-release-only",
+          "enforcement_role": "managed-execution-programs-enforce-but-have-no-authority"
+        }
+      }
+    ],
+    "$kw": {}
+  }
+}

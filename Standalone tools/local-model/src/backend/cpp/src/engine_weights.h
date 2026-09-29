@@ -1,0 +1,266 @@
+// engine_weights.h — B94 fragment of engine.cpp (WeightBundle blob/load/tensor accessors).
+// Included once by engine.cpp inside namespace xingcheng::inference.
+#pragma once
+
+struct WeightBundle::Blob {
+    std::vector<unsigned char> fallback;
+    const unsigned char* data = nullptr;
+    size_t size = 0;
+#ifdef _WIN32
+    HANDLE file = INVALID_HANDLE_VALUE;
+    HANDLE mapping = nullptr;
+    void* view = nullptr;
+#endif
+
+    ~Blob() {
+#ifdef _WIN32
+        if (view != nullptr) UnmapViewOfFile(view);
+        if (mapping != nullptr) CloseHandle(mapping);
+        if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+#endif
+    }
+};
+
+WeightBundle::~WeightBundle() = default;
+WeightBundle::WeightBundle(WeightBundle&&) noexcept = default;
+WeightBundle& WeightBundle::operator=(WeightBundle&&) noexcept = default;
+
+std::unique_ptr<WeightBundle::Blob> map_readonly_file(
+    const std::filesystem::path& path,
+    int64_t max_bytes) {
+    auto blob = std::make_unique<WeightBundle::Blob>();
+#ifdef _WIN32
+    blob->file = CreateFileW(
+        path.wstring().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+    if (blob->file == INVALID_HANDLE_VALUE) {
+        throw InferenceError("BUNDLE_FILE_UNREADABLE:" + path.string());
+    }
+    LARGE_INTEGER file_size{};
+    if (!GetFileSizeEx(blob->file, &file_size) ||
+        file_size.QuadPart < 0 || file_size.QuadPart > max_bytes) {
+        throw InferenceError("BUNDLE_FILE_TOO_LARGE");
+    }
+    blob->size = static_cast<size_t>(file_size.QuadPart);
+    if (blob->size > 0) {
+        blob->mapping = CreateFileMappingW(
+            blob->file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (blob->mapping == nullptr) {
+            throw InferenceError("BUNDLE_MMAP_FAILED");
+        }
+        blob->view = MapViewOfFile(blob->mapping, FILE_MAP_READ, 0, 0, 0);
+        if (blob->view == nullptr) {
+            throw InferenceError("BUNDLE_MMAP_VIEW_FAILED");
+        }
+        blob->data = static_cast<const unsigned char*>(blob->view);
+    }
+    return blob;
+#else
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) throw InferenceError("BUNDLE_FILE_UNREADABLE:" + path.string());
+    const std::streamoff size = input.tellg();
+    if (size < 0 || size > max_bytes) throw InferenceError("BUNDLE_FILE_TOO_LARGE");
+    blob->fallback.resize(static_cast<size_t>(size));
+    input.seekg(0, std::ios::beg);
+    if (size > 0 &&
+        !input.read(reinterpret_cast<char*>(blob->fallback.data()),
+                    static_cast<std::streamsize>(size))) {
+        throw InferenceError("BUNDLE_FILE_READ_FAILED");
+    }
+    blob->data = blob->fallback.data();
+    blob->size = blob->fallback.size();
+    return blob;
+#endif
+}
+
+// ── Weight bundle (P3b) ───────────────────────────────────────────────
+
+int64_t TensorView::size() const {
+    return shape.empty() ? 0 : checked_product(shape);
+}
+
+WeightBundle WeightBundle::load(const std::string& manifest_path) {
+    WeightBundle bundle;
+    const std::filesystem::path manifest_file(manifest_path);
+    const JsonValue manifest = JsonParser(read_text(manifest_file, 64 * 1024 * 1024)).parse();
+    if (json_string(manifest, "schema_version") != "star-native-inference-bundle/v1") {
+        throw InferenceError("BUNDLE_SCHEMA_UNSUPPORTED");
+    }
+
+    const JsonValue& config_json = json_field(manifest, "config");
+    ModelConfig& cfg = bundle.config_;
+    cfg.vocab_size = json_int(config_json, "vocab_size");
+    cfg.hidden_size = json_int(config_json, "hidden_size");
+    cfg.intermediate_size = json_int(config_json, "intermediate_size");
+    cfg.num_hidden_layers = json_int(config_json, "num_hidden_layers");
+    cfg.num_attention_heads = json_int(config_json, "num_attention_heads");
+    cfg.num_key_value_heads = json_int(config_json, "num_key_value_heads");
+    cfg.head_dim = json_int(config_json, "head_dim");
+    cfg.max_position_embeddings = json_int(config_json, "max_position_embeddings");
+    cfg.bos_token_id = json_int(config_json, "bos_token_id");
+    cfg.eos_token_id = json_int(config_json, "eos_token_id");
+    cfg.pad_token_id = json_int(config_json, "pad_token_id");
+    cfg.rms_norm_eps = json_number(config_json, "rms_norm_eps");
+    cfg.rope_theta = json_number(config_json, "rope_theta");
+    cfg.use_swiglu = json_bool(config_json, "use_swiglu");
+    cfg.tie_word_embeddings = json_bool(config_json, "tie_word_embeddings");
+    cfg.norm_type = json_string(config_json, "norm_type");
+    cfg.hidden_act = json_string(config_json, "hidden_act");
+    cfg.position_embedding_type = json_string(config_json, "position_embedding_type");
+    cfg.use_moe = json_bool(config_json, "use_moe");
+    // MoE shape fields are optional in the manifest: bundles exported
+    // before R5 predate them and always carry use_moe=false.
+    if (const JsonValue* v = json_optional(config_json, "moe_num_experts")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_num_experts");
+        cfg.moe_num_experts = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_top_k")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_top_k");
+        cfg.moe_top_k = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_layer_interval")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_layer_interval");
+        cfg.moe_layer_interval = static_cast<int64_t>(v->number);
+    }
+    // v26 fine-grained/shared-expert fields — optional for the same
+    // backward-compat reason as the R5 shape fields above.
+    if (const JsonValue* v = json_optional(config_json, "moe_num_shared_experts")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_num_shared_experts");
+        cfg.moe_num_shared_experts = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_expert_intermediate_size")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_expert_intermediate_size");
+        cfg.moe_expert_intermediate_size = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_shared_intermediate_size")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:moe_shared_intermediate_size");
+        cfg.moe_shared_intermediate_size = static_cast<int64_t>(v->number);
+    }
+    cfg.quantization = json_string(config_json, "quantization");
+
+    const std::string weights_name = json_string(manifest, "weights_file");
+    bundle.weights_sha256_ = json_string(manifest, "weights_sha256");
+    const std::filesystem::path weights_path = manifest_file.parent_path() / weights_name;
+    bundle.blob_ = map_readonly_file(weights_path, 16LL * 1024 * 1024 * 1024);
+    bundle.weights_bytes_ = static_cast<int64_t>(bundle.blob_->size);
+    if (sha256_hex(bundle.blob_->data, bundle.blob_->size) != bundle.weights_sha256_) {
+        throw InferenceError("BUNDLE_WEIGHTS_SHA256_MISMATCH");
+    }
+
+    const JsonValue& tensors = json_field(manifest, "tensors");
+    if (tensors.type != JsonValue::Type::Object) {
+        throw InferenceError("BUNDLE_TENSORS_OBJECT_EXPECTED");
+    }
+    for (const auto& [name, info] : tensors.object) {
+        if (info.type != JsonValue::Type::Object) {
+            throw InferenceError("TENSOR_INFO_INVALID");
+        }
+        const std::string dtype = json_string(info, "dtype");
+        if (dtype != "float64" && dtype != "int8" && dtype != "int4_packed") {
+            throw InferenceError("TENSOR_DTYPE_UNSUPPORTED:" + name);
+        }
+        const std::string endian = json_string(info, "endianness");
+        if (endian != "little") {
+            throw InferenceError("TENSOR_ENDIANNESS_UNSUPPORTED:" + name);
+        }
+        TensorInfo item;
+        item.offset = json_int(info, "offset");
+        item.bytes = json_int(info, "bytes");
+        item.shape = json_shape(json_field(info, "shape"));
+        const int64_t elements = checked_product(item.shape);
+        int64_t expected_bytes = elements * 8;
+        if (dtype == "int8") {
+            expected_bytes = elements;
+        } else if (dtype == "int4_packed") {
+            if (item.shape.size() != 2) {
+                throw InferenceError("TENSOR_INT4_SHAPE_UNSUPPORTED:" + name);
+            }
+            const int64_t rows = elements / item.shape.back();
+            expected_bytes = rows * ((item.shape.back() + 1) / 2);
+        }
+        if (item.offset < 0 || item.bytes != expected_bytes ||
+            item.offset > bundle.weights_bytes_ ||
+            item.bytes > bundle.weights_bytes_ - item.offset) {
+            throw InferenceError("TENSOR_BOUNDS_INVALID:" + name);
+        }
+        TensorView view;
+        view.shape = item.shape;
+        if (dtype == "float64") {
+            view.data = reinterpret_cast<const double*>(
+                bundle.blob_->data + item.offset);
+        } else {
+            // Weight-only per-tensor symmetric quantization (mirrors
+            // kernels/quant.py): dequantize once at load into owned fp64
+            // storage so every downstream GEMM is unchanged.
+            const JsonValue* scale_v = json_optional(info, "scale");
+            if (scale_v == nullptr ||
+                scale_v->type != JsonValue::Type::Number ||
+                !(scale_v->number > 0.0)) {
+                throw InferenceError("TENSOR_SCALE_INVALID:" + name);
+            }
+            const double scale = scale_v->number;
+            const unsigned char* raw = bundle.blob_->data + item.offset;
+            bundle.owned_tensors_.emplace_back(
+                static_cast<size_t>(elements));
+            std::vector<double>& dst = bundle.owned_tensors_.back();
+            if (dtype == "int8") {
+                for (int64_t i = 0; i < elements; ++i) {
+                    dst[static_cast<size_t>(i)] =
+                        static_cast<double>(
+                            reinterpret_cast<const int8_t*>(raw)[i]) * scale;
+                }
+            } else {
+                // int4_packed: two 4-bit values per byte along the last dim
+                // (low nibble = even index, high nibble = odd), shifted +8.
+                const int64_t last = item.shape.back();
+                const int64_t rows = elements / last;
+                const int64_t packed_row = (last + 1) / 2;
+                for (int64_t r = 0; r < rows; ++r) {
+                    const unsigned char* prow = raw + r * packed_row;
+                    double* drow = dst.data() + r * last;
+                    for (int64_t c = 0; c < last; ++c) {
+                        const unsigned char byte = prow[c / 2];
+                        const int64_t nibble =
+                            (c % 2 == 0) ? (byte & 0x0F) : (byte >> 4);
+                        drow[c] = static_cast<double>(nibble - 8) * scale;
+                    }
+                }
+            }
+            view.data = dst.data();
+        }
+        bundle.tensors_.emplace(name, item);
+        bundle.views_.emplace(name, view);
+    }
+    return bundle;
+}
+
+const TensorView& WeightBundle::tensor(const std::string& name) const {
+    const auto it = views_.find(name);
+    if (it == views_.end()) {
+        throw InferenceError("TENSOR_MISSING:" + name);
+    }
+    return it->second;
+}
+
+bool WeightBundle::has_tensor(const std::string& name) const {
+    return views_.find(name) != views_.end();
+}
+
+std::vector<std::string> WeightBundle::tensor_names() const {
+    std::vector<std::string> names;
+    names.reserve(views_.size());
+    for (const auto& [name, unused] : views_) {
+        (void)unused;
+        names.push_back(name);
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
+// ── Tokenizer (P3c) ───────────────────────────────────────────────────

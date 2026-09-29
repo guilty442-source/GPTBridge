@@ -9,12 +9,63 @@ internal static partial class ManifestExport
     private sealed class Emitter
     {
         public readonly List<JsonObject> Checks = new();
+        public string Root = "";
+
+        private static readonly Regex KwLiteral = new(
+            @"^([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[^=]+)?=(.+)$",
+            RegexOptions.Compiled);
+
+        /// <summary>Check paths follow the native JSON port
+        /// (<c>name.json</c> beside a retired <c>name.py</c>) when the
+        /// Python source is gone — same rule as <see cref="Module"/>.</summary>
+        public string PortPath(string path)
+        {
+            if (Root.Length == 0
+                || !path.EndsWith(".py", StringComparison.Ordinal))
+                return path;
+            var ported = path[..^3] + ".json";
+            var gone = !File.Exists(
+                Path.Combine(Root, path.Replace('/', '\\')));
+            return gone && File.Exists(
+                Path.Combine(Root, ported.Replace('/', '\\')))
+                ? ported : path;
+        }
+
+        /// <summary>Translate a Python-literal marker
+        /// (<c>name="v"</c>, <c>name=True</c>, <c>name=False</c>) into the
+        /// JSON-port shape (<c>"name": "v"</c>, <c>"name": true</c>,
+        /// <c>"name": false</c>).  Bare markers pass through — a quoted
+        /// string occurs verbatim in both syntaxes.</summary>
+        public static string PortMarker(string marker, bool ported)
+        {
+            if (!ported) return marker;
+            var match = KwLiteral.Match(marker);
+            if (!match.Success) return marker;
+            var value = match.Groups[2].Value.Trim();
+            value = value switch
+            {
+                "True" => "true",
+                "False" => "false",
+                _ => value,
+            };
+            return $"\"{match.Groups[1].Value}\": {value}";
+        }
+
         public void Emit(string id, string kind, string path = "",
             Action<JsonObject>? extra = null)
         {
+            var ported = kind is "file-contains" or "file-not-contains"
+                or "file-exists"
+                ? PortPath(path) : path;
             var row = new JsonObject { ["id"] = id, ["kind"] = kind };
-            if (path.Length > 0) row["path"] = path;
+            if (ported.Length > 0) row["path"] = ported;
             extra?.Invoke(row);
+            if (ported != path
+                && row["markers"] is JsonArray markers)
+                row["markers"] = Arr(markers
+                    .OfType<JsonValue>()
+                    .Select(node => PortMarker(
+                        node.GetValue<string>(), true)));
             Checks.Add(row);
         }
         public void Contains(string id, string path,
@@ -38,9 +89,18 @@ internal static partial class ManifestExport
                 .ToArray());
     }
 
+    /// <summary>Registry constants: prefer the native JSON port
+    /// (<c>name.json</c> beside the retired <c>name.py</c>), fall back to
+    /// the Python-literal source while it still exists.</summary>
     private static Dictionary<string, PyLit.Value> Module(
-        string root, string relative) =>
-        PyLit.ModuleConstants(SourceText(root, relative));
+        string root, string relative)
+    {
+        var jsonRel = Regex.Replace(relative, @"\.py$", ".json");
+        var jsonPath = Rel(root, jsonRel);
+        if (jsonRel != relative && File.Exists(jsonPath))
+            return PyLit.ModuleConstantsJson(ReadText(jsonPath));
+        return PyLit.ModuleConstants(ReadText(Rel(root, relative)));
+    }
 
     private static PyLit.Value? ModuleVar(
         string root, string relative, string name) =>

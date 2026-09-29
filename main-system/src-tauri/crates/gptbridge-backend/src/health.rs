@@ -18,6 +18,39 @@ use gptbridge_core::security::token;
 
 static AUTHENTICATED_CONNECTIONS: AtomicU64 = AtomicU64::new(0);
 static RUNTIME_FAILED: AtomicBool = AtomicBool::new(false);
+static STARTUP_DEAD: AtomicBool = AtomicBool::new(false);
+static BOOT_INSTANT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+
+fn boot_instant() -> Instant {
+    *BOOT_INSTANT.get_or_init(Instant::now)
+}
+
+/// ``startup_gate_deadline_seconds`` from ``startup_manifest.json``
+/// (``timeouts`` block); the 90 s default matches the shipped manifest.
+fn startup_deadline() -> Duration {
+    let manifest = paths::path_library()
+        .workspace_root
+        .join("main-system")
+        .join("config")
+        .join("startup_manifest.json");
+    let seconds = std::fs::read_to_string(manifest)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .and_then(|m| {
+            m["timeouts"]["startup_gate_deadline_seconds"]
+                .as_f64()
+                .or_else(|| m["startup_gate_deadline_seconds"].as_f64())
+        })
+        .unwrap_or(90.0);
+    Duration::from_secs_f64(seconds.max(1.0))
+}
+
+/// Permanent latch (parity with the Python ``startup_dead`` flag): once the
+/// startup deadline passes without full readiness the runtime reports dead —
+/// it never un-latches within a generation.
+pub fn startup_dead() -> bool {
+    STARTUP_DEAD.load(Ordering::SeqCst)
+}
 
 pub fn note_authenticated_connect() {
     AUTHENTICATED_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
@@ -108,6 +141,8 @@ pub struct Readiness {
     pub backend_runtime_ready: bool,
     pub dependencies_ready: bool,
     pub authenticated_ipc: bool,
+    pub startup_dead: bool,
+    pub startup_failures: Vec<String>,
     pub dependencies: Vec<Value>,
 }
 
@@ -135,10 +170,24 @@ pub fn evaluate() -> Readiness {
     let dependencies_ready = core_ok;
     let ready =
         backend_runtime_ready && gov_ready && dependencies_ready && authed;
+    if !ready && boot_instant().elapsed() >= startup_deadline() {
+        STARTUP_DEAD.store(true, Ordering::SeqCst);
+    }
+    let dead = STARTUP_DEAD.load(Ordering::SeqCst);
+    let startup_failures = if dead {
+        deps.iter()
+            .filter(|d| d["ready"].as_bool() != Some(true))
+            .filter_map(|d| d["identity"].as_str().map(String::from))
+            .collect()
+    } else {
+        Vec::new()
+    };
     Readiness {
-        ok: ready,
+        ok: ready && !dead,
         runtime_state: if RUNTIME_FAILED.load(Ordering::SeqCst) {
             "failed"
+        } else if dead {
+            "degraded"
         } else if ready {
             "ready"
         } else {
@@ -148,6 +197,8 @@ pub fn evaluate() -> Readiness {
         backend_runtime_ready,
         dependencies_ready,
         authenticated_ipc: authed,
+        startup_dead: dead,
+        startup_failures,
         dependencies: deps,
     }
 }
@@ -165,6 +216,8 @@ pub fn health_payload(level: &str) -> Value {
         "backend_runtime_ready": readiness.backend_runtime_ready,
         "dependencies_ready": readiness.dependencies_ready,
         "authenticated_ipc_connected": readiness.authenticated_ipc,
+        "startup_dead": readiness.startup_dead,
+        "startup_failures": readiness.startup_failures,
         "dependencies": readiness.dependencies,
         "services": {},
         "capabilities": {},

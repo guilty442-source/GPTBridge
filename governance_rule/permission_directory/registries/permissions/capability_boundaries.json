@@ -1,0 +1,2567 @@
+{
+  "CAPABILITY_AUTHORITIES": [
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "xingcheng-governance-source-read",
+        "tool:xingcheng-assistant",
+        "direct-authoritative-governance-snapshot-read-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "codex-snapshot",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "governance_rule"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "directory-authority-snapshot",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "governance_rule/permission_directory"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "xingcheng-fault-analysis-read",
+        "tool:xingcheng-assistant",
+        "read-only-fault-evidence-and-repair-knowledge-for-global-review",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "automatic-repair-knowledge",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/data/automatic-repair/knowledge"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "automatic-repair-runs",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/data/automatic-repair/runs"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "crash-diagnosis-records",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/state"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "repair-requests",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/state"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "system-health-snapshot",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/state"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "tool-crash-quarantine",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/state/tool-crash-quarantine"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "audit-records",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/logs"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "runtime-logs",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/logs"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "codex-read-execute",
+        "tool:governance_rule",
+        "own-authority-snapshot-read-and-declared-entry-execute-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "codex-snapshot",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "governance_rule"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "execute",
+              "tool-runtime:governance_rule",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "governance_rule"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "permission-directory-read-execute",
+        "tool:governance_rule",
+        "managed-directory-snapshot-read-and-declared-module-execute-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "directory-authority-snapshot",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "governance_rule/permission_directory"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "execute",
+              "permission-directory-module",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "governance_rule/permission_directory"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "governance",
+        "main-system",
+        "read-and-enforce-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "authority-files",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "exact",
+              "path_roots": {
+                "$ref": "IMMUTABLE_AUTHORITY_ROOTS"
+              }
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "enforce",
+              "governed-operation",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "authorize",
+              "capability-request",
+              "none"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "authenticated-ipc",
+        "main-system",
+        "authenticated-ipc-only",
+        "runtime-state-main-connection-metadata-only",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "connect",
+              "authenticated-ipc",
+              "connection-metadata"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "disconnect",
+              "authenticated-ipc",
+              "connection-metadata"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "health-check",
+              "authenticated-ipc",
+              "none"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "independent-tool-discovery",
+        "main-system",
+        "gptbridge-direct-child-tool-manifest-scan-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "discover",
+              "independent-tool-manifests",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "."
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "independent-tool-start-and-stop",
+        "main-system",
+        "process-lifecycle-control-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "start",
+              "tool-process:{tool_id}",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "stop",
+              "tool-process:{tool_id}",
+              "none"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "system-channel-request-submit",
+        "governance-policy",
+        "governance-authorized-system-channel-submit-cancel-and-consume-only",
+        "system-channel-request-database-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "request",
+                  "shared-layer-system-request:{tool_id}",
+                  "shared-layer-system-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:system"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "cancel-request",
+                  "shared-layer-system-request:{tool_id}",
+                  "shared-layer-system-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:system"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "consume-response",
+                  "shared-layer-system-request:{tool_id}",
+                  "shared-layer-system-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:system"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "system-channel-request-process",
+        "governance-policy",
+        "codex-authorized-own-system-request-claim-and-response-only",
+        "system-channel-request-database-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "claim",
+                  "shared-layer-system-request:{tool_id}",
+                  "shared-layer-system-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:system"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "respond",
+                  "shared-layer-system-request:{tool_id}",
+                  "shared-layer-system-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:system"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "ai-channel-request-submit",
+        "governance-policy",
+        "codex-authorized-ai-channel-submit-cancel-and-consume-only",
+        "ai-channel-request-database-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "request",
+                  "shared-layer-ai-request:{tool_id}",
+                  "shared-layer-ai-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:ai"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "cancel-request",
+                  "shared-layer-ai-request:{tool_id}",
+                  "shared-layer-ai-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:ai"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "consume-response",
+                  "shared-layer-ai-request:{tool_id}",
+                  "shared-layer-ai-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:ai"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "ai-channel-request-process",
+        "governance-policy",
+        "codex-authorized-own-ai-request-claim-and-response-only",
+        "ai-channel-request-database-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "claim",
+                  "shared-layer-ai-request:{tool_id}",
+                  "shared-layer-ai-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:ai"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "respond",
+                  "shared-layer-ai-request:{tool_id}",
+                  "shared-layer-ai-request"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": [
+                    "postgresql:gptbridge_transport:ai"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "ai-channel-top-level",
+        "governance-policy",
+        "star-global-read-and-highest-decision-authority-without-external-execution",
+        "global-read-only-except-star-internal-data",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "request-external-collaboration",
+              "ai-channel:xingcheng",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "receive-external-response",
+              "ai-channel:xingcheng",
+              "none"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "local-model-platform-execution",
+        "governance-policy",
+        "all-local-model-loading-selection-inference-and-runtime-lifecycle",
+        "local-model-runtime-only",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "execute",
+              "local-model-runtime",
+              "none"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "star-global-data-read",
+        "tool:xingcheng-assistant",
+        "global-central-index-visibility-and-governed-owner-resolution-request",
+        "opaque-central-index-only",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "central-index",
+              "opaque-resource-index"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "request-read",
+              "owner-resource-resolve:{tool_id}",
+              "opaque-locator-id-only"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "star-internal-data-read-write",
+        "tool:xingcheng",
+        "star-internal-model-data-autonomy-with-read-only-permission-files",
+        "xingcheng-private-internal-data-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "star-internal-data",
+                  "xingcheng-internal-data"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "Standalone tools/local-model/xingcheng"
+                  ],
+                  "excluded_path_roots": [
+                    "Standalone tools/local-model/xingcheng/permissions"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "append",
+                  "star-internal-data",
+                  "xingcheng-internal-data"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "Standalone tools/local-model/xingcheng"
+                  ],
+                  "excluded_path_roots": [
+                    "Standalone tools/local-model/xingcheng/permissions"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "delete",
+                  "star-internal-data",
+                  "xingcheng-internal-data"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "Standalone tools/local-model/xingcheng"
+                  ],
+                  "excluded_path_roots": [
+                    "Standalone tools/local-model/xingcheng/permissions"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "rollback",
+                  "star-internal-data",
+                  "xingcheng-internal-data"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "Standalone tools/local-model/xingcheng"
+                  ],
+                  "excluded_path_roots": [
+                    "Standalone tools/local-model/xingcheng/permissions"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "update",
+                  "star-internal-data",
+                  "xingcheng-internal-data"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "Standalone tools/local-model/xingcheng"
+                  ],
+                  "excluded_path_roots": [
+                    "Standalone tools/local-model/xingcheng/permissions"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "write",
+                  "star-internal-data",
+                  "xingcheng-internal-data"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "Standalone tools/local-model/xingcheng"
+                  ],
+                  "excluded_path_roots": [
+                    "Standalone tools/local-model/xingcheng/permissions"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "star-decision",
+        "governance-policy",
+        "highest-non-governance-decision-authority-no-execution",
+        "structured-decision-only",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "approve",
+              "governed-decision",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "deny",
+              "governed-decision",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "stop",
+              "governed-decision",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "request-reassessment",
+              "governed-decision",
+              "none"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "star-investment-manager-database-read",
+        "tool:xingcheng",
+        "ai-assistant-investment-database-read-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read",
+              "tool-business-storage:ai-assistant",
+              "ai-assistant-investment-database"
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "hot-update",
+        "main-system",
+        "versioned-tool-code-update-only",
+        "tool-code-only-excluding-authority-files-and-business-data",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "update",
+              "tool-code:{tool_id}",
+              "tool-code",
+              "increment",
+              "within",
+              [
+                "{tool_id}"
+              ],
+              [
+                "{tool_id}/runtime",
+                "{tool_id}/data"
+              ]
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "rollback",
+              "tool-code:{tool_id}",
+              "tool-code",
+              "increment",
+              "within",
+              [
+                "{tool_id}"
+              ],
+              [
+                "{tool_id}/runtime",
+                "{tool_id}/data"
+              ]
+            ],
+            "$kw": {}
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "frontend-backend-connection-stability",
+        "main-system",
+        "authenticated-connection-lifecycle-only",
+        "runtime-state-main-only",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "diagnose",
+              "frontend-backend-connection",
+              "none"
+            ],
+            "$kw": {}
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "stabilize",
+              "frontend-backend-connection",
+              "main-runtime-state"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/state"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "independent-tool-business-logic",
+        "tool:{tool_id}",
+        "own-tool-source-and-runtime-only",
+        "none-without-separate-storage-capability",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "execute",
+              "tool-runtime:{tool_id}",
+              "none"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "{tool_id}"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "independent-tool-user-settings",
+        "tool:{tool_id}",
+        "own-user-settings-operations-only",
+        "own-runtime-settings-database-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "tool-settings:{tool_id}",
+                  "tool-settings:{tool_id}"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "{tool_id}/runtime/settings"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "write",
+                  "tool-settings:{tool_id}",
+                  "tool-settings:{tool_id}"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "{tool_id}/runtime/settings"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "independent-tool-business-storage",
+        "tool:{tool_id}",
+        "own-business-storage-operations-only",
+        "own-business-database-only",
+        {
+          "$call": "tuple",
+          "$args": [
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "tool-business-storage:{tool_id}",
+                  "tool-business:{tool_id}"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "{tool_id}/data/business"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "write",
+                  "tool-business-storage:{tool_id}",
+                  "tool-business:{tool_id}"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "{tool_id}/data/business"
+                  ]
+                }
+              }
+            ]
+          ],
+          "$kw": {}
+        },
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "managed-backup",
+        "main-system:automation",
+        "per-owner-backup-archive-custody-and-governed-extract-only",
+        "main-system-recovery-archive-and-shared-extract-staging-only",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "read-source",
+              "backup-owner-source",
+              "global-read-only"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "."
+              ],
+              "excluded_path_roots": {
+                "$ref": "IMMUTABLE_AUTHORITY_ROOTS"
+              }
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "create-backup",
+              "managed-backup-root",
+              "owner-scoped-backup"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/data/recovery/backups"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "delete-excess",
+              "managed-backup-root",
+              "owner-scoped-backup"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/data/recovery/backups"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "extract-backup",
+              "backup-extract-staging",
+              "backup-extract"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/runtime/temp/shared-layer/backup-extract"
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "system-health-check",
+        "institution:xingcheng-assistant",
+        "gptbridge-global-system-health-read-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "check",
+              "global-system-health",
+              "global-read-only"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "."
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    },
+    {
+      "$call": "CapabilityAuthority",
+      "$args": [
+        "central-automatic-repair",
+        "tool:xingcheng",
+        "gptbridge-central-automatic-repair-only",
+        "none",
+        [
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "repair",
+              "automatic-repair-database:{tool_id}",
+              "tool-stability:{tool_id}"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "main-system/data/automatic-repair"
+              ]
+            }
+          },
+          {
+            "$call": "CapabilityGrant",
+            "$args": [
+              "diagnose",
+              "global-system-health",
+              "global-read-only"
+            ],
+            "$kw": {
+              "path_match": "within",
+              "path_roots": [
+                "."
+              ]
+            }
+          }
+        ],
+        false,
+        false
+      ],
+      "$kw": {}
+    }
+  ],
+  "AUTOMATIC_REPAIR_BOUNDARIES": [
+    {
+      "$call": "AutomaticRepairBoundary",
+      "$args": [],
+      "$kw": {
+        "owner": "main-system",
+        "allowed_scope": "main-shared-and-target-tool-stability-with-per-target-database-only",
+        "authorization_source": "governance-policy-issued-capability-token-only",
+        "authorization_failure_code": "PERMISSION_DENIED",
+        "prohibited_scope": [
+          "authority-files",
+          "tool-source-code",
+          "cross-target-database-access",
+          "direct-managed-backup-access",
+          "business-features",
+          "business-rules"
+        ]
+      }
+    }
+  ],
+  "capability_boundary_snapshot": {
+    "$call": "_sealed_boundary_reader",
+    "$args": [
+      [
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "xingcheng-governance-source-read",
+            "tool:xingcheng-assistant",
+            "direct-authoritative-governance-snapshot-read-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "codex-snapshot",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "governance_rule"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "directory-authority-snapshot",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "governance_rule/permission_directory"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "xingcheng-fault-analysis-read",
+            "tool:xingcheng-assistant",
+            "read-only-fault-evidence-and-repair-knowledge-for-global-review",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "automatic-repair-knowledge",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/data/automatic-repair/knowledge"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "automatic-repair-runs",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/data/automatic-repair/runs"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "crash-diagnosis-records",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/state"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "repair-requests",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/state"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "system-health-snapshot",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/state"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "tool-crash-quarantine",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/state/tool-crash-quarantine"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "audit-records",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/logs"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "runtime-logs",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/logs"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "codex-read-execute",
+            "tool:governance_rule",
+            "own-authority-snapshot-read-and-declared-entry-execute-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "codex-snapshot",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "governance_rule"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "execute",
+                  "tool-runtime:governance_rule",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "governance_rule"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "permission-directory-read-execute",
+            "tool:governance_rule",
+            "managed-directory-snapshot-read-and-declared-module-execute-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "directory-authority-snapshot",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "governance_rule/permission_directory"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "execute",
+                  "permission-directory-module",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "governance_rule/permission_directory"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "governance",
+            "main-system",
+            "read-and-enforce-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "authority-files",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "exact",
+                  "path_roots": {
+                    "$ref": "IMMUTABLE_AUTHORITY_ROOTS"
+                  }
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "enforce",
+                  "governed-operation",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "authorize",
+                  "capability-request",
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "authenticated-ipc",
+            "main-system",
+            "authenticated-ipc-only",
+            "runtime-state-main-connection-metadata-only",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "connect",
+                  "authenticated-ipc",
+                  "connection-metadata"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "disconnect",
+                  "authenticated-ipc",
+                  "connection-metadata"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "health-check",
+                  "authenticated-ipc",
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "independent-tool-discovery",
+            "main-system",
+            "gptbridge-direct-child-tool-manifest-scan-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "discover",
+                  "independent-tool-manifests",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "."
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "independent-tool-start-and-stop",
+            "main-system",
+            "process-lifecycle-control-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "start",
+                  "tool-process:{tool_id}",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "stop",
+                  "tool-process:{tool_id}",
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "system-channel-request-submit",
+            "governance-policy",
+            "governance-authorized-system-channel-submit-cancel-and-consume-only",
+            "system-channel-request-database-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "request",
+                      "shared-layer-system-request:{tool_id}",
+                      "shared-layer-system-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:system"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "cancel-request",
+                      "shared-layer-system-request:{tool_id}",
+                      "shared-layer-system-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:system"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "consume-response",
+                      "shared-layer-system-request:{tool_id}",
+                      "shared-layer-system-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:system"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "system-channel-request-process",
+            "governance-policy",
+            "codex-authorized-own-system-request-claim-and-response-only",
+            "system-channel-request-database-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "claim",
+                      "shared-layer-system-request:{tool_id}",
+                      "shared-layer-system-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:system"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "respond",
+                      "shared-layer-system-request:{tool_id}",
+                      "shared-layer-system-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:system"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "ai-channel-request-submit",
+            "governance-policy",
+            "codex-authorized-ai-channel-submit-cancel-and-consume-only",
+            "ai-channel-request-database-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "request",
+                      "shared-layer-ai-request:{tool_id}",
+                      "shared-layer-ai-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:ai"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "cancel-request",
+                      "shared-layer-ai-request:{tool_id}",
+                      "shared-layer-ai-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:ai"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "consume-response",
+                      "shared-layer-ai-request:{tool_id}",
+                      "shared-layer-ai-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:ai"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "ai-channel-request-process",
+            "governance-policy",
+            "codex-authorized-own-ai-request-claim-and-response-only",
+            "ai-channel-request-database-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "claim",
+                      "shared-layer-ai-request:{tool_id}",
+                      "shared-layer-ai-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:ai"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "respond",
+                      "shared-layer-ai-request:{tool_id}",
+                      "shared-layer-ai-request"
+                    ],
+                    "$kw": {
+                      "path_match": "exact",
+                      "path_roots": [
+                        "postgresql:gptbridge_transport:ai"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "ai-channel-top-level",
+            "governance-policy",
+            "star-global-read-and-highest-decision-authority-without-external-execution",
+            "global-read-only-except-star-internal-data",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "request-external-collaboration",
+                  "ai-channel:xingcheng",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "receive-external-response",
+                  "ai-channel:xingcheng",
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "local-model-platform-execution",
+            "governance-policy",
+            "all-local-model-loading-selection-inference-and-runtime-lifecycle",
+            "local-model-runtime-only",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "execute",
+                  "local-model-runtime",
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "star-global-data-read",
+            "tool:xingcheng-assistant",
+            "global-central-index-visibility-and-governed-owner-resolution-request",
+            "opaque-central-index-only",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "central-index",
+                  "opaque-resource-index"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "request-read",
+                  "owner-resource-resolve:{tool_id}",
+                  "opaque-locator-id-only"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "star-internal-data-read-write",
+            "tool:xingcheng",
+            "star-internal-model-data-autonomy-with-read-only-permission-files",
+            "xingcheng-private-internal-data-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "read",
+                      "star-internal-data",
+                      "xingcheng-internal-data"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "Standalone tools/local-model/xingcheng"
+                      ],
+                      "excluded_path_roots": [
+                        "Standalone tools/local-model/xingcheng/permissions"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "append",
+                      "star-internal-data",
+                      "xingcheng-internal-data"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "Standalone tools/local-model/xingcheng"
+                      ],
+                      "excluded_path_roots": [
+                        "Standalone tools/local-model/xingcheng/permissions"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "delete",
+                      "star-internal-data",
+                      "xingcheng-internal-data"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "Standalone tools/local-model/xingcheng"
+                      ],
+                      "excluded_path_roots": [
+                        "Standalone tools/local-model/xingcheng/permissions"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "rollback",
+                      "star-internal-data",
+                      "xingcheng-internal-data"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "Standalone tools/local-model/xingcheng"
+                      ],
+                      "excluded_path_roots": [
+                        "Standalone tools/local-model/xingcheng/permissions"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "update",
+                      "star-internal-data",
+                      "xingcheng-internal-data"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "Standalone tools/local-model/xingcheng"
+                      ],
+                      "excluded_path_roots": [
+                        "Standalone tools/local-model/xingcheng/permissions"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "write",
+                      "star-internal-data",
+                      "xingcheng-internal-data"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "Standalone tools/local-model/xingcheng"
+                      ],
+                      "excluded_path_roots": [
+                        "Standalone tools/local-model/xingcheng/permissions"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "star-decision",
+            "governance-policy",
+            "highest-non-governance-decision-authority-no-execution",
+            "structured-decision-only",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "approve",
+                  "governed-decision",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "deny",
+                  "governed-decision",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "stop",
+                  "governed-decision",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "request-reassessment",
+                  "governed-decision",
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "star-investment-manager-database-read",
+            "tool:xingcheng",
+            "ai-assistant-investment-database-read-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read",
+                  "tool-business-storage:ai-assistant",
+                  "ai-assistant-investment-database"
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "hot-update",
+            "main-system",
+            "versioned-tool-code-update-only",
+            "tool-code-only-excluding-authority-files-and-business-data",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "update",
+                  "tool-code:{tool_id}",
+                  "tool-code",
+                  "increment",
+                  "within",
+                  [
+                    "{tool_id}"
+                  ],
+                  [
+                    "{tool_id}/runtime",
+                    "{tool_id}/data"
+                  ]
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "rollback",
+                  "tool-code:{tool_id}",
+                  "tool-code",
+                  "increment",
+                  "within",
+                  [
+                    "{tool_id}"
+                  ],
+                  [
+                    "{tool_id}/runtime",
+                    "{tool_id}/data"
+                  ]
+                ],
+                "$kw": {}
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "frontend-backend-connection-stability",
+            "main-system",
+            "authenticated-connection-lifecycle-only",
+            "runtime-state-main-only",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "diagnose",
+                  "frontend-backend-connection",
+                  "none"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "stabilize",
+                  "frontend-backend-connection",
+                  "main-runtime-state"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/state"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "independent-tool-business-logic",
+            "tool:{tool_id}",
+            "own-tool-source-and-runtime-only",
+            "none-without-separate-storage-capability",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "execute",
+                  "tool-runtime:{tool_id}",
+                  "none"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "{tool_id}"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "independent-tool-user-settings",
+            "tool:{tool_id}",
+            "own-user-settings-operations-only",
+            "own-runtime-settings-database-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "read",
+                      "tool-settings:{tool_id}",
+                      "tool-settings:{tool_id}"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "{tool_id}/runtime/settings"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "write",
+                      "tool-settings:{tool_id}",
+                      "tool-settings:{tool_id}"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "{tool_id}/runtime/settings"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "independent-tool-business-storage",
+            "tool:{tool_id}",
+            "own-business-storage-operations-only",
+            "own-business-database-only",
+            {
+              "$call": "tuple",
+              "$args": [
+                [
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "read",
+                      "tool-business-storage:{tool_id}",
+                      "tool-business:{tool_id}"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "{tool_id}/data/business"
+                      ]
+                    }
+                  },
+                  {
+                    "$call": "CapabilityGrant",
+                    "$args": [
+                      "write",
+                      "tool-business-storage:{tool_id}",
+                      "tool-business:{tool_id}"
+                    ],
+                    "$kw": {
+                      "path_match": "within",
+                      "path_roots": [
+                        "{tool_id}/data/business"
+                      ]
+                    }
+                  }
+                ]
+              ],
+              "$kw": {}
+            },
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "managed-backup",
+            "main-system:automation",
+            "per-owner-backup-archive-custody-and-governed-extract-only",
+            "main-system-recovery-archive-and-shared-extract-staging-only",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "read-source",
+                  "backup-owner-source",
+                  "global-read-only"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "."
+                  ],
+                  "excluded_path_roots": {
+                    "$ref": "IMMUTABLE_AUTHORITY_ROOTS"
+                  }
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "create-backup",
+                  "managed-backup-root",
+                  "owner-scoped-backup"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/data/recovery/backups"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "delete-excess",
+                  "managed-backup-root",
+                  "owner-scoped-backup"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/data/recovery/backups"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "extract-backup",
+                  "backup-extract-staging",
+                  "backup-extract"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/runtime/temp/shared-layer/backup-extract"
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "system-health-check",
+            "institution:xingcheng-assistant",
+            "gptbridge-global-system-health-read-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "check",
+                  "global-system-health",
+                  "global-read-only"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "."
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        },
+        {
+          "$call": "CapabilityAuthority",
+          "$args": [
+            "central-automatic-repair",
+            "tool:xingcheng",
+            "gptbridge-central-automatic-repair-only",
+            "none",
+            [
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "repair",
+                  "automatic-repair-database:{tool_id}",
+                  "tool-stability:{tool_id}"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "main-system/data/automatic-repair"
+                  ]
+                }
+              },
+              {
+                "$call": "CapabilityGrant",
+                "$args": [
+                  "diagnose",
+                  "global-system-health",
+                  "global-read-only"
+                ],
+                "$kw": {
+                  "path_match": "within",
+                  "path_roots": [
+                    "."
+                  ]
+                }
+              }
+            ],
+            false,
+            false
+          ],
+          "$kw": {}
+        }
+      ],
+      [
+        {
+          "$call": "AutomaticRepairBoundary",
+          "$args": [],
+          "$kw": {
+            "owner": "main-system",
+            "allowed_scope": "main-shared-and-target-tool-stability-with-per-target-database-only",
+            "authorization_source": "governance-policy-issued-capability-token-only",
+            "authorization_failure_code": "PERMISSION_DENIED",
+            "prohibited_scope": [
+              "authority-files",
+              "tool-source-code",
+              "cross-target-database-access",
+              "direct-managed-backup-access",
+              "business-features",
+              "business-rules"
+            ]
+          }
+        }
+      ]
+    ],
+    "$kw": {}
+  },
+  "IMMUTABLE_AUTHORITY_ROOTS": [
+    "governance_rule/governance_policy.json",
+    "governance_rule/code_rule_directory.json",
+    "governance_rule/permission_directory/directory_authority.json"
+  ]
+}

@@ -116,6 +116,7 @@ $suites = @(
         #    outbox 持有＋回放）——transport 注入（模式 B）
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\channel_runtime.cpp"),
+            (Join-Path $nativeRoot "tool_runtime\channel_runtime_loops.cpp"),
             (Join-Path $coreDir "a263_channel_core.c")
         )
     },

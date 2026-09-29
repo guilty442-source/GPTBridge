@@ -2,7 +2,7 @@
   "schema_version": 1,
   "registry_id": "gptbridge-architecture",
   "authority": "governance_rule",
-  "updated_at": "2026-09-23T05:30:00Z",
+  "updated_at": "2026-09-29T09:35:56Z",
   "architectural_roles": [
     "governance",
     "startup",
@@ -38,11 +38,13 @@
     "trash": [
       "global-cleaner",
       "language-review",
+      "model-training",
+      "module-sqlite",
+      "qdrant",
       "sub-sovereign-orchestration",
       "tokenizer",
-      "qdrant",
-      "model-training",
-      "module-sqlite"
+      "xingcheng-auto-learning-module",
+      "xingcheng-auto-repair-module"
     ]
   },
   "retired_module_cleanup_contract": {
@@ -141,7 +143,7 @@
     {
       "component_id": "governance_rule",
       "architectural_role": "governance",
-      "runtime_form": "python-process",
+      "runtime_form": "build-tooling",
       "owner_sovereign": "decision",
       "execution_identity": "governance-rule",
       "physical_path": "governance_rule",
@@ -152,7 +154,8 @@
       "architecture_code": "CODEX_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-governance"
+      "python_residency": "retire",
+      "external_locator": "git-history:governance_rule/execution/**.py (retired with the Python lane — C# GPTBridge.CodexPipeline + native audit-engine supersede)"
     },
     {
       "component_id": "codex-authority",
@@ -174,7 +177,7 @@
     {
       "component_id": "main-system",
       "architectural_role": "decision",
-      "runtime_form": "python-process",
+      "runtime_form": "standalone-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "main-system",
       "physical_path": "main-system",
@@ -191,15 +194,16 @@
       "architecture_code": "MAIN_SYSTEM",
       "unit": "UNIT_RUNTIME",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/src-core/**.py (retired with the Python lane — C# GPTBridge.MainSystem + native launcher supersede)"
     },
     {
       "component_id": "boot-core",
       "architectural_role": "startup",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "boot-core",
-      "physical_path": "main-system/src-core",
+      "physical_path": "shared-layer/csharp/GPTBridge.MainSystem",
       "lifecycle": "per-boot",
       "canonical": true,
       "dependencies": [
@@ -209,12 +213,13 @@
       "architecture_code": "MAIN_SYSTEM",
       "unit": "UNIT_RUNTIME",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/src-core (retired with the Python lane — C# GPTBridge.MainSystem GovernedStartup/StartupGate supersede)"
     },
     {
       "component_id": "bootstrap-entry",
       "architectural_role": "startup",
-      "runtime_form": "python-process",
+      "runtime_form": "standalone-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "bootstrap-entry",
       "physical_path": "main-system/launcher",
@@ -227,7 +232,7 @@
       "architecture_code": "LAUNCHER",
       "unit": "UNIT_BOOTSTRAP",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire"
     },
     {
       "component_id": "launcher-ui",
@@ -249,10 +254,10 @@
     {
       "component_id": "decision-sovereign",
       "architectural_role": "decision",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "decision",
       "execution_identity": "decision-sovereign",
-      "physical_path": "main-system/governance/sovereigns",
+      "physical_path": "shared-layer/csharp/GPTBridge.CodexPipeline",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -262,15 +267,16 @@
       "architecture_code": "SOVEREIGN_DECISION_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-governance"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/governance/sovereigns (retired with the Python lane — C# GPTBridge.CodexPipeline SovereignAudit supersedes)"
     },
     {
       "component_id": "automation-sovereign",
       "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "automation",
       "execution_identity": "automation-sovereign",
-      "physical_path": "main-system/governance/sovereigns/automation_sovereign.py",
+      "physical_path": "shared-layer/csharp/GPTBridge.GitAutomation",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -280,15 +286,16 @@
       "architecture_code": "SOVEREIGN_DECISION_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-governance"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/governance/sovereigns/automation_sovereign.py (retired with the Python lane — C# GPTBridge.GitAutomation governed planes supersede)"
     },
     {
       "component_id": "xingcheng-sovereign",
       "architectural_role": "decision",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-sovereign",
-      "physical_path": "main-system/governance/sovereigns",
+      "physical_path": "Standalone tools/local-model/src/backend/cpp",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -299,7 +306,8 @@
       "architecture_code": "SOVEREIGN_DECISION_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-governance"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/governance/sovereigns (retired with the Python lane — native xingcheng engine + C# SovereignAudit supersede)"
     },
     {
       "component_id": "sub-sovereign-orchestration",
@@ -366,10 +374,10 @@
     {
       "component_id": "information-channel-gateway",
       "architectural_role": "information",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "information-channel-gateway",
-      "physical_path": "shared-layer/src/channel_runtime.py",
+      "physical_path": "shared-layer/csharp/GPTBridge.ChannelHost",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -381,7 +389,8 @@
       "architecture_code": "SHARED_LAYER",
       "unit": "UNIT_PLATFORM",
       "block": "BLOCK_SHARED",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:shared-layer/src/channel_runtime.py (retired with the Python lane — governed C# GPTBridge.Channels + GPTBridge.ChannelHost supersede)"
     },
     {
       "component_id": "postgresql",
@@ -600,14 +609,16 @@
       "runtime_form": "database",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-assistant-identity-database",
-      "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+      "physical_path": "Standalone tools/local-model/xingcheng/databases/identity",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [],
       "information_channels": [],
-      "architecture_code": "MAIN_SYSTEM",
-      "unit": "UNIT_RUNTIME",
-      "block": "BLOCK_CORE"
+      "architecture_code": "XINGCHENG_INSTITUTION_ROOT",
+      "unit": "UNIT_ASSISTANT",
+      "block": "BLOCK_XINGCHENG",
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/src-core/core_system/xingcheng_identity_store.py (retired with the Python lane — xingcheng-domain identity database root supersedes)"
     },
     {
       "component_id": "xingcheng-personality-store",
@@ -615,16 +626,18 @@
       "runtime_form": "database",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-identity-database",
-      "physical_path": "main-system/src-core/core_system/xingcheng_identity_store.py",
+      "physical_path": "Standalone tools/local-model/xingcheng/databases",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
         "xingcheng"
       ],
       "information_channels": [],
-      "architecture_code": "MAIN_SYSTEM",
-      "unit": "UNIT_RUNTIME",
-      "block": "BLOCK_CORE"
+      "architecture_code": "XINGCHENG_INSTITUTION_ROOT",
+      "unit": "UNIT_ASSISTANT",
+      "block": "BLOCK_XINGCHENG",
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/src-core/core_system/xingcheng_identity_store.py (retired with the Python lane — xingcheng-domain databases root supersedes)"
     },
     {
       "component_id": "xingcheng-auto-learning-module",
@@ -632,8 +645,8 @@
       "runtime_form": "python-process",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-native-model",
-      "physical_path": "main-system/governance/sovereigns/xingcheng/learning_capability.py",
-      "lifecycle": "on-demand",
+      "physical_path": "",
+      "lifecycle": "retired",
       "canonical": true,
       "dependencies": [
         "xingcheng",
@@ -645,7 +658,8 @@
       "architecture_code": "SOVEREIGN_DECISION_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-bounded"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/governance/sovereigns/xingcheng/learning_capability.py (retired with the Python lane — self-learning absorbed by native model-training-native lane)"
     },
     {
       "component_id": "xingcheng-auto-repair-module",
@@ -653,8 +667,8 @@
       "runtime_form": "python-process",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-native-model",
-      "physical_path": "main-system/src-core/tasks/central_repair.py",
-      "lifecycle": "on-demand",
+      "physical_path": "",
+      "lifecycle": "retired",
       "canonical": true,
       "dependencies": [
         "xingcheng",
@@ -666,7 +680,8 @@
       "architecture_code": "MAIN_SYSTEM",
       "unit": "UNIT_RUNTIME",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/src-core/tasks/central_repair.py (retired with the Python lane — repair scheduling absorbed by automation-core governed planes)"
     },
     {
       "component_id": "model-dialogue",
@@ -684,6 +699,25 @@
         "information-channel"
       ],
       "architecture_code": "MODEL_DIALOGUE",
+      "unit": "UNIT_DIALOGUE",
+      "block": "BLOCK_MODEL"
+    },
+    {
+      "component_id": "star-chat",
+      "architectural_role": "execution",
+      "runtime_form": "companion-service",
+      "owner_sovereign": "xingcheng-domain",
+      "execution_identity": "star-chat",
+      "physical_path":
+        "Standalone tools/local-model/model-dialogue/star-chat",
+      "lifecycle": "on-demand",
+      "canonical": true,
+      "independent_tool": false,
+      "dependencies": [
+        "model-dialogue"
+      ],
+      "information_channels": [],
+      "architecture_code": "",
       "unit": "UNIT_DIALOGUE",
       "block": "BLOCK_MODEL"
     },
@@ -747,7 +781,7 @@
     {
       "component_id": "investment-mobile",
       "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
+      "runtime_form": "standalone-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "investment-mobile",
       "physical_path": "Standalone tools/investment-mobile",
@@ -763,7 +797,7 @@
       "architecture_code": "INVESTMENT_MOBILE",
       "unit": "",
       "block": "BLOCK_TOOLS",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire"
     },
     {
       "component_id": "global-cleaner",
@@ -843,10 +877,10 @@
     {
       "component_id": "self-commit-service",
       "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "automation",
       "execution_identity": "self-commit-service",
-      "physical_path": "governance_rule/execution/git_tiers",
+      "physical_path": "shared-layer/csharp/GPTBridge.GitAutomation",
       "lifecycle": "resident",
       "canonical": false,
       "dependencies": [
@@ -858,15 +892,16 @@
       "architecture_code": "CODEX_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:governance_rule/execution/git_tiers/**.py (retired with the Python lane — C# GPTBridge.GitAutomation SelfCommit supersedes)"
     },
     {
       "component_id": "integration-plane",
       "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "automation",
       "execution_identity": "integration-coordinator",
-      "physical_path": "governance_rule/execution/git_tiers",
+      "physical_path": "shared-layer/csharp/GPTBridge.GitAutomation",
       "lifecycle": "resident",
       "canonical": false,
       "dependencies": [
@@ -879,15 +914,16 @@
       "architecture_code": "CODEX_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:governance_rule/execution/git_tiers/**.py (retired with the Python lane — C# GPTBridge.GitAutomation Sync/MergeQueue supersedes)"
     },
     {
       "component_id": "recovery-plane",
       "architectural_role": "development-maintenance",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "automation",
       "execution_identity": "git-disaster-recovery",
-      "physical_path": "governance_rule/execution/git_tiers",
+      "physical_path": "shared-layer/csharp/GPTBridge.GitAutomation",
       "lifecycle": "resident",
       "canonical": false,
       "dependencies": [
@@ -902,7 +938,8 @@
       "architecture_code": "CODEX_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "migrate-csharp"
+      "python_residency": "retire",
+      "external_locator": "git-history:governance_rule/execution/git_tiers/**.py (retired with the Python lane — C# GPTBridge.GitAutomation supersedes)"
     },
     {
       "component_id": "origin-mirror",
@@ -1103,11 +1140,11 @@
     {
       "component_id": "permission-sovereign",
       "architectural_role": "decision",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "permission",
       "owner_sub_sovereign": "",
       "execution_identity": "permission-sovereign",
-      "physical_path": "main-system/governance/sovereigns/permission_sovereign.py",
+      "physical_path": "shared-layer/csharp/GPTBridge.CodexPipeline",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -1117,16 +1154,17 @@
       "architecture_code": "SOVEREIGN_DECISION_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-governance"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/governance/sovereigns/permission_sovereign.py (retired with the Python lane — C# GPTBridge.CodexPipeline SovereignAudit supersedes)"
     },
     {
       "component_id": "system-runtime-sovereign",
       "architectural_role": "governance",
-      "runtime_form": "python-process",
+      "runtime_form": "internal-service",
       "owner_sovereign": "system-runtime",
       "owner_sub_sovereign": "",
       "execution_identity": "system-runtime-sovereign",
-      "physical_path": "main-system/governance/sovereigns/system_runtime_sovereign.py",
+      "physical_path": "shared-layer/csharp/GPTBridge.MainSystem",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -1136,7 +1174,8 @@
       "architecture_code": "SOVEREIGN_DECISION_LAYER",
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
-      "python_residency": "retain-governance"
+      "python_residency": "retire",
+      "external_locator": "git-history:main-system/governance/sovereigns/system_runtime_sovereign.py (retired with the Python lane — C# GPTBridge.MainSystem StartupGate supersedes)"
     }
   ],
   "five_cores": {
@@ -1197,7 +1236,6 @@
         "investment-mobile",
         "launcher-ui",
         "main-system",
-        "module-sqlite",
         "native-compute-core",
         "postgresql",
         "process-metrics-csharp",
@@ -1245,14 +1283,11 @@
         "local-model",
         "local-vector",
         "model-dialogue",
-        "model-training",
         "ollama",
         "vectord",
         "xingcheng",
         "xingcheng-assistant",
         "xingcheng-assistant-store",
-        "xingcheng-auto-learning-module",
-        "xingcheng-auto-repair-module",
         "xingcheng-personality-store",
         "xingcheng-sovereign"
       ],
