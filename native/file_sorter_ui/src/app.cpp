@@ -36,6 +36,8 @@ namespace P = proto;
 
 App g_app;
 HWND g_confirm_parent = nullptr;
+int g_scan_phase = 0;
+bool g_blink = false;
 
 namespace {
 
@@ -285,8 +287,17 @@ void draw_button(const DRAWITEMSTRUCT* dis) {
                                    : hot ? theme::kSecHot
                                          : theme::kSecondary);
     if (disabled) fill = theme::kDisabled;
-    theme::fill_round(dis->hDC, dis->rcItem, fill, 8,
-                      accent ? theme::kAccentDn : theme::kFieldEdge);
+    theme::fill_chamfer(dis->hDC, dis->rcItem, 8, fill,
+                        accent ? theme::kAccentDn : theme::kFieldEdge);
+    /* neon slash across the cut corner — reticle detail */
+    if (accent && !disabled) {
+        HPEN pen = CreatePen(PS_SOLID, 1, theme::kOnAccent);
+        HGDIOBJ op = SelectObject(dis->hDC, pen);
+        MoveToEx(dis->hDC, dis->rcItem.left + 1, dis->rcItem.top + 12, nullptr);
+        LineTo(dis->hDC, dis->rcItem.left + 12, dis->rcItem.top + 1);
+        SelectObject(dis->hDC, op);
+        DeleteObject(pen);
+    }
     wchar_t buf[128];
     GetWindowTextW(dis->hwndItem, buf, 128);
     RECT tr = dis->rcItem;
@@ -310,9 +321,9 @@ void draw_check(const DRAWITEMSTRUCT* dis) {
     theme::fill_round(dis->hDC, dis->rcItem, theme::kCard, 4);
     RECT box{dis->rcItem.left, dis->rcItem.top + 2,
              dis->rcItem.left + 18, dis->rcItem.top + 20};
-    theme::fill_round(dis->hDC, box,
-                      checked ? theme::kAccent : theme::kField, 5,
-                      checked ? theme::kAccent : theme::kFieldEdge);
+    theme::fill_chamfer(dis->hDC, box, 5,
+                        checked ? theme::kAccent : theme::kField,
+                        checked ? theme::kAccentHot : theme::kFieldEdge);
     if (checked) {
         HPEN pen = CreatePen(PS_SOLID, 2, theme::kOnAccent);
         HGDIOBJ op = SelectObject(dis->hDC, pen);
@@ -388,9 +399,11 @@ void draw_combo_item(const DRAWITEMSTRUCT* dis) {
 
 COLORREF conn_color() {
     switch (g_app.st.backend.state()) {
-        case WsClient::State::Connected: return theme::kGreen;
+        case WsClient::State::Connected:
+            return g_blink ? theme::kGreen : theme::kGreenDim;
         case WsClient::State::Connecting:
-        case WsClient::State::Handshaking: return theme::kAmber;
+        case WsClient::State::Handshaking:
+            return g_blink ? theme::kAmber : theme::kMuted;
         default: return theme::kRed;
     }
 }
@@ -406,7 +419,7 @@ LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_ERASEBKGND: {
             RECT rc;
             GetClientRect(hwnd, &rc);
-            FillRect((HDC)wp, &rc, theme::brush(theme::kBg));
+            FillRect((HDC)wp, &rc, theme::grid_brush());
             return 1;
         }
         case WM_PAINT: {
@@ -415,10 +428,26 @@ LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             /* header band: gradient + accent underline (HUD strip) */
             RECT band{0, 0, ps.rcPaint.right, 118};
             theme::vgrad(dc, band, theme::kHeaderHi, theme::kBg);
+            /* diagonal tech hatch on the right half of the band */
+            RECT hatch{ps.rcPaint.right - 220, 0, ps.rcPaint.right, 104};
+            theme::diag_hatch(dc, hatch, 12, 26, theme::kAccentDim);
+            /* travelling scan sliver on the accent rule */
+            int scan_w = ps.rcPaint.right + 160;
+            int sx = (g_scan_phase % scan_w) - 160;
             theme::accent_rule(dc, 18, 108, 200);
             theme::accent_rule(dc, 218, 108, 60, theme::kAccentDim);
-            for (const RECT& c : g_app.cards)
+            theme::accent_rule(dc, sx, 108, 120, theme::kAccentDim);
+            theme::accent_rule(dc, sx + 110, 108, 10, theme::kAccentHot);
+            int sec = 1;
+            for (const RECT& c : g_app.cards) {
                 theme::card(dc, c);
+                char tag[16];
+                std::snprintf(tag, sizeof(tag), "SEC.0%d", sec++);
+                RECT tr{c.right - 92, c.top + 8, c.right - 14, c.top + 24};
+                theme::text(dc, tag, tr, theme::kTag, g_app.font_mono,
+                            DT_RIGHT | DT_VCENTER | DT_SINGLELINE |
+                                DT_NOPREFIX);
+            }
             EndPaint(hwnd, &ps);
             return 0;
         }
@@ -495,6 +524,17 @@ void on_tick() {
     }
     s.pump_queue();
     sync_ui();
+    /* HUD animation: scan sliver sweep + status-dot breathing */
+    g_scan_phase += 16;
+    if (g_scan_phase > 100000) g_scan_phase = 0;
+    static int blink_tick = 0;
+    if (++blink_tick >= 3) {
+        blink_tick = 0;
+        g_blink = !g_blink;
+        InvalidateRect(g_app.ui.conn_dot, nullptr, TRUE);
+    }
+    RECT band{0, 0, 2000, 112};
+    InvalidateRect(g_app.content, &band, FALSE);
 }
 
 LRESULT CALLBACK main_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {

@@ -135,13 +135,19 @@ LRESULT CALLBACK slider_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                 RECT cap{fillw - 3, cy - 3, fillw, cy + 3};
                 theme::fill_round(dc, cap, theme::kAccentHot, 4);
             }
-            /* thumb: dark core, neon ring */
+            /* thumb: chamfered hexagon — dark core, neon edge */
             int tx = 8 + (int)(t * (rc.right - 16));
-            HBRUSH tb = theme::brush(theme::kField);
+            POINT hex[6]{{tx - 4, cy - 8}, {tx + 4, cy - 8},
+                         {tx + 8, cy},     {tx + 4, cy + 8},
+                         {tx - 4, cy + 8}, {tx - 8, cy}};
+            HGDIOBJ ob = SelectObject(dc, theme::brush(theme::kField));
             HPEN ring = CreatePen(PS_SOLID, 2, theme::kAccentHot);
-            HGDIOBJ ob = SelectObject(dc, tb);
             HGDIOBJ op = SelectObject(dc, ring);
-            Ellipse(dc, tx - 7, cy - 7, tx + 7, cy + 7);
+            Polygon(dc, hex, 6);
+            /* inner core dot */
+            SelectObject(dc, GetStockObject(NULL_PEN));
+            SelectObject(dc, theme::brush(theme::kAccent));
+            Ellipse(dc, tx - 2, cy - 2, tx + 2, cy + 2);
             SelectObject(dc, ob);
             SelectObject(dc, op);
             DeleteObject(ring);
@@ -181,7 +187,23 @@ LRESULT CALLBACK progress_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                 RECT fill{rc.left + 1, rc.top + 1,
                           rc.left + (int)((rc.right - 2) * pct / 100.0),
                           rc.bottom - 1};
-                theme::fill_round(dc, fill, theme::kAccent, rc.bottom - 2);
+                theme::fill_round(dc, fill, theme::kAccentDn, rc.bottom - 2);
+                /* diagonal energy stripes inside the fill */
+                int saved = SaveDC(dc);
+                IntersectClipRect(dc, fill.left, fill.top, fill.right,
+                                  fill.bottom);
+                static int stripe_phase = 0;
+                stripe_phase = (stripe_phase + 2) % 14;
+                HPEN pen = CreatePen(PS_SOLID, 2, theme::kAccent);
+                HGDIOBJ op = SelectObject(dc, pen);
+                for (int x = fill.left - 12 + stripe_phase; x < fill.right;
+                     x += 14) {
+                    MoveToEx(dc, x, fill.bottom, nullptr);
+                    LineTo(dc, x + 8, fill.top);
+                }
+                SelectObject(dc, op);
+                DeleteObject(pen);
+                RestoreDC(dc, saved);
                 /* neon cap */
                 RECT cap{fill.right - 3, fill.top, fill.right,
                          fill.bottom};

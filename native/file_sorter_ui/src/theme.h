@@ -34,6 +34,9 @@ constexpr COLORREF kAmber     = RGB(0xFF, 0xB8, 0x4D);
 constexpr COLORREF kRed       = RGB(0xFF, 0x5C, 0x7A);
 constexpr COLORREF kSelBg     = RGB(0x0C, 0x2E, 0x3C);
 constexpr COLORREF kOnAccent  = RGB(0x04, 0x10, 0x14);
+constexpr COLORREF kGrid      = RGB(0x15, 0x1E, 0x28);
+constexpr COLORREF kTag       = RGB(0x2E, 0x5A, 0x66);
+constexpr COLORREF kGreenDim  = RGB(0x16, 0x4A, 0x38);
 
 inline HBRUSH brush(COLORREF c) {
     static HBRUSH cache[24];
@@ -60,16 +63,92 @@ inline void fill_round(HDC dc, RECT rc, COLORREF fill, int radius = 8,
     if (edge != (COLORREF)-1) DeleteObject(pen);
 }
 
-/* HUD-style card: rounded dark panel + accent corner brackets at
- * the top-left, like a targeting reticle. */
+/* Chamfered (cut-corner) panel — top-left and bottom-right corners are
+ * clipped, the signature sci-fi HUD silhouette. */
+inline void chamfer_pts(RECT rc, int cut, POINT* p) {
+    p[0] = {rc.left + cut, rc.top};
+    p[1] = {rc.right, rc.top};
+    p[2] = {rc.right, rc.bottom - cut};
+    p[3] = {rc.right - cut, rc.bottom};
+    p[4] = {rc.left, rc.bottom};
+    p[5] = {rc.left, rc.top + cut};
+}
+
+inline void fill_chamfer(HDC dc, RECT rc, int cut, COLORREF fill,
+                         COLORREF edge = (COLORREF)-1) {
+    POINT p[6];
+    chamfer_pts(rc, cut, p);
+    HGDIOBJ ob = SelectObject(dc, brush(fill));
+    HPEN pen = edge == (COLORREF)-1
+        ? (HPEN)GetStockObject(NULL_PEN)
+        : CreatePen(PS_SOLID, 1, edge);
+    HGDIOBJ op = SelectObject(dc, pen);
+    Polygon(dc, p, 6);
+    SelectObject(dc, ob);
+    SelectObject(dc, op);
+    if (edge != (COLORREF)-1) DeleteObject(pen);
+}
+
+/* small L-shaped corner tick */
+inline void corner_tick(HDC dc, int x, int y, int dx, int dy, int L,
+                        COLORREF c, int w = 1) {
+    HPEN pen = CreatePen(PS_SOLID, w, c);
+    HGDIOBJ op = SelectObject(dc, pen);
+    MoveToEx(dc, x + dx * L, y, nullptr);
+    LineTo(dc, x, y);
+    LineTo(dc, x, y + dy * L);
+    SelectObject(dc, op);
+    DeleteObject(pen);
+}
+
+/* HUD-style card: chamfered panel + neon slash on the cut corner +
+ * corner ticks at the two sharp corners. */
 inline void card(HDC dc, RECT rc) {
-    fill_round(dc, rc, kCard, 10, kCardEdge);
+    fill_chamfer(dc, rc, 16, kCard, kCardEdge);
     HPEN pen = CreatePen(PS_SOLID, 2, kAccent);
     HGDIOBJ op = SelectObject(dc, pen);
-    int x = rc.left + 10, y = rc.top + 10, L = 14;
-    MoveToEx(dc, x, y + L, nullptr);
-    LineTo(dc, x, y);
-    LineTo(dc, x + L, y);
+    MoveToEx(dc, rc.left + 2, rc.top + 22, nullptr);
+    LineTo(dc, rc.left + 22, rc.top + 2);
+    SelectObject(dc, op);
+    DeleteObject(pen);
+    corner_tick(dc, rc.right - 10, rc.top + 10, -1, 1, 12, kTag);
+    corner_tick(dc, rc.left + 10, rc.bottom - 10, 1, -1, 12, kTag);
+}
+
+/* staggered dot-grid backdrop (pattern brush — one tile repeated). */
+inline HBRUSH grid_brush() {
+    static HBRUSH pat = nullptr;
+    if (pat) return pat;
+    HDC scr = GetDC(nullptr);
+    HDC mem = CreateCompatibleDC(scr);
+    HBITMAP bmp = CreateCompatibleBitmap(scr, 24, 24);
+    HGDIOBJ ob = SelectObject(mem, bmp);
+    RECT r{0, 0, 24, 24};
+    FillRect(mem, &r, brush(kBg));
+    SetPixel(mem, 4, 4, kGrid);
+    SetPixel(mem, 16, 16, kGrid);
+    SetPixel(mem, 4, 5, kGrid);
+    SetPixel(mem, 16, 17, kGrid);
+    SelectObject(mem, ob);
+    DeleteDC(mem);
+    ReleaseDC(nullptr, scr);
+    pat = CreatePatternBrush(bmp);
+    DeleteObject(bmp);
+    return pat;
+}
+
+/* diagonal hatch marks — tech texture for the header band. */
+inline void diag_hatch(HDC dc, RECT rc, int step, int slope,
+                       COLORREF c) {
+    HPEN pen = CreatePen(PS_SOLID, 1, c);
+    HGDIOBJ op = SelectObject(dc, pen);
+    int saved = SaveDC(dc);
+    IntersectClipRect(dc, rc.left, rc.top, rc.right, rc.bottom);
+    for (int x = rc.left - slope; x < rc.right; x += step) {
+        MoveToEx(dc, x, rc.bottom, nullptr);
+        LineTo(dc, x + slope, rc.top);
+    }
+    RestoreDC(dc, saved);
     SelectObject(dc, op);
     DeleteObject(pen);
 }
