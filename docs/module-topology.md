@@ -40,37 +40,47 @@ lineage and audit records remain registered as evidence.
 
 ## model-dialogue Nested Relationship
 
-A66 lists `model-dialogue` as a peer of `local-model`, but physically
-`model-dialogue/` is nested under `local-model/model-dialogue/`.
-
-This is intentional and documented in both manifests:
-
-- `local-model/manifest.json` declares:
-  - `physical_owner_root: "local-model"`
-  - `companion_tools: [{"id": "star-chat", "path": "model-dialogue", "independent_only_in": "main-system"}]`
+B123/B125 keep `model-dialogue` as one of the seven independent tools
+while its folder stays physically nested under
+`local-model/model-dialogue/`. The manifests now declare the separated
+topology directly:
 
 - `local-model/model-dialogue/manifest.json` declares:
-  - `id: "star-chat"`
-  - `host_tool_id: "xingcheng"`
-  - `runtime_owner_tool_id: "xingcheng"`
-  - `physical_owner_root: "local-model"`
-  - `canonical_source_root: "local-model/model-dialogue"`
+  - `id: "model-dialogue"`
+  - `host_tool_id: "model-dialogue"` (self-hosted, B125)
+  - `runtime_owner_tool_id: "model-dialogue"`
+  - `physical_owner_root: "local-model"` (physical containment only)
   - `main_system_independent_tool: true`
-  - `independent_only_in: "main-system"`
 
-### Rationale
+- `local-model/model-dialogue/star-chat/manifest.json` declares
+  `host_tool_id: "model-dialogue"` — it is model-dialogue's companion
+  surface, not a member of the tool roster.
 
-`local-model` is the **physical owner root** for the local-model platform.
-`model-dialogue` (star-chat) is a **companion tool** that:
+`physical_owner_root` expresses directory containment only; governance
+parentage and service identity come from the manifest identity fields
+and the architecture registry, never from the path (B123 forbids
+deriving governance parentage from the physical path).
 
-1. Is physically hosted under `local-model/` (shares runtime, cache, backup)
-2. Operates independently only within the `main-system` context
-3. Uses `xingcheng` as its host/runtime owner
-4. Has its own `manifest.json` with independent permission profile
+## xingcheng Separation (B81/B123)
 
-A66's peer-level listing reflects **logical independence** (separate tool
-identity, separate manifest, separate permission scope), not physical
-folder placement.
+`xingcheng` is an **independent privileged institution** — a separate
+local native-model service, not a tool, not a companion of any tool:
+
+- `local-model/xingcheng/manifest.json` declares
+  `service_kind: "independent-privileged-institution"`,
+  `independent_tool: false`, `main_system_independent_tool: false`,
+  `runtime_owner_tool_id: "xingcheng"`, and no `host_tool_id` /
+  `companion_*` fields. It carries no tool card and is not a child of
+  `local-model` or `model-dialogue`.
+- `local-model/manifest.json` no longer declares a `companion_tools`
+  entry for xingcheng; local-model neither owns, hosts, nor controls
+  the xingcheng service.
+- All xingcheng-owned data (identity, memory, weights, corpus,
+  checkpoints, repair knowledge, runtime records) stays inside the
+  registered domain roots `local-model/xingcheng/` (institution root)
+  and `local-model/model-dialogue/xingcheng/` (star directory);
+  backups resolve in-domain (`xingcheng/runtime/backups`) per the
+  `backup-outside-owner-boundary` prohibition.
 
 ## Infrastructure (Non-Module) Folders
 
