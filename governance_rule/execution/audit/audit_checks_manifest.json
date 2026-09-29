@@ -2779,28 +2779,6 @@
       "path": ""
     },
     {
-      "id": "gpu-coordinator:native-probe-markers",
-      "kind": "file-contains",
-      "markers": [
-        "_query_via_nvidia_smi",
-        "def query_gpu"
-      ],
-      "path": "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py"
-    },
-    {
-      "id": "gpu-coordinator:torch-free",
-      "kind": "file-not-contains",
-      "markers": [
-        "import torch",
-        "from torch",
-        "_query_via_torch",
-        "torch.cuda",
-        "def _torch(",
-        "_TORCH"
-      ],
-      "path": "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py"
-    },
-    {
       "id": "python-retirement:forbidden:governance_rule/execution/legacy_python_verification_adapter.py",
       "kind": "file-not-exists",
       "path": "governance_rule/execution/legacy_python_verification_adapter.py"
@@ -3483,7 +3461,7 @@
     {
       "id": "activation:target:AI_ASSISTANT",
       "kind": "dir-exists",
-      "path": "Standalone tools/ai-assistant"
+      "path": "E:/GPTBridge/Standalone tools/ai-assistant"
     },
     {
       "id": "activation:owner:AI_COLLABORATION",
@@ -3533,7 +3511,7 @@
     {
       "id": "activation:target:AI_COLLABORATION",
       "kind": "dir-exists",
-      "path": "Standalone tools/ai-collaboration"
+      "path": "E:/GPTBridge/Standalone tools/ai-collaboration"
     },
     {
       "id": "activation:owner:CODEX_LAYER",
@@ -3583,7 +3561,7 @@
     {
       "id": "activation:target:CODEX_LAYER",
       "kind": "dir-exists",
-      "path": "governance_rule"
+      "path": "E:/GPTBridge/governance_rule"
     },
     {
       "id": "activation:owner:EVENT_SERVICE",
@@ -3633,7 +3611,7 @@
     {
       "id": "activation:target:EVENT_SERVICE",
       "kind": "dir-exists",
-      "path": "main-system/information-layer/events"
+      "path": "E:/GPTBridge/main-system/information-layer/events"
     },
     {
       "id": "activation:owner:FILE_SORTER",
@@ -3683,7 +3661,7 @@
     {
       "id": "activation:target:FILE_SORTER",
       "kind": "dir-exists",
-      "path": "Standalone tools/file-sorter"
+      "path": "E:/GPTBridge/Standalone tools/file-sorter"
     },
     {
       "id": "activation:owner:GOVERNANCE_CODEX",
@@ -3733,7 +3711,7 @@
     {
       "id": "activation:target:GOVERNANCE_CODEX",
       "kind": "dir-exists",
-      "path": "governance_rule/codex"
+      "path": "E:/GPTBridge/governance_rule/codex"
     },
     {
       "id": "activation:owner:INFORMATION_LAYER",
@@ -3783,7 +3761,7 @@
     {
       "id": "activation:target:INFORMATION_LAYER",
       "kind": "dir-exists",
-      "path": "main-system/information-layer"
+      "path": "E:/GPTBridge/main-system/information-layer"
     },
     {
       "id": "activation:owner:IPC_SERVICE",
@@ -3833,7 +3811,7 @@
     {
       "id": "activation:target:IPC_SERVICE",
       "kind": "dir-exists",
-      "path": "main-system/information-layer/ipc"
+      "path": "E:/GPTBridge/main-system/information-layer/ipc"
     },
     {
       "id": "activation:owner:LAUNCHER",
@@ -3883,7 +3861,7 @@
     {
       "id": "activation:target:LAUNCHER",
       "kind": "dir-exists",
-      "path": "main-system/launcher"
+      "path": "E:/GPTBridge/main-system/launcher"
     },
     {
       "id": "activation:owner:LOCAL_MODEL",
@@ -3933,7 +3911,7 @@
     {
       "id": "activation:target:LOCAL_MODEL",
       "kind": "dir-exists",
-      "path": "Standalone tools/local-model"
+      "path": "E:/GPTBridge/Standalone tools/local-model"
     },
     {
       "id": "activation:owner:MAIN_SYSTEM",
@@ -3983,7 +3961,7 @@
     {
       "id": "activation:target:MAIN_SYSTEM",
       "kind": "dir-exists",
-      "path": "main-system"
+      "path": "E:/GPTBridge/main-system"
     },
     {
       "id": "activation:owner:MODEL_DIALOGUE",
@@ -4033,7 +4011,7 @@
     {
       "id": "activation:target:MODEL_DIALOGUE",
       "kind": "dir-exists",
-      "path": "Standalone tools/local-model/model-dialogue"
+      "path": "E:/GPTBridge/Standalone tools/local-model/model-dialogue"
     },
     {
       "id": "activation:owner:POSTGRESQL_AUTHORITY",
@@ -4083,7 +4061,7 @@
     {
       "id": "activation:target:POSTGRESQL_AUTHORITY",
       "kind": "dir-exists",
-      "path": "main-system/information-layer/postgresql"
+      "path": "E:/GPTBridge/main-system/information-layer/postgresql"
     },
     {
       "id": "activation:owner:PROJECT_GPTBRIDGE",
@@ -4133,7 +4111,7 @@
     {
       "id": "activation:target:PROJECT_GPTBRIDGE",
       "kind": "dir-exists",
-      "path": "."
+      "path": "E:/GPTBridge"
     },
     {
       "id": "activation:owner:QDRANT_AUTHORITY",
@@ -4228,7 +4206,7 @@
     {
       "id": "activation:target:SHARED_LAYER",
       "kind": "dir-exists",
-      "path": "shared-layer"
+      "path": "E:/GPTBridge/shared-layer"
     },
     {
       "id": "activation:owner:SOVEREIGN_DECISION_LAYER",
@@ -4278,7 +4256,7 @@
     {
       "id": "activation:target:SOVEREIGN_DECISION_LAYER",
       "kind": "dir-exists",
-      "path": "main-system/governance/sovereigns"
+      "path": "E:/GPTBridge/main-system/governance/sovereigns"
     },
     {
       "id": "activation:owner:STANDALONE_TOOLS",
@@ -4328,7 +4306,7 @@
     {
       "id": "activation:target:STANDALONE_TOOLS",
       "kind": "dir-exists",
-      "path": "Standalone tools"
+      "path": "E:/GPTBridge/Standalone tools"
     },
     {
       "id": "activation:owner:STAR_DIRECTORY",
@@ -4378,7 +4356,7 @@
     {
       "id": "activation:target:STAR_DIRECTORY",
       "kind": "dir-exists",
-      "path": "Standalone tools/local-model/model-dialogue/xingcheng"
+      "path": "E:/GPTBridge/Standalone tools/local-model/model-dialogue/xingcheng"
     },
     {
       "id": "activation:owner:STATE_SERVICE",
@@ -4428,7 +4406,7 @@
     {
       "id": "activation:target:STATE_SERVICE",
       "kind": "dir-exists",
-      "path": "main-system/information-layer/state"
+      "path": "E:/GPTBridge/main-system/information-layer/state"
     },
     {
       "id": "activation:owner:SUB_SOVEREIGN_LAYER",
@@ -4523,7 +4501,7 @@
     {
       "id": "activation:target:VAULTLY",
       "kind": "dir-exists",
-      "path": "Standalone tools/vaultly"
+      "path": "E:/GPTBridge/Standalone tools/vaultly"
     },
     {
       "id": "activation:owner:INVESTMENT_MOBILE",
@@ -4573,7 +4551,7 @@
     {
       "id": "activation:target:INVESTMENT_MOBILE",
       "kind": "dir-exists",
-      "path": "Standalone tools/investment-mobile"
+      "path": "E:/GPTBridge/Standalone tools/investment-mobile"
     },
     {
       "id": "activation:owner:BUSINESS_LOGIC_CSHARP",
@@ -4623,7 +4601,57 @@
     {
       "id": "activation:target:BUSINESS_LOGIC_CSHARP",
       "kind": "dir-exists",
-      "path": "Standalone tools/business-logic-csharp"
+      "path": "E:/GPTBridge/Standalone tools/business-logic-csharp"
+    },
+    {
+      "id": "activation:owner:MODEL_TRAINING",
+      "items": "tables.architecture_activation_states",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=MODEL_TRAINING",
+        "verification_owner!=automatic-log-sync-sub-sovereign",
+        "verification_owner!=change-acceptance-sub-sovereign",
+        "verification_owner!=channel-contract-sync-sub-sovereign",
+        "verification_owner!=cleanup-retention-sync-sub-sovereign",
+        "verification_owner!=data-governance-sub-sovereign",
+        "verification_owner!=data-sovereign",
+        "verification_owner!=data-sub-sovereign",
+        "verification_owner!=dependency-sync-sub-sovereign",
+        "verification_owner!=directory-sub-sovereign",
+        "verification_owner!=health-maintenance-test-sub-sovereign",
+        "verification_owner!=identity-group-sub-sovereign",
+        "verification_owner!=integration-sovereign",
+        "verification_owner!=integration-sub-sovereign",
+        "verification_owner!=language-review-sovereign",
+        "verification_owner!=language-review-sub-sovereign",
+        "verification_owner!=learning-evidence-sync-sub-sovereign",
+        "verification_owner!=learning-system-sovereign",
+        "verification_owner!=learning-system-sub-sovereign",
+        "verification_owner!=maintenance-sovereign",
+        "verification_owner!=maintenance-sub-sovereign",
+        "verification_owner!=permission-sub-sovereign",
+        "verification_owner!=policy-architecture-sub-sovereign",
+        "verification_owner!=priority-capability-sub-sovereign",
+        "verification_owner!=release-update-sync-sub-sovereign",
+        "verification_owner!=repair-backup-sync-sub-sovereign",
+        "verification_owner!=resource-dependency-sync-sub-sovereign",
+        "verification_owner!=resource-sovereign",
+        "verification_owner!=resource-sub-sovereign",
+        "verification_owner!=runtime-state-sync-sub-sovereign",
+        "verification_owner!=startup-sovereign",
+        "verification_owner!=startup-sub-sovereign",
+        "verification_owner!=system-programming-sovereign",
+        "verification_owner!=system-sub-sovereign",
+        "verification_owner!=third-party-sovereign",
+        "verification_owner!=third-party-sub-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
+    },
+    {
+      "id": "activation:target:MODEL_TRAINING",
+      "kind": "dir-exists",
+      "path": "E:/GPTBridge/Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training"
     },
     {
       "id": "activation:owner:NATIVE_COMPUTE_CORE",
@@ -4673,7 +4701,7 @@
     {
       "id": "activation:target:NATIVE_COMPUTE_CORE",
       "kind": "dir-exists",
-      "path": "native/core"
+      "path": "E:/GPTBridge/native/core"
     },
     {
       "id": "activation:owner:XINGCHENG_INSTITUTION_ROOT",
@@ -4723,52 +4751,7 @@
     {
       "id": "activation:target:XINGCHENG_INSTITUTION_ROOT",
       "kind": "dir-exists",
-      "path": "Standalone tools/local-model/xingcheng"
-    },
-    {
-      "id": "activation:owner:MODEL_TRAINING",
-      "items": "tables.architecture_activation_states",
-      "kind": "json-array-min-count",
-      "markers": [
-        "architecture_code=MODEL_TRAINING",
-        "verification_owner!=automatic-log-sync-sub-sovereign",
-        "verification_owner!=change-acceptance-sub-sovereign",
-        "verification_owner!=channel-contract-sync-sub-sovereign",
-        "verification_owner!=cleanup-retention-sync-sub-sovereign",
-        "verification_owner!=data-governance-sub-sovereign",
-        "verification_owner!=data-sovereign",
-        "verification_owner!=data-sub-sovereign",
-        "verification_owner!=dependency-sync-sub-sovereign",
-        "verification_owner!=directory-sub-sovereign",
-        "verification_owner!=health-maintenance-test-sub-sovereign",
-        "verification_owner!=identity-group-sub-sovereign",
-        "verification_owner!=integration-sovereign",
-        "verification_owner!=integration-sub-sovereign",
-        "verification_owner!=language-review-sovereign",
-        "verification_owner!=language-review-sub-sovereign",
-        "verification_owner!=learning-evidence-sync-sub-sovereign",
-        "verification_owner!=learning-system-sovereign",
-        "verification_owner!=learning-system-sub-sovereign",
-        "verification_owner!=maintenance-sovereign",
-        "verification_owner!=maintenance-sub-sovereign",
-        "verification_owner!=permission-sub-sovereign",
-        "verification_owner!=policy-architecture-sub-sovereign",
-        "verification_owner!=priority-capability-sub-sovereign",
-        "verification_owner!=release-update-sync-sub-sovereign",
-        "verification_owner!=repair-backup-sync-sub-sovereign",
-        "verification_owner!=resource-dependency-sync-sub-sovereign",
-        "verification_owner!=resource-sovereign",
-        "verification_owner!=resource-sub-sovereign",
-        "verification_owner!=runtime-state-sync-sub-sovereign",
-        "verification_owner!=startup-sovereign",
-        "verification_owner!=startup-sub-sovereign",
-        "verification_owner!=system-programming-sovereign",
-        "verification_owner!=system-sub-sovereign",
-        "verification_owner!=third-party-sovereign",
-        "verification_owner!=third-party-sub-sovereign"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
+      "path": "E:/GPTBridge/Standalone tools/local-model/xingcheng"
     },
     {
       "id": "activation:owner:GLOBAL_CLEANER",
@@ -5104,6 +5087,26 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
     },
     {
+      "id": "formal-rule:evaluator:RULE_PYTHON_MINIMIZATION",
+      "kind": "file-contains",
+      "markers": [
+        "\"RULE_PYTHON_MINIMIZATION\""
+      ],
+      "path": "governance_rule/execution/formal_rules/evaluators.py"
+    },
+    {
+      "id": "formal-rule:row:RULE_PYTHON_MINIMIZATION",
+      "items": "tables.formal_rule_registry",
+      "kind": "json-array-min-count",
+      "markers": [
+        "rule_code=RULE_PYTHON_MINIMIZATION",
+        "controlling_provision_id=B163",
+        "status=proposed"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
       "id": "formal-rule:evaluator:RULE_NATIVE_COMPUTE_C23",
       "kind": "file-contains",
       "markers": [
@@ -5158,6 +5161,26 @@
       "markers": [
         "rule_code=RULE_INFRA_VERSIONS",
         "controlling_provision_id=B166",
+        "status=evaluator-parity-verified"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "formal-rule:evaluator:RULE_JAX_FRAMEWORK",
+      "kind": "file-contains",
+      "markers": [
+        "\"RULE_JAX_FRAMEWORK\""
+      ],
+      "path": "governance_rule/execution/formal_rules/evaluators.py"
+    },
+    {
+      "id": "formal-rule:row:RULE_JAX_FRAMEWORK",
+      "items": "tables.formal_rule_registry",
+      "kind": "json-array-min-count",
+      "markers": [
+        "rule_code=RULE_JAX_FRAMEWORK",
+        "controlling_provision_id=B167",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1,
@@ -5398,6 +5421,26 @@
       "markers": [
         "rule_code=RULE_RUST_TESTS",
         "controlling_provision_id=D139",
+        "status=evaluator-parity-verified"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "formal-rule:evaluator:RULE_JAX_PARITY",
+      "kind": "file-contains",
+      "markers": [
+        "\"RULE_JAX_PARITY\""
+      ],
+      "path": "governance_rule/execution/formal_rules/evaluators.py"
+    },
+    {
+      "id": "formal-rule:row:RULE_JAX_PARITY",
+      "items": "tables.formal_rule_registry",
+      "kind": "json-array-min-count",
+      "markers": [
+        "rule_code=RULE_JAX_PARITY",
+        "controlling_provision_id=D140",
         "status=evaluator-parity-verified"
       ],
       "min_count": 1,
@@ -12472,16 +12515,6 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
     },
     {
-      "id": "codex-id:edicts:E183",
-      "items": "tables.edicts",
-      "kind": "json-array-min-count",
-      "markers": [
-        "provision_id=E183"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
-    },
-    {
       "id": "codex-id:edicts:E186",
       "items": "tables.edicts",
       "kind": "json-array-min-count",
@@ -12577,6 +12610,16 @@
       "kind": "json-array-min-count",
       "markers": [
         "provision_id=E68"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
+    },
+    {
+      "id": "codex-id:edicts:E183",
+      "items": "tables.edicts",
+      "kind": "json-array-min-count",
+      "markers": [
+        "provision_id=E183"
       ],
       "min_count": 1,
       "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
@@ -18080,6 +18123,28 @@
       "path": "main-system/governance/sovereigns/__init__.py"
     },
     {
+      "id": "gpu-coordinator:native-probe-markers",
+      "kind": "file-contains",
+      "markers": [
+        "_query_via_nvidia_smi",
+        "def query_gpu"
+      ],
+      "path": "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py"
+    },
+    {
+      "id": "gpu-coordinator:torch-free",
+      "kind": "file-not-contains",
+      "markers": [
+        "import torch",
+        "from torch",
+        "_query_via_torch",
+        "torch.cuda",
+        "def _torch(",
+        "_TORCH"
+      ],
+      "path": "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py"
+    },
+    {
       "id": "gpu-torch-free:probe",
       "kind": "file-contains",
       "markers": [
@@ -19154,6 +19219,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_collaboration:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_collaboration:Standalone tools/vaultly/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19174,6 +19249,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_collaboration:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_collaboration:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_collaboration:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_collaboration:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19181,6 +19286,16 @@
         "from ai_collaboration"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_collaboration:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19244,6 +19359,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_nexus:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_nexus:Standalone tools/vaultly/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19264,6 +19389,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_nexus:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_nexus:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_nexus:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_nexus:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19271,6 +19426,16 @@
         "from ai_nexus"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_nexus:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19334,6 +19499,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:file_sorter:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:file_sorter:Standalone tools/vaultly/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19354,6 +19529,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:file_sorter:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:file_sorter:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:file_sorter:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:file_sorter:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19361,6 +19566,16 @@
         "from file_sorter"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:file_sorter:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19424,6 +19639,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:investment_mobile:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:investment_mobile:Standalone tools/vaultly/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19444,6 +19669,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:investment_mobile:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:investment_mobile:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:investment_mobile:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:investment_mobile:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19451,6 +19706,16 @@
         "from investment_mobile"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:investment_mobile:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19514,6 +19779,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:xingcheng:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:xingcheng:Standalone tools/vaultly/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19534,6 +19809,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:xingcheng:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:xingcheng:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:xingcheng:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:xingcheng:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19541,6 +19846,16 @@
         "from xingcheng"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:xingcheng:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19614,6 +19929,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:vaultly:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:vaultly:Standalone tools/vectord-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19624,6 +19949,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:vaultly:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:vaultly:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:vaultly:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:vaultly:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19631,6 +19986,16 @@
         "from vaultly"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:vaultly:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19694,6 +20059,16 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:star_chat:Standalone tools/system-rescue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "path": "Standalone tools/system-rescue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:star_chat:Standalone tools/vaultly/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19714,6 +20089,36 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:star_chat:ai-collaboration/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "path": "ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:star_chat:file-sorter/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "path": "file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:star_chat:local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "path": "local-model/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:star_chat:shared-layer/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -19721,6 +20126,16 @@
         "from star_chat"
       ],
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:star_chat:vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "path": "vaultly/src"
     },
     {
       "glob": "*.py",
@@ -19785,7 +20200,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 2035,
+    "native_checks": 2077,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -19808,7 +20223,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T02:40:54Z",
+  "generated_at": "2026-09-29T06:01:55Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
