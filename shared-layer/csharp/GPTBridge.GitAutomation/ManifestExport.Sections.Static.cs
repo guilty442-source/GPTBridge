@@ -225,6 +225,30 @@ internal static partial class ManifestExport
             "main-system/config/tool-runtime-contract.json",
             new[] { "\"special-unpackaged\"", "\"exe_required\"" });
 
+        const string toolHostApp =
+            "shared-layer/csharp/GPTBridge.ToolHost.App";
+        e.Checks.Add(new JsonObject
+        {
+            ["id"] = "tool-host:dir:GPTBridge.ToolHost.App",
+            ["kind"] = "dir-exists",
+            ["path"] = toolHostApp,
+        });
+        // The generic host exe runs inside the same E4 boundary: no
+        // credential minting, no transport-store access.
+        foreach (var marker in new[]
+        {
+            "HMACSHA", "issue_token", "launcher_key",
+            "integrity_manifest", "identity_attestation",
+            "gptbridge_transport", "Npgsql", "pg_notify",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"tool-host-app:forbidden:{marker}",
+                ["kind"] = "glob-not-contains",
+                ["glob"] = $"{toolHostApp}/*.cs",
+                ["markers"] = Emitter.Arr(new[] { marker }),
+            });
+
         const string permissionLib =
             "shared-layer/csharp/GPTBridge.Permission/" +
             "GPTBridge.Permission";

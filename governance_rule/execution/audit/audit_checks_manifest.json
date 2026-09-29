@@ -2288,6 +2288,75 @@
       "path": "main-system/config/tool-runtime-contract.json"
     },
     {
+      "id": "tool-host:dir:GPTBridge.ToolHost.App",
+      "kind": "dir-exists",
+      "path": "shared-layer/csharp/GPTBridge.ToolHost.App"
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:HMACSHA",
+      "kind": "glob-not-contains",
+      "markers": [
+        "HMACSHA"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:issue_token",
+      "kind": "glob-not-contains",
+      "markers": [
+        "issue_token"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:launcher_key",
+      "kind": "glob-not-contains",
+      "markers": [
+        "launcher_key"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:integrity_manifest",
+      "kind": "glob-not-contains",
+      "markers": [
+        "integrity_manifest"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:identity_attestation",
+      "kind": "glob-not-contains",
+      "markers": [
+        "identity_attestation"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:gptbridge_transport",
+      "kind": "glob-not-contains",
+      "markers": [
+        "gptbridge_transport"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:Npgsql",
+      "kind": "glob-not-contains",
+      "markers": [
+        "Npgsql"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:pg_notify",
+      "kind": "glob-not-contains",
+      "markers": [
+        "pg_notify"
+      ]
+    },
+    {
       "id": "permission-core:GPTBridge.Permission.csproj",
       "kind": "file-exists",
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/GPTBridge.Permission.csproj"
@@ -27011,7 +27080,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3507,
+    "native_checks": 3516,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27034,7 +27103,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T12:11:19Z",
+  "generated_at": "2026-09-29T13:55:45Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
