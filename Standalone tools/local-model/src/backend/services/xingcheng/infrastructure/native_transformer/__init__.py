@@ -11,48 +11,17 @@
 ``star-native-inference-bundle/v1`` 匯出物，原生訓練管線為
 ``training/xingcheng_trainer.exe``（C++）＋ ``xct-executor``（.NET）。
 
-本套件保留語言層推論周邊（tokenizer / bpe / chat_format / config /
-lifecycle / retention）與 C++ 引擎路由（cpp_runtime）。
+本套件保留語言層推論周邊（chat_format / lifecycle / retention）與
+C++ 引擎路由（cpp_runtime）。
+``bpe.py``（NativeBPETokenizer / train_bpe，``tokenizers`` 套件
+lineage）、``tokenizer.py`` 與 ``config.py``（XingChengTokenizer /
+XingChengConfig，Python 分詞與模型組態）已隨 Python 訓練線退役——
+訓練由 C++ ``xingcheng_trainer`` 承載，執行期分詞與組態由 C++ 引擎
+讀取已驗證 bundle 的 ``tokenizer.json`` / weights 元資料。
 
-載入行為：本套件符號一律惰性解析——import 本套件或其子模組不載入
-任何外部數值框架；缺少相關 lineage 依賴時 fail-closed。
+載入行為：本套件不提供套件層級符號；子模組一律以明確 submodule
+import 取用，import 本套件不載入任何外部數值框架，缺少相關 lineage
+依賴時 fail-closed。
 """
-
-from __future__ import annotations
-
-import importlib
-from typing import Any
-
-_LAZY: dict[str, tuple[str, str]] = {
-    "NativeBPETokenizer": (".bpe", "NativeBPETokenizer"),
-    "train_bpe": (".bpe", "train_bpe"),
-    "XingChengConfig": (".config", "XingChengConfig"),
-    "XingChengTokenizer": (".tokenizer", "XingChengTokenizer"),
-}
-
-
-def __getattr__(name: str) -> Any:
-    target = _LAZY.get(name)
-    if target is None:
-        raise AttributeError(
-            f"module {__name__!r} has no attribute {name!r}"
-        )
-    module = importlib.import_module(target[0], __name__)
-    value = getattr(module, target[1])
-    globals()[name] = value
-    return value
-
-
-def __dir__() -> list[str]:
-    return sorted(set(__all__) | set(globals()))
-
-
-__all__ = [
-    "NativeBPETokenizer",
-    "XingChengConfig",
-    "XingChengTokenizer",
-    "train_bpe",
-    "__version__",
-]
 
 __version__ = "1.00000"

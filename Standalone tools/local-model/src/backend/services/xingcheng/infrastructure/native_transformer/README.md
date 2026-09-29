@@ -88,7 +88,7 @@ PyTorch 已提供 ATen / C++ Backend 與 CUDA / GPU 加速，第一版只撰寫 
 
 | V1 項目 | 對應實作 |
 |---------|----------|
-| Tokenizer 接入 | `tokenizer.py`, `bpe.py` |
+| Tokenizer 接入 | C++ 引擎載入 bundle `tokenizer.json`（Python `tokenizer.py` / `bpe.py` / `config.py` 已退役） |
 | Transformer 架構 | `modules/model.py`, `config.py` |
 | Attention | `modules/attention.py`（MHA / GQA + RoPE + SDPA） |
 | Feed Forward | `modules/mlp.py`（SwiGLU） |
