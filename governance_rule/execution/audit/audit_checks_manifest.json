@@ -9723,6 +9723,72 @@
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
     },
     {
+      "id": "tool-manifest:parse:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-key-value",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-key-absent",
+      "markers": [
+        "name",
+        "window.title"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-has-keys",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/model-dialogue/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-has-keys",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ],
+      "path": "Standalone tools/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "self-health:test-target:model-dialogue:0:pending-native",
+      "items": "rows",
+      "kind": "json-array-min-count",
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/model-dialogue/"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/vaultly/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/vaultly/manifest.json"
@@ -9784,71 +9850,6 @@
       "markers": [
         "status=PENDING",
         "source_test^=Standalone tools/vaultly/"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
-    },
-    {
-      "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-manifest:values:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-key-value",
-      "markers": [
-        "name_key=tool.name",
-        "window.title_key=tool.window_title",
-        "physical_owner_root=local-model"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-manifest:absent:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-key-absent",
-      "markers": [
-        "name",
-        "window.title"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-manifest:dicts:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-has-keys",
-      "markers": [
-        "permissions",
-        "capabilities"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-locale:exists:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "file-exists",
-      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
-    },
-    {
-      "id": "tool-locale:parse:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
-    },
-    {
-      "id": "tool-locale:keys:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-has-keys",
-      "markers": [
-        "errors.permission_denied",
-        "tool.description",
-        "tool.name",
-        "tool.window_title"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
-    },
-    {
-      "id": "self-health:test-target:model-dialogue:0:pending-native",
-      "items": "rows",
-      "kind": "json-array-min-count",
-      "markers": [
-        "status=PENDING",
-        "source_test^=Standalone tools/local-model/model-dialogue/"
       ],
       "min_count": 1,
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -9919,48 +9920,48 @@
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
     },
     {
-      "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:parse:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-manifest:values:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:values:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-key-value",
       "markers": [
         "name_key=tool.name",
-        "physical_owner_root=local-model"
+        "physical_owner_root=model-dialogue"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-manifest:absent:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:absent:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-key-absent",
       "markers": [
         "name"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-manifest:dicts:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:dicts:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-has-keys",
       "markers": [
         "permissions",
         "capabilities"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-locale:exists:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-locale:exists:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "file-exists",
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+      "path": "Standalone tools/model-dialogue/star-chat/locales/zh-TW.json"
     },
     {
-      "id": "tool-locale:parse:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-locale:parse:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+      "path": "Standalone tools/model-dialogue/star-chat/locales/zh-TW.json"
     },
     {
-      "id": "tool-locale:keys:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-locale:keys:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-has-keys",
       "markers": [
         "errors.permission_denied",
@@ -9968,7 +9969,7 @@
         "tool.name",
         "tool.window_title"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+      "path": "Standalone tools/model-dialogue/star-chat/locales/zh-TW.json"
     },
     {
       "id": "self-health:test-target:star-chat:0:pending-native",
@@ -9976,7 +9977,7 @@
       "kind": "json-array-min-count",
       "markers": [
         "status=PENDING",
-        "source_test^=Standalone tools/local-model/model-dialogue/star-chat/"
+        "source_test^=Standalone tools/model-dialogue/star-chat/"
       ],
       "min_count": 1,
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -18362,30 +18363,6 @@
       "path": "Standalone tools/local-model/manifest.json"
     },
     {
-      "id": "tm:model-dialogue:id",
-      "kind": "json-key-value",
-      "markers": [
-        "id=model-dialogue"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tm:star-chat:id",
-      "kind": "json-key-value",
-      "markers": [
-        "id=star-chat"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
-    },
-    {
-      "id": "tm:star-chat:cap:ai-connections",
-      "kind": "file-contains",
-      "markers": [
-        "\"ai-connections\""
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
-    },
-    {
       "id": "tm:xingcheng:id",
       "kind": "json-key-value",
       "markers": [
@@ -18400,6 +18377,30 @@
         "\"ai-connections\""
       ],
       "path": "Standalone tools/local-model/xingcheng/manifest.json"
+    },
+    {
+      "id": "tm:model-dialogue:id",
+      "kind": "json-key-value",
+      "markers": [
+        "id=model-dialogue"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tm:star-chat:id",
+      "kind": "json-key-value",
+      "markers": [
+        "id=star-chat"
+      ],
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
+    },
+    {
+      "id": "tm:star-chat:cap:ai-connections",
+      "kind": "file-contains",
+      "markers": [
+        "\"ai-connections\""
+      ],
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
       "id": "tm:vaultly:id",
@@ -26553,9 +26554,9 @@
       "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/local-model/model-dialogue/src/backend/services/star_chat:application",
+      "id": "pkg-layer:Standalone tools/model-dialogue/src/backend/services/star_chat:application",
       "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/model-dialogue/src/backend/services/star_chat/application/__init__.py"
+      "path": "Standalone tools/model-dialogue/src/backend/services/star_chat/application/__init__.py"
     },
     {
       "glob": "*.py",
@@ -26611,6 +26612,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/local-model/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_collaboration:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
     },
     {
       "glob": "*.py",
@@ -26713,6 +26725,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_nexus:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_nexus:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26809,6 +26832,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/local-model/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:file_sorter:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
     },
     {
       "glob": "*.py",
@@ -26911,6 +26945,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:investment_mobile:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:investment_mobile:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27007,6 +27052,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/julia-compute/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:xingcheng:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
     },
     {
       "glob": "*.py",
@@ -27120,6 +27176,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:vaultly:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:vaultly:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27205,6 +27272,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/julia-compute/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:star_chat:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
     },
     {
       "glob": "*.py",
@@ -27316,7 +27394,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3548,
+    "native_checks": 3555,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27339,7 +27417,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T15:55:11Z",
+  "generated_at": "2026-09-29T17:11:27Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
