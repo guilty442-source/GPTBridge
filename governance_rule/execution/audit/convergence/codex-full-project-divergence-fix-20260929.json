@@ -92,5 +92,5 @@
       "owner": "audit baseline lane — baseline re-anchor needs its governed process, not a freehand rewrite"
     }
   ],
-  "verification": "pending: native audit-engine re-run after edits"
+  "verification": "native audit-engine run post-edit: 3507/3507 PASS / 0 FAIL; release-dependencies.json + registry.json re-parsed clean; landed f286d45a + cbd6588a"
 }
