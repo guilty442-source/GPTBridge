@@ -260,9 +260,9 @@
       "version": "local (governed executor)",
       "path": "E:\\GPTBridge\\Standalone tools\\local-model\\src\\backend\\services",
       "license": "local-owned",
-      "status": "active",
+      "status": "retired",
       "verified": true,
-      "notes": "bounded-degraded fallback lane; native RAG service is ragd-rs (Standalone tools/ragd-rs)"
+      "notes": "Python fallback executor retired (B166); degraded RAG role is served by the native RAG service ragd-rs (Standalone tools/ragd-rs)"
     }
   ],
   "models": [

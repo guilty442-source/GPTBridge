@@ -1,5 +1,9 @@
 # GPTBridge 本地 SQL 現況盤點與缺口分析
 
+> **歷史盤點文件**：文中引用的 Python 模組（`store.py`、`provision_postgresql_architecture.py`
+> 等）已隨 Python 艦隊退役（B166/B167/B38，2026-09-29）移除；內容僅作歷史證據，
+> 不代表現行實作。
+
 **評估日期**：2026-09-04
 **範圍**：GPTBridge 全專案的 SQL 資料層（PostgreSQL 治理架構、xingcheng RAG、模組本地 SQLite）
 

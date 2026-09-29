@@ -1,9 +1,9 @@
 /* xingcheng_engine_c.h — flat C ABI for the XingCheng native inference
  * engine (P11/MS6: hot path without a Python mediator).
  *
- * The symbols are exported from the same image as the pybind11 module
- * (a .pyd IS a DLL), so C# P/Invoke or the C++ ToolHost can host the
- * engine in-process without the Python service on the infer hot path.
+ * The symbols are exported from the engine image (DLL), so C# P/Invoke
+ * or the C++ ToolHost can host the engine in-process. (The pybind11
+ * module `_xingcheng_inference` is retired with the Python lane, B166.)
  *
  * Ownership: caller owns only the opaque handle; text is returned via
  * caller-provided buffers (no shared allocations, no free-ABI needed).

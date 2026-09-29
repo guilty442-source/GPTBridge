@@ -254,6 +254,10 @@ Implementation: `native_transformer/self_learning.py` +
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
 > Normative authority: Codex B134/B135。
+> Retired lane (B166/B167/B38): the `python.exe -m ...maturity`
+> invocations and `native_transformer/maturity.py` implementation below
+> are removed; they remain as interface documentation only until the
+> governed owner-language entries land. Do not run them.
 
 Unified maturity ladder; the certified level is decided **only by executed
 tests** — parameter count is recorded as evidence, never a criterion.
@@ -290,6 +294,10 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 ## 星澄 Data Retention (`star-retention-policy/v1`)
 
 > Normative authority: Codex C17/C18。
+> Retired lane (B166/B167/B38): the `python.exe -m ...retention`
+> invocations and `native_transformer/retention.py` implementation below
+> are removed; they remain as interface documentation only until the
+> governed owner-language entries land. Do not run them.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/retention.json`。
 
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
@@ -333,17 +341,19 @@ persistence`). Copies under `main-system/runtime/`, other tools, other
 drives, or ad-hoc scratch dirs are violations and must be moved in or
 deleted, never left behind.
 
-Enforcement is fail-closed in code:
+Enforcement is fail-closed; the retired Python lane (B166) implemented
+the boundary as follows — the policy still binds, and the native
+successor must preserve it:
 
-- `native_transformer/cpp_runtime.py::assert_inside_xingcheng` refuses any
-  path outside `tool_root()/xingcheng` with `XINGCHENG_DATA_BOUNDARY`.
-  Applied to bundle export/staging targets, the execution ledger, and the
-  pinned serving artifact at `generate_via_cpp_engine` (an out-of-boundary
-  pin refuses to serve).
-- `native_transformer/retention.py::apply_retention` re-checks every delete
-  victim against the same boundary and skips (counted as
-  `boundary_skipped` in the audit entry) rather than touching a foreign
-  path.
+- `native_transformer/cpp_runtime.py::assert_inside_xingcheng` (retired)
+  refused any path outside `tool_root()/xingcheng` with
+  `XINGCHENG_DATA_BOUNDARY`. Applied to bundle export/staging targets,
+  the execution ledger, and the pinned serving artifact at
+  `generate_via_cpp_engine` (an out-of-boundary pin refuses to serve).
+- `native_transformer/retention.py::apply_retention` (retired)
+  re-checked every delete victim against the same boundary and skipped
+  (counted as `boundary_skipped` in the audit entry) rather than
+  touching a foreign path.
 
 Operational test/fixture bundles and probe scripts live under
 `xingcheng/runtime/devin/` so scratch work also stays in-boundary.
@@ -351,6 +361,10 @@ Operational test/fixture bundles and probe scripts live under
 ## 星澄 Training GPU Gate & Auto-Release
 
 > Normative authority: Codex B44/B16。
+> Retired lane (B166/B167/B38): the Python classes/modules referenced
+> below (`TrainingJobExecutor`, `gpu_coordinator`, `auto_release.py`,
+> `NativeTransformerEngine`, `chat_foundation_dataset.py`) are removed;
+> the policy contracts remain binding on their native successors.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
@@ -382,6 +396,10 @@ Operational test/fixture bundles and probe scripts live under
 ## Lazy RAG/CAG (MS1/MS2)
 
 > Normative authority: Codex B154/B155。
+> Retired lane (B166/B167/B38): the Python modules referenced below
+> (`core_system/app_lifecycle.py`, `boot_core_handover.py`,
+> `test_p0_lazy_lifecycle_handover.py`) are removed; the lazy-start
+> contract remains binding on the Rust/C# successors.
 
 RAG + CAG are capability-critical, not boot-critical. By default the
 composition root does NOT import or construct them — measured import
@@ -408,7 +426,8 @@ Lite), URL-normalization dedupe, deterministic reciprocal-rank fusion
 (k=60), bounded metadata-only results.
 
 Governance boundary is unchanged: the only entry point is the governed
-`xingcheng_web_search` command (`local_ai_lifecycle._run_web_search`),
+`xingcheng_web_search` command (former `local_ai_lifecycle._run_web_search`,
+retired with the Python lane — B166),
 which audits into `web_search_log` and returns bounded metadata.
 Provider chain is driven by `runtime/settings/web-search.json`
 (`provider`: `auto`/`searchd`/`searxng`; env `XINGCHENG_SEARCH_PROVIDER`
@@ -433,6 +452,9 @@ go test ./...
 ## On-Demand Model Activation (Lazy 星澄)
 
 > Normative authority: Codex B154。
+> Retired lane (B166/B167/B38): `main-system/src-core/tasks/model_service_activation.py`
+> (`ModelServiceActivationBroker`) is removed; the activation contract
+> below remains binding on its native successor.
 > Tunables single source: `main-system/config/tool-isolation-policy.json`＋`sleep-policy.json`。
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).
@@ -459,9 +481,11 @@ identity `xingcheng`) is not running:
 | `xingcheng_codex_alignment` | 法典 × 實作對齊 | architecture registry（法典 == registry == permission routes == module manifests == 實體目錄）、formal rules 對應、法典摘要 |
 | `xingcheng_codex_mirror_check` | 法典 × 架構圖同步 | 中文鏡像（版本、身分集合、必要表、五段鏈、hash、汙染、replacement damage）＋`architecture-*.md` 缺陷／工具文件覆蓋缺口 |
 
-- 實作：`Standalone tools/local-model/src/backend/services/xingcheng/application/codex_diagnostics.py`；
-  架構文件檢查：`governance_rule/execution/audit/architecture_docs.py`（診斷用，尚未納入硬性 audit）。
-- 路由：`tool_routes.py` 中 `(model-dialogue|star-chat) -> xingcheng` 已含兩指令（唯讀註冊檔已恢復 read-only）。
+- 實作（已退役，B166）：原 `xingcheng/application/codex_diagnostics.py` 與
+  `governance_rule/execution/audit/architecture_docs.py`（診斷用）均已移除，
+  待受管原生語言接替者落地。
+- 路由：原 `tool_routes.py` 已退役；`(model-dialogue|star-chat) -> xingcheng`
+  兩指令的唯讀註冊現存於 `tool_routes.json` port 檔。
 - model-dialogue 於送出前若 owner 未啟動，會先走懶啟動；報告以 zh-TW 摘要顯示於對話。
 
 ## Resource Governor
@@ -503,6 +527,11 @@ contract is unchanged.
 
 ## Adaptive SQL Layer
 
+> Retired lane (B166/B167/B38): the Python `shared_layer.adaptive`
+> implementation and its tests are removed; the envelope contracts below
+> remain binding on the governed native/C# successor. Only `.json` port
+> files remain under `shared-layer/src/shared_layer/adaptive/`.
+
 `shared-layer/src/shared_layer/adaptive/` is the bounded, pre-approved control
 layer for the local data platform (admission control, dynamic pool/batch,
 retry, per-domain breakers, maintenance scheduling, cost gate and Qdrant
@@ -535,6 +564,10 @@ producer feeds `observe()`.  Tests: `shared-layer/tests/test_adaptive_control.py
 
 ## Access Control Plane
 
+> Retired lane (B166/B167/B38): the Python `shared_layer.security`
+> implementation and `test_security_control.py` are removed; the control
+> contracts below remain binding on the governed native/C# successor.
+
 `shared-layer/src/shared_layer/security/` covers identity, connection,
 credential, session, permission, rotation and revocation:
 
@@ -562,6 +595,11 @@ credential, session, permission, rotation and revocation:
   Tests: `shared-layer/tests/test_security_control.py`.
 
 ## Cross-Engine Workflow (Saga)
+
+> Retired lane (B166/B167/B38): the Python `shared_layer.workflow`
+> implementation and `test_workflow_consistency.py` are removed; the
+> Saga contracts below remain binding on the governed native/C#
+> successor.
 
 `shared-layer/src/shared_layer/workflow/` makes one business operation across
 PostgreSQL + Qdrant + NTFS recoverable, re-runnable and verifiable —
@@ -613,7 +651,8 @@ canonical / dependencies / information_channels`.
 - Do not create a second copy of the topology: docs, manifests and code must
   reference this registry instead of restating it.
 
-Tests: `governance_rule/tests/test_architecture_registry.py`.
+Tests: the Python `test_architecture_registry.py` lane is retired (B166);
+registry drift is covered by the native audit engine checks.
 
 ## Work authority
 

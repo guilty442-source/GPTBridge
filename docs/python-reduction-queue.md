@@ -1,5 +1,9 @@
 # Python 常駐收斂遷移佇列（A610 / registry `python_residency`）
 
+> **結案**：Python 艦隊已依 B166/B167/B38 全面退役（2026-09-29）。本文件保留為
+> 遷移歷史證據；下列「待遷移」狀態一律視為已由退休（file-not-exists 證據）結案，
+> 後續責任由受管原生語言接替者承擔。
+
 **產生日期**：2026-09-27
 **資料來源**：`governance_rule/execution/audit/architecture_registry.json`（`python_residency` disposition 為唯一權威）
 **量測方式**：各 `physical_path` 下非測試 `.py` 檔（排除 `__pycache__`/venv/node_modules/runtime/dist/bin/obj/tests/data）
