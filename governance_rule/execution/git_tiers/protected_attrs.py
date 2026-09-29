@@ -6,12 +6,13 @@ without the Windows FILE_ATTRIBUTE_READONLY bit.  The governance audit's
 fast-forwarded worktree failed its next self-commit audit until a human
 re-applied the attributes by hand.
 
-This module re-applies the declared invariant at the two points where the
-attribute is mechanically lost or required: after a governed fast-forward
-in ``workspace_sync`` and before the commit audit in ``self_commit``.  It
-only ever sets the file attribute — content is never touched, and the
-audit remains the authority on the invariant (a failed restore still
-surfaces there).
+This module re-applies the declared invariant where the attribute is
+mechanically lost or required.  Its remaining live caller is
+``native_audit_gate`` (pre-commit audit); the governed fast-forward and
+self-commit call sites moved to the C# host, which re-applies the same
+invariant natively.  It only ever sets the file attribute — content is
+never touched, and the audit remains the authority on the invariant (a
+failed restore still surfaces there).
 """
 
 from __future__ import annotations

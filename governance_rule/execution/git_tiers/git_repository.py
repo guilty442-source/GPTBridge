@@ -274,8 +274,10 @@ class GitRepository:
         ``confirmed`` / ``authority_approved`` remain as deprecated adapters:
         a truthy value is recorded as a ``LEGACY_*`` capability-ledger entry
         and the execution is annotated with ``DEPRECATED_COMPATIBILITY``.
-        New callers must use ``capability_gate.execute_with_capability`` /
-        ``execute_system_safe`` instead of a boolean.
+        The capability-token gate (``capability_gate``/``capability_issue``)
+        was retired with the Python fleet; governed Git automation executes
+        through the C# host — Python callers use this entrypoint with an
+        explicit confirmation instead of a capability token.
         """
         command = _classifiable_command(args)
         snapshot = _light_snapshot(self.path)

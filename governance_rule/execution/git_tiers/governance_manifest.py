@@ -35,7 +35,10 @@ baseline stays verifiable after every bind (see
 ``baseline.bind_to_governance_manifest``).
 
 Hardcoded-value inventory (spec §318-320 scan of ``git_tiers``): the values
-below were found hardcoded and are now manifest-bound (module -> key):
+below were found hardcoded and are now manifest-bound (module -> key).
+Modules named here that no longer exist were retired with the Python Git
+fleet in 2026-09 (C# host parity); the bindings below remain the governed
+source of truth regardless of which implementation consumes them:
 
     git_repository.py      DEFAULT_TIMEOUT, _SNAPSHOT_TTL
     git_cache.py           DEFAULT_TTL
