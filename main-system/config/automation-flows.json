@@ -286,8 +286,8 @@
       "kind": "private-loop",
       "interval_s": null,
       "pausable": false,
-      "enabled": true,
-      "description": "清單登記（inventory-only）：60s tick 檢查 _internal_training_due → _run_internal_ollama_training（Ollama 教學範例產線，產 verified examples 供 self-learning SFT 使用；非權重訓練——權重升級只經 self-learning governed 路徑）。在飛請求時跳過；transformer_runtime 停用時不啟動；行程關閉即終止"
+      "enabled": false,
+      "description": "retired (B167/B38): _internal_maintenance_loop removed with the Python training/maintenance lane"
     },
     "vaultly-auto-scan": {
       "owner": "VaultlyScanMixin._auto_scan_loop（vaultly 工具行程內）",
