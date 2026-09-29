@@ -1,4 +1,10 @@
-import React, { createContext, useCallback, useContext, useMemo, useReducer } from "react";
+//! uiState.js — ai-assistant workspace UI state (React-free, E180/C116).
+//! Store-based replacement for the retired ``InvestmentUIProvider`` /
+//! ``useUIState`` context: same reducer actions, same localStorage
+//! display-preference persistence, same notify channel — consumed by the
+//! shell and pages through the ``ctx.ui`` contract.
+import { createStore } from "../../../../../shared-layer/src/ui/toolWindow/dom.js";
+
 const initial = {
 	page: "overview",
 	market: "tw",
@@ -26,7 +32,7 @@ function loadPrefs() {
 		return {};
 	}
 }
-function reducer(s, a) {
+export function reducer(s, a) {
 	switch (a.type) {
 		case "page": return {
 			...s,
@@ -74,42 +80,29 @@ function reducer(s, a) {
 			}, ...s.notices].slice(0, 50)
 		};
 	}
+	return s;
 }
-const Ctx = createContext(null);
-export function InvestmentUIProvider(props) {
-	const [state, dispatch] = useReducer(reducer, {
-		...initial,
-		...loadPrefs()
-	});
+
+/// Creates the workspace UI store.  ``get()`` returns the current state,
+/// ``subscribe(fn)`` fires after every dispatch, ``dispatch(action)``
+/// applies the reducer and persists display preferences only — never
+/// account/portfolio state.
+export function createUIState() {
+	const store = createStore({ ...initial, ...loadPrefs() });
+	const dispatch = (action) => store.set(reducer(store.get(), action));
+	const notify = (text, severity = "INFO") => dispatch({ type: "notify", text, severity });
 	// persist display prefs only — never account/portfolio state
-	React.useEffect(() => {
+	store.subscribe((s) => {
 		const prefs = {};
-		for (const k of PREF_KEYS) prefs[k] = state[k];
+		for (const k of PREF_KEYS) prefs[k] = s[k];
 		try {
 			localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 		} catch {}
-	}, [
-		state.theme,
-		state.fontScale,
-		state.sidebarCollapsed,
-		state.aiPanelOpen
-	]);
-	const value = useMemo(() => ({
-		state,
-		dispatch
-	}), [state]);
-	return <Ctx.Provider value={value}>{props.children}</Ctx.Provider>;
-}
-export function useUIState() {
-	const ctx = useContext(Ctx);
-	if (!ctx) throw new Error("useUIState outside provider");
-	return ctx;
-}
-export function useNotify() {
-	const { dispatch } = useUIState();
-	return useCallback((text, severity = "INFO") => dispatch({
-		type: "notify",
-		text,
-		severity
-	}), [dispatch]);
+	});
+	return {
+		get: store.get,
+		subscribe: store.subscribe,
+		dispatch,
+		notify
+	};
 }
