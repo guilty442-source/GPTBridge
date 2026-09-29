@@ -15,7 +15,7 @@
 | 3 | `xingcheng-auto-repair-module` | `tasks/central_repair.py`，252 行 | ⏸ 待 host | 屬 main-system 內部 resident task；需 host 邊界決策（子進程或隨 main-system 整體遷移） |
 | 4 | `system-rescue` | 9 檔 / 525 行（實質邏輯 `platform_packager.py` 13KB） | ✅ **活鏈路已驗證**（`GPTBridge.ToolHost` + `src-native/SystemRescue.Host.exe`；真實 IPC `start_tool`→選中原生 exe、`run_tool`→claim/execute/respond 經 PostgreSQL+proxy+C# host、新世代後端 `list_tools`→`running`（ExecutablePath 比對）、`stop_tool`→`stopped`；`force_close_tool` 同代碼進程內實測 **4,167ms < 5s 預算**，CPU 飽和下活鏈路 6.7s 逾時但進程全滅——見第五節環境注記；E2E wire-fixture 通過；Python `channel_runtime.py` 保留為降級路徑） | 設計：`docs/csharp-tool-host-design.md`（P2 sidecar，E4 不變） |
 | 5 | `investment-mobile` | 191 檔 / 30,384 行 | ⏸ 待 host | 同 #4；規模第二大，建議排最後 |
-| 6 | `self-commit-service` / `integration-plane` / `recovery-plane` | `git_tiers/` 共用 64 檔 / 19,259 行 | ⏸ 待 host | 三元件共用同一路徑；resident 服務，需常駐 C# host（非 per-call 子進程） |
+| 6 | `self-commit-service` / `integration-plane` / `recovery-plane` | `git_tiers/` 7 檔 / 2,313 行 | ✅ **已遷**（常駐 `GPTBridge.GitAutomation.exe --watch`：`82c50f18`；Python 退役收斂：`2d5d52b4`/`abb9679c`/`7b3ead04`，退役路徑已登 `retired_sources.json`） | — |
 | 7 | `boot-core` | `src-core` 439 檔 / 97,245 行 | ⏸ 排序最末 | 主系統核心；依賴所有上述 host 基礎設施先就緒 |
 | 8 | `main-system` | 504 檔 / 110,166 行（已排除 `.venv-*` 備份與 node_modules） | ⏸ 排序最末 | 終點工作；其餘全部遷完後才具備條件 |
 

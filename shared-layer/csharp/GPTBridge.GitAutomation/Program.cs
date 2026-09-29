@@ -221,10 +221,18 @@ internal static partial class Program
                 case "status":
                     return ShowStatus(projectRoot);
                 case "sweep":
-                    return Print(Sweep(projectRoot, options,
-                        new Dictionary<string, (string, double)>()));
                 case "sync":
-                    return Print(SyncCycle(projectRoot, options));
+                    if (!FlowsConfig.FlowEnabled(projectRoot))
+                    {
+                        Console.WriteLine(
+                            "[git-automation] disabled by " +
+                            "automation-flows manifest/override");
+                        return 0;
+                    }
+                    return options.Mode == "sweep"
+                        ? Print(Sweep(projectRoot, options,
+                            new Dictionary<string, (string, double)>()))
+                        : Print(SyncCycle(projectRoot, options));
                 case "once":
                 case "watch":
                     return await Watch(projectRoot, options);
