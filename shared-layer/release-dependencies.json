@@ -217,7 +217,7 @@
     {
       "path": "shared-layer/src/shared_layer/contracts",
       "class": "RUNTIME_CONTRACT",
-      "evidence": "registry.py CanonicalTypeRegistry (versioned, language-neutral, append-only)"
+      "evidence": "registry.json CanonicalTypeRegistry JSON port (versioned, language-neutral, append-only)"
     },
     {
       "path": "shared-layer/src/shared_layer/security",
@@ -233,16 +233,6 @@
       "path": "shared-layer/csharp/GPTBridge.Channels",
       "class": "SHARED_SERVICE",
       "evidence": "A263 information-layer channel runtime (canonical C# owner); one resident instance"
-    },
-    {
-      "path": "shared-layer/src/shared_layer/store.py",
-      "class": "SHARED_SERVICE",
-      "evidence": "central transport store on PostgreSQL canonical (single authority)"
-    },
-    {
-      "path": "shared-layer/src/shared_layer/store_async.py",
-      "class": "SHARED_SERVICE",
-      "evidence": "async transport store; same canonical transport authority"
     },
     {
       "path": "shared-layer/src/shared_layer/database",
@@ -273,8 +263,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-29T03:01:49Z",
-    "codex_sha256": "7ea9fe2d98067dcc35fa90e7b5be1e6f97744652cc5cf8fc0d4f861e39b99fde",
+    "codex_version": "2026-09-29T05:25:52Z",
+    "codex_sha256": "de403abf3a150a6c898d6553c5a6ea9088a6cc33fa78135fab99761bcfe925e",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -295,12 +285,12 @@
     "*.onnx"
   ],
   "shared_layer_contract": {
-    "version_key": "shared_layer.contracts.registry:REGISTRY_VERSION",
+    "version_key": "shared-layer/src/shared_layer/contracts/registry.json:registry_version",
     "version": 1,
     "compatible_versions": [
       1
     ],
-    "contract_file": "shared-layer/src/shared_layer/contracts/registry.py"
+    "contract_file": "shared-layer/src/shared_layer/contracts/registry.json"
   },
   "service_topology": {
     "shared_layer_service": {
@@ -440,13 +430,13 @@
   },
   "config_contract": {
     "required_files": {
-      "main-system/config/tool-runtime-contract.json": "4677327c3aa089799b8d4b719c0c061a87a2b862c05949aae8b75f4754c57318",
+      "main-system/config/tool-runtime-contract.json": "8d604adfdea752d14a27682ed92addb0b4056a643e798605dee713e40c4813cc",
       "main-system/config/tool-isolation-policy.json": "caaf5cd5f154399d4b105cc9b546cffb65647155122564aaf2ca162535fe944c",
       "main-system/config/startup_manifest.json": "d6822763e8a4710f80e8704552969ad08c8ce996d806834af8938414208955bb",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "388f304da1a8549aa08a9dc88061658bee9507f9291fa671b1f3c48dd0287d3e",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "370eaf7a3b5e6b2c63b582d598804aea95007f5cbae42ea6b0f490cc67178f05"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "bfbc7980cf7eacfa15c92d2d94055ed7028fb740885010d4d8c958f11ba67abc"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",

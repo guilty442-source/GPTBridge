@@ -10,13 +10,13 @@
     "$call": "frozenset",
     "$args": [
       [
-        "governance_rule/execution/authentication/__init__.py",
-        "governance_rule/execution/integrity/__init__.py",
-        "governance_rule/execution/versioning/__init__.py",
-        "governance_rule/execution/git_tiers/__init__.py",
-        "governance_rule/permission_directory/execution/identity_registry/__init__.py",
-        "governance_rule/permission_directory/execution/path_guard/__init__.py",
-        "main-system/src-core/core_system/governance_runtime.py"
+        "native/audit/audit_engine.cpp",
+        "native/audit/audit_engine_checks_a.cpp",
+        "native/audit/audit_engine_checks_b.cpp",
+        "native/audit/audit_engine_checks_c.cpp",
+        "native/include/audit_engine.h",
+        "shared-layer/csharp/GPTBridge.GitAutomation",
+        "shared-layer/csharp/GPTBridge.CodexPipeline"
       ]
     ],
     "$kw": {}
