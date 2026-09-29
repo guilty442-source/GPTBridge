@@ -72,10 +72,10 @@
       "stores": ["index", "relations", "status", "structured-metadata", "audit"],
       "original_content": false,
       "model_direct_sql": false,
-      "write_owner": "governance-validated-python-executor",
-      "provisioning_executor": "main-system/scripts/provision_postgresql_architecture.py",
-      "bootstrap_executor": "main-system/scripts/bootstrap_data_architecture.py",
-      "runtime_language": "python"
+      "write_owner": "governance-native-executor-pending",
+      "provisioning_executor": "retired:main-system/scripts/provision_postgresql_architecture.py",
+      "bootstrap_executor": "retired:main-system/scripts/bootstrap_data_architecture.py",
+      "runtime_language": "native-pending"
     },
     "vector_index": {
       "engine": "vectord",
