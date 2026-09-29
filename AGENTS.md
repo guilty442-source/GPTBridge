@@ -673,9 +673,9 @@ powershell -ExecutionPolicy Bypass -File native/test_suites/build.ps1
   the language ownership contract.
 - UI: Rust + Tauri + Native JavaScript ESM with JSDoc + GPUI + egui; Esbuild
   and SWC may be combined as governed build tools.
-- Python: only the thinnest necessary governance semantics, on-demand JAX
-  training, and development verification; production must not start pytest,
-  Python inference, RAG, UI, process management, file or network workers.
+- Python: fully retired (B166/B167/B38). No Python source, interpreter,
+  virtual environment, package manager, dependency, build/test/audit/
+  training/inference or fallback path exists or may be added anywhere.
 
 ## Native UI stack
 
@@ -705,10 +705,11 @@ from the application to the native owner rather than chains such as Rust → C#
 
 - inference: Rust model service → C++ inference → Rust;
 - RAG: application → Rust RAG / `vectord-rs` → result;
-- training: Rust/C# scheduler → Python + JAX → artifact → process exit.
+- training: Rust/C# scheduler → native C++ training engine → artifact →
+  process exit (the Python + JAX lane is retired, B166).
 
-Python may be installed for governed, on-demand training or verification, but
-must not remain resident after the request completes.
+Python may not be installed or invoked for any purpose — governed training and
+verification run on the registered native owner languages only (B166).
 
 ## Model Runtime Residency
 
@@ -751,13 +752,12 @@ owns the UI application/state/security/IPC/lifecycle core and native RAG
 retrieval. Go owns high-concurrency file, batch and network work. F# owns data
 analysis, machine learning and correctness-sensitive complex calculations.
 Julia owns specialized numerical research. Native JavaScript ESM with JSDoc is
-UI-only. Python is limited to irreducible governance semantics, on-demand JAX
-training and development verification, and may not continuously execute bulk
-mechanical work. PostgreSQL is the sole structured-data authority and Qdrant is
+UI-only. Python holds zero role — it is retired in every domain (B166), with
+no residual governance, training, verification or bulk-work path. PostgreSQL
+is the sole structured-data authority and Qdrant is
 the scoped semantic index; no embedded database may act as authority or fallback.
 
-The canonical runtime path uses the shortest governed native boundary and
-avoids Python on request-critical paths. C/C++ execution does not create or
+The canonical runtime path uses the shortest governed native boundary. C/C++ execution does not create or
 change governance rules; C# orchestration cannot bypass decision or permission
 checks.
 
@@ -838,8 +838,8 @@ Execute optimization in this order:
 Stages 1–4 have priority. Avoid premature SIMD, handwritten memory pools, and
 complex lock-free structures when profiling has not demonstrated a bottleneck.
 The convergence rule is: native owners execute bounded work, PostgreSQL owns
-structured truth, Qdrant owns scoped vectors, Python stays minimal and
-on-demand, and every operation remains cancellable, observable and governed.
+structured truth, Qdrant owns scoped vectors, Python stays retired with zero
+role, and every operation remains cancellable, observable and governed.
 
 
 ## Codex Read Access (no-Python path)

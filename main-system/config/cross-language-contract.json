@@ -6,12 +6,13 @@
   "description": "INTEGRATION-CROSS-LANGUAGE 唯一索引：全專案跨語言呼叫、交接、錯誤表示、記憶體擁有權規則的唯一索引；本檔只做索引與規範，不複製任何 registry 內容；boundary 詳細 schema 仍以各 owner registry 為準；修訂與世代存於 metadata，不得由此推斷 identity 名稱。",
   "revision_policy": "identity names are stable (no version suffix, no final/latest/generation tokens). Revisions live in metadata only: contract_revision, generation, content_hash, producer, consumer, compatibility, created_at, source_revision.",
   "metadata": {
-    "contract_revision": 1,
+    "contract_revision": 2,
     "generation": 1,
     "producer": "integration-cross-language",
     "created_at": "2026-09-27T00:00:00Z",
     "source_revision": null,
-    "compatibility": "additive-only"
+    "compatibility": "additive-only",
+    "note": "rev2: Python lane retired (B36 Python=retired; B162/B167/B38 zero role/residency). python-involving boundaries carry status=retired tombstones; native successors are recorded per-entry."
   },
   "mechanism_classes": {
     "SAME_RUNTIME_TYPED_CALL": {
@@ -104,8 +105,10 @@
       "mechanism_class": "NATIVE_ABI",
       "mechanism": "pybind11 module _sovereign_native over extern-C header",
       "owner": "main-system",
+      "status": "retired",
+      "retired_by": "B162/B167/B38: Python lane retired; native successor is GPTBridge.MainSystem (C#) over native/bridge gptbridge_native.c",
       "contract_ref": "native/include/gptbridge_native.h",
-      "files": ["native/include/gptbridge_native.h", "native/bridge/gptbridge_native.c", "main-system/src-core/core_system/native/_binding.cpp", "main-system/src-core/core_system/native/memory_contract.py"]
+      "files": ["native/include/gptbridge_native.h", "native/bridge/gptbridge_native.c"]
     },
     {
       "id": "py-xingcheng-inference",
@@ -114,8 +117,10 @@
       "mechanism_class": "NATIVE_ABI",
       "mechanism": "pybind11 module _xingcheng_inference",
       "owner": "local-model",
+      "status": "retired",
+      "retired_by": "B162/B167/B38: Python inference retired; successor is cs-native-inference + native engine process",
       "contract_ref": "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
-      "files": ["Standalone tools/local-model/src/backend/cpp/src/binding.cpp", "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_engine.py"]
+      "files": ["Standalone tools/local-model/src/backend/cpp/src/binding.cpp"]
     },
     {
       "id": "cs-native-inference",
@@ -133,6 +138,8 @@
       "callee": "cpp+c",
       "mechanism_class": "NATIVE_ABI",
       "mechanism": "ctypes CDLL over flat C exports, python fallback",
+      "status": "retired",
+      "retired_by": "B162: Python caller retired; investment-mobile native surfaces remain under investment-mobile ownership",
       "owner": "investment-mobile",
       "contract_ref": "module-local parity (no versioned contract file: see blockers)",
       "files": ["Standalone tools/investment-mobile/native/strategy/strategy_engine.cpp", "Standalone tools/investment-mobile/native/risk/risk_core.c"]
@@ -150,12 +157,12 @@
     {
       "id": "native-tool-runtime",
       "caller": "cpp+csharp",
-      "callee": "python",
+      "callee": "cpp",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "child-process stdio JSONL proxy plus loopback HTTP/WS",
+      "mechanism": "child-process stdio JSONL proxy plus loopback HTTP/WS; python transport_proxy sidecar retired (B162), native sidecar is native/tool_runtime/sidecar_transport.cpp",
       "owner": "governance",
       "contract_ref": "star-governed-tool-runtime-abi/v1",
-      "files": ["native/tool_runtime/tool_host.cpp", "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/GovernedToolHost.cs"]
+      "files": ["native/tool_runtime/tool_host.cpp", "native/tool_runtime/sidecar_transport.cpp", "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/GovernedToolHost.cs"]
     },
     {
       "id": "a263-channel",
@@ -169,7 +176,7 @@
     },
     {
       "id": "vectord-http",
-      "caller": "python",
+      "caller": "cpp+csharp",
       "callee": "rust",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
       "mechanism": "loopback HTTP/JSON, no FFI, no shared memory",
@@ -179,7 +186,7 @@
     },
     {
       "id": "searchd-http",
-      "caller": "python",
+      "caller": "cpp+csharp",
       "callee": "go",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
       "mechanism": "loopback HTTP/JSON, no cgo",
@@ -194,8 +201,10 @@
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
       "mechanism": "loopback HTTP/JSON with session token",
       "owner": "local-model",
+      "status": "retired",
+      "retired_by": "B162: model_service_http.py retired; C# consumers use cs-native-inference (native ABI), governed channel for the rest",
       "contract_ref": "star-model-service/v1",
-      "files": ["Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/model_service_http.py"]
+      "files": []
     },
     {
       "id": "model-artifact-export",
@@ -204,8 +213,10 @@
       "mechanism_class": "NATIVE_ABI",
       "mechanism": "one-way file export checkpoint to inference bundle, sha256 chained",
       "owner": "local-model",
+      "status": "retired",
+      "retired_by": "B162/B167/B38: python exporter retired; native training lane is native_transformer/training (C++/C#)",
       "contract_ref": "MODEL_ARTIFACT_CONTRACT",
-      "files": ["Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_export.py"]
+      "files": []
     },
     {
       "id": "tauri-ui-bridge",
@@ -220,9 +231,9 @@
     {
       "id": "ws-ipc",
       "caller": "javascript",
-      "callee": "python",
+      "callee": "csharp",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "authenticated loopback WebSocket with bounded queue, outbox cursors, reconnect",
+      "mechanism": "authenticated loopback WebSocket with bounded queue, outbox cursors, reconnect; python ipc/server.py retired (B162), backend is GPTBridge.MainSystem (C#)",
       "owner": "main-system",
       "contract_ref": "main-system/config/ipc-contract.json",
       "files": ["main-system/config/ipc-surface-frontend.json", "main-system/config/ipc-surface-backend.json"]
@@ -239,18 +250,18 @@
     },
     {
       "id": "julia-spawn",
-      "caller": "python",
+      "caller": "csharp",
       "callee": "julia",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "spawn-per-call, stdin JSON job, stdout last-line JSON, no resident state",
+      "mechanism": "spawn-per-call, stdin JSON job, stdout last-line JSON, no resident state; python spawner (julia_compute.py) retired (B162), spawn is owned by the C# orchestrator",
       "owner": "main-system",
       "contract_ref": "Standalone tools/julia-compute/CONTRACT.md",
-      "files": ["main-system/src-core/core_system/julia_compute.py", "Standalone tools/julia-compute/src/JuliaCompute.jl"]
+      "files": ["Standalone tools/julia-compute/src/JuliaCompute.jl"]
     },
     {
       "id": "launcher-spawn",
       "caller": "csharp",
-      "callee": "python+rust",
+      "callee": "rust",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
       "mechanism": "process spawn with env bindings, file journal, single-instance mutex",
       "owner": "system-runtime",
@@ -259,23 +270,23 @@
     },
     {
       "id": "pg-structured",
-      "caller": "python",
+      "caller": "csharp",
       "callee": "postgresql",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "psycopg3 pool with contract handshake, session identity, generation fence",
+      "mechanism": "Npgsql pool with contract handshake, session identity, generation fence; psycopg3/python lane retired (B162), canonical reader is GPTBridge.CodexPipeline",
       "owner": "shared-layer",
       "contract_ref": "main-system/config/sql-schema-contract.json",
-      "files": ["shared-layer/src/shared_layer/store.py", "shared-layer/src/shared_layer/contracts/projection.py"]
+      "files": ["shared-layer/csharp/GPTBridge.CodexPipeline"]
     },
     {
       "id": "tool-proxy-stdio",
       "caller": "csharp",
-      "callee": "python",
+      "callee": "cpp",
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "child-process stdio JSONL with per-call id, bounded line size",
+      "mechanism": "child-process stdio JSONL with per-call id, bounded line size; python transport_proxy.py retired (B162), native sidecar is native/tool_runtime/sidecar_transport.cpp",
       "owner": "governance",
       "contract_ref": "star-governed-transport-proxy/v1",
-      "files": ["shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs"]
+      "files": ["shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs", "native/tool_runtime/transport_proxy_client.cpp"]
     }
   ],
   "error_contract": {
@@ -301,7 +312,7 @@
       "fsharp": "typed results (Result/Option); exceptions converge at the application boundary",
       "go": "error values carrying codes",
       "javascript": "typed error objects {error_code, message, correlation_id}",
-      "python": "exceptions inside the Python domain only; codes on the wire",
+      "python": "retired (B162): no Python domain remains; wire codes unchanged",
       "julia": "ok:false envelopes with op-scoped codes"
     }
   },
@@ -310,20 +321,20 @@
       "every native struct declares allocator owner, free owner, lifetime, mutability, thread safety, alignment",
       "same-process hot paths target zero-copy or one-copy; cross-process prefers formal binary IPC",
       "no new ungoverned shared-memory mechanisms",
-      "canonical owners: Python owns memory at the pybind edge (memory_contract.py BufferOwnership); C++ owns weight bundles with stable addresses; Rust owns vectord store; callers own opaque handles and transfer buffers"
+      "canonical owners: C++ owns weight bundles with stable addresses; Rust owns vectord store; callers own opaque handles and transfer buffers. (Python/pybind memory edge retired with B162 — memory_contract.py removed.)"
     ]
   },
   "known_relays": [
     {
-      "chain": "javascript -> python(model-dialogue) -> python(xingcheng) -> python(native-engine) -> cpp",
-      "reason": "governed AI channel, permission routing and audit must stay on the Python-owned path; C# consumers use cs-native-inference to skip Python"
+      "chain": "javascript -> csharp(GPTBridge.ChannelHost) -> cpp(xingcheng native engine)",
+      "reason": "governed AI channel, permission routing and audit (B162: python hops retired)"
     },
     {
-      "chain": "csharp -> python(model-service-http) -> cpp",
-      "reason": "fallback transport only; primary C# path is cs-native-inference (native-abi)"
+      "chain": "csharp -> cpp (cs-native-inference)",
+      "reason": "primary C# path is the native ABI; the python model-service-http hop is retired (B162)"
     },
     {
-      "chain": "python -> go(searchd) -> public web",
+      "chain": "cpp(xingcheng) -> go(searchd) -> public web",
       "reason": "network isolation: only the Go service touches the public web, metadata only"
     }
   ],
@@ -346,7 +357,8 @@
     {
       "id": "python-in-inference-path",
       "boundary": "model-artifact-export consumers",
-      "reason": "Python routing/facade remains on the local-model inference path by Codex architecture; removal needs a Codex amendment (out of scope: Codex is read-only here)"
+      "status": "resolved",
+      "reason": "Codex amendment landed (B162/B167/B38): Python routing/facade on the local-model inference path is retired; native engine + cs-native-inference own the path"
     },
     {
       "id": "tauri-untyped-envelope",

@@ -34,7 +34,7 @@ vectord-rs 監聽 `127.0.0.1:8092`，資料存在其 `runtime` 儲存目錄。�
 
 ## 操作
 
-在 `E:\GPTBridge` 執行：
+Python `eval\rag_cli.py` 已退役（B167/B38）；以下歷史指令僅供參考。RAG 操作請經由 `xingcheng_rag_status` / `xingcheng_rag_ingest` / `xingcheng_rag_query` 受管指令。
 
 ```powershell
 python eval\rag_cli.py status

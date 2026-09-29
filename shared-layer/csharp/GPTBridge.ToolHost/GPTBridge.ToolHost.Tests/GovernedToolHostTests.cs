@@ -99,7 +99,7 @@ public class GovernedToolHostTests
         SessionToken = new string('a', 64),
         Port = 0,
         ShutdownToken = "shtok",
-        PythonExecutable = "python.exe",
+        SidecarExecutable = "proxy-sidecar.exe",
     };
 
     private static JsonObject Request(

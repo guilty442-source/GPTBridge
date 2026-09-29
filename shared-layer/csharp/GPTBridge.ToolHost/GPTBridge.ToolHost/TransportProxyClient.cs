@@ -1,8 +1,8 @@
 // star-governed-transport-proxy/v1 — P2 stdio sidecar client.
 //
-// Spawns `python -B -s transport_proxy.py` as a child process which
-// inherits this process's governed environment (the bootstrap env is
-// consumed inside the Python governance plane — it is never parsed here).
+// Spawns the native sidecar executable (env.SidecarExecutable) as a child
+// process which inherits this process's governed environment (the
+// bootstrap env is consumed inside the sidecar — it is never parsed here).
 // Wire protocol: UTF-8 JSONL, one request/response per line, responses
 // correlated by caller-supplied `id`. All failures surface as
 // ProxyErrorException with the spec's closed error-code set.
@@ -58,7 +58,7 @@ public sealed class TransportProxyClient : IToolTransport
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = env.PythonExecutable,
+            FileName = env.SidecarExecutable,
             WorkingDirectory = env.ToolRoot,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -69,16 +69,9 @@ public sealed class TransportProxyClient : IToolTransport
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false),
         };
-        startInfo.ArgumentList.Add("-B");
-        startInfo.ArgumentList.Add("-s");
-        if (env.ProxyIsModule)
-        {
-            // Spec P2: the proxy uses package-relative imports, so it must
-            // run as a module with governance_rule/shared_layer importable.
-            startInfo.ArgumentList.Add("-m");
-            startInfo.Environment["PYTHONPATH"] = env.ProxyPythonPath;
-        }
-        startInfo.ArgumentList.Add(env.ProxyEntry);
+        // The native sidecar speaks the wire contract directly — no
+        // interpreter args. The Python module lane (-m transport_proxy
+        // plus PYTHONPATH) is retired with the sidecar module (B162).
         // Inherit the governed environment verbatim — including
         // GPTBRIDGE_TOOL_GOVERNANCE_BOOTSTRAP, which the sidecar consumes
         // exactly like GovernedToolRuntime.load_authentication.

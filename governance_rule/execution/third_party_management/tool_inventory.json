@@ -1,6 +1,6 @@
 {
   "schema": "governance-tool-inventory-v1",
-  "managed_by": "dependency-sync-sub-sovereign",
+  "managed_by": "automation-sovereign",
   "codex_basis": [
     "P25",
     "A51",
@@ -42,15 +42,15 @@
       "id": "python",
       "name": "Python",
       "category": "runtime",
-      "formal": true,
-      "formality": "formal-tool",
+      "formal": false,
+      "formality": "retired",
       "codex_formal_tool_name": "python",
       "version": "3.14.7",
       "path": "E:\\GPTBridge\\main-system\\.venv\\Scripts\\python.exe",
       "license": "PSF-2.0",
-      "status": "active",
+      "status": "retired",
       "verified": true,
-      "notes": "governed interpreter is the main-system venv (A615: Python 3.14.7); PATH python is not the governed runtime"
+      "notes": "retired (B162/B167/B38): zero role/residency/dependency; governed venv interpreter removed with the Python lane"
     },
     {
       "id": "pybind11",
@@ -62,9 +62,9 @@
       "version": "2.13.6",
       "path": "python -m pybind11",
       "license": "BSD-3-Clause",
-      "status": "active",
+      "status": "retired",
       "verified": true,
-      "notes": "C++ native kernel build binding; resolved via main-system .venv"
+      "notes": "retired with the Python lane (B162): native kernel builds via MSVC cl directly (native/test_suites/build.ps1)"
     },
     {
       "id": "node",
@@ -103,8 +103,9 @@
       "version": "0.12.9",
       "path": "uv",
       "license": "MIT OR Apache-2.0",
-      "status": "active",
-      "verified": true
+      "status": "retired",
+      "verified": true,
+      "notes": "retired with the Python lane (B162): no Python package management remains"
     },
     {
       "id": "msvc",
@@ -257,11 +258,11 @@
       "formality": "bounded-degraded-fallback",
       "implements_role": "rag-cache",
       "version": "local (governed executor)",
-      "path": "E:\\GPTBridge\\local-model\\src\\backend\\services",
+      "path": "E:\\GPTBridge\\Standalone tools\\local-model\\src\\backend\\services",
       "license": "local-owned",
       "status": "active",
       "verified": true,
-      "notes": "local_rag_repository (LocalVectorStore bounded fallback)"
+      "notes": "bounded-degraded fallback lane; native RAG service is ragd-rs (Standalone tools/ragd-rs)"
     }
   ],
   "models": [

@@ -31,7 +31,7 @@ public class ToolHostServerTests
             SessionToken = new string('b', 64),
             Port = port,
             ShutdownToken = "shutdown-secret",
-            PythonExecutable = "python.exe",
+            SidecarExecutable = "proxy-sidecar.exe",
         };
         var host = new GovernedToolHost(
             env, new RecordingExecutor(), "1.0.0", _ => new FakeTransport());

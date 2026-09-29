@@ -48,11 +48,7 @@
       "separate-settings-layer"
     ]
   },
-  "runtime": {
-    "type": "python",
-    "entry": "src/channel_runtime.py",
-    "workingDirectory": "."
-  },
+  "runtime": {    "type": "retired-python",    "retired_entry": "src/channel_runtime.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry — absent until the native tool host is built, so it fails closed (TOOL_RUNTIME_RETIRED:python-entry-pending-native-host)",    "workingDirectory": "."  },
   "distribution": {
     "mode": "special-unpackaged",
     "package": false
@@ -67,7 +63,7 @@
     "background": "governed-source-channel"
   },
   "automation": {
-    "entry": "src/backend/services/xingcheng/application/local_ai_lifecycle.py",
+    "retired_entry": "src/backend/services/xingcheng/application/local_ai_lifecycle.py",
     "class": "LocalAiLifecycleMixin",
     "method": "_internal_maintenance_loop",
     "enabled": false,
