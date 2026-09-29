@@ -117,6 +117,9 @@
  "main-system/src-ui/renderer/ui/sovereign/runtimeStatusTypes.js",
  "main-system/src-ui/renderer/ui/toolbox/tools/types.js",
  "main-system/src-ui/renderer/shared/hooks/useBackendSocketTypes.js",
- "main-system/src-ui/renderer/shared/hooks/useBackendSocketOutbox.js"
+ "main-system/src-ui/renderer/shared/hooks/useBackendSocketOutbox.js",
+ "shared-layer/src/shared_layer/failure_taxonomy.py",
+ "shared-layer/src/shared_layer/static_analysis_consolidation.py",
+ "shared-layer/src/shared_layer/lifecycle_consolidation.py"
  ]
 }

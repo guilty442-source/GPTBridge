@@ -1,0 +1,38 @@
+{
+  "id": "codex-read-entry-owner-port-request-20260929",
+  "date": "2026-09-29",
+  "worker": "devin-desktop",
+  "type": "ownership-route-request",
+  "authority": "governance-rule-only",
+  "subject": "A113/A435 official codex read entry has no executable owner-language path after the Python lane retired on this machine",
+  "observed_at": "2026-09-29T16:20:00+08:00",
+  "contract": {
+    "entry": "governance-codex://official",
+    "session_schema": "session_nonce|requester_identity|identity_attestation|purpose_code|provision_scope|permission_review_id|issued_at|expires_at|single_use|codex_version",
+    "access_classes": ["bounded-machine-lookup", "review-session", "xingcheng-chinese-review"],
+    "controls": "single-use nonce + bounded expiry + revocation generation + codex-version binding + dual-key for privileged opens + metadata-only audit (content never enters audit)"
+  },
+  "retired_python_surface": [
+    "governance_rule/execution/codex_official.py (mint_codex_read_session, entry)",
+    "governance_rule/execution/codex_session.py (CodexReadSession, typed reads)",
+    "governance_rule/execution/codex_entry_state.py (persisted nonce/grant/revocation state, metadata-only audit ledger, rotation)",
+    "governance_rule/execution/codex_dual_key.py (two-key grant mint/verify)"
+  ],
+  "gap": "Local Python interpreter retired (venv redirector dead, base pythoncore-3.14 removed). The official-entry session engine is therefore non-executable; workers can only read the codex informally (read-only psql on gptbridge_codex.* or GPTBridge.CodexPipeline --authority-state), which bypasses minted sessions, least-scope binding and the metadata-only read audit. A113 requires every sovereign authoritative view to pass the official entry with a minted single-use session.",
+  "interim_read_paths_used": [
+    "GPTBridge.CodexPipeline.exe --authority-state (metadata only)",
+    "read-only psql against gptbridge_codex schema (no session, no entry audit)"
+  ],
+  "requested_owner": "codex-implementation lane (permission-sovereign entry owner; per worker-division rule the Codex worker owns codex implementation)",
+  "requested_actions": [
+    "port the read-session contract to an owner-language path (natural home: GPTBridge.CodexPipeline, which already holds PgDsn + codex table access): session mint/close, revocation generation, scope grammar + scope_hash, dual-key mint/verify, metadata-only audit ledger append + rotation, fail-closed on corrupt state",
+    "keep the persisted state schema compatible with governance_rule/execution/audit/codex_entry_state.json + codex_read_audit.jsonl so historical evidence remains valid",
+    "register the new entry path in projections and retire the Python entry modules through the governed retirement flow (retired_sources.json pin)"
+  ],
+  "evidence": {
+    "python_runtime": "main-system/.venv redirector dead; base interpreter C:/Users/guilt/AppData/Local/Python/pythoncore-3.14-64 removed 2026-09-29",
+    "audit": "native audit-engine green 1977/0 at 2026-09-29T16:12+08:00 after rev14 interim re-anchor + governed manifest refresh",
+    "existing_csharp": "GPTBridge.CodexPipeline has PgDsn.Normalize + Npgsql access to gptbridge_codex; GPTBridge.GitAutomation already calls psql for codex_authority_state freshness"
+  },
+  "worker_self_boundary": "This worker did NOT implement the port: the codex entry is permission-sovereign machinery and the codex-implementation lane owns it (worker-division rule). This file routes the gap formally instead of expanding scope."
+}

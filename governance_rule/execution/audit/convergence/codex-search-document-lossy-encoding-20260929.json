@@ -1,0 +1,24 @@
+{
+  "id": "codex-search-document-lossy-encoding-20260929",
+  "date": "2026-09-29",
+  "worker": "devin-desktop",
+  "type": "ownership-route-request",
+  "authority": "governance-rule-only",
+  "subject": "codex_search_document projection contains lossy '??' text while the articles authority rows are clean; regenerated zh-TW mirror part-2 now fails mirror-part-pollution",
+  "observed_at": "2026-09-29T16:25:00+08:00",
+  "evidence": {
+    "audit_check": "mirror-part-pollution:governance_codex.zh-TW.part-2.txt FAIL (native audit 2081 checks / 1 fail at 16:25+08:00)",
+    "clean_authority": "gptbridge_codex.articles: 572 rows, 0 rows with '??' — e.g. A100 rule reads 'HUMAN-NAMES:法典+星澄'",
+    "corrupt_projection": "gptbridge_codex.codex_search_document: 141 rows contain '??' — e.g. 'HUMAN-NAMES:??+?? and all sovereign...', 'ROLE:?? is an independent read-only...' (星澄/法典 lost to '?' bytes)",
+    "mirror_write_path": "GPTBridge.CodexPipeline MirrorWriter writes UTF8 no-BOM correctly; the corruption is upstream in the search-document generation (stage/successor pipeline), not the mirror writer",
+    "mirror_regen_at": "governance_codex.zh-TW.part-*.txt regenerated 2026-09-29T16:21:51+08:00 by the codex-pipeline stream"
+  },
+  "assessment": "The PostgreSQL articles authority is intact; the derived full-text projection lost CJK content during its build (likely a console-encoding or non-UTF8 step in the stage/search-document builder). Because the mirror renders from the projection, the read-only mirror now carries the corruption and fails the pollution gate.",
+  "requested_owner": "codex-implementation lane (search-document builder + mirror render owner)",
+  "requested_actions": [
+    "locate the lossy step in the codex_search_document build (Encoding.Default/GBK or non-UTF8 decode on the PG stage path)",
+    "rebuild codex_search_document rows from the clean articles/edicts/principles source through the governed pipeline",
+    "re-render the zh-TW mirror parts after the projection is clean; mirror-part-pollution must return to PASS"
+  ],
+  "worker_self_boundary": "Not fixed by this worker: codex projection rebuild writes to the governed authority schema and belongs to the codex-implementation lane, not a general worker."
+}

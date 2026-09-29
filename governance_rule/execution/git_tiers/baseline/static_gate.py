@@ -70,8 +70,12 @@ SANCTIONED_DIRECT_GIT: tuple[str, ...] = (
 SANCTIONED_AUDIT_WRITERS: tuple[str, ...] = (
     "git_tiers/__init__.py",
     "git_tiers/audit_chain.py",
+    "git_tiers/audit_chain_core.py",
     "git_tiers/audit_records.py",
+    "git_tiers/audit_records_schema.py",
+    "git_tiers/audit_records_write.py",
     "git_tiers/registry_migration_engine.py",
+    "git_tiers/registry_migration_ops.py",
     "baseline/",
     "tests/",
 )
