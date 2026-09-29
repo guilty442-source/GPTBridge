@@ -20,7 +20,11 @@ internal static partial class Program
         private double _nextSyncAt;
         private bool _running = true;
         private bool _wake;
+        private bool _wakeAll;
         private readonly List<FileSystemWatcher> _watchers = new();
+        private readonly List<string> _watchRoots = new();
+        private readonly HashSet<string> _wakeWorktrees =
+            new(StringComparer.OrdinalIgnoreCase);
         private double _lastEventWake;
 
         public Service(string root, Options options)
@@ -79,7 +83,25 @@ internal static partial class Program
                 }
                 try
                 {
-                    var tick = CycleTick(push);
+                    // Drain the event scope before the cycle: an
+                    // unscoped wake (overflow, unresolvable path) falls
+                    // back to a full sweep.
+                    HashSet<string>? scope = null;
+                    if (!_wakeAll && _wakeWorktrees.Count > 0)
+                        scope = new HashSet<string>(
+                            _wakeWorktrees,
+                            StringComparer.OrdinalIgnoreCase);
+                    _wakeWorktrees.Clear();
+                    var wakeAll = _wakeAll;
+                    _wakeAll = false;
+                    if (wakeAll)
+                    {
+                        // A stale watcher set must not skip the
+                        // reconciliation sweep.
+                        try { RefreshWatchers(); }
+                        catch (Exception) { }
+                    }
+                    var tick = CycleTick(push, scope);
                     if (await Task.WhenAny(
                             tick, Task.Delay(tickDeadline)) != tick)
                         Console.Error.WriteLine(
@@ -119,11 +141,12 @@ internal static partial class Program
             return 0;
         }
 
-        private async Task CycleTick(bool push)
+        private async Task CycleTick(
+            bool push, IReadOnlySet<string>? scope = null)
         {
             _lastSweep = await Task.Run(() =>
             {
-                var result = Sweep(_root, _options, _dirtySince);
+                var result = Sweep(_root, _options, _dirtySince, scope);
                 _sweeps++;
                 WriteState();
                 return result;
@@ -163,31 +186,16 @@ internal static partial class Program
 
         // -- dirwatch (event-driven early wake, bounded like the Python
         //    native dirwatch: ≤16 handles, ≥15 s between wakes) ----------
+        //    Events carry their path so the wake sweeps only the
+        //    signalled worktree; unresolvable paths and buffer
+        //    overflows escalate to a full sweep — the periodic tick
+        //    remains the fallback for silently missed events.
 
         private void StartDirwatch()
         {
             try
             {
-                var worktrees = Sync.ListWorktrees(_root)
-                    .Select(w => w.Path).Take(16).ToList();
-                foreach (var worktree in worktrees)
-                {
-                    if (!Directory.Exists(worktree))
-                        continue;
-                    var watcher = new FileSystemWatcher(worktree)
-                    {
-                        IncludeSubdirectories = true,
-                        EnableRaisingEvents = true,
-                        NotifyFilter = NotifyFilters.FileName
-                            | NotifyFilters.DirectoryName
-                            | NotifyFilters.LastWrite,
-                    };
-                    watcher.Changed += (_, _) => OnChanged();
-                    watcher.Created += (_, _) => OnChanged();
-                    watcher.Deleted += (_, _) => OnChanged();
-                    watcher.Renamed += (_, _) => OnChanged();
-                    _watchers.Add(watcher);
-                }
+                RefreshWatchers();
             }
             catch (Exception)
             {
@@ -195,14 +203,102 @@ internal static partial class Program
             }
         }
 
-        private void OnChanged()
+        private void RefreshWatchers()
         {
-            var now = Environment.TickCount64 / 1000.0;
-            if (now - _lastEventWake >= 15.0)
+            var worktrees = Sync.ListWorktrees(_root)
+                .Select(w => Path.GetFullPath(w.Path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(16).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (!worktrees.Contains(_root))
+                worktrees.Add(Path.GetFullPath(_root));
+            for (var i = _watchers.Count - 1; i >= 0; i--)
             {
-                _lastEventWake = now;
-                _wake = true;
+                if (worktrees.Contains(_watchRoots[i]))
+                    continue;
+                _watchers[i].EnableRaisingEvents = false;
+                _watchers[i].Dispose();
+                _watchers.RemoveAt(i);
+                _watchRoots.RemoveAt(i);
             }
+            foreach (var worktree in worktrees)
+            {
+                if (_watchRoots.Contains(worktree,
+                        StringComparer.OrdinalIgnoreCase)
+                    || !Directory.Exists(worktree))
+                    continue;
+                var watcher = new FileSystemWatcher(worktree)
+                {
+                    IncludeSubdirectories = true,
+                    EnableRaisingEvents = true,
+                    NotifyFilter = NotifyFilters.FileName
+                        | NotifyFilters.DirectoryName
+                        | NotifyFilters.LastWrite,
+                };
+                watcher.Changed += (_, e) => OnChanged(e.FullPath);
+                watcher.Created += (_, e) => OnChanged(e.FullPath);
+                watcher.Deleted += (_, e) => OnChanged(e.FullPath);
+                watcher.Renamed += (_, e) => OnChanged(e.FullPath);
+                watcher.Error += (_, _) => OnError();
+                _watchers.Add(watcher);
+                _watchRoots.Add(worktree);
+            }
+        }
+
+        /// <summary>Longest watched root that prefixes the changed path —
+        /// a nested worktree outranks the parent watcher it also fired
+        /// through.</summary>
+        private string? ScopeFor(string path)
+        {
+            string? best = null;
+            foreach (var watched in _watchRoots)
+            {
+                if (path.StartsWith(
+                        watched + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase)
+                    && (best is null || watched.Length > best.Length))
+                    best = watched;
+            }
+            return best;
+        }
+
+        private void OnChanged(string? fullPath)
+        {
+            // Resolve and record the scope even when the wake itself is
+            // throttled — the next wake (or the periodic sweep) then
+            // visits every worktree that signalled, not just the one
+            // whose event happened to fall outside the throttle window.
+            var scope = fullPath is null ? null : ScopeFor(fullPath);
+            // A path under a ``.worktrees/<name>`` subtree that resolved
+            // to the parent root means the nested worktree has no
+            // watcher yet (created after startup) — escalate so the
+            // sweep and the watcher set pick it up.
+            var nestedPrefix = Path.Combine(_root, ".worktrees")
+                + Path.DirectorySeparatorChar;
+            if (scope is null
+                || (fullPath!.StartsWith(nestedPrefix,
+                        StringComparison.OrdinalIgnoreCase)
+                    && !scope.StartsWith(nestedPrefix,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                _wakeAll = true;
+            }
+            else
+            {
+                _wakeWorktrees.Add(scope);
+            }
+            var now = Environment.TickCount64 / 1000.0;
+            if (now - _lastEventWake < 15.0)
+                return;
+            _lastEventWake = now;
+            _wake = true;
+        }
+
+        private void OnError()
+        {
+            // Internal buffer overflowed — events were lost; the only
+            // safe recovery is a full reconciliation sweep.
+            _wakeAll = true;
+            _wake = true;
         }
 
         private void StopDirwatch()
@@ -213,6 +309,7 @@ internal static partial class Program
                 watcher.Dispose();
             }
             _watchers.Clear();
+            _watchRoots.Clear();
         }
 
         private void WriteState()

@@ -16,7 +16,8 @@ internal static partial class Program
 
     private static JsonObject Sweep(
         string root, Options options,
-        Dictionary<string, (string, double)> dirtySince)
+        Dictionary<string, (string, double)> dirtySince,
+        IReadOnlySet<string>? only = null)
     {
         var results = new JsonObject();
         var scopes = new JsonObject();
@@ -25,6 +26,12 @@ internal static partial class Program
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (!worktrees.Contains(root, StringComparer.OrdinalIgnoreCase))
             worktrees.Insert(0, Path.GetFullPath(root));
+        // Event-scoped sweeps visit only the worktrees that signalled a
+        // change, plus every worktree still holding a pending debounce
+        // marker — a quiet worktree mid-debounce must not starve.
+        if (only is not null)
+            worktrees = worktrees.Where(w =>
+                only.Contains(w) || dirtySince.ContainsKey(w)).ToList();
         foreach (var worktree in worktrees)
         {
             Status.Snapshot snapshot;
