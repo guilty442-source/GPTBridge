@@ -182,20 +182,33 @@ internal static class MirrorWriter
     private static List<List<string>> MirrorTableChunks(
         StageConnection connection, string? templateRoot)
     {
-        var mapping = templateRoot is not null
-            ? TemplatePartMapping(templateRoot) : null;
-        if (mapping is not null)
-            return Enumerable.Range(1, 5)
-                .Select(index => mapping
-                    .Where(pair => pair.Value == index)
-                    .Select(pair => pair.Key).ToList())
-                .ToList();
         var cursor = connection.Execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
             + "AND name NOT LIKE 'sqlite_%' "
             + "AND name NOT LIKE '%_fts_%' ORDER BY name");
         var names = cursor.Rows
             .Select(row => row[0]?.ToString() ?? "").ToList();
+        var mapping = templateRoot is not null
+            ? TemplatePartMapping(templateRoot) : null;
+        if (mapping is not null)
+        {
+            // Template preserves part assignment, but only for tables
+            // that still exist; tables absent from the template fall
+            // back to the round-robin distribution.
+            var live = names.ToHashSet(StringComparer.Ordinal);
+            var chunks = Enumerable.Range(1, 5)
+                .Select(index => mapping
+                    .Where(pair => pair.Value == index
+                        && live.Contains(pair.Key))
+                    .Select(pair => pair.Key).ToList())
+                .ToList();
+            var mapped = chunks.SelectMany(c => c)
+                .ToHashSet(StringComparer.Ordinal);
+            var extra = names.Where(n => !mapped.Contains(n)).ToList();
+            for (var i = 0; i < extra.Count; i++)
+                chunks[i % 5].Add(extra[i]);
+            return chunks;
+        }
         return Enumerable.Range(0, 5)
             .Select(index => names.Where((_, i) => i % 5 == index)
                 .ToList())

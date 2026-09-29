@@ -369,6 +369,8 @@ internal sealed class StageCursor
         RowCount = rowcount < 0 ? rows.Count : rowcount;
     }
 
+    public IReadOnlyList<string> Columns => _columns;
+
     public object?[]? FetchOne() =>
         _index < _rows.Count ? _rows[_index++] : null;
 
