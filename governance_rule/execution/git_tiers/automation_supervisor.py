@@ -1,30 +1,11 @@
-"""Supervised, persistent automation for the parallel worktree pipeline.
+"""RETIRED — supervised watcher fleet for the parallel worktree pipeline.
 
-The supervisor is the single long-running owner of the GPTBridge git
-automation stack.  It:
-
-  * spawns and supervises one self-commit watcher per registered worktree
-    (auto-restart with exponential backoff, per-watcher log files);
-  * periodically runs the conflict-safe workspace synchronizer against
-    ``main`` so external worker branches are integrated and clean workers
-    are fast-forwarded;
-  * records its own lifecycle, children, and last sync results in a JSON
-    registry under the shared git common directory so any worktree can
-    report or stop it;
-  * can register itself as a Windows Task Scheduler logon job for
-    cross-reboot persistence.
-
-Governance (A53/E39, A58/E44): the supervisor never pushes unless ``--push``
-is given (the synchronizer itself guards remote-sync durability), never
-force-updates, never resolves conflicts automatically, and never deletes
-refs.  All git writes flow through the capability gate
-(``execute_system_safe`` → gateway) and are recorded in the tier and
-capability audit ledgers.
-
-Sub-modules (A430/E160):
-  * ``automation_supervisor_state`` — state dir, registry, stop/status
-  * ``automation_supervisor_loop`` — watcher supervision + sync loop
-  * ``automation_supervisor_persistence`` — Task Scheduler / Run key
+Replaced by the single resident C# orchestrator
+``GPTBridge.GitAutomation.exe --watch`` (C66: one scheduler + one
+coordinator; no per-worktree watcher processes).  This module is kept
+importable only for ``report``/``git_control_plane`` state readers;
+it is not a live entry point — main-system's ``GitAutomationService``
+supervises the native host.
 """
 
 from __future__ import annotations

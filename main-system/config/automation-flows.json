@@ -8,7 +8,7 @@
   },
   "flows": {
     "git-automation": {
-      "owner": "git-automation task（governance_rule/execution/git_tiers）",
+      "owner": "GPTBridge.GitAutomation.exe --watch（C# 常駐 host；tasks/git_automation.py 僅為其受管監督行程）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
@@ -23,7 +23,7 @@
         "lock_wait_s": 30,
         "max_parallel_suites": 4
       },
-      "description": "worktree self-commit sweep（debounce）＋workspace sync cycle；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS＋強制測試 PASS 才推；推送與 ahead==0 收斂證據入帳）"
+      "description": "C# host 內含 worktree self-commit sweep（debounce）＋workspace sync cycle；Python task 只 spawn/活性探測/有界 respawn，不執行 git 工作（C66 單一編排器）；host 每週期重讀 enabled＋runtime override，sentinel 檔觸發優雅停止；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS＋強制測試 PASS 才推；推送與 ahead==0 收斂證據入帳）"
     },
     "daily-global-cleaner": {
       "owner": "daily-global-cleaner service",

@@ -161,9 +161,13 @@ internal static class Program
                 case "status":
                     return ShowStatus(projectRoot);
                 case "sweep":
+                    if (!FlowsConfig.FlowEnabled(projectRoot))
+                        return Fail("disabled:git-automation");
                     return Print(Sweep(projectRoot, options,
                         new Dictionary<string, (string, double)>()));
                 case "sync":
+                    if (!FlowsConfig.FlowEnabled(projectRoot))
+                        return Fail("disabled:git-automation");
                     return Print(SyncCycle(projectRoot, options));
                 case "once":
                 case "watch":
@@ -267,8 +271,23 @@ internal static class Program
             var tickDeadline = TimeSpan.FromSeconds(
                 Math.Max(60.0,
                     Math.Min(900.0, _options.SweepInterval * 5)));
+            var stopFile = Path.Combine(_root, "main-system", "runtime",
+                "state", "git-automation.stop");
+            try { File.Delete(stopFile); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
             while (_running)
             {
+                // Kill-switch re-check every cycle (manifest enabled=false
+                // or runtime override) — fail closed, then exit so the
+                // supervisor never respawns a denied flow.
+                if (!FlowsConfig.FlowEnabled(_root))
+                {
+                    Console.WriteLine(
+                        "[git-automation] disabled by automation-flows " +
+                        "manifest/override — stopping");
+                    break;
+                }
                 try
                 {
                     var tick = CycleTick(push);
@@ -277,39 +296,65 @@ internal static class Program
                         Console.Error.WriteLine(
                             $"[git-automation] cycle exceeded " +
                             $"{tickDeadline.TotalSeconds:0}s deadline");
+                    else
+                        await tick; // observe faults — WhenAny alone
+                                    // swallows a failed cycle silently
                 }
                 catch (Exception error)
                 {
                     Console.Error.WriteLine(
                         $"[git-automation] cycle error: {error.Message}");
                 }
+                // --once: exactly one sweep+sync cycle, then exit.
+                if (_options.Mode == "once")
+                    break;
                 var delay = Task.Delay(
                     TimeSpan.FromSeconds(_options.SweepInterval));
                 while (_running && !_wake)
                 {
+                    // Supervisor stop sentinel: a governed shutdown request
+                    // written as a file — exits within ~500 ms instead of
+                    // waiting out the sweep interval.
+                    if (File.Exists(stopFile))
+                        _running = false;
                     if (await Task.WhenAny(
                             delay, Task.Delay(500)) == delay)
                         break;
                 }
                 _wake = false;
+                if (Trace)
+                    Console.Error.WriteLine(
+                        $"[dbg] loop: woke (running={_running})");
             }
             StopDirwatch();
+            try { File.Delete(stopFile); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            WriteState(); // final write: running=false for status callers
             return 0;
         }
 
+        private static bool Trace =>
+            Environment.GetEnvironmentVariable("GITA_TRACE") == "1";
+
         private async Task CycleTick(bool push)
         {
+            if (Trace) Console.Error.WriteLine("[dbg] tick: sweep start");
             await Task.Run(() =>
             {
-                Sweep(_root, _options, _dirtySince);
+                _lastSweep = Sweep(_root, _options, _dirtySince);
                 _sweeps++;
                 WriteState();
             });
+            if (Trace) Console.Error.WriteLine("[dbg] tick: sweep done");
             var queueEvent = await Task.Run(QueueHasPending);
+            if (Trace) Console.Error.WriteLine("[dbg] tick: queue checked");
             var now = Environment.TickCount64 / 1000.0;
             if (queueEvent || now >= _nextSyncAt)
             {
+                if (Trace) Console.Error.WriteLine("[dbg] tick: sync start");
                 var sync = await Task.Run(() => SyncCycle(_root, _options, push));
+                if (Trace) Console.Error.WriteLine("[dbg] tick: sync done");
                 _nextSyncAt = now + _options.SyncInterval;
                 _syncs++;
                 _lastSync = new JsonObject
@@ -414,8 +459,8 @@ internal static class Program
                             .Select(k => (JsonNode?)JsonValue.Create(k))
                             .ToArray()),
                     ["dirwatch_worktrees"] = _watchers.Count,
-                    ["last_sweep"] = _lastSweep,
-                    ["last_sync"] = _lastSync,
+                    ["last_sweep"] = _lastSweep.DeepClone(),
+                    ["last_sync"] = _lastSync.DeepClone(),
                 };
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 using var document =

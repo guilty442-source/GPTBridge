@@ -153,27 +153,51 @@ internal static class GovManifest
 /// <summary>automation-flows.json — git-automation flow tunables root.</summary>
 internal static class FlowsConfig
 {
-    private static JsonObject? _cached;
-
     public static JsonObject? GitAutomationFlow(string projectRoot)
     {
-        if (_cached is null)
+        // Re-read per call: the kill switch must propagate to a resident
+        // host within one sweep interval — caching would pin a stale
+        // "enabled" decision for the process lifetime.
+        try
         {
-            try
-            {
-                var path = Path.Combine(projectRoot, "main-system", "config",
-                                        "automation-flows.json");
-                var node = JsonNode.Parse(File.ReadAllText(path));
-                _cached = node?["flows"]?["git-automation"] as JsonObject;
-            }
-            catch (IOException) { _cached = new JsonObject(); }
-            catch (JsonException) { _cached = new JsonObject(); }
+            var path = Path.Combine(projectRoot, "main-system", "config",
+                                    "automation-flows.json");
+            var node = JsonNode.Parse(File.ReadAllText(path));
+            var flow = node?["flows"]?["git-automation"] as JsonObject;
+            return flow?.Count > 0 ? flow : null;
         }
-        return _cached?.Count > 0 ? _cached : null;
+        catch (IOException) { return null; }
+        catch (JsonException) { return null; }
     }
 
-    public static bool FlowEnabled(string projectRoot) =>
-        GitAutomationFlow(projectRoot)?["enabled"]?.GetValue<bool>() ?? true;
+    /// <summary>
+    /// Runtime kill-switch overrides written by AutomationCore
+    /// (runtime/state/automation-flows-state.json → overrides[name]).
+    /// Fail-open on unreadable state mirrors AutomationCore._load_overrides:
+    /// a corrupt state file must not silently keep a flow killed.
+    /// </summary>
+    public static JsonObject? Override(string projectRoot)
+    {
+        try
+        {
+            var path = Path.Combine(projectRoot, "main-system", "runtime",
+                                    "state", "automation-flows-state.json");
+            var node = JsonNode.Parse(File.ReadAllText(path));
+            return node?["overrides"]?["git-automation"] as JsonObject;
+        }
+        catch (IOException) { return null; }
+        catch (JsonException) { return null; }
+    }
+
+    public static bool FlowEnabled(string projectRoot)
+    {
+        if (GitAutomationFlow(projectRoot)?["enabled"]
+                ?.GetValue<bool>() == false)
+            return false;
+        if (Override(projectRoot)?["enabled"]?.GetValue<bool>() == false)
+            return false;
+        return true;
+    }
 
     public static bool PushEnabled(string projectRoot) =>
         GitAutomationFlow(projectRoot)?["push"]?.GetValue<bool>() ?? false;

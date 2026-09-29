@@ -1,24 +1,23 @@
-"""Git worktree automation as a main-system task (replaces the watcher fleet).
+"""Git automation supervision as a main-system task.
 
-One in-process asyncio loop replaces the old ``automation_supervisor``
-process fleet: instead of spawning one self-commit watcher per worktree
-plus a periodic sync process, a single task runs two governed operations
-on a schedule:
+The governed git work itself — self-commit sweep, workspace sync, merge
+queue, hooks — lives in the resident C# host
+``GPTBridge.GitAutomation.exe --watch`` (C66: single scheduler, single
+coordinator; Python carries zero residency for the git domain).  This
+task owns only the host's *process lifecycle*:
 
-- **commit sweep** (``sweep_interval``): for every registered worktree,
-  run ``self_commit.run_once`` — but only after the dirty fingerprint has
-  been stable for ``debounce_seconds`` (same stability contract the old
-  per-worktree watchers provided, without one process per worktree).
-- **sync cycle** (``sync_interval``): run
-  ``workspace_sync.synchronize`` — commit, merge worker branches into
-  ``main``, audit, fast-forward clean worktrees.  Conflicts stop that
-  cycle, exactly as before.
+- ``start()`` registers the ``git-automation`` flow with AutomationCore
+  (or the shared scheduler) and spawns the resident host.  A denied
+  registration never falls back to a private loop and never spawns.
+- Each registered tick is a liveness probe: the host is respawned only
+  within a bounded restart budget (never unbounded restart loops, and
+  never respawned while the flow is disabled).
+- ``stop()`` writes the governed stop sentinel
+  (``runtime/state/git-automation.stop``) the host polls between cycles,
+  then escalates to terminate/taskkill only if it does not exit.
 
-All governance guarantees are unchanged: the underlying functions own
-locking, merge/rebase guards, audit recording, and never push unless
-asked.  This task adds scheduling and observability only.
-
-State is written to ``main-system/runtime/state/git-automation.json``.
+The host owns ``runtime/state/git-automation.json``; this service keeps
+its own supervisor state in ``runtime/state/git-automation-supervisor.json``.
 """
 from __future__ import annotations
 
@@ -26,25 +25,36 @@ import asyncio
 import json
 import logging
 import os
-import threading
+import subprocess
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any
 
 _logger = logging.getLogger("gptbridge.git_automation")
 
-_STATE_FILE = (
-    Path(__file__).resolve().parents[2]
-    / "runtime" / "state" / "git-automation.json"
-)
-
 _DEFAULT_SWEEP_INTERVAL = 60.0
 _DEFAULT_SYNC_INTERVAL = 300.0
 _DEFAULT_DEBOUNCE_SECONDS = 60.0
 
+# Bounded respawn (A170/A178): at most 3 restarts inside a rolling 600 s
+# window; a host that survived >= this uptime does not count as a crash.
+_MAX_RESTARTS = 3
+_RESTART_WINDOW_S = 600.0
+_HEALTHY_UPTIME_S = 300.0
+_STOP_GRACE_S = 15.0
+_HOST_LOG_CAP_BYTES = 256 * 1024
+_HOST_EXE_ENV = "GPTBRIDGE_GIT_AUTOMATION_EXE"
+_HOST_EXE_CANDIDATES = (
+    "shared-layer/csharp/GPTBridge.GitAutomation/"
+    "publish/GPTBridge.GitAutomation.exe",
+    "shared-layer/csharp/GPTBridge.GitAutomation/"
+    "bin/Release/net10.0/GPTBridge.GitAutomation.exe",
+)
+
 
 class GitAutomationService:
-    """Periodic self-commit sweep + workspace sync, one process total."""
+    """Lifecycle supervisor for the resident C# git-automation host."""
 
     def __init__(
         self,
@@ -65,29 +75,220 @@ class GitAutomationService:
 
         self._task: asyncio.Task[Any] | None = None
         self._stop_event = asyncio.Event()
-        # P14/G101 §3.3: OS-level dir-change watches per worktree feed
-        # ``notify_changed`` (eager invalidation for writes that never
-        # touch .git) and wake the private loop early.  Bounded: one
-        # pump thread total, one OS handle per worktree, wakes throttled.
-        self._wake_event = asyncio.Event()
-        self._dirwatch_handles: dict[str, int] = {}
-        self._dirwatch_stop = threading.Event()
-        self._dirwatch_thread: threading.Thread | None = None
-        self._last_event_wake_at = 0.0
-        self._dirty_since: dict[str, tuple[str, float]] = {}
-        self._next_sync_at = 0.0
-        self._queue_file_path: Path | None = None
-        self._last_sweep: dict[str, Any] = {}
-        self._last_sync: dict[str, Any] = {}
-        self._sweeps = 0
-        self._syncs = 0
-        # §10.63 R3: shared PeriodicScheduler rides this service's sweep
-        # cadence instead of a private task (due gates unchanged).
-        # §1.1 自動化集中：when present the automation core is the single
-        # registration point (allowlist + unified audit + kill switch);
-        # denial must not fall back to a private loop.
+        self._child: subprocess.Popen[bytes] | None = None
+        self._spawned_at = 0.0
+        self._restarts: deque[float] = deque()
+        self._degraded_reason = ""
         self._scheduler = scheduler
         self._automation_core = automation_core
+
+    # -- governed runtime paths (project_root-relative — the C# host
+    #    resolves every one of these under its --root) -----------------
+
+    def _runtime_state_dir(self) -> Path:
+        return (self.project_root / "main-system"
+                / "runtime" / "state")
+
+    def _state_file(self) -> Path:
+        return self._runtime_state_dir() / "git-automation.json"
+
+    def _supervisor_state_file(self) -> Path:
+        return (self._runtime_state_dir()
+                / "git-automation-supervisor.json")
+
+    def _stop_sentinel(self) -> Path:
+        return self._runtime_state_dir() / "git-automation.stop"
+
+    def _host_log(self) -> Path:
+        return (self.project_root / "main-system"
+                / "runtime" / "logs" / "git-automation-host.log")
+
+    # -- host executable ------------------------------------------------
+
+    def _host_exe(self) -> Path | None:
+        """Resolve the governed host binary (env override first)."""
+        override = os.environ.get(_HOST_EXE_ENV)
+        if override and override.strip():
+            candidate = Path(override.strip())
+            return candidate if candidate.is_file() else None
+        for relative in _HOST_EXE_CANDIDATES:
+            candidate = self.project_root / relative
+            if candidate.is_file():
+                return candidate
+        return None
+
+    def _host_command(self, exe: Path) -> list[str]:
+        command = [
+            str(exe),
+            "--watch",
+            "--root", str(self.project_root),
+            "--interval", str(int(self.sweep_interval)),
+            "--debounce", str(int(self.debounce_seconds)),
+            "--sync-interval", str(int(self.sync_interval)),
+        ]
+        # Push is governed by the manifest; the constructor flag is only
+        # a fallback when no automation core is the registration point.
+        if self.push and self._automation_core is None:
+            command.append("--push")
+        return command
+
+    def _spawn_host(self) -> bool:
+        exe = self._host_exe()
+        if exe is None:
+            self._degraded_reason = "host-exe-missing"
+            _logger.error(
+                "git automation host binary not found under %s",
+                self.project_root,
+            )
+            return False
+        host_log = self._host_log()
+        try:
+            host_log.parent.mkdir(parents=True, exist_ok=True)
+            if (host_log.is_file()
+                    and host_log.stat().st_size > _HOST_LOG_CAP_BYTES):
+                keep = host_log.read_bytes()[-_HOST_LOG_CAP_BYTES // 2:]
+                host_log.write_bytes(keep)
+            log = host_log.open("ab")
+        except OSError:
+            log = subprocess.DEVNULL  # type: ignore[assignment]
+        try:
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            self._child = subprocess.Popen(  # noqa: S603 - governed host
+                self._host_command(exe),
+                cwd=str(self.project_root),
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                creationflags=creationflags,
+            )
+        except OSError as error:
+            self._degraded_reason = f"spawn-failed:{error}"
+            _logger.error("git automation host spawn failed: %s", error)
+            return False
+        finally:
+            # The child owns a dup of the handle; never hold the parent's
+            # copy open for the host's lifetime.
+            if log is not subprocess.DEVNULL:
+                try:
+                    log.close()
+                except OSError:
+                    pass
+        self._spawned_at = time.monotonic()
+        self._degraded_reason = ""
+        _logger.info("git automation host started (pid=%s)",
+                     self._child.pid)
+        self._write_state()
+        return True
+
+    def _flow_enabled(self) -> bool:
+        if self._automation_core is not None:
+            try:
+                return bool(
+                    self._automation_core.is_enabled("git-automation"))
+            except Exception:
+                return False
+        # Fallback path (no AutomationCore): read the governed manifest +
+        # runtime override directly — same rule the C# host self-enforces,
+        # so a disabled flow is never respawned even without the core.
+        try:
+            manifest = json.loads(
+                (self.project_root / "main-system" / "config"
+                 / "automation-flows.json").read_text(encoding="utf-8"))
+            entry = manifest.get("flows", {}).get("git-automation") or {}
+            if entry.get("enabled") is False:
+                return False
+            state = json.loads(
+                (self.project_root / "main-system" / "runtime" / "state"
+                 / "automation-flows-state.json").read_text(
+                     encoding="utf-8"))
+            override = (
+                state.get("overrides", {}).get("git-automation") or {})
+            if override.get("enabled") is False:
+                return False
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            pass
+        return True
+
+    async def _stop_host(self) -> None:
+        """Graceful governed stop: sentinel first, escalate bounded."""
+        child = self._child
+        self._child = None
+        if child is None or child.poll() is not None:
+            return
+        try:
+            sentinel = self._stop_sentinel()
+            sentinel.parent.mkdir(parents=True, exist_ok=True)
+            sentinel.write_text(
+                time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        try:
+            await asyncio.to_thread(child.wait, _STOP_GRACE_S)
+        except Exception:
+            pass
+        if child.poll() is None:
+            try:
+                child.terminate()
+            except OSError:
+                pass
+            try:
+                await asyncio.to_thread(child.wait, 5.0)
+            except Exception:
+                pass
+        if child.poll() is None:
+            try:
+                await asyncio.create_subprocess_exec(
+                    "taskkill", "/PID", str(child.pid), "/T", "/F",
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            except (OSError, asyncio.CancelledError):
+                pass
+
+    # -- supervision tick ------------------------------------------------
+
+    async def _supervise_tick(self) -> None:
+        """Liveness probe — the only thing the registered tick does.
+
+        All git work is inside the host; the tick never runs git work
+        itself (no second scheduler).  Respawn is bounded; a denied or
+        disabled flow stops the host instead of restarting it.
+        """
+        if self._stop_event.is_set():
+            return
+        if not self._flow_enabled():
+            _logger.info(
+                "git automation flow disabled — stopping host")
+            await self._stop_host()
+            return
+        child = self._child
+        if child is not None and child.poll() is None:
+            self._write_state()
+            return
+        if child is not None:
+            # Host exited.  A healthy-uptime exit resets the crash
+            # budget; otherwise this start consumes a restart slot.
+            uptime = time.monotonic() - self._spawned_at
+            if uptime >= _HEALTHY_UPTIME_S:
+                self._restarts.clear()
+            _logger.warning(
+                "git automation host exited (code=%s, uptime=%.0fs)",
+                child.returncode, uptime)
+            self._child = None
+        now = time.monotonic()
+        while self._restarts and now - self._restarts[0] > _RESTART_WINDOW_S:
+            self._restarts.popleft()
+        if len(self._restarts) >= _MAX_RESTARTS:
+            self._degraded_reason = "restart-budget-exhausted"
+            _logger.error(
+                "git automation host restart budget exhausted "
+                "(%d in %.0fs) — degraded, no respawn",
+                len(self._restarts), _RESTART_WINDOW_S)
+            self._write_state()
+            return
+        self._restarts.append(now)
+        await asyncio.to_thread(self._spawn_host)
+        self._write_state()
 
     # -- lifecycle ------------------------------------------------------
 
@@ -97,57 +298,83 @@ class GitAutomationService:
         if not (self.project_root / ".git").exists():
             return {"status": "skipped", "reason": "not-a-git-worktree"}
         self._stop_event.clear()
-        self._wake_event.clear()
-        self._start_dirwatch(asyncio.get_running_loop())
+        # Spawn BEFORE registering: a run_immediately registration can
+        # invoke the tick on the next loop pass, and the tick owns
+        # respawn decisions — an unspawned start would be double-counted.
+        spawned = await asyncio.to_thread(self._spawn_host)
         if self._automation_core is not None:
             if self._automation_core.register_flow(
                 "git-automation",
-                self._cycle_tick,
+                self._supervise_tick,
                 interval_s=self.sweep_interval,
                 run_immediately=True,
-                # A tick sweeps 6 worktrees and may run the sync cycle
-                # (merge+audit); under worker churn the shared 120 s job
-                # timeout kills it mid-sweep — every ~7 min the scheduler
-                # logged "failed: TimeoutError" (empty str).  Give the
-                # governed sweep room; interval gating still paces it.
-                timeout_s=300.0,
+                # The tick is a liveness probe only (poll + optional
+                # spawn) — seconds, not the old sweep's minutes.
+                timeout_s=60.0,
             ):
-                _logger.info(
-                    "git automation started via automation core "
-                    "(sweep=%.0fs sync=%.0fs debounce=%.0fs)",
-                    self.sweep_interval, self.sync_interval,
-                    self.debounce_seconds,
-                )
-                return {"status": "started", "loop": "automation-core"}
+                _logger.info("git automation host supervised via "
+                             "automation core (probe=%.0fs)",
+                             self.sweep_interval)
+                if spawned:
+                    return {"status": "started", "loop": "automation-core"}
+                return {"status": "degraded",
+                        "reason": self._degraded_reason,
+                        "loop": "automation-core"}
+            # Registration denied → the spawned host must not survive
+            # as a private bypass of the kill switch.
+            await self._stop_host()
             _logger.info("git automation disabled by automation core")
             return {"status": "disabled", "loop": "automation-core"}
         if self._scheduler is not None:
             self._scheduler.register(
-                "git-automation", self.sweep_interval, self._cycle_tick,
-                run_immediately=True, pausable=True,
+                "git-automation", self.sweep_interval,
+                self._supervise_tick, run_immediately=True, pausable=True,
             )
-            _logger.info(
-                "git automation started on periodic scheduler "
-                "(sweep=%.0fs sync=%.0fs debounce=%.0fs)",
-                self.sweep_interval, self.sync_interval, self.debounce_seconds,
-            )
-            return {"status": "started", "loop": "periodic-scheduler"}
+            _logger.info("git automation host supervised on periodic "
+                         "scheduler (probe=%.0fs)", self.sweep_interval)
+            if spawned:
+                return {"status": "started", "loop": "periodic-scheduler"}
+            return {"status": "degraded",
+                    "reason": self._degraded_reason,
+                    "loop": "periodic-scheduler"}
         try:
             self._task = asyncio.create_task(
                 self._loop(), name="git-automation"
             )
         except RuntimeError:
             self._task = None
+            await self._stop_host()
             return {"status": "no_event_loop"}
-        _logger.info(
-            "git automation started (sweep=%.0fs sync=%.0fs debounce=%.0fs)",
-            self.sweep_interval, self.sync_interval, self.debounce_seconds,
-        )
-        return {"status": "started"}
+        _logger.info("git automation host supervised "
+                     "(probe=%.0fs)", self.sweep_interval)
+        if spawned:
+            return {"status": "started"}
+        return {"status": "degraded", "reason": self._degraded_reason}
+
+    async def _loop(self) -> None:
+        """Private supervision loop — only when no scheduler exists."""
+        while not self._stop_event.is_set():
+            try:
+                await asyncio.wait_for(
+                    self._supervise_tick(), timeout=60.0)
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                _logger.warning("git automation supervise tick timeout")
+            except Exception as error:  # never kill the loop
+                _logger.warning(
+                    "git automation supervise error: %s", error)
+            try:
+                await asyncio.wait_for(
+                    self._stop_event.wait(), timeout=self.sweep_interval)
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                raise
+            break
 
     async def stop(self) -> None:
         self._stop_event.set()
-        self._stop_dirwatch()
         if self._automation_core is not None:
             self._automation_core.unregister("git-automation")
         elif self._scheduler is not None:
@@ -160,368 +387,96 @@ class GitAutomationService:
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
-
-    # -- fs change watcher (P14 §3.3 event-driven invalidation) ---------
-
-    _DIRWATCH_MAX_HANDLES = 16
-    _DIRWATCH_WAIT_MS = 200
-    _MIN_EVENT_WAKE_S = 15.0
-
-    def _dirwatch_native(self) -> Any:
-        try:
-            from core_system.native import _sovereign_native as native
-        except Exception:
-            return None
-        if not hasattr(native, "dirwatch_open"):
-            return None
-        return native
-
-    def _start_dirwatch(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Open one recursive change-notification handle per worktree and
-        start the pump thread.  Fail-soft: no native binding → the TTL
-        sweep alone keeps snapshots fresh (unchanged behaviour)."""
-        native = self._dirwatch_native()
-        if native is None or self._dirwatch_thread is not None:
-            return
-        # Worktree enumeration runs a git subprocess and each handle open
-        # is a syscall — doing either on the caller's event loop stalls
-        # every concurrent coroutine (health probes included) and defeats
-        # wait_for timeouts on the startup phase.  The pump thread owns
-        # enumeration + open instead; until the first handles land, the
-        # TTL sweep alone keeps snapshots fresh (unchanged fail-soft).
-        self._dirwatch_stop.clear()
-        self._dirwatch_thread = threading.Thread(
-            target=self._dirwatch_pump,
-            args=(native, loop),
-            daemon=True,
-            name="git-automation-dirwatch",
-        )
-        self._dirwatch_thread.start()
-
-    def _stop_dirwatch(self) -> None:
-        self._dirwatch_stop.set()
-        thread = self._dirwatch_thread
-        self._dirwatch_thread = None
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=2.0)
-        native = self._dirwatch_native()
-        for handle in self._dirwatch_handles.values():
-            try:
-                if native is not None:
-                    native.dirwatch_close(handle)
-            except Exception:
-                pass
-        self._dirwatch_handles.clear()
-
-    def _dirwatch_pump(
-        self, native: Any, loop: asyncio.AbstractEventLoop
-    ) -> None:
-        """Round-robin wait over the watch handles; a signaled handle
-        invalidates that worktree's snapshot and (throttled) wakes the
-        sweep so the debounce clock starts early."""
-        from governance_rule.execution.git_automation_facade import (
-            notify_changed,
-        )
-
-        try:
-            worktrees = self._list_worktrees()[: self._DIRWATCH_MAX_HANDLES]
-        except Exception:
-            worktrees = []
-        for worktree in worktrees:
-            try:
-                handle = int(native.dirwatch_open(worktree))
-            except Exception:
-                continue
-            if handle:
-                self._dirwatch_handles[worktree] = handle
-        if not self._dirwatch_handles:
-            # Nothing to watch — same outcome as before (no pump); the
-            # sweep TTL still covers change detection.
-            return
-        _logger.info(
-            "git automation dirwatch on %d worktree(s)",
-            len(self._dirwatch_handles),
-        )
-
-        while not self._dirwatch_stop.is_set():
-            for worktree, handle in list(self._dirwatch_handles.items()):
-                if self._dirwatch_stop.is_set():
-                    return
-                try:
-                    rc = int(native.dirwatch_wait(handle, self._DIRWATCH_WAIT_MS))
-                except Exception:
-                    rc = -1
-                if rc == -1:
-                    # Broken handle — drop it; the sweep TTL still covers.
-                    self._dirwatch_handles.pop(worktree, None)
-                    try:
-                        native.dirwatch_close(handle)
-                    except Exception:
-                        pass
-                    continue
-                if rc != 1:
-                    continue
-                notify_changed(worktree)
-                now = time.monotonic()
-                if now - self._last_event_wake_at >= self._MIN_EVENT_WAKE_S:
-                    self._last_event_wake_at = now
-                    try:
-                        loop.call_soon_threadsafe(self._wake_event.set)
-                    except Exception:
-                        pass
-
-    async def _wait_next_tick(self) -> bool:
-        """True = stop requested; False = interval elapsed or a file
-        change event requested an early cycle."""
-        stop_wait = asyncio.ensure_future(self._stop_event.wait())
-        wake_wait = asyncio.ensure_future(self._wake_event.wait())
-        try:
-            done, _pending = await asyncio.wait(
-                (stop_wait, wake_wait),
-                timeout=self.sweep_interval,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            self._wake_event.clear()
-            return stop_wait in done
-        finally:
-            stop_wait.cancel()
-            wake_wait.cancel()
-
-    # -- loop -----------------------------------------------------------
-
-    async def _loop(self) -> None:
-        while not self._stop_event.is_set():
-            # P7: per-tick deadline — sweep/sync run git subprocesses and
-            # index I/O; a stalled command must not freeze the loop.
-            tick_deadline = max(60.0, min(900.0, self.sweep_interval * 5))
-            try:
-                await asyncio.wait_for(
-                    self._cycle_tick(), timeout=tick_deadline
-                )
-            except asyncio.CancelledError:
-                raise
-            except asyncio.TimeoutError:
-                _logger.warning(
-                    "git automation cycle exceeded %.0fs deadline",
-                    tick_deadline,
-                )
-            except Exception as error:  # never kill the loop
-                _logger.warning("git automation cycle error: %s", error)
-            try:
-                if await self._wait_next_tick():
-                    break
-            except asyncio.CancelledError:
-                raise
-
-    async def _cycle_tick(self) -> None:
-        """One sweep + due-gated sync — shared by the private loop and the
-        PeriodicScheduler job (§10.63 R3).  G101/§3.3: a pending merge-queue
-        entry is a queue event — it runs the sync early instead of waiting
-        for the fixed interval."""
-        if self._stop_event.is_set():
-            return
-        await self.run_sweep()
-        now = time.monotonic()
-        queue_event = await asyncio.to_thread(self._queue_has_pending)
-        if queue_event or now >= self._next_sync_at:
-            await self.run_sync()
-            self._next_sync_at = now + self.sync_interval
-
-    def _queue_file(self) -> Path | None:
-        """Merge-queue file in the repo-common dir (resolved once — the
-        layout never changes for a service instance)."""
-        if self._queue_file_path is not None:
-            return self._queue_file_path
-        from governance_rule.execution.git_automation_facade import (
-            GitRepository,
-        )
-
-        try:
-            repo = GitRepository(self.project_root)
-            raw = (
-                repo.run(["rev-parse", "--git-common-dir"]).stdout or ""
-            ).strip()
-            common = Path(raw)
-            if not common.is_absolute():
-                common = repo.path / common
-            self._queue_file_path = (
-                common.resolve()
-                / "gptbridge-automation"
-                / "merge-queue"
-                / "queue.json"
-            )
-        except Exception:
-            self._queue_file_path = None
-        return self._queue_file_path
-
-    def _queue_has_pending(self) -> bool:
-        """True when the merge queue holds a pending entry (queue event).
-
-        The queue file lives in the repo-common dir so a cheap read per
-        tick detects cross-process enqueues without parsing every cycle.
-        """
-        queue_file = self._queue_file()
-        try:
-            payload = json.loads(queue_file.read_text(encoding="utf-8"))
-        except Exception:
-            return False
-        entries = payload.get("entries") if isinstance(payload, dict) else []
-        return any(
-            isinstance(e, dict) and e.get("status") == "pending"
-            for e in entries or []
-        )
+        await self._stop_host()
+        self._write_state()
 
     # -- operations -----------------------------------------------------
 
-    def _list_worktrees(self) -> list[str]:
-        from governance_rule.execution.git_automation_facade import (
-            GitRepository,
-            WorktreeManager,
-        )
-
-        manager = WorktreeManager(GitRepository(self.project_root))
-        paths = [
-            str(item["path"])
-            for item in manager.list_worktrees()
-            if item.get("path")
-        ]
-        main = str(self.project_root)
-        normalized = {os.path.normcase(p) for p in paths}
-        if os.path.normcase(main) not in normalized:
-            paths.insert(0, main)
-        return paths
-
-    def _worktree_snapshot(self, worktree: str):
-        """Shared per-generation snapshot (G101): one porcelain capture
-        per sweep tick, reused by the debounce check and ``run_once``;
-        the TTL equals the sweep cadence so the sweep stays the
-        low-frequency insurance of §3.3."""
-        from governance_rule.execution.git_automation_facade import (
-            generation_snapshot,
-        )
-
-        try:
-            return generation_snapshot(
-                worktree, max_age_s=self.sweep_interval
-            )
-        except Exception:
-            return None
-
-    async def run_sweep(self) -> dict[str, Any]:
-        """One self-commit sweep across all worktrees (debounced)."""
-        from governance_rule.execution.git_automation_facade import run_once
-
-        results: dict[str, str] = {}
-        scopes: dict[str, list[str]] = {}
-        now = time.monotonic()
-        for worktree in await asyncio.to_thread(self._list_worktrees):
-            snapshot = await asyncio.to_thread(
-                self._worktree_snapshot, worktree
-            )
-            fingerprint = snapshot.fingerprint if snapshot else ""
-            if not fingerprint:
-                self._dirty_since.pop(worktree, None)
-                continue
-            scopes[worktree] = list(snapshot.affected_scope)
-            marker = self._dirty_since.get(worktree)
-            if marker is None or marker[0] != fingerprint:
-                self._dirty_since[worktree] = (fingerprint, now)
-                results[worktree] = "debounce"
-                continue
-            if now - marker[1] < self.debounce_seconds:
-                results[worktree] = "debounce"
-                continue
-            status = await asyncio.to_thread(
-                run_once, worktree, snapshot=snapshot
-            )
-            results[worktree] = status
-            if status in ("committed", "clean"):
-                self._dirty_since.pop(worktree, None)
-        self._sweeps += 1
-        self._last_sweep = {
-            "at": time.time(),
-            "results": results,
-            "affected_scope": scopes,
-        }
-        self._write_state()
-        return self._last_sweep
-
-    async def run_sync(self) -> dict[str, Any]:
-        """One workspace synchronization cycle (commit→merge→ff)."""
-        from governance_rule.execution.git_automation_facade import (
-            synchronize,
-        )
-
-        # §10.69-E① coordinator push: governed by the automation-flows
-        # manifest (``flows.git-automation.push``) when the core is the
-        # registration point; the constructor flag is the fallback.
-        push = self.push
-        if self._automation_core is not None:
-            entry = self._automation_core.flow_entry("git-automation") or {}
-            push = bool(entry.get("push", push))
-        try:
-            result = await asyncio.to_thread(
-                synchronize,
-                self.project_root,
-                commit_dirty=True,
-                push=push,
-            )
-        except Exception as exc:
-            # Lock-busy is routine serialization (a manual or concurrent
-            # sync holds gptbridge-workspace-sync.lock): skip this cycle
-            # as a normal status instead of failing the flow — an error
-            # log per collision poisons log-hygiene budgets (INT-10).
-            from governance_rule.execution.git_automation_facade import (
-                LockBusyError,
-            )
-
-            if not isinstance(exc, LockBusyError):
-                raise
-            result = "skipped:lock-busy"
-        self._syncs += 1
-        self._last_sync = {"at": time.time(), "result": result}
-        self._write_state()
-        return self._last_sync
-
     async def run_once_cycle(self) -> dict[str, Any]:
-        """One-shot sweep + sync (for manual runs and verification)."""
-        sweep = await self.run_sweep()
-        sync = await self.run_sync()
-        return {"sweep": sweep, "sync": sync}
+        """One-shot host cycle (``--once``) for manual verification.
+
+        Bounded: the host is a subprocess with a hard timeout; a lock
+        busy or disabled flow surfaces as a non-zero exit instead of
+        hanging the caller.
+        """
+        exe = self._host_exe()
+        if exe is None:
+            return {"status": "degraded", "reason": "host-exe-missing"}
+        command = [
+            str(exe), "--once", "--root", str(self.project_root),
+        ]
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                cwd=str(self.project_root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            output, _ = await asyncio.wait_for(
+                process.communicate(), timeout=900.0)
+        except asyncio.TimeoutError:
+            if process is not None:
+                try:
+                    process.kill()
+                except (ProcessLookupError, OSError):
+                    pass
+            return {"status": "timeout"}
+        except OSError as error:
+            return {"status": "error", "reason": f"{error}"}
+        text = output.decode("utf-8", errors="replace")
+        return {
+            "status": "ok" if process.returncode == 0 else "error",
+            "exit_code": process.returncode,
+            "output": text[-4000:],
+        }
 
     # -- observability --------------------------------------------------
 
+    def _host_state(self) -> dict[str, Any]:
+        """The resident host's own published state (it owns the file)."""
+        try:
+            payload = json.loads(
+                self._state_file().read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
     def status(self) -> dict[str, Any]:
+        child = self._child
+        alive = child is not None and child.poll() is None
         return {
-            "running": bool(self._task is not None and not self._task.done()),
+            "running": alive,
+            "host": "GPTBridge.GitAutomation.exe --watch",
+            "host_pid": child.pid if alive else None,
+            "host_exit_code": (
+                child.returncode if child is not None and not alive
+                else None),
             "project_root": str(self.project_root),
             "sweep_interval": self.sweep_interval,
             "sync_interval": self.sync_interval,
             "debounce_seconds": self.debounce_seconds,
-            "push": self.push,
-            "sweeps": self._sweeps,
-            "syncs": self._syncs,
-            "pending_debounce": sorted(self._dirty_since),
-            "dirwatch_worktrees": len(self._dirwatch_handles),
-            "last_sweep": self._last_sweep,
-            "last_sync": self._last_sync,
+            "restarts": len(self._restarts),
+            "degraded": self._degraded_reason or None,
+            "host_state": self._host_state(),
         }
 
     def _write_state(self) -> None:
         payload = {"updated_at": time.strftime(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         payload.update(self.status())
-        temporary = _STATE_FILE.with_name(
-            _STATE_FILE.name + f".{os.getpid()}.tmp"
+        state_file = self._supervisor_state_file()
+        temporary = state_file.with_name(
+            state_file.name + f".{os.getpid()}.tmp"
         )
         try:
-            _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            state_file.parent.mkdir(
+                parents=True, exist_ok=True)
             temporary.write_text(
                 json.dumps(payload, ensure_ascii=False, sort_keys=True,
                            indent=2) + "\n",
                 encoding="utf-8",
             )
-            os.replace(temporary, _STATE_FILE)
+            os.replace(temporary, state_file)
         except OSError:
             try:
                 temporary.unlink()

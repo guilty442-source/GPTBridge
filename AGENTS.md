@@ -97,27 +97,26 @@ Worktrees share the same `.git` directory. Hooks, config, and objects are common
 > Normative authority: Codex C22/C66。
 
 Each worktree can automatically commit the changes made inside its own checkout.
-The service only commits — it **never pushes**.
+The service only commits — it **never pushes**. All git automation work is
+executed by the governed C# host
+`shared-layer/csharp/GPTBridge.GitAutomation` (published exe under `publish/`).
 
 ```powershell
-# One-shot (scheduler / on-demand), act on every worktree including main
-& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --all --once
+$GITAUTO = "shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe"
 
-# One-shot, single worktree
-& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge\.worktrees\ui --once
+# One debounced sweep across every worktree including main
+& $GITAUTO --sweep --root E:\GPTBridge
 
-# Long-running watcher for one worktree (interval + stability debounce in seconds)
-& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --worktree E:\GPTBridge\.worktrees\ui --watch --interval 30 --debounce 60
-
-# Spawn one background watcher per worktree (no console window)
-& main-system\.venv\Scripts\python.exe scripts\git-auto-commit.py --all --watch
+# Resident watcher: sweep every 60 s + sync every 300 s, 60 s debounce,
+# dirwatch-driven early wake, kill-switch honoured each cycle
+& $GITAUTO --watch --root E:\GPTBridge
 ```
 
 Guards: skipped while merge/rebase/cherry-pick/revert is in progress, when the
-worktree is clean, and when git identity is missing. Honours `.gitignore`
-(ignored paths are never staged). Commits are recorded in the audit ledger with
-operation `auto-commit`. Implementation:
-`governance_rule/execution/git_tiers/self_commit.py`.
+worktree is clean, when the index already holds staged-but-uncommitted
+changes (`staged-index-present`), and when git identity is missing. Honours
+`.gitignore`. Commits are recorded in the audit ledger with operation
+`auto-commit`.
 
 ## Automatic Worktree Synchronization
 
@@ -129,12 +128,15 @@ the coordinator may push `main`; it never force-pushes, deletes refs, resets,
 or chooses a conflict resolution.
 
 ```powershell
-& main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge
-& main-system\.venv\Scripts\python.exe scripts\git-worktree-sync.py --root E:\GPTBridge --watch --interval 60 --no-commit --push
+# One workspace sync cycle (commit → merge → audit → fast-forward)
+& $GITAUTO --sync --root E:\GPTBridge
+
+# One sweep + one sync, then exit (manual verification)
+& $GITAUTO --once --root E:\GPTBridge
 ```
 
-Use `--no-commit` when the per-worktree auto-commit watchers are active, so the
-sync coordinator never competes with them for the Git index.
+Use `--no-commit` when self-commit coverage is already running, so the sync
+coordinator never competes with it for the Git index.
 
 Only the synchronization coordinator may push. It pushes `main` only after all
 worktrees are clean, governance audits pass, integration succeeds, and
@@ -146,36 +148,38 @@ must never push directly.
 > Normative authority: Codex C22/C66。
 > Tunables single source: `main-system/config/automation-flows.json`（`git-automation` flow）。
 
-The old `automation_supervisor` process fleet (one watcher process per
-worktree + periodic sync) is replaced by a single in-process main-system
-task: `GitAutomationService`
+All git automation execution lives in the resident C# host
+`GPTBridge.GitAutomation.exe --watch` (C66: single scheduler + single
+coordinator — there is exactly one running git orchestrator). The
+main-system `GitAutomationService`
 (`main-system/src-core/tasks/git_automation.py`), started by the startup
-executor in the normal-information phase (`app.git_automation`).
+executor in the normal-information phase (`app.git_automation`), is only
+the host's governed lifecycle supervisor: it registers the
+`git-automation` flow (kill switch — a denied registration never spawns),
+runs the host as a child process, and each registered tick performs a
+liveness probe with a bounded restart budget (≤3 restarts per 600 s; a
+host surviving ≥300 s resets the budget; exhausted budget → degraded, no
+respawn).
 
-- **Commit sweep** every 60 s: runs `self_commit.run_once` per registered
-  worktree, but only after the dirty-state marker has been stable for a
-  60 s debounce — same stability contract as the old watchers, zero extra
-  processes. A worktree whose index already holds staged-but-uncommitted
-  changes is **skipped** (`staged-index-present`) so a human/agent mid-commit
-  is never swept into an auto-commit with an unrelated message.
-- **Sync cycle** every 300 s: runs `workspace_sync.synchronize`
-  (commit → merge worker branches into `main` → audit → fast-forward).
-  Conflicts stop that cycle until a human resolves them.
-- Locking, merge/rebase guards, audit recording and the no-push rule all
-  stay in the governed `git_tiers` functions; the task only schedules.
+- The host itself re-checks `automation-flows.json` `enabled` **and** the
+  AutomationCore runtime override
+  (`runtime/state/automation-flows-state.json`) every cycle — the kill
+  switch reaches a resident host within one sweep interval, and the
+  supervisor never respawns a denied flow.
+- Governed shutdown: the supervisor writes the stop sentinel
+  `runtime/state/git-automation.stop`; the host exits within ~500 ms
+  (no need to wait out a sweep interval); terminate/taskkill is the
+  bounded fallback.
+- `run_once_cycle()` shells out to `GPTBridge.GitAutomation.exe --once`
+  with a hard timeout for manual verification.
 
-State: `main-system/runtime/state/git-automation.json`. One-shot
-verification (first sweep only debounces; real sync commits dirty
-worktrees — run when the tree is in a state you want committed):
-
-```python
-from tasks.git_automation import GitAutomationService
-svc = GitAutomationService(r"E:\GPTBridge")
-await svc.run_once_cycle()   # one sweep + one sync
-```
-
-The legacy `scripts/git-supervisor.py` entry point still works but is no
-longer the default path — prefer the in-process task.
+State: the host owns `main-system/runtime/state/git-automation.json`;
+the supervisor publishes
+`main-system/runtime/state/git-automation-supervisor.json`; host stdout
+lands in `main-system/runtime/logs/git-automation-host.log` (bounded).
+Host binary resolution: `GPTBRIDGE_GIT_AUTOMATION_EXE` env override,
+then `shared-layer/csharp/GPTBridge.GitAutomation/publish/`, then
+`bin/Release/net10.0/`.
 
 ## 星澄 Self-Learning & Automatic Upgrade
 
