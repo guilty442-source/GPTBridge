@@ -6,7 +6,6 @@
 //! ``main-system/config/startup_manifest.json``.  Probes are bounded by
 //! per-dependency deadlines; a probe that cannot run fails closed.
 
-use std::io::Read;
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -28,22 +27,27 @@ fn boot_instant() -> Instant {
 
 /// ``startup_gate_deadline_seconds`` from ``startup_manifest.json``
 /// (``timeouts`` block); the 90 s default matches the shipped manifest.
+/// Memoized: the deadline is a per-boot constant — evaluate() used to
+/// re-read and re-parse the manifest on every call.
 fn startup_deadline() -> Duration {
-    let manifest = paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("config")
-        .join("startup_manifest.json");
-    let seconds = std::fs::read_to_string(manifest)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-        .and_then(|m| {
-            m["timeouts"]["startup_gate_deadline_seconds"]
-                .as_f64()
-                .or_else(|| m["startup_gate_deadline_seconds"].as_f64())
-        })
-        .unwrap_or(90.0);
-    Duration::from_secs_f64(seconds.max(1.0))
+    static DEADLINE: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
+    *DEADLINE.get_or_init(|| {
+        let manifest = paths::path_library()
+            .workspace_root
+            .join("main-system")
+            .join("config")
+            .join("startup_manifest.json");
+        let seconds = std::fs::read_to_string(manifest)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+            .and_then(|m| {
+                m["timeouts"]["startup_gate_deadline_seconds"]
+                    .as_f64()
+                    .or_else(|| m["startup_gate_deadline_seconds"].as_f64())
+            })
+            .unwrap_or(90.0);
+        Duration::from_secs_f64(seconds.max(1.0))
+    })
 }
 
 /// Permanent latch (parity with the Python ``startup_dead`` flag): once the
@@ -111,15 +115,39 @@ fn dependencies() -> &'static [DependencySpec] {
 
 fn probe_loopback(port: u16, deadline: Duration) -> bool {
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-    match TcpStream::connect_timeout(&addr, deadline) {
-        Ok(mut stream) => {
-            let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
-            let mut buf = [0u8; 1];
-            let _ = stream.read(&mut buf); // readiness = connect succeeded
-            true
+    // Readiness = connect succeeded.  The old parity code additionally
+    // issued a 1-byte read which always ran out the 200 ms timeout on
+    // silent services (PostgreSQL/vectord) — pure latency, no signal.
+    TcpStream::connect_timeout(&addr, deadline).is_ok()
+}
+
+/// Dependency probes are the readiness gate's only network I/O: a fresh
+/// probe costs a TCP connect plus up to one read-timeout (~200 ms) per
+/// dependency when healthy.  The WS status loop re-evaluates readiness on
+/// a short cadence to catch transitions, so probe results are reused for
+/// PROBE_TTL instead of re-opening sockets per evaluation.  Staleness only
+/// delays a transition report by at most TTL, never a gate decision that
+/// outlives a generation.
+const PROBE_TTL: Duration = Duration::from_secs(5);
+static PROBE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<u16, (Instant, bool)>>,
+> = std::sync::OnceLock::new();
+
+fn probe_loopback_cached(port: u16, deadline: Duration) -> bool {
+    let cache = PROBE_CACHE.get_or_init(|| {
+        std::sync::Mutex::new(std::collections::HashMap::new())
+    });
+    {
+        let map = cache.lock().unwrap();
+        if let Some((at, ok)) = map.get(&port) {
+            if at.elapsed() < PROBE_TTL {
+                return *ok;
+            }
         }
-        Err(_) => false,
     }
+    let ok = probe_loopback(port, deadline);
+    cache.lock().unwrap().insert(port, (Instant::now(), ok));
+    ok
 }
 
 /// Governance readiness: the codex authority and permission directory
@@ -159,7 +187,8 @@ pub fn evaluate() -> Readiness {
     let mut deps = Vec::new();
     let mut core_ok = true;
     for dep in dependencies() {
-        let reachable = probe_loopback(dep.port, Duration::from_secs(3));
+        let reachable =
+            probe_loopback_cached(dep.port, Duration::from_secs(3));
         let ready = reachable || dep.on_demand;
         if dep.criticality == "core-critical" && !ready {
             core_ok = false;

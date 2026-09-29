@@ -177,8 +177,16 @@ internal static class Status
     public static Snapshot CaptureSnapshot(string worktree)
     {
         var status = Capture(worktree);
-        var numstat = Git.Run(worktree, new[] { "diff", "--numstat", "HEAD" });
-        var numstatText = numstat.Code == 0 ? numstat.Stdout : "";
+        // numstat only feeds the dirty fingerprint/scopes — a clean
+        // porcelain status means the HEAD diff is empty by definition,
+        // so skip the second git process on the steady-state path.
+        var numstatText = "";
+        if (!status.Clean)
+        {
+            var numstat = Git.Run(
+                worktree, new[] { "diff", "--numstat", "HEAD" });
+            numstatText = numstat.Code == 0 ? numstat.Stdout : "";
+        }
         return new Snapshot(status, numstatText,
                             status.Fingerprint(numstatText));
     }
