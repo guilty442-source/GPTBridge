@@ -89,13 +89,10 @@ class LocalAiHealthMixin:
                 "available": bool(rag_status.get("available")),
                 "state": str(rag_status.get("state") or ("READY" if rag_status.get("available") else "DEGRADED")),
             },
-            "transformer_training_database": (
-                self.transformer_training_repository.database_status()
-            ),
             # B167/B38: JAX/XLA + Python training retired — honest status.
             "self_training": "retired",
             "internal_native_training": {"retired": True, "authority": "B167/B38"},
-            "self_maintenance": dict(self._latest_self_maintenance),
+            "self_maintenance": {"retired": True, "authority": "B167/B38"},
             "coding_capability": self.coding_expert.__class__.__name__,
             "reading_capability": self.reading_expert.__class__.__name__,
             "module_architecture": {

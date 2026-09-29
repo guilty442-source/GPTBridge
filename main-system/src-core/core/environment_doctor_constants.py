@@ -58,9 +58,7 @@ OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
     },
     "local-model": {
         "imageio-ffmpeg": "imageio_ffmpeg",
-        "numpy": "numpy",
         "pillow": "PIL",
-        "jax": "jax",
     },
 }
 

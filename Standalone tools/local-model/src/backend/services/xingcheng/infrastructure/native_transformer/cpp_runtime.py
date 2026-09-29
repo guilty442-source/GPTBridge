@@ -113,19 +113,13 @@ def available() -> bool:
 
 
 def cpp_runtime_mode() -> str:
-    """Governed runtime selector: env → settings → ``off``.
+    """Governed runtime selector — always ``required`` since B167/B38.
 
-    A non-empty value outside ``{off, required, fallback}`` resolves to
-    ``invalid`` so the router can fail closed instead of guessing.
+    The Python/PyTorch engine path is retired (zero execution/fallback
+    role); ``off`` and ``fallback`` no longer name a legal target, so any
+    configuration resolves to the fail-closed C++ engine.
     """
-    raw = str(os.environ.get(CPP_RUNTIME_ENV) or "").strip().casefold()
-    if not raw:
-        from ..native_engine import load_settings
-
-        raw = str(load_settings().get("cpp_runtime") or "").strip().casefold()
-    if not raw:
-        return "off"
-    return raw if raw in _VALID_MODES else "invalid"
+    return "required"
 
 
 def _cpp_cuda_requested() -> bool:
@@ -224,11 +218,13 @@ def _verified_bundle_manifest(bundle_dir: Path) -> dict[str, Any]:
 
 
 def ensure_bundle(checkpoint_path: str | Path) -> dict[str, Any]:
-    """Return a valid C++ bundle for ``checkpoint_path``, exporting on demand.
+    """Return a valid C++ bundle for ``checkpoint_path`` — reuse only.
 
-    Reuse requires manifest schema, recorded source path/size/mtime and the
-    weights blob to match; anything else re-exports through a staging
-    directory so a partial export is never visible to readers.
+    B167/B38: the torch-lineage export path is retired; this function no
+    longer produces bundles. A matching pre-exported bundle is reused;
+    anything else is a fail-closed ``CPP_RUNTIME_BUNDLE_UNAVAILABLE``.
+    New bundles are produced by the native training pipeline
+    (``training/xingcheng_trainer.exe``), not at runtime.
     """
     checkpoint = Path(checkpoint_path)
     target = assert_inside_xingcheng(bundle_dir_for(checkpoint))
@@ -242,39 +238,9 @@ def ensure_bundle(checkpoint_path: str | Path) -> dict[str, Any]:
             "weights_sha256": str(manifest.get("weights_sha256") or ""),
             "reused": True,
         }
-    staging = assert_inside_xingcheng(target.with_name(target.name + ".staging"))
-    from .cpp_export import export_checkpoint_for_cpp
-
-    info = export_checkpoint_for_cpp(checkpoint, staging)
-    manifest = json.loads(
-        (staging / "manifest.json").read_text(encoding="utf-8")
+    raise FileNotFoundError(
+        f"CPP_RUNTIME_BUNDLE_UNAVAILABLE:{target}"
     )
-    try:
-        stat = checkpoint.stat()
-        manifest["source_checkpoint"] = str(checkpoint.resolve())
-        manifest["source_size"] = stat.st_size
-        manifest["source_mtime_ns"] = stat.st_mtime_ns
-        (staging / "manifest.json").write_text(
-            json.dumps(manifest, ensure_ascii=False, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    except OSError:
-        pass
-    try:
-        if target.exists():
-            import shutil
-
-            shutil.rmtree(target)
-        staging.rename(target)
-    except OSError:
-        if not _bundle_matches_source(target, checkpoint):
-            raise
-    return {
-        "output_dir": str(target),
-        "manifest": str(target / "manifest.json"),
-        "weights_sha256": str(manifest.get("weights_sha256") or info["weights_sha256"]),
-        "reused": False,
-    }
 
 
 def sampling_config(**kwargs: Any) -> Any:
@@ -891,69 +857,26 @@ def cpp_engine_for(checkpoint_path: str | Path) -> CppInferenceEngine:
     with _engine_lock:
         engine = _engine_cache.get(key)
         if engine is None:
-            try:
-                from ..native_engine import load_settings
-                from .execution.auto_release import get_manager
-                residency = get_manager()
-                settings = load_settings()
-                size_bytes = sum(
-                    item.stat().st_size
-                    for item in path.rglob("*")
-                    if item.is_file()
-                )
-                required_mb = max(256.0, size_bytes * 1.5 / (1024.0 * 1024.0))
-                if not residency.ensure_budget(
-                    key, required_mb, float(settings.get("vram_budget_mb") or 0)
-                ):
-                    raise RuntimeError("CPP_RESIDENCY_BUDGET_EXHAUSTED")
-                residency.begin_load(key)
-            except RuntimeError:
-                raise
-            except Exception:
-                residency = None
-                required_mb = 0.0
-            try:
-                engine = CppInferenceEngine(path)
-            except Exception:
-                if residency is not None:
-                    residency.load_failed(key)
-                raise
+            engine = CppInferenceEngine(path)
             _engine_cache[key] = engine
-            try:
-                from ..native_engine import load_settings
-                from .execution.auto_release import get_manager
-
-                mgr = get_manager()
-                mgr.idle = int(
-                    load_settings().get("auto_release_idle_seconds") or 300
-                )
-                mgr.register(
-                    key,
-                    engine,
-                    _release_engine,
-                    size_mb=required_mb,
-                )
-            except Exception:
-                pass
-        else:
-            try:
-                from .execution.auto_release import get_manager
-
-                get_manager().touch(key)
-            except Exception:
-                pass
         return engine
 
 
-def _release_engine(engine: CppInferenceEngine) -> None:
+def release_engines(key: str | None = None) -> list[str]:
+    """Unload and evict cached engines (bounded-residency release path)."""
     with _engine_lock:
-        for cache_key, cached in list(_engine_cache.items()):
-            if cached is engine:
-                _engine_cache.pop(cache_key, None)
-    try:
-        engine.unload()
-    except Exception:
-        pass
+        keys = [key] if key else list(_engine_cache.keys())
+        released: list[str] = []
+        for item in keys:
+            engine = _engine_cache.pop(item, None)
+            if engine is None:
+                continue
+            try:
+                engine.unload()
+            except Exception:
+                pass
+            released.append(item)
+        return released
 
 
 def generate_via_cpp_engine(request: dict[str, Any]) -> dict[str, Any]:
@@ -1013,30 +936,20 @@ def generate_via_cpp_engine(request: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def record_cpp_fallback(reason: str) -> None:
-    """Ledger evidence that a request fell back to the Python engine."""
-    _ledger_append(
-        {
-            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "engine": "cpp",
-            "event": "cpp-runtime-fallback",
-            "reason": reason,
-        }
-    )
-
-
 __all__ = [
     "CPP_RUNTIME_ENV",
     "CppInferenceEngine",
     "available",
+    "assert_inside_xingcheng",
     "bundle_dir_for",
     "cpp_engine_for",
     "cpp_runtime_mode",
     "ensure_bundle",
     "generate_via_cpp_engine",
+    "is_bundle_dir",
     "load_engine",
     "load_extension",
-    "record_cpp_fallback",
+    "release_engines",
     "sampling_config",
     "tool_root",
 ]

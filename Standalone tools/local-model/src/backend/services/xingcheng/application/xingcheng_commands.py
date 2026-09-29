@@ -816,28 +816,8 @@ def _create_codex_commands() -> list:
     ]
 
 
-def _create_teaching_commands() -> list:
-    """Create teaching command specifications."""
-    return [
-        CommandSpec(
-            name="xingcheng_submit_teaching",
-            handler="_handle_teaching",
-            category="teaching",
-            description="提交教學範例",
-            aliases=("submit_teaching", "st"),
-            parameters=(
-                ParameterSpec(
-                    name="example",
-                    type="object",
-                    required=True,
-                    description="教學範例內容",
-                ),
-            ),
-            examples=(
-                'xingcheng_submit_teaching --example \'{"input": "...", "output": "..."}\'',
-            ),
-        ),
-    ]
+# _create_teaching_commands retired (B167/B38): xingcheng_submit_teaching
+# had no live training consumer; the channel is closed.
 
 
 def _create_maintenance_commands() -> list:
@@ -850,7 +830,7 @@ def _create_maintenance_commands() -> list:
         CommandSpec(
             name="xingcheng_retention_sweep",
             handler="_handle_retention_sweep",
-            category="self_learning",
+            category="maintenance",
             description=(
                 "執行一輪資料保留清理（main-system retention flow 經 "
                 "system channel 觸發；§10.67）"
@@ -1010,7 +990,7 @@ def _create_all_commands() -> list:
     all_commands.extend(_create_investment_commands())
     all_commands.extend(_create_diagnostics_commands())
     all_commands.extend(_create_codex_commands())
-    all_commands.extend(_create_teaching_commands())
+
     all_commands.extend(_create_maintenance_commands())
     all_commands.extend(_create_chat_commands())
     all_commands.extend(_create_infer_command())

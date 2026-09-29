@@ -7,19 +7,6 @@ from typing import Any
 
 
 class LocalAiTeachingMixin:
-    def _submit_teaching_example(self, payload: dict[str, Any]) -> dict[str, Any]:
-        # B167/B38: JAX/XLA and Python training are retired with zero role
-        # and no transitional period — teaching examples have no live
-        # training consumer; fail closed instead of collecting dead data.
-        return {
-            "ok": False,
-            "error_code": "TRAINING_RETIRED",
-            "message": (
-                "教學/自訓管線已依治理法典退役（B167/B38）："
-                "不再接受訓練樣本提交。"
-            ),
-        }
-
     async def _tune_investment_parameters(
         self, payload: dict[str, Any]
     ) -> dict[str, Any]:

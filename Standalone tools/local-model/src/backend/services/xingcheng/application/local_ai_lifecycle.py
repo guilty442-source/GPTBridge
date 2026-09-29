@@ -314,7 +314,6 @@ class LocalAiLifecycleMixin:
 
     async def start(self) -> None:
         await asyncio.gather(
-            asyncio.to_thread(self._run_self_maintenance),
             asyncio.to_thread(self.native_runtime.probe),
         )
         if self.native_runtime.enabled and self._default_model_preload_task is None:

@@ -257,14 +257,11 @@ class CommandChannelsMixin:
                 },
                 "model_engines": self.model_engines.status(),
                 "native_runtime": self.native_runtime.status(),
-                "transformer_training_database": (
-                    self.transformer_training_repository.database_status()
-                ),
                 "module_architecture": {
                     "mode": "automatic-composable-modules",
                     "modules": self.modules.catalog(),
                 },
-                "self_maintenance": dict(self._latest_self_maintenance),
+                "self_maintenance": {"retired": True, "authority": "B167/B38"},
                 "understanding": {
                     "schema": "star-semantic-plan/v1",
                     "language_priority": "traditional-chinese-taiwan-first",

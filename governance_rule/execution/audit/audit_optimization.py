@@ -55,8 +55,8 @@ def _read(root: Path, rel: str) -> str | None:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def check_gpu_coordinator_lazy_torch(root: Path, errors: list[str]) -> None:
-    """torch must stay out of module scope — lazy probe only."""
+def check_gpu_coordinator_torch_free(root: Path, errors: list[str]) -> None:
+    """PyTorch is retired (B167/B38) — the coordinator must not touch it."""
     source = _read(root, _GPU_COORDINATOR)
     if source is None:
         errors.append(f"missing {_GPU_COORDINATOR}")
@@ -66,38 +66,38 @@ def check_gpu_coordinator_lazy_torch(root: Path, errors: list[str]) -> None:
     except SyntaxError as exc:
         errors.append(f"gpu_coordinator unparseable: {exc}")
         return
-    # Direct top-level import statements only — the lazy probe lives
-    # inside ``_torch()``'s function body, which is not module scope.
-    for node in tree.body:
-        if isinstance(node, ast.Import) and any(
-            a.name == "torch" or a.name.startswith("torch.")
-            for a in node.names
-        ):
-            errors.append(
-                f"{_GPU_COORDINATOR}:{node.lineno} top-level "
-                "import torch — must stay lazy (per-process cost)"
+
+    def _imports_torch(node: ast.AST) -> bool:
+        if isinstance(node, ast.Import):
+            return any(
+                a.name == "torch" or a.name.startswith("torch.")
+                for a in node.names
             )
-        if isinstance(node, ast.ImportFrom) and (
-            node.module or ""
-        ).startswith("torch"):
+        if isinstance(node, ast.ImportFrom):
+            return (node.module or "").startswith("torch")
+        return False
+
+    for node in ast.walk(tree):
+        if _imports_torch(node):
             errors.append(
-                f"{_GPU_COORDINATOR}:{node.lineno} top-level "
-                "from-import of torch — must stay lazy"
+                f"{_GPU_COORDINATOR}:{getattr(node, 'lineno', '?')} "
+                "imports retired framework torch (B167/B38)"
             )
-    # The lazy probe entry point must exist.
-    if "def _torch()" not in source:
-        errors.append(f"{_GPU_COORDINATOR}: lazy _torch() probe missing")
-    # nvidia-smi-first ordering: query_gpu must call the smi probe before
-    # the torch fallback.
+    for marker in ("torch.cuda", "_query_via_torch", "_TORCH"):
+        if marker in source:
+            errors.append(
+                f"{_GPU_COORDINATOR}: retired torch reference {marker!r} remains"
+            )
+    # VRAM evidence must come from the native probe only (fail-closed).
     order = re.search(
-        r"def query_gpu\(.*?return _query_via_torch\(\)",
+        r"def query_gpu\(.*$",
         source,
-        re.DOTALL,
+        re.DOTALL | re.MULTILINE,
     )
     if not order or "_query_via_nvidia_smi" not in order.group(0):
         errors.append(
-            f"{_GPU_COORDINATOR}: query_gpu must try nvidia-smi before "
-            "the torch fallback"
+            f"{_GPU_COORDINATOR}: query_gpu must be served by "
+            "nvidia-smi only"
         )
 
 

@@ -1,14 +1,18 @@
-"""星澄原生模型 (XingCheng Native Model) — 本地原生 Transformer 架構。
+"""星澄原生模型 (XingCheng Native Model) — 本地原生推論套件。
 
-訓練退役（B167/B38）：JAX/XLA 與 PyTorch 已全數退役——零 source、
-dependency、artifact、execution 與 fallback 角色，無過渡期。
-本套件保留推論面（tokenizer / bpe / checkpoint / modules / inference）；
-jax_backend、training/、self_learning、maturity 已移除。
+訓練與 Python 推論退役（B167/B38/E180）：JAX/XLA 與 PyTorch 已全數
+退役——零 source、dependency、artifact、execution 與 fallback 角色，
+無過渡期。``jax_backend``、``training/*.py``、``self_learning``、
+``maturity`` 與 PyTorch 推論棧（``modules`` / ``kernels`` /
+``inference`` / ``execution`` / ``quantization`` / ``checkpoint`` /
+``cpp_export`` / ``benchmark`` / ``capability_eval``）皆已移除；
+模型執行只由正式 C++ 推論引擎（``cpp_runtime`` →
+``_xingcheng_inference``）服務，權重為已驗證
+``star-native-inference-bundle/v1`` 匯出物，原生訓練管線為
+``training/xingcheng_trainer.exe``（C++）＋ ``xct-executor``（.NET）。
 
-    星澄
-      → Transformer (Embedding / Attention / MLP / RMSNorm / Residual / LM Head / Sampling)
-      → Tensor Operations (GEMM / Softmax / Reduction / Activation / Gather / Scatter ...)
-      → CPU / NVIDIA GPU
+本套件保留語言層推論周邊（tokenizer / bpe / chat_format / config /
+lifecycle / retention）與 C++ 引擎路由（cpp_runtime）。
 
 載入行為：本套件符號一律惰性解析——import 本套件或其子模組不載入
 任何外部數值框架；缺少相關 lineage 依賴時 fail-closed。
@@ -22,11 +26,7 @@ from typing import Any
 _LAZY: dict[str, tuple[str, str]] = {
     "NativeBPETokenizer": (".bpe", "NativeBPETokenizer"),
     "train_bpe": (".bpe", "train_bpe"),
-    "FORMAT_VERSION": (".checkpoint", "FORMAT_VERSION"),
-    "load_checkpoint": (".checkpoint", "load_checkpoint"),
-    "save_checkpoint": (".checkpoint", "save_checkpoint"),
     "XingChengConfig": (".config", "XingChengConfig"),
-    "XingChengForCausalLM": (".modules.model", "XingChengForCausalLM"),
     "XingChengTokenizer": (".tokenizer", "XingChengTokenizer"),
 }
 
@@ -48,13 +48,9 @@ def __dir__() -> list[str]:
 
 
 __all__ = [
-    "FORMAT_VERSION",
     "NativeBPETokenizer",
     "XingChengConfig",
-    "XingChengForCausalLM",
     "XingChengTokenizer",
-    "load_checkpoint",
-    "save_checkpoint",
     "train_bpe",
     "__version__",
 ]

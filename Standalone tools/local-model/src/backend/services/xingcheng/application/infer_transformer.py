@@ -86,15 +86,6 @@ class InferTransformerMixin:
         output["delegated"] = False
         output["star_native_model_used"] = native_engine_used
         output["external_ai_used"] = False
-        candidate = output.get("_training_candidate")
-        if isinstance(candidate, dict):
-            candidate["validated"] = False
-            validation = candidate.get("validation")
-            if not isinstance(validation, dict):
-                validation = {}
-            validation["foundation_model_output_excluded_from_self_training"] = True
-            candidate["validation"] = validation
-
     async def _infer_transformer_pipeline(
         self,
         output: dict[str, Any],

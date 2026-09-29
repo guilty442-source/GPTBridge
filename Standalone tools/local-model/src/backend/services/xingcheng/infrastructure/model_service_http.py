@@ -249,13 +249,10 @@ class _Handler(BaseHTTPRequestHandler):
         body = self._read_body()
         if body is None:
             return
-        from .native_transformer.execution.auto_release import get_manager
+        from .native_transformer.cpp_runtime import release_engines
 
-        manager = get_manager()
         key = str(body.get("key") or "")
-        with manager._lock:  # noqa: SLF001 - same-process lifecycle control
-            keys = [key] if key else list(manager._resources.keys())  # noqa: SLF001
-        released = [k for k in keys if manager.release(k)]
+        released = release_engines(key or None)
         self._send_json(
             200,
             {"schema": SCHEMA, "ok": True, "released": released},

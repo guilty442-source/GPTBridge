@@ -21,9 +21,6 @@ class StatusMixin:
                     "mathematical_capability_definition",
                     "web_search_log",
                     "model_memory",
-                    "language_training_example",
-                    "language_preference_pair",
-                    "language_model_maintenance",
                     "code_upgrade_proposal",
                     "capability_composition",
                 )
@@ -92,25 +89,6 @@ class StatusMixin:
                 ).fetchone()[0]
                 or ""
             )
-            language_training_quality = connection.execute(
-                """
-                SELECT COUNT(*), COALESCE(AVG(quality_score), 0),
-                       COALESCE(MAX(revision), 0), COALESCE(MAX(created_at), '')
-                FROM language_training_example WHERE active = 1
-                """
-            ).fetchone()
-            preference_pair_counts = {
-                str(row[0]): int(row[1])
-                for row in connection.execute(
-                    "SELECT paired, COUNT(*) FROM language_preference_pair GROUP BY paired"
-                ).fetchall()
-            }
-            latest_language_maintenance = connection.execute(
-                """
-                SELECT run_id, action, ok, created_at
-                FROM language_model_maintenance ORDER BY created_at DESC LIMIT 1
-                """
-            ).fetchone()
             integrity_check = "ok"
             size_row = connection.execute(
                 "SELECT COALESCE(SUM(pg_total_relation_size("
@@ -148,23 +126,7 @@ class StatusMixin:
                 "memory_review_counts": memory_review_counts,
                 "latest_market_observation_at": latest_market_observation_at,
                 "latest_inference_at": latest_inference_at,
-                "language_training": {
-                    "active_example_count": int(language_training_quality[0]),
-                    "average_quality_score": round(float(language_training_quality[1]), 4),
-                    "latest_revision": int(language_training_quality[2]),
-                    "latest_trained_at": str(language_training_quality[3]),
-                    "maximum_examples": self.MAX_LANGUAGE_TRAINING_EXAMPLES,
-                    "preference_pairs_pending": preference_pair_counts.get("0", 0),
-                    "preference_pairs_completed": preference_pair_counts.get("1", 0),
-                },
-                "latest_language_maintenance": {
-                    "run_id": str(latest_language_maintenance[0]),
-                    "action": str(latest_language_maintenance[1]),
-                    "ok": bool(latest_language_maintenance[2]),
-                    "created_at": str(latest_language_maintenance[3]),
-                }
-                if latest_language_maintenance is not None
-                else None,
+                "language_training": {"retired": True, "authority": "B167/B38"},
                 "engine_integrity": integrity_check,
             },
         }

@@ -48,9 +48,7 @@ def evaluate_star_upgrade(
     market_source_count: int = 0,
     official_market_source_count: int = 0,
     coding_capability_enabled: bool = True,
-    self_maintenance_enabled: bool = True,
     capability_evaluation: dict[str, Any] | None = None,
-    transformer_training_database: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate Star v1 from live storage, routing and runtime evidence."""
 
@@ -106,8 +104,6 @@ def evaluate_star_upgrade(
     metrics = dict(runtime_metrics or {})
     capability_provided = capability_evaluation is not None
     capability = dict(capability_evaluation or {})
-    training_database_provided = transformer_training_database is not None
-    training_database = dict(transformer_training_database or {})
     search_requests = int(metrics.get("search_request_count") or 0)
     search_cache_hits = int(metrics.get("search_cache_hit_count") or 0)
     inference_requests = int(metrics.get("inference_request_count") or 0)
@@ -178,20 +174,8 @@ def evaluate_star_upgrade(
         "remote_model_disabled": not remote_model_enabled,
         "external_model_disabled": not remote_model_enabled,
         "coding_capability_enabled": coding_capability_enabled,
-        "bounded_self_maintenance_enabled": self_maintenance_enabled,
         "held_out_capability_evaluation_passed": (
             capability.get("ok") is True if capability_provided else True
-        ),
-        "transformer_training_database_healthy": (
-            training_database.get("ok") is True
-            if training_database_provided
-            else True
-        ),
-        "transformer_base_weights_immutable": (
-            training_database.get("base_weights_immutable") is True
-            and training_database.get("automatic_weight_replacement") is False
-            if training_database_provided
-            else True
         ),
     }
     recommendations: list[dict[str, str]] = []
@@ -315,8 +299,7 @@ def evaluate_star_upgrade(
         "capability_evaluation": capability,
         "external_research_health": external_health,
         "memory_health": memory,
-        "transformer_training_database": training_database,
-        "model_runtime_policy": "native-self-trained-transformer-only",
+        "model_runtime_policy": "native-inference-only-training-retired",
         "remote_model_policy": "forbidden-for-star-inference",
         "external_collaboration_policy": "explicit-need-only",
         "recommendations": recommendations,

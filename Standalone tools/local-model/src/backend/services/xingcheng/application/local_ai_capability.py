@@ -49,9 +49,6 @@ class LocalAiCapabilityMixin:
                 "official" in str(item.get("role") or "") for item in sources
             ),
             capability_evaluation=capability_evaluation,
-            transformer_training_database=(
-                self.transformer_training_repository.database_status()
-            ),
         )
 
     @staticmethod

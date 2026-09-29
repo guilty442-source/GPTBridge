@@ -95,11 +95,11 @@ class LocalCrossEncoderReranker:
 
     def _cuda_device_or_cpu(self) -> str:
         """CUDA 載入點經 GpuCoordinator VRAM 預算；不足/無法判定時降級
-        CPU（reranker 屬互動加速路徑，fail-soft 降級而非拒絕服務）。"""
+        CPU（fail-soft）。B167/B38：GPU 可用性改由 ``query_gpu`` 判定。"""
         try:
-            import torch
+            from shared_layer.adaptive.gpu_coordinator import query_gpu
 
-            if not torch.cuda.is_available():
+            if query_gpu() is None:
                 return "cpu"
         except Exception:
             return "cpu"

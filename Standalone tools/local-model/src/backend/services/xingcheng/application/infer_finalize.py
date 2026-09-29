@@ -29,9 +29,6 @@ class InferFinalizeMixin:
                 },
                 market_research,
             )
-        # self-training collection retired (B167/B38): strip the internal
-        # candidate key and emit no self_training section.
-        output.pop("_training_candidate", None)
         output["module_execution"] = self.modules.execution_report(
             planned_intents,
             coordinator_model=(

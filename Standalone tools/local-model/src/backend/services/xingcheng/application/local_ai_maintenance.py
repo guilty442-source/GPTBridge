@@ -3,8 +3,6 @@ from __future__ import annotations
 import time
 from typing import Any, ClassVar
 
-from ..infrastructure.model_engines import StarModelEngines
-
 
 class LocalAiMaintenanceMixin:
     def release_idle_resources(self) -> None:
@@ -15,59 +13,6 @@ class LocalAiMaintenanceMixin:
             if value[0] > now
         }
         self.market_data.release_idle_resources(now)
-        if (
-            now - self._last_self_maintenance_at
-            >= self.SELF_MAINTENANCE_INTERVAL_SECONDS
-        ):
-            self._run_self_maintenance()
-
-    def _new_model_engines(self) -> StarModelEngines:
-        return StarModelEngines(
-            self.models,
-            learned_examples_by_model={
-                model_id: repository.language_training_examples()
-                for model_id, repository in self.repositories.items()
-            },
-        )
-
-    def _run_self_maintenance(self) -> dict[str, Any]:
-        started = time.perf_counter()
-        reports = {
-            profile.model_id: self._repository_for(profile).maintain_language_model()
-            for profile in self.models.profiles
-        }
-        transformer_training_database = (
-            self.transformer_training_repository.maintain()
-        )
-        rebuild_required = any(
-            report.get("weights_rebuild_required") is True
-            for report in reports.values()
-        )
-        if rebuild_required:
-            self.model_engines = self._new_model_engines()
-            self.native_model = self.model_engines.main
-        ok = all(report.get("ok") is True for report in reports.values()) and (
-            transformer_training_database.get("ok") is True
-        )
-        result = {
-            "ok": ok,
-            "mode": "autonomous-bounded-model-maintenance",
-            "source_code_modified": False,
-            "model_weights_rebuilt": rebuild_required,
-            "model_reports": reports,
-            "transformer_training_database": transformer_training_database,
-            "duration_ms": round((time.perf_counter() - started) * 1000, 3),
-        }
-        self._last_self_maintenance_at = time.monotonic()
-        self._latest_self_maintenance = result
-        self._runtime_metrics["self_maintenance_run_count"] = int(
-            self._runtime_metrics["self_maintenance_run_count"]
-        ) + 1
-        if not ok:
-            self._runtime_metrics["self_maintenance_failure_count"] = int(
-                self._runtime_metrics["self_maintenance_failure_count"]
-            ) + 1
-        return result
 
     # Pending legacy data produced by frozen functionality (codex boundary).
     # Entries remain readable; no new execution is permitted. Await
@@ -112,7 +57,8 @@ class LocalAiMaintenanceMixin:
         }
 
     def _execute_self_repair_command_legacy(self) -> dict[str, Any]:
-        maintenance = self._run_self_maintenance()
+        # B167/B38: learning-layer self-maintenance retired with training.
+        maintenance = {"retired": True, "authority": "B167/B38", "ok": True}
         databases = {
             profile.role: self._repository_for(profile).database_status()
             for profile in self.models.profiles

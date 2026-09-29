@@ -4,7 +4,6 @@ from collections import Counter
 from typing import Any, Callable
 
 from .coding_expert import StarCodingExpert
-from .training_gate import StarTrainingGate
 from .reading_expert import StarReadingExpert
 from ..infrastructure.generative_language_model import StarAutoregressiveLanguageModel
 from ..infrastructure.native_model import StarNativeLanguageModel
@@ -19,7 +18,6 @@ def evaluate_star_capabilities() -> dict[str, Any]:
     language_model = StarAutoregressiveLanguageModel()
     coding = StarCodingExpert()
     reading = StarReadingExpert()
-    gate = StarTrainingGate()
     cases: list[tuple[str, str, Callable[[], bool]]] = [
         (
             "language",
@@ -81,11 +79,6 @@ def evaluate_star_capabilities() -> dict[str, Any]:
             "coding",
             "read-only-sql",
             lambda: _read_only_sql_ok(coding),
-        ),
-        (
-            "training",
-            "canonical-training-gate-contract",
-            lambda: _training_gate_contract_ok(gate),
         ),
     ]
     results: list[dict[str, Any]] = []
@@ -256,28 +249,6 @@ def _read_only_sql_ok(expert: StarCodingExpert) -> bool:
         "coding",
     )
     return result["ok"] is True and result["validation"]["analysis"]["read_only"] is True
-
-
-def _training_gate_contract_ok(gate: StarTrainingGate) -> bool:
-    evaluated = gate.evaluate(
-        [
-            {
-                "intent": "reading",
-                "input_text": "閱讀文件要引用原文，證據不足時必須拒絕猜測。",
-                "target_text": "閱讀文件時引用原文；證據不足就拒絕猜測。",
-            }
-        ],
-        requested_intent="reading",
-    )
-    if evaluated["accepted_count"] != 1:
-        return False
-    validation = evaluated["accepted"][0]["validation"]
-    return (
-        validation.get("facts_preserved") is True
-        and validation.get("bounded_output") is True
-        and float(validation.get("grounding_coverage") or 0)
-        >= gate.MIN_GROUNDING_COVERAGE
-    )
 
 
 __all__ = ["EVALUATION_SCHEMA", "evaluate_star_capabilities"]

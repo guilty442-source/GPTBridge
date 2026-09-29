@@ -111,7 +111,7 @@ class StarNativeInferenceMixin:
         generation_grounding = self._compose_grounding(
             payload, grounding, memory_context, private_context
         )
-        generation, response, training_candidate = self._generate_and_score(
+        generation, response = self._generate_and_score(
             payload, intent, prompt, generation_grounding,
             memory_context, private_context,
         )
@@ -129,7 +129,6 @@ class StarNativeInferenceMixin:
             network_allowed=network_allowed,
             memory_context=memory_context,
             private_context=private_context,
-            training_candidate=training_candidate,
         )
 
     def _native_transformer_result(
@@ -361,12 +360,7 @@ class StarNativeInferenceMixin:
             ),
             4,
         )
-        training_candidate = self._training_candidate(
-            intent, prompt, response, generation,
-            grounding_coverage, quality_score,
-            memory_context, private_context,
-        )
-        return generation, response, training_candidate
+        return generation, response
 
     def _coverage_gate(
         self, generation: dict[str, Any], generation_grounding: str
@@ -389,40 +383,6 @@ class StarNativeInferenceMixin:
         generation["grounding_fallback_reason"] = "semantic-coverage-gate"
         return generation_grounding, 1.0
 
-    @staticmethod
-    def _training_candidate(
-        intent: str,
-        prompt: str,
-        response: str,
-        generation: dict[str, Any],
-        grounding_coverage: float,
-        quality_score: float,
-        memory_context: dict[str, Any],
-        private_context: dict[str, Any],
-    ) -> dict[str, Any]:
-        return {
-            "intent": intent,
-            "input_text": prompt,
-            "target_text": response,
-            "source_type": "self-distillation-grounded",
-            "quality_score": quality_score,
-            "validated": bool(
-                generation["facts_preserved"]
-                and grounding_coverage >= 0.55
-                and 8 <= generation["token_count"] <= 360
-                and not memory_context["evidence"]
-                and not private_context["text"]
-            ),
-            "validation": {
-                "grounding_coverage": round(grounding_coverage, 4),
-                "facts_preserved": generation["facts_preserved"],
-                "bounded_output": 8 <= generation["token_count"] <= 360,
-                "ephemeral_memory_excluded_from_training": bool(
-                    memory_context["evidence"] or private_context["text"]
-                ),
-            },
-        }
-
     def _infer_result(
         self,
         *,
@@ -438,7 +398,6 @@ class StarNativeInferenceMixin:
         network_allowed: bool,
         memory_context: dict[str, Any],
         private_context: dict[str, Any],
-        training_candidate: dict[str, Any],
     ) -> dict[str, Any]:
         return {
             "ok": True,
@@ -467,9 +426,7 @@ class StarNativeInferenceMixin:
                 *memory_context["evidence"],
             ],
             "evidence_policy": dict(self._EVIDENCE_POLICY),
-            **self._result_policy_fields(
-                network_allowed, market_research, training_candidate
-            ),
+            **self._result_policy_fields(network_allowed, market_research),
         }
 
     @staticmethod
@@ -512,7 +469,6 @@ class StarNativeInferenceMixin:
     def _result_policy_fields(
         network_allowed: bool,
         market_research: dict[str, Any] | None,
-        training_candidate: dict[str, Any],
     ) -> dict[str, Any]:
         return {
             "external_model_used": False,
@@ -521,9 +477,9 @@ class StarNativeInferenceMixin:
             if network_allowed
             else "disabled-by-request",
             "facts_locked": True,
-            "training_policy": "continuous-verified-self-distillation",
+            # B167/B38: training pipeline retired — no policy claims.
+            "training_policy": "retired",
             "third_party_weights_used": False,
-            "_training_candidate": training_candidate,
         }
 
     @staticmethod

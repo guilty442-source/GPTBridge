@@ -57,22 +57,6 @@ class InferSpecialistsMixin:
                 if isinstance(evidence_policy, dict):
                     evidence_policy["verbatim_citation_offsets_required"] = True
                     evidence_policy["unsupported_reading_answers_rejected"] = True
-                evidence_sufficient = reading_result.get("evidence_sufficient") is True
-                output["_training_candidate"] = {
-                    "intent": "reading",
-                    "input_text": prompt,
-                    "target_text": reading_response,
-                    "source_type": "source-attributed-reading",
-                    "quality_score": 0.95,
-                    "validated": bool(
-                        evidence_sufficient and 8 <= reading_token_count <= 360
-                    ),
-                    "validation": {
-                        **dict(reading_result.get("quality") or {}),
-                        "evidence_sufficient": evidence_sufficient,
-                        "bounded_output": 8 <= reading_token_count <= 360,
-                    },
-                }
             else:
                 reading_message = str(
                     reading_result.get("message")
@@ -96,15 +80,6 @@ class InferSpecialistsMixin:
                     }
                 )
                 output["generation"] = generation
-                output["_training_candidate"] = {
-                    "intent": "reading",
-                    "input_text": prompt,
-                    "target_text": reading_message,
-                    "source_type": "reading-input-required",
-                    "quality_score": 0.0,
-                    "validated": False,
-                    "validation": {"reading_content_supplied": False},
-                }
         if profile == self.models.CODING:
             active_intent = str(output.get("intent") or planned_intent)
             if active_intent == "self_upgrade" and not native_model_requested:

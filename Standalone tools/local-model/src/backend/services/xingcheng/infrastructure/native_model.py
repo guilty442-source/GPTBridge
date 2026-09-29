@@ -55,27 +55,13 @@ class StarNativeLanguageModel(
         return {
             **self.language_model.metrics(),
             "model_role": self.model_role,
-            "training_mode": "continuous-verified-self-distillation-and-native-model-training",
-            "training_data_scope": "star-owned-and-star-validated-gpt-candidates",
-            "quality_gate_required": True,
-            "rollback_source": "versioned-training-examples",
+            # B167/B38: self-distillation and native training retired —
+            # this model serves inference only; no learning path remains.
+            "training_mode": "retired",
+            "training_authority": "B167/B38",
             "gpt_candidate_direct_write": False,
             "gpt_weight_access": False,
         }
-
-    def learn_verified_example(self, example: Mapping[str, Any]) -> bool:
-        if example.get("validated") is not True:
-            return False
-        return self.language_model.learn(
-            str(example.get("intent") or "capabilities"),
-            str(example.get("target_text") or ""),
-            input_text=str(example.get("input_text") or ""),
-            weight=max(
-                1,
-                min(5, round(float(example.get("quality_score") or 0.8) * 5)),
-            ),
-            source="self-training",
-        )
 
 
 __all__ = ["StarNativeLanguageModel", "FastInferenceEngine", "create_fast_engine"]

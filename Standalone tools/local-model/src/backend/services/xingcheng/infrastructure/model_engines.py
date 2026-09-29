@@ -80,9 +80,6 @@ class IsolatedNativeModelEngine:
         result["engine_isolated"] = True
         return result
 
-    def learn_verified_example(self, example: Mapping[str, Any]) -> bool:
-        return self.runtime.learn_verified_example(example)
-
     def training_status(self) -> dict[str, Any]:
         return self.runtime.training_status()
 

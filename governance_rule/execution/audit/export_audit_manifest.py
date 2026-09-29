@@ -106,7 +106,7 @@ _NATIVE_COVERED = frozenset({
     "check_tool_identity_registration",
     "check_contract_axes",
     "check_sql_anti_patterns",         # baseline + export-time live diff
-    "check_gpu_coordinator_lazy_torch",
+    "check_gpu_coordinator_torch_free",
     "check_renderer_idle_gating",
 })
 
@@ -763,13 +763,16 @@ def build_manifest(root: Path) -> dict[str, object]:
             "exclude": _ts_exclude,
         })
 
-    # check_gpu_coordinator_lazy_torch — 部分歸約：lazy probe 與
-    # nvidia-smi/torch 兩探針的 marker 存在性原生檢查；AST 頂層
-    # import 判定與 query_gpu 內部呼叫順序語義留 delegated。
-    contains("gpu-coordinator:lazy-probe-markers",
+    # check_gpu_coordinator_torch_free — 部分歸約：nvidia-smi 探針
+    # 存在性原生檢查＋退役框架引用缺席；AST import 判定與 query_gpu
+    # 內部語義留 delegated。
+    contains("gpu-coordinator:native-probe-markers",
              "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py",
-             ["def _torch()", "_query_via_nvidia_smi",
-              "_query_via_torch"])
+             ["_query_via_nvidia_smi", "def query_gpu"])
+    not_contains("gpu-coordinator:torch-free",
+             "shared-layer/src/shared_layer/adaptive/gpu_coordinator.py",
+             ["import torch", "from torch", "_query_via_torch",
+              "torch.cuda", "def _torch(", "_TORCH"])
 
     # check_jax_sft_retrace_bound — RETIRED (B167): JAX/XLA retired with
     # zero source/dependency/artifact role and no transitional period;
@@ -1560,13 +1563,13 @@ def build_manifest(root: Path) -> dict[str, object]:
              "governance_rule/execution/audit/architecture_registry.json",
              markers=[f'"{rid}"'])
 
-    # --- check_gpu_coordinator_lazy_torch ------------------------------
+    # --- check_gpu_coordinator_torch_free (B167/B38) --------------------
     _gpu_src = ("shared-layer/src/shared_layer/adaptive/" "gpu_coordinator.py")
-    contains("gpu-lazy-torch:probe", _gpu_src, ["def _torch()", "_query_via_nvidia_smi", "def query_gpu"])
-    not_contains("gpu-lazy-torch:top-import", _gpu_src,
-                 ["\nimport torch\n", "\nimport torch ",
-                  "\nimport torch,", "\nimport torch.",
-                  "\nfrom torch ", "\nfrom torch."])
+    contains("gpu-torch-free:probe", _gpu_src,
+             ["_query_via_nvidia_smi", "def query_gpu"])
+    not_contains("gpu-torch-free:no-retired-framework", _gpu_src,
+                 ["import torch", "from torch", "_query_via_torch",
+                  "torch.cuda", "def _torch("])
 
     # --- check_jax_sft_retrace_bound ------------------------------------
     # RETIRED (B167): jax_backend/sft.py removed with the JAX framework.

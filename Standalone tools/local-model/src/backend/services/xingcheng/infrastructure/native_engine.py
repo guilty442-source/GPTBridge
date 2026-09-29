@@ -1,19 +1,25 @@
-"""星澄原生引擎（建置藍圖 Phase 1）：以自訓 Transformer 權重推論。
+"""星澄原生引擎控制面與 C++ 推論路由。
+
+B167/B38/E180：PyTorch（Python 推論棧）已全數退役——零 source、
+dependency、artifact、execution 與 fallback 角色，無過渡期。模型執行
+只由正式 C++ 推論引擎（``native_transformer.cpp_runtime`` →
+``_xingcheng_inference``）服務，權重來源為已驗證的
+``star-native-inference-bundle/v1`` 匯出物；任何載入或生成失敗皆
+fail-closed，不回退任何 Python/retired 路徑。
 
 Feature flag（預設關閉、fail-closed）：
 
 - ``XINGCHENG_NATIVE_ENGINE=1`` 啟用；未啟用時 ``generate`` 路徑完全不變。
-- 啟用後若 checkpoint 不存在或載入失敗，回傳明確錯誤，不靜默回退第三方權重。
-- ``XINGCHENG_NATIVE_CHECKPOINT`` 可指定 checkpoint；預設為
-  :func:`native_transformer.checkpoint.default_checkpoint_dir` 下最新的 ``*.pt``。
+- ``XINGCHENG_NATIVE_CHECKPOINT`` 可指定服務物（bundle 目錄）；未指定時
+  解析 ``cpp-bundles/`` 下最新、manifest 完整的 bundle。
 
 本模組不進行任何網路 I/O——模型核心與網路功能保持分離。
 輸出稽核旗標：``star_native_model_used=True``、``third_party_weights_used=False``。
 
-CLI（Phase 1 驗收）::
+CLI（控制面與單次生成）::
 
-    python -m xingcheng.infrastructure.native_engine \
-        --checkpoint <phase0.pt> --prompt "星澄"
+    python -m xingcheng.infrastructure.native_engine --status
+    python -m xingcheng.infrastructure.native_engine --prompt "星澄"
 """
 
 from __future__ import annotations
@@ -22,55 +28,11 @@ import json
 import os
 import sys
 import threading
-from contextlib import nullcontext
 import time
 from pathlib import Path
 from typing import Any, Mapping
 
-from types import SimpleNamespace
-
-_native_components: SimpleNamespace | None = None
-_native_components_lock = threading.Lock()
-
-
-def _native() -> SimpleNamespace:
-    """R7 延遲載入：native_transformer（連同 torch）延到首次推論才匯入。
-
-    control_status／settings／旗標路由等輕量路徑不付 torch 匯入成本；
-    C++ runtime 路徑亦可避免拉起 Python 引擎的重依賴。
-    """
-    global _native_components
-    if _native_components is None:
-        with _native_components_lock:
-            if _native_components is None:
-                from .native_transformer.checkpoint import (
-                    default_checkpoint_dir,
-                    load_checkpoint,
-                )
-                from .native_transformer.execution.backend import (
-                    default_dtype,
-                    resolve_device,
-                )
-                from .native_transformer.inference import (
-                    Generator,
-                    PrefixKVStore,
-                    Sampler,
-                    SamplingConfig,
-                )
-                from .native_transformer.tokenizer import XingChengTokenizer
-
-                _native_components = SimpleNamespace(
-                    default_checkpoint_dir=default_checkpoint_dir,
-                    load_checkpoint=load_checkpoint,
-                    default_dtype=default_dtype,
-                    resolve_device=resolve_device,
-                    Generator=Generator,
-                    PrefixKVStore=PrefixKVStore,
-                    Sampler=Sampler,
-                    SamplingConfig=SamplingConfig,
-                    XingChengTokenizer=XingChengTokenizer,
-                )
-    return _native_components
+from .native_transformer import cpp_runtime
 
 NATIVE_ENGINE_ENV = "XINGCHENG_NATIVE_ENGINE"
 NATIVE_CHECKPOINT_ENV = "XINGCHENG_NATIVE_CHECKPOINT"
@@ -103,11 +65,7 @@ _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
 
-class _NativeGenerationCancelled(Exception):
-    """原生生成於串流期間被取消。"""
-
-
-#: 超短問候／道謝的第一方模板回覆（品質閘門要求輸入 ≥4 字，這類輸入不進訓練）。
+#: 超短問候／道謝的第一方模板回覆（品質閘門要求輸入 ≥4 字）。
 SMALL_TALK_REPLIES: tuple[tuple[str, str], ...] = (
     ("你好", "您好，我是星澄，本機執行的原生生成式語言模型。"),
     ("哈囉", "您好，我是星澄，本機執行的原生生成式語言模型。"),
@@ -161,26 +119,58 @@ def flag_enabled() -> bool:
     return load_settings().get("enabled") is True
 
 
+def _resolve_serving_path(raw: str) -> Path:
+    """Bundle 目錄直釘，或 torch-lineage ``.pt`` 對應的 deterministic bundle。
+
+    ``.pt`` 來源只換算 bundle 目錄名；執行期不需要、也不允許
+    checkpoint 檔本身存在（A35/A610 服務契約）。
+    """
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = tool_root() / candidate
+    if candidate.is_dir():
+        return candidate
+    if candidate.suffix == ".pt":
+        return cpp_runtime.bundle_dir_for(candidate)
+    return candidate
+
+
+def _newest_bundle_dir() -> Path | None:
+    root = tool_root() / cpp_runtime.CPP_BUNDLES_DIR
+    if not root.is_dir():
+        return None
+    candidates = sorted(
+        (
+            item
+            for item in root.iterdir()
+            if item.is_dir() and cpp_runtime.is_bundle_dir(item)
+        ),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
 def configured_checkpoint_path() -> Path:
-    """checkpoint 來源：env 覆寫 → settings 指定 → 預設目錄最新 ``*.pt``。"""
+    """服務物來源：env 覆寫 → settings 指定 → ``cpp-bundles/`` 最新 bundle。
+
+    回傳值為 C++ 引擎可直接服務的 bundle 目錄（或 ``.pt`` 對應的
+    deterministic bundle 目錄）；找不到任何 bundle 時回傳預定位置，
+    由載入端 fail-closed。
+    """
     override = str(os.environ.get(NATIVE_CHECKPOINT_ENV) or "").strip()
     if override:
-        return Path(override)
-    configured = str(load_settings().get("checkpoint") or "").strip()
+        return _resolve_serving_path(override)
+    settings = load_settings()
+    configured = str(
+        settings.get("cpp_bundle") or settings.get("checkpoint") or ""
+    ).strip()
     if configured:
-        candidate = Path(configured)
-        return candidate if candidate.is_absolute() else tool_root() / candidate
-    # A612: torch-free path resolution; _native() would pull the retired
-    # torch lineage just to compute a directory.
-    from .native_transformer.config import default_checkpoint_dir
-
-    directory = default_checkpoint_dir()
-    candidates = sorted(
-        directory.rglob("*.pt"), key=lambda item: item.stat().st_mtime, reverse=True
-    ) if directory.is_dir() else []
-    if candidates:
-        return candidates[0]
-    return directory / "native-model.pt"
+        return _resolve_serving_path(configured)
+    newest = _newest_bundle_dir()
+    if newest is not None:
+        return newest
+    return tool_root() / cpp_runtime.CPP_BUNDLES_DIR / "native-model-bundle"
 
 
 def _bounded_setting(
@@ -322,613 +312,33 @@ def quality_guard(
     return False, ""
 
 
-class NativeTransformerEngine:
-    """自訓權重推論引擎；模型核心不觸網。"""
-
-    def __init__(
-        self,
-        checkpoint_path: str | Path,
-        *,
-        quantize: int | None = None,
-        device: str | torch.device | None = None,
-    ) -> None:
-        loaded = _native().load_checkpoint(checkpoint_path)
-        self.checkpoint_path = Path(checkpoint_path)
-        self.model = loaded["model"]
-        self.config = loaded["config"]
-        self.metadata = dict(loaded.get("metadata") or {})
-        self.state_sha256 = str(loaded.get("state_sha256") or "")
-        self._parameter_count = int(self.model.num_parameters())
-        self.quantization = "none"
-        if quantize in (4, 8):
-            from .native_transformer.quantization import quantize_model
-
-            self.model = quantize_model(self.model, n_bits=int(quantize))
-            self.quantization = f"int{int(quantize)}"
-        tokenizer = loaded.get("tokenizer")
-        self.tokenizer = tokenizer or _native().XingChengTokenizer.from_config(self.config)
-        # 推論裝置：有 CUDA 用 CUDA（GPU 加速），否則 CPU。
-        self.device = _native().resolve_device(device)
-        self.gpu_budget_downgraded = False
-        if self.device.type == "cuda":
-            # MS3：CUDA 推論先過 GpuCoordinator VRAM 預算，與訓練共用
-            # 同一協調器；預算不足時降級 CPU 而非硬塞進 VRAM 造成 OOM。
-            self.device, self.gpu_budget_downgraded = self._gate_cuda_device(
-                self.device
-            )
-        if self.device.type == "cpu":
-            # CPU 路徑限制執行緒數，避免與主系統爭用全部核心（R8 統一入口）。
-            from .native_transformer.execution.backend import apply_cpu_thread_budget
-
-            try:
-                apply_cpu_thread_budget("inference", configured=cpu_thread_budget())
-            except Exception:
-                pass
-        # CUDA / MPS 走 bf16（Tensor Core GEMM + mem-efficient attention）；
-        # CPU 維持 fp32。int8/uint8 量化 buffer 不受浮點 dtype cast 影響。
-        self.model = self.model.to(
-            device=self.device, dtype=_native().default_dtype(self.device)
-        )
-        self.prefix_store = _native().PrefixKVStore(
-            max_entries=8, tag=f"xingcheng-native:{self.state_sha256[:12]}"
-        )
-        self._generator = _native().Generator(
-            self.model, device=self.device, prefix_store=self.prefix_store
-        )
-        self._lock = threading.Lock()
-
-    def new_chat_session(
-        self,
-        *,
-        system_prompt: str | None = None,
-        max_context: int | None = None,
-    ) -> Any:
-        """建立掛在本引擎上的 ``ChatSession``（P21 受管工具迴圈使用）。
-
-        Session 直接持有本引擎的 ``_generator``／``tokenizer``——與
-        ``generate()`` 同一份權重、device 與 KV 前綴存儲；呼叫端經
-        ``session.step`` 驅動多輪工具迴圈。
-        """
-        from .native_transformer.inference.chat_session import ChatSession
-
-        return ChatSession(
-            generator=self._generator,
-            tokenizer=self.tokenizer,
-            system_prompt=system_prompt,
-            max_context=max_context,
-        )
-
-    def _gate_cuda_device(self, device: torch.device) -> tuple[torch.device, bool]:
-        """MS3 GPU 協調：估計所需 VRAM，經 GpuCoordinator 取得預算後才上卡。
-
-        預算不足／協調器無法判定時降級 CPU（推論屬互動路徑，fail-soft
-        降級而非拒絕服務），降級事實寫入執行帳本可稽核。
-        """
-        import torch as _torch
-
-        bytes_per_param = 4 if _native().default_dtype(device) == _torch.float32 else 2
-        required_mb = max(
-            256.0, (self._parameter_count * bytes_per_param * 1.5) / (1024**2)
-        )
-        # P23 資源邊界：預設檔宣告的 VRAM 硬上限先於協調器詢價——超出
-        # 邊界的檔位不配得 GPU 額度，直接降級 CPU 並記帳。
-        budget_mb = int(getattr(self.config, "vram_budget_mb", 0) or 0)
-        if budget_mb > 0 and required_mb > budget_mb:
-            self._record_gpu_downgrade(
-                device,
-                required_mb,
-                RuntimeError(
-                    f"profile-vram-budget: {required_mb:.0f}MB > "
-                    f"{budget_mb}MB boundary"
-                ),
-            )
-            return _torch.device("cpu"), True
-        timeout = float(os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15"))
-        try:
-            from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
-
-            coordinator = GpuCoordinator()
-            with coordinator.acquire(
-                required_mb, priority="inference", timeout=timeout
-            ):
-                return device, False
-        except Exception as error:
-            self._record_gpu_downgrade(device, required_mb, error)
-            return _torch.device("cpu"), True
-
-    def _record_gpu_downgrade(
-        self, device: torch.device, required_mb: float, error: Exception
-    ) -> None:
-        try:
-            ledger = tool_root() / NATIVE_EXECUTION_LEDGER
-            ledger.parent.mkdir(parents=True, exist_ok=True)
-            with ledger.open("a", encoding="utf-8") as handle:
-                handle.write(
-                    json.dumps(
-                        {
-                            "at": time.strftime(
-                                "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
-                            ),
-                            "engine": "native",
-                            "event": "gpu-budget-downgrade",
-                            "checkpoint_path": str(self.checkpoint_path),
-                            "state_sha256": self.state_sha256,
-                            "parameter_count": self._parameter_count,
-                            "device_requested": str(device),
-                            "device_used": "cpu",
-                            "required_mb": round(required_mb, 1),
-                            "reason": f"{type(error).__name__}: {error}",
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-            _maybe_trim_execution_ledger(ledger)
-        except Exception:
-            pass
-
-    @classmethod
-    def available(cls) -> bool:
-        """flag 開啟且 checkpoint 可讀才算可用（fail-closed）。"""
-        if not flag_enabled():
-            return False
-        path = configured_checkpoint_path()
-        return path.is_file()
-
-    def _generation_gpu_budget_mb(self, prompt_tokens: int, max_new_tokens: int) -> float:
-        """Estimate transient KV/activation VRAM for one request.
-
-        Model weights were admitted once at engine load; this budget covers
-        only request-local growth so generation does not double-count them.
-        """
-        hidden = int(getattr(self.config, "hidden_size", 0) or 0)
-        bytes_needed = max(0, prompt_tokens + max_new_tokens) * hidden * 4
-        return max(256.0, min(2048.0, bytes_needed * 1.5 / (1024**2)))
-
-    def generate(
-        self,
-        *,
-        prompt: str,
-        intent: str = "",
-        max_tokens: Any = None,
-        temperature: Any = None,
-        top_k: Any = None,
-        top_p: Any = None,
-        repetition_penalty: Any = None,
-        seed: Any = None,
-        sliding_window: bool = False,
-        cancel_event: Any = None,
-        progress_callback: Any = None,
-    ) -> dict[str, Any]:
-        """以原生權重生成；回傳與 governed generate() 相容的結果。"""
-        import torch
-
-        started = time.perf_counter()
-        defaults = generation_defaults()
-        configured_cap = int(defaults["max_new_tokens"])
-        if self.device.type == "cpu":
-            configured_cap = min(configured_cap, cpu_generation_cap())
-        try:
-            max_new = int(max_tokens) if max_tokens else configured_cap
-        except (TypeError, ValueError):
-            max_new = configured_cap
-        max_new = max(1, min(max_new, configured_cap))
-        prompt_ids = self.tokenizer.encode(
-            str(prompt or ""), add_bos=True, add_eos=False
-        )
-        if not prompt_ids:
-            return {
-                "ok": False,
-                "error_code": "NATIVE_ENGINE_EMPTY_PROMPT",
-                "message": "prompt 編碼後為空",
-                "fallback_required": False,
-            }
-        scope_triggered, scope_reason = scope_check(prompt)
-        if scope_triggered:
-            message = scope_refusal_message()
-            latency_ms = round((time.perf_counter() - started) * 1_000, 3)
-            return {
-                "ok": True,
-                "text": message,
-                "decoder": "native-transformer-autoregressive-decoder",
-                "model": NATIVE_MODEL_ID,
-                "model_family": NATIVE_MODEL_FAMILY,
-                "parameter_class": "native-self-trained",
-                "parameter_count": self._parameter_count,
-                "quantization": self.quantization,
-                "device": str(self.device),
-                "sampling": {},
-                "quality_guard": {"triggered": False, "reason": "", "min_answer_chars": 0},
-                "scope_guard": {"triggered": True, "reason": scope_reason},
-                "architecture": "xingcheng-native-decoder-transformer",
-                "context_window": int(self.config.max_position_embeddings),
-                "prompt_eval_count": 0,
-                "eval_count": 0,
-                "latency_ms": latency_ms,
-                "facts_supported": False,
-                "remote_network_used": False,
-                "loopback_runtime_used": False,
-                "third_party_foundation_weights": False,
-                "star_native_model_used": True,
-                "native_engine": True,
-                "foundation_model_license": NATIVE_FOUNDATION_LICENSE,
-                "checkpoint_path": str(self.checkpoint_path),
-                "state_sha256": self.state_sha256,
-                "intent": str(intent or ""),
-            }
-        capacity = int(self.config.max_position_embeddings)
-        prompt_truncated = False
-        if len(prompt_ids) >= capacity and sliding_window:
-            keep = max(1, capacity - 1)
-            prompt_ids = prompt_ids[-keep:]
-            prompt_truncated = True
-        remaining = capacity - len(prompt_ids)
-        if remaining < 1:
-            return {
-                "ok": False,
-                "error_code": "NATIVE_ENGINE_PROMPT_TOO_LONG",
-                "message": "prompt 超過 max_position_embeddings",
-                "fallback_required": False,
-            }
-        max_new = min(max_new, remaining)
-        try:
-            temperature_value = (
-                float(temperature)
-                if temperature is not None
-                else float(defaults["temperature"])
-            )
-        except (TypeError, ValueError):
-            temperature_value = float(defaults["temperature"])
-        temperature_value = max(0.0, min(2.0, temperature_value))
-        try:
-            top_k_value = max(0, int(top_k)) if top_k else int(defaults["top_k"])
-        except (TypeError, ValueError):
-            top_k_value = int(defaults["top_k"])
-        top_k_value = max(0, min(200, top_k_value))
-        try:
-            top_p_value = (
-                float(top_p) if top_p is not None else float(defaults["top_p"])
-            )
-        except (TypeError, ValueError):
-            top_p_value = float(defaults["top_p"])
-        top_p_value = max(0.0, min(1.0, top_p_value))
-        try:
-            rep_value = (
-                float(repetition_penalty)
-                if repetition_penalty is not None
-                else float(defaults["repetition_penalty"])
-            )
-        except (TypeError, ValueError):
-            rep_value = float(defaults["repetition_penalty"])
-        rep_value = max(0.01, min(16.0, rep_value))
-        if seed is None:
-            seed = defaults["seed"]
-        do_sample = temperature_value > 0 or top_k_value > 0 or top_p_value < 1.0
-        sampler = _native().Sampler(
-            _native().SamplingConfig(
-                do_sample=do_sample,
-                temperature=temperature_value,
-                top_k=top_k_value,
-                top_p=top_p_value,
-                repetition_penalty=rep_value,
-                eos_token_id=self.tokenizer.eos_id,
-                pad_token_id=self.tokenizer.pad_id,
-            )
-        )
-        ids = torch.tensor([prompt_ids], dtype=torch.long)
-        if cancel_event is not None and cancel_event.is_set():
-            return {
-                "ok": False,
-                "error_code": "TRANSFORMER_REQUEST_CANCELLED",
-                "message": "Model generation was cancelled",
-                "fallback_required": False,
-            }
-        streamed: list[int] = []
-
-        def _on_token(token_id: int) -> None:
-            if cancel_event is not None and cancel_event.is_set():
-                raise _NativeGenerationCancelled()
-            streamed.append(int(token_id))
-            if progress_callback is not None:
-                try:
-                    progress_callback(
-                        {
-                            "sequence": len(streamed),
-                            "text": self.tokenizer.decode(streamed, skip_special=True),
-                            "model": NATIVE_MODEL_ID,
-                        }
-                    )
-                except Exception:
-                    pass
-
-        generation_gate = nullcontext()
-        generation_budget_mb = 0.0
-        if self.device.type == "cuda":
-            generation_budget_mb = self._generation_gpu_budget_mb(
-                len(prompt_ids), max_new
-            )
-            try:
-                from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
-
-                generation_gate = GpuCoordinator().acquire(
-                    generation_budget_mb,
-                    priority="inference",
-                    timeout=float(os.environ.get("XINGCHENG_GPU_ACQUIRE_TIMEOUT_S", "15")),
-                )
-            except Exception as error:
-                return {
-                    "ok": False,
-                    "error_code": "GPU_GENERATION_BUDGET_BUSY",
-                    "message": str(error),
-                    "fallback_required": True,
-                    "gpu_budget_required_mb": generation_budget_mb,
-                }
-        try:
-            with generation_gate:
-                with self._lock:
-                    if seed is not None:
-                        try:
-                            torch.manual_seed(int(seed))
-                        except (TypeError, ValueError):
-                            pass
-                    generated = self._generator.generate(
-                        ids,
-                        max_new_tokens=max_new,
-                        sampling=sampler.config,
-                        on_token=_on_token if progress_callback is not None or cancel_event is not None else None,
-                    )
-        except _NativeGenerationCancelled:
-            return {
-                "ok": False,
-                "error_code": "TRANSFORMER_REQUEST_CANCELLED",
-                "message": "Model generation was cancelled",
-                "fallback_required": False,
-            }
-        except ValueError as error:
-            return {
-                "ok": False,
-                "error_code": "NATIVE_ENGINE_GENERATION_INVALID",
-                "message": str(error),
-                "fallback_required": False,
-            }
-        except Exception as error:  # pragma: no cover - 防禦性
-            return {
-                "ok": False,
-                "error_code": "NATIVE_ENGINE_GENERATION_FAILED",
-                "message": str(error),
-                "fallback_required": False,
-            }
-        out_ids = [int(token) for token in generated[0].tolist()]
-        text = self.tokenizer.decode(out_ids, skip_special=True)
-        # Byte-spelled <|eot|> (the SFT weights emit it as literal text,
-        # not token id 8) marks the end of the assistant turn — truncate
-        # there like ChatSession does before the quality guard runs.
-        if "<|eot|>" in text:
-            text = text.split("<|eot|>", 1)[0].rstrip()
-        latency_ms = round((time.perf_counter() - started) * 1_000, 3)
-
-        guard_triggered, guard_reason = quality_guard(
-            text,
-            min_chars=int(defaults["min_answer_chars"]),
-            prompt=str(prompt or ""),
-        )
-        if guard_triggered:
-            text = (
-                str(defaults["fallback_message"])
-                or "我目前無法可靠回答這個問題。"
-            )
-            if progress_callback is not None:
-                try:
-                    progress_callback(
-                        {
-                            "sequence": len(streamed),
-                            "text": text,
-                            "guard": guard_reason,
-                            "model": NATIVE_MODEL_ID,
-                        }
-                    )
-                except Exception:
-                    pass
-
-        def _digest(value: str) -> str:
-            import hashlib
-
-            return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-        try:
-            ledger = tool_root() / NATIVE_EXECUTION_LEDGER
-            ledger.parent.mkdir(parents=True, exist_ok=True)
-            with ledger.open("a", encoding="utf-8") as handle:
-                handle.write(
-                    json.dumps(
-                        {
-                            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                            "engine": "native",
-                            "checkpoint_path": str(self.checkpoint_path),
-                            "state_sha256": self.state_sha256,
-                            "parameter_count": self._parameter_count,
-                            "quantization": self.quantization,
-                            "prompt_sha256": _digest(str(prompt or "")),
-                            "output_sha256": _digest(text),
-                            "eval_count": len(out_ids),
-                            "latency_ms": latency_ms,
-                            "device": str(self.device),
-                            "gpu_budget_required_mb": generation_budget_mb,
-                            "gpu_budget_gate": "per-request" if self.device.type == "cuda" else "not-applicable",
-                            "third_party_foundation_weights": False,
-                            "loopback_runtime_used": False,
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n"
-                )
-            _maybe_trim_execution_ledger(ledger)
-        except OSError:  # pragma: no cover - 帳本寫入為 best-effort 證據
-            pass
-        if progress_callback is not None:
-            try:
-                progress_callback({"stage": "native-engine", "done": True})
-            except Exception:
-                pass
-        return {
-            "ok": True,
-            "text": text,
-            "decoder": "native-transformer-autoregressive-decoder",
-            "model": NATIVE_MODEL_ID,
-            "model_family": NATIVE_MODEL_FAMILY,
-            "parameter_class": "native-self-trained",
-            "parameter_count": self._parameter_count,
-            "quantization": self.quantization,
-            "device": str(self.device),
-            "gpu_budget_required_mb": generation_budget_mb,
-            "gpu_budget_gate": "per-request" if self.device.type == "cuda" else "not-applicable",
-            "prefix_cache": {
-                "reused_tokens": int(getattr(self._generator, "last_prefix_reuse", 0)),
-                "entries": len(self.prefix_store),
-                "hits": int(self.prefix_store.hits),
-                "misses": int(self.prefix_store.misses),
-            },
-            "sampling": {
-                "do_sample": bool(do_sample),
-                "temperature": temperature_value,
-                "top_k": top_k_value,
-                "top_p": top_p_value,
-                "repetition_penalty": rep_value,
-                "seed": int(seed) if isinstance(seed, (int, float)) else None,
-            },
-            "prompt_truncated": prompt_truncated,
-            "quality_guard": {
-                "triggered": bool(guard_triggered),
-                "reason": guard_reason,
-                "min_answer_chars": int(defaults["min_answer_chars"]),
-            },
-            "scope_guard": {"triggered": False, "reason": ""},
-            "architecture": "xingcheng-native-decoder-transformer",
-            "context_window": int(self.config.max_position_embeddings),
-            "prompt_eval_count": len(prompt_ids),
-            "eval_count": len(out_ids),
-            "load_duration_ns": 0,
-            "total_duration_ns": int(latency_ms * 1_000_000),
-            "latency_ms": latency_ms,
-            "facts_supported": True,
-            "unsupported_facts": {},
-            "remote_network_used": False,
-            "loopback_runtime_used": False,
-            "third_party_foundation_weights": False,
-            "star_native_model_used": True,
-            "native_engine": True,
-            "foundation_model_license": NATIVE_FOUNDATION_LICENSE,
-            "model_selected_by_user": False,
-            "checkpoint_path": str(self.checkpoint_path),
-            "state_sha256": self.state_sha256,
-            "intent": str(intent or ""),
-        }
-
-
-_engine_cache: dict[str, NativeTransformerEngine] = {}
-_engine_lock = threading.Lock()
+def native_engine_available() -> bool:
+    """flag 開啟且服務 bundle 完整才算可用（fail-closed）。"""
+    if not flag_enabled():
+        return False
+    path = configured_checkpoint_path()
+    return path.is_dir() and cpp_runtime.is_bundle_dir(path)
 
 
 def native_engine_for(
     checkpoint_path: str | Path | None = None,
-) -> NativeTransformerEngine:
-    """解析（並快取）flag 對應的引擎實例；不可用時 fail-closed。"""
-    path = Path(checkpoint_path) if checkpoint_path else configured_checkpoint_path()
-    settings = load_settings()
-    quantize_raw = str(
-        os.environ.get(NATIVE_QUANTIZATION_ENV)
-        or settings.get("quantization")
-        or ""
-    ).strip().casefold()
-    quantize = {"int8": 8, "int4": 4}.get(quantize_raw)
-    device = settings.get("device") or None
-    key = f"{path.resolve()}|{quantize or 0}|{device or 'auto'}"
-    with _engine_lock:
-        engine = _engine_cache.get(key)
-        if engine is None:
-            if not path.is_file():
-                raise FileNotFoundError(f"NATIVE_CHECKPOINT_MISSING:{path}")
-            try:
-                from .native_transformer.execution.auto_release import get_manager
-                residency = get_manager()
-                budget_mb = float(settings.get("vram_budget_mb") or 0)
-                required_mb = max(
-                    256.0,
-                    path.stat().st_size * 1.5 / (1024.0 * 1024.0),
-                )
-                if not residency.ensure_budget(key, required_mb, budget_mb):
-                    raise RuntimeError("NATIVE_RESIDENCY_BUDGET_EXHAUSTED")
-                residency.begin_load(key)
-            except RuntimeError:
-                raise
-            except Exception:
-                residency = None
-            try:
-                engine = NativeTransformerEngine(
-                    path, quantize=quantize, device=device
-                )
-            except Exception:
-                if residency is not None:
-                    residency.load_failed(key)
-                raise
-            _engine_cache[key] = engine
-            # P4：註冊自動釋放——閒置逾時或記憶體壓力時從快取卸載。
-            # release_fn 只移除快取項；進行中的 generate 持有強參照不受影響，
-            # 結束後 refcount 歸零由 GC 回收權重，下次請求再重載 checkpoint。
-            try:
-                from .native_transformer.execution.auto_release import get_manager
-
-                idle_s = int(settings.get("auto_release_idle_seconds") or 300)
-                mgr = get_manager()
-                mgr.idle = idle_s
-                mgr.register(
-                    key,
-                    engine,
-                    _release_engine,
-                    size_mb=required_mb,
-                )
-            except Exception:
-                pass  # auto-release 失效不影響引擎可用性
-        else:
-            try:
-                from .native_transformer.execution.auto_release import get_manager
-
-                get_manager().touch(key)
-            except Exception:
-                pass
-        return engine
-
-
-def _release_engine(engine: NativeTransformerEngine) -> None:
-    """把 engine 從快取移除（auto_release 回調）並歸還已釋放的 VRAM。
-
-    in-flight generate 持有的強參照不受影響：``torch.cuda.empty_cache``
-    只歸還不再被引用的 allocator 區塊，進行中的張量不會被回收。
-    """
-    with _engine_lock:
-        for cache_key, cached in list(_engine_cache.items()):
-            if cached is engine:
-                _engine_cache.pop(cache_key, None)
-    import gc
-
-    gc.collect()
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-    except Exception:
-        pass  # 歸還失敗不影響釋放語意；下次觸發再試
+) -> Any:
+    """解析（並快取）服務 bundle 對應的 C++ 引擎；不可用時 fail-closed。"""
+    path = (
+        _resolve_serving_path(str(checkpoint_path))
+        if checkpoint_path
+        else configured_checkpoint_path()
+    )
+    return cpp_runtime.cpp_engine_for(cpp_runtime.assert_inside_xingcheng(path))
 
 
 _DIALOGUE_SYSTEM_PROMPT = "你是星澄，一個本地模型。簡短回答。"
 
 
 def _dialogue_templated_request(request: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Interactive dialogue turns must reach the SFT weights in
-    ``star-chat-format/v1`` — the same template the chat-foundation
-    dataset and the maturity L5/L6 probes use. Non-dialogue requests
-    (automatic workflows, batch, pre-templated prompts) pass through."""
+    """Interactive dialogue turns must reach the serving weights in
+    ``star-chat-format/v1``. Non-dialogue requests (automatic workflows,
+    batch, pre-templated prompts) pass through."""
     if request.get("dialogue_interactive") is not True:
         return request
     prompt_text = str(request.get("prompt") or "")
@@ -959,7 +369,11 @@ def _dialogue_templated_request(request: Mapping[str, Any]) -> Mapping[str, Any]
 
 
 def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
-    """governed generate() 的原生短路入口（flag 開啟時由 runtime 呼叫）。"""
+    """governed generate() 的原生短路入口（flag 開啟時由 runtime 呼叫）。
+
+    B167/B38：Python/PyTorch 推論面已退役——唯一執行路徑是正式 C++
+    引擎；引擎或 bundle 不可用時回傳型別化錯誤，無 fallback。
+    """
     if not flag_enabled():
         return {
             "ok": False,
@@ -968,103 +382,7 @@ def generate_via_native_engine(request: Mapping[str, Any]) -> dict[str, Any]:
             "fallback_required": False,
         }
     request = _dialogue_templated_request(request)
-    # G29/P3f：正式 C++ 推論執行層路由。required 為 fail-closed；
-    # fallback 在 C++ 層失敗時記錄帳本後才允許回到 Python 路徑。
-    try:
-        from .native_transformer.cpp_runtime import (
-            cpp_runtime_mode,
-            generate_via_cpp_engine,
-            record_cpp_fallback,
-        )
-
-        mode = cpp_runtime_mode()
-    except Exception:
-        mode = "off"
-    if mode == "invalid":
-        return {
-            "ok": False,
-            "error_code": "CPP_RUNTIME_MODE_INVALID",
-            "message": "XINGCHENG_CPP_RUNTIME 必須為 off/required/fallback",
-            "fallback_required": False,
-        }
-    if mode in ("required", "fallback"):
-        result = generate_via_cpp_engine(request)
-        if result.get("ok") or mode == "required":
-            return result
-        try:
-            record_cpp_fallback(
-                f"{result.get('error_code')}: {result.get('message')}"
-            )
-        except Exception:
-            pass
-    try:
-        engine = native_engine_for()
-    except FileNotFoundError as error:
-        return {
-            "ok": False,
-            "error_code": "NATIVE_CHECKPOINT_MISSING",
-            "message": str(error),
-            "fallback_required": False,
-        }
-    except Exception as error:  # pragma: no cover - 防禦性
-        return {
-            "ok": False,
-            "error_code": "NATIVE_ENGINE_LOAD_FAILED",
-            "message": str(error),
-            "fallback_required": False,
-        }
-    prompts = request.get("prompts")
-    if isinstance(prompts, list):
-        # G29 batch>1 生產呼叫者：Python fallback 路徑逐筆生成，
-        # 合約與 C++ generate_batch 相同（ok + results[]）。
-        if not prompts:
-            return {
-                "ok": False,
-                "error_code": "NATIVE_ENGINE_BATCH_EMPTY",
-                "message": "prompts 為空",
-                "fallback_required": False,
-            }
-        if len(prompts) > 16:
-            return {
-                "ok": False,
-                "error_code": "NATIVE_ENGINE_BATCH_TOO_LARGE",
-                "message": "batch prompts 超過上限 16",
-                "fallback_required": False,
-            }
-        results = [
-            engine.generate(
-                prompt=str(p or ""),
-                intent=str(request.get("intent") or ""),
-                max_tokens=request.get("max_tokens"),
-                temperature=request.get("temperature"),
-                top_k=request.get("top_k"),
-                top_p=request.get("top_p"),
-                repetition_penalty=request.get("repetition_penalty"),
-                seed=request.get("seed"),
-                sliding_window=bool(request.get("sliding_window")),
-                cancel_event=request.get("cancel_event"),
-                progress_callback=request.get("progress_callback"),
-            )
-            for p in prompts
-        ]
-        return {
-            "ok": all(bool(r.get("ok")) for r in results),
-            "results": results,
-            "batch_size": len(results),
-        }
-    return engine.generate(
-        prompt=str(request.get("prompt") or ""),
-        intent=str(request.get("intent") or ""),
-        max_tokens=request.get("max_tokens"),
-        temperature=request.get("temperature"),
-        top_k=request.get("top_k"),
-        top_p=request.get("top_p"),
-        repetition_penalty=request.get("repetition_penalty"),
-        seed=request.get("seed"),
-        sliding_window=bool(request.get("sliding_window")),
-        cancel_event=request.get("cancel_event"),
-        progress_callback=request.get("progress_callback"),
-    )
+    return cpp_runtime.generate_via_cpp_engine(request)
 
 
 def write_settings(**updates: Any) -> dict[str, Any]:
@@ -1082,10 +400,13 @@ def write_settings(**updates: Any) -> dict[str, Any]:
 
 
 def control_status() -> dict[str, Any]:
-    """控制面狀態：開關、checkpoint、生成預設。"""
+    """控制面狀態：開關、服務 bundle、生成預設。"""
+    serving = configured_checkpoint_path()
     return {
         "enabled": flag_enabled(),
-        "checkpoint": str(configured_checkpoint_path()),
+        "serving_bundle": str(serving),
+        "serving_bundle_ready": serving.is_dir() and cpp_runtime.is_bundle_dir(serving),
+        "cpp_engine_available": cpp_runtime.available(),
         "settings_path": str(settings_path()),
         "settings": load_settings(),
         "defaults": generation_defaults(),
@@ -1094,17 +415,16 @@ def control_status() -> dict[str, Any]:
 
 def _cli(argv: list[str]) -> int:
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(
         prog="xingcheng-native-engine",
-        description="星澄原生引擎 CLI：控制面（status/enable/disable/checkpoint）與生成",
+        description="星澄原生引擎 CLI：控制面（status/enable/disable/bundle）與生成",
     )
     parser.add_argument("--status", action="store_true", help="顯示控制面狀態")
     parser.add_argument("--enable", action="store_true", help="開啟原生引擎")
     parser.add_argument("--disable", action="store_true", help="關閉原生引擎（fail-closed）")
-    parser.add_argument("--set-checkpoint", default=None, help="指定 checkpoint 並持久化")
-    parser.add_argument("--checkpoint", default=None, help="本次生成使用的 checkpoint")
+    parser.add_argument("--set-bundle", default=None, help="指定服務 bundle 目錄並持久化")
+    parser.add_argument("--bundle", default=None, help="本次生成使用的 bundle 目錄")
     parser.add_argument("--prompt", default=None, help="輸入文字（未提供時僅執行控制指令）")
     parser.add_argument("--max-new-tokens", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
@@ -1112,14 +432,12 @@ def _cli(argv: list[str]) -> int:
     parser.add_argument("--top-p", type=float, default=None)
     parser.add_argument("--repetition-penalty", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--sliding-window", action="store_true")
-    parser.add_argument("--quantize", type=int, default=None, choices=[4, 8])
     args = parser.parse_args(argv)
 
-    if args.enable or args.disable or args.set_checkpoint:
+    if args.enable or args.disable or args.set_bundle:
         write_settings(
             enabled=True if args.enable else (False if args.disable else None),
-            checkpoint=args.set_checkpoint,
+            cpp_bundle=args.set_bundle,
         )
         print(json.dumps(control_status(), ensure_ascii=False, indent=2))
         if not args.prompt:
@@ -1127,22 +445,28 @@ def _cli(argv: list[str]) -> int:
     if args.status or not args.prompt:
         print(json.dumps(control_status(), ensure_ascii=False, indent=2))
         return 0
-    try:
-        path = Path(args.checkpoint) if args.checkpoint else configured_checkpoint_path()
-        engine = NativeTransformerEngine(path, quantize=args.quantize)
-    except Exception as error:
-        print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False))
-        return 2
-    result = engine.generate(
-        prompt=args.prompt,
-        max_tokens=args.max_new_tokens,
-        temperature=args.temperature,
-        top_k=args.top_k,
-        top_p=args.top_p,
-        repetition_penalty=args.repetition_penalty,
-        seed=args.seed,
-        sliding_window=args.sliding_window,
-    )
+    request: dict[str, Any] = {
+        "prompt": args.prompt,
+        "max_tokens": args.max_new_tokens,
+        "temperature": args.temperature,
+        "top_k": args.top_k,
+        "top_p": args.top_p,
+        "repetition_penalty": args.repetition_penalty,
+        "seed": args.seed,
+    }
+    if args.bundle:
+        try:
+            engine = cpp_runtime.cpp_engine_for(
+                cpp_runtime.assert_inside_xingcheng(
+                    _resolve_serving_path(args.bundle)
+                )
+            )
+        except Exception as error:
+            print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False))
+            return 2
+        result = engine.generate(prompt=args.prompt)
+    else:
+        result = generate_via_native_engine(request)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 1
 
@@ -1160,7 +484,6 @@ __all__ = [
     "NATIVE_MODEL_FAMILY",
     "NATIVE_MODEL_ID",
     "NATIVE_QUANTIZATION_ENV",
-    "NativeTransformerEngine",
     "configured_checkpoint_path",
     "control_status",
     "cpu_generation_cap",
@@ -1169,9 +492,13 @@ __all__ = [
     "generate_via_native_engine",
     "generation_defaults",
     "load_settings",
+    "native_engine_available",
     "native_engine_for",
     "quality_guard",
+    "scope_check",
+    "scope_refusal_message",
     "settings_path",
+    "small_talk_reply",
     "tool_root",
     "write_settings",
 ]

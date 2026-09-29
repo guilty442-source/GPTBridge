@@ -1,10 +1,7 @@
 # 星澄原生模型 + RAG 執行期依賴。
-# A612：JAX+XLA 為唯一訓練框架（native_transformer/jax_backend）；
-# PyTorch/sentence-transformers/triton 已退役為 migration-only lineage，
-# 不再於 manifest 宣告（A621）。
-numpy==2.5.3; python_version >= "3.12"
-numpy>=2.4,<2.6; python_version < "3.12"
-jax>=0.10,<0.12
+# B167/B38/E180：JAX/XLA、PyTorch、NumPy 與 Python 推論面已全數退役
+# （零 source/dependency/artifact/execution/fallback 角色，無過渡期）；
+# 模型執行只由正式 C++ 推論引擎（dist-native/_xingcheng_inference）服務。
 psycopg[binary]>=3.2,<4
 # A621/A611: qdrant-client retired — canonical vector runtime is vectord-rs
 # (VECTOR_BACKEND=rust default). The Qdrant cutover is sealed: any

@@ -1,15 +1,15 @@
-"""GPU 資源協調器：避免並行訓練 VRAM 競爭 OOM。
+"""GPU 資源協調器：避免並行原生工作負載 VRAM 競爭 OOM。
 
 設計（對應 Resource Governor CPU/MEM，補 GPU 維度）：
-- 訓練前 acquire_gpu(required_mb) 檢查可用 VRAM，不足則排隊等待
+- 工作負載前 acquire(required_mb) 檢查可用 VRAM，不足則排隊等待
 - 推論與訓練分優先級（訓練可搶佔，推論保底）
-- 基於 torch.cuda.mem_get_info 與 nvidia-smi 雙源，fail-closed
+- VRAM 查詢唯一來源 nvidia-smi，fail-closed（B167/B38：PyTorch 已退役）
 
 用法：
     from shared_layer.adaptive.gpu_coordinator import GpuCoordinator
     coord = GpuCoordinator()
     with coord.acquire(required_mb=3500, priority="training", timeout=300):
-        pretrain(...)
+        train(...)
 """
 from __future__ import annotations
 
@@ -19,25 +19,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator
 
-# torch is imported lazily inside _query_via_torch: a top-level import
-# costs every consumer process ~1-2s (and, once touched, CUDA context
-# initialisation + device memory) even when nvidia-smi answers the query.
-_TORCH = None
-_TORCH_PROBED = False
-
-
-def _torch():
-    global _TORCH, _TORCH_PROBED
-    if not _TORCH_PROBED:
-        _TORCH_PROBED = True
-        try:
-            import torch as _torch_mod
-
-            _TORCH = _torch_mod
-        except ImportError:
-            _TORCH = None
-    return _TORCH
-
 
 @dataclass(frozen=True)
 class GpuStatus:
@@ -45,21 +26,6 @@ class GpuStatus:
     used_mb: float
     free_mb: float
     util_pct: float  # 0-100
-
-
-def _query_via_torch() -> GpuStatus | None:
-    torch = _torch()
-    if torch is None or not torch.cuda.is_available():
-        return None
-    try:
-        free, total = torch.cuda.mem_get_info(0)
-        total_mb = total / (1024 * 1024)
-        free_mb = free / (1024 * 1024)
-        used_mb = total_mb - free_mb
-        # util 需 nvidia-smi，這裡估 0
-        return GpuStatus(total_mb, used_mb, free_mb, 0.0)
-    except Exception:
-        return None
 
 
 def _query_via_nvidia_smi() -> GpuStatus | None:
@@ -77,15 +43,12 @@ def _query_via_nvidia_smi() -> GpuStatus | None:
 
 
 def query_gpu() -> GpuStatus | None:
-    """雙源查詢。**nvidia-smi 優先**：WDDM 下 torch.cuda.mem_get_info 的
-    free/used 不含其他行程佔用（分頁模型），會高估可用 VRAM；nvidia-smi
-    反映實體記憶體。torch 僅作為無 nvidia-smi 時的備援。"""
-    n = _query_via_nvidia_smi()
-    if n is not None:
-        return n
-    # torch fallback only when nvidia-smi is absent — probing torch first
-    # would pay CUDA context init in every caller process for nothing.
-    return _query_via_torch()
+    """VRAM 查詢唯一來源：nvidia-smi。
+
+    B167/B38：PyTorch 已全數退役（零 dependency/execution/fallback
+    角色）；原 CUDA 備援探針已移除。nvidia-smi 缺席時回傳
+    ``None``——呼叫端 fail-closed（無 GPU 證據即拒絕）。"""
+    return _query_via_nvidia_smi()
 
 
 class GpuCoordinator:

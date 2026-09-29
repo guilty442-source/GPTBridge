@@ -14,7 +14,6 @@ from .reading_expert import StarReadingExpert
 from .local_rag import LocalRagService
 from .local_knowledge import LocalKnowledgeService
 from ..infrastructure.git_repository import LocalGitRepository
-from .training_gate import StarTrainingGate
 from ..integration.memory_broker import StarMemoryBroker
 from ..domain.model_registry import StarModelRegistry
 from ..domain.module_registry import StarModuleRegistry
@@ -23,9 +22,6 @@ from ..infrastructure.model_engines import StarModelEngines
 from ..infrastructure.repository import LocalAiRepository
 from ..infrastructure.fault_diagnostics import FaultDiagnostics
 from ..infrastructure.native_runtime import StarNativeRuntime
-from ..infrastructure.transformer_training_repository import (
-    TransformerTrainingRepository,
-)
 from ..integration.external_research import ExternalAiResearch
 from .command_channels import CommandChannelsMixin
 from .codex_diagnostics import CodexDiagnosticsMixin
@@ -196,7 +192,6 @@ class LocalAiService(
         "xingcheng_diagnose_fault",
         "xingcheng_codex_alignment",
         "xingcheng_codex_mirror_check",
-        "xingcheng_submit_teaching",
         "xingcheng_retention_sweep",
     }
 
@@ -218,21 +213,12 @@ class LocalAiService(
             )
             for profile in self.models.profiles
         }
-        self.model_engines = StarModelEngines(
-            self.models,
-            learned_examples_by_model={
-                model_id: repository.language_training_examples()
-                for model_id, repository in self.repositories.items()
-            },
-        )
+        self.model_engines = StarModelEngines(self.models)
         self.native_model = self.model_engines.main
         self.native_runtime = native_runtime or StarNativeRuntime(
             enabled=enable_transformer
         )
         self.native_runtime.configure_checkpoint_store(self.tool_root)
-        self.transformer_training_repository = TransformerTrainingRepository(
-            self.tool_root
-        )
         self.mathematical_expert = StarMathematicalExpert()
         self.coding_expert = StarCodingExpert()
         self.reading_expert = StarReadingExpert()
@@ -247,7 +233,6 @@ class LocalAiService(
             rag_service=self.local_rag,
             git_repository=self.git_repository,
         )
-        self.training_gate = StarTrainingGate()
         self.investment_repository = self.repositories[
             self.models.INVESTMENT.model_id
         ]
@@ -267,7 +252,6 @@ class LocalAiService(
         ] = {}
         self._command_understanding_cache_lock = threading.Lock()
         self._last_self_maintenance_at = 0.0
-        self._latest_self_maintenance: dict[str, Any] = {}
         self._default_model_preload_task: asyncio.Task[Any] | None = None
         self._request_cancel_events: dict[str, threading.Event] = {}
         # §10.67：retention sweep 重入鎖（與訓練鎖分離——保留清理不阻塞
@@ -285,16 +269,8 @@ class LocalAiService(
             "inference_latency_ms_total": 0.0,
             "inference_last_latency_ms": 0.0,
             "model_route_fallback_count": 0,
-            "self_training_candidate_count": 0,
-            "self_training_applied_count": 0,
-            "self_training_rejected_count": 0,
-            "self_training_pairs_recorded_count": 0,
-            "self_training_pairs_completed_count": 0,
             "self_maintenance_run_count": 0,
             "self_maintenance_failure_count": 0,
-            "internal_training_run_count": 0,
-            "internal_training_failure_count": 0,
-            "internal_training_applied_count": 0,
             "transformer_request_count": 0,
             "transformer_success_count": 0,
             "transformer_fallback_count": 0,

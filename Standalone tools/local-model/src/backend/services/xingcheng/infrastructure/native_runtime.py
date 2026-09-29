@@ -213,22 +213,26 @@ class StarNativeRuntime:
 
     def _engine_metadata(self) -> dict[str, Any]:
         """已載入引擎的活體 metadata（未載入時回報靜態值，不觸發載入）。"""
-        engine = next(iter(native_engine._engine_cache.values()), None)
+        from .native_transformer import cpp_runtime
+
+        engine = next(iter(cpp_runtime._engine_cache.values()), None)
         if engine is None:
             return {}
         return {
             "parameter_count": engine._parameter_count,
-            "context_window": int(engine.config.max_position_embeddings),
-            "quantization": engine.quantization,
-            "device": str(engine.device),
-            "state_sha256": engine.state_sha256,
+            "context_window": int(
+                engine._engine_config_value("max_position_embeddings")
+            ),
+            "quantization": "none",
+            "device": str(engine.describe().get("device") or ""),
+            "state_sha256": engine.weights_sha256,
         }
 
     def _available(self) -> bool:
         return bool(
             self.enabled
             and native_engine.flag_enabled()
-            and native_engine.configured_checkpoint_path().is_file()
+            and native_engine.native_engine_available()
         )
 
     def _model_record(self, installed: bool) -> dict[str, Any]:
@@ -271,7 +275,7 @@ class StarNativeRuntime:
             or native_engine.load_settings().get("quantization"),
             "device": metadata.get("device"),
             "state_sha256": metadata.get("state_sha256"),
-            "checkpoint_path": str(checkpoint),
+            "serving_bundle": str(checkpoint),
             "transport": "in-process-native-engine",
             "endpoint_scope": "in-process",
             "remote_network_used": False,
