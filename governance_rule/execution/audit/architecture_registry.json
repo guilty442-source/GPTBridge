@@ -24,7 +24,8 @@
     "build-tooling",
     "git-repository",
     "native-library",
-    "internal-service"
+    "internal-service",
+    "companion-service"
   ],
   "lifecycles": [
     "resident",

@@ -108,7 +108,7 @@ the physical state artefact location, not a sovereign or module.
 |---|---|
 | `.devin/` | Devin CLI configuration |
 | `.smallcode/` | Smallcode configuration |
-| `.venv/` | Python virtual environment |
+| `.venv/` | retired — Python virtual environment removed (B166) |
 | `.vs/` `.vscode/` | IDE configuration |
 | `docs/` | Documentation |
 | `scripts/` | Utility scripts |

@@ -1,5 +1,9 @@
 # 效能提升與自適化計畫報告
 
+> 歷史計畫文件：Python/JAX 條目與 `python -m`/pytest 指令隨 Python 艦隊退役
+> （B166/B167/B38），僅作歷史參考；正式測試/稽核由原生 C++ suite 與
+> audit-engine 執行。
+
 **報告日期**：2026-09-27
 **範圍**：跨語言效能優化（Python / Julia / JavaScript / C#・F# / JAX）及其測試與稽核防線
 **治理依據**：Codex A610（Python 角色限定）、A341（編排層 C# 遷移）、A348（TS 退役邊界）、A612（JAX 訓練框架）、A239/A116（GPU gate 與 auto-release）
