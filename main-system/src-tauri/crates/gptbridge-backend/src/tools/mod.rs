@@ -181,6 +181,32 @@ pub(super) fn spawn_hidden(mut command: Command) -> Result<Child, String> {
 /// ``ToolboxService`` emitted — recover them from the manifest plus
 /// filesystem truth instead of letting every card degrade to its id.
 fn list_tool_entry(dir: &PathBuf, tool_id: &str, manifest: &Value, running_tool: bool) -> Value {
+    // Locale parity with ``_manifest_to_record``: ``name``/``description``
+    // resolve through ``name_key``/``description_key`` against
+    // ``locales/zh-TW.json`` (localized override wins over the raw manifest
+    // field, which in turn wins over the bare tool id).
+    let locale = std::fs::read_to_string(dir.join("locales").join("zh-TW.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .unwrap_or(Value::Null);
+    let localized = |key_field: &str| -> Option<String> {
+        let key = manifest[key_field].as_str()?.trim();
+        if key.is_empty() {
+            return None;
+        }
+        locale[key]
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    let name = localized("name_key")
+        .or_else(|| manifest["name"].as_str().map(str::to_string))
+        .or_else(|| manifest["product"].as_str().map(str::to_string))
+        .unwrap_or_else(|| tool_id.to_string());
+    let description = localized("description_key")
+        .or_else(|| manifest["description"].as_str().map(str::to_string))
+        .or_else(|| manifest["product"].as_str().map(str::to_string));
     let executable_path = manifest["executable"]["path"]
         .as_str()
         .map(|rel| dir.join(rel));
@@ -223,8 +249,8 @@ fn list_tool_entry(dir: &PathBuf, tool_id: &str, manifest: &Value, running_tool:
     };
     json!({
         "id": tool_id,
-        "name": manifest["product"].as_str().unwrap_or(tool_id),
-        "description": manifest["product"],
+        "name": name,
+        "description": description,
         "name_key": manifest["name_key"],
         "description_key": manifest["description_key"],
         "version": manifest["version"],
@@ -283,4 +309,27 @@ pub fn list_tools() -> Value {
         tools.push(list_tool_entry(&dir, &tool_id, &manifest, running_tool));
     }
     json!({ "ok": true, "tools": tools })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Nested ``local-model/model-dialogue`` must list as an independent
+    /// tool card with its ``locales/zh-TW.json`` name — the retired Python
+    /// ``ToolboxService`` contract the renderer hydrates against.
+    #[test]
+    fn model_dialogue_lists_with_localized_name() {
+        let result = list_tools();
+        let tools = result["tools"].as_array().expect("tools array");
+        let entry = tools
+            .iter()
+            .find(|t| t["id"].as_str() == Some("model-dialogue"))
+            .expect("model-dialogue card missing from toolbox_list_tools");
+        let name = entry["name"].as_str().unwrap_or_default();
+        assert!(
+            name.contains("對話"),
+            "expected localized zh-TW name, got {name:?}"
+        );
+    }
 }
