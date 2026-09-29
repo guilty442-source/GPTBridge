@@ -255,133 +255,171 @@ Set-Content -Path (Join-Path $lockDir "owner.pid") -Value $PID
 
 try {
 
-# Per-suite build batches + bounded-parallel compile: each suite gets a
-# private obj dir (/Fo:obj\<stem>\) so parallel cl invocations cannot
-# collide on shared sources (transformer.c, engine.cpp etc. each produce
-# identically-named .obj outputs).  Every batch calls vcvars once then its
-# own cl line; the whole fleet is scheduled under $MaxParallel with a
-# 600s per-batch cap.
-$buildJobs = @()
-# MSVC /std:c++latest 與 /std:clatest 互斥（D8016）——同一 cl 行程只能給一個
-# 標準旗標。混合 .c/.cpp 的套件因此拆成「C 編譯 / C++ 編譯 / 連結」三步：
-# .c 走 C23 軌（clatest）、.cpp 走 C++23 軌（c++latest），obj 分語言目錄。
-function Add-BuildJob($name, $batLines) {
-    $objDir = Join-Path $out ("obj\" + $name)
-    New-Item -ItemType Directory -Force -Path $objDir | Out-Null
-    $batPath = Join-Path $out ("_build_" + $name + ".bat")
-    $lines = @("@echo off", "call `"$vcvars`" >nul || exit /b 1") + @($batLines)
-    Set-Content -Path $batPath -Value $lines -Encoding ASCII
-    $script:buildJobs += @{ name = $name; bat = $batPath }
-}
-function New-CompileBatLines($name, $exePath, $srcs, $incs) {
-    # 依副檔名拆 .c/.cpp，各用對應 /std 旗標編譯成 obj，最後連結。
-    $objDir = Join-Path $out ("obj\" + $name)
-    $objCpp = Join-Path $objDir "cpp"
-    $objC = Join-Path $objDir "c"
-    New-Item -ItemType Directory -Force -Path $objCpp | Out-Null
-    New-Item -ItemType Directory -Force -Path $objC | Out-Null
-    $cppSrcs = @($srcs | Where-Object { $_ -match '\.cpp$' })
-    $cSrcs = @($srcs | Where-Object { $_ -match '\.c$' })
-    $incArgs = ""
-    foreach ($i in $incs) { $incArgs += " /I`"$i`"" }
-    $lines = @()
-    $objs = @()
-    foreach ($s in $cppSrcs) {
-        $o = Join-Path $objCpp ([System.IO.Path]::GetFileNameWithoutExtension($s) + ".obj")
-        $objs += $o
-        $lines += "cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
+# Two-phase bounded-parallel build:
+#   Phase A — every UNIQUE translation unit compiles once under
+#     $MaxParallel (shared sources like transformer.c / engine.cpp /
+#     governor_*.cpp used to recompile once per consuming suite).
+#   Phase B — each suite/driver links from the shared obj pool.
+# vcvars is imported into this session once instead of being re-executed
+# per job (was ~30 cmd wraps), and /GL+/LTCG is dropped: whole-program
+# optimisation roughly doubles compile+link cost for zero coverage gain
+# on correctness suites.
+$envDump = & cmd.exe /c "`"$vcvars`" >nul 2>&1 && set"
+if ($LASTEXITCODE -ne 0) { Write-Output "vcvars64 failed"; exit 1 }
+foreach ($line in $envDump) {
+    $eq = ([string]$line).IndexOf('=')
+    if ($eq -gt 0) {
+        [System.Environment]::SetEnvironmentVariable(
+            ([string]$line).Substring(0, $eq),
+            ([string]$line).Substring($eq + 1))
     }
-    foreach ($s in $cSrcs) {
-        $o = Join-Path $objC ([System.IO.Path]::GetFileNameWithoutExtension($s) + ".obj")
-        $objs += $o
-        $lines += "cl /nologo /std:clatest /utf-8 /O2 /GL /I`"$includeDir`"$incArgs /c /Fo`"$o`" `"$s`" >nul || exit /b 1"
-    }
-    $objArgs = ""
-    foreach ($o in $objs) { $objArgs += " `"$o`"" }
-    $lines += "cl /nologo$objArgs /Fe`"$exePath`" /link /LTCG >nul || exit /b 1"
-    return $lines
 }
+$clExe = $null
+try { $clExe = (Get-Command cl.exe -ErrorAction Stop).Source } catch { }
+if (-not $clExe) { Write-Output "cl.exe not found after vcvars import"; exit 1 }
+
+$tuObjDir = Join-Path $out "obj\tu"
+New-Item -ItemType Directory -Force -Path $tuObjDir | Out-Null
+
+# Dedup key: source path + include set + language + defines — identical
+# (src, incs, flags) pairs share one obj; any flag difference compiles
+# separately (e.g. audit_engine.cpp vs its /D CLI variant).
+$tuJobs = @{}
+function Add-Tu($src, $incs, $std, $defines) {
+    $key = $src + "|" + ($incs -join ";") + "|" + $std + "|" + ($defines -join ";")
+    if (-not $script:tuJobs.ContainsKey($key)) {
+        $idx = $script:tuJobs.Count
+        $stem = [System.IO.Path]::GetFileNameWithoutExtension($src)
+        $name = "{0:d3}_{1}" -f $idx, $stem
+        $script:tuJobs[$key] = @{
+            name = $name
+            src = $src; incs = $incs; std = $std; defines = $defines
+            obj = Join-Path $tuObjDir ($name + ".obj")
+        }
+    }
+    return $script:tuJobs[$key].obj
+}
+function Add-TuForSource($src, $incs) {
+    $std = if ($src -match '\.c$') { "clatest" } else { "c++latest" }
+    return Add-Tu $src $incs $std @()
+}
+
+$linkJobs = @()
 foreach ($suite in $suites) {
     $srcPath = Join-Path $PSScriptRoot $suite.src
     $exePath = Join-Path $out $suite.exe
     $suiteName = [System.IO.Path]::GetFileNameWithoutExtension($suite.exe)
     $srcs = @($srcPath)
     if ($suite.ContainsKey("extra")) { $srcs += @($suite.extra) }
-    $incs = @()
-    if ($suite.ContainsKey("inc")) { $incs = @($suite.inc) }
-    Add-BuildJob $suiteName (New-CompileBatLines $suiteName $exePath $srcs $incs)
+    $incs = @($includeDir)
+    if ($suite.ContainsKey("inc")) { $incs += @($suite.inc) }
+    $objs = @($srcs | ForEach-Object { Add-TuForSource $_ $incs })
+    $linkJobs += @{ name = $suiteName; exe = $exePath; objs = $objs }
 }
-# 獨立審計引擎 CLI（pre-commit 閘門嵌入式）
+# 獨立審計引擎 CLI（pre-commit 閘門嵌入式）— own /D → own TU.
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
-$auditObj = Join-Path $out "obj\audit-engine"
-New-Item -ItemType Directory -Force -Path $auditObj | Out-Null
-Add-BuildJob "audit-engine" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /DGPTBRIDGE_AUDIT_ENGINE_CLI /I`"$includeDir`" /Fe`"$auditExe`" /Fo:$auditObj\ `"$auditSrc`" /link /LTCG >nul || exit /b 1")
+$aeObj = Add-Tu $auditSrc @($includeDir) "c++latest" @("/DGPTBRIDGE_AUDIT_ENGINE_CLI")
+$linkJobs += @{ name = "audit-engine"; exe = $auditExe; objs = @($aeObj) }
 # A608 資源管制器主程式（C++23）：監督面常駐行程，與 Python 版同狀態契約
 $govRoot = Join-Path $nativeRoot "resource_governor"
 $govExe = Join-Path $govRoot "bin\resource-governor.exe"
-$govObj = Join-Path $out "obj\resource-governor"
 New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
-New-Item -ItemType Directory -Force -Path $govObj | Out-Null
-# A185 split: compile+link every implementation unit in resource_governor/.
 $govSrcFiles = Get-ChildItem -Path $govRoot -Filter "*.cpp" -File | Sort-Object Name
-$govSources = (@($govSrcFiles | ForEach-Object { '"' + $_.FullName + '"' })) -join " "
-Add-BuildJob "resource-governor" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$govExe`" /Fo:$govObj\ $govSources /link /LTCG >nul || exit /b 1")
+$govObjs = @($govSrcFiles | ForEach-Object { Add-Tu $_.FullName @($includeDir) "c++latest" @() })
+$linkJobs += @{ name = "resource-governor"; exe = $govExe; objs = $govObjs }
 # M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
 $sidecarSrc = Join-Path $nativeRoot "tool_runtime\sidecar_transport.cpp"
-$driverObj = Join-Path $out "obj\proxy_client_driver"
-New-Item -ItemType Directory -Force -Path $driverObj | Out-Null
-Add-BuildJob "proxy_client_driver" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$driverExe`" /Fo:$driverObj\ `"$driverSrc`" `"$tpxSrc`" `"$sidecarSrc`" /link /LTCG >nul || exit /b 1")
+$drvObjs = @(
+    (Add-Tu $driverSrc @($includeDir) "c++latest" @()),
+    (Add-Tu $tpxSrc @($includeDir) "c++latest" @()),
+    (Add-Tu $sidecarSrc @($includeDir) "c++latest" @()))
+$linkJobs += @{ name = "proxy_client_driver"; exe = $driverExe; objs = $drvObjs }
 # transport-proxy/v1 線協定 fixture（原生）：live sidecar 案例的受管對端，
 # 取代已退役的 Python fixture（D7/B171：測試車道無 Python）。
 $wireExe = Join-Path $out "proxy_wire_agent.exe"
 $wireSrc = Join-Path $PSScriptRoot "proxy_wire_agent.cpp"
-$wireObj = Join-Path $out "obj\proxy_wire_agent"
-New-Item -ItemType Directory -Force -Path $wireObj | Out-Null
-Add-BuildJob "proxy_wire_agent" @("cl /nologo /std:c++latest /utf-8 /O2 /GL /EHsc /I`"$includeDir`" /Fe`"$wireExe`" /Fo:$wireObj\ `"$wireSrc`" /link /LTCG >nul || exit /b 1")
+$wireObj = Add-Tu $wireSrc @($includeDir) "c++latest" @()
+$linkJobs += @{ name = "proxy_wire_agent"; exe = $wireExe; objs = @($wireObj) }
 
-$bq = [System.Collections.Generic.Queue[object]]::new()
-foreach ($j in $buildJobs) { $bq.Enqueue($j) }
-$brunning = @{}
-$buildFailed = $false
-while ($bq.Count -gt 0 -or $brunning.Count -gt 0) {
-    while ($bq.Count -gt 0 -and $brunning.Count -lt $MaxParallel) {
-        $j = $bq.Dequeue()
-        # .NET Process (not Start-Process): ExitCode is reliably readable
-        # after exit; Start-Process -PassThru returns empty ExitCode here.
-        $psi = [System.Diagnostics.ProcessStartInfo]::new(
-            "cmd.exe", "/c `"$($j.bat)`"")
-        $psi.WorkingDirectory = $out
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $p = [System.Diagnostics.Process]::Start($psi)
-        $brunning[$j.name] = @{ proc = $p; deadline = (Get-Date).AddSeconds(600) }
-    }
-    $bdone = @()
-    foreach ($name in @($brunning.Keys)) {
-        $h = $brunning[$name]
-        if ($h.proc.HasExited) {
-            if ($h.proc.ExitCode -ne 0) {
-                Write-Output ("BUILD FAILED: {0} (rc={1})" -f $name, $h.proc.ExitCode)
-                $buildFailed = $true
+# Generic bounded-parallel job runner: streams are drained async so a
+# chatty cl cannot deadlock on a full pipe; a failed job prints its
+# captured output.  .NET Process (not Start-Process) keeps ExitCode
+# reliably readable.
+function Invoke-JobFleet($jobs, $makeArgs, $timeoutSec) {
+    $q = [System.Collections.Generic.Queue[object]]::new()
+    foreach ($j in $jobs) { $q.Enqueue($j) }
+    $running = @{}
+    $failed = $false
+    while ($q.Count -gt 0 -or $running.Count -gt 0) {
+        while ($q.Count -gt 0 -and $running.Count -lt $MaxParallel) {
+            $j = $q.Dequeue()
+            $psi = [System.Diagnostics.ProcessStartInfo]::new(
+                $clExe, (& $makeArgs $j))
+            $psi.WorkingDirectory = $out
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $p = [System.Diagnostics.Process]::Start($psi)
+            $running[$j.name] = @{
+                proc = $p
+                deadline = (Get-Date).AddSeconds($timeoutSec)
+                outTask = $p.StandardOutput.ReadToEndAsync()
+                errTask = $p.StandardError.ReadToEndAsync()
             }
-            $bdone += $name
-        } elseif ((Get-Date) -gt $h.deadline) {
-            $h.proc.Kill()
-            Write-Output ("BUILD TIMEOUT: {0}" -f $name)
-            $buildFailed = $true
-            $bdone += $name
+        }
+        $done = @()
+        foreach ($name in @($running.Keys)) {
+            $h = $running[$name]
+            if ($h.proc.HasExited) {
+                if ($h.proc.ExitCode -ne 0) {
+                    # Write-Host, not Write-Output: anything emitted here
+                    # would enter the function's return pipeline and break
+                    # the caller's -not $ok check.
+                    Write-Host ("BUILD FAILED: {0} (rc={1})" -f $name, $h.proc.ExitCode)
+                    Write-Host ($h.outTask.Result + $h.errTask.Result)
+                    $failed = $true
+                }
+                $done += $name
+            } elseif ((Get-Date) -gt $h.deadline) {
+                $h.proc.Kill()
+                Write-Host ("BUILD TIMEOUT: {0}" -f $name)
+                $failed = $true
+                $done += $name
+            }
+        }
+        foreach ($name in $done) { $running.Remove($name) }
+        if ($done.Count -eq 0 -and $running.Count -gt 0) {
+            Start-Sleep -Milliseconds 150
         }
     }
-    foreach ($name in $bdone) { $brunning.Remove($name) }
-    if ($bdone.Count -eq 0 -and $brunning.Count -gt 0) {
-        Start-Sleep -Milliseconds 250
-    }
+    return -not $failed
 }
-if ($buildFailed) { Write-Output "BUILD FAILED"; exit 1 }
+
+$compileArgs = {
+    param($j)
+    $stdFlag = if ($j.std -eq "clatest") { "/std:clatest" } else { "/std:c++latest" }
+    $eh = if ($j.std -eq "clatest") { "" } else { " /EHsc" }
+    $defs = ($j.defines -join " ")
+    $incs = (($j.incs | ForEach-Object { "/I`"$_`"" }) -join " ")
+    return "/nologo $stdFlag /utf-8 /O2$eh $defs $incs /c /Fo`"$($j.obj)`" `"$($j.src)`""
+}
+$linkArgs = {
+    param($j)
+    $objArgs = (($j.objs | ForEach-Object { "`"$_`"" }) -join " ")
+    return "/nologo $objArgs /Fe`"$($j.exe)`""
+}
+
+if (-not (Invoke-JobFleet @($tuJobs.Values) $compileArgs 600)) {
+    Write-Output "BUILD FAILED"; exit 1
+}
+if (-not (Invoke-JobFleet $linkJobs $linkArgs 300)) {
+    Write-Output "BUILD FAILED"; exit 1
+}
 
 # Suite manifest for the C# TestSuiteOrchestrator (§10.60.1): the suite
 # list is discovered from THIS build manifest, never hardcoded.  Records
