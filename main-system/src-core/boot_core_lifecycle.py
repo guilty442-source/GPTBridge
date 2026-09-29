@@ -33,10 +33,10 @@ class BootCoreLifecycleMixin:
         self, args: list[str], startup_state: str = "", generation_id: str = "",
         backend_port: int | None = None,
     ) -> subprocess.Popen[bytes]:
+        # No -B: persist bytecode caches for fast restarts (mtime-safe).
         command = [
             self._python_executable(),
             "-u",
-            "-B",
             os.fspath(self.backend_entry),
             "--serve",
             *args,
@@ -159,10 +159,6 @@ class BootCoreLifecycleMixin:
                     line = raw.decode("utf-8", errors="replace").rstrip("\n\r")
                     with self._child_output_lock:
                         self._child_output.append(line)
-                        # Keep only the last 200 lines — enough for any
-                        # realistic traceback without unbounded memory.
-                        if len(self._child_output) > 200:
-                            del self._child_output[:100]
                 except Exception:
                     pass
                 try:
@@ -238,8 +234,6 @@ class BootCoreLifecycleMixin:
         try:
             with self._child_output_lock:
                 self._child_output.append(warning)
-                if len(self._child_output) > 200:
-                    del self._child_output[:100]
         except Exception:
             pass
 

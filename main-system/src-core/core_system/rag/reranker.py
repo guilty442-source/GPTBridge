@@ -22,7 +22,7 @@ from dataclasses import replace
 from typing import Any
 
 from .orchestration.evidence import RagEvidence
-from .pipeline_retrieval import RerankerFn  # noqa: F401  (contract anchor)
+from .pipeline import RerankerFn  # noqa: F401  (contract anchor)
 
 _logger = logging.getLogger(__name__)
 

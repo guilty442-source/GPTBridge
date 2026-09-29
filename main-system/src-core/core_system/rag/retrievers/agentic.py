@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from ..pipeline_retrieval import RerankerFn
+from ..pipeline import RerankerFn
 from .hybrid import HybridRetriever, HybridRetrievalRequest
 
 _logger = logging.getLogger("gptbridge.rag.agentic")

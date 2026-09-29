@@ -47,13 +47,44 @@ def _check_source_runtime_ready(
         return False
 
 
+def _native_ui_binary(project_root: Path, tool_id: str) -> Path | None:
+    """Registered native window surface for the tool (E180/C116).
+
+    ``config/native-ui-surfaces.json`` lists tools whose window is served
+    by a native Rust binary under the same ``--tool-window`` contract;
+    every other tool keeps the Tauri WebView2 renderer.
+    """
+    registry = (
+        project_root / "main-system" / "config" / "native-ui-surfaces.json"
+    )
+    try:
+        surfaces = json.loads(registry.read_text(encoding="utf-8")).get(
+            "surfaces"
+        ) or {}
+        binary = str(
+            (surfaces.get(tool_id) or {}).get("binary") or ""
+        ).strip()
+    except (OSError, ValueError):
+        return None
+    if not binary:
+        return None
+    target = project_root / "main-system" / "src-tauri" / "target"
+    for profile in ("release", "debug"):
+        candidate = target / profile / binary
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
 def _resolve_source_ui_paths(
     project_root: Path,
     tool_id: str,
 ) -> dict[str, Path]:
     """Resolve the renderer entry and the governed shell binary path.
 
-    Returns a dict with keys: renderer_entry, shell.
+    Returns a dict with keys: shell, and renderer_entry when the tool is
+    still served by the WebView2 renderer (tools with a registered native
+    surface carry no renderer entry).
 
     A618/A621/A625: the Rust/Tauri shell (``gptbridge-shell.exe
     --tool-window``) replaces the retired Electron host; the release build
@@ -61,6 +92,9 @@ def _resolve_source_ui_paths(
     fallback so a source checkout without ``--release`` still opens tool
     windows.
     """
+    native = _native_ui_binary(project_root, tool_id)
+    if native is not None:
+        return {"shell": native}
     renderer_entry = (
         project_root
         / "main-system"

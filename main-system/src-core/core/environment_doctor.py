@@ -4,7 +4,7 @@ This module provides the environment check and report functions.
 Implementation details live in submodules:
 
   * :mod:`core.environment_doctor_constants` — constants, helpers.
-  * :mod:`core.environment_doctor_tools` — independent tools, repair.
+  * :mod:`core.environment_doctor_tools` — independent tools.
 
 Windows background subprocess no-window flag: CREATE_NO_WINDOW.
 """
@@ -32,7 +32,6 @@ from .environment_doctor_constants import (
 from .environment_doctor_tools import (
     check_external_tools,
     check_independent_tools,
-    repair_electron_runtime,
 )
 
 
@@ -87,6 +86,20 @@ def check_python_modules(
 ) -> dict[str, Any]:
     required_modules = dict(required_modules or REQUIRED_PYTHON_MODULES)
     executable = Path(python_executable) if python_executable else default_python_executable(project_root)
+    if not required_modules and not OPTIONAL_PYTHON_MODULE_GROUPS:
+        # Python runtime retired (B167/B38): nothing to probe — report
+        # success without spawning or requiring a python executable.
+        return {
+            "ok": True,
+            "executable": str(executable),
+            "exists": executable.exists(),
+            "missing": [],
+            "modules": {},
+            "optional_modules": {},
+            "optional_missing": {},
+            "error": "",
+            "retired": True,
+        }
     if not executable.exists():
         return {
             "ok": False,
@@ -353,9 +366,9 @@ def _collect_recommendations(
 ) -> list[str]:
     recommendations: list[str] = []
     if requirements["missing"]:
-        recommendations.append("Add missing packages to requirements.txt and reinstall the virtual environment.")
+        recommendations.append("Reconcile requirements declarations with the governed toolchain manifest.")
     if python["missing"]:
-        recommendations.append("Run .venv\\Scripts\\python.exe -m pip install -r requirements.txt.")
+        recommendations.append("Python runtime is retired (B167/B38); route the capability to its governed native replacement.")
     if external["missing"]:
         recommendations.append(
             "Install missing external tools: " + ", ".join(external["missing"])
@@ -363,9 +376,8 @@ def _collect_recommendations(
     for group, missing_reqs in (python.get("optional_missing") or {}).items():
         if missing_reqs:
             recommendations.append(
-                f"Optional group '{group}' not installed: "
-                + ", ".join(missing_reqs)
-                + f" — pip install -e .[{group}] when needed."
+                f"Optional group '{group}' declared but absent — "
+                "acquire through the governed Winget channel."
             )
     if independent_tools["missing_entries"]:
         recommendations.append("Fix independent tool runtime.entry paths before packaging.")
@@ -401,5 +413,4 @@ __all__ = [
     "check_independent_tools",
     "collect_environment_report",
     "format_environment_report",
-    "repair_electron_runtime",
 ]

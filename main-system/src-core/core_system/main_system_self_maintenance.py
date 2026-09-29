@@ -321,10 +321,10 @@ class MainSystemSelfMaintenance:
             if not Path(interpreter).is_file():
                 interpreter = sys.executable
             try:
+                # No -B: recurring probes reuse bytecode caches.
                 result = subprocess.run(
                     [
                         interpreter,
-                        "-B",
                         "-m",
                         "tasks.source_repair",
                         "--syntax-scan",

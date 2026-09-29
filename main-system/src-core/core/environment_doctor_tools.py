@@ -173,24 +173,7 @@ def _check_tool(
     )
 
 
-def repair_electron_runtime(
-    project_root: str | os.PathLike[str] | None = None,
-) -> dict[str, Any]:
-    """Retired stub: Node/Electron repair removed with the Node toolchain.
-
-    The C# launcher bootstrap owns UI-runtime provisioning; this entry
-    point remains so existing ``doctor --fix-electron`` callers fail
-    closed with an explicit verdict instead of an ImportError.
-    """
-    return {
-        "ok": False,
-        "changed": False,
-        "method": "retired-node-runtime",
-    }
-
-
 __all__ = [
     "check_external_tools",
     "check_independent_tools",
-    "repair_electron_runtime",
 ]

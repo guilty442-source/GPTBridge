@@ -1,20 +1,4 @@
-# Runtime dependencies (main system) — Python ONLY for 治相關、決策與模型訓練 (all mechanical → C/C++/C#)
-# Heavy / mechanical deps (psutil/qdrant/websockets/torch etc.) are ON-DEMAND or C-native — NOT installed in resident venv
-psycopg[binary,pool]>=3.2,<4
-websockets>=12,<17
-
-# Test dependencies — retired: pytest/Python-test forbidden (codex
-# python-final-minimum-responsibility + test-framework-final-ownership).
-# Formal testing is native-runner only under TestSuiteOrchestrator.
-
-# Build dependencies
-pybind11>=2.13,<3
-pyinstaller==6.22.2
-setuptools>=75,<80
-
-# Local-model / standalone-tool dependencies — ON-DEMAND ONLY (not resident)
-# Install only when needed: `pip install -e .[local-model]` / `uv pip install -e .[local-model]`
-imageio-ffmpeg==0.6.0
-Pillow>=10.0,<14
-# B167/B38: numpy and JAX/XLA retired with zero source/dependency/
-# artifact/execution/fallback role and no transitional period.
+# Python runtime retired (B167/B38 — no transitional period): this file
+# carries zero dependency declarations. Python, NumPy and JAX have no
+# source/dependency/artifact/execution/fallback role; package
+# acquisition is governed through Winget only.

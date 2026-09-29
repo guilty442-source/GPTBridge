@@ -137,7 +137,8 @@ class LaunchMixin:
         environment = _build_source_ui_environment(
             environment, tool_id, tool_dir, manifest,
             expected_runtime_tool_id, runtime_environment,
-            ui_paths["renderer_entry"], self.project_root,
+            ui_paths.get("renderer_entry", ui_paths["shell"]),
+            self.project_root,
             self._workspace_instance_id(),
         )
         return await asyncio.create_subprocess_exec(

@@ -36,50 +36,30 @@ REQUIRED_WORKSPACE_PATHS: tuple[str, ...] = (
     "governance_rule/permission_directory/directory_authority.py",
 )
 
-# Runtime dependencies — the main-system venv MUST have these (pyproject
-# ``dependencies``).  Everything else moved to optional extras when the
-# dependency tree was slimmed; the doctor reports their presence without
-# failing the environment on their absence.
-REQUIRED_PYTHON_MODULES: dict[str, str] = {
-    "psycopg": "psycopg",
-    "websockets": "websockets",
-}
-
-# Optional extra groups (pyproject ``[project.optional-dependencies]``).
-OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {
-    "test": {
-        "pytest": "pytest",
-        "pytest-asyncio": "pytest_asyncio",
-    },
-    "build": {
-        "pybind11": "pybind11",
-        "pyinstaller": "PyInstaller",
-        "setuptools": "setuptools",
-    },
-    "local-model": {
-        "imageio-ffmpeg": "imageio_ffmpeg",
-        "pillow": "PIL",
-    },
-}
+# Python runtime retired (B167/B38 — no transitional period): there are
+# no required or optional Python modules to probe.  The dicts stay as
+# empty constants so the doctor report shape is unchanged for callers.
+REQUIRED_PYTHON_MODULES: dict[str, str] = {}
+OPTIONAL_PYTHON_MODULE_GROUPS: dict[str, dict[str, str]] = {}
 
 # External system-level tools the project depends on at runtime or build
-# time.  These are NOT Python packages (those are in REQUIRED_PYTHON_MODULES)
-# and NOT codex formal tools (those are declared in A49/E35).  Each entry
-# maps the tool name to its command-line probe (``shutil.which``).
+# time.  These are NOT Python packages and NOT codex formal tools (those
+# are declared in A49/E35).  Each entry maps the tool name to its
+# command-line probe (``shutil.which``).  Python itself is retired and
+# intentionally not probed.
 REQUIRED_EXTERNAL_TOOLS: dict[str, str] = {
     "git": "git",
-    "python": "python",
 }
 
 # Optional external tools — the project degrades gracefully when these
 # are unavailable, but they should be listed so the doctor can report
-# their presence/absence.
+# their presence/absence.  playwright (embedded browser) and the Python
+# package toolchain are retired and intentionally absent.
 OPTIONAL_EXTERNAL_TOOLS: dict[str, str] = {
     "ollama": "ollama",
-    "playwright": "playwright",
     "cl": "cl",            # MSVC C++ compiler (build-time only)
     "nvidia-smi": "nvidia-smi",  # CUDA / GPU (optional acceleration)
-    "ffmpeg": "ffmpeg",    # Standalone ffmpeg; imageio-ffmpeg bundles its own
+    "ffmpeg": "ffmpeg",    # Standalone ffmpeg for media tooling
 }
 
 

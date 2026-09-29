@@ -74,7 +74,6 @@ from packager_metadata import (  # noqa: E402,F401
 # -- packager_renderer --
 from packager_renderer import (  # noqa: E402,F401
     build_platform_renderer,
-    npx_command,
     renderer_output_dir,
 )
 

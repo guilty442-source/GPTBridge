@@ -106,8 +106,9 @@ class SpawnProcessMixin:
                     if is_native_entry:
                         spawn_argv = [str(source_entry), *args]
                     else:
+                        # No -B: persist bytecode caches for fast restarts.
                         spawn_argv = [
-                            str(python_executable), "-B", "-s", "-E", "-X",
+                            str(python_executable), "-s", "-E", "-X",
                             "utf8", str(source_entry), *args,
                         ]
                     process = await asyncio.create_subprocess_exec(
