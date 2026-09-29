@@ -427,7 +427,19 @@ internal sealed class CodexAmendmentRequestLedger
             ? new Dictionary<string, object?>()
             : new Dictionary<string, object?>(evidence);
         payload["reason"] = reason;
-        return Transition(requestId, Lifecycle.StateRejected, payload);
+        try
+        {
+            return Transition(requestId, Lifecycle.StateRejected,
+                payload);
+        }
+        catch (AmendmentLifecycleError error)
+            when (error.Code == "REQUEST_STATE_TERMINAL")
+        {
+            // A concurrent lane can reach the terminal verdict first
+            // (watcher + CLI on the same request).  The recorded
+            // terminal state stands; a second rejection adds nothing.
+            return RecordFromPayload(LoadRecordRequired(requestId));
+        }
     }
 
     private LifecycleRecord RecordFromPayload(
