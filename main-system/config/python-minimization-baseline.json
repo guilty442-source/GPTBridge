@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 12,
-    "measured_at": "2026-09-28T23:45:00+08:00",
+    "contract_revision": 13,
+    "measured_at": "2026-09-29T10:30:00+08:00",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -63,12 +63,15 @@
     ],
     "adjudications_rev11": [
       "GOVERNANCE loc 66398->67125 (+727): operator-governor directed interim re-anchor; export_audit_manifest.py native-migration check-emission growth — codex-mandated audit machinery, same class as adjudications_rev6/rev8; only-tighten resumes"
+    ],
+    "adjudications_rev12": [
+      "rev13 tighten (measured, downward-only): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed — modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval/native_eval_suite + eval/* retired; TRAINING 7/1920 -> 3/644; GENERAL_APP 528/104834 -> 525/103264; BUSINESS 229/41131 -> 41109; PROC_MGMT 59/15903 -> 15896; GOVERNANCE allowed_zones 67125 -> 67056 aligned with zero_targets. 30->72 retired_sources.json file-not-exists pins now guard resurrection."
     ]
   },
   "zero_targets": {
     "INFERENCE": {
-      "files": 48,
-      "loc": 12708
+      "files": 14,
+      "loc": 6423
     },
     "RAG": {
       "files": 90,
@@ -84,7 +87,7 @@
     },
     "PROC_MGMT": {
       "files": 59,
-      "loc": 15903
+      "loc": 15896
     },
     "FILE_IO": {
       "files": 98,
@@ -96,11 +99,11 @@
     },
     "BUSINESS": {
       "files": 229,
-      "loc": 41131
+      "loc": 41109
     },
     "GENERAL_APP": {
-      "files": 528,
-      "loc": 104834
+      "files": 525,
+      "loc": 103264
     },
     "GOVERNANCE": {
       "files": 246,
@@ -111,13 +114,13 @@
   "allowed_zones": {
     "GOVERNANCE": {
       "files": 246,
-      "loc": 67125,
+      "loc": 67056,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {
-      "files": 7,
-      "loc": 1920,
-      "policy": "misclassified-live-surfaces-only; executor/framework retired per B167/B38"
+      "files": 3,
+      "loc": 644,
+      "policy": "misclassified-live-surfaces-only; executor/framework retired per B167/B38/E180"
     },
     "VERIFICATION": {
       "files": 0,
@@ -415,6 +418,6 @@
     },
     "fallback_bucket": "GENERAL_APP"
   },
-  "baseline_rev": "rev12-pyret-training-retired",
-  "revision_note": "rev12 tighten (measured): TRAINING 26/8972 -> 7/1920 (-19f/-7052): B167/B38 sealed — JAX/XLA+PyTorch retired zero-role no-transition; deleted jax_backend(4)+training/(11)+self_learning(2)+maturity+training_job_executor/worker+self_learning_driver; local_ai_training mixin removed and severed from service/commands/lifecycle/teaching/infer paths; manifest jax-sft checks retired; requirements unpinned jax+numpy. Remaining 7 TRAINING files are misclassified live surfaces (tokenizer/bpe/endpoint/dataset-bridges data plumbing, no framework). GENERAL_APP 531->528/104834, GOVERNANCE 246/67056, BUSINESS 229/41131, PROC_MGMT 59/15903, INFERENCE 48/12708 — worker flows + retirement cuts. Downward-only."
+  "baseline_rev": "rev13-pyret-inference-stack",
+  "revision_note": "rev13 tighten (measured): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed in 65de5d44 — native_transformer modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval, native_eval_suite, eval/*, training_repo_schema, adapter_registry, repository_audit/jobs all retired; native_engine.py is now a control-plane shim over cpp_runtime only. TRAINING 7/1920 -> 3/644, GENERAL_APP 528/104834 -> 525/103264, BUSINESS 229/41131 -> 41109, PROC_MGMT 59/15903 -> 15896, GOVERNANCE allowed_zones 67125 -> 67056 (aligned with zero_targets). Retired-source resurrection pins: retired_sources.json now 72 paths incl. all E180 deletions. Downward-only."
 }
