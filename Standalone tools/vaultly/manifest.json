@@ -41,7 +41,7 @@
   },
   "capabilities": {},
   "automation": {
-    "entry": "src/backend/services/vaultly/application/vaultly_scan.py",
+    "retired_entry": "src/backend/services/vaultly/application/vaultly_scan.py",
     "class": "VaultlyScanMixin",
     "method": "_auto_scan_loop",
     "enabled": false,

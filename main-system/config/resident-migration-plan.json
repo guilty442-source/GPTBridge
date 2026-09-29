@@ -1,7 +1,7 @@
 {
   "schema": "resident-migration-plan/v1",
   "generated_at_utc": "2026-09-23T05:45Z",
-  "note": "Per blueprint G100 / WP-B: mechanical work migrates from resident Python to C/C++/C# primary; Python retains governance semantics only",
+  "note": "Per blueprint G100 / WP-B: mechanical work migrates from resident Python to C/C++/C# primary. COMPLETED 2026-09-29: Python lane fully retired (B166/B167/B38) — Python retains nothing; the 'current' fields are the historical pre-migration state at plan time",
   "mappings": [
     {
       "component": "ipc_server",
