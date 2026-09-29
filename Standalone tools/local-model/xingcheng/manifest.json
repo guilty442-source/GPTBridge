@@ -47,7 +47,7 @@
       "separate-settings-layer"
     ]
   },
-  "runtime": {    "type": "retired-python",    "retired_entry": "src/channel_runtime.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry — absent until the native tool host is built, so it fails closed (TOOL_RUNTIME_RETIRED:python-entry-pending-native-host)",    "workingDirectory": "."  },
+  "runtime": {    "type": "native-model-service",    "service_contract": "star-model-service-descriptor/v1",    "descriptor": "xingcheng/runtime/ipc/model-service.json",    "worker_entry": "src/backend/services/xingcheng/infrastructure/native_transformer/tools/xc_modeltool.exe",    "worker_mode": "serve --bundle <runtime/settings/native-engine.json::checkpoint>",    "lifecycle_owner": "local-model/toolhost-model-service",    "consumer_policy": "csharp-orchestrator-client-only",    "retired_entry": "src/channel_runtime.py",    "note": "Xingcheng is the local native model: the C++ xc_modeltool serve worker holds the engine in its own process (B81 separate process/lifecycle); the local-model governed ToolHost owns the authenticated loopback /v1/* surface and publishes this descriptor contract.",    "workingDirectory": "."  },
   "distribution": {
     "mode": "special-unpackaged",
     "package": false
