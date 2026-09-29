@@ -164,8 +164,8 @@
       "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
       "mechanism": "generation/heartbeat/backpressure/outbox/ack/cursor",
       "owner": "shared-layer",
-      "contract_ref": "shared-layer/src/shared_layer/channel_runtime.py",
-      "files": ["shared-layer/src/shared_layer/channel_runtime.py", "native/tool_runtime/channel_runtime.cpp", "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/A263Channel.cs"]
+      "contract_ref": "native/include/channel_runtime.h",
+      "files": ["native/include/channel_runtime.h", "native/include/a263_channel_core.h", "native/core/a263_channel_core.c", "native/tool_runtime/channel_runtime.cpp", "native/tool_runtime/channel_runtime_loops.cpp", "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/A263Channel.cs"]
     },
     {
       "id": "vectord-http",

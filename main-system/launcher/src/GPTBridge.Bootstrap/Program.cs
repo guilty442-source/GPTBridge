@@ -13,10 +13,11 @@
 //     on filesystem enumeration order. This changes the fingerprint value
 //     once on cutover (one rebuild), then stays stable.
 //
-// Bounded delegation preserved by design: the governed MigrationRunner
-// (migration_autostart.py) and the installer (install.py) stay in their
-// owning runtimes — the entry orchestrates them, it does not re-implement
-// governed internals.
+// Python lane fully retired (B167/B38): the renderer build and the
+// desktop installer run in-process in this assembly; the governed
+// MigrationRunner lane reports runner-retired until a native owner is
+// designated — the entry orchestrates, it does not re-implement governed
+// internals.
 
 using System.Diagnostics;
 using System.Security.Cryptography;
@@ -90,7 +91,8 @@ internal static partial class Program
         Path.Combine(StateRoot, "startup-journal.jsonl");
 
     // Sources feeding the desktop bootstrap refresh fingerprint; keep in
-    // sync with install.py and scripts/start.py.  The orchestrator's own
+    // sync with the native install lane (Program.Install.cs).  The
+    // orchestrator's own
     // sources are included so an entry change triggers the same reinstall
     // (which republishes launcher/bin/GPTBridge.Bootstrap.exe).
     private static readonly string[] LauncherBuildSources =
@@ -98,6 +100,7 @@ internal static partial class Program
         "src/GPTBridgeLauncher.cpp",
         "src/GPTBridgeLauncher.cs",
         "src/GPTBridge.Bootstrap/Program.cs",
+        "src/GPTBridge.Bootstrap/Program.Install.cs",
         "src/GPTBridge.Bootstrap/Program.RendererBuild.cs",
         "src/GPTBridge.Bootstrap/GPTBridge.Bootstrap.csproj",
     };
@@ -147,6 +150,16 @@ internal static partial class Program
         Environment.SetEnvironmentVariable(
             "GPTBRIDGE_PROJECT_ROOT", WorkspaceRoot);
         Environment.SetEnvironmentVariable("NODE_ENV", "production");
+
+        // Detached self-install spawned by RefreshDesktopLauncher: runs
+        // outside the launch mutex (the refresh lock single-flights it),
+        // so it is never blocked by a parent holding the mutex.
+        if (args.Contains("--install-desktop"))
+        {
+            LoadUserEnvVars();
+            Directory.CreateDirectory(StateRoot);
+            return InstallDesktopLauncher();
+        }
 
         // Real named mutex — one launcher preparation at a time.
         using var mutex = new Mutex(initiallyOwned: true, MutexName,

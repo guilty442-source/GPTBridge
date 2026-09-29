@@ -1,0 +1,33 @@
+{
+  "CORE_BUDGET_CAP": 5,
+  "WORKLOAD_CLASSES": [
+    "interactive",
+    "model",
+    "rag",
+    "network",
+    "batch",
+    "maintenance",
+    "training",
+    "verification"
+  ],
+  "THREAD_ENV_VARS": [
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS"
+  ],
+  "__all__": [
+    "CORE_BUDGET_CAP",
+    "THREAD_ENV_VARS",
+    "WORKLOAD_CLASSES",
+    "allocation_within_budget",
+    "apply_thread_env",
+    "bounded_threads",
+    "bounded_workers",
+    "core_budget",
+    "logical_cores",
+    "thread_env",
+    "workload_paused",
+    "workload_quota"
+  ]
+}

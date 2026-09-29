@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window and its child webviews.",
+  "windows": ["main"],
+  "webviews": ["main"],
+  "local": true,
+  "permissions": [
+    "core:default",
+    "allow-gptbridge-invoke"
+  ]
+}

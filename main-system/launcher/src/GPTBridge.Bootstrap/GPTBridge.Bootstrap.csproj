@@ -11,7 +11,7 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- Release publish: R2R precompiles IL to native images for faster
          startup; effective only when a RID is supplied at publish time
-         (install.py passes -r win-x64). -->
+         (the native install lane passes -r win-x64). -->
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 

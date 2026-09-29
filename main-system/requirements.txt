@@ -1,4 +1,0 @@
-# Python runtime retired (B167/B38 — no transitional period): this file
-# carries zero dependency declarations. Python, NumPy and JAX have no
-# source/dependency/artifact/execution/fallback role; package
-# acquisition is governed through Winget only.

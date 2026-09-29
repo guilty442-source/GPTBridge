@@ -141,7 +141,7 @@ internal static partial class ManifestExport
         // --- check_formal_rules ------------------------------------------
         TablePresent(ctx, "formal_rule_registry");
         const string evaluatorsSrc =
-            "governance_rule/execution/formal_rules/evaluators.py";
+            "governance_rule/execution/formal_rules/evaluators.json";
         foreach (var frule in TableRows(ctx, "formal_rule_registry"))
         {
             var code = frule["rule_code"]?.GetValue<string>() ?? "";
@@ -206,29 +206,29 @@ internal static partial class ManifestExport
                 new[] { $"obligation_code={rcode}" });
 
         // --- authority policy family -------------------------------------
-        var policySrc = "governance_rule/governance_policy.py";
+        var policySrc = "governance_rule/governance_policy.json";
         var dirSrc =
-            "governance_rule/permission_directory/directory_authority.py";
-        var codeSrc = "governance_rule/code_rule_directory.py";
+            "governance_rule/permission_directory/directory_authority.json";
+        var codeSrc = "governance_rule/code_rule_directory.json";
 
         e.Contains("authority-policy:policy", policySrc, new[]
         {
-            $"authority=\"{ctx.PolicyStr("authority")}\"",
-            $"top_level_rule=\"{ctx.PolicyStr("top_level_rule")}\"",
-            $"governance_rule_count=" +
+            $"\"authority\": \"{ctx.PolicyStr("authority")}\"",
+            $"\"top_level_rule\": \"{ctx.PolicyStr("top_level_rule")}\"",
+            $"\"governance_rule_count\": " +
             $"{(ctx.PolicyCall?.Kw.FirstOrDefault(k => k.Name ==
                 "governance_rule_count").Val is PyLit.Num n
                 ? (int)n.N : 1)}",
-            "governance_rule_partitioning=False",
-            "subordinate_governance_rule_definition=False",
-            $"permission_hierarchy_role=" +
+            "\"governance_rule_partitioning\": false",
+            "\"subordinate_governance_rule_definition\": false",
+            $"\"permission_hierarchy_role\": " +
             $"\"{ctx.PolicyStr("permission_hierarchy_role")}\"",
         });
         e.Contains("authority-policy:directory", dirSrc, new[]
         {
-            "permission_hierarchy_role=" +
+            "\"permission_hierarchy_role\": " +
             "\"subordinate-read-only-permission-directory\"",
-            $"current_version=" +
+            $"\"current_version\": " +
             $"{(ctx.PolicyCall?.Kw.FirstOrDefault(k => k.Name ==
                 "authority_version").Val is PyLit.Num av
                 ? (int)av.N : 1)}",
@@ -236,28 +236,28 @@ internal static partial class ManifestExport
         e.Contains("authority-policy:code-rules", codeSrc, new[]
         {
             "\"codex-v1.32010-is-sole-rule-source\"",
-            $"governing_source=" +
+            $"\"governing_source\": " +
             $"\"{ctx.PolicyStrings("governance_rule_sources")
                 .FirstOrDefault() ?? ""}\"",
-            "independent_authority=False",
-            "runtime_write_allowed=False",
-            $"canonical_project_root=" +
+            "\"independent_authority\": false",
+            "\"runtime_write_allowed\": false",
+            $"\"canonical_project_root\": " +
             $"\"{KwStr(ctx.PolicyKw("code_architecture"),
                 "all_source_code_root") ?? "E:/GPTBridge"}\"",
         });
         var resp = ctx.PolicyKw("system_responsibilities");
         e.Contains("authority-policy:responsibilities", policySrc, new[]
         {
-            $"git=\"{KwStr(resp, "git")}\"",
-            $"sql=\"{KwStr(resp, "sql")}\"",
-            $"vector_rag=\"{KwStr(resp, "vector_rag")}\"",
-            $"local_vector_fallback=" +
+            $"\"git\": \"{KwStr(resp, "git")}\"",
+            $"\"sql\": \"{KwStr(resp, "sql")}\"",
+            $"\"vector_rag\": \"{KwStr(resp, "vector_rag")}\"",
+            $"\"local_vector_fallback\": " +
             $"\"{KwStr(resp, "local_vector_fallback")}\"",
-            $"llm=\"{KwStr(resp, "llm")}\"",
-            $"separation=\"{KwStr(resp, "separation")}\"",
-            $"governed_flow=\"{KwStr(resp, "governed_flow")}\"",
-            $"management_owner=\"{KwStr(resp, "management_owner")}\"",
-            "llm_inference_as_source_of_truth=False",
+            $"\"llm\": \"{KwStr(resp, "llm")}\"",
+            $"\"separation\": \"{KwStr(resp, "separation")}\"",
+            $"\"governed_flow\": \"{KwStr(resp, "governed_flow")}\"",
+            $"\"management_owner\": \"{KwStr(resp, "management_owner")}\"",
+            "\"llm_inference_as_source_of_truth\": false",
         });
 
         var directoryShared = ctx.Directory is not null
@@ -267,90 +267,88 @@ internal static partial class ManifestExport
         var activation = ctx.PolicyKw("activation");
         e.Contains("shared-layer-policy:directory", dirSrc, new[]
         {
-            $"module_root=\"{KwStr(directoryShared, "module_root")}\"",
-            "jurisdiction=\"governance-policy-only\"",
-            "main_system_module_member=False",
-            "token_required=True", "database_only=True",
-            "source_write=False", "direct_data_write=False",
-            "executable_content=False",
-            "direct_process_instruction=False",
-            "unchanneled_instruction=\"PERMISSION_DENIED\"",
-            $"database_path=\"{KwStr(directoryShared, "database_path")}\"",
-            $"ai_database_path=" +
+            $"\"module_root\": \"{KwStr(directoryShared, "module_root")}\"",
+            "\"jurisdiction\": \"governance-policy-only\"",
+            "\"main_system_module_member\": false",
+            "\"token_required\": true", "\"database_only\": true",
+            "\"source_write\": false", "\"direct_data_write\": false",
+            "\"executable_content\": false",
+            "\"direct_process_instruction\": false",
+            "\"unchanneled_instruction\": \"PERMISSION_DENIED\"",
+            $"\"database_path\": \"{KwStr(directoryShared, "database_path")}\"",
+            $"\"ai_database_path\": " +
             $"\"{KwStr(directoryShared, "ai_database_path")}\"",
         });
         e.Contains("shared-layer-policy:activation", policySrc, new[]
         {
-            "default_active=True",
-            $"activation_order=\"{KwStr(activation, "activation_order")}\"",
-            "direct_load_required=True",
-            "independent_tool_packaging_exception=" +
+            "\"default_active\": true",
+            $"\"activation_order\": \"{KwStr(activation, "activation_order")}\"",
+            "\"direct_load_required\": true",
+            "\"independent_tool_packaging_exception\": " +
             $"\"{KwStr(activation,
                 "independent_tool_packaging_exception")}\"",
-            "packaged_executable_allowed=False",
-            $"execution_access=" +
+            "\"packaged_executable_allowed\": false",
+            $"\"execution_access\": " +
             $"\"{KwStr(activation, "execution_access")}\"",
-            "encapsulation_allowed=False",
-            "optional=False", "stop_permission=False",
-            "disable_permission=False", "unload_permission=False",
-            $"lifetime=\"{KwStr(activation, "lifetime")}\"",
-            $"main_system_start_failure=" +
+            "\"encapsulation_allowed\": false",
+            "\"optional\": false", "\"stop_permission\": false",
+            "\"disable_permission\": false", "\"unload_permission\": false",
+            $"\"lifetime\": \"{KwStr(activation, "lifetime")}\"",
+            $"\"main_system_start_failure\": " +
             $"\"{KwStr(activation, "main_system_start_failure")}\"",
-            "main_system_repair_authority=\"governance-policy-only\"",
-            $"main_system_repair_scope=" +
+            "\"main_system_repair_authority\": \"governance-policy-only\"",
+            $"\"main_system_repair_scope\": " +
             $"\"{KwStr(activation, "main_system_repair_scope")}\"",
-            "repair_completion_gate=" +
+            "\"repair_completion_gate\": " +
             "\"governance-reverify-before-normal-mode\"",
         });
         e.Contains("shared-layer-policy:directory-lifecycle", dirSrc, new[]
         {
-            "governance_default_active=True",
-            $"governance_activation_order=" +
+            "\"governance_default_active\": true",
+            $"\"governance_activation_order\": " +
             $"\"{KwStr(activation, "activation_order")}\"",
-            "governance_direct_load=True",
-            "governance_packaged_executable_allowed=False",
-            $"governance_execution_access=" +
+            "\"governance_direct_load\": true",
+            "\"governance_packaged_executable_allowed\": false",
+            $"\"governance_execution_access\": " +
             $"\"{KwStr(activation, "execution_access")}\"",
-            "governance_encapsulation_allowed=False",
-            "governance_stop_permission=False",
-            "governance_disable_permission=False",
-            "governance_unload_permission=False",
+            "\"governance_encapsulation_allowed\": false",
+            "\"governance_stop_permission\": false",
+            "\"governance_disable_permission\": false",
+            "\"governance_unload_permission\": false",
         });
         e.Contains("shared-layer-policy:labels", policySrc, new[]
         {
-            "aliases_allowed=False", "category_labels_allowed=False",
+            "\"aliases_allowed\": false", "\"category_labels_allowed\": false",
         });
         e.NotContains("shared-layer-policy:no-categories", codeSrc,
-            new[] { "category_labels=True" });
+            new[] { "\"category_labels\": true" });
 
         var repair = ctx.PolicyKw("automatic_repair");
         e.Contains("repair-policy:policy", policySrc, new[]
         {
-            "backup_assistance_allowed=True",
-            $"backup_owner=\"{KwStr(repair, "backup_owner")}\"",
-            "direct_backup_access=False",
-            $"backup_request_channel=" +
+            "\"backup_assistance_allowed\": true",
+            $"\"backup_owner\": \"{KwStr(repair, "backup_owner")}\"",
+            "\"direct_backup_access\": false",
+            $"\"backup_request_channel\": " +
             $"\"{KwStr(repair, "backup_request_channel")}\"",
-            "authorization_per_step=True",
-            "authority_restore_from_backup=False",
+            "\"authorization_per_step\": true",
+            "\"authority_restore_from_backup\": false",
         });
         e.Contains("repair-policy:boundaries",
             "governance_rule/permission_directory/registries/" +
-            "permissions/capability_boundaries.py",
+            "permissions/capability_boundaries.json",
             new[] { "automatic-repair" });
 
         // --- identity / permission family --------------------------------
         var ipSrc = "governance_rule/permission_directory/registries/" +
-                    "permissions/identity_permissions.py";
+                    "permissions/identity_permissions.json";
         var cbSrc = "governance_rule/permission_directory/registries/" +
-                    "permissions/capability_boundaries.py";
+                    "permissions/capability_boundaries.json";
         var registryDir = Rel(root,
             "governance_rule/permission_directory/registries");
         var registryFiles = Directory.Exists(registryDir)
-            ? Directory.EnumerateFiles(registryDir, "*.py",
+            ? Directory.EnumerateFiles(registryDir, "*.json",
                   SearchOption.AllDirectories)
-                .Where(p => !p.Split(Path.DirectorySeparatorChar)
-                    .Contains("__pycache__"))
                 .OrderBy(p => p, StringComparer.Ordinal).ToList()
             : new List<string>();
 
@@ -376,20 +374,20 @@ internal static partial class ManifestExport
         foreach (var ident in ctx.Identities)
         {
             LiteralAssert($"identity:actor:{ident.Actor}",
-                $"actor=\"{ident.Actor}\"");
+                $"\"actor\": \"{ident.Actor}\"");
             LiteralAssert($"identity:code:{ident.Actor}",
-                $"identity_code=\"{ident.Code}\"");
+                $"\"identity_code\": \"{ident.Code}\"");
             if (ident.BoundToolId.Length > 0)
                 LiteralAssert($"identity:tool:{ident.Actor}",
                     $"\"{ident.BoundToolId}\"");
             if (ident.Lifecycle != "active")
                 LiteralAssert($"identity:lifecycle:{ident.Actor}",
-                    $"lifecycle=\"{ident.Lifecycle}\"");
+                    $"\"lifecycle\": \"{ident.Lifecycle}\"");
         }
         foreach (var (actor, caps) in ctx.Bindings)
         {
             LiteralAssert($"binding:actor:{actor}",
-                $"actor=\"{actor}\"");
+                $"\"actor\": \"{actor}\"");
             foreach (var cap in caps)
                 LiteralAssert($"binding:cap:{actor}:{cap}", $"\"{cap}\"");
         }
@@ -425,7 +423,7 @@ internal static partial class ManifestExport
                 || retiredIds.Contains(tid))
                 continue;
             LiteralAssert($"tool-identity:{tid}",
-                $"actor=\"governance/tool/{tid}\"");
+                $"\"actor\": \"governance/tool/{tid}\"");
             e.Contains($"tool-approved:{tid}", codeSrc,
                 new[] { $"\"{tid}\"" });
         }

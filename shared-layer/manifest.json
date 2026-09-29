@@ -21,13 +21,14 @@
     "database_scope": "tool-database-only"
   },
   "runtime": {
-    "type": "python",
-    "entry": "src/channel_runtime.py",
+    "type": "csharp",
+    "entry": "csharp/GPTBridge.ChannelHost/publish/GPTBridge.ChannelHost.exe",
+    "native_entry": "csharp/GPTBridge.ChannelHost/publish/GPTBridge.ChannelHost.exe",
     "workingDirectory": "."
   },
   "request_channel": {
     "model": "governance-authenticated-shared-layer",
-    "runtime_entry": "src/channel_runtime.py",
+    "runtime_entry": "shared-layer/csharp/GPTBridge.ChannelHost/publish/GPTBridge.ChannelHost.exe",
     "direct_instruction": "PERMISSION_DENIED"
   },
   "distribution": {

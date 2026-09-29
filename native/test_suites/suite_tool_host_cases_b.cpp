@@ -336,15 +336,18 @@ void run_cases_b() {
         proxy.enqueue_request("r-wake", "echo");
         const auto t0 = std::chrono::steady_clock::now();
         bool responded = false;
+        /* 兩條件共用同一 1.5s 預算：探針在 deadline==probe 週期重合時
+           於次一空轉入口才計數，respond 後單次取樣在並行閘門高負載
+           下會搶先於探針（flaky）。有界輪詢保留斷言強度。 */
         while (std::chrono::steady_clock::now() - t0 <
                std::chrono::milliseconds(1500)) {
             {
                 std::lock_guard<std::mutex> lk(proxy.mu);
-                if (!proxy.responded.empty()) {
-                    responded = true;
-                    break;
-                }
+                responded = !proxy.responded.empty();
             }
+            if (responded &&
+                proxy.stamp_probes.load() > probes_before)
+                break;
             Sleep(10);
         }
         NT_CHECK(proxy.stamp_probes.load() > probes_before,

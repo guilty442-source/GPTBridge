@@ -1,0 +1,31 @@
+{
+  "Usage": {
+    "$call": "scan_orphans",
+    "$args": [
+      {
+        "$ref": "conn"
+      }
+    ],
+    "$kw": {
+      "vector": {
+        "$ref": "vector_adapter"
+      }
+    }
+  },
+  "_ORPHAN_LOCATOR": [
+    "SELECT r.resource_id, r.module_id FROM gptbridge_index.resource r LEFT JOIN registry.locations loc ON loc.resource_id = r.resource_id WHERE loc.locator_id IS NULL AND r.deletion_stage = \u0027active\u0027"
+  ],
+  "_ORPHAN_VECTOR": [
+    "SELECT s.resource_id, s.module_id, s.vector_collection FROM gptbridge_rag.index_state s LEFT JOIN gptbridge_rag.chunk c ON c.resource_id = s.resource_id WHERE c.chunk_id IS NULL AND s.status = \u0027indexed\u0027 AND s.deletion_stage = \u0027active\u0027"
+  ],
+  "_STALE_RESOURCE": [
+    "SELECT resource_id, module_id, version, backend_generation FROM gptbridge_index.resource WHERE stale = true AND deletion_stage = \u0027active\u0027"
+  ],
+  "_PG_CHUNK_KEYS": [
+    "SELECT DISTINCT resource_id FROM gptbridge_rag.chunk"
+  ],
+  "__all__": [
+    "OrphanScanReport",
+    "scan_orphans"
+  ]
+}

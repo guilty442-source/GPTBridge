@@ -93,7 +93,7 @@
       "target_framework": "net10.0",
       "release_output": "Standalone tools/business-logic-csharp/StarBusinessHost/bin/Release/net10.0",
       "contract": "star-model-service/v1",
-      "lifecycle_owner": "local-model/channel_runtime.py",
+      "lifecycle_owner": "shared-layer/csharp/GPTBridge.ChannelHost",
       "consumer_role": "csharp-orchestrator-client-only",
       "start_policy": "owner-starts-and-stops",
       "source_tree_runtime": false
@@ -225,14 +225,14 @@
       "evidence": "session_identity/generation/rotation/dsn_policy contract modules (A087)"
     },
     {
-      "path": "shared-layer/src/shared_layer/channel.py",
+      "path": "shared-layer/csharp/GPTBridge.ChannelHost",
       "class": "SHARED_SERVICE",
-      "evidence": "SharedLayerChannel authenticated entry; single owner (A263)"
+      "evidence": "governed resident channel host exe; SharedLayerChannel authenticated entry superseded (A263)"
     },
     {
-      "path": "shared-layer/src/shared_layer/channel_runtime.py",
+      "path": "shared-layer/csharp/GPTBridge.Channels",
       "class": "SHARED_SERVICE",
-      "evidence": "A263 information-layer channel runtime; one resident instance"
+      "evidence": "A263 information-layer channel runtime (canonical C# owner); one resident instance"
     },
     {
       "path": "shared-layer/src/shared_layer/store.py",
@@ -441,7 +441,7 @@
   "config_contract": {
     "required_files": {
       "main-system/config/tool-runtime-contract.json": "4677327c3aa089799b8d4b719c0c061a87a2b862c05949aae8b75f4754c57318",
-      "main-system/config/tool-isolation-policy.json": "608838c12ab8f2504d8818f7567918b0e32bd0cc0cdd82ed423de9bffa441205",
+      "main-system/config/tool-isolation-policy.json": "caaf5cd5f154399d4b105cc9b546cffb65647155122564aaf2ca162535fe944c",
       "main-system/config/startup_manifest.json": "d6822763e8a4710f80e8704552969ad08c8ce996d806834af8938414208955bb",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",

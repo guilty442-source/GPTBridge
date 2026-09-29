@@ -1,0 +1,9 @@
+{
+  "else": {
+    "$ref": "_RUNTIME_ROOT"
+  },
+  "_prefetch_thread": {
+    "$ref": "threading.Thread"
+  },
+  "LAUNCHER_ATTESTATION_MARKER": "MainSystemGovernance.from_environment"
+}

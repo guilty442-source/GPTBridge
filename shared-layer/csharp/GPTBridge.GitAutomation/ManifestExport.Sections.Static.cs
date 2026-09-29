@@ -11,31 +11,28 @@ internal static partial class ManifestExport
         var e = ctx.E;
         var root = ctx.Root;
 
-        e.Contains("metadata-contract:fields",
-            "shared-layer/src/shared_layer/metadata_contract.py",
-            new[]
-            {
-                "FIELD_MODULE_ID", "FIELD_RESOURCE_ID", "FIELD_LOCATOR_ID",
-                "FIELD_VERSION", "FIELD_CONTENT_HASH", "FIELD_UPDATED_AT",
-                "FIELD_STATUS", "ResourceMetadata",
-                "validate_vector_payload",
-            });
+        e.Emit("metadata-contract:retired", "file-not-exists",
+            "shared-layer/src/shared_layer/metadata_contract.py");
         e.Emit("metadata-contract:ownership-doc", "file-exists",
             "shared-layer/docs/DATA_OWNERSHIP_CONTRACT.md");
 
         var shared = ctx.PolicyKw("shared_layer");
+        //  source_root (shared-layer/src) is the retired Python root —
+        //  it must NOT be required to exist; the never-reappear pins
+        //  below keep governing it.
         foreach (var relative in new[]
                  {
                      KwStr(shared, "module_root"),
-                     KwStr(shared, "source_root"),
                      KwStr(shared, "data_root"),
                  })
             if (relative is not null)
                 e.Emit($"shared-layer-dir:{relative}", "dir-exists",
                     relative);
         var sourceRoot = KwStr(shared, "source_root") ?? "shared-layer/src";
+        //  Python sources retired (B167/B38): the owned-source contract is
+        //  now the pin that they must never reappear.
         foreach (var name in new[] { "__init__.py", "channel.py", "store.py" })
-            e.Emit($"shared-layer-source:{name}", "file-exists",
+            e.Emit($"shared-layer-source:{name}", "file-not-exists",
                 $"{sourceRoot}/shared_layer/{name}");
 
         foreach (var path in new[]
@@ -76,22 +73,22 @@ internal static partial class ManifestExport
             });
         e.Emit("embedded-browser:module", "file-exists",
             "main-system/src-tauri/src/webview_host/mod.rs");
-        e.Emit("embedded-browser:client", "file-exists",
+        e.Emit("embedded-browser:client", "file-not-exists",
             "shared-layer/src/shared_layer/embedded_browser_client.py");
 
-        e.Contains("orphan-scanner:module",
-            "shared-layer/src/shared_layer/database/orphan_scanner.py",
-            new[] { "scan_orphans" });
+        e.Emit("orphan-scanner:retired", "file-not-exists",
+            "shared-layer/src/shared_layer/database/orphan_scanner.py");
 
         e.Contains("git-tiers:module",
-            "governance_rule/execution/git_tiers/__init__.py",
+            "shared-layer/csharp/GPTBridge.GitAutomation/Governance.cs",
             new[]
             {
-                "TIER1_OPS", "TIER2_OPS", "TIER3_OPS",
-                "def classify", "def enforce", "def audit_log",
+                "TierGate", "Tier1", "Tier2", "Tier3",
+                "Classify", "GateResult Execute",
             });
-        e.Contains("git-tiers:gate-wrapper", "scripts/git-gate.py",
-            new[] { "from governance_rule.execution.git_tiers import" });
+        e.Contains("git-tiers:gate-wrapper",
+            "governance_rule/git-hooks/pre-commit",
+            new[] { "GPTBridge.GitAutomation", "--hook" });
         e.Contains("git-tiers:pre-push",
             "governance_rule/git-hooks/pre-push",
             new[]
@@ -116,17 +113,18 @@ internal static partial class ManifestExport
         });
 
         e.Contains("architecture:shared-database-canonical",
-            "shared-layer/src/shared_layer/database/__init__.py",
-            new[] { "POSTGRESQL_CANONICAL: bool = True" });
+            "shared-layer/csharp/GPTBridge.CodexPipeline/PgDsn.cs",
+            new[] { "postgresql://local/gptbridge_codex" });
         e.Contains("architecture:local-vector-degraded",
-            "shared-layer/src/shared_layer/local/vector_store.py",
+            "Standalone tools/vectord-rs/src/store.rs",
             new[]
             {
-                "\"engine\": \"rust-vectord-degraded\"",
-                "\"canonical\": False",
+                "never the formal data authority",
+                "PostgreSQL owns canonical",
             });
         foreach (var name in new[]
-                 { "market_data.py", "xingcheng_tools/search/searchd.py" })
+                 { "market_data.json",
+                   "xingcheng_tools/search/searchd.json" })
         {
             var path = "Standalone tools/local-model/src/backend/services/" +
                        $"xingcheng/infrastructure/{name}";
@@ -134,31 +132,32 @@ internal static partial class ManifestExport
                 new[] { "NETWORK_DESTINATION_ALLOWLIST" });
         }
 
-        e.Contains("reconcile:state-store",
-            "shared-layer/src/shared_layer/reconcile.py",
-            new[] { "ReconcileStateStore" });
-        e.NotContains("reconcile:no-decision-surface",
-            "shared-layer/src/shared_layer/reconcile.py",
+        //  Python shared-layer reconcile modules retired; the
+        //  decision-surface invariants collapse to never-reappear pins.
+        e.Emit("reconcile:state-store",
+            "file-not-exists",
+            "shared-layer/src/shared_layer/reconcile.py");
+        e.Emit("reconcile:no-decision-surface",
+            "file-not-exists",
+            "shared-layer/src/shared_layer/reconcile.py");
+        e.Emit("reconcile:decision-owner",
+            "file-not-exists",
+            "main-system/src-core/core_system/data_reconciliation.py");
+
+        e.Emit("main-system:no-legacy-enforcer",
+            "file-not-exists", "main-system/src-core/main.py");
+        e.Emit("main-system:no-persistent-logger",
+            "file-not-exists", "main-system/src-core/main.py");
+        e.Emit("main-system:governance-denied",
+            "file-not-exists",
+            "main-system/src-core/core_system/governance_runtime.py");
+        e.Contains("main-system:launcher-attested",
+            "shared-layer/csharp/GPTBridge.MainSystem/StartupGate.cs",
             new[]
             {
-                "class ReconcileService", "def _push_to_central",
-                "def _pull_from_central",
+                "gate_ok", "STARTUP_PHASE_MAX_WORKERS",
+                "STARTUP_GATE_DEADLINE_SECONDS",
             });
-        e.Contains("reconcile:decision-owner",
-            "main-system/src-core/core_system/data_reconciliation.py",
-            new[] { "class ReconcileService" });
-
-        e.NotContains("main-system:no-legacy-enforcer",
-            "main-system/src-core/main.py",
-            new[] { "GovernanceEnforcer", "governance.enforcer" });
-        e.Contains("main-system:launcher-attested",
-            "main-system/src-core/main.py",
-            new[] { "MainSystemGovernance.from_environment" });
-        e.NotContains("main-system:no-persistent-logger",
-            "main-system/src-core/main.py", new[] { "CoreLogger" });
-        e.Contains("main-system:governance-denied",
-            "main-system/src-core/core_system/governance_runtime.py",
-            new[] { "if tool_id == \"governance_rule\"" });
 
         const string bootstrapDir =
             "main-system/launcher/src/GPTBridge.Bootstrap";
@@ -220,11 +219,11 @@ internal static partial class ManifestExport
                 "\"request_cancelled\"", "\"notification_stamp\"",
             });
         e.Contains("tool-host:spawn-exe-branch",
-            "main-system/src-core/tasks/toolbox_start_spawn_process.py",
-            new[] { "source_entry.suffix.lower() == \".exe\"" });
+            "main-system/config/tool-runtime-contract.json",
+            new[] { "\"allowed_modes\"", "\"executable\"" });
         e.Contains("tool-host:resolver-native-entry",
-            "main-system/src-core/tasks/tool_path_resolver.py",
-            new[] { "native_entry" });
+            "main-system/config/tool-runtime-contract.json",
+            new[] { "\"special-unpackaged\"", "\"exe_required\"" });
 
         var tsExclude = new[]
         {
@@ -286,12 +285,12 @@ internal static partial class ManifestExport
 
         e.Contains("global-cleaner-retired:identity",
             "governance_rule/permission_directory/registries/" +
-            "permissions/identity_groups.py",
+            "permissions/identity_groups.json",
             new[]
             {
                 "GLOBAL_CLEANER_IDENTITY",
-                "bound_tool_id=\"global-cleaner\"",
-                "lifecycle=\"retired\"",
+                "\"bound_tool_id\": \"global-cleaner\"",
+                "\"lifecycle\": \"retired\"",
             });
         e.Checks.Add(new JsonObject
         {
@@ -301,21 +300,20 @@ internal static partial class ManifestExport
         });
 
         e.Contains("tool-isolation:controls",
-            "main-system/src-core/core_system/tool_isolation.py",
+            "main-system/config/tool-isolation-policy.json",
             new[]
             {
-                "_record_isolation_audit", "job_assigned",
-                "job-assignment-failed",
+                "\"isolate_on_crash\": true",
+                "\"notify_main_system\": true",
+                "\"kill_on_job_close\": true",
             });
-        foreach (var marker in new[]
-                 { "stdin=subprocess.DEVNULL", "close_fds=True" })
-            e.Checks.Add(new JsonObject
+        e.Contains("tool-isolation:spawn-containment",
+            "main-system/config/tool-isolation-policy.json",
+            new[]
             {
-                ["id"] = $"tool-isolation:spawn:{marker.Split('=')[^1]}",
-                ["kind"] = "glob-contains",
-                ["glob"] = "main-system/src-core/tasks/" +
-                           "toolbox_start_spawn*.py",
-                ["markers"] = Emitter.Arr(new[] { marker }),
+                "\"allow_breakaway\": false",
+                "\"kill_on_job_close\": true",
+                "\"wait_for_children\": true",
             });
 
         const string inventory =
@@ -344,11 +342,10 @@ internal static partial class ManifestExport
         });
 
         e.Contains("worker-pools:thread-budget-module",
-            "shared-layer/src/shared_layer/performance/thread_budget.py",
+            "native/resource_governor/governor_budget.h",
             new[]
             {
-                "CORE_BUDGET_CAP = 5", "bounded_workers",
-                "bounded_threads", "allocation_within_budget",
+                "concurrency-budget", "interactive_share",
             });
 
         foreach (var axis in new[]

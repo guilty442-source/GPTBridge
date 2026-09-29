@@ -344,26 +344,52 @@ internal static partial class ManifestExport
         return reducible;
     }
 
+    /// <summary>Materialized reducible rows — the frozen output of the
+    /// retired Python audit oracle (<c>star-audit-reducible/v1</c>).</summary>
+    private static List<JsonObject>? BakedReducibleRows(string root)
+    {
+        var path = Rel(root,
+            "governance_rule/execution/audit/reducible_checks.json");
+        var doc = ReadJsonObject(path);
+        if (doc?["checks"] is not JsonArray rows)
+            return null;
+        return rows.OfType<JsonObject>().ToList();
+    }
+
     // ------------------------------------------------------------------
     //  Build — emit order mirrors export_audit_manifest.build_manifest.
     // ------------------------------------------------------------------
 
     public static JsonObject Build(string root)
     {
-        var e = new Emitter();
+        var e = new Emitter { Root = root };
         var ctx = new Ctx(root, e);
         LoadSnapshots(ctx);
         EmitForbiddenAndProtected(ctx);
         EmitPollutionAndContracts(ctx);
+        //  Reducible oracle checks: with the audit/*.py modules retired
+        //  (B167/B38) the materialized spec reducible_checks.json is the
+        //  authoritative row set; the Python-source reducers remain as a
+        //  fallback for checkouts that still carry the oracle.
+        var baked = BakedReducibleRows(root);
         var reducible = ReducibleMarkers(root);
-        foreach (var (name, (relative, markers)) in reducible)
-            e.Emit($"module-markers:{name}", "file-contains", relative,
-                r => r["markers"] = Emitter.Arr(markers));
         var filelist = ReducibleFilelists(root);
-        foreach (var (name, (dir, names)) in filelist)
-            foreach (var filename in names)
-                e.Emit($"dir-filelist:{name}:{filename}", "file-exists",
-                    $"{dir}/{filename}");
+        if (baked is not null)
+        {
+            foreach (var row in baked)
+                e.Checks.Add((JsonObject)row.DeepClone());
+        }
+        else
+        {
+            foreach (var (name, (relative, markers)) in reducible)
+                e.Emit($"module-markers:{name}", "file-contains",
+                    relative,
+                    r => r["markers"] = Emitter.Arr(markers));
+            foreach (var (name, (dir, names)) in filelist)
+                foreach (var filename in names)
+                    e.Emit($"dir-filelist:{name}:{filename}",
+                        "file-exists", $"{dir}/{filename}");
+        }
         EmitStaticSection(ctx);
         EmitMirrorAndPolicy(ctx);
         EmitToolManifests(ctx);
@@ -371,6 +397,16 @@ internal static partial class ManifestExport
         EmitSourceOwnership(ctx);
         var covered = new HashSet<string>(NativeCovered,
             StringComparer.Ordinal);
+        if (baked is not null)
+            foreach (var row in baked)
+                if (row["id"]?.GetValue<string>() is { } bid)
+                {
+                    var cut = bid.IndexOf(':');
+                    var name = bid[(cut + 1)..];
+                    var sep = name.IndexOf(':');
+                    if (sep >= 0) name = name[..sep];
+                    covered.Add(name);
+                }
         covered.UnionWith(reducible.Keys);
         covered.UnionWith(filelist.Keys);
         foreach (var name in PythonCheckNames(root))
