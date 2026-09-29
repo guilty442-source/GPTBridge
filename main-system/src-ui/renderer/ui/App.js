@@ -142,6 +142,9 @@ export function mountApp() {
 	});
 
 	// --- dynamic regions -----------------------------------------------------
+	// Hot-path refs: update() runs on every 2 s status push — patch cached
+	// nodes directly instead of re-querying the tree each pass.
+	const nativeModelDetail = h("small", null, xr.nativeModelUnavailable);
 	const nativeModelIndicator = h("div", {
 		className: "connection-indicator",
 		dataset: { tone: "pending", testid: "xingcheng-native-model-indicator" },
@@ -150,15 +153,15 @@ export function mountApp() {
 		h("span", { className: "connection-indicator__dot" }),
 		h("span", null,
 			h("strong", null, xr.nativeModelTitle),
-			h("small", null, xr.nativeModelUnavailable)));
+			nativeModelDetail));
+	const connLabel = h("strong", null, xr.systemAnomaly);
+	const connDetail = h("small", null, xr.connectionDetail);
 	const connectionIndicator = h("div", {
 		className: "connection-indicator",
 		dataset: { tone: "offline", testid: "backend-connection" }
 	},
 		h("span", { className: "connection-indicator__dot" }),
-		h("span", null,
-			h("strong", null, xr.systemAnomaly),
-			h("small", null, xr.connectionDetail)));
+		h("span", null, connLabel, connDetail));
 	const versionBadge = h("span", { className: "version-badge", dataset: { testid: "product-version" } }, "v1.0");
 	const notice = h("aside", {
 		className: "connection-notice",
@@ -167,10 +170,13 @@ export function mountApp() {
 	}, h("strong"), h("span"));
 	const heroTotal = h("strong", { className: "hero-card__value" }, "0");
 	const heroRunning = h("strong", { className: "hero-card__value" }, "0");
+	const heroIssuesValue = h("strong", { className: "hero-card__value" }, "0");
 	const heroIssuesCard = h("article", { className: "hero-card", dataset: { tone: "ok" } },
 		h("span", { className: "hero-card__label" }, t.issues),
-		h("strong", { className: "hero-card__value" }, "0"),
+		heroIssuesValue,
 		h("small", { className: "hero-card__hint" }, t.issuesHint));
+	const reviewValue = h("strong", { className: "hero-card__value hero-card__value--text" }, xr.normal);
+	const reviewHint = h("small", { className: "hero-card__hint" }, xr.normalDetail);
 	const reviewCard = h("button", {
 		type: "button",
 		className: "hero-card hero-card--interactive",
@@ -184,8 +190,8 @@ export function mountApp() {
 		}
 	},
 		h("span", { className: "hero-card__label" }, mainSystemLocale.sovereign.xingchengTitle),
-		h("strong", { className: "hero-card__value hero-card__value--text" }, xr.normal),
-		h("small", { className: "hero-card__hint" }, xr.normalDetail),
+		reviewValue,
+		reviewHint,
 		h("span", { className: "hero-card__action" }, xr.viewDetails));
 
 	const toolboxEntry = mountBoundary(tb.title, () => mountToolboxEntry(() => {
@@ -287,7 +293,7 @@ export function mountApp() {
 		const activeGlobalFaults = filterActiveFaults(globalFaults?.recent_faults);
 
 		nativeModelIndicator.dataset.tone = nativeModel?.running ? "online" : nativeModel?.available ? "offline" : "pending";
-		nativeModelIndicator.querySelector("small").textContent = nativeModel?.running ? xr.nativeModelRunning : nativeModel?.available ? xr.nativeModelStopped : xr.nativeModelUnavailable;
+		nativeModelDetail.textContent = nativeModel?.running ? xr.nativeModelRunning : nativeModel?.available ? xr.nativeModelStopped : xr.nativeModelUnavailable;
 
 		const connection = s.connected ? {
 			label: xr.systemNormal,
@@ -303,9 +309,8 @@ export function mountApp() {
 			tone: "offline"
 		};
 		connectionIndicator.dataset.tone = connection.tone;
-		const connSpans = connectionIndicator.querySelectorAll("strong, small");
-		connSpans[0].textContent = connection.label;
-		connSpans[1].textContent = connection.detail;
+		connLabel.textContent = connection.label;
+		connDetail.textContent = connection.detail;
 
 		versionBadge.textContent = `v${displayVersion(s.appVersion)}`;
 		footerVersion.textContent = `GPTBridge v${displayVersion(s.appVersion)}`;
@@ -323,7 +328,7 @@ export function mountApp() {
 		heroTotal.textContent = String(tbState.toolboxTools.length);
 		heroRunning.textContent = String(running);
 		heroIssuesCard.dataset.tone = issues > 0 ? "warning" : "ok";
-		heroIssuesCard.querySelector(".hero-card__value").textContent = String(issues);
+		heroIssuesValue.textContent = String(issues);
 
 		currentReview = computeReview({
 			backendStatus: s.backendSocket.status,
@@ -334,8 +339,8 @@ export function mountApp() {
 			toolboxTools: tbState.toolboxTools
 		});
 		reviewCard.dataset.tone = currentReview.tone;
-		reviewCard.querySelector(".hero-card__value").textContent = currentReview.state;
-		reviewCard.querySelector(".hero-card__hint").textContent = currentReview.detail;
+		reviewValue.textContent = currentReview.state;
+		reviewHint.textContent = currentReview.detail;
 
 		// Panel chrome sees reconnects (former backendSocket.status prop).
 		drawerApi.thirdParty?.setConnected?.(s.connected);
