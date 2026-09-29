@@ -9,6 +9,7 @@
 
 mod console;
 mod diagnostics;
+mod fonts;
 mod governance;
 mod profiling;
 mod tool_file_sorter;
@@ -101,6 +102,9 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "GPTBridge · Engineering Console",
         options,
-        Box::new(|_cc| Ok(Box::new(ConsoleApp::new()))),
+        Box::new(|cc| {
+            fonts::install_ui_fonts(&cc.egui_ctx);
+            Ok(Box::new(ConsoleApp::new()))
+        }),
     )
 }
