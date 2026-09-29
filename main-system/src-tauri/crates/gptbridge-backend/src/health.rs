@@ -110,11 +110,8 @@ fn dependencies() -> &'static [DependencySpec] {
 }
 
 fn probe_loopback(port: u16, deadline: Duration) -> bool {
-    let start = Instant::now();
-    if start.elapsed() >= deadline {
-        return false;
-    }
-    match TcpStream::connect(("127.0.0.1", port)) {
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    match TcpStream::connect_timeout(&addr, deadline) {
         Ok(mut stream) => {
             let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
             let mut buf = [0u8; 1];
@@ -187,10 +184,19 @@ pub fn evaluate() -> Readiness {
     }
     let dead = STARTUP_DEAD.load(Ordering::SeqCst);
     let startup_failures = if dead {
-        deps.iter()
-            .filter(|d| d["ready"].as_bool() != Some(true))
-            .filter_map(|d| d["identity"].as_str().map(String::from))
-            .collect()
+        let mut failures: Vec<String> = Vec::new();
+        if !backend_runtime_ready {
+            failures.push("backend_runtime".to_string());
+        }
+        if !gov_ready {
+            failures.push("governance".to_string());
+        }
+        failures.extend(
+            deps.iter()
+                .filter(|d| d["ready"].as_bool() != Some(true))
+                .filter_map(|d| d["identity"].as_str().map(String::from)),
+        );
+        failures
     } else {
         Vec::new()
     };

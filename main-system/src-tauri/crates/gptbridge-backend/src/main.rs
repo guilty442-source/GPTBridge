@@ -89,6 +89,7 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
                 "backend": r.runtime_state,
                 "version": gptbridge_core::app::PRODUCT_VERSION,
                 "runtime_scope": "main",
+                "maintenance_ready": r.ok,
                 "governance_ready": r.governance_ready,
                 "backend_runtime_ready": r.backend_runtime_ready,
                 "dependencies_ready": r.dependencies_ready,
@@ -200,7 +201,8 @@ fn handle_connection(mut stream: TcpStream) {
         return;
     }
     if !auth::authorize_websocket(&request.query()) {
-        eprintln!("[backend] ws auth rejected: {}", request.target);
+        // Path only — the target carries the credential query string.
+        eprintln!("[backend] ws auth rejected: {}", request.path());
         let _ = write_http_response(&mut stream, 403, "FORBIDDEN", "text/plain", b"Forbidden");
         return;
     }
@@ -287,8 +289,10 @@ fn write_state_file() {
         "status": "serving",
         "pid": std::process::id(),
         "active_backend_port": ipc_port(),
-        "updated_at": format!("{:?}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap_or_default()),
+        "updated_at": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64(),
     });
     let tmp = state_dir.join("boot-core.json.tmp");
     if std::fs::write(&tmp, state.to_string()).is_ok() {
