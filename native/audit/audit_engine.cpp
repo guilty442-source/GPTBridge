@@ -14,9 +14,11 @@ manifest（star-audit-manifest/v1）由 Python 受管工具產生；本引擎執
 #include <fstream>
 #include <future>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -130,6 +132,85 @@ std::string to_lower(const std::string& s) {
     for (auto& c : out)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return out;
+}
+
+/* ------------------------------------------------------------------
+ * Per-run shared resource caches (bounded: one entry per distinct path)
+ *
+ * The manifest concentrates content/JSON work on a handful of hot
+ * targets — the five zh-TW mirror parts absorb ~1k JSON checks plus
+ * not-contains scans, and the permission registries absorb several
+ * hundred marker checks.  Every check previously re-read and re-parsed
+ * them independently.  Successes are memoized as shared_ptr<const T>
+ * so the worker threads share one build; failures are NEVER cached —
+ * a transient IO/parse error must not stick (fail-closed parity).
+ * ------------------------------------------------------------------ */
+
+std::shared_ptr<const std::string> cached_text(const fs::path& target) {
+    static std::mutex m;
+    static std::unordered_map<std::string,
+        std::shared_ptr<const std::string>> map;
+    const std::string key = u8_bytes(target.lexically_normal());
+    {
+        std::lock_guard<std::mutex> g(m);
+        const auto it = map.find(key);
+        if (it != map.end()) return it->second;
+    }
+    auto content = std::make_shared<std::string>();
+    if (!read_file(target, content.get())) return nullptr;
+    std::lock_guard<std::mutex> g(m);
+    return map.emplace(std::move(key), std::move(content)).first->second;
+}
+
+std::shared_ptr<const std::string> cached_lower(const fs::path& target) {
+    static std::mutex m;
+    static std::unordered_map<std::string,
+        std::shared_ptr<const std::string>> map;
+    const std::string key = u8_bytes(target.lexically_normal());
+    {
+        std::lock_guard<std::mutex> g(m);
+        const auto it = map.find(key);
+        if (it != map.end()) return it->second;
+    }
+    const auto text = cached_text(target);
+    if (!text) return nullptr;
+    auto lowered = std::make_shared<std::string>(to_lower(*text));
+    std::lock_guard<std::mutex> g(m);
+    return map.emplace(std::move(key), std::move(lowered)).first->second;
+}
+
+/* unreadable_out distinguishes "file missing/unreadable" from
+ * "present but invalid JSON" — both yield nullptr but the check sites
+ * report different detail strings (and optional→PASS applies only to
+ * the missing case). */
+std::shared_ptr<const JsonValue> cached_json(const fs::path& target,
+                                             bool* unreadable_out) {
+    static std::mutex m;
+    static std::unordered_map<std::string,
+        std::shared_ptr<const JsonValue>> map;
+    const std::string key = u8_bytes(target.lexically_normal());
+    {
+        std::lock_guard<std::mutex> g(m);
+        const auto it = map.find(key);
+        if (it != map.end()) {
+            *unreadable_out = false;
+            return it->second;
+        }
+    }
+    const auto text = cached_text(target);
+    if (!text) {
+        *unreadable_out = true;
+        return nullptr;
+    }
+    std::shared_ptr<JsonValue> doc;
+    try { doc = std::make_shared<JsonValue>(JsonParser(*text).parse()); }
+    catch (const JsonError&) {
+        *unreadable_out = false;
+        return nullptr;
+    }
+    std::lock_guard<std::mutex> g(m);
+    *unreadable_out = false;
+    return map.emplace(std::move(key), std::move(doc)).first->second;
 }
 
 /* dotted 路徑解析：逐層走 object；段名可帶 [KEY] 選取 object 陣列中

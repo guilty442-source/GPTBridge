@@ -57,10 +57,12 @@ AuditCheckResult check_glob_contains(const AuditCheck& check,
         if (!entry.is_regular_file(ec) ||
             !wildcard_match(pattern, u8_bytes(entry.path().filename())))
             continue;
-        std::string content;
-        if (!read_file(entry.path(), &content)) continue;
-        const std::string haystack =
-            check.ignore_case ? to_lower(content) : content;
+        const auto text = cached_text(entry.path());
+        if (!text) continue;
+        const auto lower =
+            check.ignore_case ? cached_lower(entry.path()) : nullptr;
+        const std::string& haystack =
+            check.ignore_case ? *lower : *text;
         for (size_t i = 0; i < check.markers.size(); ++i) {
             if (found[i]) continue;
             const std::string needle =
@@ -112,10 +114,12 @@ AuditCheckResult check_glob_not_contains(const AuditCheck& check,
         if (!entry.is_regular_file(ec) ||
             !wildcard_match(pattern, u8_bytes(entry.path().filename())))
             continue;
-        std::string content;
-        if (!read_file(entry.path(), &content)) continue;
-        const std::string haystack =
-            check.ignore_case ? to_lower(content) : content;
+        const auto text = cached_text(entry.path());
+        if (!text) continue;
+        const auto lower =
+            check.ignore_case ? cached_lower(entry.path()) : nullptr;
+        const std::string& haystack =
+            check.ignore_case ? *lower : *text;
         for (const auto& m : check.markers) {
             const std::string needle =
                 check.ignore_case ? to_lower(m) : m;
@@ -233,10 +237,12 @@ AuditCheckResult check_tree_not_contains(const AuditCheck& check,
         } else if (it->is_regular_file(sec)
                    && wildcard_match(
                        check.glob, u8_bytes(it->path().filename()))) {
-            std::string content;
-            if (read_file(it->path(), &content)) {
-                const std::string haystack =
-                    check.ignore_case ? to_lower(content) : content;
+            const auto text = cached_text(it->path());
+            if (text) {
+                const auto lower = check.ignore_case
+                    ? cached_lower(it->path()) : nullptr;
+                const std::string& haystack =
+                    check.ignore_case ? *lower : *text;
                 for (const auto& m : check.markers) {
                     const std::string needle =
                         check.ignore_case ? to_lower(m) : m;
@@ -276,19 +282,15 @@ AuditCheckResult check_py_bucket_budget(const AuditCheck& check,
      * exclude_file_substr / rules (ordered first-match substring map)
      * / fallback_bucket, plus the zero_targets + allowed_zones budgets.
      * Any bucket measuring above its budget -> FAIL (only-tighten). */
-    std::string content;
-    if (!read_file(target, &content)) {
+    bool unreadable = false;
+    const auto docp = cached_json(target, &unreadable);
+    if (!docp) {
         r.status = AuditStatus::FAIL;
-        r.detail = "unreadable: " + check.path;
+        r.detail = (unreadable ? "unreadable: " : "invalid json: ")
+            + check.path;
         return r;
     }
-    JsonValue doc;
-    try { doc = JsonParser(content).parse(); }
-    catch (const JsonError&) {
-        r.status = AuditStatus::FAIL;
-        r.detail = "invalid json: " + check.path;
-        return r;
-    }
+    const JsonValue& doc = *docp;
     const JsonValue* meas = doc.get("measurement");
     const JsonValue* zero = doc.get("zero_targets");
     const JsonValue* allowed = doc.get("allowed_zones");
@@ -351,12 +353,12 @@ AuditCheckResult check_py_bucket_budget(const AuditCheck& check,
             }
             if (hit) { bucket = kv.first; break; }
         }
-        std::string fsrc;
-        if (!read_file(fp, &fsrc)) return;
+        const auto fsrc = cached_text(fp);
+        if (!fsrc) return;
         const long long loc =
             static_cast<long long>(
-                std::count(fsrc.begin(), fsrc.end(), '\n')) +
-            ((!fsrc.empty() && fsrc.back() != '\n') ? 1 : 0);
+                std::count(fsrc->begin(), fsrc->end(), '\n')) +
+            ((!fsrc->empty() && fsrc->back() != '\n') ? 1 : 0);
         auto& slot = actual[bucket];
         slot.first += 1;
         slot.second += loc;
