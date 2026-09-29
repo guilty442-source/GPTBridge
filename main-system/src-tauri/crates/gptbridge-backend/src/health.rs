@@ -152,19 +152,38 @@ fn probe_loopback_cached(port: u16, deadline: Duration) -> bool {
 
 /// Governance readiness: the codex authority and permission directory
 /// must exist and parse — fail-closed on any unreadable artifact.
+/// Filesystem probes are TTL-cached like the dependency probes; staleness
+/// only delays a transition report by GOVERNANCE_TTL.
+const GOVERNANCE_TTL: Duration = Duration::from_secs(5);
+
 fn governance_ready() -> bool {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<(Instant, bool)>> =
+        std::sync::OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        // Pre-expired sentinel: the first call must probe, never serve
+        // the pessimistic default.
+        std::sync::Mutex::new((Instant::now() - GOVERNANCE_TTL, false))
+    });
+    {
+        let (at, ok) = *cache.lock().unwrap();
+        if at.elapsed() < GOVERNANCE_TTL {
+            return ok;
+        }
+    }
     let root = &paths::path_library().workspace_root;
     let codex_dir = root.join("governance_rule");
-    if !codex_dir.join("permission_directory").exists() {
-        return false;
-    }
-    // The release pin records which sealed codex generation this runtime
-    // answers to; an unreadable pin means governance cannot be verified.
-    root.join("shared-layer")
-        .join("release-dependencies.json")
-        .metadata()
-        .map(|m| m.len() > 0)
-        .unwrap_or(false)
+    let ok = codex_dir.join("permission_directory").exists()
+        // The release pin records which sealed codex generation this
+        // runtime answers to; an unreadable pin means governance cannot
+        // be verified.
+        && root
+            .join("shared-layer")
+            .join("release-dependencies.json")
+            .metadata()
+            .map(|m| m.len() > 0)
+            .unwrap_or(false);
+    *cache.lock().unwrap() = (Instant::now(), ok);
+    ok
 }
 
 pub struct Readiness {
@@ -276,4 +295,32 @@ pub fn health_payload(level: &str) -> Value {
         "capabilities": {},
         "health_level": level,
     })
+}
+
+/// Memoized ``brief`` payload for the per-connection status push loop.
+/// Every WS connection ticks STATUS_EVAL_INTERVAL; without sharing, each
+/// socket re-ran evaluate() plus a full Value build per tick.  The TTL is
+/// shorter than the push cadence so every tick still re-evaluates, while
+/// the immediate-on-connect push and concurrent sockets share one build.
+const BRIEF_TTL: Duration = Duration::from_millis(900);
+static BRIEF_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<(Instant, std::sync::Arc<Value>)>,
+> = std::sync::OnceLock::new();
+
+pub fn brief_payload() -> std::sync::Arc<Value> {
+    let cache = BRIEF_CACHE.get_or_init(|| {
+        std::sync::Mutex::new((
+            Instant::now() - BRIEF_TTL,
+            std::sync::Arc::new(Value::Null),
+        ))
+    });
+    {
+        let (at, value) = &*cache.lock().unwrap();
+        if at.elapsed() < BRIEF_TTL {
+            return std::sync::Arc::clone(value);
+        }
+    }
+    let value = std::sync::Arc::new(health_payload("brief"));
+    *cache.lock().unwrap() = (Instant::now(), std::sync::Arc::clone(&value));
+    value
 }

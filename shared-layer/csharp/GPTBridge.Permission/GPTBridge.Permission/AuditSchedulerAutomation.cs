@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json.Nodes;
 
 namespace GPTBridge.Permission;
 
@@ -160,11 +161,24 @@ public sealed class AuditSchedulerAutomation
             var output = stdout.ToString() + stderr;
             if (output.Length > OutputLimit)
                 output = output[..OutputLimit];
+            // The native engine emits a single-line JSON summary
+            // (``{"engine":"star-audit-engine/v1","failed":N,...}``);
+            // ``[PASS]`` lines are the legacy per-check format.  Accept
+            // either: a parsed summary with zero failures, or an
+            // explicit PASS marker.
+            var summaryPassed = false;
+            try
+            {
+                var summary = JsonNode.Parse(stdout.ToString());
+                summaryPassed = summary?["failed"]
+                    ?.GetValue<int>() == 0;
+            }
+            catch (System.Text.Json.JsonException) { }
             record = new AuditRecord
             {
                 Timestamp = DateTimeOffset.UtcNow,
                 Passed = proc.ExitCode == 0
-                    && output.Contains("[PASS]"),
+                    && (output.Contains("[PASS]") || summaryPassed),
                 Output = output,
                 ReturnCode = proc.ExitCode,
             };

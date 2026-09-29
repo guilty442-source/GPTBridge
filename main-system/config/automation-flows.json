@@ -150,8 +150,16 @@
       "kind": "supervision-plane",
       "interval_s": null,
       "pausable": false,
-      "enabled": false,
+      "enabled": true,
       "description": "管線自動化：由原生後端 spawn＋監督 GPTBridge.CodexPipeline.exe --watch 常駐 host（codex-amendment-intake / codex-pin-sync / codex-maintenance 三 flow 的執行主體；flow 級 kill switch 在 watch loop 內逐 tick 生效）。重啟預算同 channel-host 契約（5 次／1s backoff，外部 force-close 仍重啟）；preflight 以 codex-automation.lock 單例鎖仲裁——外部實例持有時延後接管而不耗預算。缺 exe 或 GPTBRIDGE_POSTGRES_DSN 時 fail-closed。狀態檔 runtime/state/codex-pipeline.json、稽核 codex-pipeline.jsonl；host 自身狀態 codex-automation.json"
+    },
+    "permission-host-supervision": {
+      "owner": "gptbridge-backend permission_host（main-system/src-tauri/crates/gptbridge-backend/src/permission_host.rs）",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "監督面自動化：由原生後端 spawn＋監督 GPTBridge.Permission.exe --watch 常駐 host（permission-automation-lifecycle/directory/compliance/healing/audit/identity 六 flow 的執行主體；各 flow 的 kill switch 在 watch loop 內逐 tick 生效）。重啟預算同 channel-host 契約（5 次、1s backoff，外部 force-close 仍重啟）；preflight 以 permission-automation.lock 仲裁——外部實例持有時延後、釋放後收編，避免重複實例燒光重啟預算。缺 publish exe 即 fail-closed。狀態：runtime/state/permission-host.json＋稽核 permission-host.jsonl；host 自身狀態 permission-automation.json"
     },
     "resource-governor": {
       "owner": "resource governor",

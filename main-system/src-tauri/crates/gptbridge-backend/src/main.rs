@@ -12,6 +12,9 @@ mod fault;
 mod health;
 mod outbox;
 mod pg;
+mod permission_host;
+mod pipeline_host;
+mod resident;
 mod resource_mode;
 mod saga;
 mod tools;
@@ -89,6 +92,13 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
             json!({
                 "ok": r.ok,
                 "backend": r.runtime_state,
+                // A67 readiness gate: the renderer's applyRuntimeReadiness
+                // requires `runtime_state` on BOTH runtime_status_push and
+                // app:get-runtime-status_result.  Without it the readiness
+                // gate's own status request knocks a Connected socket back
+                // to Synchronizing (stuck 系統審查中).  `backend` is kept
+                // for wire-compat with older consumers.
+                "runtime_state": r.runtime_state,
                 "version": gptbridge_core::app::PRODUCT_VERSION,
                 "runtime_scope": "main",
                 "maintenance_ready": r.ok,
@@ -173,7 +183,7 @@ fn handle_connection(mut stream: TcpStream) {
         }
         "/shutdown" => {
             if auth::authorize_shutdown(request.header("x-gptbridge-shutdown-token")) {
-                channel_host::stop();
+                resident::stop_all();
                 let _ = write_http_response(&mut stream, 200, "OK", "text/plain", b"OK");
                 std::process::exit(0);
             }
@@ -220,8 +230,10 @@ fn handle_connection(mut stream: TcpStream) {
     ACTIVE_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
     health::note_authenticated_connect();
 
-    // Immediate compact status push — the renderer never polls.
-    let mut status = health::health_payload("brief");
+    // Immediate compact status push — the renderer never polls.  The
+    // memoized brief snapshot is shared across sockets; the immediate
+    // push clones once per connection to stamp its own flags.
+    let mut status = (*health::brief_payload()).clone();
     status["push"] = json!(true);
     status["immediate"] = json!(true);
     let _ = socket.send(&json!({"event": "runtime_status_push", "payload": status}));
@@ -261,10 +273,11 @@ fn handle_connection(mut stream: TcpStream) {
         // missed the immediate push stuck in Synchronizing forever.
         if now >= next_status_eval {
             next_status_eval = now + STATUS_EVAL_INTERVAL;
-            let current = health::health_payload("brief");
-            if !socket
-                .send(&json!({"event": "runtime_status_push", "payload": current}))
-            {
+            let current = health::brief_payload();
+            if !socket.send(&json!({
+                "event": "runtime_status_push",
+                "payload": &*current,
+            })) {
                 break;
             }
         }
@@ -274,11 +287,11 @@ fn handle_connection(mut stream: TcpStream) {
         match socket.events().recv_timeout(Duration::from_millis(500)) {
             Ok(ServerEvent::Message(msg)) => {
                 last_seen = Instant::now();
-                let command = msg["command"].as_str().unwrap_or_default().to_string();
+                let command = msg["command"].as_str().unwrap_or_default();
                 if command.is_empty() {
                     continue;
                 }
-                if let Some(frame) = session_command(conn, &socket, &command, &msg["payload"]) {
+                if let Some(frame) = session_command(conn, &socket, command, &msg["payload"]) {
                     if !socket.send(&frame) {
                         break;
                     }
@@ -336,6 +349,12 @@ fn main() {
     // shared-layer channel host (shared-layer/manifest.json
     // ``background_service`` contract, managed_by=main-system).
     channel_host::start(port);
+    // Pipeline automation: supervise the governed CodexPipeline watch
+    // host (automation-flows.json codex-* flows, managed_by=main-system).
+    pipeline_host::start();
+    // Permission automation: supervise the governed GPTBridge.Permission
+    // watch host (automation-flows.json permission-automation-* flows).
+    permission_host::start();
     println!("gptbridge-backend listening on 127.0.0.1:{port}");
     for stream in listener.incoming() {
         match stream {

@@ -177,12 +177,20 @@ public sealed class ComplianceMonitorAutomation
             issues.Add("authority-version-drifted-from-initial");
         foreach (var kv in snap.IdentityGroups)
         {
-            if (!kv.Key.StartsWith(
-                    "IDENTITY_GROUP_", StringComparison.Ordinal))
+            // Identity records are the ``*_IDENTITY`` ``$call`` objects;
+            // sibling keys are scalar group-id constants — indexers
+            // must not touch them.  Governance-tier records carry
+            // ``actor``/``bound_tool_id``; tool-tier records are
+            // intentionally slim, so the integrity floor is
+            // ``identity_code`` + a resolvable ``group_id.$ref``.
+            if (!kv.Key.EndsWith(
+                    "_IDENTITY", StringComparison.Ordinal))
                 continue;
-            var actor = kv.Value?["actor"]?.GetValue<string>();
-            var code = kv.Value?["identity_code"]?.GetValue<string>();
-            if (string.IsNullOrEmpty(actor) || string.IsNullOrEmpty(code))
+            var kw = kv.Value?["$kw"];
+            var code = kw?["identity_code"]?.GetValue<string>();
+            var groupRef = kw?["group_id"]?["$ref"]
+                ?.GetValue<string>();
+            if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(groupRef))
                 issues.Add($"incomplete-identity-record: {kv.Key}");
         }
     }
@@ -195,12 +203,15 @@ public sealed class ComplianceMonitorAutomation
     {
         if (ledger is null || snap.IdentityPermissions is null)
             return;
+        // Identity bindings live in the ``IDENTITY_PERMISSION_BINDINGS``
+        // array of ``$call`` objects (``$kw.actor``); sibling top-level
+        // keys are scalars and must not be indexed.
+        var bindings = snap.IdentityPermissions
+            ["IDENTITY_PERMISSION_BINDINGS"] as JsonArray;
         var known = new HashSet<string>(
-            snap.IdentityPermissions
-                .Select(kv =>
-                    kv.Value?["actor"]?.GetValue<string>()
-                    ?? kv.Value?["identity_code"]?.GetValue<string>()
-                    ?? kv.Key)
+            (bindings ?? new JsonArray())
+                .Select(node => node?["$kw"]?["actor"]
+                    ?.GetValue<string>())
                 .Where(s => !string.IsNullOrEmpty(s))!);
         var snapPath = Path.Combine(_projectRoot, "runtime", "state",
             "permission-grant-ledger.jsonl");

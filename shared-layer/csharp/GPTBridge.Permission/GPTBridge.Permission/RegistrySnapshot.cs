@@ -78,7 +78,13 @@ public sealed class RegistrySnapshot
     private static string? KwField(
         JsonObject? doc, string objKey, string field)
     {
-        if (doc?[objKey]?["$kw"]?[field] is JsonValue v)
+        // PyLit registries store a snapshot either as a bare ``$call``
+        // object or wrapped in a single-element array — unwrap the
+        // array form (``code_rule_directory.CODE_RULE_DIRECTORY``).
+        JsonNode? node = doc?[objKey];
+        if (node is JsonArray { Count: > 0 } array)
+            node = array[0];
+        if (node?["$kw"]?[field] is JsonValue v)
             return v.ToJsonString().Trim('"');
         return null;
     }
@@ -102,6 +108,28 @@ public sealed class RegistrySnapshot
     public string? CodePolicyInitialVersion =>
         KwField(DirectoryAuthority, "CODE_VERSION_POLICY",
                 "initial_version");
+
+    /// <summary>``$kw`` payload of the ``*_IDENTITY`` ``$call`` record
+    /// whose ``group_id.$ref`` names the sealed ``IDENTITY_GROUP_*``
+    /// constant — the actor/bound_tool_id source for a group id.  Null
+    /// when no record binds the id.</summary>
+    public JsonObject? IdentityRecordFor(string groupId)
+    {
+        if (IdentityGroups is null)
+            return null;
+        foreach (var kv in IdentityGroups)
+        {
+            if (!kv.Key.EndsWith("_IDENTITY", StringComparison.Ordinal))
+                continue;
+            if (kv.Value is not JsonObject record)
+                continue;
+            var reference = record["$kw"]?["group_id"]?["$ref"]
+                ?.GetValue<string>();
+            if (reference == groupId)
+                return record["$kw"] as JsonObject;
+        }
+        return null;
+    }
 
     /// <summary>Sealed identity-group ids (top-level registry keys).</summary>
     public IReadOnlyList<string> IdentityGroupIds
