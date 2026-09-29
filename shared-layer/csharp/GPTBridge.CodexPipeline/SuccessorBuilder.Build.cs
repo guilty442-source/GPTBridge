@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Npgsql;
 
 namespace GPTBridge.CodexPipeline;
 
@@ -65,8 +66,8 @@ internal static partial class SuccessorBuilder
                 SetCandidateVersion(connection, successorVersion);
                 (applied, deferred) = ApplyChanges(connection,
                     request.Payload, successorVersion);
-                connection.Commit();
                 errors.AddRange(FormalRuleErrors(connection));
+                connection.Commit();
             }
             errors.AddRange(UpdateValidation.StagedGenerationErrors(
                 output, version: successorVersion,
@@ -130,7 +131,8 @@ internal static partial class SuccessorBuilder
                 SealPreview: sealPreview);
         }
         catch (Exception error) when (error is AmendmentLifecycleError
-            or SuccessorBuildError or IOException)
+            or SuccessorBuildError or IOException or PostgresException
+            or InvalidOperationException)
         {
             if (outputCreated)
             {
