@@ -12,7 +12,7 @@
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "push": true,
       "push_gate": {
         "enabled": true,
@@ -94,7 +94,7 @@
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "權限平面自我修復健康檢查（orchestrator 經核心註冊 run_once）"
     },
     "permission-automation-audit": {
@@ -142,7 +142,7 @@
       "kind": "event",
       "interval_s": null,
       "pausable": false,
-      "enabled": false,
+      "enabled": true,
       "description": "發布／更新流程（認證更新走 A330 例外鏈）"
     },
     "update-manager-auto": {
@@ -150,7 +150,7 @@
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "自動更新偵測/決策/執行 tick（熔斷、健康閘、自適應間隔保留於 tick 內；interval 為註冊時基線）"
     },
     "hot-update-idle": {
@@ -158,7 +158,7 @@
       "kind": "periodic",
       "interval_s": 30,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "閒置時套用 deferred 模組替換（_idle_tick 經核心驅動）"
     },
     "hot-reload-watcher": {
@@ -166,7 +166,7 @@
       "kind": "on-demand",
       "interval_s": null,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "按需（R5）：能力常駐、輪詢迴圈僅在 GPTBRIDGE_HOT_RELOAD_WATCH=1 啟動"
     },
     "authority-reanchor": {
@@ -174,7 +174,7 @@
       "kind": "periodic",
       "interval_s": 3,
       "pausable": false,
-      "enabled": false,
+      "enabled": true,
       "description": "受管權威檔案 digest 探針（行程內完整性監督，經核心 to_thread 驅動 _probe_once）"
     },
     "main-system-self-maintenance": {
@@ -206,7 +206,7 @@
       "kind": "supervision-plane",
       "interval_s": 30,
       "pausable": false,
-      "enabled": false,
+      "enabled": true,
       "description": "工具行程健康監控 thread 迴圈（監控對象為外部工具行程，相對於被監督者位於其外）；行程內部署屬殘項，可評估改經核心 to_thread 驅動"
     },
     "maintenance-capability-monitor": {
@@ -222,7 +222,7 @@
       "kind": "supervision-plane",
       "interval_s": null,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "修復鏈輪詢迴圈；maintenance 主宰內部監督面殘項"
     },
     "backup-scheduler": {
@@ -302,7 +302,7 @@
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "A624 套件版本收斂：每 tick 偵測已安裝工具鏈／套件版本（vendored go、venv python+pip、rustc、dotnet SDK、PostgreSQL、git、manifest 宣告）→ mode=upgrade 的技術執行其套件管理器升級（bounded timeout、env 政策；離線/vendored fail-closed 記帳，不走網路）→ 偵測值與法典條文宣告值漂移時產生 codex-amendment-request 投遞 convergence intake，由既有管線五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。kill switch：本 flow enabled=false 或 config/package-version-sync.json enabled=false"
     },
     "architecture-artifact-sync": {
@@ -310,7 +310,7 @@
       "kind": "periodic",
       "interval_s": 600,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "架構 artifact registry 收斂：每 tick 對 architecture_diagram_artifact_registry active 列做 byte-level SHA-256 比對檔案；content_hash／source_codex_version 漂移時產生 codex-amendment-request（per-row update）投遞 convergence intake，由 codex-amendment-intake 五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。檔案缺失的 active 列僅記入 state（retire 屬 governor 決策）。kill switch：本 flow enabled=false"
     },
     "codex-pin-sync": {
@@ -318,14 +318,14 @@
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "Release contract 法典釘定收斂：每 tick 讀 PostgreSQL 權威 authority_state，與 shared-layer/release-dependencies.json 的 governance_references codex_version/codex_sha256 比對，漂移時外科式改寫該兩欄位（實作面檔案，非權威寫入；落盤由 self-commit 收檔）。kill switch：本 flow enabled=false"
     },
     "codex-amendment-intake": {
       "owner": "codex-amendment-driver（governance_rule/execution/codex_amendment_driver）",
       "kind": "periodic",
       "pausable": false,
-      "enabled": false,
+      "enabled": true,
       "description": "Codex 修訂請求管線驅動（pausable=false 保障治理關鍵路徑不受資源管制/睡眠模式暫停）：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative .sql artifact）→ run_five_sovereign_audit → ready-for-governor → auto_execute=true 時經 codex_amendment_executor 自動解除唯讀、ATOMIC-PUBLISH 至 PostgreSQL 權威、恢復唯讀並封印（五主權一致稽核憑證為封印條件，executor 於變更前重新驗證；失敗一律終態 rejected，owner 以 -rN 重送）。auto_execute=false 時停在 ready-for-governor 由 human governor 手動 codex_amendment_executor --apply。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient → local-model）；未接線時 defer（successor-built）而非永久拒絕。CLI：python -m governance_rule.execution.codex_amendment_driver --scan|--request|--all [--auto-execute]",
       "interval_s": 300,
       "auto_execute": true
