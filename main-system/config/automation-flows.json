@@ -66,12 +66,12 @@
       "description": "retired (B167/B38): Python CanonicalRagPipeline removed with the Python lane; RAG maintenance duty recorded for a native port. 原職責：canonical RAG 維護循環（outbox 租約回收＋未完成工作 drain＋tombstone 驗證後 purge＋慢頻 parity 修復）。"
     },
     "permission-automation-lifecycle": {
-      "owner": "permission-automation-lifecycle（executor-retired B167/B38）",
+      "owner": "GPTBridge.Permission.PermissionLifecycleAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
       "enabled": false,
-      "description": "retired (B167/B38): Python PermissionLifecycleManager removed with the Python lane; grant expiry/renewal duty recorded for a native port. 原職責：權限授予過期／自動續期檢查。"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — grant expiry sweep, delegated auto-renew adjudication, revoke/suspend, 30-day terminal cleanup; stays disabled until a resident automation host registers it. 原職責：權限授予過期／自動續期檢查（發權/收權/停權）。"
     },
     "permission-automation-directory": {
       "owner": "permission-automation-directory（executor-retired B167/B38）",

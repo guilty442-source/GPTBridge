@@ -2288,6 +2288,71 @@
       "path": "main-system/config/tool-runtime-contract.json"
     },
     {
+      "id": "permission-core:GPTBridge.Permission.csproj",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/GPTBridge.Permission.csproj"
+    },
+    {
+      "id": "permission-core:PermissionGrant.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionGrant.cs"
+    },
+    {
+      "id": "permission-core:PermissionGrantLedger.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionGrantLedger.cs"
+    },
+    {
+      "id": "permission-core:PermissionLifecycleAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAutomation.cs"
+    },
+    {
+      "id": "permission-core:PermissionLifecycleAdjudicator.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAdjudicator.cs"
+    },
+    {
+      "id": "permission-core:GPTBridge.Permission.Tests.csproj",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission.Tests/GPTBridge.Permission.Tests.csproj"
+    },
+    {
+      "id": "permission-core:ledger-schema",
+      "kind": "file-contains",
+      "markers": [
+        "permission-grant-ledger.jsonl",
+        "permission-violation-ledger.jsonl",
+        "\"terminate\"",
+        "\"revoke\"",
+        "\"suspend\""
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionGrantLedger.cs"
+    },
+    {
+      "id": "permission-core:delegated-execution",
+      "kind": "file-contains",
+      "markers": [
+        "delegated-to-governed-executor",
+        "MISSING_PERMISSION_ID",
+        "PERMISSION_NOT_ISSUED",
+        "PERMISSION_ALREADY_TERMINATED"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAdjudicator.cs"
+    },
+    {
+      "id": "permission-core:stop-triggers",
+      "kind": "file-contains",
+      "markers": [
+        "MapStopTrigger",
+        "PermissionStopTrigger.SecurityEvent",
+        "LifecycleOperation.Suspend",
+        "LifecycleOperation.Revoke",
+        "LifecycleOperation.Terminate"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAutomation.cs"
+    },
+    {
       "exclude": [
         "venv",
         "node_modules",
@@ -26835,7 +26900,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3484,
+    "native_checks": 3493,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -26858,7 +26923,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T10:50:44Z",
+  "generated_at": "2026-09-29T10:55:35Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

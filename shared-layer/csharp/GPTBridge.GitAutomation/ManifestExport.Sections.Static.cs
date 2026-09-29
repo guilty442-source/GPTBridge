@@ -225,6 +225,52 @@ internal static partial class ManifestExport
             "main-system/config/tool-runtime-contract.json",
             new[] { "\"special-unpackaged\"", "\"exe_required\"" });
 
+        const string permissionLib =
+            "shared-layer/csharp/GPTBridge.Permission/" +
+            "GPTBridge.Permission";
+        foreach (var rel in new[]
+        {
+            $"{permissionLib}/GPTBridge.Permission.csproj",
+            $"{permissionLib}/PermissionGrant.cs",
+            $"{permissionLib}/PermissionGrantLedger.cs",
+            $"{permissionLib}/PermissionLifecycleAutomation.cs",
+            $"{permissionLib}/PermissionLifecycleAdjudicator.cs",
+            "shared-layer/csharp/GPTBridge.Permission/" +
+            "GPTBridge.Permission.Tests/" +
+            "GPTBridge.Permission.Tests.csproj",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"permission-core:{rel.Split('/')[^1]}",
+                ["kind"] = "file-exists",
+                ["path"] = rel,
+            });
+        e.Contains("permission-core:ledger-schema",
+            $"{permissionLib}/PermissionGrantLedger.cs",
+            new[]
+            {
+                "permission-grant-ledger.jsonl",
+                "permission-violation-ledger.jsonl",
+                "\"terminate\"", "\"revoke\"", "\"suspend\"",
+            });
+        e.Contains("permission-core:delegated-execution",
+            $"{permissionLib}/PermissionLifecycleAdjudicator.cs",
+            new[]
+            {
+                "delegated-to-governed-executor",
+                "MISSING_PERMISSION_ID", "PERMISSION_NOT_ISSUED",
+                "PERMISSION_ALREADY_TERMINATED",
+            });
+        e.Contains("permission-core:stop-triggers",
+            $"{permissionLib}/PermissionLifecycleAutomation.cs",
+            new[]
+            {
+                "MapStopTrigger", "PermissionStopTrigger.SecurityEvent",
+                "LifecycleOperation.Suspend",
+                "LifecycleOperation.Revoke",
+                "LifecycleOperation.Terminate",
+            });
+
         var tsExclude = new[]
         {
             "venv", "node_modules", "__pycache__", "dist", "dist-ui",
