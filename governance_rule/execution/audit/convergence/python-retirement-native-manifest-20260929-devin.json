@@ -1,0 +1,49 @@
+{
+  "id": "python-retirement-native-manifest-20260929-devin",
+  "date": "2026-09-29",
+  "worker": "devin-desktop",
+  "type": "convergence-evidence",
+  "authority": "governance-rule-only",
+  "subject": "Python governance retirement (B167/B38): native manifest emitter rebound from retired .py oracles to JSON registries; native audit fully green on main and git worktrees",
+  "evidence": {
+    "native_audit_main": "audit-engine --manifest governance_rule/execution/audit/audit_checks_manifest.json --root . => 2056 pass / 0 fail / 0 delegated (was 1209 pass / 1561 fail before rebind)",
+    "native_audit_git_worktree": ".worktrees/git manifest => 3291 pass / 0 fail / 0 delegated at converge commit 51ddcea7",
+    "json_registries_materialized": [
+      "governance_rule/governance_policy.json",
+      "governance_rule/code_rule_directory.json",
+      "governance_rule/permission_directory/directory_authority.json",
+      "governance_rule/permission_directory/registries/permissions/capability_boundaries.json",
+      "governance_rule/permission_directory/registries/permissions/identity_groups.json",
+      "governance_rule/permission_directory/registries/permissions/identity_permissions.json",
+      "governance_rule/permission_directory/registries/permissions/source_ownership.json",
+      "governance_rule/permission_directory/registries/permissions/tool_routes.json",
+      "governance_rule/execution/audit/audit_directories.json",
+      "governance_rule/execution/audit/reducible_checks.json",
+      "governance_rule/execution/formal_rules/evaluators.json"
+    ],
+    "loader": "ManifestExport.Module() resolves a retired .py path to its .json sibling first (PyLit.Json.cs -> PyLit.Value), falling back to the legacy literal parser only when no JSON exists; missing/malformed JSON fails closed",
+    "evaluator_registry": "evaluators.json uses star-rule-evaluators/v1: evaluators object keyed by the 40 @register_rule RULE_* machine-predicate codes; DECLARED_PROVISION_RULES keeps the 42 FR-* provision bindings; CodexPipeline.EvaluatorRegistry throws FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE on missing/malformed/empty",
+    "retirement_pins": "deleted Python surfaces are pinned file-not-exists (git_tiers, metadata_contract, reconcile, gpu_coordinator, thread_budget, tool_isolation, ipc/server.py, visual_smoke.py, package __init__.py layers); owned-source checks flip exists->not-exists by live presence so a re-appearing retired file fails the manifest",
+    "native_retargets": [
+      "git-tiers:module -> GPTBridge.GitAutomation/Governance.cs TierGate",
+      "architecture:shared-database-canonical -> GPTBridge.CodexPipeline/PgDsn.cs postgresql://local/gptbridge_codex",
+      "architecture:local-vector-degraded -> vectord-rs/src/store.rs",
+      "architecture:network-allowlist -> xingcheng/infrastructure/*.json NETWORK_DESTINATION_ALLOWLIST",
+      "tool-host:* -> main-system/config/tool-runtime-contract.json + GPTBridge.ToolHost/TransportProxyClient.cs",
+      "tool-isolation:* -> main-system/config/tool-isolation-policy.json",
+      "worker-pools:thread-budget -> native/resource_governor/governor_budget.h",
+      "main-system:launcher-attested -> GPTBridge.MainSystem/StartupGate.cs",
+      "sql-patterns:scanner-machinery -> ManifestExport.Remainder.SqlScan.cs (native scan)"
+    ],
+    "registry_fix": "architecture_registry.json gained the star-chat companion component (hosted by model-dialogue, independent_tool=false) closing architecture-registry:route:star-chat"
+  },
+  "commits": [
+    "13e9ab0 governance: materialize retired Python registries as JSON",
+    "33f3c095 governance: evaluators.json -> star-rule-evaluators/v1"
+  ],
+  "worker_self_boundary": "ManifestExport.*.cs emitters are co-edited by a concurrent worker in the same checkout; mixed-hunk files and the foreign-staged deletions were deliberately left uncommitted for the coordinator sweep. No push performed.",
+  "resolution": {
+    "status": "converged",
+    "note": "main + git worktree native audits both fully green; remaining .py references in the emitter are intentional retirement pins or JSON-resolved module loads"
+  }
+}
