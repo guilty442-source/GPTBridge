@@ -8,8 +8,8 @@
   "observed_at": "2026-09-29T16:25:00+08:00",
   "evidence": {
     "audit_check": "mirror-part-pollution:governance_codex.zh-TW.part-2.txt FAIL (native audit 2081 checks / 1 fail at 16:25+08:00)",
-    "clean_authority": "gptbridge_codex.articles: 572 rows, 0 rows with '??' °X e.g. A100 rule reads 'HUMAN-NAMES:™k®Â+¨Pº·'",
-    "corrupt_projection": "gptbridge_codex.codex_search_document: 141 rows contain '??' °X e.g. 'HUMAN-NAMES:??+?? and all sovereign...', 'ROLE:?? is an independent read-only...' (¨Pº·/™k®Â lost to '?' bytes)",
+    "clean_authority": "gptbridge_codex.articles: 572 rows, 0 rows with '??' ÔøΩX e.g. A100 rule reads 'HUMAN-NAMES:ÔøΩkÔøΩÔøΩ+ÔøΩPÔøΩÔøΩ'",
+    "corrupt_projection": "gptbridge_codex.codex_search_document: 141 rows contain '??' ÔøΩX e.g. 'HUMAN-NAMES:??+?? and all sovereign...', 'ROLE:?? is an independent read-only...' (ÔøΩPÔøΩÔøΩ/ÔøΩkÔøΩÔøΩ lost to '?' bytes)",
     "mirror_write_path": "GPTBridge.CodexPipeline MirrorWriter writes UTF8 no-BOM correctly; the corruption is upstream in the search-document generation (stage/successor pipeline), not the mirror writer",
     "mirror_regen_at": "governance_codex.zh-TW.part-*.txt regenerated 2026-09-29T16:21:51+08:00 by the codex-pipeline stream"
   },
@@ -20,5 +20,22 @@
     "rebuild codex_search_document rows from the clean articles/edicts/principles source through the governed pipeline",
     "re-render the zh-TW mirror parts after the projection is clean; mirror-part-pollution must return to PASS"
   ],
-  "worker_self_boundary": "Not fixed by this worker: codex projection rebuild writes to the governed authority schema and belongs to the codex-implementation lane, not a general worker."
+  "worker_self_boundary": "Not fixed by this worker: codex projection rebuild writes to the governed authority schema and belongs to the codex-implementation lane, not a general worker.",
+  "resolution": {
+    "status": "resolved",
+    "resolved_at": "2026-09-29T17:05:00+08:00",
+    "resolved_by": "devin-desktop (governor-directed: ‰øÆÊ≠£Áº∫Âè£)",
+    "root_cause": "codex_search_document rows were written before the C# rebuild path existed / through a lossy channel; the deterministic rebuild itself (RebuildSearchDocuments) reads clean UTF-8 sources",
+    "fix": [
+      "GenerationProjections.Rebuild.cs: RepairLiveProjections() ‚Äî live-schema rebuild of search_document + fts + module/search manifests from authoritative tables (admin DSN, single transaction, no version/revision/seal bookkeeping)",
+      "MirrorWriter.MirrorTableChunks: template mapping now intersects live table names (dropped 'governed_sqlite_database_registry' no longer aborts the render); unmapped live tables fall back to round-robin",
+      "Program.cs: --repair-projections and --mirror-zh maintenance modes",
+      "UpdatePipeline.SetReadOnly/AtomicReplace made internal so the governed mirror republish path reuses the temp+replace+read-only contract"
+    ],
+    "verified": [
+      "--repair-projections: documents=906 fts_rows=743 version=2026-09-29T05:25:52Z; post-repair '??' row count = 0",
+      "--mirror-zh: errors=[]; all 5 parts rewritten read-only; UTF-8 scan: 0 '??', 0 U+FFFD, 0 disallowed C0",
+      "native audit: mirror-part-pollution all 5 parts PASS"
+    ]
+  }
 }

@@ -41,6 +41,21 @@
       "description": "No network access at all",
       "allowed_hosts": [],
       "allowed_ports": []
+    },
+    "none": {
+      "description": "No network access at all (equivalent to offline)",
+      "allowed_hosts": [],
+      "allowed_ports": []
+    },
+    "public-web-read-only": {
+      "description": "Outbound public-web read access for search/retrieval only; loopback listen remains allowed. No inbound non-loopback listeners, no credentials or file uploads.",
+      "allowed_hosts": [
+        "*"
+      ],
+      "allowed_ports": [
+        80,
+        443
+      ]
     }
   },
   "filesystem_policies": {
@@ -65,6 +80,13 @@
         "*"
       ],
       "deny_patterns": []
+    },
+    "none": {
+      "description": "No filesystem access permitted",
+      "allowed_roots": [],
+      "deny_patterns": [
+        "**"
+      ]
     }
   },
   "per_tool_overrides": {
@@ -180,6 +202,12 @@
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped"
     },
+    "star-chat": {
+      "memory_limit_mb": 512,
+      "cpu_percent_limit": 50,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped"
+    },
     "vaultly": {
       "memory_limit_mb": 512,
       "cpu_percent_limit": 50,
@@ -197,6 +225,19 @@
     },
     "vectord-rs": {
       "memory_limit_mb": 2048,
+      "cpu_percent_limit": 60,
+      "network_policy": "loopback-only",
+      "filesystem_policy": "tool-scoped",
+      "restart_on_crash": true,
+      "max_restart_attempts": 3,
+      "restart_backoff_seconds": [
+        2,
+        5,
+        15
+      ]
+    },
+    "ragd-rs": {
+      "memory_limit_mb": 1024,
       "cpu_percent_limit": 60,
       "network_policy": "loopback-only",
       "filesystem_policy": "tool-scoped",

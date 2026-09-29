@@ -258,26 +258,58 @@ internal static class TierGate
         return 3;
     }
 
+    /// <summary>
+    /// Operation key parity with command_normalizer.operation_key:
+    /// subcommand + sub-action + long-option names.  Short flags and
+    /// operands are not part of the key — ``commit -F msg`` resolves to
+    /// ``commit`` exactly like the Python normalizer (``-F`` canonicalizes
+    /// to ``--file``); raw short-flag force forms (``push -f``) are still
+    /// refused earlier by Tier-3 classification on the raw command text.
+    /// </summary>
+    private static string OperationKey(IReadOnlyList<string> args)
+    {
+        var key = new List<string>();
+        for (var i = 0; i < args.Count; i++)
+        {
+            var token = args[i];
+            if (i == 0 || (i == 1 && !token.StartsWith("-")))
+            {
+                key.Add(token.ToLowerInvariant());
+                continue;
+            }
+            if (token.StartsWith("--", StringComparison.Ordinal))
+                key.Add(token.Split('=', 2)[0].ToLowerInvariant());
+        }
+        return string.Join(' ', key);
+    }
+
+    /// <summary>
+    /// Token-aware denied-marker match — parity with
+    /// capability._denied_marker_present: dash markers match a whole
+    /// option token, plain-word markers keep substring semantics for
+    /// sub-actions (``stash drop``, ``reflog expire``).
+    /// </summary>
+    private static bool DeniedMarkerPresent(string operation, string marker)
+    {
+        if (marker.StartsWith("-", StringComparison.Ordinal))
+            return operation.Split(' ').Any(token =>
+                token.Split('=', 2)[0] == marker);
+        return operation.Contains(marker, StringComparison.Ordinal);
+    }
+
     private static bool SystemSafeAllowed(IReadOnlyList<string> args)
     {
         if (args.Count == 0)
             return false;
-        var head = string.Join(' ', args.Take(2)).ToLowerInvariant();
-        var single = args[0].ToLowerInvariant();
+        var operation = OperationKey(args);
         var allowed = SystemSafeTier2.Any(
-            op => head == op || head.StartsWith(op + " ")
-                  || single == op);
+            op => operation == op || operation.StartsWith(
+                op + " ", StringComparison.Ordinal));
         if (!allowed)
             return false;
-        // A denied marker in ANY argument refuses the operation.
-        foreach (var arg in args.Skip(1))
-        {
-            var value = arg.ToLowerInvariant();
-            if (DeniedMarkers.Any(marker =>
-                    value == marker
-                    || (marker.Length > 1 && value.StartsWith(marker))))
+        foreach (var marker in DeniedMarkers)
+            if (DeniedMarkerPresent(operation, marker))
                 return false;
-        }
         return true;
     }
 

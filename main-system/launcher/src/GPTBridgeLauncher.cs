@@ -2,29 +2,27 @@
 // pipeline is owned by launcher/src/GPTBridge.Bootstrap (net10); this file
 // stays the no-MSVC csc.exe fallback build of GPTBridgeLauncher.exe.
 //
-// History note (A217):
-// - start.py replaces start.ps1 (called by C++ launcher)
-// - install.py replaces install.ps1 (compiles C++ or C# fallback)
-// - firewall_whitelist.py replaces firewall_whitelist.ps1
+// History note (B167/B38): the start.py / install.py /
+// firewall_whitelist.py lanes are retired with the Python runtime;
+// this file is compiled by the native self-install path
+// (GPTBridge.Bootstrap.exe --install-desktop, csc.exe fallback).
 //
-// Per A217: C# ONLY for Windows-specific .NET/CLR/WinRT/COM integration
-// that cannot be provided by existing Python/TypeScript/C/C++ owner without-loss.
-// The Python scripts provide identical functionality without requiring C#.
-//
-// Original content archived for reference only. Do not compile.
-// EXCEPTION: install.py compiles this file with csc.exe as the no-MSVC
-// fallback build of the desktop bootstrap.
+// Per A217: C# ONLY for Windows-specific .NET/CLR/WinRT/COM integration.
+// The --install-desktop lane compiles this file with csc.exe as the
+// no-MSVC fallback build of the desktop bootstrap.
 
 // GPTBridgeLauncher.cs — C# fallback port of GPTBridgeLauncher.cpp.
 //
 // Minimal desktop bootstrap (same contract as the C++ launcher):
 //   * GUI subsystem (no console window ever).
 //   * Reads %LOCALAPPDATA%\GPTBridgeLauncher\config\root.txt.
-//   * Launches <root>\launcher\bin\GPTBridge.Bootstrap.exe hidden, falling
-//     back to <root>\launcher\scripts\start.py via the project venv
-//     pythonw.exe until the C# bootstrap is installed everywhere.
-// All launcher behaviour lives in start.py and updates in real time; this
-// EXE is reinstalled only when the bootstrap contract itself changes.
+//   * Launches <root>\launcher\bin\GPTBridge.Bootstrap.exe hidden; the
+//     Python start.py fallback is retired (B167/B38) — a missing
+//     bootstrap is reported as an install problem.
+// All launcher behaviour lives in the bootstrap entry and updates in real
+// time; this EXE is reinstalled only when the bootstrap contract itself
+// changes, via GPTBridge.Bootstrap.exe --install-desktop (the native
+// self-install lane that replaced install.py).
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -34,7 +32,7 @@ internal static class GPTBridgeLauncher
     private const string AppDisplayName = "專案程式庫";
 
     private const string MsgNotInstalled =
-        "程式庫啟動器尚未安裝，請執行 launcher\\scripts\\install.py。";
+        "程式庫啟動器尚未安裝，請執行 launcher\\bin\\GPTBridge.Bootstrap.exe --install-desktop。";
 
     private const string MsgMissing =
         "找不到程式庫或啟動模組，請重新安裝啟動器。";
@@ -146,22 +144,9 @@ internal static class GPTBridgeLauncher
             return LaunchHost(projectRoot, bootstrap, "");
         }
 
-        // Fallback: the retained Python launcher script via the project venv
-        // interpreter, so the launcher never depends on machine-wide PATH.
-        var launchScript = Path.Combine(
-            projectRoot, "launcher", "scripts", "start.py");
-        if (!File.Exists(launchScript))
-        {
-            ShowError(MsgMissing);
-            return 1;
-        }
-        var interpreter = Path.Combine(
-            projectRoot, ".venv", "Scripts", "pythonw.exe");
-        if (!File.Exists(interpreter))
-        {
-            interpreter = "pythonw.exe";
-        }
-
-        return LaunchHost(projectRoot, interpreter, Quote(launchScript));
+        // No fallback: the Python start.py lane is retired (B167/B38). A
+        // missing bootstrap is an install problem — report it honestly.
+        ShowError(MsgMissing);
+        return 1;
     }
 }

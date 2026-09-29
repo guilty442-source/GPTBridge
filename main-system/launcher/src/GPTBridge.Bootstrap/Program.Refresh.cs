@@ -79,26 +79,30 @@ internal static partial class Program
             {
                 return;
             }
-            var installScript = Path.Combine(
-                LauncherRoot, "scripts", "install.py");
-            if (!File.Exists(installScript))
+            // Native self-install (B167/B38): spawn our own exe with
+            // --install-desktop — same detached-single-flight semantics
+            // install.py had. The child skips the launch mutex (the
+            // refresh lock single-flights installs), so it is never
+            // blocked by this process holding it.
+            var self = Environment.ProcessPath;
+            if (self is null || !File.Exists(self))
             {
                 return;
             }
-            var interpreter = ResolvePythonInterpreter(preferWindowed: true)
-                ?? throw new InvalidOperationException("python unavailable");
             Directory.CreateDirectory(Path.GetDirectoryName(RefreshLockPath)!);
             File.WriteAllText(RefreshLockPath,
                 Environment.ProcessId.ToString(), Encoding.ASCII);
             var startInfo = new ProcessStartInfo
             {
-                FileName = interpreter,
+                FileName = self,
                 WorkingDirectory = ProjectRoot,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
-            startInfo.ArgumentList.Add(installScript);
+            startInfo.ArgumentList.Add("--install-desktop");
+            startInfo.ArgumentList.Add("--project-root");
+            startInfo.ArgumentList.Add(ProjectRoot);
             Process.Start(startInfo);
             WriteStartupJournal("launcher.refresh.spawned", new JsonObject
             {

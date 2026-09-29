@@ -34,5 +34,23 @@
     "audit": "native audit-engine green 1977/0 at 2026-09-29T16:12+08:00 after rev14 interim re-anchor + governed manifest refresh",
     "existing_csharp": "GPTBridge.CodexPipeline has PgDsn.Normalize + Npgsql access to gptbridge_codex; GPTBridge.GitAutomation already calls psql for codex_authority_state freshness"
   },
-  "worker_self_boundary": "This worker did NOT implement the port: the codex entry is permission-sovereign machinery and the codex-implementation lane owns it (worker-division rule). This file routes the gap formally instead of expanding scope."
+  "worker_self_boundary": "This worker did NOT implement the port: the codex entry is permission-sovereign machinery and the codex-implementation lane owns it (worker-division rule). This file routes the gap formally instead of expanding scope.",
+  "resolution": {
+    "status": "resolved",
+    "resolved_at": "2026-09-29T17:05:00+08:00",
+    "resolved_by": "devin-desktop (governor-directed: 修正缺口)",
+    "implementation": [
+      "shared-layer/csharp/GPTBridge.CodexPipeline/CodexRepository.cs — governed read-only codex loader (codex_repository port, authority-generation cache)",
+      "shared-layer/csharp/GPTBridge.CodexPipeline/CodexEntryState.cs — persisted entry state, nonce/grant lifecycle, revocation generation, scope grammar+scope_hash, metadata-only audit ledger with rotation (codex_entry_state port; same codex_entry_state.json / codex_read_audit.jsonl stores)",
+      "shared-layer/csharp/GPTBridge.CodexPipeline/CodexSession.cs — CodexReadSession + typed reads + dual-key mint/verify + official self-declaration entry (codex_session + codex_dual_key + codex_official port)"
+    ],
+    "cli": "--codex-read | --mint-dual-key | --revoke-codex-reads | --official-sovereign (documented in AGENTS.md)",
+    "verified": [
+      "review identity read GRANTED + session nonce + audit rows appended",
+      "bounded provision-exists via information-layer actor GRANTED",
+      "unknown actor CODEX_REVIEW_DENIED; scope widening CODEX_SCOPE_DENIED; chinese class non-星澄 actor CODEX_CHINESE_DENIED",
+      "codex:full without grant CODEX_DUAL_KEY_REQUIRED; mint→consume GRANTED; replay CODEX_GRANT_REPLAY; post-revoke grant CODEX_GRANT_REVOKED",
+      "星澄 chinese:mirror read GRANTED (mirror text returned; audit metadata-only)"
+    ]
+  }
 }

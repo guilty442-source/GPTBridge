@@ -1,9 +1,0 @@
-# Python runtime retired (B167/B38 — no transitional period): Python,
-# NumPy and JAX have zero source/dependency/artifact/execution/fallback
-# role. This file retains only the identity block so tooling that probes
-# the manifest fails closed rather than guessing; package acquisition is
-# governed through Winget only.
-
-[project]
-name = "gptbridge-runtime"
-version = "0.1.0"

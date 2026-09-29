@@ -5,13 +5,12 @@
 //
 // Intentionally minimal: it only reads the workspace root from
 // %LOCALAPPDATA%\GPTBridgeLauncher\config\root.txt and runs
-// <root>\launcher\bin\GPTBridge.Bootstrap.exe hidden.  When the C#
-// bootstrap is not yet installed it falls back to
-// <root>\.venv\Scripts\pythonw.exe <root>\launcher\scripts\start.py.
+// <root>\launcher\bin\GPTBridge.Bootstrap.exe hidden.
 // ALL launcher behaviour lives in the bootstrap entry so it can be
 // updated in real time without rebuilding this EXE.  Reinstall with
-// main-system\.venv\Scripts\python.exe launcher\scripts\install.py only when
-// this bootstrap contract itself changes.
+// launcher\bin\GPTBridge.Bootstrap.exe --install-desktop only when
+// this bootstrap contract itself changes (B167/B38: the Python
+// installer and start.py fallback are retired).
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 
 #ifndef UNICODE
@@ -32,7 +31,8 @@ static const wchar_t* kAppDisplayName =
 
 static const wchar_t* kMsgNotInstalled =
     L"\x7A0B\x5F0F\x5EAB\x555F\x52D5\x5668\x5C1A\x672A\x5B89\x88DD"
-    L"\xFF0C\x8ACB\x57F7\x884C launcher\\scripts\\install.py\x3002";
+    L"\xFF0C\x8ACB\x57F7\x884C"
+    L" launcher\\bin\\GPTBridge.Bootstrap.exe --install-desktop\x3002";
 
 static const wchar_t* kMsgMissing =
     L"\x627E\x4E0D\x5230\x7A0B\x5F0F\x5EAB\x6216\x555F\x52D5\x6A21\x7D44"
@@ -225,18 +225,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int)
         return LaunchHost(projectRoot, bootstrap, L"");
     }
 
-    // Fallback: the retained Python launcher script via the project venv
-    // interpreter, so the launcher never depends on machine-wide PATH.
-    std::wstring launchScript =
-        projectRoot + L"\\launcher\\scripts\\start.py";
-    if (!FileExists(launchScript.c_str())) {
-        ShowError(kMsgMissing);
-        return 1;
-    }
-    std::wstring interpreter = projectRoot + L"\\.venv\\Scripts\\pythonw.exe";
-    if (!FileExists(interpreter.c_str())) {
-        interpreter = L"pythonw.exe";
-    }
-
-    return LaunchHost(projectRoot, interpreter, Quote(launchScript));
+    // No fallback: the Python start.py lane is retired (B167/B38). A
+    // missing bootstrap is an install problem — report it honestly.
+    ShowError(kMsgMissing);
+    return 1;
 }

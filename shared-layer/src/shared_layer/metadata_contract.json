@@ -1,0 +1,140 @@
+{
+  "FIELD_MODULE_ID": "module_id",
+  "FIELD_RESOURCE_ID": "resource_id",
+  "FIELD_LOCATOR_ID": "locator_id",
+  "FIELD_VERSION": "version",
+  "FIELD_CONTENT_HASH": "content_hash",
+  "FIELD_UPDATED_AT": "updated_at",
+  "FIELD_CREATED_AT": "created_at",
+  "FIELD_STATUS": "status",
+  "FIELD_PLATFORM_ID": "platform_id",
+  "FIELD_OWNER_ID": "owner_id",
+  "FIELD_DATA_CATEGORY": "data_category",
+  "FIELD_RESOURCE_TYPE": "resource_type",
+  "FIELD_RESOURCE_LABEL": "resource_label",
+  "FIELD_LOGICAL_KEY": "logical_key",
+  "FIELD_CLASSIFICATION": "classification",
+  "FIELD_INDEX_STATUS": "index_status",
+  "FIELD_METADATA": "metadata",
+  "FIELD_INTEGRITY_HASH": "integrity_hash",
+  "FIELD_SCHEMA_VERSION": "schema_version",
+  "REQUIRED_FIELDS": [
+    "module_id",
+    "resource_id",
+    "locator_id",
+    "version",
+    "content_hash",
+    "updated_at",
+    "status"
+  ],
+  "STATUS_ACTIVE": "active",
+  "STATUS_INDEXED": "indexed",
+  "STATUS_PENDING": "pending",
+  "STATUS_MISSING": "missing",
+  "STATUS_MOVING": "moving",
+  "STATUS_ARCHIVED": "archived",
+  "STATUS_DELETED": "deleted",
+  "STATUS_REFERENCED": "referenced",
+  "STATUS_VALUES": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "active",
+        "indexed",
+        "pending",
+        "missing",
+        "moving",
+        "archived",
+        "deleted",
+        "referenced"
+      ]
+    ],
+    "$kw": {}
+  },
+  "CLASSIFICATION_PUBLIC": "public",
+  "CLASSIFICATION_INTERNAL": "internal",
+  "CLASSIFICATION_PRIVATE": "private",
+  "CLASSIFICATION_PERMISSION": "permission",
+  "CLASSIFICATION_PERMISSION_FILE": "permission-file",
+  "CLASSIFICATION_PERMISSION_DIRECTORY": "permission-directory",
+  "CLASSIFICATION_GOVERNANCE_RULE": "governance-rule",
+  "XINGCHENG_FORBIDDEN_CLASSIFICATIONS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "permission",
+        "permission-file",
+        "permission-directory",
+        "governance-rule"
+      ]
+    ],
+    "$kw": {}
+  },
+  "TIER_POSTGRESQL": "postgresql",
+  "TIER_VECTOR": "vector",
+  "TIER_SQLITE_NTFS": "sqlite-ntfs",
+  "DATA_OWNERSHIP": {
+    "postgresql": "central-index-and-relation-truth",
+    "vector": "rebuildable-vector-index-never-sole-copy",
+    "sqlite-ntfs": "original-or-module-private-data"
+  },
+  "_VERSION_PATTERN": {
+    "$ref": "re.compile"
+  },
+  "_HASH_PATTERN": {
+    "$ref": "re.compile"
+  },
+  "VECTOR_REQUIRED_PAYLOAD_FIELDS": [
+    "module_id",
+    "resource_id",
+    "chunk_id",
+    "version",
+    "locator_id"
+  ],
+  "__all__": [
+    "CLASSIFICATION_GOVERNANCE_RULE",
+    "CLASSIFICATION_INTERNAL",
+    "CLASSIFICATION_PERMISSION",
+    "CLASSIFICATION_PERMISSION_DIRECTORY",
+    "CLASSIFICATION_PERMISSION_FILE",
+    "CLASSIFICATION_PRIVATE",
+    "CLASSIFICATION_PUBLIC",
+    "DATA_OWNERSHIP",
+    "FIELD_CLASSIFICATION",
+    "FIELD_CONTENT_HASH",
+    "FIELD_CREATED_AT",
+    "FIELD_DATA_CATEGORY",
+    "FIELD_INTEGRITY_HASH",
+    "FIELD_INDEX_STATUS",
+    "FIELD_LOCATOR_ID",
+    "FIELD_LOGICAL_KEY",
+    "FIELD_METADATA",
+    "FIELD_MODULE_ID",
+    "FIELD_OWNER_ID",
+    "FIELD_PLATFORM_ID",
+    "FIELD_RESOURCE_ID",
+    "FIELD_RESOURCE_LABEL",
+    "FIELD_RESOURCE_TYPE",
+    "FIELD_SCHEMA_VERSION",
+    "FIELD_STATUS",
+    "FIELD_UPDATED_AT",
+    "FIELD_VERSION",
+    "VECTOR_REQUIRED_PAYLOAD_FIELDS",
+    "REQUIRED_FIELDS",
+    "ResourceMetadata",
+    "STATUS_ACTIVE",
+    "STATUS_ARCHIVED",
+    "STATUS_DELETED",
+    "STATUS_INDEXED",
+    "STATUS_MISSING",
+    "STATUS_MOVING",
+    "STATUS_PENDING",
+    "STATUS_REFERENCED",
+    "STATUS_VALUES",
+    "TIER_POSTGRESQL",
+    "TIER_VECTOR",
+    "TIER_SQLITE_NTFS",
+    "XINGCHENG_FORBIDDEN_CLASSIFICATIONS",
+    "validate_vector_payload"
+  ]
+}

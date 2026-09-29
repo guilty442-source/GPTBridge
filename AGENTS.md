@@ -845,18 +845,45 @@ on-demand, and every operation remains cancellable, observable and governed.
 ## Codex Read Access (no-Python path)
 
 The local Python runtime is retired; psycopg-based loaders
-(codex_repository/codex_official) cannot run on this machine.
-Use either governed alternative �X both hit the same PostgreSQL authority
-(postgresql://local/gptbridge_codex, schema gptbridge_codex):
+(codex_repository/codex_official/codex_session) cannot run on this
+machine.  The governed C# port in `GPTBridge.CodexPipeline` now owns the
+official read entry (A113/A435: session mint, per-request review,
+dual-key, scope check, metadata-only audit):
 
-`powershell
+```powershell
+$pipe = 'shared-layer\csharp\GPTBridge.CodexPipeline\publish\GPTBridge.CodexPipeline.exe'
+
 # authority state (version, tables, rows, sha256)
-& shared-layer\csharp\GPTBridge.CodexPipeline\publish\GPTBridge.CodexPipeline.exe --authority-state
+& $pipe --authority-state
 
-# read-only article queries (print only �X never persist/mirror codex content)
- = <gptbridge_runtime password from GPTBRIDGE_POSTGRES_DSN>
-& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -h 127.0.0.1 -U gptbridge_runtime -d gptbridge -c "SELECT ... FROM gptbridge_codex.<table>"
-`
+# official-entry read: open session -> one typed op -> close (audited)
+& $pipe --codex-read --actor <sovereign-id> --purpose global-review --scope codex:identity --op identity
+# ops: identity | sovereign | sovereigns | provision-exists | provision-text
+#      edicts | articles | principles | registry-names | directory-names
+#      registry | directory | snapshot | chinese-mirror
+# classes: review-session (default) | bounded-machine-lookup
+#          | xingcheng-chinese-review (XingCheng sovereign only)
+
+# privileged opens (codex:full / amendment-verification) need a grant:
+& $pipe --mint-dual-key --operation codex-open:review-session --primary <sovereign> --secondary <distinct-sovereign> --purpose global-review --scope codex:full
+& $pipe --codex-read ... --grant <nonce>   # single-use, replay-proof
+& $pipe --revoke-codex-reads               # bump revocation generation
+& $pipe --official-sovereign <sid>         # self-declaration read
+```
+
+Session/grant state persists in
+`governance_rule/execution/audit/codex_entry_state.json`; audit records
+append to `codex_read_audit.jsonl` (metadata-only, A435).  Fallback
+read-only queries via psql (print only; never persist codex content):
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' <GPTBRIDGE_POSTGRES_DSN> -c "SELECT ... FROM gptbridge_codex.<table>"
+```
+
+Maintenance lanes: `--repair-projections` rebuilds the live derived
+search/index/manifest projections from authoritative tables;
+`--mirror-zh` re-renders the five zh-TW mirror parts into
+`governance_rule/codex/` (read-only output).
 
 Current authority row: version 2026-09-29T05:25:52Z, 218 tables,
 23159 rows. The read-only Chinese mirror remains non-authoritative.
