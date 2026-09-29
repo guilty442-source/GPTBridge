@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>InvestmentMobile.Service</AssemblyName>
+    <RootNamespace>InvestmentMobile.Service</RootNamespace>
+    <Description>星澄 AI 投資管理與自動操盤系統 — governed AI-channel integration, advisory bridge and SHADOW/PAPER autotrading orchestration (C#).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\native\oms\InvestmentMobile.Oms.csproj" />
+  </ItemGroup>
+
+</Project>

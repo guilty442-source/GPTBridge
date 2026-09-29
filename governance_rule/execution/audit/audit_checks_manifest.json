@@ -2533,6 +2533,206 @@
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupLifecycleAutomation.cs"
     },
     {
+      "id": "investment-mobile:InvestmentMobile.Service.csproj",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/InvestmentMobile.Service.csproj"
+    },
+    {
+      "id": "investment-mobile:XingchengChannel.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/XingchengChannel.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobileService.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/InvestmentMobileService.cs"
+    },
+    {
+      "id": "investment-mobile:SignalBook.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/SignalBook.cs"
+    },
+    {
+      "id": "investment-mobile:AiSignalIntake.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AiSignalIntake.cs"
+    },
+    {
+      "id": "investment-mobile:NativeRiskGate.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/NativeRiskGate.cs"
+    },
+    {
+      "id": "investment-mobile:AutoTradingEngine.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AutoTradingEngine.cs"
+    },
+    {
+      "id": "investment-mobile:TradingEngineCluster.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/TradingEngineCluster.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobile.ToolHost.csproj",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.ToolHost/InvestmentMobile.ToolHost.csproj"
+    },
+    {
+      "id": "investment-mobile:Program.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.ToolHost/Program.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobile.Service.Tests.csproj",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/InvestmentMobile.Service.Tests.csproj"
+    },
+    {
+      "id": "investment-mobile:ServiceContractTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/ServiceContractTests.cs"
+    },
+    {
+      "id": "investment-mobile:PipelineTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/PipelineTests.cs"
+    },
+    {
+      "id": "investment-mobile:EngineClusterTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/EngineClusterTests.cs"
+    },
+    {
+      "id": "investment-mobile:sealed-route",
+      "kind": "file-contains",
+      "markers": [
+        "xingcheng_mobile_get_investment_snapshot",
+        "xingcheng_mobile_submit_investment_instruction",
+        "AI_CHANNEL_NOT_CONNECTED",
+        "governance/main-system",
+        "governance/tool/investment-mobile"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/XingchengChannel.cs"
+    },
+    {
+      "id": "investment-mobile:ai-boundary",
+      "kind": "file-contains",
+      "markers": [
+        "INVALID_PROPOSAL",
+        "SubmitSignal",
+        "SubmitProposal",
+        "DrainProposals"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AiSignalIntake.cs"
+    },
+    {
+      "id": "investment-mobile:risk-gate",
+      "kind": "file-contains",
+      "markers": [
+        "risk_evaluate_order",
+        "RISK_ENGINE_UNAVAILABLE",
+        "RiskOrderInput",
+        "AllowedMarketMask"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/NativeRiskGate.cs"
+    },
+    {
+      "id": "investment-mobile:autotrade",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "ModelBlocked",
+        "RiskHalted",
+        "LIVE_PHASE_LOCKED",
+        "AiAssisted"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AutoTradingEngine.cs"
+    },
+    {
+      "id": "investment-mobile:cluster",
+      "kind": "file-contains",
+      "markers": [
+        "investment-mobile-signal-ingest",
+        "investment-mobile-autotrade-recover",
+        "RESUME_REQUIRES_GOVERNANCE",
+        "investment-mobile-autotrade-risk-check"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/TradingEngineCluster.cs"
+    },
+    {
+      "id": "investment-mobile:native-entry",
+      "kind": "file-contains",
+      "markers": [
+        "dist/InvestmentMobile.ToolHost.exe",
+        "\"native_entry\""
+      ],
+      "path": "Standalone tools/investment-mobile/manifest.json"
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:HMACSHA",
+      "kind": "glob-not-contains",
+      "markers": [
+        "HMACSHA"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:issue_token",
+      "kind": "glob-not-contains",
+      "markers": [
+        "issue_token"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:launcher_key",
+      "kind": "glob-not-contains",
+      "markers": [
+        "launcher_key"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:integrity_manifest",
+      "kind": "glob-not-contains",
+      "markers": [
+        "integrity_manifest"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:identity_attestation",
+      "kind": "glob-not-contains",
+      "markers": [
+        "identity_attestation"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:gptbridge_transport",
+      "kind": "glob-not-contains",
+      "markers": [
+        "gptbridge_transport"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:Npgsql",
+      "kind": "glob-not-contains",
+      "markers": [
+        "Npgsql"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:pg_notify",
+      "kind": "glob-not-contains",
+      "markers": [
+        "pg_notify"
+      ]
+    },
+    {
       "exclude": [
         "venv",
         "node_modules",
@@ -27080,7 +27280,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3516,
+    "native_checks": 3544,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27103,7 +27303,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T13:55:45Z",
+  "generated_at": "2026-09-29T15:03:46Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

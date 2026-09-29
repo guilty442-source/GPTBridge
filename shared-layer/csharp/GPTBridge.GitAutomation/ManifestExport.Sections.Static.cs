@@ -354,6 +354,106 @@ internal static partial class ManifestExport
                 "identity-group-lifecycle.jsonl",
             });
 
+        // 星澄 AI 投資管理與自動操盤系統 — investment-mobile native
+        // service: sealed xingcheng relay, AI signal/proposal intake,
+        // native risk+strategy gates, SHADOW/PAPER autotrade (LIVE
+        // phase-locked). The retired Python channel_runtime lane is
+        // replaced by src/InvestmentMobile.ToolHost.exe.
+        const string invSvc =
+            "Standalone tools/investment-mobile/src/" +
+            "InvestmentMobile.Service";
+        const string invHost =
+            "Standalone tools/investment-mobile/src/" +
+            "InvestmentMobile.ToolHost";
+        const string invTests =
+            "Standalone tools/investment-mobile/src/" +
+            "InvestmentMobile.Service.Tests";
+        foreach (var rel in new[]
+        {
+            $"{invSvc}/InvestmentMobile.Service.csproj",
+            $"{invSvc}/XingchengChannel.cs",
+            $"{invSvc}/InvestmentMobileService.cs",
+            $"{invSvc}/SignalBook.cs",
+            $"{invSvc}/AiSignalIntake.cs",
+            $"{invSvc}/NativeRiskGate.cs",
+            $"{invSvc}/AutoTradingEngine.cs",
+            $"{invSvc}/TradingEngineCluster.cs",
+            $"{invHost}/InvestmentMobile.ToolHost.csproj",
+            $"{invHost}/Program.cs",
+            $"{invTests}/InvestmentMobile.Service.Tests.csproj",
+            $"{invTests}/ServiceContractTests.cs",
+            $"{invTests}/PipelineTests.cs",
+            $"{invTests}/EngineClusterTests.cs",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"investment-mobile:{rel.Split('/')[^1]}",
+                ["kind"] = "file-exists",
+                ["path"] = rel,
+            });
+        e.Contains("investment-mobile:sealed-route",
+            $"{invSvc}/XingchengChannel.cs",
+            new[]
+            {
+                "xingcheng_mobile_get_investment_snapshot",
+                "xingcheng_mobile_submit_investment_instruction",
+                "AI_CHANNEL_NOT_CONNECTED",
+                "governance/main-system",
+                "governance/tool/investment-mobile",
+            });
+        e.Contains("investment-mobile:ai-boundary",
+            $"{invSvc}/AiSignalIntake.cs",
+            new[]
+            {
+                "INVALID_PROPOSAL", "SubmitSignal", "SubmitProposal",
+                "DrainProposals",
+            });
+        e.Contains("investment-mobile:risk-gate",
+            $"{invSvc}/NativeRiskGate.cs",
+            new[]
+            {
+                "risk_evaluate_order", "RISK_ENGINE_UNAVAILABLE",
+                "RiskOrderInput", "AllowedMarketMask",
+            });
+        e.Contains("investment-mobile:autotrade",
+            $"{invSvc}/AutoTradingEngine.cs",
+            new[]
+            {
+                "RunOnceAsync", "ModelBlocked", "RiskHalted",
+                "LIVE_PHASE_LOCKED", "AiAssisted",
+            });
+        e.Contains("investment-mobile:cluster",
+            $"{invSvc}/TradingEngineCluster.cs",
+            new[]
+            {
+                "investment-mobile-signal-ingest",
+                "investment-mobile-autotrade-recover",
+                "RESUME_REQUIRES_GOVERNANCE",
+                "investment-mobile-autotrade-risk-check",
+            });
+        e.Contains("investment-mobile:native-entry",
+            "Standalone tools/investment-mobile/manifest.json",
+            new[]
+            {
+                "dist/InvestmentMobile.ToolHost.exe",
+                "\"native_entry\"",
+            });
+        // Same E4 boundary as the governed host: the service never
+        // mints tokens or touches transport internals.
+        foreach (var marker in new[]
+        {
+            "HMACSHA", "issue_token", "launcher_key",
+            "integrity_manifest", "identity_attestation",
+            "gptbridge_transport", "Npgsql", "pg_notify",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"investment-mobile:forbidden:{marker}",
+                ["kind"] = "glob-not-contains",
+                ["glob"] = $"{invSvc}/*.cs",
+                ["markers"] = Emitter.Arr(new[] { marker }),
+            });
+
         var tsExclude = new[]
         {
             "venv", "node_modules", "__pycache__", "dist", "dist-ui",

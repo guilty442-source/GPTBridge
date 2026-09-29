@@ -7,8 +7,18 @@ namespace GPTBridge.ToolHost;
 
 public static class ToolHostProgram
 {
-    public static async Task<int> RunAsync(
+    public static Task<int> RunAsync(
         IGovernedCommandExecutor executor,
+        string version,
+        string[]? processingChannels = null) =>
+        RunAsync(_ => executor, version, processingChannels);
+
+    /// <summary>Factory form — the executor is built from the validated
+    /// governed environment (tool root, identity) instead of before it,
+    /// so state dirs and native component paths resolve correctly.</summary>
+    public static async Task<int> RunAsync(
+        Func<GovernedEnvironment, IGovernedCommandExecutor>
+            executorFactory,
         string version,
         string[]? processingChannels = null)
     {
@@ -25,6 +35,7 @@ public static class ToolHostProgram
             return 13; // fail-closed, mirrors python PermissionError exit
         }
 
+        var executor = executorFactory(env);
         await using var host = new GovernedToolHost(
             env, executor, version,
             processingChannels: processingChannels);
