@@ -1,10 +1,11 @@
 //! backend.rs — port of src-ui/main/python-backend.ts (state + spawn/stop).
 //!
 //! Architecture boundary (A60/A61): the desktop shell only wakes the screen
-//! and spawns the startup core (boot_core); boot_core supervises main.py and
-//! generates its own governance bootstrap token.  This module ONLY spawns and
-//! stops boot_core and tracks liveness; supervision/restart policy lives in
-//! ``monitor.rs``, raw process ops in ``process.rs``.
+//! and spawns the managed native backend (the Python ``boot_core``/``main.py``
+//! chain is retired, B166); the backend generates its own governance
+//! bootstrap token.  This module ONLY spawns and stops the backend and
+//! tracks liveness; supervision/restart policy lives in ``monitor.rs``,
+//! raw process ops in ``process.rs``.
 
 use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, OnceLock};

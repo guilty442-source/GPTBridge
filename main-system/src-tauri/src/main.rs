@@ -11,7 +11,8 @@
 //! Contract parity with the retired src-ui/main/index.ts:
 //!   - single-instance; a second launch re-focuses and re-checks the managed
 //!     backend instead of starting a duplicate stack
-//!   - window first, backend in the background (boot_core supervises main.py)
+//!   - window first, backend in the background (managed native backend;
+//!     the Python boot_core/main.py chain is retired, B166)
 //!   - complete-close: closing the last window stops embedded sessions, the
 //!     loopback bridge, watchers, and the managed backend
 

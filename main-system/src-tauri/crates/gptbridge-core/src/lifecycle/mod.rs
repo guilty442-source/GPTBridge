@@ -1,10 +1,11 @@
 //! Lifecycle domain — managed-backend (boot_core) supervision.
 //!
 //! Architecture boundary (A60/A61): the desktop shell only wakes the screen
-//! and spawns the startup core; boot_core supervises main.py and generates
-//! its own governance bootstrap token.  This domain only spawns/stops
-//! boot_core, tracks liveness, attaches to an existing governed backend,
-//! and applies the bounded auto-restart policy.
+//! and spawns the startup core; the managed native backend supervises the
+//! main system and generates its own governance bootstrap token (the Python
+//! ``boot_core``/``main.py`` chain is retired, B166).  This domain only
+//! spawns/stops the backend, tracks liveness, attaches to an existing
+//! governed backend, and applies the bounded auto-restart policy.
 
 mod backend;
 mod monitor;
