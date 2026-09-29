@@ -1,0 +1,284 @@
+{
+  "SHARED_LAYER_ROOT": "shared-layer/src/shared_layer",
+  "AI_ASSISTANT_PACKAGE_ROOT": [
+    "Standalone tools/ai-assistant/src/backend/services/ai_nexus"
+  ],
+  "AI_ASSISTANT_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "application",
+        "domain",
+        "infrastructure",
+        "integration"
+      ]
+    ],
+    "$kw": {}
+  },
+  "XINGCHENG_PACKAGE_ROOT": "Standalone tools/local-model/src/backend/services/xingcheng",
+  "XINGCHENG_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "application",
+        "domain",
+        "infrastructure",
+        "integration"
+      ]
+    ],
+    "$kw": {}
+  },
+  "AI_COLLABORATION_PACKAGE_ROOT": [
+    "Standalone tools/ai-collaboration/src/backend/services/ai_collaboration"
+  ],
+  "AI_COLLABORATION_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "application",
+        "domain",
+        "infrastructure",
+        "integration"
+      ]
+    ],
+    "$kw": {}
+  },
+  "INVESTMENT_MOBILE_PACKAGE_ROOT": [
+    "Standalone tools/investment-mobile/src/backend/services/investment_mobile"
+  ],
+  "INVESTMENT_MOBILE_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "integration",
+        "trading"
+      ]
+    ],
+    "$kw": {}
+  },
+  "FILE_SORTER_PACKAGE_ROOT": [
+    "Standalone tools/file-sorter/src/backend/services/file_sorter"
+  ],
+  "FILE_SORTER_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "application",
+        "domain",
+        "infrastructure"
+      ]
+    ],
+    "$kw": {}
+  },
+  "VAULTLY_PACKAGE_ROOT": "Standalone tools/vaultly/src/backend/services/vaultly",
+  "VAULTLY_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "application",
+        "domain",
+        "infrastructure",
+        "integration"
+      ]
+    ],
+    "$kw": {}
+  },
+  "STAR_CHAT_PACKAGE_ROOT": [
+    "Standalone tools/local-model/model-dialogue/src/backend/services/star_chat"
+  ],
+  "STAR_CHAT_REQUIRED_LAYERS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "application"
+      ]
+    ],
+    "$kw": {}
+  },
+  "SHARED_LAYER_ALLOWED_SOURCES": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "__init__.py",
+        "cache.py",
+        "channel.py",
+        "directory_snapshot.py",
+        "request_client.py",
+        "store.py",
+        "store_async.py",
+        "store_async_push.py",
+        "store_async_request.py",
+        "store_claim_ops.py",
+        "store_codec.py",
+        "store_helpers.py",
+        "store_pool.py",
+        "store_push_ops.py",
+        "store_request_ops.py",
+        "locator.py",
+        "module_locator_repository.py",
+        "resource_identity.py",
+        "metadata_contract.py",
+        "reconcile.py",
+        "embedded_browser_client.py",
+        "startup.py",
+        "runtime_gateway.py",
+        "service_probe.py",
+        "resilient_store.py",
+        "resilient_circuit.py",
+        "failover_store.py",
+        "health.py",
+        "tool_codenames.py",
+        "auto_repair_chain.py",
+        "channel_runtime.py",
+        "audit_sink.py",
+        "contract_resolver.py",
+        "envelope.py",
+        "gateway_metrics.py",
+        "rate_limiter.py",
+        "architecture_boundary.py",
+        "process_control.py",
+        "process_metrics.py",
+        "health_states.py",
+        "startup_gate.py",
+        "contracts/projection.py",
+        "contracts/registry.py",
+        "contracts/sql_presence.py",
+        "contracts/types.py",
+        "contracts/__init__.py",
+        "surface_reduction.py",
+        "test_matrix_consolidation.py",
+        "tokenizer.py",
+        "transport_notify.py"
+      ]
+    ],
+    "$kw": {}
+  },
+  "SHARED_LAYER_ALLOWED_PREFIXES": [
+    "adaptive/",
+    "database/",
+    "local/",
+    "observability/",
+    "performance/",
+    "registry/",
+    "security/",
+    "workflow/",
+    "contracts/",
+    "nlp/",
+    "sentiment/"
+  ],
+  "SHARED_LAYER_FORBIDDEN_TERMS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "ai-assistant",
+        "ai-collaboration",
+        "chatgpt",
+        "claude",
+        "deepseek",
+        "gemini",
+        "google-search",
+        "grok",
+        "holdings",
+        "investment-mobile",
+        "perplexity",
+        "portfolio"
+      ]
+    ],
+    "$kw": {}
+  },
+  "MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "ai_nexus",
+        "chatgpt",
+        "claude",
+        "deepseek",
+        "dividend",
+        "gemini",
+        "grok",
+        "holdings",
+        "investment_mobile",
+        "local_ai",
+        "perplexity",
+        "portfolio"
+      ]
+    ],
+    "$kw": {}
+  },
+  "REQUIRED_OWNED_SOURCES": {
+    "governance-rule": {
+      "$call": "frozenset",
+      "$args": [
+        [
+          "governance_rule/permission_directory/registries/permissions/source_ownership.json"
+        ]
+      ],
+      "$kw": {}
+    },
+    "ai-collaboration": {
+      "$call": "frozenset",
+      "$args": [
+        []
+      ],
+      "$kw": {}
+    },
+    "investment-mobile": {
+      "$call": "frozenset",
+      "$args": [
+        []
+      ],
+      "$kw": {}
+    }
+  },
+  "FORBIDDEN_LEGACY_BUSINESS_SOURCES": {
+    "$call": "frozenset",
+    "$args": [
+      [
+        "shared-layer/src/shared_layer/ai_channel/__init__.py",
+        "shared-layer/src/shared_layer/ai_channel/client.py",
+        "shared-layer/src/shared_layer/ai_channel/policy.py",
+        "shared-layer/src/shared_layer/ai_channel/protocol.py",
+        "shared-layer/src/shared_layer/ai_channel/provider_adapters.py",
+        "shared-layer/src/shared_layer/mobile_channel/__init__.py",
+        "shared-layer/src/shared_layer/mobile_channel/client.py",
+        "shared-layer/src/shared_layer/mobile_channel/policy.py"
+      ]
+    ],
+    "$kw": {}
+  },
+  "OWNED_IMPORT_PREFIXES": {
+    "ai_collaboration": "Standalone tools/ai-collaboration",
+    "ai_nexus": "Standalone tools/ai-assistant",
+    "file_sorter": "Standalone tools/file-sorter",
+    "investment_mobile": "Standalone tools/investment-mobile",
+    "xingcheng": "Standalone tools/local-model",
+    "vaultly": "Standalone tools/vaultly",
+    "star_chat": "Standalone tools/local-model"
+  },
+  "__all__": [
+    "AI_COLLABORATION_PACKAGE_ROOT",
+    "AI_COLLABORATION_REQUIRED_LAYERS",
+    "AI_ASSISTANT_FORBIDDEN_NETWORK_PATTERNS",
+    "AI_ASSISTANT_PACKAGE_ROOT",
+    "AI_ASSISTANT_REQUIRED_LAYERS",
+    "XINGCHENG_PACKAGE_ROOT",
+    "XINGCHENG_REQUIRED_LAYERS",
+    "MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS",
+    "INVESTMENT_MOBILE_PACKAGE_ROOT",
+    "INVESTMENT_MOBILE_REQUIRED_LAYERS",
+    "FILE_SORTER_PACKAGE_ROOT",
+    "FILE_SORTER_REQUIRED_LAYERS",
+    "VAULTLY_PACKAGE_ROOT",
+    "VAULTLY_REQUIRED_LAYERS",
+    "STAR_CHAT_PACKAGE_ROOT",
+    "STAR_CHAT_REQUIRED_LAYERS",
+    "FORBIDDEN_LEGACY_BUSINESS_SOURCES",
+    "OWNED_IMPORT_PREFIXES",
+    "REQUIRED_OWNED_SOURCES",
+    "SHARED_LAYER_ALLOWED_SOURCES",
+    "SHARED_LAYER_ALLOWED_PREFIXES",
+    "SHARED_LAYER_FORBIDDEN_TERMS",
+    "source_ownership_errors"
+  ]
+}

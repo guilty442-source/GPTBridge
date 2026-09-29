@@ -1,0 +1,1523 @@
+{
+  "MAIN_SYSTEM_IDENTITY": {
+    "$call": "CapabilityIdentity",
+    "$args": [],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_MAIN_SYSTEM"
+      },
+      "actor": "governance/main-system",
+      "bound_tool_id": "main-system",
+      "bound_roots": [
+        "main-system"
+      ],
+      "manifest_binding": {
+        "$call": "ManifestBinding",
+        "$args": [],
+        "$kw": {
+          "required": false,
+          "path_template": "",
+          "tool_id_field": "",
+          "maximum_bytes": 0,
+          "required_capabilities": [],
+          "requirements": []
+        }
+      },
+      "authentication": "governance-policy-issued-capability-token",
+      "identity_code": "M00001",
+      "language_name": "main_system",
+      "codename": "CENTRAL"
+    }
+  },
+  "GOVERNANCE_RULE_IDENTITY": {
+    "$call": "CapabilityIdentity",
+    "$args": [],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_GOVERNANCE_RULE"
+      },
+      "actor": "governance/tool/governance_rule",
+      "bound_tool_id": "governance_rule",
+      "bound_roots": [
+        "governance_rule"
+      ],
+      "manifest_binding": {
+        "$call": "ManifestBinding",
+        "$args": [],
+        "$kw": {
+          "required": true,
+          "path_template": "governance_rule/manifest.json",
+          "tool_id_field": "id",
+          "maximum_bytes": 1048576,
+          "required_capabilities": [
+            "codex-read-execute",
+            "permission-directory-read-execute"
+          ],
+          "requirements": [
+            {
+              "$call": "ManifestRequirement",
+              "$args": [
+                [
+                  "permissions",
+                  "code_scope"
+                ],
+                "tool-root-only"
+              ],
+              "$kw": {}
+            },
+            {
+              "$call": "ManifestRequirement",
+              "$args": [
+                [
+                  "permissions",
+                  "database_scope"
+                ],
+                "none"
+              ],
+              "$kw": {}
+            }
+          ]
+        }
+      },
+      "authentication": "governance-policy-issued-capability-token",
+      "identity_code": "G00001",
+      "language_name": "governance_rule",
+      "codename": "SOVEREIGN"
+    }
+  },
+  "SHARED_LAYER_IDENTITY": {
+    "$call": "CapabilityIdentity",
+    "$args": [],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_SHARED_LAYER"
+      },
+      "actor": "governance/tool/shared-layer",
+      "bound_tool_id": "shared-layer",
+      "bound_roots": [
+        "shared-layer"
+      ],
+      "manifest_binding": {
+        "$call": "ManifestBinding",
+        "$args": [],
+        "$kw": {
+          "required": true,
+          "path_template": "shared-layer/manifest.json",
+          "tool_id_field": "id",
+          "maximum_bytes": 1048576,
+          "required_capabilities": [
+            "authenticated-ipc"
+          ],
+          "requirements": [
+            {
+              "$call": "ManifestRequirement",
+              "$args": [
+                [
+                  "permissions",
+                  "code_scope"
+                ],
+                "tool-root-only"
+              ],
+              "$kw": {}
+            },
+            {
+              "$call": "ManifestRequirement",
+              "$args": [
+                [
+                  "permissions",
+                  "database_scope"
+                ],
+                "tool-database-only"
+              ],
+              "$kw": {}
+            }
+          ]
+        }
+      },
+      "authentication": "governance-policy-issued-capability-token",
+      "identity_code": "S00001",
+      "language_name": "shared_layer",
+      "codename": "CONDUIT"
+    }
+  },
+  "GLOBAL_CLEANER_IDENTITY": {
+    "$call": "CapabilityIdentity",
+    "$args": [],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_GLOBAL_CLEANER"
+      },
+      "actor": "governance/tool/global-cleaner",
+      "bound_tool_id": "global-cleaner",
+      "bound_roots": [
+        "Standalone tools/global-cleaner"
+      ],
+      "manifest_binding": {
+        "$call": "ManifestBinding",
+        "$args": [],
+        "$kw": {
+          "required": true,
+          "path_template": "Standalone tools/global-cleaner/manifest.json",
+          "tool_id_field": "id",
+          "maximum_bytes": 1048576,
+          "required_capabilities": [
+            "global-cleanup",
+            "managed-backup",
+            "system-health-check"
+          ],
+          "requirements": [
+            {
+              "$call": "ManifestRequirement",
+              "$args": [
+                [
+                  "permissions",
+                  "code_scope"
+                ],
+                "tool-root-only"
+              ],
+              "$kw": {}
+            },
+            {
+              "$call": "ManifestRequirement",
+              "$args": [
+                [
+                  "permissions",
+                  "database_scope"
+                ],
+                "tool-database-only"
+              ],
+              "$kw": {}
+            }
+          ]
+        }
+      },
+      "authentication": "governance-policy-issued-capability-token",
+      "identity_code": "C00001",
+      "language_name": "global_cleaner",
+      "codename": "SWEEPER",
+      "lifecycle": "retired"
+    }
+  },
+  "AI_ASSISTANT_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "ai-assistant"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_AI_ASSISTANT"
+      },
+      "identity_code": "A00001",
+      "language_name": "ai_assistant",
+      "codename": "STEWARD"
+    }
+  },
+  "AI_COLLABORATION_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "ai-collaboration"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_AI_COLLABORATION"
+      },
+      "identity_code": "E00001",
+      "language_name": "ai_collaboration",
+      "codename": "ENVOY"
+    }
+  },
+  "FILE_SORTER_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "file-sorter"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_FILE_SORTER"
+      },
+      "identity_code": "F00001",
+      "language_name": "file_sorter",
+      "codename": "SORTER"
+    }
+  },
+  "XINGCHENG_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "xingcheng"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_XINGCHENG"
+      },
+      "identity_code": "X00001",
+      "language_name": "xingcheng",
+      "codename": "NEBULA",
+      "root_template": "Standalone tools/local-model/xingcheng",
+      "code_scope": "project-source-excluding-governance-rule",
+      "database_scope": [
+        "opaque-central-index-read-and-xingcheng-internal-read-write"
+      ]
+    }
+  },
+  "XINGCHENG_ASSISTANT_IDENTITY": {
+    "$call": "CapabilityIdentity",
+    "$args": [],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_XINGCHENG_ASSISTANT"
+      },
+      "actor": "governance/tool/xingcheng-assistant",
+      "bound_tool_id": "xingcheng-assistant",
+      "bound_roots": [
+        "main-system/governance/sovereigns/xingcheng",
+        "main-system/src-core/core_system",
+        "main-system/src-ui"
+      ],
+      "manifest_binding": {
+        "$call": "ManifestBinding",
+        "$args": [],
+        "$kw": {
+          "required": false,
+          "path_template": "",
+          "tool_id_field": "",
+          "maximum_bytes": 0,
+          "required_capabilities": [],
+          "requirements": []
+        }
+      },
+      "authentication": "governance-policy-issued-capability-token",
+      "identity_code": "X00002",
+      "language_name": "xingcheng_assistant",
+      "codename": "AUXILIARY"
+    }
+  },
+  "INVESTMENT_MOBILE_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "investment-mobile"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_INVESTMENT_MOBILE"
+      },
+      "identity_code": "I00001",
+      "language_name": "investment_mobile",
+      "codename": "MOBILE"
+    }
+  },
+  "VAULTLY_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "vaultly"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_VAULTLY"
+      },
+      "identity_code": "V00001",
+      "language_name": "vaultly",
+      "codename": "VAULT"
+    }
+  },
+  "LOCAL_MODEL_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "local-model"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_LOCAL_MODEL"
+      },
+      "identity_code": "L00001",
+      "language_name": "local_model",
+      "codename": "LOCAL_MODEL"
+    }
+  },
+  "MODEL_DIALOGUE_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "model-dialogue"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE"
+      },
+      "identity_code": "D00001",
+      "language_name": "model_dialogue",
+      "codename": "DIALOGUE",
+      "root_template": "Standalone tools/local-model/model-dialogue"
+    }
+  },
+  "STAR_CHAT_IDENTITY": {
+    "$call": "_business_tool_identity",
+    "$args": [
+      "star-chat"
+    ],
+    "$kw": {
+      "group_id": {
+        "$ref": "IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT"
+      },
+      "identity_code": "D00002",
+      "language_name": "star_chat",
+      "codename": "STARCHAT",
+      "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+      "code_scope": "xingcheng-internal",
+      "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
+    }
+  },
+  "CAPABILITY_IDENTITIES": [
+    {
+      "$call": "CapabilityIdentity",
+      "$args": [],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_MAIN_SYSTEM"
+        },
+        "actor": "governance/main-system",
+        "bound_tool_id": "main-system",
+        "bound_roots": [
+          "main-system"
+        ],
+        "manifest_binding": {
+          "$call": "ManifestBinding",
+          "$args": [],
+          "$kw": {
+            "required": false,
+            "path_template": "",
+            "tool_id_field": "",
+            "maximum_bytes": 0,
+            "required_capabilities": [],
+            "requirements": []
+          }
+        },
+        "authentication": "governance-policy-issued-capability-token",
+        "identity_code": "M00001",
+        "language_name": "main_system",
+        "codename": "CENTRAL"
+      }
+    },
+    {
+      "$call": "CapabilityIdentity",
+      "$args": [],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_GOVERNANCE_RULE"
+        },
+        "actor": "governance/tool/governance_rule",
+        "bound_tool_id": "governance_rule",
+        "bound_roots": [
+          "governance_rule"
+        ],
+        "manifest_binding": {
+          "$call": "ManifestBinding",
+          "$args": [],
+          "$kw": {
+            "required": true,
+            "path_template": "governance_rule/manifest.json",
+            "tool_id_field": "id",
+            "maximum_bytes": 1048576,
+            "required_capabilities": [
+              "codex-read-execute",
+              "permission-directory-read-execute"
+            ],
+            "requirements": [
+              {
+                "$call": "ManifestRequirement",
+                "$args": [
+                  [
+                    "permissions",
+                    "code_scope"
+                  ],
+                  "tool-root-only"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "ManifestRequirement",
+                "$args": [
+                  [
+                    "permissions",
+                    "database_scope"
+                  ],
+                  "none"
+                ],
+                "$kw": {}
+              }
+            ]
+          }
+        },
+        "authentication": "governance-policy-issued-capability-token",
+        "identity_code": "G00001",
+        "language_name": "governance_rule",
+        "codename": "SOVEREIGN"
+      }
+    },
+    {
+      "$call": "CapabilityIdentity",
+      "$args": [],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_SHARED_LAYER"
+        },
+        "actor": "governance/tool/shared-layer",
+        "bound_tool_id": "shared-layer",
+        "bound_roots": [
+          "shared-layer"
+        ],
+        "manifest_binding": {
+          "$call": "ManifestBinding",
+          "$args": [],
+          "$kw": {
+            "required": true,
+            "path_template": "shared-layer/manifest.json",
+            "tool_id_field": "id",
+            "maximum_bytes": 1048576,
+            "required_capabilities": [
+              "authenticated-ipc"
+            ],
+            "requirements": [
+              {
+                "$call": "ManifestRequirement",
+                "$args": [
+                  [
+                    "permissions",
+                    "code_scope"
+                  ],
+                  "tool-root-only"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "ManifestRequirement",
+                "$args": [
+                  [
+                    "permissions",
+                    "database_scope"
+                  ],
+                  "tool-database-only"
+                ],
+                "$kw": {}
+              }
+            ]
+          }
+        },
+        "authentication": "governance-policy-issued-capability-token",
+        "identity_code": "S00001",
+        "language_name": "shared_layer",
+        "codename": "CONDUIT"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "ai-assistant"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_AI_ASSISTANT"
+        },
+        "identity_code": "A00001",
+        "language_name": "ai_assistant",
+        "codename": "STEWARD"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "ai-collaboration"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_AI_COLLABORATION"
+        },
+        "identity_code": "E00001",
+        "language_name": "ai_collaboration",
+        "codename": "ENVOY"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "file-sorter"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_FILE_SORTER"
+        },
+        "identity_code": "F00001",
+        "language_name": "file_sorter",
+        "codename": "SORTER"
+      }
+    },
+    {
+      "$call": "CapabilityIdentity",
+      "$args": [],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_GLOBAL_CLEANER"
+        },
+        "actor": "governance/tool/global-cleaner",
+        "bound_tool_id": "global-cleaner",
+        "bound_roots": [
+          "Standalone tools/global-cleaner"
+        ],
+        "manifest_binding": {
+          "$call": "ManifestBinding",
+          "$args": [],
+          "$kw": {
+            "required": true,
+            "path_template": "Standalone tools/global-cleaner/manifest.json",
+            "tool_id_field": "id",
+            "maximum_bytes": 1048576,
+            "required_capabilities": [
+              "global-cleanup",
+              "managed-backup",
+              "system-health-check"
+            ],
+            "requirements": [
+              {
+                "$call": "ManifestRequirement",
+                "$args": [
+                  [
+                    "permissions",
+                    "code_scope"
+                  ],
+                  "tool-root-only"
+                ],
+                "$kw": {}
+              },
+              {
+                "$call": "ManifestRequirement",
+                "$args": [
+                  [
+                    "permissions",
+                    "database_scope"
+                  ],
+                  "tool-database-only"
+                ],
+                "$kw": {}
+              }
+            ]
+          }
+        },
+        "authentication": "governance-policy-issued-capability-token",
+        "identity_code": "C00001",
+        "language_name": "global_cleaner",
+        "codename": "SWEEPER",
+        "lifecycle": "retired"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "investment-mobile"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_INVESTMENT_MOBILE"
+        },
+        "identity_code": "I00001",
+        "language_name": "investment_mobile",
+        "codename": "MOBILE"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "xingcheng"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_XINGCHENG"
+        },
+        "identity_code": "X00001",
+        "language_name": "xingcheng",
+        "codename": "NEBULA",
+        "root_template": "Standalone tools/local-model/xingcheng",
+        "code_scope": "project-source-excluding-governance-rule",
+        "database_scope": [
+          "opaque-central-index-read-and-xingcheng-internal-read-write"
+        ]
+      }
+    },
+    {
+      "$call": "CapabilityIdentity",
+      "$args": [],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_XINGCHENG_ASSISTANT"
+        },
+        "actor": "governance/tool/xingcheng-assistant",
+        "bound_tool_id": "xingcheng-assistant",
+        "bound_roots": [
+          "main-system/governance/sovereigns/xingcheng",
+          "main-system/src-core/core_system",
+          "main-system/src-ui"
+        ],
+        "manifest_binding": {
+          "$call": "ManifestBinding",
+          "$args": [],
+          "$kw": {
+            "required": false,
+            "path_template": "",
+            "tool_id_field": "",
+            "maximum_bytes": 0,
+            "required_capabilities": [],
+            "requirements": []
+          }
+        },
+        "authentication": "governance-policy-issued-capability-token",
+        "identity_code": "X00002",
+        "language_name": "xingcheng_assistant",
+        "codename": "AUXILIARY"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "vaultly"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_VAULTLY"
+        },
+        "identity_code": "V00001",
+        "language_name": "vaultly",
+        "codename": "VAULT"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "local-model"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_LOCAL_MODEL"
+        },
+        "identity_code": "L00001",
+        "language_name": "local_model",
+        "codename": "LOCAL_MODEL"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "model-dialogue"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE"
+        },
+        "identity_code": "D00001",
+        "language_name": "model_dialogue",
+        "codename": "DIALOGUE",
+        "root_template": "Standalone tools/local-model/model-dialogue"
+      }
+    },
+    {
+      "$call": "_business_tool_identity",
+      "$args": [
+        "star-chat"
+      ],
+      "$kw": {
+        "group_id": {
+          "$ref": "IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT"
+        },
+        "identity_code": "D00002",
+        "language_name": "star_chat",
+        "codename": "STARCHAT",
+        "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+        "code_scope": "xingcheng-internal",
+        "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
+      }
+    }
+  ],
+  "ACTIVE_IDENTITY_GROUP": {
+    "$call": "IdentityGroup",
+    "$args": [],
+    "$kw": {
+      "group_id": {
+        "$ref": "ACTIVE_IDENTITY_GROUP_ID"
+      },
+      "identities": [
+        {
+          "$call": "CapabilityIdentity",
+          "$args": [],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_MAIN_SYSTEM"
+            },
+            "actor": "governance/main-system",
+            "bound_tool_id": "main-system",
+            "bound_roots": [
+              "main-system"
+            ],
+            "manifest_binding": {
+              "$call": "ManifestBinding",
+              "$args": [],
+              "$kw": {
+                "required": false,
+                "path_template": "",
+                "tool_id_field": "",
+                "maximum_bytes": 0,
+                "required_capabilities": [],
+                "requirements": []
+              }
+            },
+            "authentication": "governance-policy-issued-capability-token",
+            "identity_code": "M00001",
+            "language_name": "main_system",
+            "codename": "CENTRAL"
+          }
+        },
+        {
+          "$call": "CapabilityIdentity",
+          "$args": [],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_GOVERNANCE_RULE"
+            },
+            "actor": "governance/tool/governance_rule",
+            "bound_tool_id": "governance_rule",
+            "bound_roots": [
+              "governance_rule"
+            ],
+            "manifest_binding": {
+              "$call": "ManifestBinding",
+              "$args": [],
+              "$kw": {
+                "required": true,
+                "path_template": "governance_rule/manifest.json",
+                "tool_id_field": "id",
+                "maximum_bytes": 1048576,
+                "required_capabilities": [
+                  "codex-read-execute",
+                  "permission-directory-read-execute"
+                ],
+                "requirements": [
+                  {
+                    "$call": "ManifestRequirement",
+                    "$args": [
+                      [
+                        "permissions",
+                        "code_scope"
+                      ],
+                      "tool-root-only"
+                    ],
+                    "$kw": {}
+                  },
+                  {
+                    "$call": "ManifestRequirement",
+                    "$args": [
+                      [
+                        "permissions",
+                        "database_scope"
+                      ],
+                      "none"
+                    ],
+                    "$kw": {}
+                  }
+                ]
+              }
+            },
+            "authentication": "governance-policy-issued-capability-token",
+            "identity_code": "G00001",
+            "language_name": "governance_rule",
+            "codename": "SOVEREIGN"
+          }
+        },
+        {
+          "$call": "CapabilityIdentity",
+          "$args": [],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_SHARED_LAYER"
+            },
+            "actor": "governance/tool/shared-layer",
+            "bound_tool_id": "shared-layer",
+            "bound_roots": [
+              "shared-layer"
+            ],
+            "manifest_binding": {
+              "$call": "ManifestBinding",
+              "$args": [],
+              "$kw": {
+                "required": true,
+                "path_template": "shared-layer/manifest.json",
+                "tool_id_field": "id",
+                "maximum_bytes": 1048576,
+                "required_capabilities": [
+                  "authenticated-ipc"
+                ],
+                "requirements": [
+                  {
+                    "$call": "ManifestRequirement",
+                    "$args": [
+                      [
+                        "permissions",
+                        "code_scope"
+                      ],
+                      "tool-root-only"
+                    ],
+                    "$kw": {}
+                  },
+                  {
+                    "$call": "ManifestRequirement",
+                    "$args": [
+                      [
+                        "permissions",
+                        "database_scope"
+                      ],
+                      "tool-database-only"
+                    ],
+                    "$kw": {}
+                  }
+                ]
+              }
+            },
+            "authentication": "governance-policy-issued-capability-token",
+            "identity_code": "S00001",
+            "language_name": "shared_layer",
+            "codename": "CONDUIT"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "ai-assistant"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_AI_ASSISTANT"
+            },
+            "identity_code": "A00001",
+            "language_name": "ai_assistant",
+            "codename": "STEWARD"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "ai-collaboration"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_AI_COLLABORATION"
+            },
+            "identity_code": "E00001",
+            "language_name": "ai_collaboration",
+            "codename": "ENVOY"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "file-sorter"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_FILE_SORTER"
+            },
+            "identity_code": "F00001",
+            "language_name": "file_sorter",
+            "codename": "SORTER"
+          }
+        },
+        {
+          "$call": "CapabilityIdentity",
+          "$args": [],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_GLOBAL_CLEANER"
+            },
+            "actor": "governance/tool/global-cleaner",
+            "bound_tool_id": "global-cleaner",
+            "bound_roots": [
+              "Standalone tools/global-cleaner"
+            ],
+            "manifest_binding": {
+              "$call": "ManifestBinding",
+              "$args": [],
+              "$kw": {
+                "required": true,
+                "path_template": "Standalone tools/global-cleaner/manifest.json",
+                "tool_id_field": "id",
+                "maximum_bytes": 1048576,
+                "required_capabilities": [
+                  "global-cleanup",
+                  "managed-backup",
+                  "system-health-check"
+                ],
+                "requirements": [
+                  {
+                    "$call": "ManifestRequirement",
+                    "$args": [
+                      [
+                        "permissions",
+                        "code_scope"
+                      ],
+                      "tool-root-only"
+                    ],
+                    "$kw": {}
+                  },
+                  {
+                    "$call": "ManifestRequirement",
+                    "$args": [
+                      [
+                        "permissions",
+                        "database_scope"
+                      ],
+                      "tool-database-only"
+                    ],
+                    "$kw": {}
+                  }
+                ]
+              }
+            },
+            "authentication": "governance-policy-issued-capability-token",
+            "identity_code": "C00001",
+            "language_name": "global_cleaner",
+            "codename": "SWEEPER",
+            "lifecycle": "retired"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "investment-mobile"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_INVESTMENT_MOBILE"
+            },
+            "identity_code": "I00001",
+            "language_name": "investment_mobile",
+            "codename": "MOBILE"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "xingcheng"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_XINGCHENG"
+            },
+            "identity_code": "X00001",
+            "language_name": "xingcheng",
+            "codename": "NEBULA",
+            "root_template": "Standalone tools/local-model/xingcheng",
+            "code_scope": "project-source-excluding-governance-rule",
+            "database_scope": [
+              "opaque-central-index-read-and-xingcheng-internal-read-write"
+            ]
+          }
+        },
+        {
+          "$call": "CapabilityIdentity",
+          "$args": [],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_XINGCHENG_ASSISTANT"
+            },
+            "actor": "governance/tool/xingcheng-assistant",
+            "bound_tool_id": "xingcheng-assistant",
+            "bound_roots": [
+              "main-system/governance/sovereigns/xingcheng",
+              "main-system/src-core/core_system",
+              "main-system/src-ui"
+            ],
+            "manifest_binding": {
+              "$call": "ManifestBinding",
+              "$args": [],
+              "$kw": {
+                "required": false,
+                "path_template": "",
+                "tool_id_field": "",
+                "maximum_bytes": 0,
+                "required_capabilities": [],
+                "requirements": []
+              }
+            },
+            "authentication": "governance-policy-issued-capability-token",
+            "identity_code": "X00002",
+            "language_name": "xingcheng_assistant",
+            "codename": "AUXILIARY"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "vaultly"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_VAULTLY"
+            },
+            "identity_code": "V00001",
+            "language_name": "vaultly",
+            "codename": "VAULT"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "local-model"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_LOCAL_MODEL"
+            },
+            "identity_code": "L00001",
+            "language_name": "local_model",
+            "codename": "LOCAL_MODEL"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "model-dialogue"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE"
+            },
+            "identity_code": "D00001",
+            "language_name": "model_dialogue",
+            "codename": "DIALOGUE",
+            "root_template": "Standalone tools/local-model/model-dialogue"
+          }
+        },
+        {
+          "$call": "_business_tool_identity",
+          "$args": [
+            "star-chat"
+          ],
+          "$kw": {
+            "group_id": {
+              "$ref": "IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT"
+            },
+            "identity_code": "D00002",
+            "language_name": "star_chat",
+            "codename": "STARCHAT",
+            "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+            "code_scope": "xingcheng-internal",
+            "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
+          }
+        }
+      ],
+      "management_authority": "directory-authority-only",
+      "registry_mode": "hard-coded-immutable",
+      "legacy_identity_compatibility": false,
+      "aliases_allowed": false,
+      "unknown_identity_access": "denied",
+      "authentication": "governance-policy-issued-capability-token"
+    }
+  },
+  "identity_group_snapshot": {
+    "$call": "_sealed_registry_reader",
+    "$args": [
+      {
+        "$call": "IdentityGroup",
+        "$args": [],
+        "$kw": {
+          "group_id": {
+            "$ref": "ACTIVE_IDENTITY_GROUP_ID"
+          },
+          "identities": [
+            {
+              "$call": "CapabilityIdentity",
+              "$args": [],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_MAIN_SYSTEM"
+                },
+                "actor": "governance/main-system",
+                "bound_tool_id": "main-system",
+                "bound_roots": [
+                  "main-system"
+                ],
+                "manifest_binding": {
+                  "$call": "ManifestBinding",
+                  "$args": [],
+                  "$kw": {
+                    "required": false,
+                    "path_template": "",
+                    "tool_id_field": "",
+                    "maximum_bytes": 0,
+                    "required_capabilities": [],
+                    "requirements": []
+                  }
+                },
+                "authentication": "governance-policy-issued-capability-token",
+                "identity_code": "M00001",
+                "language_name": "main_system",
+                "codename": "CENTRAL"
+              }
+            },
+            {
+              "$call": "CapabilityIdentity",
+              "$args": [],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_GOVERNANCE_RULE"
+                },
+                "actor": "governance/tool/governance_rule",
+                "bound_tool_id": "governance_rule",
+                "bound_roots": [
+                  "governance_rule"
+                ],
+                "manifest_binding": {
+                  "$call": "ManifestBinding",
+                  "$args": [],
+                  "$kw": {
+                    "required": true,
+                    "path_template": "governance_rule/manifest.json",
+                    "tool_id_field": "id",
+                    "maximum_bytes": 1048576,
+                    "required_capabilities": [
+                      "codex-read-execute",
+                      "permission-directory-read-execute"
+                    ],
+                    "requirements": [
+                      {
+                        "$call": "ManifestRequirement",
+                        "$args": [
+                          [
+                            "permissions",
+                            "code_scope"
+                          ],
+                          "tool-root-only"
+                        ],
+                        "$kw": {}
+                      },
+                      {
+                        "$call": "ManifestRequirement",
+                        "$args": [
+                          [
+                            "permissions",
+                            "database_scope"
+                          ],
+                          "none"
+                        ],
+                        "$kw": {}
+                      }
+                    ]
+                  }
+                },
+                "authentication": "governance-policy-issued-capability-token",
+                "identity_code": "G00001",
+                "language_name": "governance_rule",
+                "codename": "SOVEREIGN"
+              }
+            },
+            {
+              "$call": "CapabilityIdentity",
+              "$args": [],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_SHARED_LAYER"
+                },
+                "actor": "governance/tool/shared-layer",
+                "bound_tool_id": "shared-layer",
+                "bound_roots": [
+                  "shared-layer"
+                ],
+                "manifest_binding": {
+                  "$call": "ManifestBinding",
+                  "$args": [],
+                  "$kw": {
+                    "required": true,
+                    "path_template": "shared-layer/manifest.json",
+                    "tool_id_field": "id",
+                    "maximum_bytes": 1048576,
+                    "required_capabilities": [
+                      "authenticated-ipc"
+                    ],
+                    "requirements": [
+                      {
+                        "$call": "ManifestRequirement",
+                        "$args": [
+                          [
+                            "permissions",
+                            "code_scope"
+                          ],
+                          "tool-root-only"
+                        ],
+                        "$kw": {}
+                      },
+                      {
+                        "$call": "ManifestRequirement",
+                        "$args": [
+                          [
+                            "permissions",
+                            "database_scope"
+                          ],
+                          "tool-database-only"
+                        ],
+                        "$kw": {}
+                      }
+                    ]
+                  }
+                },
+                "authentication": "governance-policy-issued-capability-token",
+                "identity_code": "S00001",
+                "language_name": "shared_layer",
+                "codename": "CONDUIT"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "ai-assistant"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_AI_ASSISTANT"
+                },
+                "identity_code": "A00001",
+                "language_name": "ai_assistant",
+                "codename": "STEWARD"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "ai-collaboration"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_AI_COLLABORATION"
+                },
+                "identity_code": "E00001",
+                "language_name": "ai_collaboration",
+                "codename": "ENVOY"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "file-sorter"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_FILE_SORTER"
+                },
+                "identity_code": "F00001",
+                "language_name": "file_sorter",
+                "codename": "SORTER"
+              }
+            },
+            {
+              "$call": "CapabilityIdentity",
+              "$args": [],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_GLOBAL_CLEANER"
+                },
+                "actor": "governance/tool/global-cleaner",
+                "bound_tool_id": "global-cleaner",
+                "bound_roots": [
+                  "Standalone tools/global-cleaner"
+                ],
+                "manifest_binding": {
+                  "$call": "ManifestBinding",
+                  "$args": [],
+                  "$kw": {
+                    "required": true,
+                    "path_template": "Standalone tools/global-cleaner/manifest.json",
+                    "tool_id_field": "id",
+                    "maximum_bytes": 1048576,
+                    "required_capabilities": [
+                      "global-cleanup",
+                      "managed-backup",
+                      "system-health-check"
+                    ],
+                    "requirements": [
+                      {
+                        "$call": "ManifestRequirement",
+                        "$args": [
+                          [
+                            "permissions",
+                            "code_scope"
+                          ],
+                          "tool-root-only"
+                        ],
+                        "$kw": {}
+                      },
+                      {
+                        "$call": "ManifestRequirement",
+                        "$args": [
+                          [
+                            "permissions",
+                            "database_scope"
+                          ],
+                          "tool-database-only"
+                        ],
+                        "$kw": {}
+                      }
+                    ]
+                  }
+                },
+                "authentication": "governance-policy-issued-capability-token",
+                "identity_code": "C00001",
+                "language_name": "global_cleaner",
+                "codename": "SWEEPER",
+                "lifecycle": "retired"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "investment-mobile"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_INVESTMENT_MOBILE"
+                },
+                "identity_code": "I00001",
+                "language_name": "investment_mobile",
+                "codename": "MOBILE"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "xingcheng"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_XINGCHENG"
+                },
+                "identity_code": "X00001",
+                "language_name": "xingcheng",
+                "codename": "NEBULA",
+                "root_template": "Standalone tools/local-model/xingcheng",
+                "code_scope": "project-source-excluding-governance-rule",
+                "database_scope": [
+                  "opaque-central-index-read-and-xingcheng-internal-read-write"
+                ]
+              }
+            },
+            {
+              "$call": "CapabilityIdentity",
+              "$args": [],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_XINGCHENG_ASSISTANT"
+                },
+                "actor": "governance/tool/xingcheng-assistant",
+                "bound_tool_id": "xingcheng-assistant",
+                "bound_roots": [
+                  "main-system/governance/sovereigns/xingcheng",
+                  "main-system/src-core/core_system",
+                  "main-system/src-ui"
+                ],
+                "manifest_binding": {
+                  "$call": "ManifestBinding",
+                  "$args": [],
+                  "$kw": {
+                    "required": false,
+                    "path_template": "",
+                    "tool_id_field": "",
+                    "maximum_bytes": 0,
+                    "required_capabilities": [],
+                    "requirements": []
+                  }
+                },
+                "authentication": "governance-policy-issued-capability-token",
+                "identity_code": "X00002",
+                "language_name": "xingcheng_assistant",
+                "codename": "AUXILIARY"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "vaultly"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_VAULTLY"
+                },
+                "identity_code": "V00001",
+                "language_name": "vaultly",
+                "codename": "VAULT"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "local-model"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_LOCAL_MODEL"
+                },
+                "identity_code": "L00001",
+                "language_name": "local_model",
+                "codename": "LOCAL_MODEL"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "model-dialogue"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE"
+                },
+                "identity_code": "D00001",
+                "language_name": "model_dialogue",
+                "codename": "DIALOGUE",
+                "root_template": "Standalone tools/local-model/model-dialogue"
+              }
+            },
+            {
+              "$call": "_business_tool_identity",
+              "$args": [
+                "star-chat"
+              ],
+              "$kw": {
+                "group_id": {
+                  "$ref": "IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT"
+                },
+                "identity_code": "D00002",
+                "language_name": "star_chat",
+                "codename": "STARCHAT",
+                "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+                "code_scope": "xingcheng-internal",
+                "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
+              }
+            }
+          ],
+          "management_authority": "directory-authority-only",
+          "registry_mode": "hard-coded-immutable",
+          "legacy_identity_compatibility": false,
+          "aliases_allowed": false,
+          "unknown_identity_access": "denied",
+          "authentication": "governance-policy-issued-capability-token"
+        }
+      }
+    ],
+    "$kw": {}
+  },
+  "ACTIVE_IDENTITY_GROUP_ID": "governance-identity-v1",
+  "IDENTITY_GROUP_MAIN_SYSTEM": "identity-group-M00001",
+  "IDENTITY_GROUP_GOVERNANCE_RULE": "identity-group-G00001",
+  "IDENTITY_GROUP_SHARED_LAYER": "identity-group-S00001",
+  "IDENTITY_GROUP_AI_ASSISTANT": "identity-group-A00001",
+  "IDENTITY_GROUP_AI_COLLABORATION": "identity-group-E00001",
+  "IDENTITY_GROUP_FILE_SORTER": "identity-group-F00001",
+  "IDENTITY_GROUP_GLOBAL_CLEANER": "identity-group-C00001",
+  "IDENTITY_GROUP_INVESTMENT_MOBILE": "identity-group-I00001",
+  "IDENTITY_GROUP_XINGCHENG": "identity-group-X00001",
+  "IDENTITY_GROUP_XINGCHENG_ASSISTANT": "xingcheng-assistant-identity-group",
+  "IDENTITY_GROUP_VAULTLY": "identity-group-V00001",
+  "IDENTITY_GROUP_LOCAL_MODEL": "identity-group-L00001",
+  "IDENTITY_GROUP_LOCAL_MODEL_DIALOGUE": "identity-group-D00001",
+  "IDENTITY_GROUP_LOCAL_MODEL_STAR_CHAT": "identity-group-D00002"
+}
