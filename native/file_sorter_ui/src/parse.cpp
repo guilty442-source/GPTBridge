@@ -167,44 +167,6 @@ bool parse_profile(const std::string& stdout_text, const std::string& target_dir
     return false;
 }
 
-bool parse_sort_plan(const std::string& stdout_text, JsonValue* out) {
-    JsonValue parsed;
-    if (!parse_with_prefixes(stdout_text, kPlanPrefixes, 2, &parsed)) return false;
-    const JsonValue* plan = member(parsed, "plan");
-    *out = (plan && is_object(*plan)) ? *plan : parsed;
-    return true;
-}
-
-std::string plan_id(const JsonValue& plan) {
-    for (const char* key : {"plan_id", "id"}) {
-        const JsonValue* e = member(plan, key);
-        if (e && e->type == JsonValue::Type::String)
-            return trim_copy(e->string);
-    }
-    return "";
-}
-
-const JsonValue* plan_actions(const JsonValue& plan) {
-    for (const char* key : {"operations", "actions"}) {
-        const JsonValue* e = member(plan, key);
-        if (e && is_array(*e)) return e;
-    }
-    return nullptr;
-}
-
-unsigned long long plan_action_count(const JsonValue& plan) {
-    if (const JsonValue* a = plan_actions(plan)) return (unsigned long long)a->array.size();
-    const JsonValue* e = member(plan, "action_count");
-    if (e && e->type == JsonValue::Type::Number) return (unsigned long long)e->number;
-    const JsonValue* sum = member(plan, "summary");
-    if (sum && is_object(*sum)) {
-        const JsonValue* ready = member(*sum, "ready");
-        if (ready && ready->type == JsonValue::Type::Number)
-            return (unsigned long long)ready->number;
-    }
-    return 0;
-}
-
 std::vector<std::string> parse_keywords(const std::string& value) {
     std::vector<std::string> out;
     std::string cur;

@@ -131,7 +131,7 @@ void build_layout(HWND content) {
     theme::mark_cyan(kicker);
     L.y += 18;
     L.label(tr::kTitle, Lay::x + 2, L.y, 460, 32, g_app.font_heading);
-    u.conn_dot = L.label("\xE2\x97\x8F", 720, L.y + 6, 20, 22); /* ??*/
+    u.conn_dot = L.label("\xE2\x97\x8F", 720, L.y + 6, 20, 22); /* ● dot */
     u.conn_text = L.label(tr::kConnecting, 744, L.y + 8, 150, 20);
     L.y += 42;
     L.label(tr::kWorkspaceLbl, Lay::x + 2, L.y, 90, 18, g_app.font_small, true);
@@ -139,7 +139,7 @@ void build_layout(HWND content) {
                      700, 18, g_app.font_mono);
     L.y += 30;
 
-    /* ---- 工�??�?�自?��?�?---- */
+    /* ---- workspace + auto-organize ---- */
     y0 = L.begin_card(tr::kSecWorkspace);
     L.hint(tr::kWorkspaceHint);
     L.label(tr::kTargetLabel, ix, L.y, 200, 16, g_app.font_small);
@@ -164,50 +164,7 @@ void build_layout(HWND content) {
     u.dup_status = L.stat_(IDC_DUP_STATUS, "", ix + 22, iw - 22);
     L.end_card(y0);
 
-    /* ---- 安全?��?工�?流�? ---- */
-    y0 = L.begin_card(tr::kSecSort);
-    L.hint(tr::kSortHint);
-    u.btn_preview = L.button(IDC_BTN_PREVIEW, tr::kBtnPreview, ix, 170, true);
-    u.btn_undo = L.button(IDC_BTN_UNDO, tr::kBtnUndo, ix + 182, 110);
-    u.btn_history = L.button(IDC_BTN_HISTORY, tr::kBtnHistory, ix + 304, 110);
-    L.y += 38;
-    u.sort_msg = L.stat_(IDC_SORT_MSG, tr::kMsgReady, ix, iw);
-    u.output_edit = L.edit(IDC_OUTPUT_EDIT, ix, L.y, iw, 96,
-                           ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-                           nullptr);
-    SendMessageW(u.output_edit, WM_SETFONT, (WPARAM)g_app.font_mono, TRUE);
-    L.y += 102;
-
-    u.plan_title = L.mk(L"STATIC", IDC_PLAN_TITLE, SS_LEFTNOWORDWRAP,
-                        ix, L.y, iw, 20, g_app.font_bold);
-    SetPropW(u.plan_title, theme::kPropOnCard, (HANDLE)1);
-    L.y += 22;
-    u.plan_summary = L.stat_(IDC_PLAN_SUMMARY, "", ix, iw);
-    u.plan_warn = L.stat_(IDC_PLAN_WARN, "", ix, iw);
-    u.plan_list = L.listbox(IDC_PLAN_LIST, ix, L.y, iw, 96);
-    SetPropW(u.plan_list, theme::kPropOnCard, (HANDLE)1);
-    L.y += 102;
-    u.plan_confirm = L.check(IDC_PLAN_CONFIRM, "", ix, L.y, 660);
-    SetPropW(u.plan_confirm, theme::kPropOnCard, (HANDLE)1);
-    L.y += 26;
-    u.btn_apply = L.button(IDC_BTN_APPLY, tr::kBtnApply, ix, 120, true);
-    L.y += 38;
-
-    u.hist_title = L.mk(L"STATIC", IDC_HISTORY_TITLE, SS_LEFTNOWORDWRAP,
-                        ix, L.y, iw, 20, g_app.font_bold);
-    set_text(u.hist_title, tr::kHistoryTitle);
-    SetPropW(u.hist_title, theme::kPropOnCard, (HANDLE)1);
-    L.y += 22;
-    u.hist_list = L.listbox(IDC_HISTORY_LIST, ix, L.y, iw, 78);
-    SetPropW(u.hist_list, theme::kPropOnCard, (HANDLE)1);
-    L.y += 84;
-    u.hist_edit = L.edit(IDC_HISTORY_EDIT, ix, L.y, iw, 60,
-                         ES_MULTILINE | ES_READONLY | WS_VSCROLL);
-    SendMessageW(u.hist_edit, WM_SETFONT, (WPARAM)g_app.font_mono, TRUE);
-    L.y += 66;
-    L.end_card(y0);
-
-    /* ---- ?�鍵字�?類�???---- */
+    /* ---- keyword rules ---- */
     y0 = L.begin_card(tr::kSecKeywords);
     L.hint(tr::kKeywordHint);
     L.label(tr::kKeywordLbl, ix, L.y, 200, 16, g_app.font_small);
@@ -244,7 +201,7 @@ void build_layout(HWND content) {
     L.y += 34;
     L.end_card(y0);
 
-    /* ---- 清�??��? ---- */
+    /* ---- cleanup scan ---- */
     y0 = L.begin_card(tr::kSecCleanup);
     L.hint(tr::kCleanupHint);
     u.chk_img = L.check(IDC_CHK_IMG, tr::kImgIssues, ix, L.y, 110);

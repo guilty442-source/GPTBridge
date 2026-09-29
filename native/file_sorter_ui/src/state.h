@@ -17,8 +17,7 @@ using gptbridge::jsonlite::JsonValue;
 
 enum class RunKind {
     ListFolders, Profiles, SelectScanTarget, SetProfileEnabled,
-    SetDuplicateTrash, Preview, ApplyPlan, Undo, History,
-    ListKeywords, MutateKeywords, Cleanup,
+    SetDuplicateTrash, ListKeywords, MutateKeywords, Cleanup,
 };
 
 enum class RunState { Idle, Running, Success, Error };
@@ -35,12 +34,6 @@ struct ActiveRun {
     std::string request_id;
     RunKind kind;
     int desired = -1; /* -1 none, else 0/1 for toggle runs */
-};
-
-struct HistoryEntry {
-    bool ok;
-    std::string action;
-    std::string detail;
 };
 
 struct AppState {
@@ -70,14 +63,6 @@ struct AppState {
     std::vector<fsp::KeywordRule> keyword_rules; /* last --list-keywords */
 
     RunState run_state = RunState::Idle;
-    std::string message;
-    std::string output;
-    JsonValue sort_plan; /* Null when none */
-    bool has_plan = false;
-    bool plan_confirmed = false;
-    bool history_open = false;
-    std::vector<HistoryEntry> history_entries;
-    std::string history_output;
 
     RunState cleanup_state = RunState::Idle;
     std::string cleanup_message;
@@ -98,9 +83,6 @@ struct AppState {
     unsigned model_context_window = 8192;
     unsigned model_max_tokens = 512;
 
-    std::string pending_running_label;
-    std::string pending_success_label;
-
     /* ---- logic (logic.cpp) ---- */
     bool connected() const { return backend.state() == WsClient::State::Connected; }
     bool busy() const {
@@ -116,7 +98,6 @@ struct AppState {
     void reset_workspace();
     void validate_target();
     void enqueue_folder_scan();
-    void append_history(const char* action, bool ok, const std::string& detail);
     void request_stop_cleanup();
     std::vector<std::string> build_cleanup_args() const;
     void start_cleanup();

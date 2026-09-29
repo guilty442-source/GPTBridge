@@ -15,11 +15,6 @@ enum {
     IDC_FOLDER_STATUS, IDC_WS_STATE,
     IDC_CHK_AUTO_ORGANIZE, IDC_AUTO_STATUS,
     IDC_CHK_DUP_TRASH, IDC_DUP_STATUS,
-    IDC_BTN_PREVIEW, IDC_BTN_UNDO, IDC_BTN_HISTORY,
-    IDC_SORT_MSG, IDC_OUTPUT_EDIT,
-    IDC_PLAN_TITLE, IDC_PLAN_SUMMARY, IDC_PLAN_WARN, IDC_PLAN_LIST,
-    IDC_PLAN_CONFIRM, IDC_BTN_APPLY,
-    IDC_HISTORY_TITLE, IDC_HISTORY_LIST, IDC_HISTORY_EDIT,
     IDC_KW_EDIT, IDC_DEST_COMBO, IDC_BTN_SCAN, IDC_CHK_AUTOSCAN,
     IDC_RULES_LIST, IDC_BTN_LIST_RULES, IDC_BTN_UPSERT,
     IDC_KW_CUR, IDC_KW_NEW, IDC_BTN_MODIFY,
@@ -39,10 +34,6 @@ enum {
 struct Ui {
     HWND target_edit, btn_browse, folder_status, ws_state;
     HWND chk_auto, auto_status, chk_dup, dup_status;
-    HWND btn_preview, btn_undo, btn_history;
-    HWND sort_msg, output_edit;
-    HWND plan_title, plan_summary, plan_warn, plan_list, plan_confirm, btn_apply;
-    HWND hist_title, hist_list, hist_edit;
     HWND kw_edit, dest_combo, btn_scan, chk_autoscan;
     HWND rules_list, btn_list_rules, btn_upsert;
     HWND kw_cur, kw_new, btn_modify;

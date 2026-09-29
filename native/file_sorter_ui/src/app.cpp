@@ -145,34 +145,6 @@ void handle_command(int id, int code) {
             s.set_dup_trash(
                 SendMessageW(u.chk_dup, BM_GETCHECK, 0, 0) == BST_CHECKED);
             break;
-        case IDC_BTN_PREVIEW:
-            s.has_plan = false;
-            s.sort_plan = JsonValue{};
-            s.plan_confirmed = false;
-            s.enqueue(RunKind::Preview, {target, "--preview-json"},
-                      kShortTimeoutG(), tr::kMsgPreview, tr::kMsgPreviewDone);
-            break;
-        case IDC_BTN_UNDO:
-            if (ui_confirm(tr::kConfirmUndo))
-                s.enqueue(RunKind::Undo, {target, "--undo-last"},
-                          kRunTimeoutG(), tr::kMsgUndo, tr::kMsgUndoDone);
-            break;
-        case IDC_BTN_HISTORY:
-            s.history_open = !s.history_open;
-            if (s.history_open && s.can_run())
-                s.enqueue(RunKind::History, {target, "--history-json"},
-                          kShortTimeoutG(), tr::kMsgHistory, tr::kMsgHistoryDone);
-            break;
-        case IDC_PLAN_CONFIRM:
-            s.plan_confirmed =
-                SendMessageW(u.plan_confirm, BM_GETCHECK, 0, 0) == BST_CHECKED;
-            break;
-        case IDC_BTN_APPLY:
-            if (s.has_plan)
-                s.enqueue(RunKind::ApplyPlan,
-                          {target, "--apply-plan", fsp::plan_id(s.sort_plan)},
-                          kRunTimeoutG(), tr::kMsgApply, tr::kMsgApplyDone);
-            break;
         case IDC_BTN_BROWSE:
             browse_target_folder();
             break;
@@ -649,7 +621,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     g_app.scroll = widgets::create_scroll(g_app.hwnd, w - 10, 0, 10, h);
 
     g_app.st.ws_url = env("GPTBRIDGE_SOURCE_UI_WEBSOCKET_URL");
-    g_app.st.message = tr::kMsgReady;
     g_app.st.cleanup_message = tr::kMsgCleanupReady;
     g_app.st.backend.init(
         g_app.hwnd, WM_APP_SOCKET,

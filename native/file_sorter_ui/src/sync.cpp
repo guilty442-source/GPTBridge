@@ -41,7 +41,7 @@ void sync_list(HWND h, const std::vector<std::string>& rows,
     InvalidateRect(h, nullptr, TRUE);
 }
 
-std::string g_plan_cache, g_hist_cache, g_files_cache, g_combo_cache;
+std::string g_files_cache, g_combo_cache;
 std::string g_rules_cache;
 
 } // namespace
@@ -67,83 +67,6 @@ void sync_ui() {
     set_text(u.dup_status, s.dup_trash_status);
     enable(u.chk_auto, can);
     enable(u.chk_dup, can);
-
-    /* manual sort */
-    enable(u.btn_preview, can);
-    enable(u.btn_undo, can);
-    enable(u.btn_history, can);
-    set_text(u.btn_history, s.history_open ? "關閉歷史" : tr::kBtnHistory);
-    set_text(u.sort_msg, s.message);
-    set_text(u.output_edit, s.output);
-
-    /* plan panel */
-    bool show_plan = s.has_plan;
-    show(u.plan_title, show_plan); show(u.plan_summary, show_plan);
-    show(u.plan_warn, show_plan); show(u.plan_list, show_plan);
-    show(u.plan_confirm, show_plan); show(u.btn_apply, show_plan);
-    if (show_plan) {
-        unsigned long long count = fsp::plan_action_count(s.sort_plan);
-        std::string pid = fsp::plan_id(s.sort_plan);
-        char buf[96];
-        std::snprintf(buf, sizeof(buf), tr::kPlanPending, (int)count);
-        set_text(u.plan_title, std::string(buf) + "  " + pid);
-        const gptbridge::jsonlite::JsonValue* sum = s.sort_plan.get("summary");
-        if (sum) {
-            char sbuf[256];
-            std::snprintf(sbuf, sizeof(sbuf),
-                          "可搬移 %llu · 略過 %llu · 未匹配 %llu · 尚未穩定 %llu · 已過濾 %llu",
-                          (unsigned long long)P::jnum(*sum, "ready"),
-                          (unsigned long long)P::jnum(*sum, "skipped"),
-                          (unsigned long long)P::jnum(*sum, "unmatched"),
-                          (unsigned long long)P::jnum(*sum, "unstable"),
-                          (unsigned long long)P::jnum(*sum, "filtered"));
-            set_text(u.plan_summary, sbuf);
-        } else {
-            set_text(u.plan_summary, "");
-        }
-        std::string warn;
-        if (const gptbridge::jsonlite::JsonValue* w = s.sort_plan.get("warnings");
-            w && w->type == gptbridge::jsonlite::JsonValue::Type::Array) {
-            for (const auto& e : w->array)
-                if (e.type == gptbridge::jsonlite::JsonValue::Type::String) {
-                    if (!warn.empty()) warn += "；";
-                    warn += e.string;
-                }
-        }
-        set_text(u.plan_warn, warn);
-        std::vector<std::string> rows;
-        if (const gptbridge::jsonlite::JsonValue* acts = fsp::plan_actions(s.sort_plan)) {
-            int idx = 0;
-            for (const auto& act : acts->array) {
-                if (++idx > 50) break;
-                std::string src = P::jstr(act, "source");
-                if (src.empty()) src = "動作 " + std::to_string(idx);
-                std::string meta = P::jstr(act, "destination");
-                if (meta.empty()) meta = P::jstr(act, "status");
-                if (meta.empty()) meta = P::jstr(act, "reason");
-                rows.push_back(src + "    " + meta);
-            }
-        }
-        sync_list(u.plan_list, rows, &g_plan_cache);
-        set_text(u.plan_confirm,
-                 count > 0 ? tr::kPlanConfirm + pid : tr::kPlanEmpty);
-        set_check(u.plan_confirm, s.plan_confirmed);
-        enable(u.btn_apply, can && s.plan_confirmed && count > 0);
-    }
-
-    /* history panel */
-    show(u.hist_title, s.history_open);
-    show(u.hist_list, s.history_open);
-    show(u.hist_edit, s.history_open);
-    if (s.history_open) {
-        std::vector<std::string> rows;
-        for (const auto& e : s.history_entries)
-            rows.push_back(std::string(e.ok ? tr::kSuccess : tr::kFailure) +
-                           " · " + e.action + "  " + e.detail);
-        if (rows.empty()) rows.push_back(tr::kHistoryEmpty);
-        sync_list(u.hist_list, rows, &g_hist_cache);
-        set_text(u.hist_edit, s.history_output);
-    }
 
     /* keyword rules */
     enable(u.kw_edit, !busy);

@@ -50,7 +50,6 @@ void AppState::pump_queue() {
         cleanup_message = run.running_label;
     } else {
         run_state = RunState::Running;
-        message = run.running_label;
     }
     active.request_id = rid;
     active.kind = run.kind;
@@ -63,8 +62,6 @@ void AppState::pump_queue() {
                                 ? 0
                                 : -1);
     has_active = true;
-    pending_running_label = run.running_label;
-    pending_success_label = run.success_label;
 }
 
 void AppState::fail_run(const QueuedRun& run, const std::string& msg) {
@@ -73,7 +70,6 @@ void AppState::fail_run(const QueuedRun& run, const std::string& msg) {
         cleanup_message = msg;
     } else {
         run_state = RunState::Error;
-        message = msg;
     }
 }
 
@@ -91,19 +87,12 @@ void AppState::reset_workspace() {
     folders_loaded = false;
     profile_loaded = false;
     run_state = RunState::Idle;
-    message = kMsgReady;
-    output.clear();
     cleanup_state = RunState::Idle;
     cleanup_message = kMsgCleanupReady;
     cleanup_progress = JsonValue{};
     has_cleanup_progress = false;
     cleanup_files.clear();
     cleanup_output.clear();
-    sort_plan = JsonValue{};
-    has_plan = false;
-    plan_confirmed = false;
-    history_open = false;
-    history_output.clear();
 }
 
 void AppState::validate_target() {
@@ -130,13 +119,6 @@ void AppState::enqueue_folder_scan() {
     folder_scan_status = kMsgScanningFld;
     enqueue(RunKind::ListFolders, {target, "--list-folders"},
             kFolderScanTimeout, kMsgScanFolders, kMsgFoldersDone);
-}
-
-void AppState::append_history(const char* action, bool ok,
-                              const std::string& detail) {
-    history_entries.insert(history_entries.begin(),
-                           HistoryEntry{ok, action, detail});
-    if (history_entries.size() > 20) history_entries.resize(20);
 }
 
 void AppState::request_stop_cleanup() {
@@ -239,7 +221,6 @@ void AppState::finish_run_error(const ActiveRun& run, const std::string& msg) {
         case RunKind::SetDuplicateTrash: dup_trash_status = msg; break;
         default:
             run_state = RunState::Error;
-            message = msg;
             break;
     }
 }
@@ -302,64 +283,13 @@ void AppState::finish_run(const ActiveRun& run, const JsonValue& payload) {
             dup_trash_status = enabled ? kDupTrashOn : kDupTrashOff;
             break;
         }
-        case RunKind::Preview: {
-            run_state = RunState::Success;
-            message = kMsgPreviewDone;
-            output = out;
-            JsonValue plan;
-            /* usable when ok is absent-or-true and a plan_id exists */
-            bool usable = fsp::parse_sort_plan(so, &plan) &&
-                          P::jbool(plan, "ok", true) &&
-                          !fsp::plan_id(plan).empty();
-            if (usable) {
-                append_history("預覽", true,
-                               std::to_string(fsp::plan_action_count(plan)) +
-                                   " 個動作，plan " + fsp::plan_id(plan));
-                sort_plan = plan;
-                has_plan = true;
-                plan_confirmed = false;
-            } else {
-                run_state = RunState::Error;
-                message = kMsgNoPlanId;
-                append_history("預覽", false, "缺少可套用的 plan_id");
-            }
-            break;
-        }
-        case RunKind::ApplyPlan: {
-            run_state = RunState::Success;
-            message = kMsgApplyDone;
-            output = out;
-            append_history("套用計畫", true,
-                           "plan " + (has_plan ? fsp::plan_id(sort_plan) : ""));
-            sort_plan = JsonValue{};
-            has_plan = false;
-            plan_confirmed = false;
-            break;
-        }
-        case RunKind::Undo: {
-            run_state = RunState::Success;
-            message = kMsgUndoDone;
-            output = out;
-            append_history("復原", true, "最近一次整理");
-            break;
-        }
-        case RunKind::History: {
-            run_state = RunState::Success;
-            message = kMsgHistoryDone;
-            history_output = so.empty() ? msg : so;
-            break;
-        }
         case RunKind::ListKeywords: {
             run_state = RunState::Success;
-            message = pending_success_label;
-            output = out;
             keyword_rules = fsp::parse_keyword_rules(so);
             break;
         }
         case RunKind::MutateKeywords: {
             run_state = RunState::Success;
-            message = pending_success_label;
-            output = out;
             /* re-list so the rules listbox reflects the mutation */
             enqueue(RunKind::ListKeywords,
                     {fsp::trim(target_dir), "--list-keywords"},

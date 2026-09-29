@@ -27,20 +27,6 @@ inline constexpr const char* kAutoOrganize  = "啟用背景自動分類";
 inline constexpr const char* kDupTrash      = "自動將完全重複檔移至 Windows 資源回收筒";
 inline constexpr const char* kDupTrashHint  = "預設關閉。只處理 SHA-256 完全相同、連續兩輪保持不變的副本；保留最早檔案，不會永久刪除。";
 
-inline constexpr const char* kSecSort       = "安全整理工作流程";
-inline constexpr const char* kSortHint      = "手動整理只會先建立 dry-run 預覽；必須勾選確認後，才能套用同一個 plan_id。";
-inline constexpr const char* kBtnPreview    = "建立預覽（Dry run）";
-inline constexpr const char* kBtnUndo       = "復原上一次";
-inline constexpr const char* kBtnHistory    = "整理歷史";
-inline constexpr const char* kPlanPending   = "待套用計畫：%d 個動作";
-inline constexpr const char* kPlanConfirm   = "我已檢查此計畫，確認套用 plan ";
-inline constexpr const char* kPlanEmpty     = "此計畫沒有可套用的搬移動作";
-inline constexpr const char* kBtnApply      = "確認並套用";
-inline constexpr const char* kHistoryEmpty  = "本次視窗尚無操作記錄。";
-inline constexpr const char* kHistoryTitle  = "最近操作";
-inline constexpr const char* kSuccess       = "成功";
-inline constexpr const char* kFailure       = "失敗";
-
 inline constexpr const char* kSecKeywords   = "關鍵字分類規則";
 inline constexpr const char* kKeywordHint   = "輸入關鍵字，並從目前目標資料夾既有的第一層子資料夾中選擇目的地；分類不會離開此目標。";
 inline constexpr const char* kKeywordLbl    = "關鍵字";
@@ -78,7 +64,6 @@ inline constexpr const char* kBtnReveal     = "顯示位置";
 inline constexpr const char* kScanOutput    = "掃描輸出";
 
 inline constexpr const char* kConfirmTitle  = "確認操作";
-inline constexpr const char* kConfirmUndo   = "確定要復原最近一次已完成的檔案整理？";
 inline constexpr const char* kConfirmDupTrash = "啟用後，系統只會將 SHA-256 完全相同且連續兩輪未變動的額外副本移至 Windows 資源回收筒。確定啟用嗎？";
 inline constexpr const char* kConfirmMigrate  = "舊版規則中有超出目前資料夾邊界的項目，原始資料已完整保留在隔離紀錄。確定要接受安全遷移結果並啟用自動分類嗎？";
 
@@ -97,15 +82,6 @@ inline constexpr const char* kMsgScanFolders  = "正在掃描目的地資料夾.
 inline constexpr const char* kMsgFoldersDone  = "目的地資料夾已更新";
 inline constexpr const char* kMsgScanningFld  = "正在掃描可用目的地資料夾...";
 inline constexpr const char* kMsgNoFolders    = "尚未找到可用目的地資料夾";
-inline constexpr const char* kMsgPreview      = "正在建立安全預覽...";
-inline constexpr const char* kMsgPreviewDone  = "預覽計畫已建立";
-inline constexpr const char* kMsgNoPlanId     = "後端未回傳可套用的 plan_id；沒有執行任何搬移";
-inline constexpr const char* kMsgApply        = "正在套用已確認的整理計畫...";
-inline constexpr const char* kMsgApplyDone    = "整理計畫已安全套用";
-inline constexpr const char* kMsgUndo         = "正在復原最近一次整理...";
-inline constexpr const char* kMsgUndoDone     = "最近一次整理已復原";
-inline constexpr const char* kMsgHistory      = "正在讀取整理歷史...";
-inline constexpr const char* kMsgHistoryDone  = "整理歷史已更新";
 inline constexpr const char* kMsgListKw       = "正在讀取關鍵字規則...";
 inline constexpr const char* kMsgListKwDone   = "關鍵字規則已讀取";
 inline constexpr const char* kMsgUpsertKw     = "正在新增或更新關鍵字...";

@@ -13,8 +13,6 @@ namespace fsp {
 using gptbridge::jsonlite::JsonValue;
 
 constexpr const char* kFoldersPrefix = "FILE_SORTER_FOLDERS_JSON=";
-constexpr const char* kPlanPrefixes[] = {
-    "FILE_SORTER_PREVIEW_JSON=", "FILE_SORTER_PLAN_JSON="};
 constexpr const char* kProfilesPrefix = "FILE_SORTER_PROFILES_JSON=";
 
 bool try_parse(const std::string& text, JsonValue* out);
@@ -30,10 +28,6 @@ std::vector<std::string> parse_destination_folders(const std::string& stdout_tex
 std::string normalize_path(const std::string& value);
 bool parse_profile(const std::string& stdout_text, const std::string& target_dir,
                    JsonValue* out);
-bool parse_sort_plan(const std::string& stdout_text, JsonValue* out);
-std::string plan_id(const JsonValue& plan);
-const JsonValue* plan_actions(const JsonValue& plan); /* array or null */
-unsigned long long plan_action_count(const JsonValue& plan);
 std::vector<std::string> parse_keywords(const std::string& value);
 
 /* One keyword→folder rule row parsed from `--list-keywords` output
