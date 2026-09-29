@@ -53,6 +53,8 @@ public sealed class GovernedToolHost
     private readonly Func<GovernedEnvironment, IToolTransport> _transportFactory;
     private readonly string _version;
     private readonly string[] _processingChannels;
+    private readonly IReadOnlyDictionary<string, SubmitBinding>
+        _submitChannels;
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource>
         _inFlight = new();
@@ -70,7 +72,8 @@ public sealed class GovernedToolHost
         IGovernedCommandExecutor executor,
         string version,
         Func<GovernedEnvironment, IToolTransport>? transportFactory = null,
-        string[]? processingChannels = null)
+        string[]? processingChannels = null,
+        IReadOnlyDictionary<string, SubmitBinding>? submitChannels = null)
     {
         _env = env;
         _executor = executor;
@@ -78,6 +81,8 @@ public sealed class GovernedToolHost
         _transportFactory = transportFactory
             ?? (e => TransportProxyClient.Start(e));
         _processingChannels = processingChannels ?? ["system"];
+        _submitChannels = submitChannels
+            ?? new Dictionary<string, SubmitBinding>();
     }
 
     public CancellationToken ShutdownToken => _shutdown.Token;
@@ -185,10 +190,15 @@ public sealed class GovernedToolHost
     {
         var transport = _transport ??= _transportFactory(_env);
         transport.Disconnected += () => _shutdown.Cancel();
+        var modes = _processingChannels
+            .ToDictionary(c => c, _ => "process");
+        foreach (var channel in _submitChannels.Keys)
+            modes[channel] = "submit";
         await transport.HelloAsync(
             _env.ToolId,
             _env.WorkspaceInstanceId(),
-            _processingChannels.ToDictionary(c => c, _ => "process"),
+            modes,
+            _submitChannels.Count > 0 ? _submitChannels : null,
             external).ConfigureAwait(false);
 
         using var linked = CancellationTokenSource

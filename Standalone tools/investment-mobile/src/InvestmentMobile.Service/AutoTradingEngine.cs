@@ -124,15 +124,14 @@ public sealed class AutoTradingEngine
     /// under that mode marks the tick MODEL_BLOCKED (fail-closed for
     /// dependent trades, events preserved).
     /// </summary>
-    public Task<IReadOnlyList<AutotradeTrace>> RunOnceAsync(
+    public async Task<IReadOnlyList<AutotradeTrace>> RunOnceAsync(
         CancellationToken ct = default)
     {
         if (State is AutoTradingState.Paused
             or AutoTradingState.RiskHalted
             or AutoTradingState.Stopped
             or AutoTradingState.Failed)
-            return Task.FromResult<IReadOnlyList<AutotradeTrace>>(
-                Array.Empty<AutotradeTrace>());
+            return Array.Empty<AutotradeTrace>();
 
         var modelBlocked = AiMode == AiIntegrationMode.AiAssisted
             && (_advisory is null || !_advisory.Connected);
@@ -155,7 +154,7 @@ public sealed class AutoTradingEngine
             };
             if (AiMode == AiIntegrationMode.AiAssisted)
             {
-                var advisory = _advisory!.SubmitInstruction(
+                var advisory = await _advisory!.SubmitInstructionAsync(
                     new JsonObject
                     {
                         ["operation"] = "ai_analysis",
@@ -203,7 +202,7 @@ public sealed class AutoTradingEngine
             State = modelBlocked
                 ? AutoTradingState.ModelBlocked
                 : AutoTradingState.Ready;
-        return Task.FromResult<IReadOnlyList<AutotradeTrace>>(emitted);
+        return emitted;
     }
 
     /// <summary>New signal-book proposals + drained AI intake

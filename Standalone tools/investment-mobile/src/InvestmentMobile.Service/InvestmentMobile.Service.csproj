@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\native\oms\InvestmentMobile.Oms.csproj" />
+    <ProjectReference Include="..\..\..\..\shared-layer\csharp\GPTBridge.ToolHost\GPTBridge.ToolHost\GPTBridge.ToolHost.csproj" />
   </ItemGroup>
 
 </Project>

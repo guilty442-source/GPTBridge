@@ -218,6 +218,14 @@ internal static partial class ManifestExport
                 "\"hello\"", "\"claim\"", "\"respond\"",
                 "\"request_cancelled\"", "\"notification_stamp\"",
             });
+        e.Contains("tool-host:proxy-submit-ops",
+            $"{toolHost}/TransportProxyClient.cs",
+            new[]
+            {
+                "SubmitRequestAsync", "SubmitResponseAsync",
+                "SubmitCancelAsync", "\"request\"", "\"response\"",
+                "\"cancel\"", "SubmitBinding",
+            });
         e.Contains("tool-host:spawn-exe-branch",
             "main-system/config/tool-runtime-contract.json",
             new[] { "\"allowed_modes\"", "\"executable\"" });
@@ -378,12 +386,14 @@ internal static partial class ManifestExport
             $"{invSvc}/NativeRiskGate.cs",
             $"{invSvc}/AutoTradingEngine.cs",
             $"{invSvc}/TradingEngineCluster.cs",
+            $"{invSvc}/ProxySubmitChannel.cs",
             $"{invHost}/InvestmentMobile.ToolHost.csproj",
             $"{invHost}/Program.cs",
             $"{invTests}/InvestmentMobile.Service.Tests.csproj",
             $"{invTests}/ServiceContractTests.cs",
             $"{invTests}/PipelineTests.cs",
             $"{invTests}/EngineClusterTests.cs",
+            $"{invTests}/SubmitChannelTests.cs",
         })
             e.Checks.Add(new JsonObject
             {
@@ -437,6 +447,14 @@ internal static partial class ManifestExport
             {
                 "dist/InvestmentMobile.ToolHost.exe",
                 "\"native_entry\"",
+            });
+        e.Contains("investment-mobile:submit-channel",
+            $"{invSvc}/ProxySubmitChannel.cs",
+            new[]
+            {
+                "SubmitRequestAsync", "SubmitResponseAsync",
+                "SubmitCancelAsync", "REQUEST_TIMEOUT",
+                "AI_CHANNEL_NOT_CONNECTED",
             });
         // Same E4 boundary as the governed host: the service never
         // mints tokens or touches transport internals.

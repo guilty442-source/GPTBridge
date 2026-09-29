@@ -21,13 +21,14 @@ public sealed class ServiceContractTests
         public JsonObject Response =
             new() { ["ok"] = true, ["echo"] = "pong" };
 
-        public JsonObject Request(
-            string targetToolId, string command, JsonObject payload)
+        public Task<JsonObject> RequestAsync(
+            string targetToolId, string command, JsonObject payload,
+            CancellationToken ct = default)
         {
             LastTarget = targetToolId;
             LastCommand = command;
             LastPayload = payload;
-            return Response;
+            return Task.FromResult(Response);
         }
     }
 
@@ -120,11 +121,11 @@ public sealed class ServiceContractTests
     }
 
     [Fact]
-    public void Unconnected_channel_fails_closed()
+    public async Task Unconnected_channel_fails_closed()
     {
         var client = new XingchengChannelClient(null);
         Assert.False(client.Connected);
-        var result = client.Snapshot(new JsonObject());
+        var result = await client.SnapshotAsync(new JsonObject());
         Assert.False(result["ok"]!.GetValue<bool>());
         Assert.False(result["queued"]!.GetValue<bool>());
         Assert.Equal("AI_CHANNEL_NOT_CONNECTED",
@@ -132,11 +133,12 @@ public sealed class ServiceContractTests
     }
 
     [Fact]
-    public void Snapshot_routes_through_xingcheng_with_sealed_command()
+    public async Task
+        Snapshot_routes_through_xingcheng_with_sealed_command()
     {
         var stub = new StubChannel();
         var client = new XingchengChannelClient(stub);
-        var result = client.Snapshot(
+        var result = await client.SnapshotAsync(
             new JsonObject { ["scope"] = "holdings" });
         Assert.True(result["ok"]!.GetValue<bool>());
         Assert.Equal("xingcheng", stub.LastTarget);
@@ -147,11 +149,11 @@ public sealed class ServiceContractTests
     }
 
     [Fact]
-    public void SubmitInstruction_routes_and_normalizes()
+    public async Task SubmitInstruction_routes_and_normalizes()
     {
         var stub = new StubChannel();
         var client = new XingchengChannelClient(stub);
-        client.SubmitInstruction(
+        await client.SubmitInstructionAsync(
             new JsonObject { ["operation"] = "ai_analysis" });
         Assert.Equal("xingcheng_mobile_submit_investment_instruction",
             stub.LastCommand);
@@ -182,18 +184,21 @@ public sealed class ServiceContractTests
     }
 
     [Fact]
-    public void Handle_snapshot_and_instruction_delegate_to_channel()
+    public async Task
+        Handle_snapshot_and_instruction_delegate_to_channel()
     {
         var stub = new StubChannel();
         var svc = new InvestmentMobileService(
             new XingchengChannelClient(stub));
-        var (evt1, res1) = svc.Handle(
-            "investment-mobile-get-snapshot", new JsonObject());
+        var (evt1, res1) = await svc.HandleAsync(
+            "investment-mobile-get-snapshot", new JsonObject(),
+            "governance/tool/investment-mobile");
         Assert.Equal(
             "investment-mobile-get-snapshot_result", evt1);
         Assert.True(res1["ok"]!.GetValue<bool>());
-        var (evt2, _) = svc.Handle(
-            "investment-manager", new JsonObject());
+        var (evt2, _) = await svc.HandleAsync(
+            "investment-manager", new JsonObject(),
+            "governance/tool/investment-mobile");
         Assert.Equal("investment-manager_result", evt2);
         Assert.Equal("xingcheng_mobile_submit_investment_instruction",
             stub.LastCommand);

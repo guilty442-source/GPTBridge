@@ -8,10 +8,12 @@
 // main-system backend reports SOURCE_RUNTIME_EXITED rather than
 // running ungoverned.
 //
-// Channel binding: the submit-side governed transport successor has
-// not landed yet, so the xingcheng relay client is constructed
-// unbound — every snapshot/instruction request returns the honest
-// fail-closed AI_CHANNEL_NOT_CONNECTED instead of fabricating data.
+// Channel binding: the ai channel is submit-bound to
+// governance/tool/investment-mobile (capability ai-channel-request-
+// submit); snapshot/instruction requests queue through the governed
+// transport store as request/response ops. Until the transport hello
+// completes the seam answers AI_CHANNEL_NOT_CONNECTED — fail-closed,
+// never fabricated.
 // The trading engine cluster composes signal intake → strategy →
 // native risk → OMS with default_mode ANALYSIS unless the governed
 // runtime/settings/trading.json selects SHADOW/PAPER. LIVE stays
@@ -62,19 +64,25 @@ internal static class Program
     /// <summary>runtime/settings/trading.json — governed settings layer
     /// (manifest settings_owner=investment-mobile). Absent → ANALYSIS +
     /// empty risk limits, which fail every order closed.</summary>
-    private static (TradingMode Mode, RiskLimits Limits)
-        LoadTradingSettings(string toolRoot)
+    private static (TradingMode Mode, RiskLimits Limits,
+        AiIntegrationMode AiMode) LoadTradingSettings(string toolRoot)
     {
         var mode = TradingMode.Analysis;
         var limits = new RiskLimits();
+        var aiMode = AiIntegrationMode.Deterministic;
         var path = Path.Combine(
             toolRoot, "runtime", "settings", "trading.json");
         try
         {
             if (!File.Exists(path))
-                return (mode, limits);
+                return (mode, limits, aiMode);
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             var el = doc.RootElement;
+            if (el.TryGetProperty("ai_mode", out var am)
+                && am.ValueKind == JsonValueKind.String
+                && string.Equals(am.GetString(), "ai_assisted",
+                    StringComparison.OrdinalIgnoreCase))
+                aiMode = AiIntegrationMode.AiAssisted;
             if (el.TryGetProperty("mode", out var m)
                 && m.ValueKind == JsonValueKind.String
                 && Enum.TryParse<TradingMode>(
@@ -106,9 +114,10 @@ internal static class Program
         catch (JsonException)
         {
             // Corrupt governed settings → fail closed, keep defaults.
-            return (TradingMode.Analysis, new RiskLimits());
+            return (TradingMode.Analysis, new RiskLimits(),
+                AiIntegrationMode.Deterministic);
         }
-        return (mode, limits);
+        return (mode, limits, aiMode);
 
         static double GetDouble(JsonElement el, string name) =>
             el.TryGetProperty(name, out var v)
@@ -117,15 +126,28 @@ internal static class Program
     }
 
     public static async Task<int> Main() =>
-        await ToolHostProgram.RunAsync(env =>
+        await ToolHostProgram.RunAsync((env, transport) =>
         {
-            var (mode, limits) = LoadTradingSettings(env.ToolRoot);
+            var (mode, limits, aiMode) = LoadTradingSettings(
+                env.ToolRoot);
+            // Submit-bound ai channel: requests leave as
+            // governance/tool/investment-mobile and resolve through the
+            // governed store — the sealed relay
+            // investment-mobile -> xingcheng -> ai-assistant.
+            var submitLane = new ProxySubmitChannel(transport);
             var cluster = new TradingEngineCluster(
                 Path.Combine(env.ToolRoot, "runtime", "state"),
-                mode, limits);
+                mode, limits, advisoryChannel: submitLane);
+            cluster.Autotrade.AiMode = aiMode;
             var service = new InvestmentMobileService(
-                new XingchengChannelClient(null), cluster);
+                new XingchengChannelClient(submitLane), cluster);
             return (IGovernedCommandExecutor)
                 new InvestmentMobileExecutor(service);
-        }, "1.0.0", processingChannels: ["system"]);
+        }, "1.0.0",
+            processingChannels: ["system"],
+            submitChannels: new Dictionary<string, SubmitBinding>
+            {
+                ["ai"] = new(
+                    "governance/tool/investment-mobile"),
+            });
 }

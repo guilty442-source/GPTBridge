@@ -208,19 +208,83 @@ public sealed class TransportProxyClient : IToolTransport
         string toolId,
         string workspaceInstanceId,
         IReadOnlyDictionary<string, string> channels,
+        IReadOnlyDictionary<string, SubmitBinding>? submitBindings = null,
         CancellationToken ct = default)
     {
         var modes = new JsonObject();
         foreach (var (channelId, mode) in channels)
             modes[channelId] = mode;
-        var result = await CallAsync("hello", new JsonObject
+        var args = new JsonObject
         {
             ["tool_id"] = toolId,
             ["workspace_instance_id"] = workspaceInstanceId,
             ["channels"] = modes,
-        }, ct).ConfigureAwait(false);
+        };
+        if (submitBindings is { Count: > 0 })
+        {
+            var submit = new JsonObject();
+            foreach (var (channelId, binding) in submitBindings)
+            {
+                var entry = new JsonObject
+                {
+                    ["actor"] = binding.Actor,
+                };
+                if (binding.Authorizer is not null)
+                    entry["authorizer"] = binding.Authorizer;
+                submit[channelId] = entry;
+            }
+            args["submit"] = submit;
+        }
+        var result = await CallAsync("hello", args, ct)
+            .ConfigureAwait(false);
         return result as JsonObject
             ?? throw new ProxyErrorException("BAD_ENVELOPE", "hello result");
+    }
+
+    /// <inheritdoc/>
+    public async Task<JsonObject?> SubmitRequestAsync(
+        string channel, string targetToolId, string command,
+        JsonObject payload, string? requestId = null,
+        CancellationToken ct = default)
+    {
+        var args = new JsonObject
+        {
+            ["channel"] = channel,
+            ["target_tool_id"] = targetToolId,
+            ["command"] = command,
+            ["payload"] = payload.DeepClone(),
+        };
+        if (requestId is not null)
+            args["request_id"] = requestId;
+        return await CallAsync("request", args, ct)
+            .ConfigureAwait(false) as JsonObject;
+    }
+
+    /// <inheritdoc/>
+    public async Task<JsonObject?> SubmitResponseAsync(
+        string channel, string requestId, string targetToolId,
+        CancellationToken ct = default)
+    {
+        return await CallAsync("response", new JsonObject
+        {
+            ["channel"] = channel,
+            ["request_id"] = requestId,
+            ["target_tool_id"] = targetToolId,
+        }, ct).ConfigureAwait(false) as JsonObject;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> SubmitCancelAsync(
+        string channel, string requestId, string targetToolId,
+        CancellationToken ct = default)
+    {
+        var result = await CallAsync("cancel", new JsonObject
+        {
+            ["channel"] = channel,
+            ["request_id"] = requestId,
+            ["target_tool_id"] = targetToolId,
+        }, ct).ConfigureAwait(false);
+        return result?.GetValue<bool>() == true;
     }
 
     public async Task<JsonObject?> ClaimAsync(

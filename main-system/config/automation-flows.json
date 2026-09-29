@@ -113,6 +113,14 @@
       "enabled": true,
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — auto-register sealed groups missing locally, sovereign-decided deletion of unregistered retired-tool groups (A297 fail-closed pending), duplicate-actor conflict resolution, metadata-only lifecycle ledger. 原職責：身份組註冊與刪除自動化（協調層，封印登錄不可寫）。"
     },
+    "investment-autotrade-cycle": {
+      "owner": "InvestmentMobile.Service.TradingEngineCluster (C#; investment-mobile-autotrade-cycle command dispatched via governed system channel)",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": false,
+      "description": "native port delivered (B167/B38): Standalone tools/investment-mobile/src/InvestmentMobile.Service — bounded autotrade tick (signal book → strategy → optional xingcheng advisory → risk+mode gates). enabled=false pending resident tool-host registration of the system-channel dispatch; ANALYSIS/SHADOW never submit, LIVE phase-locked, halt liftable only via governance main actor."
+    },
     "connection-watchdog": {
       "owner": "gptbridge-core lifecycle monitor（main-system/src-tauri/crates/gptbridge-core/src/lifecycle/monitor.rs）",
       "kind": "supervision-plane",

@@ -74,26 +74,30 @@ public sealed class InvestmentMobileService
                 Started = false;
             return ($"{command}_result", StatusResult(command));
         }
-        if (XingchengRoute.SnapshotCommands.Contains(command))
-            return ($"{command}_result", _channel.Snapshot(payload));
-        if (XingchengRoute.InstructionCommands.Contains(command))
-            return ($"{command}_result",
-                _channel.SubmitInstruction(payload));
         return ("PERMISSION_DENIED",
             new JsonObject { ["ok"] = false });
     }
 
-    /// <summary>Full dispatch including the engine cluster — engine
-    /// commands are bounded single operations on the system channel.</summary>
+    /// <summary>Full dispatch — channel-routed and engine commands are
+    /// bounded async operations; local lifecycle stays synchronous.</summary>
     public async Task<(string Event, JsonObject Result)> HandleAsync(
         string command, JsonObject payload, string requester,
         CancellationToken ct = default)
     {
+        if (XingchengRoute.SnapshotCommands.Contains(command))
+            return ($"{command}_result",
+                await _channel.SnapshotAsync(payload, ct)
+                    .ConfigureAwait(false));
+        if (XingchengRoute.InstructionCommands.Contains(command))
+            return ($"{command}_result",
+                await _channel.SubmitInstructionAsync(payload, ct)
+                    .ConfigureAwait(false));
         if (_engines is not null
             && TradingEngineCluster.Owns(command))
             return ($"{command}_result",
                 await _engines.HandleAsync(
-                    command, payload, requester, ct));
+                    command, payload, requester, ct)
+                    .ConfigureAwait(false));
         return Handle(command, payload);
     }
 }

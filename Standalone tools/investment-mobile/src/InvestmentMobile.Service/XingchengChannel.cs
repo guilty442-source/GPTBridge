@@ -17,11 +17,15 @@ using System.Text.Json.Nodes;
 namespace InvestmentMobile.Service;
 
 /// <summary>Governed channel seam — the production binding is the
-/// shared-layer governed request client; tests inject stubs.</summary>
+/// transport submit lane (star-governed-transport-proxy/v1 request/
+/// response ops on the submit-bound ai channel); tests inject stubs.</summary>
 public interface IXingchengChannel
 {
-    /// <summary>Synchronous governed request to a routed tool.</summary>
-    JsonObject Request(string targetToolId, string command, JsonObject payload);
+    /// <summary>Governed request to a routed tool — resolved when the
+    /// store reports the response (or a bounded timeout fails closed).</summary>
+    Task<JsonObject> RequestAsync(
+        string targetToolId, string command, JsonObject payload,
+        CancellationToken ct = default);
 }
 
 public static class XingchengRoute
@@ -129,20 +133,24 @@ public sealed class XingchengChannelClient
 
     /// <summary>Governed request — fail-closed when no channel is
     /// bound.</summary>
-    public JsonObject Request(string command, JsonObject payload)
+    public async Task<JsonObject> RequestAsync(
+        string command, JsonObject payload,
+        CancellationToken ct = default)
     {
         if (_channel is null)
             return NotConnected();
-        return _channel.Request(
+        return await _channel.RequestAsync(
             XingchengRoute.XingchengToolId, command,
-            (JsonObject)payload.DeepClone());
+            (JsonObject)payload.DeepClone(), ct).ConfigureAwait(false);
     }
 
-    public JsonObject Snapshot(JsonObject? payload) =>
-        Request(XingchengRoute.SnapshotCommand,
-            SnapshotPayload(payload));
+    public Task<JsonObject> SnapshotAsync(
+        JsonObject? payload, CancellationToken ct = default) =>
+        RequestAsync(XingchengRoute.SnapshotCommand,
+            SnapshotPayload(payload), ct);
 
-    public JsonObject SubmitInstruction(JsonObject payload) =>
-        Request(XingchengRoute.InstructionCommand,
-            InstructionPayload(payload));
+    public Task<JsonObject> SubmitInstructionAsync(
+        JsonObject payload, CancellationToken ct = default) =>
+        RequestAsync(XingchengRoute.InstructionCommand,
+            InstructionPayload(payload), ct);
 }

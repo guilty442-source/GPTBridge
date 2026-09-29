@@ -409,11 +409,13 @@ public sealed class PipelineTests
     private sealed class ContractStub : IXingchengChannel
     {
         public JsonObject? LastPayload;
-        public JsonObject Request(
-            string targetToolId, string command, JsonObject payload)
+        public Task<JsonObject> RequestAsync(
+            string targetToolId, string command, JsonObject payload,
+            CancellationToken ct = default)
         {
             LastPayload = payload;
-            return new JsonObject { ["ok"] = true };
+            return Task.FromResult(
+                new JsonObject { ["ok"] = true });
         }
     }
 

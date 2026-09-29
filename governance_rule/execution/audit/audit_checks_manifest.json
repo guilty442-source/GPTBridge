@@ -2270,6 +2270,20 @@
       "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs"
     },
     {
+      "id": "tool-host:proxy-submit-ops",
+      "kind": "file-contains",
+      "markers": [
+        "SubmitRequestAsync",
+        "SubmitResponseAsync",
+        "SubmitCancelAsync",
+        "\"request\"",
+        "\"response\"",
+        "\"cancel\"",
+        "SubmitBinding"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs"
+    },
+    {
       "id": "tool-host:spawn-exe-branch",
       "kind": "file-contains",
       "markers": [
@@ -2573,6 +2587,11 @@
       "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/TradingEngineCluster.cs"
     },
     {
+      "id": "investment-mobile:ProxySubmitChannel.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/ProxySubmitChannel.cs"
+    },
+    {
       "id": "investment-mobile:InvestmentMobile.ToolHost.csproj",
       "kind": "file-exists",
       "path": "Standalone tools/investment-mobile/src/InvestmentMobile.ToolHost/InvestmentMobile.ToolHost.csproj"
@@ -2601,6 +2620,11 @@
       "id": "investment-mobile:EngineClusterTests.cs",
       "kind": "file-exists",
       "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/EngineClusterTests.cs"
+    },
+    {
+      "id": "investment-mobile:SubmitChannelTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/SubmitChannelTests.cs"
     },
     {
       "id": "investment-mobile:sealed-route",
@@ -2667,6 +2691,18 @@
         "\"native_entry\""
       ],
       "path": "Standalone tools/investment-mobile/manifest.json"
+    },
+    {
+      "id": "investment-mobile:submit-channel",
+      "kind": "file-contains",
+      "markers": [
+        "SubmitRequestAsync",
+        "SubmitResponseAsync",
+        "SubmitCancelAsync",
+        "REQUEST_TIMEOUT",
+        "AI_CHANNEL_NOT_CONNECTED"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/ProxySubmitChannel.cs"
     },
     {
       "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
@@ -27280,7 +27316,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3544,
+    "native_checks": 3548,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27303,7 +27339,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T15:03:46Z",
+  "generated_at": "2026-09-29T15:27:46Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

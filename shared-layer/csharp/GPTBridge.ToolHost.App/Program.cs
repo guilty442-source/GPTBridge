@@ -35,6 +35,8 @@ internal sealed class DeferredStoreTransport : IToolTransport
     public Task<JsonObject> HelloAsync(
         string toolId, string workspaceInstanceId,
         IReadOnlyDictionary<string, string> channels,
+        IReadOnlyDictionary<string, SubmitBinding>? submitBindings =
+            null,
         CancellationToken ct = default) => Task.FromResult(new JsonObject
     {
         ["ok"] = true,
