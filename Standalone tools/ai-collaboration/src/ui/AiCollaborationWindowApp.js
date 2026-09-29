@@ -1,24 +1,25 @@
 //! AiCollaborationWindowApp.js — ai-collaboration tool window
 //! (React-free native ESM, E180/C116).
 //!
-//! Same behaviour as the retired React app: one integrated top card
-//! (URL toolbar, AI roster, selection, settings, collaboration input)
-//! above a two-column workspace (AI responses | embedded browser).
-//! State lives in a store; subscriptions re-render the dynamic sections
-//! and patch the static chrome in place.
+//! Redesigned layout (same behaviour contract): a slim header
+//! (brand + connection + global actions), an agent selection rail,
+//! then a two-pane workspace — collaboration composer + response
+//! feed on the left, embedded browser with its own toolbar on the
+//! right.  Settings open as an overlay drawer.  State lives in a
+//! store; subscriptions re-render the dynamic sections and patch
+//! the static chrome in place.
 import { createStore, h, rerender } from "../../../../shared-layer/src/ui/toolWindow/dom.js";
 import { waitForIpcEvent } from "../../../../shared-layer/src/ui/toolWindow/toolWindowUtils.js";
 import { createLocalBackendSocket } from "./backendSocket.js";
 import { createEmbeddedBrowser } from "./useEmbeddedBrowser.js";
 import { createCollabActions } from "./collabActions.js";
 import {
-	COLLAB_MODES,
 	PROMPT_PRESETS,
-	buildAgentRow,
+	buildAgentRail,
+	buildModeSegments,
 	buildResponsesBody,
 	buildSettings,
 	buildTaskSelect,
-	responseText,
 	socketStatusLabel
 } from "./collabView.js";
 import "./ai-collaboration.css";
@@ -120,43 +121,51 @@ export function mountAiCollaborationWindowApp(root) {
 		store, snapshot, request, applyState, loadState, browser, socket,
 	});
 
-	// --- static skeleton -----------------------------------------------------
-	const statusChip = h("span", { className: "ai-collab-chip" }, socketStatusLabel(socket.getStatus()));
-	const loadingChip = h("span", { className: "ai-collab-chip ai-collab-chip--running", style: { display: "none" } }, "載入中");
-	const browserError = h("p", { className: "ai-collab-error", role: "alert", style: { display: "none" } });
-	const agentError = h("p", { className: "ai-collab-error", role: "alert", style: { display: "none" } });
-	const urlInputEl = h("input", {
-		type: "text", className: "ai-collab-url-input",
-		placeholder: "輸入網址，例如 https://chatgpt.com",
-		onInput: (event) => store.merge({ urlInput: event.target.value })
+	// --- header --------------------------------------------------------------
+	const connChip = h("span", { className: "ai-collab-conn", dataset: { state: "connecting" } },
+		h("span", { className: "ai-collab-conn-dot" }),
+		h("span", { className: "ai-collab-conn-label" }, socketStatusLabel(socket.getStatus())));
+	const refreshBtn = h("button", {
+		type: "button", className: "ai-collab-ghost", title: "重新整理狀態",
+		onClick: () => void acts.loadState()
+	}, "重新整理");
+	const exportBtn = h("button", {
+		type: "button", className: "ai-collab-ghost", title: "匯出診斷報告",
+		onClick: () => void acts.exportReport()
+	}, "匯出診斷");
+	const settingsBtn = h("button", {
+		type: "button", className: "ai-collab-ghost",
+		"aria-expanded": "false",
+		onClick: () => acts.setSettingsOpen(!store.get().settingsOpen)
+	}, "設定");
+	const header = h("header", { className: "ai-collab-header" },
+		h("div", { className: "ai-collab-brand" },
+			h("span", { className: "ai-collab-brand-mark" }, "◆"),
+			h("span", { className: "ai-collab-brand-text" },
+				h("strong", null, "AI 協作"),
+				h("small", null, "最多六家外部 AI 協同"))),
+		h("div", { className: "ai-collab-header-actions" },
+			connChip, refreshBtn, exportBtn, settingsBtn));
+
+	// --- agent rail + settings drawer ------------------------------------------
+	const railHost = h("div", { className: "ai-collab-railhost" });
+	const settingsHost = h("div", { className: "ai-collab-drawer-panel" });
+	const drawerBackdrop = h("div", {
+		className: "ai-collab-drawer-backdrop",
+		onClick: () => acts.setSettingsOpen(false)
 	});
-	const backBtn = h("button", { type: "button", "aria-label": "返回", title: "返回", onClick: () => void browser.goBack() }, "◀");
-	const fwdBtn = h("button", { type: "button", "aria-label": "前進", title: "前進", onClick: () => void browser.goForward() }, "▶");
-	const reloadBtn = h("button", { type: "button", "aria-label": "重新整理", title: "重新整理", onClick: () => void browser.reload() }, "⟳");
-	const goBtn = h("button", { type: "submit", className: "ai-collab-primary" }, "前往");
-	const urlRow = h("div", { className: "ai-collab-topcard-row ai-collab-urlrow" },
-		backBtn, fwdBtn, reloadBtn,
-		h("form", {
-			className: "ai-collab-url-form",
-			onSubmit: (e) => {
-				e.preventDefault();
-				handleNavigate(store.get().urlInput);
-			}
-		}, urlInputEl, goBtn),
-		statusChip, loadingChip);
+	const drawer = h("div", { className: "ai-collab-drawer" },
+		drawerBackdrop,
+		h("div", { className: "ai-collab-drawer-inner" }, settingsHost));
 
-	const agentRowHost = h("div");
-	const settingsHost = h("div");
-
-	const modeSelect = h("select", {
-		className: "ai-collab-mode-select", "aria-label": "協作模式",
-		onChange: (event) => store.merge({ collabMode: event.target.value })
-	}, COLLAB_MODES.map((mode) => h("option", { value: mode.id, selected: mode.id === store.get().collabMode }, mode.label)));
+	// --- composer --------------------------------------------------------------
+	const modeSegHost = h("div");
 	const agentSelect = h("select", {
-		className: "ai-collab-agent-select", "aria-label": "選擇協作 AI",
+		className: "ai-collab-agent-select", "aria-label": "單選協作 AI",
 		onChange: (event) => void acts.selectSingleAgent(event.target.value)
 	});
 	const draftArea = h("textarea", {
+		className: "ai-collab-draft",
 		placeholder: "輸入要交給已勾選 AI 的協作需求",
 		onInput: (event) => store.merge({ draft: event.target.value })
 	});
@@ -165,31 +174,64 @@ export function mountAiCollaborationWindowApp(root) {
 		onClick: () => void acts.sendGroupMessage()
 	}, "送出協作");
 	const cancelBtn = h("button", {
-		type: "button", style: { display: "none" },
+		type: "button", className: "ai-collab-ghost", style: { display: "none" },
 		onClick: () => void acts.cancelSend()
 	}, "取消");
-	const composerRow = h("div", { className: "ai-collab-topcard-row ai-collab-composerrow", role: "group", "aria-label": "協作需求輸入" },
-		modeSelect, agentSelect,
-		PROMPT_PRESETS.map((preset) => h("button", {
-			type: "button", className: "ai-collab-preset",
-			onClick: () => acts.applyPromptPreset(preset.prompt)
-		}, preset.label)),
-		draftArea, sendBtn, cancelBtn);
-	const messageLine = h("p", { className: "ai-collab-muted", role: "status" }, store.get().message);
+	const messageLine = h("p", { className: "ai-collab-status", role: "status" }, store.get().message);
+	const agentError = h("p", { className: "ai-collab-alert", role: "alert", style: { display: "none" } });
+	const composerCard = h("section", { className: "ai-collab-card ai-collab-composer", "aria-label": "協作需求" },
+		h("div", { className: "ai-collab-composer-top" },
+			modeSegHost, agentSelect),
+		h("div", { className: "ai-collab-presets" },
+			PROMPT_PRESETS.map((preset) => h("button", {
+				type: "button", className: "ai-collab-preset",
+				onClick: () => acts.applyPromptPreset(preset.prompt)
+			}, preset.label))),
+		h("div", { className: "ai-collab-composer-main" },
+			draftArea,
+			h("div", { className: "ai-collab-composer-actions" },
+				sendBtn, cancelBtn)),
+		agentError, messageLine);
 
-	const headHost = h("div", { className: "ai-collab-top-agents-head" });
-	const responsesHost = h("div");
-	const rightPanel = h("div", { className: "ai-collab-right", "aria-label": "內建瀏覽器網頁區" },
-		h("div", { className: "ai-collab-browser-canvas" }));
+	// --- responses -------------------------------------------------------------
+	const headHost = h("div", { className: "ai-collab-feed-head" });
+	const responsesHost = h("div", { className: "ai-collab-feed-body" });
+	const responsesCard = h("section", { className: "ai-collab-card ai-collab-feed", "aria-label": "AI 回應" },
+		headHost, responsesHost);
+
+	// --- browser pane ------------------------------------------------------------
+	const browserProgress = h("div", { className: "ai-collab-progress" });
+	const browserError = h("p", { className: "ai-collab-alert", role: "alert", style: { display: "none" } });
+	const backBtn = h("button", { type: "button", className: "ai-collab-icon", "aria-label": "返回", title: "返回", onClick: () => void browser.goBack() }, "◀");
+	const fwdBtn = h("button", { type: "button", className: "ai-collab-icon", "aria-label": "前進", title: "前進", onClick: () => void browser.goForward() }, "▶");
+	const reloadBtn = h("button", { type: "button", className: "ai-collab-icon", "aria-label": "重新整理", title: "重新整理", onClick: () => void browser.reload() }, "⟳");
+	const urlInputEl = h("input", {
+		type: "text", className: "ai-collab-url-input",
+		placeholder: "輸入網址，例如 https://chatgpt.com",
+		onInput: (event) => store.merge({ urlInput: event.target.value })
+	});
+	const goBtn = h("button", { type: "submit", className: "ai-collab-primary" }, "前往");
+	const rightPanel = h("div", { className: "ai-collab-browser-canvas", "aria-label": "內建瀏覽器網頁區" });
+	const browserCard = h("section", { className: "ai-collab-card ai-collab-browser", "aria-label": "內建瀏覽器" },
+		h("div", { className: "ai-collab-browser-bar" },
+			backBtn, fwdBtn, reloadBtn,
+			h("form", {
+				className: "ai-collab-url-form",
+				onSubmit: (e) => {
+					e.preventDefault();
+					handleNavigate(store.get().urlInput);
+				}
+			}, urlInputEl, goBtn)),
+		browserProgress, browserError, rightPanel);
 
 	const el = h("main", { className: "ai-collab-app" },
-		h("section", { className: "ai-collab-topcard", role: "group", "aria-label": "外部協作整合區" },
-			urlRow, browserError, agentRowHost, agentError, settingsHost, composerRow, messageLine),
-		h("section", { className: "ai-collab-workspace", "aria-label": "外部協作雙欄工作區" },
-			h("div", { className: "ai-collab-left", role: "region", "aria-label": "AI 協作結果" },
-				h("div", { className: "ai-collab-responses", role: "group", "aria-label": "AI 回應" },
-					headHost, responsesHost)),
-			rightPanel));
+		header,
+		railHost,
+		drawer,
+		h("div", { className: "ai-collab-workspace" },
+			h("div", { className: "ai-collab-pane-left" },
+				composerCard, responsesCard),
+			browserCard));
 	root.replaceChildren(el);
 
 	// --- embedded-browser bounds ---------------------------------------------
@@ -200,8 +242,9 @@ export function mountAiCollaborationWindowApp(root) {
 		if (width < 1 || height < 1) return null;
 		return { x: Math.round(rect.x), y: Math.round(rect.y), width, height };
 	};
-	// The panel owns the embedded browser: valid bounds show it, a collapsed
-	// or hidden panel detaches it.  Nothing is ever displayed full-window.
+	// The canvas owns the embedded browser: valid bounds show it, a
+	// collapsed or hidden panel detaches it.  Nothing is ever displayed
+	// full-window.
 	const syncBrowserBounds = async () => {
 		const bounds = browserBounds();
 		if (!bounds) {
@@ -232,8 +275,12 @@ export function mountAiCollaborationWindowApp(root) {
 		const s = snapshot();
 		const b = browser.state();
 		const busy = Boolean(s.busyAction);
-		statusChip.textContent = socketStatusLabel(socket.getStatus());
-		loadingChip.style.display = b.loading ? "" : "none";
+		const conn = socket.getStatus();
+		connChip.dataset.state = conn === "Connected" ? "ok" :
+			conn === "Error" || conn === "Disconnected" ? "fail" : "connecting";
+		connChip.querySelector(".ai-collab-conn-label").textContent =
+			socketStatusLabel(conn);
+		browserProgress.classList.toggle("is-active", b.loading);
 		browserError.textContent = b.error;
 		browserError.style.display = b.error ? "" : "none";
 		const firstError = s.agents.find((agent) => agent.last_error)?.last_error;
@@ -243,30 +290,39 @@ export function mountAiCollaborationWindowApp(root) {
 		fwdBtn.disabled = !b.canGoForward;
 		reloadBtn.disabled = !b.sessionId;
 		goBtn.disabled = !s.urlInput.trim();
-		modeSelect.disabled = busy;
 		agentSelect.disabled = busy || s.agents.length === 0;
 		draftArea.disabled = s.busyAction === "send";
 		if (draftArea.value !== s.draft) draftArea.value = s.draft;
 		sendBtn.disabled = busy || !s.draft.trim() || s.selectedAgents.size === 0;
-		sendBtn.textContent = s.busyAction === "send" ? "協作中..." : "送出協作";
+		sendBtn.textContent = s.busyAction === "send" ? "協作中…" : "送出協作";
 		cancelBtn.style.display = s.busyAction === "send" ? "" : "none";
+		refreshBtn.disabled = busy;
+		exportBtn.disabled = busy;
+		exportBtn.textContent = s.busyAction === "export-report" ? "匯出中…" : "匯出診斷";
+		settingsBtn.setAttribute("aria-expanded", String(s.settingsOpen));
+		drawer.classList.toggle("is-open", s.settingsOpen);
 		messageLine.textContent = s.message;
 		// agent-select options follow the roster; the single-selection value
 		// mirrors the checkbox set like the React controlled select did.
 		const singleSel = s.selectedAgents.size === 1 ? Array.from(s.selectedAgents)[0] : "";
 		agentSelect.replaceChildren(
-			h("option", { value: "" }, s.selectedAgents.size === 0 ? "選擇 AI…" : `已選 ${s.selectedAgents.size} 個 AI`),
+			h("option", { value: "" }, s.selectedAgents.size === 0 ? "單選 AI…" : `已選 ${s.selectedAgents.size} 個 AI`),
 			s.agents.map((agent) => h("option", { value: agent.agent_id }, agent.name)));
 		agentSelect.value = singleSel;
 	};
 	const render = () => {
 		const s = snapshot();
-		rerender(agentRowHost, () => buildAgentRow(s, acts));
+		rerender(railHost, () => buildAgentRail(s, acts));
 		rerender(settingsHost, () => s.settingsOpen ? buildSettings(s, acts) : []);
+		rerender(modeSegHost, () => buildModeSegments(s.collabMode,
+			(mode) => store.merge({ collabMode: mode })));
 		rerender(headHost, () => [
-			h("div", null,
-				h("span", null, "AI 回應"),
-				h("strong", null, s.activeTask ? String((s.activeTask.provider_results || []).length) : String(s.responses.length))),
+			h("div", { className: "ai-collab-feed-title" },
+				h("strong", null, "協作結果"),
+				h("span", { className: "ai-collab-count" },
+					s.activeTask
+						? String((s.activeTask.provider_results || []).length)
+						: String(s.responses.length))),
 			buildTaskSelect(s, acts)
 		]);
 		rerender(responsesHost, () => buildResponsesBody(s, acts));
