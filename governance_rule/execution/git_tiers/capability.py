@@ -416,20 +416,9 @@ from .capability_ledger import (  # noqa: E402
     CapabilityLedger,
 )
 
-_LAZY_EXPORTS: dict[str, str] = {
-    "CapabilityContext": "capability_verify",
-    "VerificationResult": "capability_verify",
-    "verify_capability": "capability_verify",
-    "issue_capability": "capability_issue",
-}
-
-
 def __getattr__(name: str) -> Any:
-    """Lazily expose companion names without circular imports."""
-    module_name = _LAZY_EXPORTS.get(name)
-    if module_name is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    from importlib import import_module
-
-    module = import_module(f".{module_name}", __package__)
-    return getattr(module, name)
+    """Companion modules were retired with the Python Git runtime (C# host)."""
+    raise AttributeError(
+        f"module {__name__!r} has no attribute {name!r} "
+        "(retired: capability_verify/capability_issue moved to the C# host)"
+    )
