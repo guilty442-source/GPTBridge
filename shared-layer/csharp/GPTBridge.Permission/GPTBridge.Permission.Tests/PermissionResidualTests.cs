@@ -400,4 +400,134 @@ public sealed class PermissionResidualTests : IDisposable
         Assert.Single(active);
         Assert.Equal("g2", active[0].GroupId);
     }
+
+    // ---------- IdentityGroupLifecycleAutomation ----------
+
+    private string LifecycleLedger => Path.Combine(
+        _dir, "runtime", "state", "identity-group-lifecycle.jsonl");
+
+    [Fact]
+    public async Task tick_auto_registers_sealed_groups()
+    {
+        var auto = new IdentityGroupLifecycleAutomation(
+            _dir, ledgerPath: LifecycleLedger);
+        var report = await auto.RunOnceAsync();
+        Assert.True((bool)report["reconciled"]!);
+        var registered = (List<string>)report["registered"]!;
+        Assert.Contains("IDENTITY_GROUP_MAIN_SYSTEM", registered);
+        Assert.Contains("IDENTITY_GROUP_GOVERNANCE_RULE", registered);
+        Assert.Equal(2, auto.Groups.ListActiveGroups().Count);
+        // Second tick: nothing left to register.
+        var second = await auto.RunOnceAsync();
+        Assert.Empty((List<string>)second["registered"]!);
+        Assert.Equal(2, File.ReadLines(LifecycleLedger).Count());
+    }
+
+    [Fact]
+    public async Task tick_deletes_retired_tool_groups_via_decider()
+    {
+        var auto = new IdentityGroupLifecycleAutomation(
+            _dir,
+            toolStatus: t => t == "dead-tool" ? "retired" : "active",
+            decider: _ => true,
+            ledgerPath: LifecycleLedger);
+        auto.RegisterGroup("orphan-retired", "a",
+            Array.Empty<string>(), "dead-tool");
+        auto.RegisterGroup("orphan-active", "b",
+            Array.Empty<string>(), "live-tool");
+        var report = await auto.RunOnceAsync();
+        var deactivated = (List<string>)report["deactivated"]!;
+        Assert.Single(deactivated);
+        Assert.Equal("orphan-retired", deactivated[0]);
+        // Active-tool group is drift-flagged but kept.
+        Assert.NotNull(auto.Groups.GetGroupStatus("orphan-active")!
+            .Active ? "x" : null);
+        Assert.True(auto.Groups.GetGroupStatus("orphan-active")!.Active);
+        Assert.False(auto.Groups.GetGroupStatus("orphan-retired")!
+            .Active);
+    }
+
+    [Fact]
+    public async Task no_decider_is_fail_closed_pending()
+    {
+        var auto = new IdentityGroupLifecycleAutomation(
+            _dir,
+            toolStatus: _ => "retired",
+            ledgerPath: LifecycleLedger);
+        auto.RegisterGroup("orphan", "a",
+            Array.Empty<string>(), "dead");
+        var report = await auto.RunOnceAsync();
+        Assert.Empty((List<string>)report["deactivated"]!);
+        Assert.Equal(new[] { "orphan" },
+            (List<string>)report["pending_deletions"]!);
+        Assert.True(auto.Groups.GetGroupStatus("orphan")!.Active);
+    }
+
+    [Fact]
+    public async Task decider_refusal_keeps_group_active()
+    {
+        var auto = new IdentityGroupLifecycleAutomation(
+            _dir,
+            toolStatus: _ => "retired",
+            decider: _ => false,
+            ledgerPath: LifecycleLedger);
+        auto.RegisterGroup("orphan", "a",
+            Array.Empty<string>(), "dead");
+        var report = await auto.RunOnceAsync();
+        Assert.Single(auto.PendingDeletions);
+        Assert.Equal("not-in-directory+tool-retired",
+            auto.PendingDeletions[0].Reason);
+        Assert.True(auto.Groups.GetGroupStatus("orphan")!.Active);
+    }
+
+    [Fact]
+    public async Task delete_group_routes_through_decider()
+    {
+        var approved = new IdentityGroupLifecycleAutomation(
+            _dir, decider: p => p.Reason == "manual",
+            ledgerPath: LifecycleLedger);
+        approved.RegisterGroup("g", "a",
+            Array.Empty<string>(), "t");
+        Assert.True(approved.DeleteGroup("g"));
+        Assert.False(approved.Groups.GetGroupStatus("g")!.Active);
+
+        var refused = new IdentityGroupLifecycleAutomation(
+            _dir, decider: p => p.Reason == "sovereign-only",
+            ledgerPath: Path.Combine(_dir, "l2.jsonl"));
+        refused.RegisterGroup("h", "a",
+            Array.Empty<string>(), "t");
+        Assert.False(refused.DeleteGroup("h"));
+        Assert.True(refused.Groups.GetGroupStatus("h")!.Active);
+        Assert.Single(refused.PendingDeletions);
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task tick_resolves_duplicate_actor_conflicts()
+    {
+        var auto = new IdentityGroupLifecycleAutomation(
+            _dir, toolStatus: _ => "active",
+            ledgerPath: LifecycleLedger);
+        auto.RegisterGroup("c1", "same-actor",
+            Array.Empty<string>(), "t");
+        await Task.Delay(15);
+        auto.RegisterGroup("c2", "same-actor",
+            Array.Empty<string>(), "t");
+        var report = await auto.RunOnceAsync();
+        Assert.Equal(1, (int)report["conflicts_resolved"]!);
+        Assert.Single(auto.Groups.ListActiveGroups()
+            .Where(g => g.Actor == "same-actor"));
+    }
+
+    [Fact]
+    public async Task register_rejects_duplicates()
+    {
+        var auto = new IdentityGroupLifecycleAutomation(
+            _dir, ledgerPath: LifecycleLedger);
+        Assert.True(auto.RegisterGroup(
+            "g", "a", Array.Empty<string>(), "t"));
+        Assert.False(auto.RegisterGroup(
+            "g", "b", Array.Empty<string>(), "t2"));
+        await Task.CompletedTask;
+    }
 }

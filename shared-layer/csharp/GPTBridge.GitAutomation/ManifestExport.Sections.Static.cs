@@ -241,6 +241,7 @@ internal static partial class ManifestExport
             $"{permissionLib}/SelfHealingAutomation.cs",
             $"{permissionLib}/AuditSchedulerAutomation.cs",
             $"{permissionLib}/IdentityGroupManager.cs",
+            $"{permissionLib}/IdentityGroupLifecycleAutomation.cs",
             "shared-layer/csharp/GPTBridge.Permission/" +
             "GPTBridge.Permission.Tests/" +
             "GPTBridge.Permission.Tests.csproj",
@@ -319,6 +320,14 @@ internal static partial class ManifestExport
                 "RegisterGroup", "ReconcileWithDirectory",
                 "unregistered_in_directory", "duplicate_actor",
                 "ResolveConflicts",
+            });
+        e.Contains("permission-core:identity-lifecycle",
+            $"{permissionLib}/IdentityGroupLifecycleAutomation.cs",
+            new[]
+            {
+                "RunOnceAsync", "GroupDeletionProposal",
+                "PendingDeletions", "DeleteGroup",
+                "identity-group-lifecycle.jsonl",
             });
 
         var tsExclude = new[]

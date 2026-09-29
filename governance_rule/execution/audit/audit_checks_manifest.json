@@ -2343,6 +2343,11 @@
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupManager.cs"
     },
     {
+      "id": "permission-core:IdentityGroupLifecycleAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupLifecycleAutomation.cs"
+    },
+    {
       "id": "permission-core:GPTBridge.Permission.Tests.csproj",
       "kind": "file-exists",
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission.Tests/GPTBridge.Permission.Tests.csproj"
@@ -2445,6 +2450,18 @@
         "ResolveConflicts"
       ],
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupManager.cs"
+    },
+    {
+      "id": "permission-core:identity-lifecycle",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "GroupDeletionProposal",
+        "PendingDeletions",
+        "DeleteGroup",
+        "identity-group-lifecycle.jsonl"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupLifecycleAutomation.cs"
     },
     {
       "exclude": [
@@ -26994,7 +27011,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3505,
+    "native_checks": 3507,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27017,7 +27034,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T11:35:48Z",
+  "generated_at": "2026-09-29T12:11:19Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
