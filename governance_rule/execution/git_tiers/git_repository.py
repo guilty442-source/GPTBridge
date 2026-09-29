@@ -113,33 +113,11 @@ def _chain(entry: dict[str, object]) -> None:
         pass
 
 
-# Short-lived snapshot cache: one status scan per observation cycle, shared by
-# every git command that runs within the TTL (spec 81/85).  Keyed on HEAD +
-# index fingerprint, so any commit/stage invalidates it; write commands also
-# call ``git_cache.invalidate`` after success.  This is audit evidence only —
-# it never participates in authorization, merge correctness, conflict
-# resolution or tier classification.
-_SNAPSHOT_TTL: Final[float] = _manifest_timing(
-    "snapshot_cache_ttl_seconds", 2.0
-)
-
-
-def _cached_light_snapshot(repo_path: Path) -> dict[str, object]:
-    from . import git_cache
-
+def _light_snapshot(repo_path: Path) -> dict[str, object]:
+    """Audit evidence snapshot; never participates in authorization."""
     from .snapshot import capture_light_snapshot
 
-    def _produce() -> dict[str, object]:
-        return capture_light_snapshot(repo_path)
-
-    value = git_cache.cached(
-        repo_path,
-        "snapshot",
-        _produce,
-        common_dir="",
-        ttl=_SNAPSHOT_TTL,
-    )
-    return value
+    return capture_light_snapshot(repo_path)
 
 
 def _timeouts_state_path(repo_path: Path) -> Path | None:
@@ -300,7 +278,7 @@ class GitRepository:
         ``execute_system_safe`` instead of a boolean.
         """
         command = _classifiable_command(args)
-        snapshot = _cached_light_snapshot(self.path)
+        snapshot = _light_snapshot(self.path)
         legacy = bool(confirmed) or bool(authority_approved)
         if legacy:
             record_deprecated_confirmation(
@@ -324,42 +302,6 @@ class GitRepository:
             approval_path="DEPRECATED_COMPATIBILITY" if legacy else "",
         )
 
-    def _run_verified(
-        self,
-        args: list[str],
-        *,
-        tier: int,
-        actor: str,
-        approval_path: str,
-        capability_id: str = "",
-        timeout: float | None = DEFAULT_TIMEOUT,
-    ) -> subprocess.CompletedProcess[str]:
-        """Execute a command whose authorization was decided by the gate.
-
-        The gateway re-classifies the command and refuses any tier mismatch,
-        then records the approval path and capability id; it never takes a
-        boolean confirmation on this path.
-        """
-        command = _classifiable_command(args)
-        effective = _extended_tier(command)
-        effective = effective if effective is not None else classify(command)
-        if int(tier) != effective:
-            raise PermissionError(
-                f"capability-tier-mismatch:verified={tier}:command={effective}"
-            )
-        if effective >= 2 and not approval_path:
-            raise PermissionError("tier-2/3 requires a verified authorization")
-        snapshot = _cached_light_snapshot(self.path)
-        audit_log(
-            effective, command, actor, True, f"{approval_path}: verified",
-            repo_snapshot=snapshot, phase="decision", result="authorized",
-        )
-        return self._execute(
-            command, args, tier=effective, actor=actor, snapshot=snapshot,
-            timeout=timeout, check=False, approval_path=approval_path,
-            capability_id=capability_id,
-        )
-
     def _execute(
         self,
         command: str,
@@ -371,7 +313,6 @@ class GitRepository:
         timeout: float | None,
         check: bool,
         approval_path: str = "",
-        capability_id: str = "",
     ) -> subprocess.CompletedProcess[str]:
         started = time.monotonic()
         timed_out = False
@@ -404,12 +345,6 @@ class GitRepository:
         result.duration_ms = duration_ms  # type: ignore[attr-defined]
         returncode = int(getattr(result, "returncode", -1) or -1)
         detail = str(getattr(result, "stderr", "") or "")[:500].strip()
-        try:
-            from . import git_perf
-
-            git_perf.record(self.path, command, duration_ms)
-        except Exception:
-            pass
         entry = audit_log(
             tier,
             command,
@@ -424,17 +359,7 @@ class GitRepository:
         entry["duration_ms"] = duration_ms
         if approval_path:
             entry["approval_path"] = approval_path
-        if capability_id:
-            entry["capability_id"] = capability_id
         _chain(entry)
-        # Writes invalidate cached Tier-1 reads for this worktree.
-        if tier >= 2 and returncode == 0 and not timed_out:
-            try:
-                from . import git_cache
-
-                git_cache.invalidate(self.path)
-            except Exception:
-                pass
         if check and result.returncode != 0:
             raise subprocess.CalledProcessError(
                 result.returncode,
@@ -443,37 +368,3 @@ class GitRepository:
                 stderr=result.stderr,
             )
         return result
-
-    def head(self) -> str:
-        from . import git_cache
-
-        def _produce() -> str:
-            return self.run(["rev-parse", "HEAD"]).stdout.strip()
-
-        return git_cache.cached(self.path, "head", _produce, common_dir="")
-
-    def current_branch(self) -> str:
-        from . import git_cache
-
-        def _produce() -> str:
-            return (
-                self.run(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
-                or "HEAD"
-            )
-
-        return git_cache.cached(self.path, "branch", _produce, common_dir="")
-
-    def is_bare(self) -> bool:
-        return self.run(["rev-parse", "--is-bare-repository"]).stdout.strip() == "true"
-
-    def status(self) -> str:
-        """Machine-readable dirty check (porcelain v2 -z, A375 HEALTH)."""
-        from .porcelain import status_v2
-
-        return "" if status_v2(self, include_branch=False).clean else "dirty"
-
-    def status_v2(self):
-        """Full parsed status (branch metadata + entries)."""
-        from .porcelain import status_v2
-
-        return status_v2(self)

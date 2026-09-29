@@ -158,6 +158,13 @@ def audit_log(
     return entry
 
 
+LEGACY_LEDGER_ENV: Final[str] = "GPTBRIDGE_CAPABILITY_LEDGER"
+LEGACY_LEDGER_PATH: Final[Path] = (
+    AUDIT_LEDGER_PATH.parent / "capability_ledger.jsonl"
+)
+LEGACY_COMPATIBILITY_MARKER: Final[str] = "DEPRECATED_COMPATIBILITY"
+
+
 def record_deprecated_confirmation(
     repo_path: str | Path,
     command: str,
@@ -173,23 +180,36 @@ def record_deprecated_confirmation(
     silent boolean path.  Failure to record never blocks the caller.
     """
     try:
+        from datetime import datetime, timezone
         from uuid import uuid4
 
-        from .capability import LEGACY_COMPATIBILITY_MARKER, repository_id_for
-        from .capability_ledger import CapabilityLedger
         from .command_normalizer import operation_key
 
-        CapabilityLedger().record_legacy(
-            actor=actor,
-            operation=operation_key(command),
-            command_id=uuid4().hex,
-            detail=(
+        override = os.environ.get(LEGACY_LEDGER_ENV, "").strip()
+        ledger_path = Path(override) if override else LEGACY_LEDGER_PATH
+        now = datetime.now(timezone.utc).isoformat()
+        entry = {
+            "actor": actor,
+            "operation": operation_key(command),
+            "command_id": uuid4().hex,
+            "result": "legacy-authorized",
+            "approval_path": approval_path,
+            "repository_id": hashlib.sha256(
+                str(Path(repo_path).resolve()).casefold().encode("utf-8")
+            ).hexdigest(),
+            "consumed_at": now,
+            "recorded_at": now,
+            "detail": (
                 f"{LEGACY_COMPATIBILITY_MARKER}: deprecated boolean approval "
                 "(migrate to a capability token)"
             ),
-            approval_path=approval_path,
-            repository_id=repository_id_for(repo_path),
-        )
+        }
+        ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        with _AUDIT_LOCK, ledger_path.open("a", encoding="utf-8") as f:
+            f.write(
+                json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str)
+                + "\n"
+            )
     except Exception:
         pass
 
