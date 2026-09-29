@@ -245,11 +245,6 @@
       "evidence": "async transport store; same canonical transport authority"
     },
     {
-      "path": "shared-layer/src/shared_layer/transactional_outbox.py",
-      "class": "SHARED_SERVICE",
-      "evidence": "transactional outbox contract; central transport only"
-    },
-    {
       "path": "shared-layer/src/shared_layer/database",
       "class": "RELEASE_DEPENDENCY",
       "evidence": "PG lifecycle/pool/migration library packaged with the release"
@@ -268,11 +263,6 @@
       "path": "shared-layer/src/shared_layer/local",
       "class": "PERSISTENT_STATE",
       "evidence": "retired local-state shim; PostgreSQL sole authority; never copied as authority"
-    },
-    {
-      "path": "shared-layer/tests",
-      "class": "DEVELOPMENT_ONLY",
-      "evidence": "test suites never loaded by the production runtime"
     },
     {
       "path": "shared-layer/src/ui/toolWindow",
