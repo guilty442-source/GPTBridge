@@ -6,7 +6,7 @@
       "$kw": {
         "authority_version": 1,
         "managing_authority": "codex-via-enforcement-policy",
-        "governing_source": "governance_rule/codex/data/governance_codex.sql",
+        "governing_source": "governance-codex://official",
         "independent_authority": false,
         "runtime_write_allowed": false,
         "canonical_project_root": "E:/GPTBridge",
@@ -265,7 +265,7 @@
           "$kw": {
             "authority_version": 1,
             "managing_authority": "codex-via-enforcement-policy",
-            "governing_source": "governance_rule/codex/data/governance_codex.sql",
+            "governing_source": "governance-codex://official",
             "independent_authority": false,
             "runtime_write_allowed": false,
             "canonical_project_root": "E:/GPTBridge",
