@@ -7,7 +7,7 @@
 namespace fsui {
 namespace tr {
 
-inline constexpr const char* kKicker        = "SMART FILE WORKSPACE";
+inline constexpr const char* kKicker        = "SYS // SMART FILE WORKSPACE";
 inline constexpr const char* kTitle         = "自動化檔案管理";
 inline constexpr const char* kConnected     = "系統已連線";
 inline constexpr const char* kConnecting    = "正在連線";

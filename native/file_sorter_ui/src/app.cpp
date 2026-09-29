@@ -7,6 +7,7 @@
 #include "app.h"
 
 #include <commctrl.h>
+#include <dwmapi.h>
 #include <shellapi.h>
 
 #include <cstdio>
@@ -16,7 +17,11 @@
 #include "parse.h"
 #include "protocol.h"
 #include "strings.h"
+#include "theme.h"
 #include "utf8.h"
+#include "widgets.h"
+
+#pragma comment(lib, "dwmapi.lib")
 
 #pragma comment(linker, \
     "\"/manifestdependency:type='win32' "\
@@ -224,19 +229,17 @@ void handle_hscroll(HWND bar) {
 void update_scrollbar() {
     RECT rc;
     GetClientRect(g_app.hwnd, &rc);
-    SCROLLINFO si{};
-    si.cbSize = sizeof(si);
-    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
-    si.nMin = 0;
-    si.nMax = g_app.content_h;
-    si.nPage = rc.bottom;
-    si.nPos = g_app.scroll_y;
-    SetScrollInfo(g_app.hwnd, SB_VERT, &si, TRUE);
     int max_pos = (int)(g_app.content_h - rc.bottom);
     if (max_pos < 0) max_pos = 0;
     if (g_app.scroll_y > max_pos) g_app.scroll_y = max_pos;
-    SetWindowPos(g_app.content, nullptr, 0, -g_app.scroll_y, rc.right,
-                 g_app.content_h, SWP_NOZORDER);
+    SetWindowPos(g_app.content, nullptr, 0, -g_app.scroll_y,
+                 rc.right, g_app.content_h, SWP_NOZORDER);
+    if (g_app.scroll) {
+        SetWindowPos(g_app.scroll, nullptr, rc.right - 10, 0, 10, rc.bottom,
+                     SWP_NOZORDER | SWP_SHOWWINDOW);
+        widgets::scroll_set(g_app.scroll, g_app.content_h, rc.bottom);
+        widgets::scroll_set_pos(g_app.scroll, g_app.scroll_y);
+    }
 }
 
 void scroll_content(int delta) {
@@ -249,7 +252,130 @@ void scroll_content(int delta) {
     if (g_app.scroll_y > max_pos) g_app.scroll_y = max_pos;
     SetWindowPos(g_app.content, nullptr, 0, -g_app.scroll_y, rc.right,
                  g_app.content_h, SWP_NOZORDER);
-    SetScrollPos(g_app.hwnd, SB_VERT, g_app.scroll_y, TRUE);
+    if (g_app.scroll) widgets::scroll_set_pos(g_app.scroll, g_app.scroll_y);
+}
+
+/* ---------- owner-draw painters ---------- */
+
+void draw_button(const DRAWITEMSTRUCT* dis) {
+    bool accent = theme::is_accent(dis->hwndItem);
+    bool hot = GetPropW(dis->hwndItem, theme::kPropHot) != nullptr;
+    bool down = (dis->itemState & ODS_SELECTED) != 0;
+    bool disabled = (dis->itemState & ODS_DISABLED) != 0;
+    COLORREF fill = accent ? (down ? theme::kAccentDn
+                                  : hot ? theme::kAccentHot : theme::kAccent)
+                           : (down ? theme::kCardEdge
+                                   : hot ? theme::kSecHot
+                                         : theme::kSecondary);
+    if (disabled) fill = theme::kDisabled;
+    theme::fill_round(dis->hDC, dis->rcItem, fill, 8,
+                      accent ? theme::kAccentDn : theme::kFieldEdge);
+    wchar_t buf[128];
+    GetWindowTextW(dis->hwndItem, buf, 128);
+    RECT tr = dis->rcItem;
+    COLORREF fg = disabled ? theme::kMuted
+                  : accent ? theme::kOnAccent
+                  : hot    ? theme::kAccentHot
+                           : theme::kText;
+    theme::text(dis->hDC, narrow(buf), tr, fg, g_app.font,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    if (dis->itemState & ODS_FOCUS) {
+        RECT fr = dis->rcItem;
+        InflateRect(&fr, -3, -3);
+        DrawFocusRect(dis->hDC, &fr);
+    }
+}
+
+void draw_check(const DRAWITEMSTRUCT* dis) {
+    bool disabled = (dis->itemState & ODS_DISABLED) != 0;
+    bool checked =
+        SendMessageW(dis->hwndItem, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    theme::fill_round(dis->hDC, dis->rcItem, theme::kCard, 4);
+    RECT box{dis->rcItem.left, dis->rcItem.top + 2,
+             dis->rcItem.left + 18, dis->rcItem.top + 20};
+    theme::fill_round(dis->hDC, box,
+                      checked ? theme::kAccent : theme::kField, 5,
+                      checked ? theme::kAccent : theme::kFieldEdge);
+    if (checked) {
+        HPEN pen = CreatePen(PS_SOLID, 2, theme::kOnAccent);
+        HGDIOBJ op = SelectObject(dis->hDC, pen);
+        int bx = box.left;
+        int by = box.top;
+        MoveToEx(dis->hDC, bx + 4, by + 9, nullptr);
+        LineTo(dis->hDC, bx + 8, by + 13);
+        LineTo(dis->hDC, bx + 14, by + 5);
+        SelectObject(dis->hDC, op);
+        DeleteObject(pen);
+    }
+    wchar_t buf[160];
+    GetWindowTextW(dis->hwndItem, buf, 160);
+    RECT tr{box.right + 8, dis->rcItem.top, dis->rcItem.right,
+            dis->rcItem.bottom};
+    theme::text(dis->hDC, narrow(buf), tr,
+                disabled ? theme::kMuted : theme::kText, g_app.font);
+}
+
+void draw_list_item(const DRAWITEMSTRUCT* dis) {
+    if (dis->itemID == (UINT)-1) return;
+    bool sel = (dis->itemState & ODS_SELECTED) != 0;
+    theme::fill_round(dis->hDC, dis->rcItem,
+                      sel ? theme::kSelBg : theme::kField, 4);
+    wchar_t buf[512];
+    buf[0] = 0;
+    SendMessageW(dis->hwndItem, LB_GETTEXT, dis->itemID, (LPARAM)buf);
+    RECT tr{dis->rcItem.left + 8, dis->rcItem.top, dis->rcItem.right - 8,
+            dis->rcItem.bottom};
+    theme::text(dis->hDC, narrow(buf), tr,
+                sel ? theme::kText : RGB(0xC9, 0xCE, 0xD6), g_app.font);
+    if (sel) {
+        RECT bar{dis->rcItem.left, dis->rcItem.top + 3,
+                 dis->rcItem.left + 3, dis->rcItem.bottom - 3};
+        theme::fill_round(dis->hDC, bar, theme::kAccent, 3);
+    }
+}
+
+void draw_combo_item(const DRAWITEMSTRUCT* dis) {
+    theme::fill_round(dis->hDC, dis->rcItem, theme::kField, 4);
+    wchar_t buf[256];
+    buf[0] = 0;
+    std::string text = tr::kDestEmpty;
+    COLORREF color = theme::kMuted;
+    int sel = (int)SendMessageW(dis->hwndItem, CB_GETCURSEL, 0, 0);
+    if (dis->itemID != (UINT)-1) {
+        SendMessageW(dis->hwndItem, CB_GETLBTEXT, dis->itemID, (LPARAM)buf);
+        color = theme::kText;
+        text = narrow(buf);
+    } else if (sel >= 0) {
+        SendMessageW(dis->hwndItem, CB_GETLBTEXT, sel, (LPARAM)buf);
+        color = theme::kText;
+        text = narrow(buf);
+    }
+    RECT tr{dis->rcItem.left + 8, dis->rcItem.top, dis->rcItem.right - 24,
+            dis->rcItem.bottom};
+    theme::text(dis->hDC, text, tr, color, g_app.font);
+    /* chevron on the selection field */
+    if (dis->itemID == (UINT)-1 || !(dis->itemState & ODS_COMBOBOXEDIT)) {
+        if (dis->itemID == (UINT)-1) {
+            int cx = dis->rcItem.right - 16, cy =
+                (dis->rcItem.top + dis->rcItem.bottom) / 2;
+            HPEN pen = CreatePen(PS_SOLID, 1, theme::kMuted);
+            HGDIOBJ op = SelectObject(dis->hDC, pen);
+            MoveToEx(dis->hDC, cx - 3, cy - 1, nullptr);
+            LineTo(dis->hDC, cx, cy + 2);
+            LineTo(dis->hDC, cx + 3, cy - 1);
+            SelectObject(dis->hDC, op);
+            DeleteObject(pen);
+        }
+    }
+}
+
+COLORREF conn_color() {
+    switch (g_app.st.backend.state()) {
+        case WsClient::State::Connected: return theme::kGreen;
+        case WsClient::State::Connecting:
+        case WsClient::State::Handshaking: return theme::kAmber;
+        default: return theme::kRed;
+    }
 }
 
 LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -260,9 +386,76 @@ LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_HSCROLL:
             handle_hscroll((HWND)lp);
             return 0;
-        case WM_CTLCOLORSTATIC:
-            SetBkMode((HDC)wp, TRANSPARENT);
-            return (LRESULT)GetSysColorBrush(COLOR_WINDOW);
+        case WM_ERASEBKGND: {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            FillRect((HDC)wp, &rc, theme::brush(theme::kBg));
+            return 1;
+        }
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC dc = BeginPaint(hwnd, &ps);
+            /* header band: gradient + accent underline (HUD strip) */
+            RECT band{0, 0, ps.rcPaint.right, 118};
+            theme::vgrad(dc, band, theme::kHeaderHi, theme::kBg);
+            theme::accent_rule(dc, 18, 108, 200);
+            theme::accent_rule(dc, 218, 108, 60, theme::kAccentDim);
+            for (const RECT& c : g_app.cards)
+                theme::card(dc, c);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_MEASUREITEM: {
+            auto* mi = (MEASUREITEMSTRUCT*)lp;
+            mi->itemHeight = 24;
+            return TRUE;
+        }
+        case WM_DRAWITEM: {
+            auto* dis = (const DRAWITEMSTRUCT*)lp;
+            if (dis->CtlType == ODT_BUTTON) {
+                if (GetPropW(dis->hwndItem, L"fsui.check"))
+                    draw_check(dis);
+                else
+                    draw_button(dis);
+            } else if (dis->CtlType == ODT_LISTBOX) {
+                draw_list_item(dis);
+            } else if (dis->CtlType == ODT_COMBOBOX) {
+                draw_combo_item(dis);
+            }
+            return TRUE;
+        }
+        case WM_CTLCOLORSTATIC: {
+            HDC dc = (HDC)wp;
+            HWND ctl = (HWND)lp;
+            SetBkMode(dc, OPAQUE);
+            SetBkColor(dc, GetPropW(ctl, theme::kPropOnCard)
+                               ? theme::kCard
+                               : theme::kBg);
+            if (ctl == g_app.ui.conn_dot)
+                SetTextColor(dc, conn_color());
+            else if (theme::is_cyan(ctl))
+                SetTextColor(dc, theme::kAccent);
+            else
+                SetTextColor(dc, theme::is_muted(ctl) ? theme::kMuted
+                                                    : theme::kText);
+            return (LRESULT)theme::brush(GetPropW(ctl, theme::kPropOnCard)
+                                             ? theme::kCard
+                                             : theme::kBg);
+        }
+        case WM_CTLCOLOREDIT: {
+            HDC dc = (HDC)wp;
+            SetBkColor(dc, theme::kField);
+            SetTextColor(dc, theme::kText);
+            return (LRESULT)theme::brush(theme::kField);
+        }
+        case WM_CTLCOLORLISTBOX: {
+            HDC dc = (HDC)wp;
+            SetBkColor(dc, theme::kField);
+            SetTextColor(dc, theme::kText);
+            return (LRESULT)theme::brush(theme::kField);
+        }
+        case WM_CTLCOLORBTN:
+            return (LRESULT)theme::brush(theme::kCard);
         case WM_MOUSEWHEEL:
             scroll_content(GET_WHEEL_DELTA_WPARAM(wp) > 0 ? -48 : 48);
             return 0;
@@ -361,20 +554,23 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     g_app.font = make_font(15, FW_NORMAL, L"Microsoft JhengHei UI");
     g_app.font_bold = make_font(15, FW_SEMIBOLD, L"Microsoft JhengHei UI");
     g_app.font_mono = make_font(14, FW_NORMAL, L"Consolas");
-    g_app.font_heading = make_font(19, FW_SEMIBOLD, L"Microsoft JhengHei UI");
+    g_app.font_heading = make_font(20, FW_SEMIBOLD, L"Microsoft JhengHei UI");
+    g_app.font_small = make_font(13, FW_NORMAL, L"Microsoft JhengHei UI");
+
+    widgets::register_classes(inst);
 
     WNDCLASSEXW wc{sizeof(wc)};
     wc.lpfnWndProc = main_proc;
     wc.hInstance = inst;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hbrBackground = theme::brush(theme::kBg);
     wc.lpszClassName = kMainClass;
     RegisterClassExW(&wc);
 
     WNDCLASSEXW cc{sizeof(cc)};
     cc.lpfnWndProc = content_proc;
     cc.hInstance = inst;
-    cc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    cc.hbrBackground = theme::brush(theme::kBg);
     cc.lpszClassName = kContentClass;
     RegisterClassExW(&cc);
 
@@ -389,16 +585,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
 
     g_app.hwnd = CreateWindowExW(
         0, kMainClass, widen(full).c_str(),
-        WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_CLIPCHILDREN,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT, CW_USEDEFAULT, w, h,
         nullptr, nullptr, inst, nullptr);
     if (!g_app.hwnd) return 2;
     g_confirm_parent = g_app.hwnd;
 
+    /* Fluent-style dark title bar (Win10 20H1+; harmless no-op earlier) */
+    BOOL dark = TRUE;
+    DwmSetWindowAttribute(g_app.hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
+                          &dark, sizeof(dark));
+
     g_app.content = CreateWindowExW(
         0, kContentClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
         0, 0, w, 1400, g_app.hwnd, nullptr, inst, nullptr);
     build_layout(g_app.content);
+    g_app.scroll = widgets::create_scroll(g_app.hwnd, w - 10, 0, 10, h);
 
     g_app.st.ws_url = env("GPTBRIDGE_SOURCE_UI_WEBSOCKET_URL");
     g_app.st.message = tr::kMsgReady;

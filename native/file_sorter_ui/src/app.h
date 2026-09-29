@@ -2,6 +2,7 @@
 #ifndef GPTBRIDGE_FSUI_APP_H
 #define GPTBRIDGE_FSUI_APP_H
 
+#include <vector>
 #include <windows.h>
 
 #include "state.h"
@@ -61,13 +62,17 @@ struct App {
     Ui ui;
     HWND hwnd = nullptr;
     HWND content = nullptr;
+    HWND scroll = nullptr;
     int content_h = 0;
     int scroll_y = 0;
     HFONT font = nullptr;
     HFONT font_bold = nullptr;
     HFONT font_mono = nullptr;
     HFONT font_heading = nullptr;
+    HFONT font_small = nullptr;
     bool editing_target = false;
+    /* card rects painted by the content window's WM_PAINT */
+    std::vector<RECT> cards;
 };
 
 extern App g_app;
