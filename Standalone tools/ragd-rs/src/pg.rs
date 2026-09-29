@@ -132,6 +132,55 @@ impl Authority {
             .collect())
     }
 
+    /// Sparse channel — PostgreSQL FTS over canonical chunk content
+    /// (`pipeline.py::_keyword_search` counterpart). Returns the same
+    /// barrier-row shape plus a `ts_rank` score; callers still apply
+    /// the `index_state` proof before a row becomes evidence.
+    pub fn keyword_search(
+        &mut self,
+        module_ids: &[String],
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(Value, f64)>, String> {
+        let rows = self
+            .client
+            .query(
+                "SELECT chunk.vector_point_id::text, chunk.chunk_id, \
+                        chunk.resource_id, chunk.module_id, chunk.sequence, \
+                        chunk.character_start, chunk.character_end, \
+                        chunk.metadata AS chunk_metadata, \
+                        resource.metadata AS resource_metadata, \
+                        resource.index_status, \
+                        ts_rank( \
+                            to_tsvector('simple', COALESCE(chunk.metadata->>'content', '')), \
+                            plainto_tsquery('simple', $3)) AS rank \
+                 FROM gptbridge_rag.chunk AS chunk \
+                 JOIN gptbridge_index.resource AS resource \
+                   ON resource.resource_id = chunk.resource_id \
+                 WHERE chunk.module_id = ANY($1) \
+                   AND resource.index_status NOT IN \
+                       ('tombstoned', 'deleted', 'purged') \
+                   AND NOT EXISTS ( \
+                       SELECT 1 FROM gptbridge_rag.tombstone AS t \
+                       WHERE t.module_id = chunk.module_id \
+                         AND t.resource_id = chunk.resource_id \
+                         AND t.purged = false) \
+                   AND to_tsvector('simple', COALESCE(chunk.metadata->>'content', '')) \
+                       @@ plainto_tsquery('simple', $3) \
+                 ORDER BY rank DESC \
+                 LIMIT $2",
+                &[&module_ids, &(limit as i64), &query],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(rows
+            .iter()
+            .map(|r| {
+                let rank: f32 = r.get::<_, f32>(10);
+                (chunk_row_to_record(r), rank as f64)
+            })
+            .collect())
+    }
+
     /// `gptbridge_rag.index_state` status per resource — one round trip
     /// per module (P15 batch shape preserved).
     pub fn index_states(

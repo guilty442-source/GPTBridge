@@ -36,6 +36,32 @@
       "retry_budget": 1,
       "shutdown_order": 10,
       "activation": "on-demand"
+    },
+    {
+      "identity": "ragd",
+      "owner": "rag-runtime-sovereign",
+      "required_by": "rag-retrieval-plane (DAG/CAG/RAG chain)",
+      "criticality": "capability-critical",
+      "readiness_contract": "loopback-tcp-8094",
+      "deadline": "3s",
+      "retry_budget": 1,
+      "shutdown_order": 15,
+      "activation": "on-demand",
+      "dependencies": [
+        "vectord",
+        "postgresql"
+      ]
+    },
+    {
+      "identity": "searchd",
+      "owner": "rag-runtime-sovereign",
+      "required_by": "web-metasearch-plane",
+      "criticality": "optional",
+      "readiness_contract": "loopback-tcp-8091",
+      "deadline": "3s",
+      "retry_budget": 1,
+      "shutdown_order": 15,
+      "activation": "on-demand"
     }
   ],
   "probe_constants": {
@@ -51,6 +77,8 @@
     "ollama": 11434,
     "postgresql": 5432,
     "vectord": 8092,
+    "ragd": 8094,
+    "searchd": 8091,
     "health_probe": 8765
   },
   "supervisor": {

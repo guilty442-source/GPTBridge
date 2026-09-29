@@ -2081,6 +2081,44 @@
       "path": "Standalone tools/vectord-rs/src/store.rs"
     },
     {
+      "id": "architecture:ragd-retrieval-route",
+      "kind": "file-contains",
+      "markers": [
+        "/v1/retrieve",
+        "/v1/rag/query"
+      ],
+      "path": "Standalone tools/ragd-rs/src/main.rs"
+    },
+    {
+      "id": "architecture:ragd-dag-plane",
+      "kind": "file-contains",
+      "markers": [
+        "HARD_MAX_STEPS",
+        "dag-cycle",
+        "node-timeout"
+      ],
+      "path": "Standalone tools/ragd-rs/src/dag.rs"
+    },
+    {
+      "id": "architecture:ragd-cag-gate",
+      "kind": "file-contains",
+      "markers": [
+        "payload-integrity",
+        "cache-denied:",
+        "CagGate"
+      ],
+      "path": "Standalone tools/ragd-rs/src/cag.rs"
+    },
+    {
+      "id": "architecture:ragd-pg-authority",
+      "kind": "file-contains",
+      "markers": [
+        "vectord never decides authority",
+        "gptbridge_rag"
+      ],
+      "path": "Standalone tools/ragd-rs/src/retrieve.rs"
+    },
+    {
       "id": "architecture:network-allowlist:market_data.json",
       "kind": "file-contains",
       "markers": [
@@ -27088,7 +27126,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3507,
+    "native_checks": 3511,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27111,7 +27149,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T10:21:21Z",
+  "generated_at": "2026-09-29T12:22:39Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

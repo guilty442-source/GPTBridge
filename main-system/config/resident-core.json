@@ -54,7 +54,7 @@
     },
     "rag_cag": {
       "mode": "on-demand",
-      "activation": "app.ensure_rag_cag_started() on first retrieval need (MS1/MS2)"
+      "activation": "governed standalone-tool start path (ToolboxService.start_tool / activation_broker) spawns ragd-rs on first retrieval need; ragd/v1 loopback :8094 owns the native DAG planner/executor -> CAG gate -> RAG retrieval chain (vectord candidates + PostgreSQL authority), no resident Python"
     },
     "local_model": {
       "mode": "on-demand",
