@@ -119,23 +119,6 @@ internal static partial class ManifestExport
                 $"capModuleKeys={capModule.Count}");
     }
 
-    private static List<string> ProtectedSources(Ctx ctx)
-    {
-        var seen = new List<string>();
-        void Add(IEnumerable<string> items)
-        {
-            foreach (var item in items)
-                if (!seen.Contains(item)) seen.Add(item);
-        }
-        Add(ctx.PolicyStrings("authority_files"));
-        var directory = ctx.Directory;
-        if (directory is not null
-            && directory.TryGetValue(
-                "MANAGED_READ_ONLY_REGISTRY_PATHS", out var managed))
-            Add(PyLit.Strings(managed));
-        return seen;
-    }
-
     private static void EmitForbiddenAndProtected(Ctx ctx)
     {
         foreach (var relative in ModuleStrings(ctx.Root,

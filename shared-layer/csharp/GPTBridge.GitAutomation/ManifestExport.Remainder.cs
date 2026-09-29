@@ -16,13 +16,6 @@ internal static partial class ManifestExport
         var e = ctx.E;
         var root = ctx.Root;
 
-        e.Contains("git-tiers:classify-failclosed",
-            "governance_rule/execution/git_tiers/__init__.py",
-            new[]
-            {
-                "def classify", "TIER1_OPS", "TIER2_OPS",
-                "TIER3_OPS", "return 3",
-            });
         e.Contains("git-tiers:pre-push-gate",
             "governance_rule/git-hooks/pre-push",
             new[]
@@ -206,14 +199,9 @@ internal static partial class ManifestExport
             "governance_rule/execution/audit/" +
             "architecture_registry.json";
         e.Emit("architecture-registry:parse", "json-parses", archReg);
-        e.Emit(
-            "sovereign-module:main-system/governance/" +
-            "sovereigns/__init__.py",
-            "file-exists",
-            "main-system/governance/sovereigns/__init__.py");
-        var routesText = ReadText(Rel(root,
+        var routesText = SourceText(root,
             "governance_rule/permission_directory/registries/" +
-            "permissions/tool_routes.py"));
+            "permissions/tool_routes.py");
         var routeIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var marker in new[] { "\"tool_id\"", "'tool_id'" })
         {
@@ -243,32 +231,6 @@ internal static partial class ManifestExport
                      StringComparer.Ordinal))
             e.Contains($"architecture-registry:route:{rid}", archReg,
                 new[] { $"\"{rid}\"" });
-
-        // --- gpu torch-free (B167/B38) ----------------------------------
-        // Python oracle emits both pairs: the older gpu-coordinator:*
-        // ids and the newer gpu-torch-free:* ids.
-        const string gpuSrc =
-            "shared-layer/src/shared_layer/adaptive/" +
-            "gpu_coordinator.py";
-        e.Contains("gpu-coordinator:native-probe-markers", gpuSrc, new[]
-        {
-            "_query_via_nvidia_smi", "def query_gpu",
-        });
-        e.NotContains("gpu-coordinator:torch-free", gpuSrc, new[]
-        {
-            "import torch", "from torch", "_query_via_torch",
-            "torch.cuda", "def _torch(", "_TORCH",
-        });
-        e.Contains("gpu-torch-free:probe", gpuSrc, new[]
-        {
-            "_query_via_nvidia_smi", "def query_gpu",
-        });
-        e.NotContains("gpu-torch-free:no-retired-framework", gpuSrc,
-            new[]
-            {
-                "import torch", "from torch", "_query_via_torch",
-                "torch.cuda", "def _torch(",
-            });
 
         // --- renderer idle gating ---------------------------------------
         var rendererBase = Rel(root, "main-system/src-ui/renderer");
@@ -312,14 +274,6 @@ internal static partial class ManifestExport
         }
 
         // --- bounded worker pools ---------------------------------------
-        e.Contains("worker-pools:budget-module",
-            "shared-layer/src/shared_layer/performance/" +
-            "thread_budget.py",
-            new[]
-            {
-                "CORE_BUDGET_CAP = 5", "bounded_workers",
-                "bounded_threads", "allocation_within_budget",
-            });
         var poolSkip = new HashSet<string>(StringComparer.Ordinal)
         {
             "__pycache__", ".venv", "bin", "build", "dist",
@@ -373,13 +327,6 @@ internal static partial class ManifestExport
             ["path"] = baselineRel,
             ["markers"] = Emitter.Arr(new[] { "findings" }),
         });
-        e.Contains("sql-patterns:scanner-machinery",
-            "governance_rule/execution/audit/audit_sql_patterns.py",
-            new[]
-            {
-                "collect_finding_keys", "baseline_path",
-                "_SELECT_STAR", "_OFFSET",
-            });
         foreach (var violation in CollectFindingKeys(root)
                      .Distinct(StringComparer.Ordinal)
                      .OrderBy(s => s, StringComparer.Ordinal))

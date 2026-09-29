@@ -40,7 +40,7 @@ internal static partial class ManifestExport
 
     private static Dictionary<string, PyLit.Value> Module(
         string root, string relative) =>
-        PyLit.ModuleConstants(ReadText(Rel(root, relative)));
+        PyLit.ModuleConstants(SourceText(root, relative));
 
     private static PyLit.Value? ModuleVar(
         string root, string relative, string name) =>

@@ -23,13 +23,6 @@ internal static partial class ManifestExport
             so.TryGetValue(name, out var v) ? PyLit.Strings(v)
                 : new List<string>();
 
-        if (so.TryGetValue("REQUIRED_OWNED_SOURCES", out var owned)
-            && owned is PyLit.Dict ownedDict)
-            foreach (var (key, val) in ownedDict.Entries)
-                foreach (var rel in PyLit.Strings(val)
-                             .OrderBy(s => s, StringComparer.Ordinal))
-                    e.Emit($"owned-source:{rel}", "file-exists", rel);
-
         var retired = new HashSet<string>(StringComparer.Ordinal);
         var retiredDoc = ReadJsonObject(Rel(root,
             "governance_rule/execution/audit/retired_sources.json"));
@@ -41,16 +34,6 @@ internal static partial class ManifestExport
             .Union(retired).OrderBy(s => s, StringComparer.Ordinal);
         foreach (var rel in forbidden)
             e.Emit($"forbidden-source:{rel}", "file-not-exists", rel);
-
-        e.Emit("owned-source:visual-smoke", "file-exists",
-            "Standalone tools/ai-assistant/scripts/visual_smoke.py");
-        e.NotContains("main-system:ipc-symbols",
-            "main-system/src-core/ipc/server.py",
-            new[]
-            {
-                "_investment_watch_result_log_payload",
-                "_INVESTMENT_WATCH_LOG_",
-            });
 
         var packages = new (string Root, string Layers)[]
         {
@@ -68,10 +51,6 @@ internal static partial class ManifestExport
         {
             var pkg = SoStr(rootName);
             if (pkg.Length == 0) continue;
-            foreach (var layer in SoStrings(layerName)
-                         .OrderBy(s => s, StringComparer.Ordinal))
-                e.Emit($"pkg-layer:{pkg}:{layer}", "file-exists",
-                    $"{pkg}/{layer}/__init__.py");
             var pkgDir = Rel(root, pkg);
             if (Directory.Exists(pkgDir))
                 foreach (var stray in Directory
@@ -144,6 +123,8 @@ internal static partial class ManifestExport
                     .OrderBy(s => s, StringComparer.Ordinal)),
         });
         var aiRoot = SoStr("AI_ASSISTANT_PACKAGE_ROOT");
+        if (!Directory.Exists(Rel(root, aiRoot)))
+            aiRoot = "Standalone tools/ai-assistant";
         var netMarkers = new List<string>();
         foreach (var v in new[] { "import", "from" })
             foreach (var m in new[]

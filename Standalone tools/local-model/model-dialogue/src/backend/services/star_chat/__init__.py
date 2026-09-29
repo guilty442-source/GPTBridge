@@ -1,1 +1,0 @@
-"""Independent Star conversation client."""

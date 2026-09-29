@@ -140,8 +140,8 @@ internal static partial class ManifestExport
 
         // --- check_formal_rules ------------------------------------------
         TablePresent(ctx, "formal_rule_registry");
-        const string evaluatorsSrc =
-            "governance_rule/execution/formal_rules/evaluators.py";
+        var evaluatorsSrc = SourceRel(root,
+            "governance_rule/execution/formal_rules/evaluators.py");
         foreach (var frule in TableRows(ctx, "formal_rule_registry"))
         {
             var code = frule["rule_code"]?.GetValue<string>() ?? "";
@@ -206,10 +206,12 @@ internal static partial class ManifestExport
                 new[] { $"obligation_code={rcode}" });
 
         // --- authority policy family -------------------------------------
-        var policySrc = "governance_rule/governance_policy.py";
-        var dirSrc =
-            "governance_rule/permission_directory/directory_authority.py";
-        var codeSrc = "governance_rule/code_rule_directory.py";
+        var policySrc = SourceRel(root,
+            "governance_rule/governance_policy.py");
+        var dirSrc = SourceRel(root,
+            "governance_rule/permission_directory/directory_authority.py");
+        var codeSrc = SourceRel(root,
+            "governance_rule/code_rule_directory.py");
 
         e.Contains("authority-policy:policy", policySrc, new[]
         {
@@ -335,22 +337,22 @@ internal static partial class ManifestExport
             "authority_restore_from_backup=False",
         });
         e.Contains("repair-policy:boundaries",
-            "governance_rule/permission_directory/registries/" +
-            "permissions/capability_boundaries.py",
+            SourceRel(root,
+                "governance_rule/permission_directory/registries/" +
+                "permissions/capability_boundaries.py"),
             new[] { "automatic-repair" });
 
         // --- identity / permission family --------------------------------
-        var ipSrc = "governance_rule/permission_directory/registries/" +
-                    "permissions/identity_permissions.py";
-        var cbSrc = "governance_rule/permission_directory/registries/" +
-                    "permissions/capability_boundaries.py";
-        var registryDir = Rel(root,
-            "governance_rule/permission_directory/registries");
+        var ipSrc = SourceRel(root,
+            "governance_rule/permission_directory/registries/" +
+            "permissions/identity_permissions.py");
+        var cbSrc = SourceRel(root,
+            "governance_rule/permission_directory/registries/" +
+            "permissions/capability_boundaries.py");
+        var registryDir = Rel(root, FrozenDir);
         var registryFiles = Directory.Exists(registryDir)
-            ? Directory.EnumerateFiles(registryDir, "*.py",
-                  SearchOption.AllDirectories)
-                .Where(p => !p.Split(Path.DirectorySeparatorChar)
-                    .Contains("__pycache__"))
+            ? Directory.EnumerateFiles(registryDir, "*.txt",
+                  SearchOption.TopDirectoryOnly)
                 .OrderBy(p => p, StringComparer.Ordinal).ToList()
             : new List<string>();
 

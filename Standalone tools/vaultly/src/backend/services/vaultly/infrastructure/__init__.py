@@ -1,1 +1,0 @@
-"""Vaultly-owned persistence."""
