@@ -12,12 +12,12 @@ use super::measure::classify_tool_file;
 #[test]
 fn classify_tool_file_assigns_categories() {
     let cases: [(&str, &str); 22] = [
-        ("src/main.py", "program"),
-        ("tests/test_main.py", "program"),
+        ("src/main.rs", "program"),
+        ("tests/test_main.rs", "program"),
         ("manifest.json", "program"),
         ("dist/tool.exe", "runtime"),
         ("build/app.js", "runtime"),
-        (".venv/Lib/module.py", "runtime"),
+        ("env/tool.exe", "runtime"),
         ("node_modules/pkg/index.js", "runtime"),
         ("runtime/ipc/channel.json", "runtime"),
         ("data/default.sqlite3", "user_data"),
@@ -25,7 +25,7 @@ fn classify_tool_file_assigns_categories() {
         ("runtime/settings/preferences.json", "user_data"),
         ("runtime/recovery/journal.json", "user_data"),
         ("runtime/test-self-training/examples.sqlite3", "user_data"),
-        ("__pycache__/main.pyc", "cache"),
+        (".cache/main.bin", "cache"),
         ("runtime/browser-profiles/Cache/data", "cache"),
         ("runtime/edge-profile/Default/data", "cache"),
         ("runtime/electron-user-data/GPU Cache/data", "cache"),

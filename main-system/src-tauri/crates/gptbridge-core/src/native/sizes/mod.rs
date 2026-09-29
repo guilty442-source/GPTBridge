@@ -25,23 +25,18 @@ pub use api::{
 
 const CACHE_TTL_MS: u64 = 30_000;
 
-const MAIN_SYSTEM_DEPENDENCY_DIRECTORIES: [&str; 2] = [".venv", "node_modules"];
+const MAIN_SYSTEM_DEPENDENCY_DIRECTORIES: [&str; 1] = ["node_modules"];
 
-const TOOL_RUNTIME_ROOTS: [&str; 7] = [
-    ".venv",
+const TOOL_RUNTIME_ROOTS: [&str; 5] = [
     "build",
     "dist",
     "env",
     "node_modules",
     "release",
-    "venv",
 ];
 
-const TOOL_CACHE_SEGMENTS: [&str; 14] = [
+const TOOL_CACHE_SEGMENTS: [&str; 11] = [
     ".cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    "__pycache__",
     "browser-profile",
     "browser-profiles",
     "cache",
