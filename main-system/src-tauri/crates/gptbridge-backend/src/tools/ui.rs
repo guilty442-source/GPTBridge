@@ -39,15 +39,42 @@ fn resolve_ui_shell(tool_id: &str) -> Option<(PathBuf, Option<PathBuf>)> {
     if let Ok(raw) = std::fs::read_to_string(&registry_path) {
         if let Ok(registry) = serde_json::from_str::<Value>(&raw) {
             if let Some(binary) = registry["surfaces"][tool_id]["binary"].as_str() {
-                for profile in ["release", "debug"] {
-                    let candidate = root
-                        .join("main-system")
-                        .join("src-tauri")
-                        .join("target")
-                        .join(profile)
-                        .join(binary);
+                /* Path-bearing entries (native C++ surfaces) resolve from
+                 * the workspace root; bare names probe the cargo target
+                 * dir under release then debug. */
+                if binary.contains('/') || binary.contains('\\') {
+                    let candidate = root.join(binary);
                     if candidate.is_file() {
                         return Some((candidate, None));
+                    }
+                } else {
+                    for profile in ["release", "debug"] {
+                        let candidate = root
+                            .join("main-system")
+                            .join("src-tauri")
+                            .join("target")
+                            .join(profile)
+                            .join(binary);
+                        if candidate.is_file() {
+                            return Some((candidate, None));
+                        }
+                    }
+                }
+                /* Optional fallback surface (e.g. the egui host while a
+                 * native C++ binary is not built yet). */
+                if let Some(fallback) =
+                    registry["surfaces"][tool_id]["fallback_binary"].as_str()
+                {
+                    for profile in ["release", "debug"] {
+                        let candidate = root
+                            .join("main-system")
+                            .join("src-tauri")
+                            .join("target")
+                            .join(profile)
+                            .join(fallback);
+                        if candidate.is_file() {
+                            return Some((candidate, None));
+                        }
                     }
                 }
             }

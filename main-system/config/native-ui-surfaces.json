@@ -7,8 +7,9 @@
       "surface": "star-chat"
     },
     "file-sorter": {
-      "binary": "gptbridge-egui.exe",
-      "surface": "file-sorter"
+      "binary": "native/file_sorter_ui/bin/file-sorter-ui.exe",
+      "fallback_binary": "gptbridge-egui.exe",
+      "surface": "file-sorter-cpp"
     },
     "vaultly": {
       "binary": "gptbridge-egui.exe",
