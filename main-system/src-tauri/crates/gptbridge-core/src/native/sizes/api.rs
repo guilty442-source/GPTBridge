@@ -135,13 +135,13 @@ fn sum_workspace_entries(
     let entries = fs::read_dir(resolved_root).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
-        let Ok(meta) = entry.metadata() else {
+        let Ok(file_type) = entry.file_type() else {
             continue;
         };
-        if meta.is_symlink() {
+        if file_type.is_symlink() {
             continue;
         }
-        if meta.is_dir() {
+        if file_type.is_dir() {
             let known = measured_roots
                 .iter()
                 .find(|(root, _, _)| *root == path)
@@ -155,9 +155,11 @@ fn sum_workspace_entries(
             };
             bytes = bytes.saturating_add(b);
             file_count += f;
-        } else if meta.is_file() {
-            bytes = bytes.saturating_add(meta.len());
-            file_count += 1;
+        } else if file_type.is_file() {
+            if let Ok(meta) = entry.metadata() {
+                bytes = bytes.saturating_add(meta.len());
+                file_count += 1;
+            }
         }
     }
     Some((bytes, file_count))

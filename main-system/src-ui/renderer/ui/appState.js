@@ -1,7 +1,7 @@
 import { serviceManager, startStartupPipeline } from "@/services/RuntimeServiceManager";
 import { createBackendSocket } from "@/shared/services/backendSocket";
 import { mainSystemLocale } from "@/locales/main-system";
-import { applyRuntimeStatusReport, getRuntimeStatusState } from "@/shared/services/runtimeStatusStore";
+import { getRuntimeStatusState } from "@/shared/services/runtimeStatusStore";
 import { createStore } from "@/shared/mini/dom.js";
 const UI_ZOOM_STORAGE_KEY = "gptbridge_ui_zoom_factor";
 const MIN_UI_ZOOM = .85;
@@ -196,7 +196,7 @@ export function createAppState() {
 			if (detail.event !== "runtime_status_push") return;
 			const payload = detail.payload || {};
 			const version = String(payload.version ?? "").trim();
-			if (version) store.merge({ appVersion: version });
+			if (version && version !== store.get().appVersion) store.merge({ appVersion: version });
 			const metrics = payload.systemMetrics;
 			if (metrics) setMetricsIfChanged(metrics);
 		};
@@ -225,14 +225,20 @@ export function createAppState() {
 			}
 			const payload = detail.payload || {};
 			const ready = payload.maintenance_ready === true;
-			store.merge({ maintenanceReady: ready });
-			// Modular distribution: per-field subscribers update independently.
-			applyRuntimeStatusReport(payload);
+			// Status pushes arrive every cycle; merge only on a transition.
+			if (ready !== store.get().maintenanceReady) {
+				store.merge({ maintenanceReady: ready });
+			}
+			// applyRuntimeStatusReport already ran in backendSocket.onmessage
+			// for this same payload — re-applying here is a wasted field-diff
+			// pass on every 2 s status push.
 		};
 		const applyConnected = () => {
 			const connected = backendSocket.getState().status === "Connected";
 			if (!connected) {
-				store.merge({ maintenanceReady: false });
+				if (store.get().maintenanceReady) {
+					store.merge({ maintenanceReady: false });
+				}
 				return;
 			}
 			window.addEventListener("ipc_event", onStatusPush);
@@ -255,7 +261,9 @@ export function createAppState() {
 			} else {
 				listenerAttached = false;
 				window.removeEventListener("ipc_event", onStatusPush);
-				store.merge({ maintenanceReady: false });
+				if (store.get().maintenanceReady) {
+					store.merge({ maintenanceReady: false });
+				}
 			}
 		}));
 		applyConnected();
