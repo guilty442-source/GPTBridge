@@ -42,7 +42,7 @@ export function socketStatusLabel(status) {
 	return status;
 }
 
-/// Status -> dot class suffix shared by agent rail and response cards.
+/// Status -> visual kind shared by agent rail and response cards.
 function statusKind(status) {
 	if (status === "completed" || status === "opened") return "ok";
 	if (status === "running" || status === "aggregating") return "run";
@@ -53,20 +53,36 @@ function statusKind(status) {
 		status === "partial") return "wait";
 	return "idle";
 }
-function statusDot(status) {
-	return h("span", {
-		className: `ai-collab-dot ai-collab-dot--${statusKind(status)}`,
-		title: responseLabel(status)
-	});
+/// Dot + label pill.
+function statusPill(status) {
+	return h("span", { className: `ai-collab-pill ai-collab-pill--${statusKind(status)}` },
+		h("span", { className: "ai-collab-dot" }), responseLabel(status));
 }
-/// Provider monogram — colour-keyed by data-provider for fast scanning.
-function providerMark(agent) {
-	const provider = String(agent.provider || agent.provider_id || "ai").toLowerCase();
-	const initial = (String(agent.name || provider).trim()[0] || "A").toUpperCase();
-	return h("span", {
-		className: "ai-collab-mark",
-		dataset: { provider }
-	}, initial);
+/// Provider monogram — hue-keyed by data-provider for fast scanning.
+function providerMark(name, provider) {
+	const key = String(provider || name || "ai").toLowerCase();
+	const initial = (String(name || provider || "A").trim()[0] || "A").toUpperCase();
+	return h("span", { className: "ai-collab-mark", dataset: { provider: key } }, initial);
+}
+/// Copy-to-clipboard button — self-contained transient label flip.
+function copyButton(text) {
+	return h("button", {
+		type: "button", className: "ai-collab-mini ai-collab-copy", title: "複製回覆",
+		onClick: (event) => {
+			const btn = event.currentTarget;
+			const done = () => {
+				btn.textContent = "已複製";
+				btn.classList.add("is-done");
+				window.setTimeout(() => {
+					btn.textContent = "複製";
+					btn.classList.remove("is-done");
+				}, 1200);
+			};
+			if (navigator.clipboard?.writeText) {
+				void navigator.clipboard.writeText(text).then(done).catch(() => {});
+			}
+		}
+	}, "複製");
 }
 
 /// Collaboration-mode segmented control (replaces the plain select).
@@ -87,13 +103,14 @@ export function buildAgentRail(s, acts) {
 	const busy = Boolean(s.busyAction);
 	if (s.agents.length === 0) {
 		return h("div", { className: "ai-collab-rail-empty" },
-			h("span", { className: "ai-collab-muted" }, "AI 名單載入中，請確認後端連線..."));
+			h("span", { className: "ai-collab-muted" }, "AI 名單載入中，請確認後端連線…"));
 	}
 	const cards = s.agents.map((agent) => {
 		const selected = s.selectedAgents.has(agent.agent_id);
+		const provider = String(agent.provider || agent.agent_id || "").toLowerCase();
 		return h("article", {
 			className: `ai-collab-agentcard${selected ? " is-selected" : ""}`,
-			dataset: { status: statusKind(agent.status) }
+			dataset: { status: statusKind(agent.status), provider }
 		},
 			h("label", { className: "ai-collab-agentcard-main" },
 				h("input", {
@@ -102,30 +119,30 @@ export function buildAgentRail(s, acts) {
 					disabled: busy,
 					onChange: () => void acts.toggleAgent(agent.agent_id)
 				}),
-				providerMark(agent),
+				providerMark(agent.name, provider),
 				h("span", { className: "ai-collab-agentcard-meta" },
 					h("strong", null, agent.name),
-					h("small", null,
-						statusDot(agent.status),
-						responseLabel(agent.status)))),
-			h("span", { className: "ai-collab-agentcard-actions" },
-				h("button", {
-					type: "button", className: "ai-collab-mini",
-					disabled: busy,
-					onClick: () => void acts.openAgent(agent.agent_id)
-				}, s.busyAction === `open:${agent.agent_id}` ? "…" : "開啟"),
-				h("button", {
-					type: "button", className: "ai-collab-mini",
-					disabled: busy,
-					onClick: () => void acts.authorizeAgent(agent.agent_id)
-				}, s.busyAction === `authorize:${agent.agent_id}` ? "…" : "登入")));
+					h("small", null, provider || "ai"))),
+			h("div", { className: "ai-collab-agentcard-foot" },
+				statusPill(agent.status),
+				h("span", { className: "ai-collab-agentcard-actions" },
+					h("button", {
+						type: "button", className: "ai-collab-mini",
+						title: "在內建瀏覽器開啟", disabled: busy,
+						onClick: () => void acts.openAgent(agent.agent_id)
+					}, s.busyAction === `open:${agent.agent_id}` ? "…" : "開啟"),
+					h("button", {
+						type: "button", className: "ai-collab-mini",
+						title: "開啟登入/授權", disabled: busy,
+						onClick: () => void acts.authorizeAgent(agent.agent_id)
+					}, s.busyAction === `authorize:${agent.agent_id}` ? "…" : "登入"))));
 	});
 	return h("div", { className: "ai-collab-rail" },
 		h("div", { className: "ai-collab-rail-cards", role: "group", "aria-label": "內建 AI 名單" }, cards),
 		h("div", { className: "ai-collab-rail-side" },
 			h("span", { className: "ai-collab-count", "aria-label": "已選取數量" },
 				h("strong", null, String(s.selectedAgents.size)),
-				`/ ${s.agents.length}`),
+				h("span", { className: "ai-collab-count-dim" }, `/ ${s.agents.length}`)),
 			h("button", {
 				type: "button", className: "ai-collab-primary",
 				disabled: busy || s.selectedAgents.size === 0,
@@ -143,18 +160,20 @@ export function buildSettings(s, acts) {
 	});
 	return h("div", { className: "ai-collab-settings", role: "group", "aria-label": "設定" },
 		h("div", { className: "ai-collab-settings-head" },
-			h("strong", null, "設定"),
+			h("div", { className: "ai-collab-settings-title" },
+				h("strong", null, "設定"),
+				h("small", { className: "ai-collab-muted" }, "AI 名單與業務網址")),
 			h("button", {
 				type: "button", className: "ai-collab-mini",
 				onClick: () => acts.setSettingsOpen(false)
 			}, "關閉")),
 		h("div", { className: "ai-collab-settings-grid" },
 			h("div", { className: "ai-collab-settings-block" },
-				h("span", null, "新增 AI 名單"),
+				h("span", { className: "ai-collab-block-label" }, "新增 AI 名單"),
 				blockInput(s.newAgentName, "AI 名稱，例如 Copilot", "newAgentName"),
 				blockInput(s.newAgentProvider, "提供者（可留空）", "newAgentProvider"),
 				h("input", {
-					type: "url", value: s.newAgentUrl, placeholder: "https://...", disabled: busy,
+					type: "url", value: s.newAgentUrl, placeholder: "https://…", disabled: busy,
 					dataset: { k: "new-agent-url" },
 					onInput: (event) => acts.setField("newAgentUrl", event.target.value)
 				}),
@@ -164,11 +183,11 @@ export function buildSettings(s, acts) {
 					onClick: () => void acts.addAgent()
 				}, s.busyAction === "add-agent" ? "新增中…" : "新增 AI")),
 			h("div", { className: "ai-collab-settings-block" },
-				h("span", null, "各 AI 網址設定"),
+				h("span", { className: "ai-collab-block-label" }, "各 AI 網址設定"),
 				h("div", { className: "ai-collab-settings-agents" },
 					s.agents.map((agent) => h("details", { className: "ai-collab-agent-settings" },
 						h("summary", null,
-							providerMark(agent),
+							providerMark(agent.name, agent.provider || agent.agent_id),
 							agent.name),
 						h("label", null,
 							h("span", null, "一般業務 URL"),
@@ -188,7 +207,7 @@ export function buildSettings(s, acts) {
 							h("button", {
 								type: "button", className: "ai-collab-mini", disabled: busy,
 								onClick: () => void acts.saveAgentBusinessSettings(agent)
-							}, s.busyAction === `settings:${agent.agent_id}` ? "儲存中…" : "儲存 URL"))))))));
+							}, s.busyAction === `settings:${agent.agent_id}` ? "儲存中…" : "儲存 URL")))))));
 }
 
 /// Collaboration task selector inside the responses head.
@@ -218,12 +237,18 @@ function buildProviderResult(result, s, acts) {
 	},
 		h("div", { className: "ai-collab-response-head" },
 			h("span", { className: "ai-collab-response-title" },
-				statusDot(status), h("strong", null, providerId)),
+				providerMark(providerId, providerId),
+				h("strong", null, providerId),
+				statusPill(status)),
 			h("span", { className: "ai-collab-response-badges" },
 				result.capture_method ? h("span", { className: "ai-collab-badge" },
-					result.capture_method === "MANUAL" ? "手動匯入" : "自動擷取") : null)),
+					result.capture_method === "MANUAL" ? "手動匯入" : "自動擷取") : null,
+				text ? copyButton(text) : null)),
 		text ? h("p", { className: "ai-collab-response-body" }, text) : null,
 		status === "awaiting-user" ? h("div", { className: "ai-collab-browser-submit" },
+			h("div", { className: "ai-collab-submit-hint" },
+				h("span", { className: "ai-collab-hint-mark" }, "◆"),
+				"此 AI 需在瀏覽器中手動完成 — 完成後把回覆貼回下方"),
 			h("textarea", {
 				value: s.browserDrafts[draftKey] || "",
 				placeholder: "完成瀏覽器操作後，將 AI 回覆貼回這裡再送出。",
@@ -243,19 +268,22 @@ function buildProviderResult(result, s, acts) {
 function buildComparison(comparison) {
 	const has = (comparison.common_points?.length || comparison.differences?.length);
 	if (!has) return null;
-	const group = (label, items, render) => items.length > 0
+	const group = (label, mark, items, render) => items.length > 0
 		? h("div", { className: "ai-collab-compare-group" },
-			h("span", { className: "ai-collab-compare-label" }, label),
+			h("span", { className: "ai-collab-compare-label" },
+				h("span", { className: "ai-collab-compare-mark" }, mark), label),
 			items.map((item, index) => h("p", { key: `i${index}`, className: "ai-collab-response-body" }, render(item))))
 		: null;
 	return h("article", { className: "ai-collab-response ai-collab-comparison" },
 		h("div", { className: "ai-collab-response-head" },
-			h("span", { className: "ai-collab-response-title" }, h("strong", null, "比較結果"))),
+			h("span", { className: "ai-collab-response-title" },
+				h("span", { className: "ai-collab-mark ai-collab-mark--synthesis" }, "⇄"),
+				h("strong", null, "比較結果"))),
 		h("div", { className: "ai-collab-compare-grid" },
-			group("共同觀點", comparison.common_points || [], (item) => `· ${item.text}`),
-			group("各 AI 差異", comparison.differences || [], (item) => `· [${item.source_provider}] ${item.text}`),
-			group("相互矛盾", comparison.contradictions || [], (item) => `· ${(item.statements || []).map((st) => `[${st.provider_id}] ${st.text}`).join(" / ")}`),
-			group("尚未回答", comparison.unanswered_questions || [], (item) => `· ${item.question}`)));
+			group("共同觀點", "＋", comparison.common_points || [], (item) => `· ${item.text}`),
+			group("各 AI 差異", "≠", comparison.differences || [], (item) => `· [${item.source_provider}] ${item.text}`),
+			group("相互矛盾", "×", comparison.contradictions || [], (item) => `· ${(item.statements || []).map((st) => `[${st.provider_id}] ${st.text}`).join(" / ")}`),
+			group("尚未回答", "？", comparison.unanswered_questions || [], (item) => `· ${item.question}`))));
 }
 
 /// Synthesis card for a completed task.
@@ -263,7 +291,9 @@ function buildSynthesis(synthesis) {
 	if (!synthesis?.summary) return null;
 	return h("article", { className: "ai-collab-response ai-collab-synthesis" },
 		h("div", { className: "ai-collab-response-head" },
-			h("span", { className: "ai-collab-response-title" }, h("strong", null, "整合結果")),
+			h("span", { className: "ai-collab-response-title" },
+				h("span", { className: "ai-collab-mark ai-collab-mark--synthesis" }, "✦"),
+				h("strong", null, "整合結果")),
 			h("span", { className: "ai-collab-badge ai-collab-badge--accent" },
 				synthesis.method === "governed-model" ? "受管模型" : "規則彙整")),
 		h("p", { className: "ai-collab-response-body ai-collab-synthesis-body" }, synthesis.summary));
@@ -274,13 +304,18 @@ function buildLegacyResponse(response, s, acts) {
 	const agentId = String(response.agent_id || "");
 	const status = String(response.status || "");
 	const text = responseText(response);
+	const name = s.agentsById.get(agentId)?.name || agentId || "AI";
 	return h("article", {
 		className: "ai-collab-response",
 		dataset: { status: statusKind(status), provider: agentId.toLowerCase() }
 	},
 		h("div", { className: "ai-collab-response-head" },
 			h("span", { className: "ai-collab-response-title" },
-				statusDot(status), h("strong", null, s.agentsById.get(agentId)?.name || agentId || "AI"))),
+				providerMark(name, agentId),
+				h("strong", null, name),
+				statusPill(status)),
+			h("span", { className: "ai-collab-response-badges" },
+				text ? copyButton(text) : null)),
 		text ? h("p", { className: "ai-collab-response-body" }, text) : null,
 		response.error ? h("p", { className: "ai-collab-error-inline" }, String(response.error)) : null);
 }
@@ -297,7 +332,8 @@ export function buildResponsesBody(s, acts) {
 	if (!s.responses.length) {
 		return h("div", { className: "ai-collab-empty" },
 			h("span", { className: "ai-collab-empty-mark" }, "◇"),
-			h("p", { className: "ai-collab-muted" }, "送出協作後，AI 回應會顯示在這裡。"));
+			h("p", null, "送出協作後，AI 回應會顯示在這裡。"),
+			h("small", { className: "ai-collab-muted" }, "在上方名單勾選 AI，輸入需求後送出"));
 	}
 	return s.responses.map((response) => buildLegacyResponse(response, s, acts));
 }

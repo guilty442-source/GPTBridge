@@ -177,14 +177,21 @@ export function mountAiCollaborationWindowApp(root) {
 		type: "button", className: "ai-collab-ghost", style: { display: "none" },
 		onClick: () => void acts.cancelSend()
 	}, "取消");
-	const messageLine = h("p", { className: "ai-collab-status", role: "status" }, store.get().message);
+	const messageLine = h("p", { className: "ai-collab-status", role: "status" },
+		h("span", { className: "ai-collab-status-mark" }, "◈"),
+		h("span", { className: "ai-collab-status-text" }, store.get().message));
 	const agentError = h("p", { className: "ai-collab-alert", role: "alert", style: { display: "none" } });
 	const composerCard = h("section", { className: "ai-collab-card ai-collab-composer", "aria-label": "協作需求" },
+		h("div", { className: "ai-collab-composer-label" },
+			h("span", null, "協作需求"),
+			h("small", { className: "ai-collab-muted" }, "勾選上方名單，選擇模式後送出")),
 		h("div", { className: "ai-collab-composer-top" },
 			modeSegHost, agentSelect),
 		h("div", { className: "ai-collab-presets" },
+			h("span", { className: "ai-collab-presets-label" }, "範本"),
 			PROMPT_PRESETS.map((preset) => h("button", {
 				type: "button", className: "ai-collab-preset",
+				title: preset.prompt.slice(0, 30) + "…",
 				onClick: () => acts.applyPromptPreset(preset.prompt)
 			}, preset.label))),
 		h("div", { className: "ai-collab-composer-main" },
@@ -301,7 +308,7 @@ export function mountAiCollaborationWindowApp(root) {
 		exportBtn.textContent = s.busyAction === "export-report" ? "匯出中…" : "匯出診斷";
 		settingsBtn.setAttribute("aria-expanded", String(s.settingsOpen));
 		drawer.classList.toggle("is-open", s.settingsOpen);
-		messageLine.textContent = s.message;
+		messageLine.querySelector(".ai-collab-status-text").textContent = s.message;
 		// agent-select options follow the roster; the single-selection value
 		// mirrors the checkbox set like the React controlled select did.
 		const singleSel = s.selectedAgents.size === 1 ? Array.from(s.selectedAgents)[0] : "";
