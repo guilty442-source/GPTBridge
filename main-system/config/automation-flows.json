@@ -74,36 +74,36 @@
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — grant expiry sweep, delegated auto-renew adjudication, revoke/suspend, 30-day terminal cleanup; stays disabled until a resident automation host registers it. 原職責：權限授予過期／自動續期檢查（發權/收權/停權）。"
     },
     "permission-automation-directory": {
-      "owner": "permission-automation-directory（executor-retired B167/B38）",
+      "owner": "GPTBridge.Permission.DirectorySyncAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
       "enabled": false,
-      "description": "retired (B167/B38): Python DirectorySyncManager removed with the Python lane; managed-directory snapshot sync duty recorded for a native port. 原職責：受管目錄快照同步（雜湊比對）。"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — managed-registry sync hash (code-rules initial version + authority current version + sealed identity count); stays disabled until a resident automation host registers it. 原職責：受管目錄快照同步（雜湊比對）。"
     },
     "permission-automation-compliance": {
-      "owner": "permission-automation-compliance（executor-retired B167/B38）",
+      "owner": "GPTBridge.Permission.ComplianceMonitorAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
       "enabled": false,
-      "description": "retired (B167/B38): Python ComplianceMonitor removed with the Python lane; compliance/risk-scoring duty recorded for a native port. 原職責：合規檢查／違規處理／風險評分。"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — violation ingestion/dedup/severity, directory integrity, ledger-vs-directory drift (A436), hourly risk-score decay; stays disabled until a resident automation host registers it. 原職責：合規檢查／違規處理／風險評分。"
     },
     "permission-automation-healing": {
-      "owner": "permission-automation-healing（executor-retired B167/B38）",
+      "owner": "GPTBridge.Permission.SelfHealingAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
       "enabled": false,
-      "description": "retired (B167/B38): Python SelfHealingManager removed with the Python lane; permission-plane self-healing duty recorded for a native port. 原職責：權限平面自我修復健康檢查。"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — four health checks (registry access, governance connection, sovereign state, directory permissions) with injected governed repair delegates (A297); stays disabled until a resident automation host registers it. 原職責：權限平面自我修復健康檢查。"
     },
     "permission-automation-audit": {
-      "owner": "permission-automation-audit（executor-retired B167/B38）",
+      "owner": "GPTBridge.Permission.AuditSchedulerAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
       "enabled": false,
-      "description": "retired (B167/B38): Python AuditScheduler removed with the Python lane; periodic governance audit duty is carried by the native audit engine + GitAutomation hook gates. 原職責：定期治理審計子行程。"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — bounded native audit-engine invocation (60s timeout, metadata-only history records); stays disabled until a resident automation host registers it. 原職責：定期治理審計子行程。"
     },
     "connection-watchdog": {
       "owner": "gptbridge-core lifecycle monitor（main-system/src-tauri/crates/gptbridge-core/src/lifecycle/monitor.rs）",
@@ -128,6 +128,14 @@
       "pausable": false,
       "enabled": false,
       "description": "retired (B167/B38): Python activation broker removed with the Python lane; ai→xingcheng on-demand activation duty (A540) recorded for a native port. 原職責：偵測佇列 ai→xingcheng 請求並按需啟動 local-model。"
+    },
+    "channel-host-supervision": {
+      "owner": "gptbridge-backend channel_host（main-system/src-tauri/crates/gptbridge-backend/src/channel_host.rs）",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "通道層自動化：依 shared-layer/manifest.json background_service 契約（managed_by=main-system、auto_restart、max_restart_attempts=5、restart_backoff_seconds=1）由原生後端 spawn＋監督受管 GPTBridge.ChannelHost.exe（A263 通道）；受管關閉抑制重啟、預算耗盡 fail-closed；狀態檔 runtime/state/channel-host.json、稽核 channel-host.jsonl。監督者位於被監督行程之外（A170 邊界）"
     },
     "resource-governor": {
       "owner": "resource governor",

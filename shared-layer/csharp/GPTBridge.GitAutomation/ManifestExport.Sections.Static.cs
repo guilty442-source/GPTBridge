@@ -235,9 +235,18 @@ internal static partial class ManifestExport
             $"{permissionLib}/PermissionGrantLedger.cs",
             $"{permissionLib}/PermissionLifecycleAutomation.cs",
             $"{permissionLib}/PermissionLifecycleAdjudicator.cs",
+            $"{permissionLib}/RegistrySnapshot.cs",
+            $"{permissionLib}/DirectorySyncAutomation.cs",
+            $"{permissionLib}/ComplianceMonitorAutomation.cs",
+            $"{permissionLib}/SelfHealingAutomation.cs",
+            $"{permissionLib}/AuditSchedulerAutomation.cs",
+            $"{permissionLib}/IdentityGroupManager.cs",
             "shared-layer/csharp/GPTBridge.Permission/" +
             "GPTBridge.Permission.Tests/" +
             "GPTBridge.Permission.Tests.csproj",
+            "shared-layer/csharp/GPTBridge.Permission/" +
+            "GPTBridge.Permission.Tests/" +
+            "PermissionResidualTests.cs",
         })
             e.Checks.Add(new JsonObject
             {
@@ -269,6 +278,47 @@ internal static partial class ManifestExport
                 "LifecycleOperation.Suspend",
                 "LifecycleOperation.Revoke",
                 "LifecycleOperation.Terminate",
+            });
+        e.Contains("permission-core:directory-sync",
+            $"{permissionLib}/DirectorySyncAutomation.cs",
+            new[]
+            {
+                "RunOnceAsync", "SHA256.HashData",
+                "InitialCodeVersion", "AuthorityCurrentVersion",
+                "IdentityGroupIds.Count",
+            });
+        e.Contains("permission-core:compliance-monitor",
+            $"{permissionLib}/ComplianceMonitorAutomation.cs",
+            new[]
+            {
+                "RunOnceAsync", "ComplianceSeverity.Critical",
+                "grant-actor-not-in-directory",
+                "high_risk_actors", "unresolved_violations",
+            });
+        e.Contains("permission-core:self-healing",
+            $"{permissionLib}/SelfHealingAutomation.cs",
+            new[]
+            {
+                "HealingIssue.DirectoryAccess",
+                "HealingIssue.GovernanceConnection",
+                "HealingIssue.SovereignState",
+                "HealingIssue.DirectoryPermissions",
+                "RegisterRepair",
+            });
+        e.Contains("permission-core:audit-scheduler",
+            $"{permissionLib}/AuditSchedulerAutomation.cs",
+            new[]
+            {
+                "audit-engine.exe", "RunOnceAsync",
+                "CancelAfter", "[PASS]",
+            });
+        e.Contains("permission-core:identity-groups",
+            $"{permissionLib}/IdentityGroupManager.cs",
+            new[]
+            {
+                "RegisterGroup", "ReconcileWithDirectory",
+                "unregistered_in_directory", "duplicate_actor",
+                "ResolveConflicts",
             });
 
         var tsExclude = new[]

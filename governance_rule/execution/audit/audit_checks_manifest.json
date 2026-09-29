@@ -2313,9 +2313,44 @@
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAdjudicator.cs"
     },
     {
+      "id": "permission-core:RegistrySnapshot.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/RegistrySnapshot.cs"
+    },
+    {
+      "id": "permission-core:DirectorySyncAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/DirectorySyncAutomation.cs"
+    },
+    {
+      "id": "permission-core:ComplianceMonitorAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/ComplianceMonitorAutomation.cs"
+    },
+    {
+      "id": "permission-core:SelfHealingAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/SelfHealingAutomation.cs"
+    },
+    {
+      "id": "permission-core:AuditSchedulerAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/AuditSchedulerAutomation.cs"
+    },
+    {
+      "id": "permission-core:IdentityGroupManager.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupManager.cs"
+    },
+    {
       "id": "permission-core:GPTBridge.Permission.Tests.csproj",
       "kind": "file-exists",
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission.Tests/GPTBridge.Permission.Tests.csproj"
+    },
+    {
+      "id": "permission-core:PermissionResidualTests.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission.Tests/PermissionResidualTests.cs"
     },
     {
       "id": "permission-core:ledger-schema",
@@ -2351,6 +2386,65 @@
         "LifecycleOperation.Terminate"
       ],
       "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAutomation.cs"
+    },
+    {
+      "id": "permission-core:directory-sync",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "SHA256.HashData",
+        "InitialCodeVersion",
+        "AuthorityCurrentVersion",
+        "IdentityGroupIds.Count"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/DirectorySyncAutomation.cs"
+    },
+    {
+      "id": "permission-core:compliance-monitor",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "ComplianceSeverity.Critical",
+        "grant-actor-not-in-directory",
+        "high_risk_actors",
+        "unresolved_violations"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/ComplianceMonitorAutomation.cs"
+    },
+    {
+      "id": "permission-core:self-healing",
+      "kind": "file-contains",
+      "markers": [
+        "HealingIssue.DirectoryAccess",
+        "HealingIssue.GovernanceConnection",
+        "HealingIssue.SovereignState",
+        "HealingIssue.DirectoryPermissions",
+        "RegisterRepair"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/SelfHealingAutomation.cs"
+    },
+    {
+      "id": "permission-core:audit-scheduler",
+      "kind": "file-contains",
+      "markers": [
+        "audit-engine.exe",
+        "RunOnceAsync",
+        "CancelAfter",
+        "[PASS]"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/AuditSchedulerAutomation.cs"
+    },
+    {
+      "id": "permission-core:identity-groups",
+      "kind": "file-contains",
+      "markers": [
+        "RegisterGroup",
+        "ReconcileWithDirectory",
+        "unregistered_in_directory",
+        "duplicate_actor",
+        "ResolveConflicts"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupManager.cs"
     },
     {
       "exclude": [
@@ -26900,7 +26994,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3493,
+    "native_checks": 3505,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -26923,7 +27017,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T11:08:06Z",
+  "generated_at": "2026-09-29T11:35:48Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
