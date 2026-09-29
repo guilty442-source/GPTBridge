@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 
 use gptbridge_core::native::paths::is_path_inside;
 
-use super::{PackagedBackend, ToolConfig};
+use super::ToolConfig;
 
 fn random_hex(bytes: usize) -> String {
     let mut buf = vec![0u8; bytes];
@@ -131,15 +131,14 @@ pub(super) fn load_env_config() -> Result<ToolConfig, String> {
         renderer_entry,
         websocket_url,
         backend_token: token,
-        shutdown_token: String::new(),
-        packaged_backend: None,
     })
 }
 
 /// Packaged layout: the exe sits at ``<tool>/dist/<name>.exe`` with
 /// ``resources/app/manifest.json`` carrying the standalone descriptor the
-/// Electron template consumed.  The shell derives the same contract and
-/// spawns the bundled backend itself.
+/// Electron template consumed.  The shell derives the same contract;
+/// B166 retires the bundled-Python backend lane (``backend_entry`` /
+/// ``python_runtime`` manifest keys are historical, never executed).
 pub(super) fn load_packaged_config() -> Result<ToolConfig, String> {
     let exe_dir = std::env::current_exe()
         .ok()
@@ -161,21 +160,12 @@ pub(super) fn load_packaged_config() -> Result<ToolConfig, String> {
         return Err("CONFIG_INVALID:tool_id".to_string());
     }
     let standalone = &manifest["standalone"];
-    let backend_entry = standalone["backend_entry"]
-        .as_str()
-        .unwrap_or("src-core/main.py");
     let backend_port = std::env::var("GPTBRIDGE_IPC_PORT")
         .ok()
         .and_then(|v| v.parse::<u16>().ok())
         .or_else(|| standalone["backend_port"].as_u64().map(|p| p as u16))
         .filter(|p| (1024..=65535).contains(p))
         .unwrap_or(8765);
-    let python_rel = standalone["python_runtime"]
-        .as_str()
-        .unwrap_or("python/python.exe");
-    let python = app_dir.join(python_rel.replace('/', "\\"));
-    let entry = app_dir.join(backend_entry.replace('/', "\\"));
-
     let tool_root = std::env::var("GPTBRIDGE_TOOL_DIR")
         .ok()
         .filter(|v| !v.trim().is_empty())
@@ -218,15 +208,5 @@ pub(super) fn load_packaged_config() -> Result<ToolConfig, String> {
         renderer_entry,
         websocket_url,
         backend_token: session_token.clone(),
-        shutdown_token: random_hex(32),
-        packaged_backend: if entry.is_file() && python.is_file() {
-            Some(PackagedBackend {
-                python,
-                entry,
-                port: backend_port,
-            })
-        } else {
-            None
-        },
     })
 }
