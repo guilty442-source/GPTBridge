@@ -229,15 +229,22 @@ impl OutboxHub {
     }
 
     /// Poll → deliver the bounded window to every live session → prune.
+    /// Each tick opens with one cheap ``MAX(sequence)`` probe on the
+    /// shared connection — the wide ``fetch_after`` SELECT then runs
+    /// only for sessions actually behind the latest sequence, so idle
+    /// sessions cost a single indexed row-read per poll instead of a
+    /// full event fetch each.
     fn drain_loop(&self, mut client: postgres::Client) {
         let mut last_prune = Instant::now();
         while !self.shutdown.load(Ordering::SeqCst) {
+            let latest = Self::max_sequence(&mut client);
             let deliveries: Vec<(u64, ServerWriter, i64, i64)> = {
                 let sessions = self.sessions.lock().unwrap();
                 sessions
                     .iter()
                     .filter(|(_, s)| s.last_attempt.elapsed() >= RETRY_INTERVAL
-                        && s.sent_upto < s.acked + DELIVERY_WINDOW)
+                        && s.sent_upto < s.acked + DELIVERY_WINDOW
+                        && s.sent_upto < latest)
                     .map(|(k, s)| (*k, s.writer.clone(), s.acked, s.sent_upto))
                     .collect()
             };
@@ -270,15 +277,33 @@ impl OutboxHub {
             }
             if last_prune.elapsed() >= PRUNE_MIN_INTERVAL {
                 last_prune = Instant::now();
-                self.prune(&mut client);
+                if latest >= 0 {
+                    self.prune(&mut client, latest);
+                }
             }
             thread::sleep(POLL_INTERVAL);
         }
     }
 
+    /// Latest committed sequence; ``-1`` when PostgreSQL is unreachable —
+    /// callers then skip delivery and pruning for that tick (the fetch
+    /// path already degrades to empty on error, so behaviour is identical).
+    fn max_sequence(client: &mut postgres::Client) -> i64 {
+        client
+            .query(
+                "SELECT COALESCE(MAX(sequence), 0) FROM gptbridge_transport.outbox_event",
+                &[],
+            )
+            .ok()
+            .and_then(|rows| rows.first().map(|r| r.get::<_, i64>(0)))
+            .unwrap_or(-1)
+    }
+
     /// Retention: drop events every connected session already acknowledged,
-    /// never going below the newest ``RETENTION_MIN_EVENTS`` rows.
-    fn prune(&self, client: &mut postgres::Client) {
+    /// never going below the newest ``RETENTION_MIN_EVENTS`` rows.  Skipped
+    /// outright when ``latest`` shows nothing acked could be prunable —
+    /// idle loops must not issue a DELETE every interval.
+    fn prune(&self, client: &mut postgres::Client, latest: i64) {
         let min_acked = {
             let sessions = self.sessions.lock().unwrap();
             sessions.values().map(|s| s.acked).min()
@@ -286,7 +311,10 @@ impl OutboxHub {
         let Some(min_acked) = min_acked else {
             return;
         };
-        if min_acked <= 0 {
+        // Deletable rows exist only when something is below the acked
+        // floor AND the table head already exceeds the retention bound —
+        // skip the DELETE entirely otherwise.
+        if min_acked <= 1 || latest <= RETENTION_MIN_EVENTS {
             return;
         }
         let _ = client.execute(

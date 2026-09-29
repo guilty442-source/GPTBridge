@@ -284,7 +284,15 @@ fn handle_connection(mut stream: TcpStream) {
         if last_seen.elapsed() > HEARTBEAT_TIMEOUT {
             break;
         }
-        match socket.events().recv_timeout(Duration::from_millis(500)) {
+        // Sleep until the next housekeeping deadline instead of waking on
+        // a fixed 500 ms poll — an idle socket only wakes for the ping /
+        // status push it is actually due to send (inbound frames still
+        // interrupt the wait immediately).
+        let wait = next_ping
+            .min(next_status_eval)
+            .min(last_seen + HEARTBEAT_TIMEOUT)
+            .saturating_duration_since(Instant::now());
+        match socket.events().recv_timeout(wait) {
             Ok(ServerEvent::Message(msg)) => {
                 last_seen = Instant::now();
                 let command = msg["command"].as_str().unwrap_or_default();
