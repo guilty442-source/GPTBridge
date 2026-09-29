@@ -10,7 +10,6 @@ Enforcement: hook + governance gate + audit ledger (A46).
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import sys
@@ -114,6 +113,63 @@ def classify(command: str) -> int:
     return 3
 
 
+def _capture_light_snapshot() -> dict[str, object]:
+    """Single-subprocess snapshot from ``status --porcelain=v2 -z --branch``.
+
+    Inline replacement for the retired ``snapshot.py`` dependency.  The git
+    invocation uses fixed literals only, so this observation path can never
+    re-enter the tier pipeline.  Evidence-only: binary diff hashes are
+    zeroed and untracked entries are directory-granular.
+    """
+    import subprocess
+
+    snapshot: dict[str, object] = {
+        "head_revision": "",
+        "branch": "HEAD",
+        "dirty_files": [],
+        "staged_files": [],
+        "untracked_files": [],
+        "diff_hash_binary": _EMPTY_HASH,
+    }
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain=v2", "-z", "--branch"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            timeout=60,
+        )
+        if proc.returncode != 0:
+            return snapshot
+        dirty: list[str] = []
+        staged: list[str] = []
+        untracked: list[str] = []
+        for record in proc.stdout.decode("utf-8", "replace").split("\0"):
+            if not record:
+                continue
+            if record.startswith("# branch.oid "):
+                snapshot["head_revision"] = record[13:].strip()
+                continue
+            if record.startswith("# branch.head "):
+                snapshot["branch"] = record[14:].strip()
+                continue
+            kind, _, rest = record.partition(" ")
+            if kind in ("1", "2", "u"):
+                xy = rest[:2]
+                path = rest.rsplit("\t", 1)[-1] if "\t" in rest else rest[3:]
+                if xy[0] not in (".", "?"):
+                    staged.append(path)
+                if len(xy) > 1 and xy[1] != ".":
+                    dirty.append(path)
+            elif kind == "?":
+                untracked.append(rest)
+        snapshot["dirty_files"] = dirty
+        snapshot["staged_files"] = staged
+        snapshot["untracked_files"] = untracked
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return snapshot
+
+
 def audit_log(
     tier: int,
     command: str,
@@ -128,10 +184,10 @@ def audit_log(
     returncode: int | None = None,
 ) -> dict[str, object]:
     """Write an audit ledger entry (A46 compliance)."""
-    from .snapshot import capture_light_snapshot
-
     snapshot = (
-        repo_snapshot if repo_snapshot is not None else capture_light_snapshot()
+        repo_snapshot
+        if repo_snapshot is not None
+        else _capture_light_snapshot()
     )
     if not operation:
         operation = command.strip().split()[0] if command.strip() else "unknown"
@@ -156,62 +212,6 @@ def audit_log(
     with _AUDIT_LOCK, AUDIT_LEDGER_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str) + "\n")
     return entry
-
-
-LEGACY_LEDGER_ENV: Final[str] = "GPTBRIDGE_CAPABILITY_LEDGER"
-LEGACY_LEDGER_PATH: Final[Path] = (
-    AUDIT_LEDGER_PATH.parent / "capability_ledger.jsonl"
-)
-LEGACY_COMPATIBILITY_MARKER: Final[str] = "DEPRECATED_COMPATIBILITY"
-
-
-def record_deprecated_confirmation(
-    repo_path: str | Path,
-    command: str,
-    actor: str,
-    *,
-    approval_path: str = "LEGACY_CONFIRM",
-) -> None:
-    """Convert a deprecated boolean approval into a legacy capability record.
-
-    Called by the gateway when an unmigrated caller still passes the legacy
-    boolean approval: the authorization becomes an audited ``LEGACY_*`` entry
-    in the capability ledger marked ``DEPRECATED_COMPATIBILITY`` instead of a
-    silent boolean path.  Failure to record never blocks the caller.
-    """
-    try:
-        from datetime import datetime, timezone
-        from uuid import uuid4
-
-        from .command_normalizer import operation_key
-
-        override = os.environ.get(LEGACY_LEDGER_ENV, "").strip()
-        ledger_path = Path(override) if override else LEGACY_LEDGER_PATH
-        now = datetime.now(timezone.utc).isoformat()
-        entry = {
-            "actor": actor,
-            "operation": operation_key(command),
-            "command_id": uuid4().hex,
-            "result": "legacy-authorized",
-            "approval_path": approval_path,
-            "repository_id": hashlib.sha256(
-                str(Path(repo_path).resolve()).casefold().encode("utf-8")
-            ).hexdigest(),
-            "consumed_at": now,
-            "recorded_at": now,
-            "detail": (
-                f"{LEGACY_COMPATIBILITY_MARKER}: deprecated boolean approval "
-                "(migrate to a capability token)"
-            ),
-        }
-        ledger_path.parent.mkdir(parents=True, exist_ok=True)
-        with _AUDIT_LOCK, ledger_path.open("a", encoding="utf-8") as f:
-            f.write(
-                json.dumps(entry, ensure_ascii=False, sort_keys=True, default=str)
-                + "\n"
-            )
-    except Exception:
-        pass
 
 
 def enforce(

@@ -8,7 +8,7 @@
   },
   "flows": {
     "git-automation": {
-      "owner": "GPTBridge.GitAutomation.exe --watch（C# 常駐 host；tasks/git_automation.py 僅為其受管監督行程）",
+      "owner": "GPTBridge.GitAutomation.exe --watch (C# resident host; Python tasks/git_automation.py retired)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,

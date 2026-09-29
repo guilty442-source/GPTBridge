@@ -4,19 +4,21 @@
 Usage:
   python scripts/git-gate.py <git-command> [args...]
 
-Thin CLI adapter (A375): classification, authorization and execution all
+Thin CLI adapter (A375): classification, authorization and audit recording
 come from ``governance_rule.execution.git_tiers`` -- this file only owns the
-interactive confirmation prompt and the usage banner.
+interactive confirmation prompt, the subprocess exec, and the usage banner.
+The resident scheduler/self-commit path is the C# host
+(GPTBridge.GitAutomation.exe); this wrapper is for manual invocations.
 
 Tier 1: read-only, direct execution (no prompt).
-Tier 2: general write; an interactive yes executes through
-        ``GitRepository.run(confirmed=True)`` which records the decision as a
-        LEGACY_CONFIRM entry in the capability ledger.
+Tier 2: general write; an interactive yes executes the command and the
+        decision is recorded through ``enforce`` in the audit ledger.
 Tier 3: high-risk; this CLI offers no approval path and fails closed.
 """
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -27,9 +29,10 @@ from governance_rule.execution.git_tiers import (
     TIER1_OPS,
     TIER2_OPS,
     TIER3_OPS,
+    audit_log,
     classify,
+    enforce,
 )
-from governance_rule.execution.git_tiers.git_repository import GitRepository
 
 
 def _prompt_confirmed() -> bool:
@@ -53,31 +56,33 @@ def main() -> int:
         return 1
 
     actor = os.environ.get("GIT_AUTHOR_NAME", os.environ.get("USER", "unknown"))
-    tier = classify(" ".join(args))
+    command = " ".join(args)
+    tier = classify(command)
 
-    if tier == 2 and not _prompt_confirmed():
-        print("[git-gate] denied: tier-2 not confirmed", file=sys.stderr)
-        return 1
-    if tier == 3:
-        print(
-            "[git-gate] denied: tier-3 requires governance authority approval; "
-            "no CLI approval path exists",
-            file=sys.stderr,
-        )
+    confirmed = tier == 2 and _prompt_confirmed()
+    allowed, message = enforce(command, actor, confirmed=confirmed or None)
+    if not allowed:
+        print(f"[git-gate] denied: {message}", file=sys.stderr)
         return 1
 
     try:
-        result = GitRepository(project_root).run(
-            args,
-            confirmed=True if tier == 2 else None,
-            actor=actor,
+        proc = subprocess.run(
+            ["git", *args], cwd=project_root, capture_output=True, timeout=600
         )
-    except PermissionError as exc:
-        print(f"[git-gate] denied: {exc}", file=sys.stderr)
+    except (OSError, subprocess.SubprocessError) as exc:
+        audit_log(tier, command, actor, False, str(exc), phase="result",
+                  result="failed", returncode=-1)
+        print(f"[git-gate] exec failed: {exc}", file=sys.stderr)
         return 1
-    sys.stdout.write(result.stdout or "")
-    sys.stderr.write(result.stderr or "")
-    return result.returncode
+    audit_log(
+        tier, command, actor, True, "executed via git-gate CLI",
+        phase="result",
+        result="ok" if proc.returncode == 0 else "failed",
+        returncode=proc.returncode,
+    )
+    sys.stdout.write(proc.stdout.decode("utf-8", "replace"))
+    sys.stderr.write(proc.stderr.decode("utf-8", "replace"))
+    return proc.returncode
 
 
 if __name__ == "__main__":
