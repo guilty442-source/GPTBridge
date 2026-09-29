@@ -171,10 +171,13 @@ worktrees — run when the tree is in a state you want committed):
 ## 星澄 Self-Learning & Automatic Upgrade
 
 > Normative authority: Codex D131。
-> Note: the `main-system\.venv\Scripts\python.exe -m ...` invocations below
-> are retired with the local Python lane (B167/B38); they remain here as
-> interface documentation only until the governed owner-language entries
-> land. Production scheduling is unchanged — cycles run inside the
+> Native lane landed (B167/B38 successor): `GPTBridge.XingchengLearning`
+> (`xc-learning.exe`, C#) at
+> `Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning`
+> — orchestration, governed interfaces and dataset/eval gates in C#; model
+> execution stays in the native C++ lane (`xingcheng_trainer.exe` +
+> `xc_modeltool.exe`), reached only through audited subprocesses.
+> Production scheduling is unchanged — cycles run inside the
 > xingcheng tool process via the governed system channel.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/self-learning.json`。
 
@@ -238,18 +241,26 @@ private loop.
 
 ```powershell
 # status / one-shot / force (ignore the new-example threshold) / kill switch
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --status
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once --force
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --disable
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --status
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --run-once
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --run-once --force
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --disable
+
+# governed end-to-end smoke (scratch model; never touches the pinned bundle):
+& "...\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --self-test
 ```
 
-Run from `Standalone tools\local-model\src\backend\services` (the package root).
-
-Implementation: `native_transformer/self_learning.py` +
-`native_transformer/self_learning_support.py` (cycle); driver:
-`main-system/src-core/tasks/self_learning_driver.py`; tool handler:
-`xingcheng/application/local_ai_lifecycle.py::_handle_self_learning`.
+Implementation: `GPTBridge.XingchengLearning` (C#) —
+`SelfLearning.cs` (cycle + gates), `Collectors.cs` (role DB),
+`SftDataset.cs` (SFT/DPO snapshot bridges), `Repository.cs`
+(PostgreSQL `gptbridge_xingcheng` schema + audit chain),
+`JobExecutor.cs` + `NativeTools.cs` (native subprocess lane),
+`Evaluation.cs` (`xc_modeltool eval`/`capability` gates),
+`Lifecycle.cs` (`star-model-lifecycle/v1`), `Retention.cs`; native
+execution: `infrastructure/native_transformer/training/xingcheng_trainer.exe`,
+bridge: `infrastructure/native_transformer/tools/xc_modeltool.exe`.
+The retired Python `self_learning*.py`/`training_job_executor.py` are
+interface documentation only — never execution.
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
@@ -294,10 +305,9 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 ## 星澄 Data Retention (`star-retention-policy/v1`)
 
 > Normative authority: Codex C17/C18。
-> Retired lane (B166/B167/B38): the `python.exe -m ...retention`
-> invocations and `native_transformer/retention.py` implementation below
-> are removed; they remain as interface documentation only until the
-> governed owner-language entries land. Do not run them.
+> Native lane landed (B167/B38 successor): `Retention.cs` inside
+> `GPTBridge.XingchengLearning` (`xc-learning.exe`, C#) — same policy,
+> same fail-closed boundary rules as the retired Python lane.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/retention.json`。
 
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
@@ -319,12 +329,13 @@ schedule; `retention.json` `enabled=false` stops deletion. Manual:
 
 ```powershell
 # dry-run (default) / apply / status
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model"
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --apply
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --status
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention --apply
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention --status
 ```
 
-Implementation: `native_transformer/retention.py` (`apply_retention`).
+Implementation: `GPTBridge.XingchengLearning/Retention.cs`
+(`apply_retention` port; `star-retention-policy/v1`).
 
 ## 星澄 Data Residency (`xingcheng-internal`)
 

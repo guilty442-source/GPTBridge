@@ -329,6 +329,22 @@
       "enabled": false,
       "description": "retired (B167/B38): _internal_maintenance_loop removed with the Python training/maintenance lane"
     },
+    "self-learning": {
+      "owner": "GPTBridge.XingchengLearning xc-learning.exe --run-once（local-model 受管 lane；native port B167/B38 已交付）",
+      "kind": "periodic",
+      "interval_s": 900,
+      "pausable": true,
+      "enabled": false,
+      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載；kill switch 仍以 runtime/settings/self-learning.json enabled 為準。enabled=false pending resident tool-host registration of the system-channel dispatch（原 SelfLearningDriver 職責：tool 冷卻喚醒、inference exclusion 預檢、900s 節奏）。"
+    },
+    "retention": {
+      "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（local-model 受管 lane；native port B167/B38 已交付）",
+      "kind": "periodic",
+      "interval_s": 3600,
+      "pausable": true,
+      "enabled": false,
+      "description": "native port delivered (B167/B38): star-retention-policy/v1 由 xc-learning.exe --retention [--apply] 承載；opportunistic（tool 冷卻時不叫醒），self-learning 每循環結尾亦跑一次；kill switch 以 runtime/settings/retention.json enabled 為準。enabled=false pending governed system-channel dispatch。"
+    },
     "vaultly-auto-scan": {
       "owner": "VaultlyScanMixin._auto_scan_loop（vaultly 工具行程內）",
       "kind": "private-loop",
