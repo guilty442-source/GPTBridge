@@ -11,6 +11,11 @@ edge-profile/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+# Bytecode caches: spawn paths no longer pass -B, so interpreters persist
+# .pyc for fast restarts; these are derived artifacts, never source.
+__pycache__/
+*.py[cod]
+$py.class
 .GPTBridge_RuntimeSandbox/
 .GPTBridge_CleanerQuarantine/
 .GPTBridge_CleanerRecovery/

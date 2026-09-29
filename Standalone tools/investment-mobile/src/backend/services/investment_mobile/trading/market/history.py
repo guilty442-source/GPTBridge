@@ -288,8 +288,7 @@ class CandleStore:
                 (instrument_id,),
             )
         else:
-            rows = self._db().execute(  # sql-ok: fixed-schema row materialized to dict
-                "SELECT * FROM revision ORDER BY at")
+            rows = self._db().execute("SELECT * FROM revision ORDER BY at")  # sql-ok: fixed-schema row materialized to dict
         return [dict(r) for r in rows.fetchall()]
 
     def stats(self) -> dict[str, Any]:

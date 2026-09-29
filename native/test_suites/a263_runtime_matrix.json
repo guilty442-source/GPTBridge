@@ -1,0 +1,1 @@
+{"schema":"a263-runtime-matrix/v1","scenario":"channel_pipeline","controls":[{"command":"state_event_hello"}],"state_events":[{"sequence":1},{"sequence":2},{"sequence":3},{"sequence":2},{"sequence":3}],"messages":[{"id":"m2"},{"id":"m1"},{"id":"m3"}],"ack_input":[2,5,1],"ack_trajectory":[2,5,5],"resync_cursor":1,"final_acked":1,"final_sent":3}
