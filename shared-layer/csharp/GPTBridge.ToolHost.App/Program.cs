@@ -29,7 +29,9 @@ namespace GPTBridge.ToolHost.App;
 /// </summary>
 internal sealed class DeferredStoreTransport : IToolTransport
 {
+#pragma warning disable CS0067 // never fires until a real transport lands
     public event Action? Disconnected;
+#pragma warning restore CS0067
     public Task<JsonObject> HelloAsync(
         string toolId, string workspaceInstanceId,
         IReadOnlyDictionary<string, string> channels,
