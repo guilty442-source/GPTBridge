@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from pathlib import Path
 
 import psycopg
@@ -63,7 +62,7 @@ def _codex_connection(root: Path):
     return codex_readonly_connection()
 
 
-def _table_rows(connection: sqlite3.Connection, table: str) -> tuple[list[str], list[dict]]:
+def _table_rows(connection, table: str) -> tuple[list[str], list[dict]]:
     columns = [
         column[1] for column in connection.execute(f"PRAGMA table_info({table})")
     ]
@@ -88,7 +87,7 @@ def check_directory_audit(root: Path, errors: list[str]) -> None:
     for check in checks:
         try:
             check(root, errors)
-        except (sqlite3.Error, psycopg.Error) as error:
+        except psycopg.Error as error:
             errors.append(f"{check.__name__} failed reading the codex: {error}")
 
 
@@ -374,7 +373,7 @@ def check_directory_relationships(root: Path, errors: list[str]) -> None:
 
 
 def _check_acyclic_parents(
-    connection: sqlite3.Connection,
+    connection,
     table: str,
     identity_column: str,
     parent_column: str,

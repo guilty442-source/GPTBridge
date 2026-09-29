@@ -1,0 +1,364 @@
+"""Allowlisted query templates: core index/resource, lineage, RAG, transport, audit domains."""
+from __future__ import annotations
+
+
+# ============================================================================
+# Query templates — each key maps to a parameterized SQL string.
+# Parameters use %s (psycopg) or named :name (psycopg named).
+# ============================================================================
+
+TEMPLATES_INDEX: dict[str, str] = {
+    # --- Resource (gptbridge_index.resource) ---
+    "resource.get_by_id": (
+        "SELECT resource_id, platform_id, module_id, owner_id, data_category, "
+        "resource_type, resource_label, classification, locator_id, content_hash, "
+        "version, index_status, metadata, created_at, updated_at, "
+        "backend_generation, stale, authority_class, "
+        "executor_id, correlation_id, source_revision "
+        "FROM gptbridge_index.resource WHERE resource_id = %s"
+    ),
+    "resource.get_by_module": (
+        "SELECT resource_id, version, content_hash, status, updated_at, "
+        "authority_class "
+        "FROM gptbridge_index.resource WHERE module_id = %s "
+        "ORDER BY updated_at DESC LIMIT %s"
+    ),
+    "resource.set_status": (
+        "UPDATE gptbridge_index.resource SET index_status = %s, updated_at = now() "
+        "WHERE resource_id = %s"
+    ),
+    "resource.insert": (
+        "INSERT INTO gptbridge_index.resource "
+        "(resource_id, platform_id, module_id, owner_id, data_category, "
+        "resource_type, resource_label, classification, locator_id, content_hash, "
+        "version, index_status, metadata, authority_class) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "resource.upsert": (
+        "INSERT INTO gptbridge_index.resource "
+        "(resource_id, platform_id, module_id, owner_id, data_category, "
+        "resource_type, resource_label, classification, locator_id, content_hash, "
+        "version, index_status, metadata, authority_class) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+        "ON CONFLICT (resource_id) DO UPDATE SET "
+        "version = excluded.version, content_hash = excluded.content_hash, "
+        "index_status = excluded.index_status, metadata = excluded.metadata, "
+        "authority_class = excluded.authority_class, updated_at = now()"
+    ),
+    "resource.count_by_module": (
+        "SELECT count(*) FROM gptbridge_index.resource WHERE module_id = %s"
+    ),
+    "resource.consistency_view": (
+        "SELECT resource_id, module_id, pg_revision, pg_hash, backend_generation, "
+        "pg_stale, vector_revision, vector_hash, vector_generation, consistency_status "
+        "FROM gptbridge_index.resource_consistency WHERE module_id = %s"
+    ),
+
+    # --- Data lineage (migration 018) ---
+    "lineage.get_by_resource": (
+        "SELECT resource_id, source_module, source_revision, produce_method, "
+        "sync_path, last_writer_id, last_writer_at, "
+        "last_writer_actor_id, last_writer_executor_id, "
+        "last_writer_decision_id, last_writer_correlation_id, lineage_metadata "
+        "FROM gptbridge_index.data_lineage WHERE resource_id = %s"
+    ),
+    "lineage.get_by_correlation": (
+        "SELECT resource_id, source_module, source_revision, last_writer_at "
+        "FROM gptbridge_index.data_lineage "
+        "WHERE last_writer_correlation_id = %s ORDER BY last_writer_at"
+    ),
+    "lineage.resource_lineage_view": (
+        "SELECT resource_id, module_id, authority_class, pg_revision, pg_hash, "
+        "source_module, source_revision, produce_method, sync_path, "
+        "last_writer_id, last_writer_at, last_writer_actor_id, "
+        "last_writer_executor_id, last_writer_decision_id, "
+        "last_writer_correlation_id, locator_id, locator_status, "
+        "vector_authority_class, vector_revision, vector_hash, "
+        "vector_index_status, vector_consistency "
+        "FROM gptbridge_index.resource_lineage WHERE resource_id = %s"
+    ),
+
+    # --- RAG chunk (gptbridge_rag.chunk) ---
+    "rag.chunk.get_by_resource": (
+        "SELECT chunk_id, resource_id, module_id, sequence, vector_point_id, "
+        "embedding_model, locator_fragment, metadata "
+        "FROM gptbridge_rag.chunk WHERE resource_id = %s ORDER BY sequence"
+    ),
+    "rag.chunk.insert": (
+        "INSERT INTO gptbridge_rag.chunk "
+        "(chunk_id, resource_id, module_id, sequence, character_start, character_end, "
+        "vector_point_id, embedding_model, locator_fragment, metadata) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "rag.chunk.delete_by_resource": (
+        "DELETE FROM gptbridge_rag.chunk WHERE resource_id = %s"
+    ),
+    "rag.chunk.fts_search": (
+        "SELECT chunk_id, resource_id, module_id, ts_rank_cd(content_tsv, query) AS rank "
+        "FROM gptbridge_rag.chunk, plainto_tsquery('simple', %s) AS query "
+        "WHERE content_tsv @@ query AND module_id = %s "
+        "ORDER BY rank DESC LIMIT %s"
+    ),
+
+    # --- RAG index_state (gptbridge_rag.index_state) ---
+    "rag.index_state.get": (
+        "SELECT resource_id, module_id, embedding_model, vector_collection, "
+        "chunk_count, status, version, indexed_at, updated_at, "
+        "vector_point_id, source_revision, content_hash, backend_generation "
+        "FROM gptbridge_rag.index_state WHERE resource_id = %s"
+    ),
+    "rag.index_state.upsert": (
+        "INSERT INTO gptbridge_rag.index_state "
+        "(resource_id, module_id, embedding_model, vector_collection, chunk_count, "
+        "status, version, vector_point_id, source_revision, content_hash, "
+        "backend_generation, authority_class) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+        "ON CONFLICT (resource_id) DO UPDATE SET "
+        "chunk_count = excluded.chunk_count, status = excluded.status, "
+        "version = excluded.version, vector_point_id = excluded.vector_point_id, "
+        "source_revision = excluded.source_revision, content_hash = excluded.content_hash, "
+        "authority_class = excluded.authority_class, updated_at = now()"
+    ),
+
+    # --- Transport (gptbridge_transport.tool_request) ---
+    "transport.submit": (
+        "INSERT INTO gptbridge_transport.tool_request "
+        "(channel_id, request_id, requester_actor, target_tool_id, payload, status, "
+        "priority_class, priority_value, deadline_at, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, 'queued', %s, "
+        "gptbridge_transport.priority_value_for(%s), %s, now(), now())"
+    ),
+    "transport.claim": (
+        "SELECT request_id, requester_actor, payload "
+        "FROM gptbridge_transport.tool_request "
+        "WHERE channel_id = %s AND target_tool_id = %s AND status = 'queued' "
+        "AND (next_retry_at IS NULL OR next_retry_at <= now()) "
+        "AND (deadline_at IS NULL OR deadline_at > now()) "
+        "ORDER BY priority_value, created_at, request_id LIMIT 1 FOR UPDATE SKIP LOCKED"
+    ),
+    "transport.claim_update": (
+        "UPDATE gptbridge_transport.tool_request "
+        "SET status = 'claimed', claimed_at = now(), "
+        "lease_until = now() + (%s || ' seconds')::interval, "
+        "attempt_count = attempt_count + 1, next_retry_at = NULL, updated_at = now() "
+        "WHERE channel_id = %s AND request_id = %s AND status = 'queued'"
+    ),
+    "transport.respond": (
+        "UPDATE gptbridge_transport.tool_request "
+        "SET status = 'completed', response = %s, updated_at = now() "
+        "WHERE channel_id = %s AND request_id = %s AND target_tool_id = %s AND status = 'claimed'"
+    ),
+    "transport.cancel": (
+        "UPDATE gptbridge_transport.tool_request "
+        "SET status = 'cancelled', updated_at = now() "
+        "WHERE channel_id = %s AND request_id = %s AND target_tool_id = %s "
+        "AND requester_actor = %s AND status IN ('queued', 'claimed')"
+    ),
+    "transport.reclaim_expired": (
+        "UPDATE gptbridge_transport.tool_request "
+        "SET status = 'queued', claimed_at = NULL, lease_until = NULL, "
+        "next_retry_at = now(), updated_at = now() "
+        "WHERE channel_id = %s AND target_tool_id = %s AND status = 'claimed' "
+        "AND lease_until IS NOT NULL AND lease_until < now()"
+    ),
+    "transport.move_to_dead_letter": (
+        "UPDATE gptbridge_transport.tool_request "
+        "SET status = 'dead-letter', dead_letter_reason = %s, dead_letter_at = now(), "
+        "updated_at = now() "
+        "WHERE channel_id = %s AND request_id = %s "
+        "AND status IN ('queued', 'claimed') AND attempt_count >= %s"
+    ),
+    "transport.get_dead_letter": (
+        "SELECT request_id, target_tool_id, payload, dead_letter_reason, "
+        "dead_letter_at, attempt_count "
+        "FROM gptbridge_transport.tool_request "
+        "WHERE channel_id = %s AND status = 'dead-letter' "
+        "ORDER BY dead_letter_at DESC LIMIT %s"
+    ),
+
+    # --- Audit (gptbridge_audit.event) ---
+    "audit.insert": (
+        "INSERT INTO gptbridge_audit.event "
+        "(event_id, actor_id, module_id, resource_id, action, outcome, decision_id, details) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "audit.get_head": (
+        "SELECT event_id, module_id, sequence_number, occurred_at "
+        "FROM gptbridge_audit.event ORDER BY occurred_at DESC LIMIT 1"
+    ),
+    "audit.count_by_module": (
+        "SELECT count(*) FROM gptbridge_audit.event WHERE module_id = %s"
+    ),
+
+    # --- Reconcile conflict log ---
+    "reconcile_conflict.insert": (
+        "INSERT INTO gptbridge_index.reconcile_conflict_log "
+        "(module_id, resource_id, conflict_type, local_version, central_version, "
+        "local_hash, central_hash, detail) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "reconcile_conflict.list_pending": (
+        "SELECT conflict_id, module_id, resource_id, conflict_type, "
+        "local_version, central_version, detail, detected_at "
+        "FROM gptbridge_index.reconcile_conflict_log "
+        "WHERE resolution_action = 'pending' ORDER BY detected_at"
+    ),
+
+    # --- Backup catalog ---
+    "backup_catalog.insert": (
+        "INSERT INTO gptbridge_index.backup_catalog "
+        "(engine, source_path, backup_path, source_generation, schema_version, "
+        "backup_hash, size_bytes) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+    ),
+    "backup_catalog.mark_certified": (
+        "UPDATE gptbridge_index.backup_catalog "
+        "SET restore_tested_at = now(), restore_certified = true, "
+        "restore_certification = %s WHERE backup_id = %s"
+    ),
+    "backup_catalog.list_uncertified": (
+        "SELECT backup_id, engine, backup_path, created_at "
+        "FROM gptbridge_index.backup_catalog WHERE restore_certified = false "
+        "ORDER BY created_at"
+    ),
+
+    # --- Generation fence ---
+    "generation.current": (
+        "SELECT COALESCE(MAX(generation), 1) FROM gptbridge_index.backend_generation_state"
+    ),
+    "generation.bump": (
+        "INSERT INTO gptbridge_index.backend_generation_state (generation, reason, set_by) "
+        "VALUES (%s, %s, %s)"
+    ),
+
+    # --- Maintenance window ---
+    "maintenance.active": (
+        "SELECT 1 FROM gptbridge_index.maintenance_window "
+        "WHERE status = 'running' AND scheduled_start <= now() LIMIT 1"
+    ),
+    "maintenance.scheduled_soon": (
+        "SELECT 1 FROM gptbridge_index.maintenance_window "
+        "WHERE status = 'scheduled' AND scheduled_start <= now() + (%s || ' minutes')::interval "
+        "AND scheduled_start >= now() LIMIT 1"
+    ),
+
+    # --- Retention ---
+    "retention.list_policies": (
+        "SELECT schema_name, table_name, retention_days, retention_column, purge_method, enabled "
+        "FROM gptbridge_index.retention_policy WHERE enabled = true"
+    ),
+
+    # --- Schema version ---
+    "schema_version.count": (
+        "SELECT count(*) FROM gptbridge_migration.history"
+    ),
+    "schema_version.list": (
+        "SELECT migration_id, checksum, applied_at "
+        "FROM gptbridge_migration.history ORDER BY migration_id"
+    ),
+
+    # --- Contract version (migration 024) ---
+    "contract_version.get": (
+        "SELECT contract_name, current_version, min_compatible_version, description "
+        "FROM gptbridge_index.contract_version WHERE contract_name = %s"
+    ),
+    "contract_version.list": (
+        "SELECT contract_name, current_version, min_compatible_version "
+        "FROM gptbridge_index.contract_version ORDER BY contract_name"
+    ),
+    "contract_version.check_compatible": (
+        "SELECT gptbridge_index.check_contract_compatibility(%s, %s)"
+    ),
+
+    # --- Permission snapshot (migration 021) ---
+    "permission_snapshot.get_by_event": (
+        "SELECT snapshot_id, actor_id, session_user, target_module, "
+        "target_resource_id, target_classification, evaluated_roles, "
+        "evaluated_policies, decision_summary, rls_context, "
+        "can_read, can_write, can_write_resource, captured_at "
+        "FROM gptbridge_audit.permission_snapshot WHERE event_id = %s"
+    ),
+    "permission_snapshot.get_by_actor": (
+        "SELECT snapshot_id, target_module, target_resource_id, "
+        "can_write, can_write_resource, captured_at "
+        "FROM gptbridge_audit.permission_snapshot "
+        "WHERE actor_id = %s ORDER BY captured_at DESC LIMIT %s"
+    ),
+
+    # --- DDL audit (migration 023) ---
+    "ddl_audit.recent": (
+        "SELECT ddl_event_id, command_tag, object_identity, schema_name, "
+        "object_name, session_user, migration_executor, occurred_at "
+        "FROM gptbridge_audit.ddl_event ORDER BY occurred_at DESC LIMIT %s"
+    ),
+    "ddl_audit.by_schema": (
+        "SELECT ddl_event_id, command_tag, object_name, session_user, occurred_at "
+        "FROM gptbridge_audit.ddl_event WHERE schema_name = %s "
+        "ORDER BY occurred_at DESC LIMIT %s"
+    ),
+
+    # --- Workload class (migration 026) ---
+    "workload_class.get": (
+        "SELECT class_name, pool_owner, statement_timeout_ms, lock_timeout_ms, "
+        "priority, description "
+        "FROM gptbridge_index.workload_class WHERE class_name = %s"
+    ),
+    "workload_class.list": (
+        "SELECT class_name, pool_owner, statement_timeout_ms, lock_timeout_ms, priority "
+        "FROM gptbridge_index.workload_class ORDER BY class_name"
+    ),
+
+    # --- Two-stage deletion (migration 027) ---
+    "deletion.tombstone": (
+        "SELECT gptbridge_index.tombstone_resource(%s, %s)"
+    ),
+    "deletion.advance": (
+        "SELECT gptbridge_index.advance_deletion_stage(%s)"
+    ),
+    "deletion.purge_eligible": (
+        "SELECT resource_id, module_id, tombstoned_at, purge_after "
+        "FROM gptbridge_index.resource "
+        "WHERE deletion_stage = 'tombstone' AND purge_after IS NOT NULL "
+        "AND now() >= purge_after ORDER BY purge_after LIMIT %s"
+    ),
+    "deletion.by_stage": (
+        "SELECT resource_id, module_id, deletion_stage, tombstoned_at, purge_after "
+        "FROM gptbridge_index.resource WHERE deletion_stage = %s "
+        "ORDER BY tombstoned_at LIMIT %s"
+    ),
+
+    # --- Rebuild certification (migration 028) ---
+    "rebuild_cert.latest": (
+        "SELECT certification_id, engine, target, rebuild_reason, "
+        "certified, certified_at, certified_by "
+        "FROM gptbridge_index.rebuild_certification "
+        "ORDER BY certified_at DESC LIMIT %s"
+    ),
+    "rebuild_cert.by_engine": (
+        "SELECT certification_id, target, certified, certified_at "
+        "FROM gptbridge_index.rebuild_certification "
+        "WHERE engine = %s ORDER BY certified_at DESC LIMIT %s"
+    ),
+
+    # --- Watchdog / bloat / RPO-RTO / capacity (migration 029) ---
+    "watchdog.long_tx": (
+        "SELECT pid, session_user, state, transaction_age_seconds, "
+        "idle_in_transaction_seconds, lock_holder, detected_at "
+        "FROM gptbridge_index.long_transaction_watchdog "
+        "ORDER BY detected_at DESC LIMIT %s"
+    ),
+    "bloat.latest": (
+        "SELECT schema_name, table_name, dead_tuples, live_tuples, "
+        "table_size_bytes, collected_at "
+        "FROM gptbridge_index.bloat_report "
+        "ORDER BY collected_at DESC LIMIT %s"
+    ),
+    "rpo_rto.list": (
+        "SELECT engine, rpo_seconds, rto_seconds, backup_frequency_seconds "
+        "FROM gptbridge_index.rpo_rto_class ORDER BY engine"
+    ),
+    "capacity.list": (
+        "SELECT metric_name, warning_level, critical_level, fail_closed_level, unit "
+        "FROM gptbridge_index.capacity_threshold ORDER BY metric_name"
+    ),
+
+}

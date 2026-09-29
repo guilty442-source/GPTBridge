@@ -1,0 +1,102 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "deadlines-audit-60s-test-30s-20260929",
+  "title": "審計時上限 60 秒；測試套件上限 30 秒",
+  "summary": "Human-governor directive 2026-09-29: raise the independent audit flow deadline to 60 seconds and the mandatory test suite deadline to 30 seconds. INDEPENDENT_AUDIT_FLOW_DEADLINE_MS 30000->60000 and MANDATORY_TEST_SUITE_DEADLINE_MS 20000->30000 in the parameter registry; test_suite_deadline_ms/audit_flow_deadline_ms metadata aligned; B163's mandatory-verification sentence moves to 30 seconds; architecture_registry.json execution_deadlines_seconds and architecture-project.md carry the same values. Startup deadline (20000) is unchanged. Codex-only change: no implementation constant is edited by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 審計時上限調整為60秒，測試套件上限調整為30秒",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T03:57:01Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "6ebcae7f20ac403c7aa62a535c25ec56053783fbd286aa270f7c39c9098039e1",
+    "revision_sequence": 173
+  },
+  "problem": {
+    "summary": "The audit flow deadline was 30 seconds and the mandatory test suite deadline 20 seconds across the parameter registry, metadata, B163 and the architecture artifacts; the governor raised them to 60 and 30 seconds."
+  },
+  "changes": [
+    {
+      "table": "codex_parameter_registry",
+      "key": {
+        "parameter_code": "MANDATORY_TEST_SUITE_DEADLINE_MS"
+      },
+      "field": "current_value",
+      "proposed": "30000"
+    },
+    {
+      "table": "codex_parameter_registry",
+      "key": {
+        "parameter_code": "MANDATORY_TEST_SUITE_DEADLINE_MS"
+      },
+      "field": "source_revision",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "codex_parameter_registry",
+      "key": {
+        "parameter_code": "INDEPENDENT_AUDIT_FLOW_DEADLINE_MS"
+      },
+      "field": "current_value",
+      "proposed": "60000"
+    },
+    {
+      "table": "codex_parameter_registry",
+      "key": {
+        "parameter_code": "INDEPENDENT_AUDIT_FLOW_DEADLINE_MS"
+      },
+      "field": "source_revision",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "test_suite_deadline_ms"
+      },
+      "field": "value",
+      "proposed": "30000"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "audit_flow_deadline_ms"
+      },
+      "field": "value",
+      "proposed": "60000"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B163"
+      },
+      "field": "rule",
+      "proposed": "建立唯一 runtime-rule-index contract。索引只能由 the current formal PostgreSQL Codex authority 的 current effective principles、articles、edicts、responsibilities、prohibitions、formal rule registry、law classification、ownership、deadline、dependency 與 provision supersession edges 生成；生成前必須先解析 successor，禁止收錄模組規則及 superseded、retired、缺少效力或 unresolved-conflict 的條文。索引是唯讀、可重建、非權威 Runtime 投影，不得產生、擴張、刪減或覆寫法典權限。每筆索引規則必須具有 rule_ordinal、provision identity、rule code、lifecycle state、controlling successor、owner、capability、trigger、phase、severity、effect、deadline、resource class、data class、dependency ordinals、content hash 與 source version。查詢結構固定包含 provision/rule-code 精確鍵、owner/capability/trigger/phase/severity/effect/deadline/resource/data/dependency/successor 倒排集合，以及 active、prohibition、fail-closed、hot-path 位元集合；多條件查詢必須由最小候選集合開始交集，禁止逐條全文掃描作正常 Runtime 路徑。generation 必須使用緊湊連續 ordinal、去重字典、排序 posting list 與不可變資料區；建置完成後驗證 count、identity set、content hash、successor resolution、dependency acyclic 與 source version，全部通過才可原子切換。讀取者必須綁定 generation，舊 generation 在所有讀取者釋放後回收。exact lookup 的 warm p95 目標不超過 1ms，多維交集 warm p95 目標不超過 5ms，完整建置與 mandatory verification 必須在 30 秒內完成；超時、版本不符、缺列、重複 identity、解析失敗或驗證失敗一律 INDEX_NOT_READY，並回到受管正式法典查詢，不得使用 stale index。\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "06e0618565bfb45441f9d2a225b77c06195d3697642fb7885b19b7e7862f6023",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-29T04:37:30Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-29T04:37:30Z",
+    "expected_audit_result": "parameter registry, metadata, B163 and the architecture artifacts all declare test suite 30 s and audit flow 60 s, with the Chinese mirror and artifact registry synchronized"
+  }
+}

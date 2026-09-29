@@ -25,8 +25,13 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from .native_audit_engine_build import (
+    ENGINE_EXE_RELATIVE,
+    _build_engine,
+    _engine_stale,
+)
 
-ENGINE_EXE_RELATIVE = Path("native") / "test_suites" / "bin" / "audit-engine.exe"
+
 MANIFEST_RELATIVE = (
     Path("governance_rule") / "execution" / "audit"
     / "audit_checks_manifest.json"
@@ -38,6 +43,7 @@ REPORT_RELATIVE = (
 # Audit budget: the whole commit gate must stay ≤30 s (A537); the native
 # engine plus the same-request delegated lane share it (G96).
 ENGINE_TIMEOUT_S = float(os.environ.get("GPTBRIDGE_AUDIT_ENGINE_TIMEOUT", "25"))
+
 
 
 @dataclass
@@ -71,100 +77,6 @@ class NativeAuditResult:
         )
 
 
-def _find_vcvars() -> Path | None:
-    """Locate vcvars64.bat for an on-demand single-file engine build."""
-    roots = [
-        Path(r"E:\Program Files\Microsoft Visual Studio\18\Community"),
-        Path(r"C:\Program Files\Microsoft Visual Studio\2022\Community"),
-        Path(r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools"),
-    ]
-    for root in roots:
-        candidate = (
-            root / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
-        )
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def _build_engine(root: Path) -> bool:
-    """Single-TU build of audit-engine.exe (bounded; no Python, no full
-    suite rebuild). Returns False when the toolchain is unavailable."""
-    vcvars = _find_vcvars()
-    if vcvars is None:
-        return False
-    exe = root / ENGINE_EXE_RELATIVE
-    exe.parent.mkdir(parents=True, exist_ok=True)
-    src = root / "native" / "audit" / "audit_engine.cpp"
-    include = root / "native" / "include"
-    bat = (
-        f'@echo off\r\ncall "{vcvars}" >nul || exit /b 1\r\n'
-        f'cl /nologo /std:c++latest /utf-8 /O2 /EHsc '
-        f'/DGPTBRIDGE_AUDIT_ENGINE_CLI /I"{include}" '
-        f'/Fe:"{exe}" /Fo:"{exe.parent}\\\\" "{src}" >nul || exit /b 1\r\n'
-    )
-    bat_path = exe.parent / "_audit_engine_build.bat"
-    bat_path.write_text(bat, encoding="ascii")
-    try:
-        result = subprocess.run(
-            ["cmd", "/c", str(bat_path)],
-            cwd=root,
-            capture_output=True,
-            timeout=120,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        ok = result.returncode == 0 and exe.is_file()
-        if ok:
-            _write_engine_digest(root, exe)
-        return ok
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-
-
-def _engine_deps(root: Path) -> tuple[Path, ...]:
-    return (
-        root / "native" / "audit" / "audit_engine.cpp",
-        root / "native" / "include" / "audit_engine.h",
-    )
-
-
-def _digest_path(exe: Path) -> Path:
-    return exe.parent / (exe.name + ".sha256")
-
-
-def _write_engine_digest(root: Path, exe: Path) -> None:
-    """Record sha256 of the source deps at build time so staleness checks
-    are not mtime-only (a same-mtime forged source would otherwise slip)."""
-    import hashlib
-
-    digest = hashlib.sha256()
-    for dep in _engine_deps(root):
-        digest.update(dep.name.encode())
-        digest.update(dep.read_bytes())
-    _digest_path(exe).write_text(digest.hexdigest(), encoding="ascii")
-
-
-def _engine_stale(root: Path, exe: Path) -> bool:
-    """Engine binary cache invalidation: the cached exe must be rebuilt
-    when the single-TU source or its public header is newer, otherwise a
-    stale binary would keep executing superseded check logic.  A recorded
-    source digest mismatch also forces rebuild (mtime alone is forgeable)."""
-    exe_mtime = exe.stat().st_mtime
-    for dep in _engine_deps(root):
-        if dep.is_file() and dep.stat().st_mtime > exe_mtime:
-            return True
-    import hashlib
-
-    digest = hashlib.sha256()
-    for dep in _engine_deps(root):
-        digest.update(dep.name.encode())
-        digest.update(dep.read_bytes())
-    try:
-        recorded = _digest_path(exe).read_text(encoding="ascii").strip()
-    except OSError:
-        return True
-    return recorded != digest.hexdigest()
 
 
 def _codex_authority_mtime() -> float:
@@ -241,65 +153,11 @@ def _refresh_manifest_if_stale(root: Path) -> str | None:
     return None
 
 
-def run_native_audit_gate(root: Path) -> NativeAuditResult:
-    """Execute the native audit engine against the governed manifest."""
-    exe = root / ENGINE_EXE_RELATIVE
-    if not exe.is_file() or _engine_stale(root, exe):
-        if not _build_engine(root):
-            return NativeAuditResult(
-                status="delegated",
-                note="audit-engine.exe unavailable; python oracle covers",
-            )
-    refresh_error = _refresh_manifest_if_stale(root)
-    if refresh_error:
-        return NativeAuditResult(status="fail", errors=[refresh_error])
-    manifest = root / MANIFEST_RELATIVE
-    report_path = root / REPORT_RELATIVE
-    started = time.monotonic()
-    try:
-        proc = subprocess.run(
-            [
-                str(exe),
-                "--manifest", str(manifest),
-                "--root", str(root),
-                "--report", str(report_path),
-            ],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=ENGINE_TIMEOUT_S,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except subprocess.TimeoutExpired:
-        return NativeAuditResult(
-            status="timeout",
-            elapsed_s=time.monotonic() - started,
-            errors=[f"native audit engine exceeded {ENGINE_TIMEOUT_S}s"],
-        )
-    except OSError as error:
-        return NativeAuditResult(
-            status="delegated",
-            note=f"engine spawn failed ({error}); python oracle covers",
-        )
-    elapsed = time.monotonic() - started
-    result = NativeAuditResult(
-        status="pass" if proc.returncode == 0 else "fail",
-        elapsed_s=elapsed,
-    )
-    try:
-        report = json.loads(proc.stdout or "{}")
-    except json.JSONDecodeError:
-        report = {}
-    result.passed = int(report.get("passed", 0) or 0)
-    result.failed = int(report.get("failed", 0) or 0)
-    result.delegated = int(report.get("delegated", 0) or 0)
-    if not report.get("manifest_ok", True):
-        result.status = "fail"
-        result.errors.append(
-            f"manifest error: {report.get('manifest_error', 'unknown')}")
+
+
+def _reconcile_report(
+    result: NativeAuditResult, manifest: Path, report: dict[str, Any]
+) -> None:
     # Evidence reconciliation: the report must account for every manifest
     # check id exactly once — a truncated/duplicated/foreign report row
     # means a required check was never executed and must not silent-pass.
@@ -358,6 +216,13 @@ def run_native_audit_gate(root: Path) -> NativeAuditResult:
                 f"{status!r} — evidence not trustworthy")
     if result.errors:
         result.status = "fail"
+
+
+
+def _attach_provenance(
+    result: NativeAuditResult, exe: Path, manifest: Path,
+    report_path: Path, root: Path,
+) -> None:
     # Artifact freshness provenance (G96/G99): bind this verdict to the
     # exact binary, manifest content, source revision and suite evidence
     # that produced it — content hashes, never file timestamps alone.
@@ -427,12 +292,77 @@ def run_native_audit_gate(root: Path) -> NativeAuditResult:
     except OSError as error:
         result.errors.append(f"provenance hashing failed: {error}")
         result.status = "fail"
+
+
+
+def run_native_audit_gate(root: Path) -> NativeAuditResult:
+    """Execute the native audit engine against the governed manifest."""
+    exe = root / ENGINE_EXE_RELATIVE
+    if not exe.is_file() or _engine_stale(root, exe):
+        if not _build_engine(root):
+            return NativeAuditResult(
+                status="delegated",
+                note="audit-engine.exe unavailable; python oracle covers",
+            )
+    refresh_error = _refresh_manifest_if_stale(root)
+    if refresh_error:
+        return NativeAuditResult(status="fail", errors=[refresh_error])
+    manifest = root / MANIFEST_RELATIVE
+    report_path = root / REPORT_RELATIVE
+    started = time.monotonic()
+    try:
+        proc = subprocess.run(
+            [
+                str(exe),
+                "--manifest", str(manifest),
+                "--root", str(root),
+                "--report", str(report_path),
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=ENGINE_TIMEOUT_S,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except subprocess.TimeoutExpired:
+        return NativeAuditResult(
+            status="timeout",
+            elapsed_s=time.monotonic() - started,
+            errors=[f"native audit engine exceeded {ENGINE_TIMEOUT_S}s"],
+        )
+    except OSError as error:
+        return NativeAuditResult(
+            status="delegated",
+            note=f"engine spawn failed ({error}); python oracle covers",
+        )
+    elapsed = time.monotonic() - started
+    result = NativeAuditResult(
+        status="pass" if proc.returncode == 0 else "fail",
+        elapsed_s=elapsed,
+    )
+    try:
+        report = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        report = {}
+    result.passed = int(report.get("passed", 0) or 0)
+    result.failed = int(report.get("failed", 0) or 0)
+    result.delegated = int(report.get("delegated", 0) or 0)
+    if not report.get("manifest_ok", True):
+        result.status = "fail"
+        result.errors.append(
+            f"manifest error: {report.get('manifest_error', 'unknown')}")
+    _reconcile_report(result, manifest, report)
+    _attach_provenance(result, exe, manifest, report_path, root)
     if proc.returncode != 0 and not result.errors:
         result.errors.append(
             f"audit engine exited {proc.returncode}: "
             f"{(proc.stderr or '').strip()[:200]}"
         )
     return result
+
 
 
 def run_audit_request(root: Path) -> NativeAuditResult:
@@ -481,9 +411,9 @@ def run_audit_request(root: Path) -> NativeAuditResult:
                 if c.get("kind") == "delegated"
             ]
             if delegated_rows:
+                from .audit_delegated import run_delegated_checks
                 from .audit_checks import (
                     AUDIT_FLOW_BUDGET_SECONDS,
-                    run_delegated_checks,
                 )
 
                 remaining = max(

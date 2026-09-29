@@ -160,6 +160,8 @@ class LocalCommandParser:
             for column, declaration in columns.items():
                 if column not in existing:
                     connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
+        connection.executescript("DELETE FROM common_command a USING common_command b WHERE a.command_hash = b.command_hash AND a.command_id > b.command_id;"
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_common_command_hash ON common_command(command_hash)")
 
     def record(self, connection: Any, command_text: str, intent: str = "") -> dict[str, Any]:
         normalized = self.normalize(command_text)

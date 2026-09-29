@@ -158,8 +158,8 @@ class CodexAmendmentSubmitter:
         source = Path(source_path).resolve()
         if not source.is_file():
             raise FileNotFoundError(f"codex amendment source not found: {source}")
-        if source.suffix != ".sqlite3":
-            raise ValueError("codex amendment source must be a .sqlite3 file")
+        if source.suffix != ".sql":
+            raise ValueError("codex amendment source must be a .sql artifact")
         requester = normalize_requester(requested_by)
         normalized_class = normalize_change_class(change_class)
         previous = str(current_version or "").strip()

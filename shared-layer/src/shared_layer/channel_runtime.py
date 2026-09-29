@@ -24,27 +24,444 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import hashlib
 import json
 import time
 import uuid
 from collections import deque
-from typing import Any, Awaitable, Callable, Deque, Dict, Optional, Set, Protocol
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Awaitable, Callable, Deque, Dict, List, Optional, Protocol
 
 from .registry.versioning import component_version
 
-from .channel_types import (
-    ChannelConfig,
-    ChannelGeneration,
-    ChannelState,
-    MessagePriority,
-    OutboxEvent,
-)
-from .connection_mixin import ConnectionMixin
-from .heartbeat_mixin import HeartbeatMixin
-from .transactional_outbox import TransactionalOutbox
-
 CHANNEL_RUNTIME_VERSION: str = component_version("channel-runtime")
+
+
+# ================================================================
+# Channel contract types (A263 — pure data containers)
+# ================================================================
+
+
+class ChannelState(Enum):
+    """Channel lifecycle states per A263."""
+    CLOSED = "closed"
+    CONNECTING = "connecting"
+    OPEN = "open"
+    RECONNECTING = "reconnecting"
+    DEAD = "dead"
+
+
+class MessagePriority(Enum):
+    """Message priority for control channel."""
+    CONTROL = 0    # Heartbeat, ack, cursor, reconnect
+    STATE = 1      # State events from outbox
+    COMMAND = 2    # User commands
+
+
+@dataclass(frozen=True)
+class ChannelGeneration:
+    """Typed generation identifier for a channel (A263)."""
+    channel_id: str
+    generation: int
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    backend_generation: str = ""
+    session_id: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "channel_id": self.channel_id,
+            "generation": self.generation,
+            "created_at": self.created_at,
+            "backend_generation": self.backend_generation,
+            "session_id": self.session_id,
+        }
+
+    @property
+    def full_id(self) -> str:
+        return f"{self.channel_id}:{self.generation}"
+
+
+@dataclass
+class ChannelConfig:
+    """Channel configuration per A263."""
+    channel_id: str
+    max_queue_size: int = 1000
+    heartbeat_interval_seconds: float = 10.0
+    heartbeat_timeout_seconds: float = 30.0
+    reconnect_max_attempts: int = 3
+    reconnect_base_delay_seconds: float = 1.0
+    control_channel_capacity: int = 100
+    enable_backpressure: bool = True
+    max_outbound_batch: int = 100
+    max_event_payload_bytes: int = 1_048_576
+    send_idle_sleep_seconds: float = 0.001
+
+
+@dataclass
+class OutboxEvent:
+    """Transactional outbox event (A195/A263)."""
+    sequence: int
+    entity_id: str
+    entity_type: str
+    operation: str
+    payload: dict[str, Any]
+    state_hash: str
+    idempotency_key: str
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+# ================================================================
+# Transactional Outbox (A195/A263)
+# ================================================================
+
+
+class TransactionalOutbox:
+    """Transactional outbox for state changes (A195/A263)."""
+
+    def __init__(self, channel_id: str, max_sequence: int = 0, callback=None) -> None:
+        self.channel_id = channel_id
+        self._sequence = max_sequence
+        self._events: Dict[int, OutboxEvent] = {}
+        self._lock = asyncio.Lock()
+        self._callback = callback
+
+    def get_latest_sequence(self) -> int:
+        return self._sequence
+
+    async def append(
+        self,
+        entity_id: str,
+        entity_type: str,
+        operation: str,
+        payload: dict[str, Any],
+        state_hash: str = "",
+    ) -> OutboxEvent:
+        """Append event to outbox."""
+        try:
+            encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        except (TypeError, ValueError):
+            encoded = json.dumps({"repr": repr(payload)})
+        async with self._lock:
+            self._sequence += 1
+            event = OutboxEvent(
+                sequence=self._sequence,
+                entity_id=entity_id,
+                entity_type=entity_type,
+                operation=operation,
+                payload=payload,
+                state_hash=state_hash,
+                idempotency_key=f"{self.channel_id}:{self._sequence}",
+            )
+            self._events[self._sequence] = event
+            if self._callback is not None:
+                try:
+                    await self._callback(event)
+                except Exception:
+                    pass
+            return event
+
+    async def fetch_after(self, cursor: int, limit: int) -> List[OutboxEvent]:
+        """Fetch events after cursor."""
+        async with self._lock:
+            events = []
+            for seq in range(cursor + 1, min(cursor + 1 + limit, self._sequence + 1)):
+                if seq in self._events:
+                    events.append(self._events[seq])
+            return events
+
+    async def replay_from(self, cursor: int) -> None:
+        """Replay events from cursor through the registered callback.
+
+        When no callback is configured the outbox drains to its own
+        ``fetch_after`` contract so the channel send-loop picks the events
+        up via ``_sent_upto`` advance (see ``A263Channel._send_loop``).
+        """
+        events = await self.fetch_after(cursor, 1000)
+        if self._callback is None:
+            return
+        for event in events:
+            try:
+                await self._callback(event)
+            except Exception:
+                pass
+
+
+# ================================================================
+# Connection lifecycle mixin (A263)
+# ================================================================
+
+
+class ConnectionMixin:
+    """Mixin providing connection and reconnection management (A263)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._state = ChannelState.CLOSED
+        self._generation = ChannelGeneration(
+            channel_id="",
+            generation=0,
+        )
+        if not hasattr(self, "_config"):
+            self._config: ChannelConfig | None = None
+        if not hasattr(self, "_transport"):
+            self._transport: object | None = None
+        self._generation_lock = asyncio.Lock()
+        self._reconnect_attempts: int = 0
+        self._reconnect_task: Optional[asyncio.Task] = None
+        self._snapshot_hash: str = ""
+        self._snapshot_cursor: int = 0
+        self._snapshot_generation: ChannelGeneration | None = None
+
+    @property
+    def config(self) -> ChannelConfig:
+        if self._config is None:
+            raise NotImplementedError("Subclass must configure the channel")
+        return self._config
+
+    @config.setter
+    def config(self, value: ChannelConfig) -> None:
+        self._config = value
+
+    @property
+    def transport(self):
+        if self._transport is None:
+            raise NotImplementedError("Subclass must configure the transport")
+        return self._transport
+
+    @transport.setter
+    def transport(self, value) -> None:
+        self._transport = value
+
+    @property
+    def generation(self) -> ChannelGeneration:
+        return self._generation
+
+    @property
+    def state(self) -> ChannelState:
+        return self._state
+
+    async def _set_state(self, new_state: ChannelState) -> None:
+        old_state = self._state
+        if old_state == new_state:
+            return
+        self._state = new_state
+        if self._on_state_change:
+            try:
+                await self._on_state_change(old_state, new_state)
+            except Exception:
+                pass
+
+    def set_callbacks(
+        self,
+        on_state_change: Optional[callable] = None,
+        on_message: Optional[callable] = None,
+        on_control: Optional[callable] = None,
+    ) -> None:
+        self._on_state_change = on_state_change
+        self._on_message = on_message
+        self._on_control = on_control
+
+    async def connect(self, backend_generation: str = "", session_id: str = "") -> ChannelGeneration:
+        """Establish channel connection with new generation."""
+        async with self._generation_lock:
+            self._generation = ChannelGeneration(
+                channel_id=self.config.channel_id,
+                generation=self._generation.generation + 1,
+                backend_generation=backend_generation,
+                session_id=session_id,
+            )
+            self._reconnect_attempts = 0
+
+        await self._set_state(ChannelState.CONNECTING)
+        self._heartbeat_dead.clear()
+
+        # Start heartbeat monitor
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+        # Start receive loop
+        asyncio.create_task(self._receive_loop())
+
+        # Start send loop (bidirectional flow)
+        if getattr(self, "_start_send_loop", None) is not None:
+            self._start_send_loop()
+
+        # Send hello with cursor for reconnection
+        await self._send_hello()
+
+        await self._set_state(ChannelState.OPEN)
+        return self._generation
+
+    async def disconnect(self, code: int = 1000, reason: str = "") -> None:
+        """Graceful disconnect - invalidates ready (A263)."""
+        self._heartbeat_dead.set()
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+        if getattr(self, "_send_task", None) is not None:
+            self._send_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._send_task
+        if self._reconnect_task:
+            self._reconnect_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._reconnect_task
+
+        await self.transport.close(code, reason)
+        await self._set_state(ChannelState.CLOSED)
+
+    async def reconnect(
+        self,
+        snapshot_cursor: int,
+        snapshot_hash: str,
+        backend_generation: str = "",
+        session_id: str = "",
+    ) -> ChannelGeneration:
+        """Reconnect with snapshot/cursor/hash convergence (A263).
+
+        Requires:
+        - Snapshot cursor (last acknowledged sequence)
+        - Snapshot hash (state integrity verification)
+        - Backend generation (for generation tracking)
+        """
+        # Verify snapshot integrity
+        if not self._verify_snapshot(snapshot_cursor, snapshot_hash):
+            raise ValueError("snapshot integrity verification failed")
+
+        # Save snapshot for convergence
+        self._snapshot_cursor = snapshot_cursor
+        self._snapshot_hash = snapshot_hash
+        self._snapshot_generation = self._generation
+
+        await self._set_state(ChannelState.RECONNECTING)
+        self._heartbeat_dead.clear()
+        self._reconnect_attempts += 1
+
+        if self._reconnect_attempts > self.config.reconnect_max_attempts:
+            await self._set_state(ChannelState.DEAD)
+            raise ConnectionError("max reconnect attempts exceeded")
+
+        # Attempt reconnection
+        await self.transport.close(1001, "reconnect")
+
+        # Exponential backoff
+        delay = self.config.reconnect_base_delay_seconds * (2 ** (self._reconnect_attempts - 1))
+        await asyncio.sleep(delay)
+
+        # New generation for reconnection
+        async with self._generation_lock:
+            self._generation = ChannelGeneration(
+                channel_id=self.config.channel_id,
+                generation=self._generation.generation + 1,
+                backend_generation=backend_generation,
+                session_id=session_id,
+            )
+
+        # Re-establish transport (transport-specific)
+        # This would be implemented by the transport adapter
+
+        self._heartbeat_dead.clear()
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        asyncio.create_task(self._receive_loop())
+
+        # Restart send loop (bidirectional flow)
+        if getattr(self, "_start_send_loop", None) is not None:
+            self._start_send_loop()
+
+        # Send resync with cursor
+        await self._send_resync(snapshot_cursor)
+
+        await self._set_state(ChannelState.OPEN)
+        self._reconnects += 1
+        return self._generation
+
+    def _verify_snapshot(self, cursor: int, snapshot_hash: str) -> bool:
+        """Verify snapshot/cursor/hash convergence (A263)."""
+        # In a full implementation, this would verify the hash against stored state
+        # For now, accept if cursor is valid
+        return cursor >= 0
+
+
+# ================================================================
+# Heartbeat mixin (A263 two-way heartbeat with deadline)
+# ================================================================
+
+
+class HeartbeatMixin:
+    """Mixin providing two-way heartbeat with deadline (A263)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._heartbeat_dead = asyncio.Event()
+        self._last_ping_sent: float = 0.0
+        self._last_pong_received: float = 0.0
+        self._heartbeats_sent: int = 0
+        self._heartbeats_received: int = 0
+
+    @property
+    def config(self) -> ChannelConfig:
+        if getattr(self, "_config", None) is None:
+            raise NotImplementedError("Subclass must configure the channel")
+        return self._config
+
+    @property
+    def transport(self):
+        if getattr(self, "_config", None) is None:
+            raise NotImplementedError("Subclass must configure the transport")
+        return getattr(self, "_transport", None)
+
+    @property
+    def generation(self):
+        raise NotImplementedError("Subclass must implement 'generation' property")
+
+    async def _heartbeat_loop(self) -> None:
+        """Two-way heartbeat with deadline (A263)."""
+        while not self._heartbeat_dead.is_set():
+            await asyncio.sleep(self.config.heartbeat_interval_seconds)
+            if self._heartbeat_dead.is_set():
+                break
+
+            try:
+                await self._send_ping()
+            except Exception:
+                self._heartbeat_dead.set()
+                break
+
+            # Check deadline
+            if (
+                time.monotonic() - self._last_pong_received
+                > self.config.heartbeat_timeout_seconds
+            ):
+                self._heartbeat_dead.set()
+                try:
+                    await self.transport.close(1001, "heartbeat_timeout")
+                except Exception:
+                    pass
+                break
+
+    async def _send_ping(self) -> None:
+        """Send heartbeat ping."""
+        message = {
+            "type": "control",
+            "command": "heartbeat_ping",
+            "payload": {"t": datetime.now(timezone.utc).isoformat()},
+            "generation": self.generation.as_dict(),
+        }
+        await self._enqueue_control(message)
+        self._last_ping_sent = time.monotonic()
+        self._heartbeats_sent += 1
+
+    async def _handle_pong(self, payload: dict[str, Any]) -> None:
+        """Handle heartbeat pong - updates deadline."""
+        self._last_pong_received = time.monotonic()
+        self._heartbeats_received += 1
+
+
+# ================================================================
+# Channel transport + A263 channel
+# ================================================================
 
 
 class ChannelTransport(Protocol):
@@ -399,6 +816,8 @@ __all__ = [
     "MessagePriority",
     "OutboxEvent",
     "TransactionalOutbox",
+    "ConnectionMixin",
+    "HeartbeatMixin",
     "ChannelTransport",
     "create_channel",
     "CHANNEL_RUNTIME_VERSION",

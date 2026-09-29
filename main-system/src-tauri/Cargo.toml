@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/gptbridge-backend",
     "crates/gptbridge-core",
     "crates/gptbridge-egui",
     "crates/gptbridge-gpui",

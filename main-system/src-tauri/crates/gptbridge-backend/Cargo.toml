@@ -1,0 +1,15 @@
+[package]
+name = "gptbridge-backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "GPTBridge governed backend host — native owner of the loopback IPC gateway, tool lifecycle, and runtime readiness (retired Python boot_core/main.py successor)"
+
+[dependencies]
+gptbridge-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+hmac = "0.12"
+sha2 = "0.10"

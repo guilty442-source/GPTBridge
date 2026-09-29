@@ -41,7 +41,8 @@
       "sub-sovereign-orchestration",
       "tokenizer",
       "qdrant",
-      "model-training"
+      "model-training",
+      "module-sqlite"
     ]
   },
   "retired_module_cleanup_contract": {
@@ -57,8 +58,8 @@
     "startup_to_main_ui_ready": 10,
     "independent_tool_start": 5,
     "independent_tool_stop": 5,
-    "mandatory_test_suite": 20,
-    "independent_audit_flow": 30
+    "mandatory_test_suite": 30,
+    "independent_audit_flow": 60
   },
   "local_model_startup_policy": {
     "default_started": false,
@@ -484,8 +485,9 @@
       "runtime_form": "database",
       "owner_sovereign": "system-runtime",
       "execution_identity": "module-private-sqlite",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "resident",
+      "physical_path": "",
+      "external_locator": "git-history:shared-layer/sql (retired — PostgreSQL sole structured-data authority; module stores migrated to pg_adapter schemas)",
+      "lifecycle": "retired",
       "canonical": false,
       "dependencies": [],
       "information_channels": [
@@ -576,7 +578,7 @@
       "runtime_form": "native-javascript-esm",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-assistant-identity-group",
-      "physical_path": "main-system/src-ui/renderer/ui/AppXingchengDrawer.jsx",
+      "physical_path": "main-system/src-ui/renderer/ui/drawer/XingchengDrawer.js",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [

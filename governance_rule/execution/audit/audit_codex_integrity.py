@@ -24,24 +24,27 @@ from governance_rule.execution.codex_update_validation import (
 )
 from governance_rule.execution.codex_repository import codex_readonly_connection
 
-CODEX_DATABASE_RELATIVE = Path("governance_rule") / "codex" / "data" / "governance_codex.sqlite3"
+CODEX_DATABASE_RELATIVE = Path("governance_rule") / "codex" / "data" / "governance_codex.sql"
+CODEX_DATABASE_LEGACY_RELATIVE = Path("governance_rule") / "codex" / "data" / "governance_codex.sqlite3"
 CODEX_ROOT_RELATIVE = Path("governance_rule") / "codex"
 
 
 def _codex_connection_for(root: Path):
-    """Codex read for one root: a root carrying the legacy sqlite file is a
-    fixture/staging tree and is read directly (non-authoritative); every
-    other root reads the live PostgreSQL authority (A279)."""
-    import sqlite3
-    from contextlib import closing
-
+    """Codex read for one root: a root carrying a ``.sql`` artifact is a
+    fixture/staging tree and is read through a materialized stage schema
+    (non-authoritative); a legacy ``.sqlite3`` file is a retired store and
+    fails closed; every other root reads the live PostgreSQL authority
+    (A279)."""
     candidate = root / CODEX_DATABASE_RELATIVE
     if candidate.is_file():
-        return closing(
-            sqlite3.connect(
-                f"file:{candidate.as_posix()}?mode=ro&immutable=1", uri=True
-            )
+        from governance_rule.execution.codex_postgresql_stage import (
+            open_artifact,
         )
+
+        return open_artifact(candidate)
+    legacy = root / CODEX_DATABASE_LEGACY_RELATIVE
+    if legacy.is_file():
+        raise RuntimeError(f"SQLITE_FIXTURE_RETIRED:{legacy}")
     return codex_readonly_connection()
 
 

@@ -1,0 +1,104 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "conflict-convergence-20260928",
+  "title": "收斂衝突條文：PYTHON 代碼、B31 邊界、Node 過渡、下載禁令與命名一致",
+  "summary": "Human-governor directive 2026-09-28: converge provisions that still conflict with the published Python/Node/NumPy/JAX prohibition and package-download rules: B97 and module_line_count_language_codes drop PYTHON as a canonical code; D72 drops the superseded B31 boundary; RULE_RETIRED_DEPENDENCIES removes Node's MIGRATION_ONLY allowance; RULE_LANGUAGE_REALLOCATION removes python-resident wording; C117/C28 prohibitions ban every language-manager network download and any package-list change without explicit permission; python_development_retirement_gate removes migration vocabulary; B33 subject matches its 9-language rule. Codex-only change: no implementation is migrated by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 收斂衝突條文並重新排練",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T17:01:15Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "2bd01babbecd68dff743739712d80c31ffe4856d06b143d9e662eb454478330e",
+    "revision_sequence": 161
+  },
+  "problem": {
+    "summary": "Seven conflict classes remained after the retirement, forbid and package rules: PYTHON still appeared as a canonical language code, a boundary referenced the superseded B31, Node kept a migration allowance, one rule spoke of python-resident execution, download prohibitions were narrower than the law, a retirement gate kept migration conditions, and B33's subject said seven languages while its rule lists nine."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B97"
+      },
+      "field": "rule",
+      "proposed": "DIRECTORY:DIR_MODULE_LINE_COUNT_REGISTRY sole roster;LANGUAGE-CODES:C|CPP|CSHARP|FSHARP|GO|RUST|JAVASCRIPT|JULIA|SQL;RETIRED:Python/Node sources are non-conforming and counted as boundary violations,not canonical language codes;RECORD-KINDS:SOURCE_UNIT+ARCHITECTURE_MODULE_SUMMARY;SOURCE_UNIT:one canonical authored physical source file;LIMITS:500 per source unit+300 per class/type+50 per callable/query;JAVASCRIPT:counts imports+exports+declarations+functions+classes+JSX+JSDoc-associated source while comment-only lines remain excluded;NORMALIZATION:registered encoding+LF+remove blank-only and parser-proven comment-only lines;FRESHNESS:inventory/language/ownership change invalidates evidence;RELEASE:full roster parity required\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "module_line_count_language_codes"
+      },
+      "field": "value",
+      "proposed": "C|CPP|CSHARP|FSHARP|GO|RUST|JAVASCRIPT|JULIA|SQL"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "D72"
+      },
+      "field": "rule",
+      "proposed": "PURPOSE:freeze-current-language-ownership-without-freezing-feature-development;CURRENT-ROLE-MAP:B35;CURRENT-BOUNDARIES:B37+B38+B50;PUBLIC-CONTRACT:versioned-request+response+event+error+cancellation+deadline;EVOLUTION:role-or-boundary-change-requires-new-version+compatibility+owner-migration+consumer-update+retirement;INTERNAL:parser+cache+graph+adapter implementations replaceable when semantics stay equivalent;PERFORMANCE:governed by B157+D35"
+    },
+    {
+      "table": "formal_rule_registry",
+      "key": {
+        "rule_code": "RULE_RETIRED_DEPENDENCIES"
+      },
+      "field": "predicate",
+      "proposed": "retired dependencies must be exactly PyTorch/Electron/TypeScript/Qdrant/SQLite/Node.js/JAX/NumPy with no active consumer;TypeScript may remain MIGRATION_ONLY,all others are RETIRED and historical only;Node.js and Python are forbidden:no download,install,execution or transitional period"
+    },
+    {
+      "table": "formal_rule_registry",
+      "key": {
+        "rule_code": "RULE_LANGUAGE_REALLOCATION"
+      },
+      "field": "predicate",
+      "proposed": "each resident execution component must declare language_id in (c23,cpp23,csharp); Python,Node.js and retired runtimes have zero resident execution; c/c++/csharp components must declare memory_strategy in (raii,dotnet-gc,arena,rc) and format_contract in (clang-format,clang-tidy,editorconfig,dotnet-format) with 100% pre-commit enforcement; csharp/.NET 10 must use generational GC (0/1/2) with DATAS compaction, Span<T>/Memory<T> pooling and deterministic Dispose where applicable; C23 must use arena/manual with clang-tidy+ASan and C23 standard features (_BitInt, constexpr, typeof, auto); C++23 must use RAII/smart_ptr + std::expected, modules, constexpr, std::mdspan and deterministic destruction"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C117"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:direct codex writes outside the amendment pipeline|network package fetch by any language package manager|unbounded upgrade commands|version drift left unreconciled without an emitted amendment or recorded deferral|private scheduling outside AutomationCore|package-list-change-without-explicit-permission"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C28"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:unapproved-new-package+implicit-transitive-admission+package-manager-auto-add+language-manager-network-download+package-list-addition-without-explicit-permission+unapproved-source/repository+download-before-admission+retired-version-active-consumer+indefinite-old-version-retention+purged-artifact-reference+deletion-before-proven-cutover+missing-or-stale-retirement-tag+update-detection-interval-not-24-hours"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "python_development_retirement_gate"
+      },
+      "field": "value",
+      "proposed": "closed|python-retired|no-transition"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B33"
+      },
+      "field": "subject",
+      "proposed": "automatic-language-governance-check"
+    }
+  ],
+  "proposed_successors": [],
+  "verification": {
+    "requested_at": "2026-09-28T17:05:37Z",
+    "expected_audit_result": "no active provision or registry row grants Python/Node a canonical role, references superseded boundaries, allows Node migration or language-manager network downloads, and the rehearsal passes on the converged generation"
+  }
+}

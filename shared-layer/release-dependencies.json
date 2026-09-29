@@ -245,11 +245,6 @@
       "evidence": "async transport store; same canonical transport authority"
     },
     {
-      "path": "shared-layer/src/shared_layer/transactional_outbox.py",
-      "class": "SHARED_SERVICE",
-      "evidence": "transactional outbox contract; central transport only"
-    },
-    {
       "path": "shared-layer/src/shared_layer/database",
       "class": "RELEASE_DEPENDENCY",
       "evidence": "PG lifecycle/pool/migration library packaged with the release"
@@ -270,11 +265,6 @@
       "evidence": "retired local-state shim; PostgreSQL sole authority; never copied as authority"
     },
     {
-      "path": "shared-layer/tests",
-      "class": "DEVELOPMENT_ONLY",
-      "evidence": "test suites never loaded by the production runtime"
-    },
-    {
       "path": "shared-layer/src/ui/toolWindow",
       "class": "RELEASE_DEPENDENCY",
       "evidence": "typed tool-window socket helpers bundled into tool UIs"
@@ -283,8 +273,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-28T14:53:42Z",
-    "codex_sha256": "8cf4b24387157a513c654af6ac6ae2f47544dc98026ae22205d8eecdd40c4a4a",
+    "codex_version": "2026-09-29T03:01:49Z",
+    "codex_sha256": "7ea9fe2d98067dcc35fa90e7b5be1e6f97744652cc5cf8fc0d4f861e39b99fde",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -297,6 +287,7 @@
     "*.token",
     "*.p12",
     "governance_codex.sqlite3",
+    "governance_codex.sql",
     "credential*",
     "*.gguf",
     "*.safetensors",
@@ -342,7 +333,7 @@
     "governance_rule/codex",
     "governance_rule/execution/audit",
     "governance_rule/permission_directory",
-    "main-system/data/governance_codex.sqlite3"
+    "governance_rule/codex/data/governance_codex.sql"
   ],
   "ipc_contract": {
     "contract_file": "main-system/config/tool-runtime-contract.json",

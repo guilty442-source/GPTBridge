@@ -97,26 +97,21 @@ Worktrees share the same `.git` directory. Hooks, config, and objects are common
 > Normative authority: Codex C22/C66。
 
 Each worktree can automatically commit the changes made inside its own checkout.
-The service only commits — it **never pushes**. All git automation work is
-executed by the governed C# host
-`shared-layer/csharp/GPTBridge.GitAutomation` (published exe under `publish/`).
+The service only commits — it **never pushes**.
 
 ```powershell
-$GITAUTO = "shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe"
+# One-shot debounced sweep across every registered worktree
+& shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --sweep --root E:\GPTBridge
 
-# One debounced sweep across every worktree including main
-& $GITAUTO --sweep --root E:\GPTBridge
-
-# Resident watcher: sweep every 60 s + sync every 300 s, 60 s debounce,
-# dirwatch-driven early wake, kill-switch honoured each cycle
-& $GITAUTO --watch --root E:\GPTBridge
+# Long-running watcher (sweep + sync intervals in seconds)
+& shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --watch --root E:\GPTBridge --interval 30 --debounce 60
 ```
 
 Guards: skipped while merge/rebase/cherry-pick/revert is in progress, when the
-worktree is clean, when the index already holds staged-but-uncommitted
-changes (`staged-index-present`), and when git identity is missing. Honours
-`.gitignore`. Commits are recorded in the audit ledger with operation
-`auto-commit`.
+worktree is clean, and when git identity is missing. Honours `.gitignore`
+(ignored paths are never staged). Commits are recorded in the audit ledger with
+operation `auto-commit`. Implementation: `SelfCommit` inside the governed
+C# host (the former `git_tiers/self_commit.py` Python lane is retired).
 
 ## Automatic Worktree Synchronization
 
@@ -128,15 +123,12 @@ the coordinator may push `main`; it never force-pushes, deletes refs, resets,
 or chooses a conflict resolution.
 
 ```powershell
-# One workspace sync cycle (commit → merge → audit → fast-forward)
-& $GITAUTO --sync --root E:\GPTBridge
-
-# One sweep + one sync, then exit (manual verification)
-& $GITAUTO --once --root E:\GPTBridge
+& shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --sync --root E:\GPTBridge
+& shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --watch --root E:\GPTBridge --sync-interval 60 --no-commit --push
 ```
 
-Use `--no-commit` when self-commit coverage is already running, so the sync
-coordinator never competes with it for the Git index.
+Use `--no-commit` when the per-worktree auto-commit watchers are active, so the
+sync coordinator never competes with them for the Git index.
 
 Only the synchronization coordinator may push. It pushes `main` only after all
 worktrees are clean, governance audits pass, integration succeeds, and
@@ -148,42 +140,42 @@ must never push directly.
 > Normative authority: Codex C22/C66。
 > Tunables single source: `main-system/config/automation-flows.json`（`git-automation` flow）。
 
-All git automation execution lives in the resident C# host
-`GPTBridge.GitAutomation.exe --watch` (C66: single scheduler + single
-coordinator — there is exactly one running git orchestrator). The
-main-system `GitAutomationService`
-(`main-system/src-core/tasks/git_automation.py`), started by the startup
-executor in the normal-information phase (`app.git_automation`), is only
-the host's governed lifecycle supervisor: it registers the
-`git-automation` flow (kill switch — a denied registration never spawns),
-runs the host as a child process, and each registered tick performs a
-liveness probe with a bounded restart budget (≤3 restarts per 600 s; a
-host surviving ≥300 s resets the budget; exhausted budget → degraded, no
-respawn).
+The old `automation_supervisor` process fleet (one watcher process per
+worktree + periodic sync) is replaced by the single governed host
+`GPTBridge.GitAutomation.exe` (`shared-layer/csharp/GPTBridge.GitAutomation`,
+published to `shared-layer/csharp/GPTBridge.GitAutomation/publish/`). The
+former in-process `GitAutomationService`
+(`main-system/src-core/tasks/git_automation.py`) and the
+`scripts/git-*.py` entry points are retired with the Python lane.
 
-- The host itself re-checks `automation-flows.json` `enabled` **and** the
-  AutomationCore runtime override
-  (`runtime/state/automation-flows-state.json`) every cycle — the kill
-  switch reaches a resident host within one sweep interval, and the
-  supervisor never respawns a denied flow.
-- Governed shutdown: the supervisor writes the stop sentinel
-  `runtime/state/git-automation.stop`; the host exits within ~500 ms
-  (no need to wait out a sweep interval); terminate/taskkill is the
-  bounded fallback.
-- `run_once_cycle()` shells out to `GPTBridge.GitAutomation.exe --once`
-  with a hard timeout for manual verification.
+- **Commit sweep** every 60 s: `SelfCommit.RunOnce` per registered
+  worktree, but only after the dirty-state marker has been stable for a
+  60 s debounce — same stability contract as the old watchers, zero extra
+  processes. A worktree whose index already holds staged-but-uncommitted
+  changes is **skipped** (`staged-index-present`) so a human/agent mid-commit
+  is never swept into an auto-commit with an unrelated message.
+- **Sync cycle** every 300 s: commit → merge worker branches into `main` →
+  audit → fast-forward. Conflicts stop that cycle until resolved.
+- Locking, merge/rebase guards, audit recording and the no-push rule stay
+  inside the governed host; the CLI only schedules (`--once`, `--sweep`,
+  `--sync`, `--status`).
 
-State: the host owns `main-system/runtime/state/git-automation.json`;
-the supervisor publishes
-`main-system/runtime/state/git-automation-supervisor.json`; host stdout
-lands in `main-system/runtime/logs/git-automation-host.log` (bounded).
-Host binary resolution: `GPTBRIDGE_GIT_AUTOMATION_EXE` env override,
-then `shared-layer/csharp/GPTBridge.GitAutomation/publish/`, then
-`bin/Release/net10.0/`.
+State: `main-system/runtime/state/git-automation.json`. One-shot
+verification (first sweep only debounces; real sync commits dirty
+worktrees — run when the tree is in a state you want committed):
+
+```powershell
+& shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --once --root E:\GPTBridge
+```
 
 ## 星澄 Self-Learning & Automatic Upgrade
 
 > Normative authority: Codex D131。
+> Note: the `main-system\.venv\Scripts\python.exe -m ...` invocations below
+> are retired with the local Python lane (B167/B38); they remain here as
+> interface documentation only until the governed owner-language entries
+> land. Production scheduling is unchanged — cycles run inside the
+> xingcheng tool process via the governed system channel.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/self-learning.json`。
 
 The native model learns from its own verified data and can upgrade itself
@@ -649,7 +641,11 @@ automation flow. Package candidates without explicit permission use
 
 - PostgreSQL is the official Codex; generated mirrors and architecture documents
   are synchronized projections and must not diverge from it.
-- Governance audit must pass before commits: `python -m governance_rule.execution.audit`
+- Governance audit must pass before commits; the governed path is the native
+  engine `native/test_suites/bin/audit-engine.exe --manifest
+  governance_rule/execution/audit/audit_checks_manifest.json --root E:\GPTBridge`
+  (the pre-commit hook runs it automatically via `GPTBridge.GitAutomation.exe`,
+  including the governed C# manifest refresh lane).
 - **Implementation precedence**: preserve a verified superior implementation
   and converge the Codex or registered contract; never roll back superior
   behavior to match retired text.
@@ -659,16 +655,16 @@ automation flow. Package candidates without explicit permission use
 ## Verification Commands
 
 ```powershell
-# Python syntax check
-python -c "import ast; ast.parse(open('file.py', encoding='utf-8').read())"
-
 # Native test suite fleet (MSVC build + bounded parallel run;
 # emits native/test_suites/bin/native-report.json). pytest is retired —
 # Python tests must never be added or executed (codex: PYTHON:none).
 powershell -ExecutionPolicy Bypass -File native/test_suites/build.ps1
 
-# Governance audit
-python -m governance_rule.execution.audit
+# Governance audit (native engine; the Python audit lane is retired)
+& native\test_suites\bin\audit-engine.exe --manifest governance_rule\execution\audit\audit_checks_manifest.json --root E:\GPTBridge
+
+# Refresh the audit manifest when it is stale (governed C# exporter lane)
+& shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --manifest-export --root E:\GPTBridge
 ```
 
 ## Build Commands
@@ -844,3 +840,23 @@ complex lock-free structures when profiling has not demonstrated a bottleneck.
 The convergence rule is: native owners execute bounded work, PostgreSQL owns
 structured truth, Qdrant owns scoped vectors, Python stays minimal and
 on-demand, and every operation remains cancellable, observable and governed.
+
+
+## Codex Read Access (no-Python path)
+
+The local Python runtime is retired; psycopg-based loaders
+(codex_repository/codex_official) cannot run on this machine.
+Use either governed alternative �X both hit the same PostgreSQL authority
+(postgresql://local/gptbridge_codex, schema gptbridge_codex):
+
+`powershell
+# authority state (version, tables, rows, sha256)
+& shared-layer\csharp\GPTBridge.CodexPipeline\publish\GPTBridge.CodexPipeline.exe --authority-state
+
+# read-only article queries (print only �X never persist/mirror codex content)
+ = <gptbridge_runtime password from GPTBRIDGE_POSTGRES_DSN>
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -h 127.0.0.1 -U gptbridge_runtime -d gptbridge -c "SELECT ... FROM gptbridge_codex.<table>"
+`
+
+Current authority row: version 2026-09-29T05:25:52Z, 218 tables,
+23159 rows. The read-only Chinese mirror remains non-authoritative.

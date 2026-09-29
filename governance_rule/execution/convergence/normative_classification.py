@@ -19,7 +19,6 @@ authorities.
 from __future__ import annotations
 
 import re
-import sqlite3
 from contextlib import contextmanager
 
 import psycopg
@@ -31,7 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # Historical SQLite predecessor location — the live authority is the
 # PostgreSQL ``gptbridge_codex`` schema (``codex_postgresql.readonly_connection``).
 DEFAULT_DATABASE = (
-    PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+    PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sql"
 )
 
 
@@ -119,12 +118,12 @@ class ConvergenceEntry:
     status: str
 
 
-def _rows(db: sqlite3.Connection, sql: str) -> list[sqlite3.Row]:
-    db.row_factory = sqlite3.Row
+def _rows(db, sql: str) -> list:
+    db.row_factory = True
     return db.execute(sql).fetchall()
 
 
-def load_classifications(db: sqlite3.Connection) -> dict[str, ProvisionClassification]:
+def load_classifications(db) -> dict[str, ProvisionClassification]:
     """All provision classifications keyed by ``<type>:<id>``."""
     out: dict[str, ProvisionClassification] = {}
     for r in _rows(db, "select * from provision_normative_category"):
@@ -142,7 +141,7 @@ def load_classifications(db: sqlite3.Connection) -> dict[str, ProvisionClassific
     return out
 
 
-def load_convergence(db: sqlite3.Connection) -> dict[str, ConvergenceEntry]:
+def load_convergence(db) -> dict[str, ConvergenceEntry]:
     """Current convergence mappings keyed by restatement ``<type>:<id>``."""
     out: dict[str, ConvergenceEntry] = {}
     for r in _rows(db, "select * from codex_normative_convergence_registry"):
@@ -197,7 +196,7 @@ def controlling_provisions(
     }
 
 
-def validate_classification(db: sqlite3.Connection) -> list[str]:
+def validate_classification(db) -> list[str]:
     """Parity checks over the classification and convergence tables.
 
     Returns a list of human-readable violations; empty means parity PASS.
@@ -233,7 +232,7 @@ def validate_classification(db: sqlite3.Connection) -> list[str]:
             errors.append(
                 f"unclassified provisions: {sorted(missing)[:8]}{'…' if len(missing) > 8 else ''}"
             )
-    except (sqlite3.Error, psycopg.Error):
+    except psycopg.Error:
         pass
 
     # Structural parity: category must agree with provision_type.  (A
@@ -287,15 +286,20 @@ def open_db(database: Path | None = None) -> Iterator[Any]:
     """Yield a read-only connection to the codex authority.
 
     ``database=None`` (the default) reads the live PostgreSQL
-    ``gptbridge_codex`` authority; an explicit path opens that SQLite file
-    read-only (staged generations and test fixtures)."""
-    if database is not None:
-        db = sqlite3.connect(f"file:{Path(database)}?mode=ro", uri=True)
-        try:
+    ``gptbridge_codex`` authority; an explicit ``.sql`` artifact path opens
+    a materialized stage schema read-only.  A ``.sqlite3`` path is retired
+    — it is never silently rebound to the live authority."""
+    if database is not None and Path(database).suffix == ".sql":
+        from governance_rule.execution.codex_postgresql_stage import (
+            open_artifact,
+        )
+
+        with open_artifact(Path(database)) as db:
+            db.row_factory = True
             yield db
-        finally:
-            db.close()
         return
+    if database is not None:
+        raise RuntimeError(f"SQLITE_FIXTURE_RETIRED:{Path(database)}")
     from governance_rule.execution.codex_postgresql import readonly_connection
 
     with readonly_connection() as connection:

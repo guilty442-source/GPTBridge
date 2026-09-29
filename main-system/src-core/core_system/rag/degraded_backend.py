@@ -23,7 +23,7 @@ from .rag_contracts import (
     LifecycleState,
     RagChunk,
 )
-from .pipeline_degraded import DegradedRagPipeline
+from .pipeline import DegradedRagPipeline
 from .canonical_vector_runtime import RagPipelineConfig
 
 _logger = logging.getLogger("gptbridge.rag.degraded_backend")

@@ -155,7 +155,7 @@ class StartValidationMixin(PackageVerificationMixin):
             "package_error_code": str(package_check.get("error_code") or ""),
             "message": (
                 f"{package_check.get('message', 'Package verification failed')}. "
-                f"Run npm run package:tool -- {tool_id}"
+                f"Run python scripts/packager/platform_packager.py {tool_id}"
             ),
             "executable_path": str(executable_file),
         }
@@ -166,7 +166,7 @@ class StartValidationMixin(PackageVerificationMixin):
             "error_code": "STALE_TOOL_PACKAGE",
             "message": (
                 "This tool's manifest version changed after its EXE was packaged. "
-                f"Run npm run package:tool -- {tool_id}"
+                f"Run python scripts/packager/platform_packager.py {tool_id}"
             ),
             "executable_path": str(executable_file),
         }

@@ -12,7 +12,6 @@ when the Codex has not yet been amended.
 
 from __future__ import annotations
 
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -31,7 +30,7 @@ def _retired_sovereign_ids() -> set[str]:
     try:
         codex = load_governance_codex()
     except (OSError, ValueError, KeyError, RuntimeError, ImportError,
-            sqlite3.Error, psycopg.Error):
+            psycopg.Error):
         return set()
     retired: set[str] = set()
     for sovereign in codex.sovereigns:
@@ -108,7 +107,7 @@ def check_activation_states(root: Path, errors: list[str]) -> None:
                         f"activation state old_root exists but deletion_state "
                         f"is not-applicable: {arch_code}: {legacy_root}"
                     )
-    except (sqlite3.Error, psycopg.Error) as error:
+    except (psycopg.Error) as error:
         errors.append(f"activation states audit failed: {error}")
 
     # Print warnings to stderr so they are visible without blocking commits.

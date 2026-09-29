@@ -20,8 +20,12 @@ namespace GPTBridge.GitAutomation;
 ///
 /// Options: --root <path>  --push  --interval <s>  --debounce <s>
 ///          --sync-interval <s>  --no-commit
+///
+/// Fail-closed argument contract: a command flag is REQUIRED.  Bare
+/// words, unknown switches and a missing command all exit non-zero —
+/// nothing silently falls through to the resident service loop.
 /// </summary>
-internal static class Program
+internal static partial class Program
 {
     private const string StateRelative =
         "main-system/runtime/state/git-automation.json";
@@ -30,7 +34,7 @@ internal static class Program
     {
         public string? DiffLeft;
         public string? DiffRight;
-        public string Mode = "watch";
+        public string? Mode;
         public string Root = Environment.CurrentDirectory;
         public string Hook = "";
         public bool Push;
@@ -38,6 +42,33 @@ internal static class Program
         public double SweepInterval = 60;
         public double SyncInterval = 300;
         public double Debounce = 60;
+        public readonly List<string> Errors = new();
+    }
+
+    private const string Usage =
+        "usage: GPTBridge.GitAutomation <--watch|--once|--sweep|--sync|" +
+        "--status|--install-hooks|--update-templates|--manifest-export|" +
+        "--manifest-diff <left> <right>|--hook <name>> " +
+        "[--root <path>] [--push] [--no-commit] [--interval <s>] " +
+        "[--debounce <s>] [--sync-interval <s>]";
+
+    private static string? TakeValue(
+        string[] args, ref int i, string flag, Options options)
+    {
+        if (i + 1 >= args.Length || args[i + 1].StartsWith("--"))
+        {
+            options.Errors.Add($"{flag} requires a value");
+            return null;
+        }
+        return args[++i];
+    }
+
+    private static void SetMode(Options options, string mode)
+    {
+        if (options.Mode is not null && options.Mode != mode)
+            options.Errors.Add(
+                $"conflicting commands: {options.Mode} vs {mode}");
+        options.Mode ??= mode;
     }
 
     private static Options Parse(string[] args)
@@ -45,44 +76,66 @@ internal static class Program
         var options = new Options();
         for (var i = 0; i < args.Length; i++)
         {
-            switch (args[i])
+            var arg = args[i];
+            switch (arg)
             {
-                case "--watch": options.Mode = "watch"; break;
-                case "--once": options.Mode = "once"; break;
-                case "--sweep": options.Mode = "sweep"; break;
-                case "--sync": options.Mode = "sync"; break;
-                case "--status": options.Mode = "status"; break;
-                case "--install-hooks": options.Mode = "install-hooks"; break;
+                case "--watch": SetMode(options, "watch"); break;
+                case "--once": SetMode(options, "once"); break;
+                case "--sweep": SetMode(options, "sweep"); break;
+                case "--sync": SetMode(options, "sync"); break;
+                case "--status": SetMode(options, "status"); break;
+                case "--install-hooks":
+                    SetMode(options, "install-hooks"); break;
                 case "--update-templates":
-                    options.Mode = "update-templates"; break;
+                    SetMode(options, "update-templates"); break;
                 case "--manifest-export":
-                    options.Mode = "manifest-export"; break;
+                    SetMode(options, "manifest-export"); break;
                 case "--manifest-diff":
-                    options.Mode = "manifest-diff";
-                    options.DiffLeft = args[++i];
-                    options.DiffRight = args[++i];
+                    SetMode(options, "manifest-diff");
+                    options.DiffLeft = TakeValue(args, ref i, arg, options);
+                    options.DiffRight = TakeValue(args, ref i, arg, options);
                     break;
                 case "--hook":
-                    options.Mode = "hook";
-                    options.Hook = args[++i];
+                    SetMode(options, "hook");
+                    var hook = TakeValue(args, ref i, arg, options);
+                    if (hook is not null)
+                        options.Hook = hook;
                     break;
-                case "--root": options.Root = args[++i]; break;
+                case "--root":
+                    var root = TakeValue(args, ref i, arg, options);
+                    if (root is not null)
+                        options.Root = root;
+                    break;
                 case "--push": options.Push = true; break;
                 case "--no-commit": options.CommitDirty = false; break;
                 case "--interval":
-                    options.SweepInterval = double.Parse(
-                        args[++i], System.Globalization.CultureInfo.InvariantCulture);
+                    if (TakeValue(args, ref i, arg, options) is { } iv)
+                        options.SweepInterval = double.Parse(
+                            iv,
+                            System.Globalization.CultureInfo.InvariantCulture);
                     break;
                 case "--debounce":
-                    options.Debounce = double.Parse(
-                        args[++i], System.Globalization.CultureInfo.InvariantCulture);
+                    if (TakeValue(args, ref i, arg, options) is { } db)
+                        options.Debounce = double.Parse(
+                            db,
+                            System.Globalization.CultureInfo.InvariantCulture);
                     break;
                 case "--sync-interval":
-                    options.SyncInterval = double.Parse(
-                        args[++i], System.Globalization.CultureInfo.InvariantCulture);
+                    if (TakeValue(args, ref i, arg, options) is { } si)
+                        options.SyncInterval = double.Parse(
+                            si,
+                            System.Globalization.CultureInfo.InvariantCulture);
+                    break;
+                default:
+                    options.Errors.Add(arg.StartsWith("--")
+                        ? $"unknown option '{arg}'"
+                        : $"unrecognized argument '{arg}' — commands " +
+                          "require a --flag (e.g. --manifest-export)");
                     break;
             }
         }
+        if (options.Mode is null && options.Errors.Count == 0)
+            options.Errors.Add("no command given");
         options.Root = Path.GetFullPath(options.Root);
         options.SweepInterval = Math.Max(10.0, options.SweepInterval);
         options.SyncInterval = Math.Max(
@@ -124,6 +177,13 @@ internal static class Program
     public static async Task<int> Main(string[] args)
     {
         var options = Parse(args);
+        if (options.Errors.Count > 0 || options.Mode is null)
+        {
+            foreach (var error in options.Errors)
+                Console.Error.WriteLine($"[git-automation] {error}");
+            Console.Error.WriteLine(Usage);
+            return Fail("invalid-arguments");
+        }
         var projectRoot = options.Mode is "hook"
             ? ProjectRoot(null)
             : ProjectRoot(options.Root);
@@ -161,13 +221,9 @@ internal static class Program
                 case "status":
                     return ShowStatus(projectRoot);
                 case "sweep":
-                    if (!FlowsConfig.FlowEnabled(projectRoot))
-                        return Fail("disabled:git-automation");
                     return Print(Sweep(projectRoot, options,
                         new Dictionary<string, (string, double)>()));
                 case "sync":
-                    if (!FlowsConfig.FlowEnabled(projectRoot))
-                        return Fail("disabled:git-automation");
                     return Print(SyncCycle(projectRoot, options));
                 case "once":
                 case "watch":
@@ -216,340 +272,4 @@ internal static class Program
         return 0;
     }
 
-    // -- service loop ------------------------------------------------------
-
-    private sealed class Service
-    {
-        private readonly string _root;
-        private readonly Options _options;
-        private readonly Dictionary<string, (string Fingerprint, double Since)>
-            _dirtySince = new(StringComparer.OrdinalIgnoreCase);
-        private int _sweeps;
-        private int _syncs;
-        private JsonObject _lastSweep = new();
-        private JsonObject _lastSync = new();
-        private double _nextSyncAt;
-        private bool _running = true;
-        private bool _wake;
-        private readonly List<FileSystemWatcher> _watchers = new();
-        private double _lastEventWake;
-
-        public Service(string root, Options options)
-        {
-            _root = root;
-            _options = options;
-        }
-
-        public async Task<int> Run()
-        {
-            if (!FlowsConfig.FlowEnabled(_root))
-            {
-                Console.WriteLine(
-                    "[git-automation] disabled by automation-flows manifest");
-                return 0;
-            }
-            if (!File.Exists(Path.Combine(_root, ".git"))
-                && !Directory.Exists(Path.Combine(_root, ".git")))
-            {
-                Console.WriteLine(
-                    "[git-automation] skipped: not-a-git-worktree");
-                return 0;
-            }
-            StartDirwatch();
-            Console.CancelKeyPress += (_, e) =>
-            {
-                e.Cancel = true;
-                _running = false;
-            };
-            // Push flag: manifest flow entry wins; --push is the fallback.
-            var push = FlowsConfig.PushEnabled(_root) || _options.Push;
-            Console.WriteLine(
-                $"[git-automation] started " +
-                $"(sweep={_options.SweepInterval:0}s " +
-                $"sync={_options.SyncInterval:0}s " +
-                $"debounce={_options.Debounce:0}s push={push})");
-            var tickDeadline = TimeSpan.FromSeconds(
-                Math.Max(60.0,
-                    Math.Min(900.0, _options.SweepInterval * 5)));
-            var stopFile = Path.Combine(_root, "main-system", "runtime",
-                "state", "git-automation.stop");
-            try { File.Delete(stopFile); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-            while (_running)
-            {
-                // Kill-switch re-check every cycle (manifest enabled=false
-                // or runtime override) — fail closed, then exit so the
-                // supervisor never respawns a denied flow.
-                if (!FlowsConfig.FlowEnabled(_root))
-                {
-                    Console.WriteLine(
-                        "[git-automation] disabled by automation-flows " +
-                        "manifest/override — stopping");
-                    break;
-                }
-                try
-                {
-                    var tick = CycleTick(push);
-                    if (await Task.WhenAny(
-                            tick, Task.Delay(tickDeadline)) != tick)
-                        Console.Error.WriteLine(
-                            $"[git-automation] cycle exceeded " +
-                            $"{tickDeadline.TotalSeconds:0}s deadline");
-                    else
-                        await tick; // observe faults — WhenAny alone
-                                    // swallows a failed cycle silently
-                }
-                catch (Exception error)
-                {
-                    Console.Error.WriteLine(
-                        $"[git-automation] cycle error: {error.Message}");
-                }
-                // --once: exactly one sweep+sync cycle, then exit.
-                if (_options.Mode == "once")
-                    break;
-                var delay = Task.Delay(
-                    TimeSpan.FromSeconds(_options.SweepInterval));
-                while (_running && !_wake)
-                {
-                    // Supervisor stop sentinel: a governed shutdown request
-                    // written as a file — exits within ~500 ms instead of
-                    // waiting out the sweep interval.
-                    if (File.Exists(stopFile))
-                        _running = false;
-                    if (await Task.WhenAny(
-                            delay, Task.Delay(500)) == delay)
-                        break;
-                }
-                _wake = false;
-                if (Trace)
-                    Console.Error.WriteLine(
-                        $"[dbg] loop: woke (running={_running})");
-            }
-            StopDirwatch();
-            try { File.Delete(stopFile); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-            WriteState(); // final write: running=false for status callers
-            return 0;
-        }
-
-        private static bool Trace =>
-            Environment.GetEnvironmentVariable("GITA_TRACE") == "1";
-
-        private async Task CycleTick(bool push)
-        {
-            if (Trace) Console.Error.WriteLine("[dbg] tick: sweep start");
-            await Task.Run(() =>
-            {
-                _lastSweep = Sweep(_root, _options, _dirtySince);
-                _sweeps++;
-                WriteState();
-            });
-            if (Trace) Console.Error.WriteLine("[dbg] tick: sweep done");
-            var queueEvent = await Task.Run(QueueHasPending);
-            if (Trace) Console.Error.WriteLine("[dbg] tick: queue checked");
-            var now = Environment.TickCount64 / 1000.0;
-            if (queueEvent || now >= _nextSyncAt)
-            {
-                if (Trace) Console.Error.WriteLine("[dbg] tick: sync start");
-                var sync = await Task.Run(() => SyncCycle(_root, _options, push));
-                if (Trace) Console.Error.WriteLine("[dbg] tick: sync done");
-                _nextSyncAt = now + _options.SyncInterval;
-                _syncs++;
-                _lastSync = new JsonObject
-                {
-                    ["at"] = Canon.EpochSeconds(),
-                    ["result"] = sync,
-                };
-                WriteState();
-            }
-        }
-
-        private bool QueueHasPending()
-        {
-            try
-            {
-                var common = Git.CommonDir(_root);
-                var queueFile = Path.Combine(common,
-                    "gptbridge-automation", "merge-queue", "queue.json");
-                var node = JsonNode.Parse(File.ReadAllText(queueFile));
-                if (node?["entries"] is not JsonArray entries)
-                    return false;
-                return entries.OfType<JsonObject>().Any(
-                    e => e["status"]?.GetValue<string>() == "pending");
-            }
-            catch (IOException) { return false; }
-            catch (JsonException) { return false; }
-        }
-
-        // -- dirwatch (event-driven early wake, bounded like the Python
-        //    native dirwatch: ≤16 handles, ≥15 s between wakes) ----------
-
-        private void StartDirwatch()
-        {
-            try
-            {
-                var worktrees = Sync.ListWorktrees(_root)
-                    .Select(w => w.Path).Take(16).ToList();
-                foreach (var worktree in worktrees)
-                {
-                    if (!Directory.Exists(worktree))
-                        continue;
-                    var watcher = new FileSystemWatcher(worktree)
-                    {
-                        IncludeSubdirectories = true,
-                        EnableRaisingEvents = true,
-                        NotifyFilter = NotifyFilters.FileName
-                            | NotifyFilters.DirectoryName
-                            | NotifyFilters.LastWrite,
-                    };
-                    watcher.Changed += (_, _) => OnChanged();
-                    watcher.Created += (_, _) => OnChanged();
-                    watcher.Deleted += (_, _) => OnChanged();
-                    watcher.Renamed += (_, _) => OnChanged();
-                    _watchers.Add(watcher);
-                }
-            }
-            catch (Exception)
-            {
-                // Fail-soft: sweep TTL still covers change detection.
-            }
-        }
-
-        private void OnChanged()
-        {
-            var now = Environment.TickCount64 / 1000.0;
-            if (now - _lastEventWake >= 15.0)
-            {
-                _lastEventWake = now;
-                _wake = true;
-            }
-        }
-
-        private void StopDirwatch()
-        {
-            foreach (var watcher in _watchers)
-            {
-                watcher.EnableRaisingEvents = false;
-                watcher.Dispose();
-            }
-            _watchers.Clear();
-        }
-
-        private void WriteState()
-        {
-            var path = Path.Combine(_root,
-                StateRelative.Replace('/', Path.DirectorySeparatorChar));
-            try
-            {
-                var payload = new JsonObject
-                {
-                    ["updated_at"] = Canon.UtcNow(),
-                    ["running"] = _running,
-                    ["project_root"] = _root,
-                    ["sweep_interval"] = _options.SweepInterval,
-                    ["sync_interval"] = _options.SyncInterval,
-                    ["debounce_seconds"] = _options.Debounce,
-                    ["push"] = _options.Push,
-                    ["sweeps"] = _sweeps,
-                    ["syncs"] = _syncs,
-                    ["pending_debounce"] = new JsonArray(
-                        _dirtySince.Keys.Order(StringComparer.Ordinal)
-                            .Select(k => (JsonNode?)JsonValue.Create(k))
-                            .ToArray()),
-                    ["dirwatch_worktrees"] = _watchers.Count,
-                    ["last_sweep"] = _lastSweep.DeepClone(),
-                    ["last_sync"] = _lastSync.DeepClone(),
-                };
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                using var document =
-                    JsonDocument.Parse(payload.ToJsonString());
-                Canon.WriteJsonAtomic(
-                    path, Canon.Indented(document.RootElement) + "\n");
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-    }
-
-    private static async Task<int> Watch(string root, Options options)
-    {
-        var service = new Service(root, options);
-        return await service.Run();
-    }
-
-    // -- sweep / sync primitives (shared with --once / --sweep / --sync) --
-
-    private static JsonObject Sweep(
-        string root, Options options,
-        Dictionary<string, (string, double)> dirtySince)
-    {
-        var results = new JsonObject();
-        var scopes = new JsonObject();
-        var now = Environment.TickCount64 / 1000.0;
-        var worktrees = Sync.ListWorktrees(root).Select(w => w.Path)
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (!worktrees.Contains(root, StringComparer.OrdinalIgnoreCase))
-            worktrees.Insert(0, Path.GetFullPath(root));
-        foreach (var worktree in worktrees)
-        {
-            Status.Snapshot snapshot;
-            try
-            {
-                snapshot = Status.CaptureSnapshot(worktree);
-            }
-            catch (Exception)
-            {
-                dirtySince.Remove(worktree);
-                continue;
-            }
-            if (!snapshot.Dirty)
-            {
-                dirtySince.Remove(worktree);
-                continue;
-            }
-            scopes[worktree] = new JsonArray(
-                snapshot.AffectedScopes
-                    .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray());
-            if (!dirtySince.TryGetValue(worktree, out var marker)
-                || marker.Item1 != snapshot.Fingerprint)
-            {
-                dirtySince[worktree] = (snapshot.Fingerprint, now);
-                results[worktree] = "debounce";
-                continue;
-            }
-            if (now - marker.Item2 < options.Debounce)
-            {
-                results[worktree] = "debounce";
-                continue;
-            }
-            var status = SelfCommit.RunOnce(
-                root, worktree, snapshot: snapshot);
-            results[worktree] = status;
-            if (status is "committed" or "clean")
-                dirtySince.Remove(worktree);
-        }
-        return new JsonObject
-        {
-            ["at"] = Canon.EpochSeconds(),
-            ["results"] = results,
-            ["affected_scope"] = scopes,
-        };
-    }
-
-    private static string SyncCycle(
-        string root, Options options, bool push = false)
-    {
-        var effectivePush = push || options.Push;
-        try
-        {
-            return Sync.Synchronize(root,
-                commitDirty: options.CommitDirty, push: effectivePush);
-        }
-        catch (LockBusyException)
-        {
-            return "skipped:lock-busy";
-        }
-    }
 }

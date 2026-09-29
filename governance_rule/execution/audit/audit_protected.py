@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import json
-import sqlite3
 import stat
 from pathlib import Path
 
@@ -61,10 +60,16 @@ def check_protected_sources(root: Path, errors: list[str]) -> None:
             if source.suffix == ".py":
                 content = source.read_text(encoding="utf-8")
                 ast.parse(content, filename=relative)
-            elif source.suffix == ".sqlite3":
-                with sqlite3.connect(f"file:{source.as_posix()}?mode=ro&immutable=1", uri=True) as db:  # sql-ok: one read-only connect per protected file
-                    if db.execute("PRAGMA quick_check").fetchone()[0] != "ok":
-                        raise ValueError("invalid SQLite codex")
+            elif source.suffix == ".sql":
+                from governance_rule.execution.codex_postgresql_stage import (
+                    ARTIFACT_HEADER,
+                )
+
+                first = next(
+                    iter(source.read_text(encoding="utf-8").splitlines()), ""
+                )
+                if first.strip() != ARTIFACT_HEADER:
+                    raise ValueError("invalid codex artifact")
             elif source.suffix == ".txt":
                 json.loads(source.read_text(encoding="utf-8"))
             else:

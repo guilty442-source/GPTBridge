@@ -20,7 +20,6 @@ import os
 import re
 import shutil
 import socket
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -37,7 +36,7 @@ _RC_ARG = next(
 )
 RC_ID = _RC_ARG or f"rc-{time.strftime('%Y-%m-%d', time.gmtime())}"
 RC = RELEASES / RC_ID
-RC_CODEX = RC / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+RC_CODEX = RC / "governance_rule" / "codex" / "data" / "governance_codex.sql"
 FIXTURES = Path(tempfile.mkdtemp(prefix=f"04b-fixtures-{RC_ID}-"))
 VENV_PY = ROOT / "main-system" / ".venv" / "Scripts" / "python.exe"
 GOV_ROOT = ROOT / "governance_rule"
@@ -317,13 +316,12 @@ def build_rc() -> None:
     # (persistent-data boundary).
     gov_ignore = shutil.ignore_patterns(
         "__pycache__", "*.pyc", "*.jsonl", "archive", "git_audit_chain",
-        "convergence", "runtime", "governance_codex.sqlite3*",
+        "convergence", "runtime", "governance_codex.sql*", "governance_codex.sqlite3*",
     )
     shutil.copytree(GOV_ROOT, RC / "governance_rule", ignore=gov_ignore)
-    # The live codex DB is amended continuously — a raw file copy can
-    # catch it mid-write and drifts away from the manifest by the time
-    # validation runs.  Ship an atomic snapshot (SQLite backup API) so
-    # manifest hash/version and the shipped file are the same bytes.
+    # The live codex authority is amended continuously — a raw copy can
+    # catch it mid-write.  Ship a governed ``.sql`` artifact export so the
+    # manifest hash/version and the shipped artifact are the same bytes.
     RC_CODEX.parent.mkdir(parents=True, exist_ok=True)
     # A173: the live authority is PostgreSQL — ship a governed export as
     # the snapshot (same byte-stable semantics as the old sqlite backup).
@@ -332,8 +330,6 @@ def build_rc() -> None:
     )
 
     export_postgresql_codex(RC_CODEX)
-    # Parity with the dev tree: empty top-level placeholder file.
-    (RC / "governance_rule" / "codex" / "governance_codex.sqlite3").touch()
     # Flat-layout seed: main.py exposes <release>/main-system so
     # ``import governance`` resolves; the isolated harness seeds its
     # state root from the same directory.
@@ -379,12 +375,15 @@ def build_rc() -> None:
     frontend_surface = json.loads((ROOT / "main-system" / "config" / "ipc-surface-frontend.json").read_text(encoding="utf-8"))
     # Governance identity is taken from the shipped snapshot, not the
     # live codex — the live DB keeps mutating while the run proceeds.
-    con = sqlite3.connect(f"file:{RC_CODEX.as_posix()}?mode=ro&immutable=1", uri=True)
-    codex_version = dict(con.execute("select key, value from metadata")).get("codex_version")
-    sovereigns = sorted(str(row[0]) for row in con.execute("select sovereign_id from sovereigns"))
-    auth_version = con.execute("select version_identity from identity_authentication_contract limit 1").fetchone()[0]
-    permission_version = con.execute("select version_identity from sql_session_binding_contract limit 1").fetchone()[0]
-    con.close()
+    from governance_rule.execution.codex_postgresql_stage import (
+        open_codex_store,
+    )
+
+    with open_codex_store(RC_CODEX) as con:
+        codex_version = dict(con.execute("select key, value from metadata")).get("codex_version")
+        sovereigns = sorted(str(row[0]) for row in con.execute("select sovereign_id from sovereigns"))
+        auth_version = con.execute("select version_identity from identity_authentication_contract limit 1").fetchone()[0]
+        permission_version = con.execute("select version_identity from sql_session_binding_contract limit 1").fetchone()[0]
 
     manifest = {
         "release_id": RC_ID,
@@ -457,13 +456,11 @@ def overlay_contract() -> dict:
     # the manifest hashes and the isolated backend actually loads);
     # contract-version pins stay as real compatibility gates.
     refs = contract.setdefault("governance_references", {})
-    snap_con = sqlite3.connect(
-        f"file:{RC_CODEX.as_posix()}?mode=ro&immutable=1", uri=True
+    from governance_rule.execution.codex_postgresql_stage import (
+        artifact_version,
     )
-    snap_version = dict(
-        snap_con.execute("select key, value from metadata")
-    ).get("codex_version")
-    snap_con.close()
+
+    snap_version = artifact_version(RC_CODEX)
     refs["codex_version"] = snap_version
     refs["codex_sha256"] = sha_file(RC_CODEX)
     native = []

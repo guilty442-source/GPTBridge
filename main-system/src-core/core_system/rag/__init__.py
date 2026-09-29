@@ -14,9 +14,10 @@ from .pipeline import (
     CanonicalVectorRuntime,
     PostgreSQLMetadataAuthority,
     PythonDomainModel,
+    PipelineRetrievalMixin,
+    reciprocal_rank_fusion,
+    create_rag_pipeline_from_env,
 )
-from .pipeline_factory import create_rag_pipeline_from_env
-from .pipeline_retrieval import PipelineRetrievalMixin, reciprocal_rank_fusion
 
 from .runtime_state import (
     CanonicalCheckError,

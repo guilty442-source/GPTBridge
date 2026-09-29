@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+//! useEmbeddedBrowser.js — embedded-browser session controller
+//! (React-free, E180/C116).  Same contract as the retired hook: owns the
+//! host-side browser session lifecycle through the preload ``invoke``
+//! bridge, tracks navigation state from ``embedded-browser:event``
+//! host events, and exposes an observable ``state`` store plus the
+//! navigation/visibility actions.
+import { createStore } from "../../../../shared-layer/src/ui/toolWindow/dom.js";
 function getElectron() {
 	const api = window.electron;
 	return api ?? null;
@@ -8,8 +14,8 @@ const FREE_SESSION_ID = `${OWNER_MODULE}:browser`;
 export function providerSessionId(agentId) {
 	return `${OWNER_MODULE}-${agentId}`;
 }
-export function useEmbeddedBrowser() {
-	const [state, setState] = useState({
+export function createEmbeddedBrowser() {
+	const store = createStore({
 		sessionId: null,
 		currentUrl: "",
 		loading: false,
@@ -17,69 +23,51 @@ export function useEmbeddedBrowser() {
 		canGoBack: false,
 		canGoForward: false
 	});
-	const sessionRef = useRef(null);
-	const previousSessionRef = useRef(null);
-	const invoke = useCallback(async (channel, ...args) => {
+	let sessionId = null;
+	let previousSessionId = null;
+	const invoke = async (channel, ...args) => {
 		const electron = getElectron();
 		if (!electron) throw new Error("Electron IPC bridge is unavailable");
 		return electron.invoke(channel, ...args);
-	}, []);
-	const refreshState = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const refreshState = async () => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			const result = await invoke("embedded-browser:state", { id });
-			if (!result.ok || sessionRef.current !== id) return;
-			setState((prev) => ({
-				...prev,
-				currentUrl: String(result.url || prev.currentUrl || ""),
+			if (!result.ok || sessionId !== id) return;
+			store.merge({
+				currentUrl: String(result.url || store.get().currentUrl || ""),
 				loading: Boolean(result.loading),
 				canGoBack: Boolean(result.canGoBack),
 				canGoForward: Boolean(result.canGoForward)
-			}));
+			});
 		} catch {}
-	}, [invoke]);
+	};
 	// Real navigation lifecycle events from the host — drives the loading
 	// indicator, keeps the URL bar in sync and surfaces page errors.
-	useEffect(() => {
-		const electron = getElectron();
-		const unsubscribe = electron?.onEvent?.("embedded-browser:event", (payload) => {
-			const detail = payload;
-			const id = String(detail.id || "");
-			if (!id || id !== sessionRef.current) return;
-			const type = String(detail.type || "");
-			if (type === "loading-start") {
-				setState((prev) => ({
-					...prev,
-					loading: true,
-					error: ""
-				}));
-			} else if (type === "loading-stop") {
-				setState((prev) => ({
-					...prev,
-					loading: false
-				}));
-				void refreshState();
-			} else if (type === "navigate" || type === "navigate-in-page") {
-				const url = String(detail.url || "");
-				setState((prev) => ({
-					...prev,
-					currentUrl: url
-				}));
-				void refreshState();
-			} else if (type === "load-failed") {
-				setState((prev) => ({
-					...prev,
-					loading: false,
-					error: String(detail.error || "") || `載入失敗 (${String(detail.errorCode || "")})`
-				}));
-			}
-		});
-		return () => {
-			if (typeof unsubscribe === "function") unsubscribe();
-		};
-	}, [refreshState]);
-	const activateSession = useCallback(async (id, url, bounds) => {
+	const unsubscribe = getElectron()?.onEvent?.("embedded-browser:event", (payload) => {
+		const detail = payload;
+		const id = String(detail.id || "");
+		if (!id || id !== sessionId) return;
+		const type = String(detail.type || "");
+		if (type === "loading-start") {
+			store.merge({ loading: true, error: "" });
+		} else if (type === "loading-stop") {
+			store.merge({ loading: false });
+			void refreshState();
+		} else if (type === "navigate" || type === "navigate-in-page") {
+			const url = String(detail.url || "");
+			store.merge({ currentUrl: url });
+			void refreshState();
+		} else if (type === "load-failed") {
+			store.merge({
+				loading: false,
+				error: String(detail.error || "") || `載入失敗 (${String(detail.errorCode || "")})`
+			});
+		}
+	});
+	const activateSession = async (id, url, bounds) => {
 		const result = await invoke("embedded-browser:create", {
 			id,
 			ownerModule: OWNER_MODULE,
@@ -87,37 +75,28 @@ export function useEmbeddedBrowser() {
 			bounds
 		});
 		if (!result.ok) throw new Error(result.message || "無法建立瀏覽器");
-		const previous = previousSessionRef.current !== id ? sessionRef.current : null;
-		previousSessionRef.current = sessionRef.current;
-		sessionRef.current = result.id || id;
-		if (previous && previous !== sessionRef.current) {
+		const previous = previousSessionId !== id ? sessionId : null;
+		previousSessionId = sessionId;
+		sessionId = result.id || id;
+		if (previous && previous !== sessionId) {
 			void invoke("embedded-browser:hide", { id: previous }).catch(() => {});
 		}
-		setState((prev) => ({
-			...prev,
-			sessionId: sessionRef.current,
-			currentUrl: url || prev.currentUrl,
+		store.merge({
+			sessionId,
+			currentUrl: url || store.get().currentUrl,
 			error: ""
-		}));
+		});
 		await refreshState();
-		return sessionRef.current;
-	}, [invoke, refreshState]);
-	const navigate = useCallback(async (rawUrl, bounds) => {
+		return sessionId;
+	};
+	const navigate = async (rawUrl, bounds) => {
 		const url = normalizeUrl(rawUrl);
 		if (!url) {
-			setState((prev) => ({
-				...prev,
-				error: "請輸入有效的網址"
-			}));
+			store.merge({ error: "請輸入有效的網址" });
 			return;
 		}
-		const existingId = sessionRef.current;
-		setState((prev) => ({
-			...prev,
-			loading: true,
-			error: "",
-			currentUrl: url
-		}));
+		const existingId = sessionId;
+		store.merge({ loading: true, error: "", currentUrl: url });
 		try {
 			if (existingId) {
 				await invoke("embedded-browser:navigate", {
@@ -133,59 +112,48 @@ export function useEmbeddedBrowser() {
 			} else {
 				await activateSession(FREE_SESSION_ID, url, bounds);
 			}
-			setState((prev) => ({
-				...prev,
-				sessionId: sessionRef.current,
-				loading: true
-			}));
+			store.merge({ sessionId, loading: true });
 		} catch (error) {
-			setState((prev) => ({
-				...prev,
+			store.merge({
 				loading: false,
 				error: error instanceof Error ? error.message : "瀏覽器操作失敗"
-			}));
+			});
 		}
-	}, [activateSession, invoke]);
-	const openProvider = useCallback(async (agentId, url, bounds) => {
+	};
+	const openProvider = async (agentId, url, bounds) => {
 		const target = normalizeUrl(url) || url;
-		setState((prev) => ({
-			...prev,
-			loading: true,
-			error: "",
-			currentUrl: target
-		}));
+		store.merge({ loading: true, error: "", currentUrl: target });
 		try {
 			await activateSession(providerSessionId(agentId), target, bounds);
 		} catch (error) {
-			setState((prev) => ({
-				...prev,
+			store.merge({
 				loading: false,
 				error: error instanceof Error ? error.message : "瀏覽器操作失敗"
-			}));
+			});
 		}
-	}, [activateSession]);
-	const showBrowser = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const showBrowser = async () => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			await invoke("embedded-browser:show", { id });
 		} catch {}
-	}, [invoke]);
-	const hideBrowser = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const hideBrowser = async () => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			await invoke("embedded-browser:hide", { id });
 		} catch {}
-	}, [invoke]);
-	const closeBrowser = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const closeBrowser = async () => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			await invoke("embedded-browser:close", { id });
 		} catch {}
-		sessionRef.current = null;
-		setState({
+		sessionId = null;
+		store.set({
 			sessionId: null,
 			currentUrl: "",
 			loading: false,
@@ -193,42 +161,35 @@ export function useEmbeddedBrowser() {
 			canGoBack: false,
 			canGoForward: false
 		});
-	}, [invoke]);
-	const reload = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const reload = async () => {
+		const id = sessionId;
 		if (!id) return;
-		setState((prev) => ({
-			...prev,
-			loading: true,
-			error: ""
-		}));
+		store.merge({ loading: true, error: "" });
 		try {
 			await invoke("embedded-browser:reload", { id });
 		} catch {
-			setState((prev) => ({
-				...prev,
-				loading: false
-			}));
+			store.merge({ loading: false });
 		}
-	}, [invoke]);
-	const goBack = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const goBack = async () => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			await invoke("embedded-browser:go-back", { id });
 			void refreshState();
 		} catch {}
-	}, [invoke, refreshState]);
-	const goForward = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const goForward = async () => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			await invoke("embedded-browser:go-forward", { id });
 			void refreshState();
 		} catch {}
-	}, [invoke, refreshState]);
-	const getUrl = useCallback(async () => {
-		const id = sessionRef.current;
+	};
+	const getUrl = async () => {
+		const id = sessionId;
 		if (!id) return null;
 		try {
 			const result = await invoke("embedded-browser:url", { id });
@@ -236,9 +197,9 @@ export function useEmbeddedBrowser() {
 		} catch {
 			return null;
 		}
-	}, [invoke]);
-	const resize = useCallback(async (bounds) => {
-		const id = sessionRef.current;
+	};
+	const resize = async (bounds) => {
+		const id = sessionId;
 		if (!id) return;
 		try {
 			await invoke("embedded-browser:resize", {
@@ -246,16 +207,16 @@ export function useEmbeddedBrowser() {
 				bounds
 			});
 		} catch {}
-	}, [invoke]);
-	useEffect(() => {
-		return () => {
-			const id = sessionRef.current;
-			if (!id) return;
-			void invoke("embedded-browser:hide", { id }).catch(() => {});
-		};
-	}, [invoke]);
+	};
+	const destroy = () => {
+		if (typeof unsubscribe === "function") unsubscribe();
+		const id = sessionId;
+		if (!id) return;
+		void invoke("embedded-browser:hide", { id }).catch(() => {});
+	};
 	return {
-		state,
+		state: store.get,
+		subscribe: store.subscribe,
 		navigate,
 		openProvider,
 		showBrowser,
@@ -266,7 +227,8 @@ export function useEmbeddedBrowser() {
 		goBack,
 		goForward,
 		getUrl,
-		refreshState
+		refreshState,
+		destroy
 	};
 }
 function normalizeUrl(input) {

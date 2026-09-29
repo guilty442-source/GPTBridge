@@ -43,8 +43,7 @@ from .rag.orchestration.evidence import (
     SourceAuthority,
 )
 from .rag.orchestration.orchestrator import RagOrchestrator
-from .rag.pipeline import CanonicalRagPipeline
-from .rag.pipeline_retrieval import reciprocal_rank_fusion
+from .rag.pipeline import CanonicalRagPipeline, reciprocal_rank_fusion
 from .rag.canonical_vector_runtime import RagPipelineConfig
 from .rag.retrievers.code import CodeRetrievalRequest, CodeRetriever
 from .rag.retrievers.hybrid import HybridRetrievalRequest, HybridRetriever

@@ -25,24 +25,15 @@ remain.  Every schema or lineage mismatch is fail-closed.
 """
 
 from __future__ import annotations
-
-import hashlib
-import json
-import os
-import sqlite3
-import time
-from collections.abc import Sequence
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Mapping
+from typing import Any, Mapping
+
 
 from governance_rule.execution.codex_amendment_contract import (
     CONTENT_HASH_ALGORITHM,
     SEAL_PREVIEW_SCHEMA,
     compute_seal_preview,
     content_hash,
-    validate_rule_state,
-    validate_rule_transition,
 )
 from governance_rule.execution.codex_amendment_lifecycle import (
     AmendmentLifecycleError,
@@ -52,582 +43,48 @@ from governance_rule.execution.codex_amendment_lifecycle import (
     STATE_UNDER_REVIEW,
     load_amendment_request,
 )
+from governance_rule.execution.codex_postgresql_stage import open_artifact
 from governance_rule.execution.codex_update_validation import (
-    foreign_key_violations,
     staged_generation_errors,
 )
 
-CANDIDATE_MANIFEST_SCHEMA: Final[str] = "gptbridge-codex-candidate-manifest/v1"
-FORMAL_RULE_REGISTRY: Final[str] = "formal_rule_registry"
-SUCCESSOR_SENTINELS: Final[frozenset[str]] = frozenset(
-    {
-        "successor",
-        "<successor>",
-        "<successor-version>",
-        "successor_version",
-        "next-authoritative-utc-second",
-    }
-)
 
-
-class SuccessorBuildError(RuntimeError):
-    """Fail-closed candidate construction denial."""
-
-    def __init__(self, code: str, detail: str = "") -> None:
-        super().__init__(f"{code}:{detail}" if detail else code)
-        self.code = code
-        self.detail = detail
-
-
-@dataclass(frozen=True)
-class SuccessorBuildResult:
-    ok: bool
-    request_id: str
-    output_database: str
-    manifest_path: str
-    candidate_sha256: str = ""
-    applied: tuple[Mapping[str, Any], ...] = ()
-    deferred: tuple[Mapping[str, Any], ...] = ()
-    errors: tuple[str, ...] = ()
-    seal_preview: Mapping[str, Any] | None = None
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "ok": self.ok,
-            "request_id": self.request_id,
-            "output_database": self.output_database,
-            "manifest_path": self.manifest_path,
-            "candidate_sha256": self.candidate_sha256,
-            "applied": [dict(item) for item in self.applied],
-            "deferred": [dict(item) for item in self.deferred],
-            "errors": list(self.errors),
-            "seal_preview": dict(self.seal_preview or {}),
-        }
-
-
-def _utc_now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-
-def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(
-        json.dumps(dict(payload), ensure_ascii=False, sort_keys=True, indent=2)
-        + "\n",
-        encoding="utf-8",
+try:
+    from governance_rule.execution.codex_successor_builder_common import (
+        CANDIDATE_MANIFEST_SCHEMA,
+        FORMAL_RULE_REGISTRY,
+        SuccessorBuildError,
+        SuccessorBuildResult,
+        _atomic_json,
+        _copy_database,
+        _file_sha256,
+        _source_foreign_key_violations,
+        _utc_now,
     )
-    os.replace(temporary, path)
-
-
-def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _copy_database(source: Path, output: Path) -> None:
-    source_connection = sqlite3.connect(
-        f"file:{source.as_posix()}?mode=ro", uri=True
+except ImportError:  # flat-script import: execution/ directly on sys.path
+    from codex_successor_builder_common import (
+        CANDIDATE_MANIFEST_SCHEMA,
+        FORMAL_RULE_REGISTRY,
+        SuccessorBuildError,
+        SuccessorBuildResult,
+        _atomic_json,
+        _copy_database,
+        _file_sha256,
+        _source_foreign_key_violations,
+        _utc_now,
     )
-    output_connection = sqlite3.connect(str(output))
-    try:
-        source_connection.backup(output_connection)
-        output_connection.commit()
-    finally:
-        output_connection.close()
-        source_connection.close()
-
-
-def _source_foreign_key_violations(
-    source: Path,
-) -> tuple[tuple[str, ...], ...]:
-    connection = sqlite3.connect(
-        f"file:{source.as_posix()}?mode=ro", uri=True
+try:
+    from governance_rule.execution.codex_successor_builder_apply import (
+        _apply_changes,
+        _formal_rule_errors,
+        _set_candidate_version,
     )
-    try:
-        return foreign_key_violations(connection)
-    finally:
-        connection.close()
-
-
-def _quote_identifier(identifier: str) -> str:
-    return '"' + identifier.replace('"', '""') + '"'
-
-
-def _table_columns(
-    connection: sqlite3.Connection, table: str
-) -> tuple[dict[str, Any], ...]:
-    rows = connection.execute(
-        f"PRAGMA table_info({_quote_identifier(table)})"
-    ).fetchall()
-    return tuple(
-        {
-            "name": str(row[1]),
-            "type": str(row[2] or ""),
-            "notnull": bool(row[3]),
-            "default": row[4],
-            "pk": int(row[5] or 0),
-        }
-        for row in rows
+except ImportError:  # flat-script import: execution/ directly on sys.path
+    from codex_successor_builder_apply import (
+        _apply_changes,
+        _formal_rule_errors,
+        _set_candidate_version,
     )
-
-
-def _require_table(
-    connection: sqlite3.Connection, table: str
-) -> tuple[dict[str, Any], ...]:
-    columns = _table_columns(connection, table)
-    if not columns:
-        raise SuccessorBuildError("CANDIDATE_TABLE_MISSING", table)
-    return columns
-
-
-def _normalized_row(
-    columns: Sequence[Mapping[str, Any]],
-    row: Mapping[str, Any],
-    table: str,
-    *,
-    require_primary: bool = True,
-) -> dict[str, Any]:
-    names = {str(column["name"]) for column in columns}
-    normalized = {str(key): value for key, value in row.items()}
-    if table == FORMAL_RULE_REGISTRY and "rule_code" in names and "rule_id" in normalized:
-        normalized["rule_code"] = normalized.pop("rule_id")
-    unknown = sorted(set(normalized) - names)
-    if unknown:
-        raise SuccessorBuildError(
-            "CANDIDATE_COLUMN_UNKNOWN", f"{table}:{','.join(unknown)}"
-        )
-    primary = [str(column["name"]) for column in columns if int(column["pk"])]
-    missing_primary = [
-        name
-        for name in primary
-        if require_primary and str(normalized.get(name) or "").strip() == ""
-    ]
-    if missing_primary:
-        raise SuccessorBuildError(
-            "CANDIDATE_PRIMARY_KEY_INCOMPLETE",
-            f"{table}:{','.join(missing_primary)}",
-        )
-    return normalized
-
-
-def _substitute_successor(
-    value: Any,
-    *,
-    successor_version: str | None,
-    context: str,
-) -> Any:
-    if isinstance(value, str) and value.strip() in SUCCESSOR_SENTINELS:
-        if not successor_version:
-            raise SuccessorBuildError("SUCCESSOR_VERSION_REQUIRED", context)
-        return successor_version
-    if isinstance(value, Mapping):
-        return {
-            str(key): _substitute_successor(
-                item,
-                successor_version=successor_version,
-                context=f"{context}.{key}",
-            )
-            for key, item in value.items()
-        }
-    if isinstance(value, (list, tuple)):
-        return [
-            _substitute_successor(
-                item,
-                successor_version=successor_version,
-                context=context,
-            )
-            for item in value
-        ]
-    return value
-
-
-def _existing_count(
-    connection: sqlite3.Connection,
-    table: str,
-    key: Mapping[str, Any],
-) -> int:
-    if not key:
-        raise SuccessorBuildError("CANDIDATE_KEY_REQUIRED", table)
-    columns = _require_table(connection, table)
-    names = {str(column["name"]) for column in columns}
-    unknown = sorted(set(str(name) for name in key) - names)
-    if unknown:
-        raise SuccessorBuildError(
-            "CANDIDATE_KEY_COLUMN_UNKNOWN", f"{table}:{','.join(unknown)}"
-        )
-    where = " AND ".join(
-        f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
-    )
-    count = connection.execute(  # sql-ok: identifiers composed via _quote_identifier
-        f"SELECT COUNT(*) FROM {_quote_identifier(table)} WHERE {where}",
-        tuple(key[name] for name in sorted(key)),
-    ).fetchone()[0]
-    return int(count)
-
-
-def _existing_row(
-    connection: sqlite3.Connection,
-    table: str,
-    key: Mapping[str, Any],
-) -> dict[str, Any] | None:
-    columns = _require_table(connection, table)
-    names = [str(column["name"]) for column in columns]
-    where = " AND ".join(
-        f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
-    )
-    row = connection.execute(  # sql-ok: identifiers composed via _quote_identifier
-        f"SELECT {', '.join(_quote_identifier(name) for name in names)} "
-        f"FROM {_quote_identifier(table)} WHERE {where}",
-        tuple(key[name] for name in sorted(key)),
-    ).fetchone()
-    return dict(zip(names, row)) if row is not None else None
-
-
-def _evaluator_codes(connection: sqlite3.Connection) -> frozenset[str]:
-    try:
-        from governance_rule.execution import formal_rules
-
-        database = Path(connection.execute("PRAGMA database_list").fetchone()[2])
-        formal_rules.load_formal_rules(database)
-        return formal_rules.registered_rule_codes()
-    except (ImportError, RuntimeError, OSError, sqlite3.Error) as error:
-        raise SuccessorBuildError(
-            "FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE", str(error)
-        ) from error
-
-
-def _validate_formal_rule_transition(
-    connection: sqlite3.Connection,
-    key: Mapping[str, Any],
-    fields: Mapping[str, Any],
-) -> None:
-    if "status" not in fields:
-        return
-    row = _existing_row(connection, FORMAL_RULE_REGISTRY, key)
-    if row is None:
-        return
-    rule_code = str(key.get("rule_code") or key.get("rule_id") or "")
-    parity_evidence = bool(
-        fields.get("parity_evidence_id")
-        or row.get("parity_evidence_id")
-        or str(fields.get("parity_status") or row.get("parity_status") or "")
-        .strip()
-        .upper()
-        == "VERIFIED"
-    )
-    errors = validate_rule_transition(
-        row.get("status"),
-        fields.get("status"),
-        evaluator_registered=rule_code in _evaluator_codes(connection),
-        parity_evidence=parity_evidence,
-    )
-    if errors:
-        raise SuccessorBuildError(
-            "RULE_STATE_TRANSITION_INVALID",
-            f"{rule_code or content_hash(key)}:{','.join(errors)}",
-        )
-
-
-def _insert_row(
-    connection: sqlite3.Connection,
-    table: str,
-    row: Mapping[str, Any],
-    *,
-    successor_version: str | None,
-) -> Mapping[str, Any]:
-    columns = _require_table(connection, table)
-    normalized = _normalized_row(columns, row, table)
-    for name, value in list(normalized.items()):
-        normalized[name] = _substitute_successor(
-            value,
-            successor_version=successor_version,
-            context=f"{table}.{name}",
-        )
-    primary = [str(column["name"]) for column in columns if int(column["pk"])]
-    identity = (
-        {name: normalized[name] for name in primary}
-        if primary
-        else normalized
-    )
-    if _existing_count(connection, table, identity):
-        raise SuccessorBuildError(
-            "CANDIDATE_DUPLICATE_ROW", f"{table}:{content_hash(identity)}"
-        )
-    names = sorted(normalized)
-    connection.execute(  # sql-ok: identifiers composed via _quote_identifier
-        f"INSERT INTO {_quote_identifier(table)} "
-        f"({', '.join(_quote_identifier(name) for name in names)}) "
-        f"VALUES ({', '.join('?' for _ in names)})",
-        tuple(normalized[name] for name in names),
-    )
-    return {"action": "insert", "table": table, "row": normalized}
-
-
-def _update_rows(
-    connection: sqlite3.Connection,
-    table: str,
-    key: Mapping[str, Any],
-    fields: Mapping[str, Any],
-    *,
-    successor_version: str | None,
-) -> Mapping[str, Any]:
-    columns = _require_table(connection, table)
-    normalized = _normalized_row(
-        columns, fields, table, require_primary=False
-    )
-    for name, value in list(normalized.items()):
-        normalized[name] = _substitute_successor(
-            value,
-            successor_version=successor_version,
-            context=f"{table}.{name}",
-        )
-    count = _existing_count(connection, table, key)
-    if count != 1:
-        raise SuccessorBuildError(
-            "CANDIDATE_ROW_NOT_UNIQUE", f"{table}:{count}"
-        )
-    assignments = ", ".join(
-        f"{_quote_identifier(name)} = ?" for name in sorted(normalized)
-    )
-    where = " AND ".join(
-        f"{_quote_identifier(str(name))} IS ?" for name in sorted(key)
-    )
-    connection.execute(  # sql-ok: identifiers composed via _quote_identifier
-        f"UPDATE {_quote_identifier(table)} SET {assignments} WHERE {where}",
-        tuple(normalized[name] for name in sorted(normalized))
-        + tuple(key[name] for name in sorted(key)),
-    )
-    return {
-        "action": "update",
-        "table": table,
-        "key": dict(key),
-        "fields": normalized,
-    }
-
-
-def _apply_changes(
-    connection: sqlite3.Connection,
-    payload: Mapping[str, Any],
-    *,
-    successor_version: str | None,
-) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
-    applied: list[Mapping[str, Any]] = []
-    deferred: list[Mapping[str, Any]] = []
-    for index, item in enumerate(payload.get("changes") or ()):
-        if not isinstance(item, Mapping):
-            raise SuccessorBuildError("CHANGE_NOT_AN_OBJECT", str(index))
-        table = str(item.get("table") or "").strip()
-        key = item.get("key")
-        field = str(item.get("field") or "").strip()
-        if not table or not isinstance(key, Mapping) or not field:
-            raise SuccessorBuildError("CHANGE_CONTRACT_INVALID", str(index))
-        fields = {field: item.get("proposed")}
-        also = item.get("also")
-        if isinstance(also, Mapping):
-            fields.update(dict(also))
-        if table == FORMAL_RULE_REGISTRY:
-            _validate_formal_rule_transition(connection, key, fields)
-        applied.append(
-            _update_rows(
-                connection,
-                table,
-                key,
-                fields,
-                successor_version=successor_version,
-            )
-        )
-    proposed_change = payload.get("proposed_change")
-    if isinstance(proposed_change, Mapping):
-        table = str(proposed_change.get("table") or "").strip()
-        operation = str(proposed_change.get("operation") or "").strip().lower()
-        action = str(proposed_change.get("action") or "").strip().lower()
-        rows = proposed_change.get("rows")
-        if (
-            table
-            and "/" not in table
-            and (action == "insert" or "insert" in operation)
-            and isinstance(rows, Sequence)
-            and not isinstance(rows, (str, bytes))
-        ):
-            for row in rows:
-                if not isinstance(row, Mapping):
-                    raise SuccessorBuildError("SUCCESSOR_ROW_INVALID", table)
-                applied.append(
-                    _insert_row(
-                        connection,
-                        table,
-                        row,
-                        successor_version=successor_version,
-                    )
-                )
-        else:
-            deferred.append(
-                {
-                    "action": "deferred",
-                    "reason": "non-canonical proposed_change requires governor normalization",
-                    "payload": proposed_change,
-                }
-            )
-    for proposal_key in ("proposed_repair", "proposed_resolution"):
-        proposal = payload.get(proposal_key)
-        if isinstance(proposal, Mapping):
-            deferred.append(
-                {
-                    "action": "deferred",
-                    "reason": f"{proposal_key} requires governor normalization",
-                    "payload": proposal,
-                }
-            )
-    successors = payload.get("proposed_successors") or ()
-    if isinstance(successors, Mapping):
-        successors = (successors,)
-    for index, item in enumerate(successors):
-        if not isinstance(item, Mapping):
-            raise SuccessorBuildError("SUCCESSOR_NOT_AN_OBJECT", str(index))
-        registry = str(item.get("registry") or item.get("table") or "").strip()
-        action = str(item.get("action") or "").strip().lower()
-        if not registry:
-            deferred.append(
-                {
-                    "action": "deferred",
-                    "index": index,
-                    "reason": "governor-provision-or-artifact-assignment",
-                    "payload": item,
-                }
-            )
-            continue
-        if action == "insert":
-            rows = item.get("rows")
-            if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
-                raise SuccessorBuildError("SUCCESSOR_ROWS_REQUIRED", registry)
-            for row in rows:
-                if not isinstance(row, Mapping):
-                    raise SuccessorBuildError("SUCCESSOR_ROW_INVALID", registry)
-                applied.append(
-                    _insert_row(
-                        connection,
-                        registry,
-                        row,
-                        successor_version=successor_version,
-                    )
-                )
-            continue
-        if action == "update":
-            key = item.get("key")
-            fields = item.get("set") or item.get("fields")
-            if not isinstance(key, Mapping) or not isinstance(fields, Mapping):
-                raise SuccessorBuildError("SUCCESSOR_UPDATE_INVALID", registry)
-            if registry == FORMAL_RULE_REGISTRY:
-                _validate_formal_rule_transition(connection, key, fields)
-            applied.append(
-                _update_rows(
-                    connection,
-                    registry,
-                    key,
-                    fields,
-                    successor_version=successor_version,
-                )
-            )
-            continue
-        deferred.append(
-            {
-                "action": "deferred",
-                "index": index,
-                "registry": registry,
-                "requested_action": action or "unspecified",
-                "reason": "artifact rebind, derived-registry rebuild or governor-side row set",
-                "payload": item,
-            }
-        )
-    singular = payload.get("proposed_successor")
-    if isinstance(singular, Mapping):
-        deferred.append(
-            {
-                "action": "deferred",
-                "reason": "governor-provision-id-and-normative-text-assignment",
-                "payload": singular,
-            }
-        )
-    return applied, deferred
-
-
-def _set_candidate_version(
-    connection: sqlite3.Connection, successor_version: str | None
-) -> None:
-    if not successor_version:
-        return
-    from governance_rule.execution.codex_repository import codex_version_units
-
-    try:
-        codex_version_units(successor_version)
-    except ValueError as error:
-        raise SuccessorBuildError(
-            "SUCCESSOR_VERSION_INVALID", str(successor_version)
-        ) from error
-    columns = _require_table(connection, "metadata")
-    names = {str(column["name"]) for column in columns}
-    if "key" not in names or "value" not in names:
-        raise SuccessorBuildError("METADATA_CONTRACT_INCOMPLETE")
-    cursor = connection.execute(
-        "UPDATE metadata SET value=? WHERE key='codex_version'",
-        (successor_version,),
-    )
-    if cursor.rowcount == 0:
-        connection.execute(
-            "INSERT INTO metadata (key, value) VALUES ('codex_version', ?)",
-            (successor_version,),
-        )
-
-
-def _formal_rule_errors(connection: sqlite3.Connection) -> tuple[str, ...]:
-    columns = _table_columns(connection, FORMAL_RULE_REGISTRY)
-    if not columns:
-        return ()
-    names = {str(column["name"]) for column in columns}
-    status_column = "status" if "status" in names else ""
-    code_column = next(
-        (name for name in ("rule_code", "rule_id", "code") if name in names),
-        "",
-    )
-    if not status_column or not code_column:
-        return ("FORMAL_RULE_REGISTRY_CONTRACT_INCOMPLETE",)
-    try:
-        from governance_rule.execution import formal_rules
-
-        formal_rules.load_formal_rules(Path(connection.execute("PRAGMA database_list").fetchone()[2]))
-        evaluator_codes = formal_rules.registered_rule_codes()
-    except (ImportError, RuntimeError, OSError, sqlite3.Error):
-        return ("FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE",)
-    parity_columns = [
-        name for name in ("parity_evidence_id", "parity_status") if name in names
-    ]
-    selected = ", ".join(
-        [_quote_identifier(code_column), _quote_identifier(status_column)]
-        + [_quote_identifier(name) for name in parity_columns]
-    )
-    errors: list[str] = []
-    rows = connection.execute(  # sql-ok: identifiers composed via _quote_identifier
-        f"SELECT {selected} FROM {_quote_identifier(FORMAL_RULE_REGISTRY)}"
-    )
-    for row in rows:
-        code, status = row[0], row[1]
-        stored = dict(zip(parity_columns, row[2:]))
-        parity_evidence = bool(stored.get("parity_evidence_id")) or (
-            str(stored.get("parity_status") or "").strip().upper() == "VERIFIED"
-        )
-        rule_code = str(code or "")
-        state_errors = validate_rule_state(
-            status,
-            evaluator_registered=rule_code in evaluator_codes,
-            parity_evidence=parity_evidence,
-        )
-        for error in state_errors:
-            errors.append(f"{FORMAL_RULE_REGISTRY}:{rule_code}:{error}")
-    return tuple(errors)
 
 
 def build_successor(
@@ -674,8 +131,7 @@ def build_successor(
             )
         _copy_database(source, output)
         output_created = True
-        connection = sqlite3.connect(str(output))
-        try:
+        with open_artifact(output, write_back=True) as connection:
             _set_candidate_version(connection, successor_version)
             applied, deferred = _apply_changes(
                 connection,
@@ -683,16 +139,14 @@ def build_successor(
                 successor_version=successor_version,
             )
             connection.commit()
-            errors = list(
-                staged_generation_errors(
-                    output.as_posix(),
-                    version=successor_version,
-                    baseline_violations=baseline_violations,
-                )
+            errors = list(_formal_rule_errors(connection))
+        errors.extend(
+            staged_generation_errors(
+                output.as_posix(),
+                version=successor_version,
+                baseline_violations=baseline_violations,
             )
-            errors.extend(_formal_rule_errors(connection))
-        finally:
-            connection.close()
+        )
         if errors:
             try:
                 output.unlink()
@@ -761,7 +215,7 @@ def build_successor(
             deferred=tuple(deferred),
             seal_preview=seal_preview,
         )
-    except (AmendmentLifecycleError, SuccessorBuildError, OSError, sqlite3.Error) as error:
+    except (AmendmentLifecycleError, SuccessorBuildError, OSError) as error:
         if output_created:
             try:
                 Path(output_database).unlink()

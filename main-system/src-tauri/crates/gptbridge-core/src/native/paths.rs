@@ -20,6 +20,9 @@ pub struct RuntimePathLibrary {
     pub python_executable: PathBuf,
     pub python_entry: PathBuf,
     pub boot_core_entry: PathBuf,
+    /// Native backend host binary — the governed successor of the
+    /// retired Python ``boot_core``/``main.py`` chain.
+    pub native_backend_executable: PathBuf,
     pub python_source_repair_entry: PathBuf,
 }
 
@@ -193,6 +196,33 @@ pub fn path_library() -> &'static RuntimePathLibrary {
         .cloned()
         .unwrap_or_else(|| python_entry.clone());
 
+        let native_backend_executable = {
+            let exe_name = if cfg!(windows) {
+                "gptbridge-backend.exe"
+            } else {
+                "gptbridge-backend"
+            };
+            [
+                executable_dir.join(exe_name),
+                workspace_root
+                    .join("main-system")
+                    .join("src-tauri")
+                    .join("target")
+                    .join("release")
+                    .join(exe_name),
+                workspace_root
+                    .join("main-system")
+                    .join("src-tauri")
+                    .join("target")
+                    .join("debug")
+                    .join(exe_name),
+            ]
+            .iter()
+            .find(|p| p.exists())
+            .cloned()
+            .unwrap_or_else(|| executable_dir.join(exe_name))
+        };
+
         let source_repair_entry = [
             resources_root
                 .join("src-core")
@@ -249,6 +279,7 @@ pub fn path_library() -> &'static RuntimePathLibrary {
             python_executable,
             python_entry,
             boot_core_entry,
+            native_backend_executable,
             python_source_repair_entry: source_repair_entry,
         }
     })

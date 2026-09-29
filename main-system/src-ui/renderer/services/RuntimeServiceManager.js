@@ -1,6 +1,6 @@
 import { BootLogger } from "@/shared/BootLogger";
 import { eventBus } from "@/shared/RuntimeEventBus";
-import { getBackendConnectionSnapshot } from "@/shared/hooks/useBackendSocket";
+import { getBackendConnectionSnapshot } from "@/shared/services/backendSocket.js";
 export class RuntimeServiceManager {
 	services = {};
 	context = {};

@@ -15,10 +15,18 @@ identity survives only as lineage.
 Governance-layer names are resolved lazily (PEP 562) because the governance
 package itself imports ``core_system.codex_decision`` — an eager import here
 would deadlock on partially-initialized packages.
+
+``codex_edicts`` / ``decision_basis`` / ``SystemAutomationCoordinator``
+resolve lazily for the same reason: ``codex_decision`` reaches the
+PostgreSQL codex adapter (psycopg), and coupling package import to that
+optional driver makes every ``core_system`` consumer unimportable.
 """
 
-from .codex_decision import codex_edicts, decision_basis
-from .system_automation_coordinator import SystemAutomationCoordinator
+_MODULE_EXPORTS = {
+    "codex_edicts": ".codex_decision",
+    "decision_basis": ".codex_decision",
+    "SystemAutomationCoordinator": ".system_automation_coordinator",
+}
 
 _GOVERNANCE_EXPORTS = {
     "AutomationSovereign",
@@ -43,6 +51,12 @@ def __getattr__(name: str):
         import governance
 
         return getattr(governance, target)
+    module_rel = _MODULE_EXPORTS.get(name)
+    if module_rel is not None:
+        import importlib
+
+        module = importlib.import_module(module_rel, __name__)
+        return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -50,6 +64,7 @@ def __dir__() -> list[str]:
     return sorted(
         set(globals())
         | _GOVERNANCE_EXPORTS
+        | set(_MODULE_EXPORTS)
         | set(_SERVICE_ALIASES)
     )
 

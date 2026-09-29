@@ -76,7 +76,7 @@ class PackageVerificationMixin:
             failure_result = {
                 "ok": False, "tool_id": tool_id, "request_id": request_id,
                 "error_code": "EXECUTABLE_MISSING",
-                "message": f"Standalone EXE not found. Run npm run package:tool -- {tool_id}",
+                "message": f"Standalone EXE not found. Run python scripts/packager/platform_packager.py {tool_id}",
                 "executable_path": str(executable_file),
             }
             if not fallback_attempted and self._source_fallback_allowed(manifest, requested_mode):

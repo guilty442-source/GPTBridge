@@ -1,0 +1,18 @@
+{
+  "schema": "star-native-ui-surfaces/v1",
+  "comment": "C116/E180: independent tools with a registered native (Rust egui/GPUI) window surface open via the native binary under the same --tool-window contract, replacing the Tauri WebView2 React renderer. Tools absent from this map keep the webview path until their surface is ported.",
+  "surfaces": {
+    "model-dialogue": {
+      "binary": "gptbridge-egui.exe",
+      "surface": "star-chat"
+    },
+    "file-sorter": {
+      "binary": "gptbridge-egui.exe",
+      "surface": "file-sorter"
+    },
+    "vaultly": {
+      "binary": "gptbridge-egui.exe",
+      "surface": "vaultly"
+    }
+  }
+}

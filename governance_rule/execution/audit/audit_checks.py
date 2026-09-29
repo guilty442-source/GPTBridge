@@ -4,11 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    TimeoutError as FuturesTimeoutError,
-    as_completed,
-)
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Final
 
@@ -17,124 +13,137 @@ from governance_rule.permission_directory.registries.permissions.source_ownershi
 )
 
 from .audit_artifacts import (
-    check_authority_marker,
+    check_bounded_worker_pools,
     check_codex_consistency,
+    check_embedded_browser,
+    check_git_tiers,
+    check_metadata_contract,
+    check_reconcile_modules,
+    check_sql_migrations,
+)
+from .audit_data_governance import (
+    check_authority_marker,
     check_contract_handshake,
     check_data_lineage,
     check_ddl_audit,
-    check_deletion_coordinator,
-    check_embedded_browser,
-    check_generation_fence_helper,
-    check_git_tiers,
-    check_metadata_contract,
-    check_orphan_scanner,
     check_permission_snapshot,
     check_permission_snapshot_helper,
     check_provenance_helper,
-    check_readonly_domain_module,
-    check_readonly_domain_startup_cert,
-    check_rebuild_certification,
-    check_rebuild_certifier_module,
-    check_reconcile_modules,
     check_schema_ownership_lock,
-    check_slo_metrics,
-    check_sql_migrations,
-    check_startup_certifier_module,
     check_two_stage_deletion,
-    check_watchdog_bloat_rpo_rto,
-    check_watchdog_module,
     check_workload_class,
     check_write_provenance,
-    # Phase E
-    check_audit_hot_history_separation,
-    check_batch_writer_module,
-    check_bounded_worker_pools,
-    check_incremental_reconcile,
-    check_locator_cache_module,
-    check_performance_baseline,
-    check_performance_baseline_module,
-    check_prepared_query_catalog_module,
-    check_query_fingerprint,
-    check_query_fingerprint_module,
-    check_transport_hot_path_index,
-    check_wal_checkpoint_monitor,
-    check_workload_pool_query_class,
-    # Phase F
-    check_canary_upgrade,
+)
+from .audit_retention_archive import (
+    check_archive_catalog,
+    check_archive_versioning,
+    check_audit_retention_layering,
+    check_dependency_check,
+    check_purge_queue,
+    check_readonly_domain_startup_cert,
+    check_rebuild_certification,
+    check_retention_hold,
+    check_slo_metrics,
+    check_transport_retention,
+    check_unified_lifecycle_state,
+    check_watchdog_bloat_rpo_rto,
+)
+from .audit_integrity import (
+    check_archive_restore_test,
+    check_audit_hash_chain,
+    check_capacity_quota,
+    check_fail_closed,
+    check_integrity_snapshot,
+    check_merkle_root,
+    check_purge_audit,
+    check_reconcile_batch_digest,
+    check_resource_content_hash,
+    check_restore_verification,
+    check_tamper_state,
+    check_version_lock,
+)
+from .audit_release import (
     check_compatibility_matrix,
+    check_compatibility_matrix_ext,
     check_database_release_manifest,
+    check_dependency_drift,
+    check_driver_compatibility_test,
     check_migration_breaking_change,
+    check_offline_bundle,
+    check_pg_major_upgrade_rehearsal,
+    check_release_signature,
+    check_sbom_dependency_inventory,
+    check_upgrade_classification,
+    check_vulnerability_risk,
+)
+from .audit_release_flow import (
+    check_canary_upgrade,
     check_query_contract_version,
     check_release_audit,
     check_release_manifest_file,
     check_release_manifest_module,
     check_rls_role_migration,
     check_roll_forward,
-    # Phase G
-    check_archive_catalog,
-    check_archive_restore_test,
-    check_archive_versioning,
-    check_audit_retention_layering,
-    check_capacity_quota,
-    check_dependency_check,
-    check_lifecycle_manager_module,
-    check_purge_audit,
-    check_purge_queue,
-    check_retention_hold,
-    check_transport_retention,
-    check_unified_lifecycle_state,
-    # Phase H
-    check_audit_hash_chain,
-    check_reconcile_batch_digest,
-    check_resource_content_hash,
-    check_merkle_root,
-    check_integrity_snapshot,
-    check_restore_verification,
-    check_tamper_state,
-    check_fail_closed,
-    check_integrity_verifier_module,
-    # Phase I
-    check_version_lock,
-    check_compatibility_matrix_ext,
-    check_upgrade_classification,
-    check_driver_compatibility_test,
-    check_pg_major_upgrade_rehearsal,
-    check_sbom_dependency_inventory,
-    check_vulnerability_risk,
-    check_dependency_drift,
-    check_offline_bundle,
-    check_release_signature,
-    # Phase J
-    check_recovery_plan,
-    check_recovery_incident,
-    check_recovery_state_machine,
+    check_workload_pool_query_class,
+)
+from .audit_recovery import (
+    check_lease_recovery,
     check_pg_offline_recovery,
     check_pg_recovery_verification,
     check_reconcile_recovery_phase,
-    check_recovery_generation,
     check_recovery_barrier,
-    check_transport_recovery,
-    check_lease_recovery,
     check_recovery_checkpoint,
+    check_recovery_generation,
     check_recovery_idempotency,
-    check_recovery_safety_fence,
+    check_recovery_incident,
+    check_recovery_plan,
+    check_recovery_state_machine,
+    check_transport_recovery,
+)
+from .audit_recovery_ops import (
+    check_cache_invalidation_policy,
     check_chaos_drill,
+    check_dependency_graph,
+    check_rag_readiness_gate,
     check_recovery_certification,
-    check_recovery_orchestrator_module,
-    # Phase K
-    check_data_layer_contract,
-    check_dependency_classification,
+    check_recovery_safety_fence,
+    check_schema_readiness,
+    check_shutdown_audit,
+    check_shutdown_phase,
     check_startup_phase,
     check_startup_phase_gate,
-    check_schema_readiness,
-    check_rag_readiness_gate,
-    check_shutdown_phase,
-    check_shutdown_audit,
     check_unclean_shutdown_detection,
-    check_cache_invalidation_policy,
-    check_dependency_graph,
+)
+from .audit_data_layer import (
+    check_audit_hot_history_separation,
+    check_data_layer_contract,
+    check_dependency_classification,
+    check_incremental_reconcile,
     check_integration_rule,
+    check_performance_baseline,
+    check_query_fingerprint,
+    check_transport_hot_path_index,
+    check_wal_checkpoint_monitor,
+)
+from .audit_runtime_modules import (
     check_data_layer_contract_module,
+    check_deletion_coordinator,
+    check_generation_fence_helper,
+    check_integrity_verifier_module,
+    check_lifecycle_manager_module,
+    check_orphan_scanner,
+    check_recovery_orchestrator_module,
+)
+from .audit_runtime_db_modules import (
+    check_batch_writer_module,
+    check_locator_cache_module,
+    check_performance_baseline_module,
+    check_prepared_query_catalog_module,
+    check_query_fingerprint_module,
+    check_readonly_domain_module,
+    check_rebuild_certifier_module,
+    check_startup_certifier_module,
+    check_watchdog_module,
 )
 from .audit_codex_integrity import (
     check_codex_mirror_quality,
@@ -432,174 +441,3 @@ def audit_runtime_governance(
         errors.append(budget_error)
 
     return errors
-
-def _manifest_pair_into(root: Path, errors: list[str]) -> None:
-    errors.extend(_manifest_pair(root))
-
-def _source_ownership_into(root: Path, errors: list[str]) -> None:
-    errors.extend(source_ownership_errors(root))
-
-# Manifest ``delegated`` ids that do not name a top-level ``check_*``
-# callable resolve onto the callable that owns their semantics (G96):
-# semantic remainders of partially native-covered checks, aggregate
-# members folded into their aggregate so nothing executes twice, and the
-# manifest pair whose second member needs the first member's output.
-_DELEGATED_CHECK_ALIASES: Final = {
-    "protected-source-semantic": check_protected_sources,
-    "codex-consistency-semantic": check_codex_consistency,
-    "git-tiers-classify-failclosed": check_git_tiers,
-    "embedded-browser-async-playwright": check_embedded_browser,
-    "check_directory_schemas": check_directory_audit,
-    "check_directory_catalog_coverage": check_directory_audit,
-    "check_directory_identity_and_format": check_directory_audit,
-    "check_provision_classification": check_directory_audit,
-    "check_directory_relationships": check_directory_audit,
-    "check_directory_mirror_parity": check_directory_audit,
-    "check_directory_seal": check_directory_audit,
-    "check_tool_manifests": _manifest_pair_into,
-    "check_tool_identity_registration": _manifest_pair_into,
-}
-
-def _collect_guarded(
-    check: Callable[[Path, list[str]], None], root: Path
-) -> list[str]:
-    """A raising check must surface as an error entry — never abort the
-    remaining delegated checks (zero silent skip)."""
-    try:
-        return _collect(check, root)
-    except Exception as error:  # noqa: BLE001 — fail-visible
-        name = getattr(check, "__name__", repr(check))
-        return [f"{name} raised: {error}"]
-
-def run_delegated_checks(
-    project_root: Path,
-    manifest_checks: list[dict],
-    *,
-    budget_seconds: float = AUDIT_FLOW_BUDGET_SECONDS,
-) -> tuple[list[str], list[str]]:
-    """Execute the manifest's delegated Python checks (G96 closure).
-
-    Every ``python-check:*`` delegated id must resolve to a callable —
-    unresolvable ids are fail-closed errors.  Oracle checks that are
-    neither native-covered nor delegated are added to the run (union
-    parity), so a stale manifest cannot silently drop coverage.  Returns
-    ``(errors, executed_check_ids)``.
-    """
-    root = project_root.resolve()
-    errors: list[str] = []
-    resolved: dict[Callable[[Path, list[str]], None], list[str]] = {}
-
-    def _bind(fn: Callable[[Path, list[str]], None], cid: str) -> None:
-        resolved.setdefault(fn, []).append(cid)
-
-    delegated_ids: list[str] = []
-    # Manifest-declared ``python`` targets are the authoritative
-    # delegated→callable map (G96 single source); the id-name parse and
-    # alias table below only cover rows that predate the field.
-    record_targets: dict[str, str] = {}
-    for record in manifest_checks:
-        if record.get("kind") != "delegated":
-            continue
-        cid = str(record.get("id", ""))
-        delegated_ids.append(cid)
-        target = str(record.get("python", ""))
-        if target:
-            record_targets[cid] = target
-
-    # Manifest-generation parity (G96): recompute the manifest from live
-    # code — the file can lag check-module changes when mtimes lie (the
-    # codex db trigger is a hint, not proof).  Content parity across every
-    # check id AND payload is the formal compatibility check; drift is
-    # fail-visible and the delegated union still runs so coverage never
-    # silently narrows.
-    from .export_audit_manifest import build_manifest
-
-    fresh_checks = build_manifest(root).get("checks", [])
-    fresh_map = {str(c.get("id", "")): c for c in fresh_checks}
-    committed_map = {
-        str(c.get("id", "")): c for c in manifest_checks
-    }
-    id_drift = sorted(set(committed_map) ^ set(fresh_map))
-    payload_drift = sorted(
-        cid
-        for cid in set(committed_map) & set(fresh_map)
-        if committed_map[cid] != fresh_map[cid]
-    )
-    if id_drift or payload_drift:
-        errors.append(
-            "manifest drift (regenerate manifest): "
-            f"ids={id_drift[:8]} changed={payload_drift[:8]}"
-        )
-    fresh_ids = {
-        cid for cid, c in fresh_map.items() if c.get("kind") == "delegated"
-    }
-
-    for cid in sorted(set(delegated_ids) | fresh_ids):
-        name = (
-            record_targets.get(cid)
-            or str(fresh_map.get(cid, {}).get("python", ""))
-            or (cid.split(":", 1)[1] if cid.startswith("python-check:") else "")
-        )
-        fn = _DELEGATED_CHECK_ALIASES.get(name)
-        if fn is None and name.startswith("check_"):
-            candidate = globals().get(name)
-            if callable(candidate):
-                fn = candidate
-        if fn is None:
-            errors.append(
-                f"delegated check id has no python implementation: {cid}"
-            )
-            continue
-        _bind(fn, cid)
-
-    # Oracle-only check: ``source_ownership_errors`` is not ``check_*``
-    # named so the exporter never emits a delegated row for it.
-    _bind(_source_ownership_into, "oracle-only:source_ownership_errors")
-
-    started = time.monotonic()
-    checks = [
-        (cids, lambda r, f=fn: _collect_guarded(f, r))
-        for fn, cids in resolved.items()
-    ]
-    # Hard deadline (G96): a hung delegated check cannot stall the request
-    # past the audit budget — unfinished futures fail closed as timeouts.
-    executor = ThreadPoolExecutor(
-        max_workers=_audit_workers(len(checks)),
-        thread_name_prefix="governance-audit-delegated",
-    )
-    try:
-        pending = {
-            executor.submit(check, project_root): cids
-            for cids, check in checks
-        }
-        deadline = started + max(0.0, budget_seconds)
-        unfinished: set = set(pending)
-        try:
-            for future in as_completed(
-                pending,
-                timeout=max(0.0, deadline - time.monotonic()),
-            ):
-                unfinished.discard(future)
-                errors.extend(future.result())
-        except FuturesTimeoutError:
-            pass
-        for future in unfinished:
-            future.cancel()
-            for cid in pending[future]:
-                errors.append(
-                    f"{cid}: delegated check timed out (fail-closed)"
-                )
-    finally:
-        executor.shutdown(wait=False, cancel_futures=True)
-
-    elapsed = time.monotonic() - started
-    if elapsed > budget_seconds:
-        errors.append(
-            f"delegated audit budget exceeded: {elapsed:.3f}s > "
-            f"{budget_seconds:.0f}s"
-        )
-    # Evidence fidelity (G96): every delegated id covered by a shared
-    # callable counts as executed — the merged verdict must prove the
-    # whole delegated set ran, not just the distinct callables.
-    executed = [cid for cids in resolved.values() for cid in cids]
-    return errors, executed

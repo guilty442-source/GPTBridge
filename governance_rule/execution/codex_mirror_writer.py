@@ -18,14 +18,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from pathlib import Path
-from typing import Final, Mapping
+from typing import Any, Final, Mapping
 
 from governance_rule.execution.chinese_codex_mirror import (
     PART_NAMES,
     load_chinese_codex_parts,
 )
+from governance_rule.execution.codex_postgresql_stage import open_codex_store
 from governance_rule.execution.codex_update_validation import (
     mirror_quality_metrics,
     mirror_text_parity_errors,
@@ -61,7 +61,7 @@ def _json_safe(value: object, table: str, column: str) -> object:
 
 
 def _mirror_table_rows(
-    connection: sqlite3.Connection, table: str
+    connection: Any, table: str
 ) -> list[dict[str, object]]:
     columns = tuple(
         (str(row[1]), int(row[5]))
@@ -88,7 +88,7 @@ def _mirror_table_rows(
 
 
 def _mirror_table_chunks(
-    connection: sqlite3.Connection, template_root: Path | None
+    connection: Any, template_root: Path | None
 ) -> list[list[str]]:
     mapping = _template_part_mapping(template_root) if template_root else None
     if mapping is not None:
@@ -157,8 +157,7 @@ def render_mirror_parts(
     """
     target = Path(target_root)
     target.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(f"file:{Path(database).as_posix()}?mode=ro", uri=True)
-    try:
+    with open_codex_store(database) as connection:
         version = str(
             dict(connection.execute("SELECT key, value FROM metadata")).get(
                 "codex_version", ""
@@ -174,8 +173,6 @@ def render_mirror_parts(
             for chunk in chunks
             for table in chunk
         }
-    finally:
-        connection.close()
     assembled_hash = hashlib.sha256(
         canonical_json({"codex_version": version, "tables": tables}).encode("utf-8")
     ).hexdigest()
@@ -218,11 +215,8 @@ def mirror_errors(
 def mirror_parity_errors(
     database: str | Path, mirror_tables: Mapping[str, object]
 ) -> tuple[str, ...]:
-    connection = sqlite3.connect(f"file:{Path(database).as_posix()}?mode=ro", uri=True)
-    try:
+    with open_codex_store(database) as connection:
         return mirror_text_parity_errors(connection, mirror_tables)
-    finally:
-        connection.close()
 
 
 def record_mirror_quality_evidence(
@@ -231,8 +225,7 @@ def record_mirror_quality_evidence(
     """Record the recomputed mirror-quality evidence in the staged database."""
     mirror = load_chinese_codex_parts(Path(parts_root))
     metrics = mirror_quality_metrics(mirror["tables"])
-    connection = sqlite3.connect(str(database))
-    try:
+    with open_codex_store(database, write_back=True) as connection:
         connection.execute(EVIDENCE_SCHEMA)
         version = str(
             connection.execute(
@@ -247,7 +240,7 @@ def record_mirror_quality_evidence(
         loss = int(metrics["question_loss_field_count"])
         result = "PASS" if replacement == 0 and loss == 0 else "FAIL"
         connection.execute(  # sql-ok: schema-introspected or fixed table identifiers
-            f"INSERT OR REPLACE INTO {EVIDENCE_TABLE} VALUES (?, 5, ?, ?, 1, 1, ?, ?, 'current')",
+            f"INSERT INTO {EVIDENCE_TABLE} VALUES (?, 5, ?, ?, 1, 1, ?, ?, 'current')",
             (
                 f"MIRROR@{version}",
                 replacement,
@@ -257,8 +250,6 @@ def record_mirror_quality_evidence(
             ),
         )
         connection.commit()
-    finally:
-        connection.close()
     return metrics
 
 

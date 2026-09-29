@@ -1,0 +1,133 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "bun-download-forbidden-20260928",
+  "title": "禁止透過 Bun 下載套件",
+  "summary": "Human-governor directive 2026-09-28: downloading packages through Bun is forbidden. Bun joins the forbidden download managers in C117/C28/C29, E172/E176 and the registered metadata; the package-version registry policy and the architecture artifacts carry the same prohibition. Codex-only change: no implementation is migrated by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 禁止透過BUN下載套件",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T17:05:37Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "dde236815cb189b0b9c926e43f503b70b3600f6eb0099bdb3ef2f30172ef6b41",
+    "revision_sequence": 162
+  },
+  "problem": {
+    "summary": "The published download-channel rule names Cargo/Go modules/NuGet/npm/pip but does not name Bun; a Bun package download would be captured only by the generic language-manager clause."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C117"
+      },
+      "field": "rule",
+      "proposed": "PACKAGE-VERSION-SYNC:the automation core owns periodic package version reconciliation as a registered periodic flow: detect installed toolchain and package versions across every governed surface (vendored toolchains, language runtimes, dependency manifests, services), run governed upgrades through Winget where one exists under policy bounds,with Visual Studio Installer as the only other authorized download channel;language package managers (Cargo,Go modules,NuGet,npm,pip,bun and successors) never perform a network download and may use only vendored or already-registered dependency artifacts inside the registered dependency root;components installed through the Visual Studio Installer (MSVC toolset,Windows SDK and VS-managed build components) remain a registered exception, and reconcile declared codex versions to installed actuals by emitting codex-amendment-request artifacts through the governed intake pipeline -- never by direct authority writes; upgrades are fail-closed when the ecosystem is offline or vendored;PACKAGE-LIST:the registered technologies table in config/package-version-sync.json is the sole package inventory and no entry may be added,removed or have its mode changed without an explicit permission artifact.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C117"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:direct codex writes outside the amendment pipeline|network package fetch by any language package manager|unbounded upgrade commands|version drift left unreconciled without an emitted amendment or recorded deferral|private scheduling outside AutomationCore|package-list-change-without-explicit-permission|bun-package-download"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C28"
+      },
+      "field": "rule",
+      "proposed": "DEPENDENCY-AUTHORITY:automation-core automatically updates registered dependency versions but cannot admit a new dependency identity/source/runtime without current explicit permission artifact. ADMISSION:request declares purpose+owner+consumers+alternatives+direct/transitive graph+source+exact candidate+license+security+privilege/network/data/resource footprint; permission-core allow/deny precedes any fetch/install/lock/execute. UPDATE:registered identity follows 14-day normal rule or verified emergency exception and all gates;every package download uses exactly Visual Studio Installer or Winget;language package managers (including Bun) never perform a network download and use only vendored or already-registered artifacts;a package neither channel can provide requires an explicit permission artifact;Python and Node.js are forbidden:no download,install,execution,residency or transitional period. RETIREMENT:consumer cutover+stability+zero active consumer+zero lock/manifest/runtime reference+data/config migration+bounded rollback retention+purge receipt; terminal PURGED means no binary,package,cache,environment,model artifact or executable reference remains. INVENTORY:current+rollback-only+retirement state machine machine-readable.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C29"
+      },
+      "field": "rule",
+      "proposed": "BOUNDARY:local authored code remains authority;third-party dependencies are exact pinned immutable artifacts. NEW-ADMISSION:explicit permission required for every new identity,source,introduced transitive dependency and package-list addition; no permission means no network fetch,installation,manifest/lock change or execution;package download channels are exactly Visual Studio Installer and Winget;language package managers (including Bun) never perform a network download and use only vendored or already-registered artifacts except under an explicitly permitted exception;Python and Node.js are forbidden without exception. EXISTING-UPDATE:D28/C28 automated timing and gates. RETIREMENT:replace consumers+remove lock/manifest reference+verify zero runtime load+retain at most one prior version during bounded rollback window+automatic purge after expiry; purge removes installed files,caches,staging remnants and rebuildable artifacts while retaining only audit/receipt metadata.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "edicts",
+      "key": {
+        "provision_id": "E172"
+      },
+      "field": "edict",
+      "proposed": "LOCAL-CODE:owned-source; DEPENDENCY:exact-identity+lock+provenance+SBOM+license+security+compatibility+owner+purpose; TRANSITIVE:included; TOOLCHAIN:governed-third-party; FLOATING/AUTO-INSTALL/UNMANAGED-BINARY/POSTINSTALL-UNREVIEWED/LEGACY-SUB-SOVEREIGN:none;PACKAGE-MANAGER:download-channels=visual-studio-installer|winget+language-managers-no-network-download+bun-download-forbidden+exceptions-require-explicit-permission+python-node-forbidden"
+    },
+    {
+      "table": "edicts",
+      "key": {
+        "provision_id": "E176"
+      },
+      "field": "edict",
+      "proposed": "ROOT:E:\\AI; INSTALL-ONLY:runtime|interpreter|SDK|toolchain|package|library|non-Ollama-model|managed-service-binary|dependency-cache; EXCEPTION-1:Windows-11-native-tools-at-OS-owned-paths; EXCEPTION-2:Ollama-runtime+download+Ollama-managed-model-store-at-exact-registered-C-drive-paths; PROJECT-CODE:E:\\GPTBridge-only;PACKAGE-MANAGER:download-channels=visual-studio-installer|winget+language-managers-offline-vendored-only+bun-download-forbidden+vendor-install-paths-permitted+other-exceptions-require-explicit-permission+python-node-forbidden; OTHER-PROJECT-LOCAL/GLOBAL/PROFILE/TEMP/DRIVE/UNC/FALLBACK/IN-PLACE-UPDATE:none"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "package_download_policy"
+      },
+      "field": "value",
+      "proposed": "exactly-two-channels|language-managers-no-network-download|bun-download-forbidden|vendored-artifacts-only"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "package_registry_policy"
+      },
+      "field": "value",
+      "proposed": "additions-explicit-permission|removals-and-mode-changes-governed|download-channels-visual-studio-installer-winget|language-managers-detect-only|python-node-forbidden|bun-download-forbidden"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "forbidden_download_managers",
+          "value": "pip|npm|bun|cargo|go-modules|nuget"
+        }
+      ]
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "bb4b64b9b901a9b79db64817dc20616fd57a2b4f8c3bbd0c41f8a476a0717ac3",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T17:11:19Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "0a864794324d384af0364a913c9da8ef4cfc94074016270502766c217f019088",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T17:11:19Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T17:11:19Z",
+    "expected_audit_result": "every package-download provision and registry names Bun as forbidden; the architecture artifacts and Chinese mirror carry the same generation"
+  }
+}

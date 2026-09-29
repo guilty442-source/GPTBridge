@@ -463,7 +463,6 @@ class GovernedCliExecutor:
             {
                 "PYTHONUTF8": "1",
                 "PYTHONIOENCODING": "utf-8",
-                "PYTHONDONTWRITEBYTECODE": "1",
                 "PYTHONNOUSERSITE": "1",
             }
         )
@@ -473,9 +472,9 @@ class GovernedCliExecutor:
         if requester_actor:
             environment["GPTBRIDGE_GOVERNED_REQUESTER_ACTOR"] = requester_actor
         environment["GPTBRIDGE_GOVERNED_REQUEST_ID"] = request_id
+        # No -B / no PYTHONDONTWRITEBYTECODE: persist caches for restarts.
         process = await asyncio.create_subprocess_exec(
             os.fspath(Path(os.sys.executable).resolve()),
-            "-B",
             "-s",
             os.fspath(self.entry),
             *raw_args,

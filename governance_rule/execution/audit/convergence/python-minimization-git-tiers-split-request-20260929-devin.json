@@ -1,0 +1,30 @@
+{
+  "id": "python-minimization-git-tiers-split-request-20260929-devin",
+  "date": "2026-09-29",
+  "worker": "devin-cli",
+  "type": "adjudication-request",
+  "authority": "governance-rule-only",
+  "subject": "PYTHON_MINIMIZATION_BASELINE rev13 GOVERNANCE file-count growth from A185/A50-mandated git_tiers source-size splits",
+  "measured_at": "2026-09-29T16:30:00+08:00",
+  "baseline_rev": "rev13-pyret-inference-stack",
+  "context": "A50/A185 source-size governance (SOURCE_MODULE_MAX_EFFECTIVE_LINES=500) required splitting two oversized git_tiers modules. The ratchet counts files, so modularization raises the GOVERNANCE file count while net LOC is negative. Same adjudication class as adjudications_rev5 (shared-layer modularization split) and the already-filed python-minimization-audit-package-split-request-20260929-devin.",
+  "violations": [
+    {
+      "bucket": "GOVERNANCE",
+      "baseline": "246f/67056",
+      "measured": "280f/68661",
+      "delta": "+34f/+1605",
+      "attribution": "+8 files / net -15 loc from this refactor: git_control_plane.py 1222->131 split into git_control_plane_types/collectors/runtime/actions (+4f); baseline/__init__.py 1128->60 split into baseline/specs/introspection/freeze/payload (+4f). New module headers/preludes account for the small positive overhead absorbed by the deletion of the originals. Remaining +26f/+1620 is foreign in-flight already covered by python-minimization-reanchor-request-20260929 and python-minimization-audit-package-split-request-20260929-devin."
+    }
+  ],
+  "verification": {
+    "python_audit": "python -m governance_rule.execution.audit -> [PASS] single-authority runtime governance (uv cpython-3.11 + scratch venv; project venv base interpreter mid-migration)",
+    "baseline_integrity": "baseline.verify_baseline() on the existing golden manifest returns ACTIVE/ok - digest mechanism byte-identical after split",
+    "surface_parity": "baseline.__all__ exports all resolve; private helpers (_component_map/_gate_evidence/_complexity_budget/...) re-exported via the package shim; git_control_plane public names import cleanly",
+    "size_compliance": "all new modules <= 364 lines (specs 231 / introspection 364 / freeze 176 / payload 303 / __init__ 60; gcp types 303 / collectors 207 / runtime 310 / actions 250 / gcp 131)"
+  },
+  "requested_governor_actions": [
+    "adjudicate interim re-anchor for GOVERNANCE files covering the A185-mandated git_tiers splits (+8f) together with the already-filed deltas in python-minimization-reanchor-request-20260929 and python-minimization-audit-package-split-request-20260929-devin",
+    "after re-anchor, only-tighten resumes on the new module surface"
+  ]
+}

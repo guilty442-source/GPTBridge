@@ -136,16 +136,15 @@ fn spawn_boot_core(lib: &RuntimePathLibrary, auto_kill_backend_port: bool) {
         hex::encode(buf)
     };
 
-    let mut args = vec![
-        "-u".to_string(),
-        lib.boot_core_entry.to_string_lossy().to_string(),
-        "--serve".to_string(),
-    ];
+    // The governed Rust host owns the IPC gateway and tool lifecycle.
+    // Python holds zero fallback roles — a missing native executable is
+    // fail-closed upstream in start_backend_inner.
+    let mut args = vec!["--serve".to_string()];
     if auto_kill_backend_port {
         args.push("--auto-kill-backend-port".to_string());
     }
 
-    let mut command = Command::new(&lib.python_executable);
+    let mut command = Command::new(&lib.native_backend_executable);
     command
         .args(&args)
         .current_dir(&lib.workspace_root)
@@ -225,11 +224,11 @@ pub(crate) fn start_backend_inner(force_replacement: bool) {
 
     {
         let mut s = state().lock().unwrap();
-        for (path, label) in [
-            (&lib.python_executable, "Python executable"),
-            (&lib.boot_core_entry, "boot_core entry"),
-            (&lib.python_entry, "Python entry"),
-        ] {
+        // Fail closed when the governed native backend binary is absent —
+        // the retired Python supervisor chain is not a fallback.
+        let required: Vec<(&std::path::PathBuf, &str)> =
+            vec![(&lib.native_backend_executable, "native backend executable")];
+        for (path, label) in required {
             if !path.exists() {
                 s.status = BackendStatus::Error;
                 s.message = format!("{label} not found: {}", path.display());

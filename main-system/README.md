@@ -55,13 +55,15 @@ Electron main process
 ## 品質檢查
 
 ```powershell
-npm run governance:audit
-npm run build:renderer
-npm run doctor -- --json
-.\.venv\Scripts\python.exe -m pytest -q
+# 治理審計（倉庫根目錄執行）
+main-system\.venv\Scripts\python.exe -m governance_rule.execution.audit
+# 前端建置（main-system 目錄執行，SWC→ESM→esbuild 原生鏈）
+.venv\Scripts\python.exe scripts/packager/renderer_build.py --all
+# 環境檢查
+.venv\Scripts\python.exe scripts/doctor_environment.py --strict
 ```
 
-CI 會阻擋 JavaScript 建置、治理、依賴安裝與 Python 測試失敗。
+CI 會阻擋前端建置、治理與環境檢查失敗。
 
 ## 執行期資料
 

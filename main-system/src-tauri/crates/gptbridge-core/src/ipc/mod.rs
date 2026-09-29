@@ -3,6 +3,8 @@
 pub mod discovery;
 pub mod envelope;
 pub mod http;
+pub mod ws;
+pub mod ws_server;
 
 pub use envelope::{RequestEnvelope, IPC_ENVELOPE_VERSION};
 
@@ -11,3 +13,5 @@ pub use discovery::{
     LOOPBACK_HOST,
 };
 pub use http::{get, post, HttpResponse};
+pub use ws::{LoopbackSocket, WsEvent};
+pub use ws_server::{HttpRequest, ServerEvent, ServerSocket, ServerWriter};

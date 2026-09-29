@@ -36,8 +36,9 @@ import sys
 import threading
 import time
 import urllib.request
+from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import Any, Deque
 
 from startup_core.phases import PhaseMixin
 from startup_core.governance import GovernanceMixin
@@ -96,7 +97,11 @@ class BootCore(
         self._health_thread: threading.Thread | None = None
         self._watchdog: threading.Thread | None = None
         self._connection_watchdog: Any = None
-        self._child_output: list[str] = []
+        # Bounded in-memory diagnostic window: deque(maxlen) evicts the
+        # oldest line in O(1) per append, keeping a stable last-200 window
+        # (the former list + periodic del[:100] paid an O(n) memmove and a
+        # 101..200 sawtooth).  Readers snapshot via list() under the lock.
+        self._child_output: Deque[str] = deque(maxlen=200)
         self._child_output_lock = threading.Lock()
         # Latched by _probe_health when the backend reports startup_dead —
         # terminal for that generation (the flag never unlatches), so the

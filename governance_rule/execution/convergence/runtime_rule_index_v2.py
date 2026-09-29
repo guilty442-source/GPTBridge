@@ -28,7 +28,6 @@ import argparse
 import hashlib
 import json
 import os
-import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -44,7 +43,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # Post-cutover (A173) the codex authority is PostgreSQL ``gptbridge_codex``;
 # DEFAULT_DATABASE only survives for explicit predecessor/staging fixtures.
 DEFAULT_DATABASE = (
-    PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sqlite3"
+    PROJECT_ROOT / "governance_rule" / "codex" / "data" / "governance_codex.sql"
 )
 DEFAULT_OUTPUT = (
     PROJECT_ROOT / "main-system" / "runtime" / "state" / "runtime-rule-index-v2.json"
@@ -81,11 +80,11 @@ class IndexNotReady(RuntimeError):
     """INDEX_NOT_READY — callers must use the governed canonical path."""
 
 
-def _rows(db: sqlite3.Connection, sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+def _rows(db, sql: str, params: tuple = ()) -> list:
     return db.execute(sql, params).fetchall()
 
 
-def _codex_version(db: sqlite3.Connection) -> str:
+def _codex_version(db) -> str:
     try:
         row = db.execute(
             "select value from metadata where key='codex_version'"
@@ -169,9 +168,9 @@ def _resolve_successor(
     raise IndexBuildError(f"UNRESOLVED_SUCCESSOR:{key}:no-edge")
 
 
-def build_index(db: sqlite3.Connection) -> dict[str, Any]:
+def build_index(db) -> dict[str, Any]:
     """Build the V2 index document from the codex database."""
-    db.row_factory = sqlite3.Row
+    db.row_factory = True
     started = time.monotonic()
 
     classifications = load_classifications(db)
@@ -482,7 +481,7 @@ def build_index(db: sqlite3.Connection) -> dict[str, Any]:
     return body
 
 
-def validate_index(index: Mapping[str, Any], db: sqlite3.Connection) -> list[str]:
+def validate_index(index: Mapping[str, Any], db) -> list[str]:
     """Mandatory post-build verification (count/identity/hash/successor/acyclic)."""
     errors: list[str] = []
     if index.get("schema") != SCHEMA:
@@ -588,7 +587,7 @@ class RuntimeRuleIndex:
     def codex_version(self) -> str:
         return str(self._doc.get("codex_version", ""))
 
-    def check_fresh(self, db: sqlite3.Connection) -> None:
+    def check_fresh(self, db) -> None:
         if _codex_version(db) != self.codex_version:
             raise IndexNotReady(
                 f"INDEX_NOT_READY: generation {self.codex_version} != codex {_codex_version(db)}"
@@ -638,7 +637,7 @@ class RuntimeRuleIndex:
         return list(self._doc["indexes"]["elements"].get(name, ()))
 
 
-def _validate_then_swap(document: dict[str, Any], db: sqlite3.Connection, output: Path) -> None:
+def _validate_then_swap(document: dict[str, Any], db, output: Path) -> None:
     errors = validate_index(document, db)
     if errors:
         raise IndexBuildError("VALIDATE_FAILED:" + "; ".join(errors[:6]))

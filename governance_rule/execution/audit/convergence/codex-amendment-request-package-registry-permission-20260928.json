@@ -1,0 +1,87 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "package-registry-permission-20260928",
+  "title": "套件清單為唯一註冊清單；未經允許不得增加",
+  "summary": "Human-governor directive 2026-09-28: update the registered package list and require that no package/technology entry may be added to it without an explicit permission artifact. config/package-version-sync.json technologies is declared the sole package inventory; it now carries only permitted entries (Python, Node, NumPy, JAX and React removed; language-ecosystem deps detect-only, no network download). Codex-only change: no implementation is migrated by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 套件清單更新，並規定未經允許不得增加",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T16:52:31Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "8ec1a831ae419fe9a8c33d5d260b29c5040bbf04a2755e9d3b7cc527d1451066",
+    "revision_sequence": 160
+  },
+  "problem": {
+    "summary": "The registered package list was implicit: C117 named the reconciliation flow but not the authoritative inventory, and additions had no explicit permission gate at the list level."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C117"
+      },
+      "field": "rule",
+      "proposed": "PACKAGE-VERSION-SYNC:the automation core owns periodic package version reconciliation as a registered periodic flow: detect installed toolchain and package versions across every governed surface (vendored toolchains, language runtimes, dependency manifests, services), run governed upgrades through Winget where one exists under policy bounds,with Visual Studio Installer as the only other authorized download channel;language package managers (Cargo,Go modules,NuGet,npm,pip and successors) never perform a network download and may use only vendored or already-registered dependency artifacts inside the registered dependency root;components installed through the Visual Studio Installer (MSVC toolset,Windows SDK and VS-managed build components) remain a registered exception, and reconcile declared codex versions to installed actuals by emitting codex-amendment-request artifacts through the governed intake pipeline -- never by direct authority writes; upgrades are fail-closed when the ecosystem is offline or vendored;PACKAGE-LIST:the registered technologies table in config/package-version-sync.json is the sole package inventory and no entry may be added,removed or have its mode changed without an explicit permission artifact.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C29"
+      },
+      "field": "rule",
+      "proposed": "BOUNDARY:local authored code remains authority;third-party dependencies are exact pinned immutable artifacts. NEW-ADMISSION:explicit permission required for every new identity,source,introduced transitive dependency and package-list addition; no permission means no network fetch,installation,manifest/lock change or execution;package download channels are exactly Visual Studio Installer and Winget;language package managers never perform a network download and use only vendored or already-registered artifacts except under an explicitly permitted exception;Python and Node.js are forbidden without exception. EXISTING-UPDATE:D28/C28 automated timing and gates. RETIREMENT:replace consumers+remove lock/manifest reference+verify zero runtime load+retain at most one prior version during bounded rollback window+automatic purge after expiry; purge removes installed files,caches,staging remnants and rebuildable artifacts while retaining only audit/receipt metadata.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "new_dependency_policy"
+      },
+      "field": "value",
+      "proposed": "explicit-permission-required-before-download-install-lock-execute|direct-and-transitive|new-source-and-runtime-included|package-list-addition-included"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "package_registry",
+          "value": "config/package-version-sync.json"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "package_registry_additions",
+          "value": "explicit-permission-artifact-required"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "package_registry_policy",
+          "value": "additions-explicit-permission|removals-and-mode-changes-governed|download-channels-visual-studio-installer-winget|language-managers-detect-only|python-node-forbidden"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T17:01:15Z",
+    "expected_audit_result": "C117 names config/package-version-sync.json as the sole package inventory, C29 requires permission for package-list additions, and metadata registers the registry identity and permission policy"
+  }
+}

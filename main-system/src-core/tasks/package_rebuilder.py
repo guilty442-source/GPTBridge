@@ -90,14 +90,12 @@ class ToolPackageRebuilder:
             {
                 "PYTHONUTF8": "1",
                 "PYTHONIOENCODING": "utf-8",
-                "PYTHONDONTWRITEBYTECODE": "1",
             }
         )
         try:
             completed = subprocess.run(
                 [
                     str(Path(sys.executable).resolve()),
-                    "-B",
                     "-X",
                     "utf8",
                     str(self.package_script),

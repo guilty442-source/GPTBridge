@@ -97,7 +97,7 @@
   "central_local_layers": {
     "central-index": "resource-registry-relations-status-postgresql",
     "semantic-index": "document-chunk-vectord-vector-mapping",
-    "transport": "governed-system-and-ai-requests-local-sqlite3",
+    "transport": "governed-system-and-ai-requests-postgresql",
     "audit": "append-only-governance-and-execution-events"
   },
   "module_private_layers": {
@@ -114,13 +114,13 @@
       "resource_label", "classification", "version", "content_hash"
     ],
     "mandatory_query_filter": "module_id",
-    "sqlite_fallback": true
+    "sqlite_fallback": false
   },
   "access_enforcement": {
     "default_cross_module_access": "deny",
     "governance_rule": "decision-authority",
     "shared_layer": "caller-resource-action-validation",
-    "local_sqlite": "declared-path-and-executor-validation",
+    "module_private_store": "declared-path-and-executor-validation",
     "central_index_physical_path": "prohibited",
     "central_index_locator": "opaque-locator-id-only"
   },

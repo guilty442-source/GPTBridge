@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from ..pipeline_retrieval import RerankerFn, reciprocal_rank_fusion
+from ..pipeline import RerankerFn, reciprocal_rank_fusion
 
 _logger = logging.getLogger("gptbridge.rag.memory")
 

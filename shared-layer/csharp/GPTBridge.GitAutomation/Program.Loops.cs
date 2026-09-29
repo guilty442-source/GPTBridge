@@ -1,0 +1,88 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace GPTBridge.GitAutomation;
+
+internal static partial class Program
+{
+
+    private static async Task<int> Watch(string root, Options options)
+    {
+        var service = new Service(root, options);
+        return await service.Run();
+    }
+
+    // -- sweep / sync primitives (shared with --once / --sweep / --sync) --
+
+    private static JsonObject Sweep(
+        string root, Options options,
+        Dictionary<string, (string, double)> dirtySince)
+    {
+        var results = new JsonObject();
+        var scopes = new JsonObject();
+        var now = Environment.TickCount64 / 1000.0;
+        var worktrees = Sync.ListWorktrees(root).Select(w => w.Path)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (!worktrees.Contains(root, StringComparer.OrdinalIgnoreCase))
+            worktrees.Insert(0, Path.GetFullPath(root));
+        foreach (var worktree in worktrees)
+        {
+            Status.Snapshot snapshot;
+            try
+            {
+                snapshot = Status.CaptureSnapshot(worktree);
+            }
+            catch (Exception)
+            {
+                dirtySince.Remove(worktree);
+                continue;
+            }
+            if (!snapshot.Dirty)
+            {
+                dirtySince.Remove(worktree);
+                continue;
+            }
+            scopes[worktree] = new JsonArray(
+                snapshot.AffectedScopes
+                    .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray());
+            if (!dirtySince.TryGetValue(worktree, out var marker)
+                || marker.Item1 != snapshot.Fingerprint)
+            {
+                dirtySince[worktree] = (snapshot.Fingerprint, now);
+                results[worktree] = "debounce";
+                continue;
+            }
+            if (now - marker.Item2 < options.Debounce)
+            {
+                results[worktree] = "debounce";
+                continue;
+            }
+            var status = SelfCommit.RunOnce(
+                root, worktree, snapshot: snapshot);
+            results[worktree] = status;
+            if (status is "committed" or "clean")
+                dirtySince.Remove(worktree);
+        }
+        return new JsonObject
+        {
+            ["at"] = Canon.EpochSeconds(),
+            ["results"] = results,
+            ["affected_scope"] = scopes,
+        };
+    }
+
+    private static string SyncCycle(
+        string root, Options options, bool push = false)
+    {
+        var effectivePush = push || options.Push;
+        try
+        {
+            return Sync.Synchronize(root,
+                commitDirty: options.CommitDirty, push: effectivePush);
+        }
+        catch (LockBusyException)
+        {
+            return "skipped:lock-busy";
+        }
+    }
+}

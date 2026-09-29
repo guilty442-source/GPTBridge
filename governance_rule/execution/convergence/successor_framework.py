@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,7 +29,7 @@ from typing import Any, Mapping, Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CODEX_ROOT = PROJECT_ROOT / "governance_rule" / "codex"
-LIVE_CODEX = CODEX_ROOT / "data" / "governance_codex.sqlite3"
+LIVE_CODEX = CODEX_ROOT / "data" / "governance_codex.sql"
 CONVERGENCE_DIR = PROJECT_ROOT / "governance_rule" / "execution" / "audit" / "convergence"
 
 MIGRATION_STATUSES = ("retain", "special-governs", "superseded")
@@ -38,6 +37,41 @@ MIGRATION_STATUSES = ("retain", "special-governs", "superseded")
 
 class ConvergenceError(RuntimeError):
     """Fail-closed convergence pipeline denial."""
+
+
+class _ArtifactBoundConnection:
+    """Stage-schema connection bound to a ``.sql`` artifact.
+
+    ``commit()`` dumps the stage schema back into the artifact so the file
+    always carries the latest committed mutation; ``close()`` drops the
+    throwaway stage schema (write-back happens inside the context exit).
+    """
+
+    def __init__(self, artifact: Path):
+        from governance_rule.execution.codex_postgresql_stage import (
+            dump_schema,
+            open_artifact,
+        )
+
+        self._artifact = Path(artifact)
+        self._ctx = open_artifact(self._artifact, write_back=False)
+        self._conn = self._ctx.__enter__()
+
+    def __getattr__(self, name: str):
+        return getattr(self._conn, name)
+
+    def commit(self) -> None:
+        self._conn.commit()
+        dump_schema(self._conn.schema, self._artifact)
+
+    def close(self) -> None:
+        self._ctx.__exit__(None, None, None)
+
+    def __enter__(self) -> "_ArtifactBoundConnection":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
 
 
 @dataclass(frozen=True)
@@ -50,8 +84,10 @@ class StagedGeneration:
     # through the governed path instead of copying a file back.
     authority_source: bool = False
 
-    def connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(str(self.path))
+    def connect(self):
+        if Path(self.path).suffix == ".sql":
+            return _ArtifactBoundConnection(self.path)
+        raise ConvergenceError(f"SQLITE_FIXTURE_RETIRED:{self.path}")
 
 
 @dataclass(frozen=True)
@@ -79,7 +115,7 @@ def stage_copy(live: Path = LIVE_CODEX, *, staging_root: Path | None = None) -> 
         raise ConvergenceError(f"CODEX_MISSING:{live}")
     root = Path(staging_root) if staging_root else Path(tempfile.mkdtemp(prefix="codex-convergence-"))
     root.mkdir(parents=True, exist_ok=True)
-    target = root / "staged-codex.sqlite3"
+    target = root / f"staged-codex{live_path.suffix or '.sql'}"
     if authority_source:
         from governance_rule.execution.codex_postgresql import (
             export_postgresql_codex,
@@ -111,7 +147,7 @@ def load_re_tiering_plan(path: Path | None = None) -> dict[str, Any]:
     return plan
 
 
-def _migration(conn: sqlite3.Connection, provision_id: str, law: str, status: str,
+def _migration(conn, provision_id: str, law: str, status: str,
                successor: str | None, normalization: str, version: str) -> None:
     if status not in MIGRATION_STATUSES:
         raise ConvergenceError(f"MIGRATION_STATUS_INVALID:{status}")
@@ -123,7 +159,7 @@ def _migration(conn: sqlite3.Connection, provision_id: str, law: str, status: st
     )
 
 
-def _ensure_special_law(conn: sqlite3.Connection, law: str, spec: Mapping[str, Any], version: str) -> None:
+def _ensure_special_law(conn, law: str, spec: Mapping[str, Any], version: str) -> None:
     """Create the law directory rows when the target law does not exist yet."""
     if conn.execute("select 1 from law_structure_directory where law_code=?", (law,)).fetchone():
         return
@@ -150,7 +186,7 @@ def _ensure_special_law(conn: sqlite3.Connection, law: str, spec: Mapping[str, A
 
 
 def apply_re_tiering(
-    conn: sqlite3.Connection,
+    conn,
     plan: Mapping[str, Any],
     *,
     version: str,
@@ -239,7 +275,7 @@ def apply_re_tiering(
 
 
 def apply_formal_rule_disposition(
-    conn: sqlite3.Connection,
+    conn,
     *,
     retire: Sequence[str],
     version: str,
@@ -260,7 +296,7 @@ def apply_formal_rule_disposition(
     return OperationResult("formal-rule-disposition", applied=len(retire), details={"retired": list(retire)})
 
 
-def apply_closures(conn: sqlite3.Connection, closures: Sequence[Mapping[str, Any]], *, version: str) -> OperationResult:
+def apply_closures(conn, closures: Sequence[Mapping[str, Any]], *, version: str) -> OperationResult:
     """Insert/update convergence closure states."""
     for item in closures:
         code = str(item.get("component_code") or "")
@@ -281,7 +317,7 @@ def apply_closures(conn: sqlite3.Connection, closures: Sequence[Mapping[str, Any
 
 
 def apply_sub_sovereign_retirement(
-    conn: sqlite3.Connection,
+    conn,
     identities: Sequence[str],
     *,
     version: str,
@@ -374,8 +410,8 @@ def publish(staged: StagedGeneration, *, approve: bool = False) -> Path:
             render_mirror_parts,
         )
         from governance_rule.execution.codex_postgresql import (
-            import_sqlite_predecessor,
-            verify_sqlite_parity,
+            import_codex_artifact,
+            verify_sql_parity,
         )
         from governance_rule.execution.codex_update_pipeline import (
             _atomic_replace,
@@ -392,8 +428,8 @@ def publish(staged: StagedGeneration, *, approve: bool = False) -> Path:
             raise ConvergenceError(
                 "PUBLISH_MIRROR_INVALID:" + ";".join(mirror_problems[:3])
             )
-        import_sqlite_predecessor(staged.path)
-        if verify_sqlite_parity(staged.path)["result"] != "PASS":
+        import_codex_artifact(staged.path)
+        if verify_sql_parity(staged.path)["result"] != "PASS":
             raise ConvergenceError("PUBLISH_PARITY_FAILED")
         for name in PART_NAMES:
             _atomic_replace(staging_dir / name, CODEX_ROOT / name)
@@ -404,7 +440,7 @@ def publish(staged: StagedGeneration, *, approve: bool = False) -> Path:
 
 def _codex_connection(database: Path | None):
     """Read-only codex handle: governed PostgreSQL authority by default,
-    an explicit path opens a predecessor/staging sqlite fixture."""
+    an explicit ``.sql`` artifact opens a materialized stage schema."""
     from contextlib import contextmanager
 
     @contextmanager
@@ -417,13 +453,15 @@ def _codex_connection(database: Path | None):
             with codex_readonly_connection() as conn:
                 yield conn
             return
-        conn = sqlite3.connect(
-            f"file:{Path(database).as_posix()}?mode=ro&immutable=1", uri=True
-        )
-        try:
-            yield conn
-        finally:
-            conn.close()
+        if Path(database).suffix == ".sql":
+            from governance_rule.execution.codex_postgresql_stage import (
+                open_codex_store,
+            )
+
+            with open_codex_store(Path(database)) as conn:
+                yield conn
+            return
+        raise ConvergenceError(f"SQLITE_FIXTURE_RETIRED:{database}")
 
     return _open()
 

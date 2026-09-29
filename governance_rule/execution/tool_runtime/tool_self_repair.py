@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,18 +25,13 @@ def _iso_now() -> str:
 
 
 def database_integrity(path: Path) -> str:
+    """A610/A621: sqlite engines are retired — a file carrying the SQLite
+    magic header is *residue*, not a database to open.  Detection stays
+    header-only; the preservation flow below still copies any hit into the
+    recovery root as evidence."""
     raw = path.read_bytes()
-    if raw[:16] != b"SQLite format 3\x00":
-        raise sqlite3.DatabaseError("not a valid SQLite file")
-    connection = sqlite3.connect(
-        f"file:{path.as_posix()}?mode=ro", uri=True, timeout=3
-    )
-    try:
-        result = connection.execute("PRAGMA integrity_check").fetchone()
-    finally:
-        connection.close()
-    if not result or str(result[0]).casefold() != "ok":
-        raise sqlite3.DatabaseError(str(result))
+    if raw[:16] == b"SQLite format 3\x00":
+        raise ValueError("RETIRED_SQLITE_RESIDUE")
     return "ok"
 
 
@@ -132,7 +126,7 @@ class ToolLocalRepair:
             try:
                 database_integrity(database)
                 checked.append(relative)
-            except (OSError, sqlite3.DatabaseError) as error:
+            except (OSError, ValueError) as error:
                 stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
                 destination = recovery_root / f"{database.name}.{stamp}.corrupt"
                 try:

@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 import unicodedata
 from pathlib import Path
 from typing import Any, Final, Iterable, Mapping, Sequence
@@ -125,7 +124,7 @@ def revision_entry_hash(fields: Mapping[str, Any], *, exclude: Iterable[str] = (
 
 
 def _table_columns(
-    connection: sqlite3.Connection, table: str
+    connection, table: str
 ) -> tuple[tuple[str, bool], ...]:
     return tuple(
         (str(row[1]), bool(row[5]))
@@ -133,7 +132,7 @@ def _table_columns(
     )
 
 
-def _table_names(connection: sqlite3.Connection) -> tuple[str, ...]:
+def _table_names(connection) -> tuple[str, ...]:
     return tuple(
         str(row[0])
         for row in connection.execute(
@@ -144,7 +143,7 @@ def _table_names(connection: sqlite3.Connection) -> tuple[str, ...]:
 
 
 def _table_rows(
-    connection: sqlite3.Connection, table: str
+    connection, table: str
 ) -> tuple[dict[str, Any], ...]:
     columns = _table_columns(connection, table)
     if not columns:
@@ -162,7 +161,7 @@ def _table_rows(
 
 
 def _table_fingerprints(
-    connection: sqlite3.Connection, tables: Sequence[str]
+    connection, tables: Sequence[str]
 ) -> dict[str, str]:
     return {
         table: content_hash(_table_rows(connection, table))
@@ -170,30 +169,18 @@ def _table_fingerprints(
     }
 
 
-def compute_seal_preview(database: str | Path) -> dict[str, Any]:
-    """Compute deterministic candidate roots for review, never authoritative sealing.
-
-    ``content_root`` covers normative content tables, ``identity_root`` covers
-    registered ``*_directory``/``*_registry`` identity/status/binding tables,
-    and ``full_root`` covers every non-SQLite table.  The result also carries
-    per-table fingerprints so an auditor can locate divergence without
-    loading codex content into an audit log.
-    """
-    path = Path(database)
-    connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
-    try:
-        all_tables = _table_names(connection)
-        content_tables = tuple(
-            table for table in CONTENT_TABLES if table in all_tables
-        )
-        identity_tables = tuple(
-            table
-            for table in all_tables
-            if table.endswith("_directory") or table.endswith("_registry")
-        )
-        fingerprints = _table_fingerprints(connection, all_tables)
-    finally:
-        connection.close()
+def _seal_preview_from(connection) -> dict[str, Any]:
+    """Fingerprint a live codex store connection into seal-preview roots."""
+    all_tables = _table_names(connection)
+    content_tables = tuple(
+        table for table in CONTENT_TABLES if table in all_tables
+    )
+    identity_tables = tuple(
+        table
+        for table in all_tables
+        if table.endswith("_directory") or table.endswith("_registry")
+    )
+    fingerprints = _table_fingerprints(connection, all_tables)
     return {
         "schema": SEAL_PREVIEW_SCHEMA,
         "algorithm": CONTENT_HASH_ALGORITHM,
@@ -209,6 +196,23 @@ def compute_seal_preview(database: str | Path) -> dict[str, Any]:
         "identity_tables": list(identity_tables),
         "table_fingerprints": fingerprints,
     }
+
+
+def compute_seal_preview(database: str | Path) -> dict[str, Any]:
+    """Compute deterministic candidate roots for review, never authoritative sealing.
+
+    ``content_root`` covers normative content tables, ``identity_root`` covers
+    registered ``*_directory``/``*_registry`` identity/status/binding tables,
+    and ``full_root`` covers every non-SQLite table.  The result also carries
+    per-table fingerprints so an auditor can locate divergence without
+    loading codex content into an audit log.
+    """
+    try:
+        from .codex_postgresql_stage import open_codex_store
+    except ImportError:  # flat script import
+        from codex_postgresql_stage import open_codex_store
+    with open_codex_store(Path(database)) as connection:
+        return _seal_preview_from(connection)
 
 
 def validate_rule_state(

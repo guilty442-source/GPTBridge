@@ -1,6 +1,6 @@
 {
  "schema": "star-package-version-sync/v1",
- "comment": "A624: automation core owns package version reconciliation — detect installed toolchain/package versions, run governed upgrades where a package manager exists, then emit codex amendment requests so declared versions converge to actual. enabled=false is the kill switch; per-ecosystem mode=off|detect|upgrade. PACKAGE-LIST: this technologies table is the sole registered package inventory; no entry may be added, removed or have its mode changed without an explicit permission artifact. Downloads use exactly Visual Studio Installer and Winget; language package managers (cargo/go modules/nuget/npm/pip) never perform a network download and stay detect-only over vendored or already-registered artifacts. Python and Node are forbidden.",
+ "comment": "A624: automation core owns package version reconciliation — detect installed toolchain/package versions, run governed upgrades where a package manager exists, then emit codex amendment requests so declared versions converge to actual. enabled=false is the kill switch; per-ecosystem mode=off|detect|upgrade. PACKAGE-LIST: this technologies table is the sole registered package inventory; no entry may be added, removed or have its mode changed without an explicit permission artifact. Downloads use exactly Visual Studio Installer and Winget; language package managers (cargo/go modules/nuget/npm/pip/bun) never perform a network download and stay detect-only over vendored or already-registered artifacts; downloading packages through Bun is forbidden. Python and Node are forbidden.",
  "enabled": true,
  "intake_dir": "governance_rule/execution/audit/convergence",
  "state_file": "runtime/state/package-version-sync.json",
@@ -19,6 +19,14 @@
   "forbidden": [
    "python",
    "node"
+  ],
+  "forbidden_download_managers": [
+   "pip",
+   "npm",
+   "bun",
+   "cargo",
+   "go-modules",
+   "nuget"
   ]
  },
  "technologies": {
