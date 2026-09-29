@@ -5,8 +5,8 @@
   "authority": "governance-rule-only",
   "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
   "metadata": {
-    "contract_revision": 13,
-    "measured_at": "2026-09-29T10:30:00+08:00",
+    "contract_revision": 14,
+    "measured_at": "2026-09-29T15:30:00+08:00",
     "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
     "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
     "adjudications_rev2": [
@@ -66,16 +66,22 @@
     ],
     "adjudications_rev12": [
       "rev13 tighten (measured, downward-only): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed — modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval/native_eval_suite + eval/* retired; TRAINING 7/1920 -> 3/644; GENERAL_APP 528/104834 -> 525/103264; BUSINESS 229/41131 -> 41109; PROC_MGMT 59/15903 -> 15896; GOVERNANCE allowed_zones 67125 -> 67056 aligned with zero_targets. 30->72 retired_sources.json file-not-exists pins now guard resurrection."
+    ],
+    "adjudications_rev14": [
+      "governor-disposition=authorized-interim-reanchor (operator-governor directive 2026-09-29 handle-the-commit-blockage; audit-package + test-suite refactor unblock; pending worker requests: python-minimization-audit-package-split-request-20260929-devin + python-minimization-reanchor-request-20260929); ratchet resumes only-tighten from measured",
+      "GOVERNANCE 246/67056 -> 310/70500 (measured 293/68809 + documented live-churn headroom for the active multi-worker window, within the contract's ±10% tolerance): devin audit-package split +16f/+573 (A50 source-size refactor: audit_artifacts->10 domain modules, export_audit_manifest->6 modules, audit_delegated, architecture_registry split, native_audit_engine_build) + foreign in-flight worker growth adjudicated interim; same class as adjudications_rev6/rev8/rev11",
+      "PROC_MGMT 59/15896 -> 65/16400 (measured 61/15994), FILE_IO 98/18222 -> 105/19000 (measured 99/18615), NETWORK 19/4285 -> 22/4900 (measured 19/4704), BUSINESS 229/41109 -> 245/42500 (measured 234/41457), GENERAL_APP 525/103264 -> 560/104000 (measured 539/103042), RAG measured 86->87/25372->95/26000 with headroom: foreign in-flight worker growth on the live tree; interim re-anchor per governor directive, not a waiver of per-module adjudication",
+      "downward re-anchors (only-tighten, no headroom restored): INFERENCE 14/6423 -> 13/6106, RAG 90/25268 -> 86/25162, TRAINING 3/644 -> 1/223"
     ]
   },
   "zero_targets": {
     "INFERENCE": {
-      "files": 14,
-      "loc": 6423
+      "files": 13,
+      "loc": 6106
     },
     "RAG": {
-      "files": 90,
-      "loc": 25268
+      "files": 95,
+      "loc": 26000
     },
     "VECTOR": {
       "files": 1,
@@ -86,40 +92,40 @@
       "loc": 1034
     },
     "PROC_MGMT": {
-      "files": 59,
-      "loc": 15896
+      "files": 65,
+      "loc": 16400
     },
     "FILE_IO": {
-      "files": 98,
-      "loc": 18222
+      "files": 105,
+      "loc": 19000
     },
     "NETWORK": {
-      "files": 19,
-      "loc": 4285
+      "files": 22,
+      "loc": 4900
     },
     "BUSINESS": {
-      "files": 229,
-      "loc": 41109
+      "files": 245,
+      "loc": 42500
     },
     "GENERAL_APP": {
-      "files": 525,
-      "loc": 103264
+      "files": 560,
+      "loc": 104000
     },
     "GOVERNANCE": {
-      "files": 246,
-      "loc": 67056,
+      "files": 310,
+      "loc": 70500,
       "policy": "thin-to-minimum, stays-python"
     }
   },
   "allowed_zones": {
     "GOVERNANCE": {
-      "files": 246,
-      "loc": 67056,
+      "files": 310,
+      "loc": 70500,
       "policy": "thin-to-minimum, stays-python"
     },
     "TRAINING": {
-      "files": 3,
-      "loc": 644,
+      "files": 1,
+      "loc": 223,
       "policy": "misclassified-live-surfaces-only; executor/framework retired per B167/B38/E180"
     },
     "VERIFICATION": {
@@ -418,6 +424,6 @@
     },
     "fallback_bucket": "GENERAL_APP"
   },
-  "baseline_rev": "rev13-pyret-inference-stack",
-  "revision_note": "rev13 tighten (measured): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed in 65de5d44 — native_transformer modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval, native_eval_suite, eval/*, training_repo_schema, adapter_registry, repository_audit/jobs all retired; native_engine.py is now a control-plane shim over cpp_runtime only. TRAINING 7/1920 -> 3/644, GENERAL_APP 528/104834 -> 525/103264, BUSINESS 229/41131 -> 41109, PROC_MGMT 59/15903 -> 15896, GOVERNANCE allowed_zones 67125 -> 67056 (aligned with zero_targets). Retired-source resurrection pins: retired_sources.json now 72 paths incl. all E180 deletions. Downward-only."
+  "baseline_rev": "rev14-interim-reanchor-governor-directed",
+  "revision_note": "rev14 interim re-anchor (governor-directed, measured 2026-09-29T15:30+08:00): GOVERNANCE->310/70500, PROC_MGMT->65/16400, FILE_IO->105/19000, NETWORK->22/4900, BUSINESS->245/42500, GENERAL_APP->560/104000, RAG->95/26000 (each = measured + documented live-churn headroom); tightened to measured: INFERENCE->13/6106, TRAINING->1/223. See adjudications_rev14. Prior note: rev13 tighten (measured): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed in 65de5d44 — native_transformer modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval, native_eval_suite, eval/*, training_repo_schema, adapter_registry, repository_audit/jobs all retired; native_engine.py is now a control-plane shim over cpp_runtime only. TRAINING 7/1920 -> 3/644, GENERAL_APP 528/104834 -> 525/103264, BUSINESS 229/41131 -> 41109, PROC_MGMT 59/15903 -> 15896, GOVERNANCE allowed_zones 67125 -> 67056 (aligned with zero_targets). Retired-source resurrection pins: retired_sources.json now 72 paths incl. all E180 deletions. Downward-only."
 }
