@@ -8,7 +8,7 @@
   "dependency_manifest": [
     {
       "identity": "postgresql",
-      "owner": "data-runtime-sovereign",
+      "owner": "system-runtime-sovereign",
       "required_by": "main-system-authoritative-state",
       "criticality": "core-critical",
       "readiness_contract": "tcp-or-dsn-select-1",
@@ -18,7 +18,7 @@
     },
     {
       "identity": "vectord",
-      "owner": "rag-runtime-sovereign",
+      "owner": "system-runtime-sovereign",
       "required_by": "rag-semantic-retrieval",
       "criticality": "capability-critical",
       "readiness_contract": "loopback-tcp-8092",
@@ -28,7 +28,7 @@
     },
     {
       "identity": "ollama",
-      "owner": "model-runtime-sovereign",
+      "owner": "xingcheng-sovereign",
       "required_by": "local-model-inference",
       "criticality": "capability-critical",
       "readiness_contract": "loopback-tcp-11434",
@@ -97,7 +97,7 @@
       "normal-information-layer-active",
       "decision-active",
       "system-runtime-active",
-      "maintenance-active",
+      "automation-active",
       "all-core-critical-dependencies-ready"
     ],
     "bootstrap_capability_properties": [

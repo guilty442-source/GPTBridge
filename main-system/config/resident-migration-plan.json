@@ -45,9 +45,9 @@
     },
     {
       "component": "core_sovereigns",
-      "current": "python",
+      "current": "csharp",
       "target": "C/C++/C#",
-      "artifact": "native/core/*.c + governance/sovereigns (Python governance semantics retained)",
+      "artifact": "GPTBridge.MainSystem (runtime-core) + GPTBridge.Permission (permission-core) + GPTBridge.CodexPipeline (decision-core) + GPTBridge.GitAutomation (automation-core) - B162 five-core native hosts",
       "mode": "governor-gated",
       "owner": "裁決核心"
     },
