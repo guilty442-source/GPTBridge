@@ -15,18 +15,20 @@ PostgreSQL 是真正的 SQL 引擎；Python 不模擬交易、約束、索引、
 
 ## 全自動管理
 
-設定 `GPTBRIDGE_POSTGRES_ADMIN_DSN` 後，由 Python 執行：
+`shared_layer.database.manager` Python 模組已退役（B166/B167/B38）——
+以下歷史指令不可執行，僅保留為介面參考，直到受管原生 owner 的
+接替入口登錄為止：
 
 ```powershell
-python -m shared_layer.database.manager bootstrap
-python -m shared_layer.database.manager health
-python -m shared_layer.database.manager backup --file <backup-path>
-python -m shared_layer.database.manager restore --file <backup-path>
+# retired: python -m shared_layer.database.manager bootstrap
+# retired: python -m shared_layer.database.manager health
+# retired: python -m shared_layer.database.manager backup --file <backup-path>
+# retired: python -m shared_layer.database.manager restore --file <backup-path>
 ```
 
 本層不含安裝器，也不會下載 PostgreSQL 或模型。服務或本機 Runtime 不存在時，
-Python 只會回報未就緒並停止啟動，不會擅自安裝軟體。
+受管入口只會回報未就緒並停止啟動，不會擅自安裝軟體。
 
-不需要 `psql`、pgAdmin、Docker 或人工初始化 SQL。Bootstrap 會以 maintenance
-database 連線建立 Database/Role，再套用 Schema、Table、Index、RLS 與 Migration。
-備份與復原由 Python 呼叫 PostgreSQL 官方 `pg_dump`/`pg_restore`，不經 shell。
+Bootstrap 契約維持不變：以 maintenance database 連線建立 Database/Role，
+再套用 Schema、Table、Index、RLS 與 Migration；備份與復原使用 PostgreSQL
+官方 `pg_dump`/`pg_restore`，不經 shell。
