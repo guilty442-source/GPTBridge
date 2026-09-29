@@ -1,0 +1,197 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "webassembly-js-minimization-ts-forbid-20260929",
+  "title": "增加 WebAssembly；Tauri 保留；JS 少用（原生為主）；TypeScript 全面禁用",
+  "summary": "Human-governor directives 2026-09-29: register WebAssembly as a governed execution format (UI + governed sandbox) produced only by registered native owner languages, never authored or fetched unregistered; Tauri remains the retained desktop shell; JavaScript-ESM becomes a sparing, minimal WebView presentation surface with native GPUI/egui/Rust owning interaction-critical and high-volume views; TypeScript is fully forbidden with zero authored source or grandfathering (rule and extension registrations updated; .ts artifact paths in checker-structure provisions move to .js). Python prohibition is unchanged. Codex-only change: no implementation is migrated by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directives: 增加WebAssembly；tauri保留；js少用，以原生語言為主；ts禁用；py禁用",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T17:23:23Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "155488ce754e3b1ec829be630a991977ffc65df9e70931316a4b403a192a34e5",
+    "revision_sequence": 165
+  },
+  "problem": {
+    "summary": "WebAssembly had no registered role; Tauri retention was implicit; JavaScript-ESM had no minimization rule; TypeScript kept a MIGRATION_ONLY allowance, grandfathered extensions and .ts artifact paths in active checker-structure provisions."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B170"
+      },
+      "field": "rule",
+      "proposed": "LANGUAGE-TABLE:C C23 runtime-core+permission-hot-paths+native-test-primitives;C++ C++23 inference+native-runtime+all-formal-test-execution+Audit-Engine+Resource-Governor;Rust 1.98.1 UI-core+state+lifecycle+IPC+security+OS-integration+RAG+vector;Go 1.27.1 web-search+batch+network-file-IO;CSharp14/.NET10 authorized-workflow+API+sole-TestSuiteOrchestrator;FSharp10/.NET10 business+validation+analysis+ML+high-correctness-compute;Python+NumPy+JAX=retired(zero-role/consumer/artifact/fallback,no-transition);Native-JavaScript-ESM+JSDoc general-UI;Julia scientific-compute;SQL PostgreSQL18.6 sole-structured-authority;WebAssembly registered-execution-format(UI+governed-sandbox;Tauri desktop shell retained),produced only by registered native owner languages,never authored directly;UI:Tauri+GPUI+egui;BUILD:SWC+Esbuild;TEST-AUDIT:Python/pytest execution count zero in every environment;RESOURCE-GOVERNOR:C++23 sole project-wide regulator with scoped system-administrator identity"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B166"
+      },
+      "field": "rule",
+      "proposed": "PRIMARY:C/Rust process+lifecycle+runtime;C++23 production inference+native runtime+formal test execution+audit;CSharp application+workflow+API+sole test orchestration;FSharp business+validation+analysis;Go file/network/batch;Rust RAG+vector+security+UI core;Native-JavaScript-ESM+JSDoc minimal general UI (native views own interaction-critical and high-volume surfaces);Tauri shell;GPUI high-performance workspace;egui engineering views;Julia scientific compute;PostgreSQL sole structured authority;PYTHON+NUMPY+JAX:retired;no role,residency,dependency,artifact or fallback remains and no transitional period exists;RESOURCE:C++23 resource governor is the sole project-wide regulator with administrator scope limited to resource regulation;DETAILS:versions,metrics,thresholds,tuning and implementation methods are owner-local rules;AUTHORING:every new or modified implementation is authored in the registered native owner language with efficient patterns and measured evidence;interpreted,scripting and retired runtimes are never an authoring or fallback target;WEBASSEMBLY:registered execution format for UI and governed sandbox,produced only by registered native owner languages,never authored directly,subject to the package-download rules;TAURI:retained desktop shell+WebView+window-management+JS-Rust-bridge."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B168"
+      },
+      "field": "rule",
+      "proposed": "FRONTEND-LANGUAGE:Native JavaScript ESM+JSDoc is the sole authored WebView presentation language and owns settings+tool-panels+tables+forms+state-presentation; BUILD:standalone SWC transform>ESM>Esbuild bundle with Rust contract validation; formal evaluator verifies authored frontend language_id=native-javascript-esm fail-closed;MINIMIZATION:JavaScript-ESM usage is sparing;native GPUI/egui and Rust/Tauri views own interaction-critical and high-volume surfaces;JavaScript-ESM owns only the irreducible WebView presentation surface and no business,orchestration,runtime or data logic;TYPESCRIPT:forbidden with zero authored source or grandfathering\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B32"
+      },
+      "field": "rule",
+      "proposed": "INTERFACE:Rust owns UI application-core+state-core+security+IPC+lifecycle+OS-integration; PRESENTATION:minimal Native-JavaScript-ESM+JSDoc owns only the irreducible settings+tool-panels+tables+forms+state-presentation surface through Tauri WebView;native GPUI/egui views own interaction-critical and high-volume surfaces; NATIVE-VIEWS:GPUI owns model-dialogue+coding-workspace+large-text+virtual-lists and egui owns diagnostics+profiling+governance-inspector+engineering-console+debug-overlay; BOUNDARY:JavaScript-ESM-client>validated-Tauri-JS-Rust-Bridge>Rust-application-core>information-layer; CONTRACT:single-versioned-language-neutral schema registry; VALIDATION:Rust contract validator+both-boundaries; COMPLETION:typed-result+authoritative-state convergence\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B50"
+      },
+      "field": "rule",
+      "proposed": "FINAL-OWNERS:C=deterministic-runtime+permission-hot-path+stable-ABI;C++=model-inference+native-runtime+native-test+audit+resource-governor;Rust=UI-core+state+lifecycle+IPC+security+OS-integration+RAG+CAG+DAG+vector+CPU-critical-work;Tauri=desktop-shell+WebView+window-management+JS-Rust-bridge;JavaScript-ESM+JSDoc=minimal-general-UI(native-first);GPUI=high-performance-native-workspaces;egui=diagnostic-and-engineering-views;Go=web-search+high-concurrency-network-file-batch;CSharp=application+API+authorized-workflow+sole-test-orchestration;FSharp=business-rules+validation+analysis+ML+high-correctness-compute;Julia=numerical+statistical+scientific-compute;SQL=PostgreSQL-data-operations;Python+NumPy+JAX=retired(zero-active-role/consumer/artifact/fallback,no-transition). CONTRACT:every cross-language edge uses one registered typed versioned contract and one owner. ADAPTATION:all components may adapt only inside registered bounded envelopes while authority,permission,contract,security,deadlines and resource ceilings remain fixed. DECISION:activation requires measured p50,p95,p99,CPU,RAM,VRAM,IO,process and thread evidence with no required correctness,quality,security or stability regression."
+    },
+    {
+      "table": "edicts",
+      "key": {
+        "provision_id": "E178"
+      },
+      "field": "edict",
+      "proposed": "C=DETERMINISTIC-RUNTIME/NATIVE-TEST-PRIMITIVES;CPP=NATIVE-INFERENCE/ALL-FORMAL-TEST-EXECUTION/AUDIT;RUST=UI-CORE/STATE/LIFECYCLE/IPC/SECURITY/OS/RAG/VECTOR;TAURI=DESKTOP-SHELL/WEBVIEW/WINDOW/BRIDGE;JAVASCRIPT-ESM=MINIMAL-GENERAL-UI;GPUI=HIGH-PERFORMANCE-WORKSPACE;EGUI=ENGINEERING-VIEWS;CSHARP=AUTHORIZED-WORKFLOW/API/SOLE-TEST-ORCHESTRATION;FSHARP=BUSINESS/VALIDATION/ANALYSIS/ML/HIGH-CORRECTNESS;GO=NETWORK/BATCH/FILE;PYTHON+NUMPY+JAX=RETIRED;JULIA=SCIENTIFIC;SQL=DATA;TEST-AUDIT-PYTHON=NONE;DUPLICATION/BYPASS:none"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B78"
+      },
+      "field": "rule",
+      "proposed": "REGISTRY:code/registry/CapabilityRegistry.js is the single explicit capability authority (JavaScript-ESM) and contains governance data only; add code/checkers/OwnershipUniquenessChecker.js+code/policy/OwnershipPolicy.js; each capability has exactly one owner plus zero-or-more executors,adapters,callers and at most one declared fallback role; ROLE:owner=unique semantic/canonical responsibility;executor=actual implementation including optimized;adapter=cross-language/platform translation;fallback=equivalent degraded implementation;caller=consumer; OWNER-NOT-EXECUTOR. BASELINE:{system.orchestration=>csharp}|{domain.business=>fsharp}|{rag.retrieval=>rust}|{ui.rendering=>javascript-esm}|{ui.client_state=>javascript-esm}|{desktop.interaction=>javascript-esm+rust-tauri}|{native.abi=>c}|{native.inference=>cpp}|{native.audit=>cpp}|{native.vector=>rust}|{native.security=>rust}|{windows.dotnet=>csharp}|{network.search_io=>go}|{data.relational_query=>sql}|{statistics.scientific=>julia}; CAPABILITY-INSTANCE vector.similarity={semantic_owner:rust,optimized_executor:rust,contract_owner:versioned typed service contract,adapters:c-abi}; Windows CLR={owner:csharp,executor:csharp,adapter:C ABI/information-layer,caller:csharp-ui}; relational filtering={owner:sql,caller:csharp/fsharp}; B38 registered fallback is not duplicate ownership. CHECKER:registry is primary truth; directory ownership+exports+class/function symbols+operation IDs+contract registration+native capability IDs+dependencies+registered adapters+explicit metadata are corroborating evidence,never filename-only guessing; clear duplicate owner=FAIL; unresolved evidence=WARN and checker cannot select owner or edit registry. OUTPUT:capability+canonical_owner+duplicate_candidate+language+rule+reason+expected or PASS role map+parity."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B79"
+      },
+      "field": "rule",
+      "proposed": "GATE:BUILD ABI REPRO GATE answers only:approved toolchain used? artifact conforms to approved ABI/API baseline? same input yields acceptably equivalent artifact? FLOW:source>toolchain verification>canonical build configuration>native/.NET/build>symbol+ABI inspection>artifact digest>reproducibility comparison>PASS|WARN|FAIL. STRUCTURE:code/checkers/BuildAbiReproChecker.js+code/policy/BuildAbiPolicy.js+code/registry/ToolchainRegistry.js+code/registry/AbiBaselineRegistry.js+code/evidence/build-abi/; policy and registries are immutable governance data only,checker verifies and never repairs. TOOLCHAINS:Python/NumPy/JAX are retired and record no toolchain;C/C++ records MSVC/clang/gcc family+version+target_arch+runtime_library+language_standard+optimization_level+exception_policy+rtti_policy+calling_convention+symbol_visibility+CMake;CSharp/FSharp records compiler+.NET 10 runtime+target_framework+PlatformTarget+RID;JavaScript records ESM+bundler config and JavaScript-ESM grandfathered artifacts additionally record the JavaScript-ESM toolchain;Go/Rust record go toolchain/cargo+rustc;SQL records migration version/order+schema baseline. CPP-LOCK:C++23+x64+public ABI C only+C++ symbols hidden unless explicit successor; /MD versus /MT,architecture,standard,flags,exception/RTTI/calling/visibility differences are distinct ABI build identities. ABI-BASELINE:abi_major+abi_minor+exported_symbols+struct_sizes+struct_alignments+field widths/signedness+calling_convention+architecture+runtime; permit compatible minor additive change; FAIL removed symbol+changed width/layout/calling convention+breaking semantics without major bump. EXPORT-GATE:public allowlist only registered gptbridge_* symbols; std/internal classes/vector/parser/mangled C++ symbols private. CSHARP:x64 required when consuming x64 native unless registered multi-arch strategy; verify target framework+RID+interop signature+DllImport calling convention+CharSet/encoding."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C55"
+      },
+      "field": "rule",
+      "proposed": "ROOT:governance checker JavaScript-ESM subtree uses code/; STRUCTURE:code/checkers/LanguageBoundaryChecker.js+code/checkers/DependencyDagChecker.js;code/policy/LanguagePolicy.js+code/policy/DependencyPolicy.js;code/registry/GovernanceCheckerRegistry.js; DIRECTORY-EXCEPTION:B75 JavaScript-ESM directory allowlist is extended only for this registered governance checker subtree with policy and registry roles below; CHECKERS:LanguageBoundaryChecker performs D62 language/origin/owner/directory/ABI/API/size gate and DependencyDagChecker performs D64 resolved edge graph+DAG+cycle verification; POLICY:LanguagePolicy and DependencyPolicy contain immutable declarative data only,no scanning/resolution/filesystem/network/process/evidence/verdict/repair side effects; REGISTRY:GovernanceCheckerRegistry registers exact checker id+policy id+trigger+input/output schema+rule set+version and performs no scan,decision or repair; DEPENDENCY-POLICY-DAG:{javascript-esm=>information_layer}+{c=>cpp}+{binding=>parser|vector|token|transform|memory}+{parser=>token|memory}+{vector=>memory}+{token=>memory}+{transform=>memory}+{memory=>none}; CANONICAL-QUALIFICATION:javascript-esm>information_layer expands to B32 canonical contract;Python is retired and no python>native or python-qualified expansion exists; graph uses canonical node/edge ids and denies every undeclared edge; CYCLE:any directed cycle is FAIL even when each edge appears locally allowed; DIAGNOSTIC:never only FAIL dependency violation; output FAIL plus source:<canonical path>,target:<canonical path>,edge:<source-role>-><target-role>,rule:<exact ids>,reason:<typed human-readable boundary>,expected:<canonical path>; example JavaScript-ESM direct Python uses edge=javascript-esm->python-direct,rule=B32/B50,expected=no-python-target-exists; READONLY-V1:scan+resolve+classify+compare+evidence+PASS/WARN/FAIL only; decision remains existing governance chain.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "D68"
+      },
+      "field": "rule",
+      "proposed": "GATE:RELEASE_COMPATIBILITY returns exactly PASS|WARN|FAIL and answers:language boundaries intact? API/ABI intact? old consumers work? migrations safely upgrade? native failure falls back? every required gate passed? AGGREGATION:consume immutable evidence only from Language Boundary+Dependency DAG+Contract Parity+Ownership Uniqueness+Native Promotion+Resource and Concurrency+Build ABI Reproducibility Gates; never reimplement their checks; any required FAIL=>release FAIL; WARN blocking is explicit immutable ReleaseCompatibilityPolicy per category and cannot be improvised. STRUCTURE:code/checkers/ReleaseCompatibilityChecker.js+code/policy/ReleaseCompatibilityPolicy.js+code/registry/SupportedVersionRegistry.js+code/evidence/release-compatibility/; policy/registry data only; registry fields release+supported_api_range+supported_abi_range+supported_schema_range+supported_previous_releases. MATRIX:compare current release with every previous supported release for JavaScript/CSharp API,CSharp/native parity+FSharp domain parity,C ABI major/minor+symbols,CSharp/native interop,SQL schema+migration,request-scoped B4 governance semantic entry,native artifact architecture/runtime/toolchain; prove prior API/ABI ranges and schema upgrade path remain supported. CHANGE-CLASS:PATCH permits bug fix/internal optimization/performance/implementation only and denies contract/ABI/schema break;MINOR permits optional field,new operation/capability/ABI symbol only while old consumer works;MAJOR alone permits removal/required rename/operation or ABI symbol removal/layout/incompatible semantics with explicit migration. CONSUMERS:test old JavaScript client>new CSharp backend and new client>supported old backend when bidirectional window declared; old supported native consumer>new C ABI load+behavior. SQL-UPGRADE:old schema>ordered transactional migration>new schema>new application; verify rollback policy+data preservation+indexes+constraints and activation order before CSharp requires new field. NATIVE-DUAL:every approved fallback path is exercised under the same compatibility window.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "formal_rule_registry",
+      "key": {
+        "rule_code": "RULE_RETIRED_DEPENDENCIES"
+      },
+      "field": "predicate",
+      "proposed": "retired dependencies must be exactly PyTorch/Electron/TypeScript/Qdrant/SQLite/Node.js/JAX/NumPy with no active consumer;all are RETIRED and historical only;Node.js,Python and TypeScript are forbidden:no download,install,execution,authoring or transitional period"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "typescript_python_contract"
+      },
+      "field": "value",
+      "proposed": "retired|typescript-forbidden|no-transition|succeeded-by-javascript-esm"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "source_extension_typescript"
+      },
+      "field": "value",
+      "proposed": "forbidden|zero-authored-source|no-grandfathering"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "canonical_language_roles"
+      },
+      "field": "value",
+      "proposed": "c23-runtime|cpp23-production-inference-native-audit|rust1.98.1-process-lifecycle-rag-vector-ui-core|tauri-desktop-shell|javascript-esm-jsdoc-minimal-general-ui|gpui-high-performance-workspaces|egui-engineering-tools|csharp14-dotnet10-api-application-workflow-test-orchestration|fsharp10-business-logic-validation-analysis|go1.27.1-file-io-batch-network|julia-numerical-statistics|sql-postgresql18.6-authority|esbuild-swc-standalone-build"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "webassembly_policy",
+          "value": "registered-execution-format|ui-and-governed-sandbox|native-owner-compiled-only|never-authored|package-download-rules-apply"
+        },
+        {
+          "key": "webassembly_producers",
+          "value": "rust|cpp|registered-native-owner-languages"
+        },
+        {
+          "key": "tauri_status",
+          "value": "retained|desktop-shell|webview|window-management|js-rust-bridge"
+        },
+        {
+          "key": "forbidden_languages",
+          "value": "python|typescript"
+        },
+        {
+          "key": "js_minimization_policy",
+          "value": "native-first|javascript-esm-sparing|irreducible-webview-presentation-only|typescript-forbidden|node-forbidden"
+        }
+      ]
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "66479e0edfb39c81d51fa077489d53e9769a87d8ad8624cd8e654c42d919bcec",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T17:30:25Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "2727dd18acfc6df71a375f311601b3157d56e43e9e5d66439eafb92901acde8a",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T17:30:25Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T17:30:25Z",
+    "expected_audit_result": "WebAssembly and Tauri are registered with native-only producers, JS is declared minimal and native-first, TypeScript is forbidden with zero grandfathering, and the architecture artifacts and Chinese mirror carry the same generation"
+  }
+}

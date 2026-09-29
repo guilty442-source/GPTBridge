@@ -1,0 +1,64 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "efficient-language-patterns-20260929",
+  "title": "各語言高效撰寫模式與編譯器優化參數入法",
+  "summary": "Human-governor directive 2026-09-29: codify the per-language efficient-writing patterns (C++ move/string_view/reserve; C# ValueTask/Span/struct; F# tail recursion/seq/Struct-DU; Go value-over-pointer/make-capacity/strings.Builder/sync.Pool/no blind goroutines; Rust slice-str-no-clone/iterators/with_capacity) and the compiler optimization rule (production uses the owner release profile: /O2 or -O3+LTO, cargo release, Release+optimize+TieredPGO, optimized Go release + trimpath, Julia -O3; unoptimized/debug never ships and the profile is recorded in B79 toolchain/ABI evidence). B157 carries the clause, metadata registers the patterns, the architecture artifact carries the same generation. Codex-only change: no implementation is modified by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: C++/C#/F#/Go/Rust 高效寫法；善用編譯器優化參數",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T05:07:55Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "3760574f36e5311224ef772334267ceafec217485963a23821fb2e2dbbf2f034",
+    "revision_sequence": 175
+  },
+  "problem": {
+    "summary": "B157 carried the generic native-authoring and efficient-writing rule but no per-language pattern baseline and no compiler optimization profile rule."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B157"
+      },
+      "field": "rule",
+      "proposed": "PERFORMANCE-OBJECTIVE:high-performance+high-speed+low-resource+bounded-parallelism;NO-NEW-FRAMEWORK:converge-existing-execution-paths;AUTHORING:native-owner-language-only+compiled-efficient-form;every new or modified code unit is written in its registered native owner language and never in an interpreted,scripting or retired runtime;EFFICIENT-WRITING:registered efficient patterns (compiled paths,bounded concurrency,batching,zero-copy,capacity reservation,one-pass processing) with measured p50/p95/p99+CPU+RAM+VRAM+queue-depth evidence;avoid avoidable copies,per-item work,unbounded allocation and unnecessary language hops;LANGUAGE-EFFICIENT-PATTERNS:C++:zero-cost-abstraction+std::move-ownership+std::string_view-readonly-params+container-reserve;C#:ValueTask-async+Span/ReadOnlySpan-slicing+struct-for-small-values-against-GC;F#:tail-recursion-as-loop+seq-lazy-evaluation+[<Struct>]-unions;Go:value-over-pointer+make-with-capacity+strings.Builder(no-'+'-in-loops)+sync.Pool+no-blind-goroutines;Rust:&[T]/&str-no-clone+iterators-over-index-loops+with_capacity;COMPILER-OPTIMIZATION:production artifacts use the owner release optimization profile(C/C++:/O2 or -O3+LTO-when-measured-safe;Rust:cargo-build--release(-O3,+lto/codegen-units=1 when measured);C#/F#:Release+optimize+TieredPGO;Go:optimized-release+trimpath;Julia:-O3);unoptimized-or-debug-profiles never ship to production and the exact profile is recorded in the B79 toolchain/ABI evidence;PERF-01=critical-path-forbids-unnecessary-Python-hop;PERF-02=CPU-bound-prefers-Rust-safe-core-or-admitted-C/C++-native-hot-path;PERF-03=high-concurrency-IO-orchestration-prefers-Go;PERF-04=all-concurrency-bounded;PERF-05=forbid-unbounded-queue+thread+goroutine+task+process+model-request;PERF-06=bulk-operations-prefer-batch;PERF-07=large-payload-prefers-reference+stream+zero-copy;PERF-08=model-prefers-resident-and-forbids-request-triggered-reload;PERF-09=independent-RAG-stages-prefer-parallel-execution;PERF-10=end-to-end-cancellation-required;PERF-11=cache-bounded+revision-aware+scope-aware+non-canonical;PERF-12=nonessential-services-lazy-initialization;PERF-13=observability-nonblocking-critical-path;PERF-14=canonical-writes-separated-from-runtime-telemetry;PERF-15=optimization-decided-by-p50+p95+p99+CPU+RAM+VRAM+context-switch+queue-depth+DB-round-trip-evidence;SCHEDULER:one-existing-global-work-scheduler;CLASSES:CPU+IO+DB+VECTOR+MODEL+GPU+BACKGROUND;BUDGETS:physical-core+pool+vector-limit+model-capacity+VRAM+backpressure;MODEL-RESIDENCY:HOT|WARM|COLD|EVICTING|LOADING with LRU+VRAM-budget+auto-release;RAG-PARALLEL:keyword+vector+metadata>merge>rerank>PostgreSQL-verify>context;BATCH:embedding+DB-write+Rust-vector-projection-batch+log+audit-receipt+hash+metadata+IPC-event;FAIL-FAST:authentication>scope>capability>schema>quota>dispatch;CANCELLATION:UI>scheduler>native-worker>DB>RAG>LLM;CACHE:L1-process+L2-shared-bounded+L3-PostgreSQL-pgvector/Rust-derived-cache;STARTUP:core-config>IPC>UI-ready>DB-pool>scheduler>lazy-service>async-model-warm;PROCESS:bounded-resident-native-runtimes+tools-on-demand;FORMAT-PERFORMANCE-INVARIANT:every active source+contract+configuration+data+cache+index+transport+artifact format must minimize measured latency+CPU+RAM+VRAM+allocation+copy+serialization+storage+IO without weakening correctness+security+authority+scope+lineage+audit+portability;SELECTION:owner implementation layer selects format through representative p50+p95+p99+throughput+CPU+memory+storage+startup+parse/encode/decode+copy-count evidence;PATH-CLASS:small-control-message may use human-readable typed text;high-frequency-internal-message prefers registered typed binary/native structure;large-payload prefers identity-reference+stream+mapped-or-chunked access;canonical durable data remains PostgreSQL and scoped semantic vectors remain PostgreSQL-pgvector;SOURCE:compiled/native owner language and canonical source extension follow B35+B36;source remains readable+maintainable+reviewable and cannot be minified or generated merely to evade governance;MIGRATION:inventory>benchmark>candidate-schema>compatibility-reader/writer>bounded-dual-read-if-required>atomic-promotion>retirement-label>zero-consumer-proof>old-format-purge;CONTRACT:every cross-layer format is versioned+owner-bound+schema-bound+size-bounded+endianness/encoding-explicit+backward/forward-policy+unknown-field-policy+validation+deadline+cancellation+resource-budget;FAILURE:invalid+oversized+unknown+stale+incompatible format fails before expensive work;NO-FRAMEWORK:format replacement must use existing authorized toolchains unless an independently permitted dependency is indispensable;PROJECT-WIDE-ADAPTATION:all implementation layers may adapt approved worker-count+batch-size+queue-admission+cache-size+chunk-size+compression+codec+IO-strategy+model-residency+query-plan+retry-backoff within registered min/max ceilings;SIGNALS:latency+throughput+CPU+RAM+VRAM+queue-depth+error-rate+DB-round-trip+storage-pressure;CONTROL:hysteresis+cooldown+bounded-step+deadline+cancellation+rollback+decision-record+generation-fence;SAFETY:adaptation never changes Codex+authority+permission+business-semantics+canonicality+security+contract-version and never creates an unregistered owner+framework+scheduler;CODE-AUTHORING:every new or modified implementation must be designed for high performance,high execution speed,low latency and low resource consumption from its first current version;PRIORITY:correctness+security+authority+maintainability are invariant,then minimize algorithmic complexity+allocations+copies+serialization+context switches+lock contention+syscalls+process hops+network/IPC/database round trips+resident memory+CPU/GPU time+startup/shutdown cost;DATA-PATH:choose owner-language-native data structures,contiguous or streaming access where suitable,typed pointer/reference/borrowed-view/handle semantics instead of avoidable copies;LARGE-STRUCT-PASS:large structures must not be passed by value when a typed pointer,reference,borrowed view or handle preserves ownership and lifetime safety,batch set operations;LOOP-OPTIMIZATION:hot loops prefer compiler optimization and may use measured loop unrolling plus safe decrementing counters only when bounds,underflow,termination,instruction-cache growth and binary-size regression are controlled;COMPILER-HINTS:where the owner language supports them and aliasing plus lifetime safety are proven,use restrict or its registered equivalent and use inline only for measured small hot functions without code-size regression;COMPILER-OPTIMIZATION:release builds use registered reproducible measured optimization flags,link-time optimization and target-architecture settings while flags that relax numeric,safety,ABI or compatibility semantics require explicit proof of contract equivalence instead of per-item work,and prepared bounded queries instead of fetch-all filtering;FILE-FORMAT:every new or modified source,contract,configuration,data,cache,index,transport and artifact file must use the registered format that minimizes representative parse+encode+decode+allocation+copy+storage+IO cost for its path while preserving correctness+security+authority+portability+reviewability;CONTROL-FORMAT:small human-managed control data uses a typed readable format;HOT-FORMAT:high-frequency internal data uses a registered typed binary or native structure when measurement proves lower total cost;LARGE-FORMAT:large payloads use reference+stream+chunk+mapped access and avoid whole-file materialization;FORMAT-IDENTITY:encoding+endianness+schema version+size bound+unknown-field policy+compatibility policy+owner are explicit;CONCURRENCY:parallelize only independent work with explicit worker+queue+memory limits,backpressure,deadline,cancellation and cleanup;LIFECYCLE:initialize noncritical capability lazily,reuse verified expensive state,and release idle resources under the registered policy;HOT-PATH:no reflection,dynamic dispatch,text conversion,logging,telemetry,remote call or language/process hop unless required by the typed contract and measured acceptable;REVIEW:the owner must reject a needlessly slower or heavier code or file-format design when an equally correct,safe,maintainable and authorized lower-cost design exists;EVIDENCE:performance-sensitive code and format changes use representative before/after or candidate-comparison measurements and record p50+p95+p99+throughput+CPU+RAM+VRAM+allocation+copy+parse+encode+decode+storage+IO+queue+round-trip data appropriate to the path;REGRESSION:a change that exceeds a registered budget or causes material unapproved latency/resource regression cannot activate"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "efficient_language_patterns",
+          "value": "cpp:move|string_view|reserve|zero-cost-abstraction|csharp:valuetask|span|struct|fsharp:tail-recursion|seq-lazy|struct-du|go:value-over-pointer|make-capacity|strings-builder|sync-pool|no-blind-goroutines|rust:slice-str-no-clone|iterators|with-capacity|compiler:release-optimization-profiles|no-debug-or-unoptimized-in-production"
+        }
+      ]
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "16f2263758e98cd5543357c6252955de19e69b9c58eed1631bc9b4c347d4b01c",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-29T05:25:52Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-29T05:25:52Z",
+    "expected_audit_result": "B157 declares the per-language efficient patterns and the release compiler optimization profile, metadata records the patterns, and the architecture artifact and Chinese mirror carry the same generation"
+  }
+}

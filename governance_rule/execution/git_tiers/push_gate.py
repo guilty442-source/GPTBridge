@@ -50,6 +50,12 @@ Config: ``main-system/config/automation-flows.json`` →
 the mandatory-test PASS precondition (C①) cannot be configured away, only
 recorded.  An unreadable or malformed manifest fails closed: the gate
 reports ``config-error`` and the push is denied.
+
+Module layout (A185 source-size split):
+
+    push_gate_suites.py    native/test_suites layout + staleness + orchestrator
+    push_gate_evidence.py  convergence + push-decision audit records
+    push_gate.py           config, gate lock, mandatory_test_gate (this module)
 """
 from __future__ import annotations
 
@@ -59,58 +65,55 @@ import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Iterator, Mapping
 
-from . import branch_policy
 from .git_repository import GitRepository
 from .process_lock import LockBusyError, ProcessFileLock
+from .push_gate_evidence import (  # noqa: F401  (re-exported evidence surface)
+    _STATE_FILENAME,
+    _STATE_SCHEMA,
+    _ahead_behind,
+    _read_state,
+    _state_path,
+    _write_state,
+    record_convergence_evidence,
+    record_push_evidence,
+)
+from .push_gate_suites import (  # noqa: F401  (re-exported suite surface)
+    _BIN_DIR,
+    _BUILD_SCRIPT,
+    _CODE_SUFFIXES,
+    _DEP_ROOTS,
+    _NATIVE_TEST_DIR,
+    _ORCH_DIR,
+    _ORCH_EXE_DEBUG,
+    _ORCH_EXE_RELEASE,
+    _ORCH_PROJECT,
+    _ORCH_REPORT_NAME,
+    _ORCH_SOURCE,
+    _SUITE_GLOB,
+    _SUITE_MANIFEST_NAME,
+    _binaries_stale,
+    _build_suites,
+    _default_orchestrator,
+    _ensure_orchestrator,
+    _newest_source_mtime,
+    _orchestration_report,
+    _orchestrator_exe,
+    _orchestrator_stale,
+    _powershell,
+    _suite_artifacts_stale,
+    _suite_exes,
+    _suite_manifest,
+    Builder,
+    Runner,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _FLOWS_CONFIG = (
     PROJECT_ROOT / "main-system" / "config" / "automation-flows.json"
 )
-_STATE_FILENAME = "gptbridge-push-gate.json"
-_STATE_SCHEMA = "gptbridge-push-gate/v1"
 _LOCK_FILENAME = "push-test-gate.lock"
-
-# Canonical native suite locations (single source: native/test_suites).
-_NATIVE_TEST_DIR = Path("native") / "test_suites"
-_BUILD_SCRIPT = _NATIVE_TEST_DIR / "build.ps1"
-_BIN_DIR = _NATIVE_TEST_DIR / "bin"
-_SUITE_GLOB = "*_suite.exe"
-_SUITE_MANIFEST_NAME = "suite-manifest.json"
-
-# G97: the C# TestSuiteOrchestrator is the SOLE native suite orchestrator
-# (§10.60.1).  The gate resolves the built executable (Release first),
-# rebuilds it from source when missing/stale, and consumes its typed
-# orchestration report instead of spawning suite processes itself.
-_ORCH_DIR = _NATIVE_TEST_DIR / "csharp"
-_ORCH_PROJECT = _ORCH_DIR / "TestSuiteOrchestrator.csproj"
-_ORCH_SOURCE = _ORCH_DIR / "Program.cs"
-_ORCH_EXE_RELEASE = (
-    _ORCH_DIR / "bin" / "Release" / "net10.0" / "TestSuiteOrchestrator.exe"
-)
-_ORCH_EXE_DEBUG = (
-    _ORCH_DIR / "bin" / "Debug" / "net10.0" / "TestSuiteOrchestrator.exe"
-)
-_ORCH_REPORT_NAME = "native-orchestration-report.json"
-
-# Link inputs that invalidate cached suite binaries (build.ps1 $suites map
-# roots): a newer code file in any of these means the binaries no longer
-# test the tree that would be pushed.
-_DEP_ROOTS = (
-    _NATIVE_TEST_DIR,
-    Path("native") / "core",
-    Path("native") / "include",
-    Path("native") / "tool_runtime",
-    Path("native") / "audit",
-    Path("Standalone tools")
-    / branch_policy.LOCAL_MODEL_BRANCH
-    / "src"
-    / "backend"
-    / "cpp",
-)
-_CODE_SUFFIXES = frozenset({".c", ".cpp", ".h", ".hpp"})
 
 DEFAULT_BUILD_TIMEOUT_S = 600.0
 DEFAULT_ORCH_BUILD_TIMEOUT_S = 120.0
@@ -122,9 +125,6 @@ DEFAULT_MAX_PARALLEL_SUITES = 4
 # bin/ directory and the host's CPU/IO, so an absurd configured bound would
 # only trade flake for speed.
 MAX_PARALLEL_SUITES_CAP = 8
-
-Runner = Callable[..., Any]
-Builder = Callable[..., Any]
 
 
 def push_gate_config() -> dict[str, Any]:
@@ -174,194 +174,6 @@ def push_gate_config() -> dict[str, Any]:
             MAX_PARALLEL_SUITES_CAP, int(parallel)
         )
     return merged
-
-
-def _suite_exes(bin_dir: Path) -> list[Path]:
-    """Suite binaries; ``_``-prefixed helpers are not suites."""
-    try:
-        return sorted(
-            p for p in bin_dir.glob(_SUITE_GLOB)
-            if p.is_file() and not p.name.startswith("_")
-        )
-    except OSError:
-        return []
-
-
-def _newest_source_mtime(root: Path) -> float:
-    """Newest mtime across the suite link inputs (0 when none found)."""
-    newest = 0.0
-    for rel in _DEP_ROOTS:
-        dep_root = Path(root) / rel
-        if not dep_root.is_dir():
-            continue
-        try:
-            for path in dep_root.rglob("*"):
-                if (
-                    path.is_file()
-                    and path.suffix.lower() in _CODE_SUFFIXES
-                ):
-                    newest = max(newest, path.stat().st_mtime)
-        except OSError:
-            continue
-    return newest
-
-
-def _binaries_stale(root: Path, exes: list[Path]) -> bool:
-    """True when any link input is newer than the oldest suite binary."""
-    if not exes:
-        return True
-    oldest = min(exe.stat().st_mtime for exe in exes)
-    return _newest_source_mtime(root) > oldest
-
-
-def _suite_artifacts_stale(
-    bin_dir: Path, manifest: Mapping[str, Any]
-) -> list[str]:
-    """Content-binding check (G99): every manifest suite row records the
-    exe SHA-256 captured at build time.  A binary whose content differs —
-    partial rebuild, swapped exe, drifted manifest — is stale regardless
-    of timestamps; a row with no recorded hash is unverifiable and counts
-    as stale too."""
-    suites = manifest.get("suites")
-    if not isinstance(suites, list) or not suites:
-        return []
-    stale: list[str] = []
-    for row in suites:
-        if not isinstance(row, Mapping):
-            continue
-        exe = str(row.get("exe") or "")
-        expected = str(row.get("sha256") or "").lower()
-        if not exe:
-            continue
-        path = bin_dir / exe
-        try:
-            import hashlib
-
-            actual = hashlib.sha256(path.read_bytes()).hexdigest()
-        except OSError:
-            actual = ""
-        if not expected or actual != expected:
-            stale.append(str(row.get("name") or exe))
-    return stale
-
-
-def _powershell() -> str:
-    return os.environ.get("GPTBRIDGE_POWERSHELL", "powershell.exe")
-
-
-def _build_suites(root: Path, timeout_s: float, builder: Builder | None) -> Any:
-    """One bounded rebuild via the canonical build.ps1 (returns proc)."""
-    script = Path(root) / _BUILD_SCRIPT
-    run = builder or (
-        lambda timeout: subprocess.run(
-            [
-                _powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass",
-                "-File", str(script),
-            ],
-            cwd=Path(root),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    )
-    return run(timeout_s)
-
-
-def _orchestrator_exe(root: Path) -> Path | None:
-    """The built C# orchestrator executable (Release preferred)."""
-    for rel in (_ORCH_EXE_RELEASE, _ORCH_EXE_DEBUG):
-        exe = root / rel
-        if exe.is_file():
-            return exe
-    return None
-
-
-def _orchestrator_stale(root: Path, exe: Path) -> bool:
-    """Rebuild when the orchestrator sources are newer than the exe."""
-    try:
-        exe_mtime = exe.stat().st_mtime
-        for rel in (_ORCH_SOURCE, _ORCH_PROJECT):
-            src = root / rel
-            if src.is_file() and src.stat().st_mtime > exe_mtime:
-                return True
-    except OSError:
-        return True
-    return False
-
-
-def _ensure_orchestrator(
-    root: Path, timeout_s: float
-) -> Path | None:
-    """Resolve the orchestrator exe, rebuilding via ``dotnet build`` when
-    missing or stale.  Returns ``None`` when unavailable — fail closed."""
-    exe = _orchestrator_exe(root)
-    if exe is not None and not _orchestrator_stale(root, exe):
-        return exe
-    try:
-        proc = subprocess.run(
-            [
-                "dotnet", "build", str(root / _ORCH_PROJECT),
-                "-c", "Release", "--nologo", "-v", "q",
-            ],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout_s,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if proc.returncode != 0:
-        return None
-    return _orchestrator_exe(root)
-
-
-def _default_orchestrator(argv: list[str], cwd: Path, timeout_s: float) -> Any:
-    """Invoke the C# orchestrator.  Output goes to a log file, not a pipe:
-    suite processes may spawn grandchildren that inherit a pipe and keep
-    it open past the parent's exit — a captured pipe could then never
-    reach EOF and would hang the gate past its budget."""
-    log_path = Path(cwd) / "_gate_orchestrator.log"
-    with open(log_path, "w", encoding="utf-8", errors="replace") as log:
-        return subprocess.run(
-            argv,
-            cwd=cwd,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            timeout=timeout_s,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-
-
-def _orchestration_report(bin_dir: Path) -> dict[str, Any]:
-    """Parse the orchestrator's ``native-orchestration-report.json``."""
-    try:
-        data = json.loads(
-            (bin_dir / _ORCH_REPORT_NAME).read_text(encoding="utf-8-sig")
-        )
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _suite_manifest(bin_dir: Path) -> dict[str, Any]:
-    """Parse ``bin/suite-manifest.json`` (emitted by build.ps1 with the
-    built source revision).  Missing/malformed → ``{}``; callers treat an
-    absent manifest as stale build output (G99 revision binding)."""
-    try:
-        data = json.loads(
-            (bin_dir / _SUITE_MANIFEST_NAME).read_text(
-                encoding="utf-8-sig"
-            )
-        )
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
 
 
 @contextmanager
@@ -645,188 +457,6 @@ def mandatory_test_gate(
         f"{totals['pass']} pass / {totals['blocked']} blocked "
         f"across {len(gate['suites'])} suites{suffix}"
     )
-
-
-def _state_path(root: str | Path) -> Path:
-    """State file lives next to the workspace-sync lock (git common dir)."""
-    repo = GitRepository(root)
-    result = repo.run(["rev-parse", "--git-common-dir"])
-    raw = (result.stdout or "").strip()
-    common = Path(raw)
-    if not common.is_absolute():
-        common = repo.path / common
-    return common.resolve() / _STATE_FILENAME
-
-
-def _read_state(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def _write_state(path: Path, state: Mapping[str, Any]) -> None:
-    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    try:
-        temporary.write_text(
-            json.dumps(state, ensure_ascii=False, sort_keys=True, indent=2)
-            + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, path)
-    except OSError:
-        try:
-            temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
-
-
-def _ahead_behind(repo: GitRepository) -> tuple[int | None, int | None]:
-    """(ahead, behind) of local main vs origin/main; None when unknown."""
-    ahead = repo.run(["rev-list", "--count", "origin/main..main"])
-    behind = repo.run(["rev-list", "--count", "main..origin/main"])
-    try:
-        ahead_n = int((ahead.stdout or "").strip()) if ahead.returncode == 0 else None
-        behind_n = int((behind.stdout or "").strip()) if behind.returncode == 0 else None
-    except (TypeError, ValueError):
-        ahead_n = behind_n = None
-    return ahead_n, behind_n
-
-
-def record_convergence_evidence(
-    root: str | Path, *, actor: str, pushed: bool = False
-) -> dict[str, Any]:
-    """Periodic ``ahead==0`` proof: ledger entry + convergence state (F①/D④).
-
-    Records every synchronization outcome: the local↔origin relation,
-    ahead/behind counts and a running ``consecutive_in_sync`` streak.
-    Ledger entries make the proof continuous; the state file is the
-    latest snapshot for status surfaces.
-    """
-    from . import audit_log
-    from .repo_sync import sync_state
-
-    repo = GitRepository(root)
-    state = sync_state(root)
-    ahead_n, behind_n = _ahead_behind(repo)
-    in_sync = state["state"] == "IN_SYNC" and ahead_n == 0
-
-    path = _state_path(root)
-    prior = _read_state(path)
-    streak = int(prior.get("convergence", {}).get("consecutive_in_sync") or 0)
-    streak = streak + 1 if in_sync else 0
-
-    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    convergence = {
-        "state": state["state"],
-        "ahead": ahead_n,
-        "behind": behind_n,
-        "ahead_zero": in_sync,
-        "consecutive_in_sync": streak,
-        "last_checked": now,
-        "local_main_sha": state["local_main_sha"],
-        "origin_main_sha": state["origin_main_sha"],
-    }
-    record = dict(prior)
-    record.update(
-        {
-            "schema": _STATE_SCHEMA,
-            "updated_at": now,
-            "convergence": convergence,
-        }
-    )
-    _write_state(path, record)
-
-    audit_log(
-        1,
-        "sync-state origin/main",
-        actor,
-        True,
-        f"sync_state={state['state']} ahead={ahead_n} behind={behind_n}"
-        f" streak={streak} pushed={pushed}",
-        operation="convergence-check",
-        phase="result",
-        result="in-sync" if in_sync else state["state"].lower(),
-        returncode=0 if in_sync else 1,
-    )
-    return convergence
-
-
-def record_push_evidence(
-    root: str | Path,
-    *,
-    actor: str,
-    test_gate: Mapping[str, Any] | None,
-    pushed: bool,
-    detail: str = "",
-) -> dict[str, Any]:
-    """Consolidated push decision record (C④/F④): ledger + state file.
-
-    One record carries the mandatory native-test gate outcome plus the
-    revisions involved, so a push is provably preceded by audit PASS +
-    native suite PASS.
-    """
-    from . import audit_log
-
-    repo = GitRepository(root)
-    local_sha = (
-        repo.run(["rev-parse", branch_policy.MAIN_BRANCH]).stdout or ""
-    ).strip()
-    origin_sha = (
-        repo.run(["rev-parse", f"origin/{branch_policy.MAIN_BRANCH}"]).stdout
-        or ""
-    ).strip()
-    gate_summary = "none"
-    if test_gate is not None:
-        totals = (
-            test_gate.get("totals")
-            if isinstance(test_gate.get("totals"), Mapping)
-            else {}
-        )
-        gate_summary = (
-            f"tests={'pass' if test_gate.get('passed') else 'fail'}"
-            f" skipped={bool(test_gate.get('skipped'))}"
-            f" suites={len(test_gate.get('suites') or [])}"
-            f" pass={totals.get('pass', 0)}"
-            f" fail={totals.get('fail', 0)}"
-            f" blocked={totals.get('blocked', 0)}"
-            f" rebuilt={bool(test_gate.get('rebuilt'))}"
-            f" ms={test_gate.get('duration_ms')}"
-        )
-    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-    path = _state_path(root)
-    record = _read_state(path)
-    record.update(
-        {
-            "schema": _STATE_SCHEMA,
-            "updated_at": now,
-            "last_test_gate": dict(test_gate) if test_gate else None,
-            "last_push": {
-                "at": now,
-                "result": "pushed" if pushed else "denied",
-                "local_main_sha": local_sha,
-                "origin_main_sha": origin_sha,
-                "test_gate": gate_summary,
-                "detail": detail[:300],
-            },
-        }
-    )
-    _write_state(path, record)
-
-    audit_log(
-        2,
-        "push origin main",
-        actor,
-        pushed,
-        f"mandatory-test-gate[{gate_summary}] {detail}".strip()[:500],
-        operation="push",
-        phase="result",
-        result="pushed" if pushed else "denied",
-        returncode=0 if pushed else 1,
-    )
-    return record
 
 
 __all__ = [

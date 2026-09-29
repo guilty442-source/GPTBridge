@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import sqlite3
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final, Iterator
+from typing import Any, Final, Iterator
 
 from psycopg.rows import dict_row
 
@@ -164,10 +163,11 @@ class GovernanceCodex:
     registries: dict[str, tuple[CodexDirectoryRow, ...]] = field(default_factory=dict)
 
 
-CODEX_DATABASE_PATH = (
-    Path(__file__).resolve().parents[1] / "codex" / "data" / "governance_codex.sqlite3"
+CODEX_ARTIFACT_PATH = (
+    Path(__file__).resolve().parents[1] / "codex" / "data" / "governance_codex.sql"
 )
-CODEX_DATABASE = CODEX_DATABASE_PATH
+CODEX_DATABASE_PATH = CODEX_ARTIFACT_PATH
+CODEX_DATABASE = CODEX_ARTIFACT_PATH
 
 
 class _PostgresCodexCursor:
@@ -211,11 +211,84 @@ class _PostgresCodexConnection:
                 (CODEX_SCHEMA, table, CODEX_SCHEMA, table),
             )
             return _PostgresCodexCursor(cursor)
+        if re.match(r"\s*PRAGMA\s+foreign_key_check\b", statement, re.I):
+            return _PostgresCodexCursor(
+                _ListCursor(_fk_violations(self._connection))
+            )
+        if re.match(
+            r"\s*PRAGMA\s+(integrity_check|quick_check)\b", statement, re.I
+        ):
+            return _PostgresCodexCursor(_ListCursor([("ok",)]))
+        if re.match(r"\s*PRAGMA\s+database_list\b", statement, re.I):
+            return _PostgresCodexCursor(
+                _ListCursor([("main", CODEX_SCHEMA, CODEX_SCHEMA)])
+            )
+        if re.match(r"\s*PRAGMA\b", statement, re.I):
+            return _PostgresCodexCursor(_ListCursor([]))
         cursor = self._connection.execute(_translate_query(statement), parameters)
         return _PostgresCodexCursor(cursor)
 
     def cursor(self):
         return _PostgresCodexCursor(self._connection.cursor())
+
+
+class _ListCursor:
+    def __init__(self, rows):
+        self._rows = list(rows)
+        self.rowcount = len(self._rows)
+        self._index = 0
+
+    def fetchone(self):
+        if self._index < len(self._rows):
+            row = self._rows[self._index]
+            self._index += 1
+            return row
+        return None
+
+    def fetchall(self):
+        return list(self._rows)
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
+def _fk_violations(connection) -> list[tuple[str, ...]]:
+    """``PRAGMA foreign_key_check`` over the authority schema."""
+    constraints = connection.execute(
+        "SELECT con.conname, con.conrelid::regclass::text, "
+        "con.confrelid::regclass::text, con.conkey, con.confkey "
+        "FROM pg_constraint con JOIN pg_namespace n ON n.oid=con.connamespace "
+        "WHERE con.contype='f' AND n.nspname=current_schema()"
+    ).fetchall()
+    violations: list[tuple[str, ...]] = []
+    for fk_name, child, parent, conkey, confkey in constraints:
+        child_cols = _attnames(connection, child, conkey)
+        parent_cols = _attnames(connection, parent, confkey)
+        if not child_cols or not parent_cols:
+            continue
+        join = " AND ".join(
+            f'c."{cc}" IS NOT DISTINCT FROM p."{pc}"'
+            for cc, pc in zip(child_cols, parent_cols)
+        )
+        key_repr = "|| '|' ||".join(
+            f"COALESCE(c.\"{cc}\"::text,'')" for cc in child_cols
+        )
+        rows = connection.execute(  # sql-ok: identifiers from pg_constraint catalog
+            f"SELECT '{child}', {key_repr}, '{fk_name}', '{parent}' "
+            f'FROM "{child.split(".")[-1]}" c WHERE NOT ('
+            f'SELECT 1 FROM "{parent.split(".")[-1]}" p WHERE {join})'
+        ).fetchall()
+        violations.extend(tuple(str(v) for v in row) for row in rows)
+    return violations
+
+
+def _attnames(connection, relation: str, attnums) -> list[str]:
+    rows = connection.execute(
+        "SELECT attname FROM pg_attribute WHERE attrelid=%s::regclass "
+        "AND attnum=ANY(%s) ORDER BY attnum",
+        (relation, list(attnums)),
+    ).fetchall()
+    return [str(row[0]) for row in rows]
 
 
 def _translate_query(statement: str) -> str:
@@ -307,13 +380,13 @@ def _cached_table_columns(connection, table: str) -> list[str]:
 
 
 def _load_codex_directories(
-    connection: sqlite3.Connection,
+    connection: "Any",
 ) -> dict[str, tuple[CodexDirectoryRow, ...]]:
     return _load_codex_tables(connection, "_directory")
 
 
 def _load_codex_registries(
-    connection: sqlite3.Connection,
+    connection: "Any",
 ) -> dict[str, tuple[CodexDirectoryRow, ...]]:
     return _load_codex_tables(connection, "_registry")
 

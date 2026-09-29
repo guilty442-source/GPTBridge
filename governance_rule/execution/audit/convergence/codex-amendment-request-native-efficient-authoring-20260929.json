@@ -1,0 +1,89 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "native-efficient-authoring-20260929",
+  "title": "要求程式碼以原生語言撰寫並以高效方式實作",
+  "summary": "Human-governor directive 2026-09-29: every new or modified code unit is authored in its registered native owner language and implemented efficiently. B157 carries the AUTHORING and EFFICIENT-WRITING clauses (compiled paths, bounded concurrency, batching, zero-copy, capacity reservation, one-pass processing, measured p50/p95/p99+CPU+RAM+VRAM+queue-depth evidence); B166 records the authoring rule against interpreted/scripting/retired fallbacks; metadata registers the authored-code and efficient-authoring policies; the architecture artifacts carry the same generation. Codex-only change: no implementation is migrated by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 要求程式碼盡量使用原生語言編寫，並使用高效方式編寫",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T17:22:08Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "8b5bd5c0ac19d07afd6466bdfc53c462358e04beb55821ed2926f972e57e610a",
+    "revision_sequence": 164
+  },
+  "problem": {
+    "summary": "The performance article fixed the objective and PERF contract but did not state an authoring rule; the language article did not forbid interpreted or scripting authoring explicitly, and no registry key recorded the authored-code policy."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B157"
+      },
+      "field": "rule",
+      "proposed": "PERFORMANCE-OBJECTIVE:high-performance+high-speed+low-resource+bounded-parallelism;NO-NEW-FRAMEWORK:converge-existing-execution-paths;AUTHORING:native-owner-language-only+compiled-efficient-form;every new or modified code unit is written in its registered native owner language and never in an interpreted,scripting or retired runtime;EFFICIENT-WRITING:registered efficient patterns (compiled paths,bounded concurrency,batching,zero-copy,capacity reservation,one-pass processing) with measured p50/p95/p99+CPU+RAM+VRAM+queue-depth evidence;avoid avoidable copies,per-item work,unbounded allocation and unnecessary language hops;PERF-01=critical-path-forbids-unnecessary-Python-hop;PERF-02=CPU-bound-prefers-Rust-safe-core-or-admitted-C/C++-native-hot-path;PERF-03=high-concurrency-IO-orchestration-prefers-Go;PERF-04=all-concurrency-bounded;PERF-05=forbid-unbounded-queue+thread+goroutine+task+process+model-request;PERF-06=bulk-operations-prefer-batch;PERF-07=large-payload-prefers-reference+stream+zero-copy;PERF-08=model-prefers-resident-and-forbids-request-triggered-reload;PERF-09=independent-RAG-stages-prefer-parallel-execution;PERF-10=end-to-end-cancellation-required;PERF-11=cache-bounded+revision-aware+scope-aware+non-canonical;PERF-12=nonessential-services-lazy-initialization;PERF-13=observability-nonblocking-critical-path;PERF-14=canonical-writes-separated-from-runtime-telemetry;PERF-15=optimization-decided-by-p50+p95+p99+CPU+RAM+VRAM+context-switch+queue-depth+DB-round-trip-evidence;SCHEDULER:one-existing-global-work-scheduler;CLASSES:CPU+IO+DB+VECTOR+MODEL+GPU+BACKGROUND;BUDGETS:physical-core+pool+vector-limit+model-capacity+VRAM+backpressure;MODEL-RESIDENCY:HOT|WARM|COLD|EVICTING|LOADING with LRU+VRAM-budget+auto-release;RAG-PARALLEL:keyword+vector+metadata>merge>rerank>PostgreSQL-verify>context;BATCH:embedding+DB-write+Rust-vector-projection-batch+log+audit-receipt+hash+metadata+IPC-event;FAIL-FAST:authentication>scope>capability>schema>quota>dispatch;CANCELLATION:UI>scheduler>native-worker>DB>RAG>LLM;CACHE:L1-process+L2-shared-bounded+L3-PostgreSQL-pgvector/Rust-derived-cache;STARTUP:core-config>IPC>UI-ready>DB-pool>scheduler>lazy-service>async-model-warm;PROCESS:bounded-resident-native-runtimes+tools-on-demand;FORMAT-PERFORMANCE-INVARIANT:every active source+contract+configuration+data+cache+index+transport+artifact format must minimize measured latency+CPU+RAM+VRAM+allocation+copy+serialization+storage+IO without weakening correctness+security+authority+scope+lineage+audit+portability;SELECTION:owner implementation layer selects format through representative p50+p95+p99+throughput+CPU+memory+storage+startup+parse/encode/decode+copy-count evidence;PATH-CLASS:small-control-message may use human-readable typed text;high-frequency-internal-message prefers registered typed binary/native structure;large-payload prefers identity-reference+stream+mapped-or-chunked access;canonical durable data remains PostgreSQL and scoped semantic vectors remain PostgreSQL-pgvector;SOURCE:compiled/native owner language and canonical source extension follow B35+B36;source remains readable+maintainable+reviewable and cannot be minified or generated merely to evade governance;MIGRATION:inventory>benchmark>candidate-schema>compatibility-reader/writer>bounded-dual-read-if-required>atomic-promotion>retirement-label>zero-consumer-proof>old-format-purge;CONTRACT:every cross-layer format is versioned+owner-bound+schema-bound+size-bounded+endianness/encoding-explicit+backward/forward-policy+unknown-field-policy+validation+deadline+cancellation+resource-budget;FAILURE:invalid+oversized+unknown+stale+incompatible format fails before expensive work;NO-FRAMEWORK:format replacement must use existing authorized toolchains unless an independently permitted dependency is indispensable;PROJECT-WIDE-ADAPTATION:all implementation layers may adapt approved worker-count+batch-size+queue-admission+cache-size+chunk-size+compression+codec+IO-strategy+model-residency+query-plan+retry-backoff within registered min/max ceilings;SIGNALS:latency+throughput+CPU+RAM+VRAM+queue-depth+error-rate+DB-round-trip+storage-pressure;CONTROL:hysteresis+cooldown+bounded-step+deadline+cancellation+rollback+decision-record+generation-fence;SAFETY:adaptation never changes Codex+authority+permission+business-semantics+canonicality+security+contract-version and never creates an unregistered owner+framework+scheduler;CODE-AUTHORING:every new or modified implementation must be designed for high performance,high execution speed,low latency and low resource consumption from its first current version;PRIORITY:correctness+security+authority+maintainability are invariant,then minimize algorithmic complexity+allocations+copies+serialization+context switches+lock contention+syscalls+process hops+network/IPC/database round trips+resident memory+CPU/GPU time+startup/shutdown cost;DATA-PATH:choose owner-language-native data structures,contiguous or streaming access where suitable,reference/borrow/move semantics instead of avoidable copies,batch set operations instead of per-item work,and prepared bounded queries instead of fetch-all filtering;FILE-FORMAT:every new or modified source,contract,configuration,data,cache,index,transport and artifact file must use the registered format that minimizes representative parse+encode+decode+allocation+copy+storage+IO cost for its path while preserving correctness+security+authority+portability+reviewability;CONTROL-FORMAT:small human-managed control data uses a typed readable format;HOT-FORMAT:high-frequency internal data uses a registered typed binary or native structure when measurement proves lower total cost;LARGE-FORMAT:large payloads use reference+stream+chunk+mapped access and avoid whole-file materialization;FORMAT-IDENTITY:encoding+endianness+schema version+size bound+unknown-field policy+compatibility policy+owner are explicit;CONCURRENCY:parallelize only independent work with explicit worker+queue+memory limits,backpressure,deadline,cancellation and cleanup;LIFECYCLE:initialize noncritical capability lazily,reuse verified expensive state,and release idle resources under the registered policy;HOT-PATH:no reflection,dynamic dispatch,text conversion,logging,telemetry,remote call or language/process hop unless required by the typed contract and measured acceptable;REVIEW:the owner must reject a needlessly slower or heavier code or file-format design when an equally correct,safe,maintainable and authorized lower-cost design exists;EVIDENCE:performance-sensitive code and format changes use representative before/after or candidate-comparison measurements and record p50+p95+p99+throughput+CPU+RAM+VRAM+allocation+copy+parse+encode+decode+storage+IO+queue+round-trip data appropriate to the path;REGRESSION:a change that exceeds a registered budget or causes material unapproved latency/resource regression cannot activate"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B166"
+      },
+      "field": "rule",
+      "proposed": "PRIMARY:C/Rust process+lifecycle+runtime;C++23 production inference+native runtime+formal test execution+audit;CSharp application+workflow+API+sole test orchestration;FSharp business+validation+analysis;Go file/network/batch;Rust RAG+vector+security+UI core;Native-JavaScript-ESM+JSDoc general UI;Tauri shell;GPUI high-performance workspace;egui engineering views;Julia scientific compute;PostgreSQL sole structured authority;PYTHON+NUMPY+JAX:retired;no role,residency,dependency,artifact or fallback remains and no transitional period exists;RESOURCE:C++23 resource governor is the sole project-wide regulator with administrator scope limited to resource regulation;DETAILS:versions,metrics,thresholds,tuning and implementation methods are owner-local rules;AUTHORING:every new or modified implementation is authored in the registered native owner language with efficient patterns and measured evidence;interpreted,scripting and retired runtimes are never an authoring or fallback target."
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "authored_code_policy",
+          "value": "native-owner-languages-only|interpreted-scripting-retired|no-fallback"
+        },
+        {
+          "key": "efficient_authoring_policy",
+          "value": "compiled-efficient-patterns|bounded-resources|batching-zero-copy|measured-p50-p95-p99|no-premature-microoptimization"
+        }
+      ]
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "eb02d93015dafd1bf9c9b3f7c94e971ad4531e2ad035e98649b644b85ba9aa1f",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T17:23:22Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "219157e9de9f592805a2f78085fa09c52c1e42150ef9066108505f2c8e87ec12",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T17:23:22Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T17:23:22Z",
+    "expected_audit_result": "B157/B166 state the native-authoring and efficient-writing rule, registry keys record the policy, and the architecture artifacts and Chinese mirror carry the same generation"
+  }
+}

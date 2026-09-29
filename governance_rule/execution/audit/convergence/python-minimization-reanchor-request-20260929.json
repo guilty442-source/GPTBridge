@@ -1,0 +1,59 @@
+{
+ "id": "python-minimization-reanchor-request-20260929",
+ "date": "2026-09-29",
+ "worker": "devin-cli",
+ "type": "adjudication-request",
+ "authority": "governance-rule-only",
+ "subject": "PYTHON_MINIMIZATION_BASELINE rev13 ratchet violated by codex-mandated channel consolidation + .sql artifact machinery + worker-stream edits",
+ "measured_at": "2026-09-29T13:30:00+08:00",
+ "baseline_rev": "rev13-pyret-inference-stack",
+ "violations": [
+  {
+   "bucket": "GOVERNANCE",
+   "baseline": "246f/67056",
+   "measured": "247f/67751",
+   "delta": "+1f/+695",
+   "cause": "SQLite predecessor retired -> deterministic .sql artifact + PG stage-schema machinery: new codex_postgresql_stage.py codec (~630 LOC), plus codex_postgresql export/import, generation projections, update pipeline/validation, repository and successor-builder rewrites. Same class as adjudications_rev6/rev8/rev11 (codex-mandated audit machinery growth)."
+  },
+  {
+   "bucket": "NETWORK",
+   "baseline": "19f/4285",
+   "measured": "19f/4704",
+   "delta": "+0f/+419",
+   "cause": "shared_layer channel consolidation — channel_types.py, connection_mixin.py, heartbeat_mixin.py, transactional_outbox.py deleted; channel_runtime.py grew to 824 LOC absorbing their surface"
+  },
+  {
+   "bucket": "PROC_MGMT",
+   "baseline": "59f/15896",
+   "measured": "59f/15932",
+   "delta": "+0f/+36",
+   "cause": "toolbox_launch* worker-stream edits"
+  },
+  {
+   "bucket": "BUSINESS",
+   "baseline": "229f/41109",
+   "measured": "229f/41110",
+   "delta": "+0f/+1",
+   "cause": "repo_migration.py / local_command_parser.py worker-stream edits"
+  }
+ ],
+ "resolved_since_filing": [
+  "RAG bucket returned within baseline after pipeline.py absorbed the five deleted pipeline_* mixins (664->2851 LOC) and ragd_client.py landed",
+  "sql-loop-exec finding in repo_migration.py resolved — foreign worker added # sql-ok suppression at the bounded per-column DDL loop",
+  "sql-loop-exec + sql-select-star findings in codex_postgresql_stage.py resolved — # sql-ok markers at the governed call-site lines; latest audit 2043 pass / 1 fail (sole failure = this ratchet)"
+ ],
+ "assessment": "All deltas are attributable to in-flight codex-directed migrations: shared_layer channel consolidation (NETWORK), toolbox-launch worker stream (PROC_MGMT), xingcheng migration-surface edits (BUSINESS), and the SQLite->.sql codex artifact machinery (GOVERNANCE — same class as adjudications_rev6/rev8/rev11). No worker added unauthorized surface. The ratchet correctly held red; this request records the drift for governor adjudication rather than self-re-anchoring upward. If the migrations settle below baseline (channel consolidation may net-shrink), downward-only re-anchor applies without adjudication.",
+ "requested_governor_actions": [
+  "re-measure after the channel-consolidation + .sql-artifact streams commit; if settled values exceed rev13, adjudicate interim re-anchor (same precedent family as adjudications_rev6/rev8/rev11)",
+  "if settled values come in under rev13, tighten-only re-anchor (no adjudication needed)",
+  "after ragd_client lands and vector_store.py (133 LOC VECTOR shim) retires, VECTOR bucket can ratchet to 0/0 per the native-degraded-store adjudication (adjudications_rev10)"
+ ],
+ "resolution_note_20260929": "devin-desktop: committed-tree remeasurement (.worktrees/devin @ b2e83d62) shows rev13 pinned a transient uncommitted state — committed HEAD measured PROC_MGMT 59/15902 (+6 vs baseline 15896) with all other buckets at/under baseline. Resolved by retiring orphan shared_layer/lifecycle_consolidation.py (zero imports/lazy-exports/pins; precedent rev5/6/7 downward-only) in commit c20b02bf on branch devin -> PROC_MGMT 58/14995. Remaining red in main worktree is uncommitted drift only: GOVERNANCE +1f/+695 (.sql artifact machinery), NETWORK +419 (channel consolidation), BUSINESS +1 — still awaiting governor adjudication as filed; PROC_MGMT component is resolved.",
+ "measurement_update_20260929b": "devin-cli SQL-refactor stream (governor-authorized B93/A185 split): post-split worktree measurement now reads RAG 87>86, PROC_MGMT 61>59, BUSINESS 234>233, GOVERNANCE 293>283 (+10f/+9loc). GOVERNANCE +10 files are the B93/A185 compatibility-submodule splits (codex_postgresql_stage_{schema,artifact,connection}, codex_update_pipeline_{common,isolate,execute,publish}, codex_successor_builder_{common,rows,apply}, codex_generation_projections_{base,search,seal}); +9 LOC net because hubs are thin re-export facades. RAG/PROC_MGMT/BUSINESS deltas are foreign worker streams in the same index. User directive '允許拆分' authorized the split direction; commit remains blocked pending adjudication.",
+ "evidence": {
+  "audit_engine": "star-audit-engine/v1, manifest 2050 checks / 2049 pass / 1 fail / 0 delegated, sole failure python-minimization:bucket-budget",
+  "new_file": "governance_rule/execution/codex_postgresql_stage.py (~630 LOC .sql-artifact/PG-stage codec, untracked; sole +1 file in GOVERNANCE)",
+  "deleted_companions": "shared_layer/channel_types.py, connection_mixin.py, heartbeat_mixin.py, transactional_outbox.py (unstaged deletes absorbed by channel_runtime.py)",
+  "landed": "main-system/src-core/core_system/rag/ragd_client.py committed by its owning stream"
+ }
+}

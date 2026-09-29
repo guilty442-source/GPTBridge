@@ -335,7 +335,7 @@ def main() -> int:
     args = parser.parse_args()
     errors: list[str] = []
     for check in (
-        check_gpu_coordinator_lazy_torch,
+        check_gpu_coordinator_torch_free,
         check_renderer_idle_gating,
         check_bootstrap_native_entry,
         check_channel_gateway_csharp,

@@ -704,13 +704,12 @@ def validate_governance_references(
     With ``codex_path=None`` (the default) the check reads the official
     codex through the governed read-only repository connection
     (PostgreSQL authority); file-level integrity primitives are owned by
-    the governed audit.  An explicit ``codex_path`` validates that staged
-    SQLite file directly (fixtures and legacy snapshots).  It never seals,
-    mutates or replaces the codex, and it is not a substitute for the
-    governed codex validation (``python -m governance_rule.execution.audit``).
+    the governed audit.  An explicit ``codex_path`` validates a staged
+    ``.sql`` artifact through a materialized stage schema; a ``.sqlite3``
+    path is a retired store and fails closed.  It never seals, mutates or
+    replaces the codex, and it is not a substitute for the governed codex
+    validation (``python -m governance_rule.execution.audit``).
     """
-    import sqlite3
-
     references = contract.get("governance_references") or {}
     errors: list[str] = []
     expected_hash = references.get("codex_sha256")
@@ -733,25 +732,30 @@ def validate_governance_references(
     path = Path(os.fspath(codex_path))
     if not path.is_file():
         return ["CODEX_FILE_MISSING"]
+    if path.suffix == ".sqlite3":
+        return ["CODEX_READ_FAILED:SQLITE_FIXTURE_RETIRED"]
+    if path.suffix != ".sql":
+        return ["CODEX_READ_FAILED:ARTIFACT_SUFFIX_INVALID"]
     if expected_hash and _sha256_file(path) != str(expected_hash):
         errors.append("CODEX_HASH_MISMATCH")
-    connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro&immutable=1", uri=True)
     try:
+        from governance_rule.execution.codex_postgresql_stage import (
+            open_artifact,
+        )
         from governance_rule.execution.codex_update_validation import (
             foreign_key_violations,
             validate_database_integrity,
         )
 
-        baseline = tuple(foreign_key_violations(connection))
-        for finding in validate_database_integrity(
-            connection, baseline_violations=baseline
-        ):
-            errors.append(f"CODEX_INTEGRITY_FAILED:{finding}")
-        errors.extend(_codex_reference_errors(connection, references))
-    except sqlite3.Error as error:
+        with open_artifact(path) as connection:
+            baseline = tuple(foreign_key_violations(connection))
+            for finding in validate_database_integrity(
+                connection, baseline_violations=baseline
+            ):
+                errors.append(f"CODEX_INTEGRITY_FAILED:{finding}")
+            errors.extend(_codex_reference_errors(connection, references))
+    except Exception as error:
         errors.append(f"CODEX_READ_FAILED:{error}")
-    finally:
-        connection.close()
     return errors
 
 

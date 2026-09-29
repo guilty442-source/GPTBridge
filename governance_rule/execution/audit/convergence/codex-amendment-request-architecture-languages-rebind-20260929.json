@@ -1,0 +1,45 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "architecture-languages-rebind-20260929",
+  "title": "重綁 architecture-languages.md registry 雜湊（工作者編輯後同步）",
+  "summary": "The architecture-languages.md artifact was edited by the implementation stream after the previous registry rebind; this request rebinds the active architecture_diagram_artifact_registry row to the current file bytes so SYNCED_CURRENT is truthful again. Codex-only change: no implementation is modified by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "architecture artifact registry hash drift detected 2026-09-29 (post worker edit 12:22)",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T04:40:55Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "11348965e91273eb420f9e93868c80cbae85df4155b2d33dda32ff6519a83561",
+    "revision_sequence": 174
+  },
+  "problem": {
+    "summary": "active registry row content_hash no longer matches the on-disk architecture-languages.md bytes after the implementation stream edit."
+  },
+  "changes": [],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "bc378afcc028a66e148f7db824312943ff83511a0f3bc1e7db623a3d6d8a30d7",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-29T04:58:41Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-29T04:58:41Z",
+    "expected_audit_result": "the active row carries content_hash matching the live artifact bytes and the current codex version"
+  }
+}

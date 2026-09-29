@@ -47,6 +47,7 @@ SCRIPTS = PROJECT_ROOT / "scripts"
 FREEZE_DIRECT_GIT_ALLOWED: tuple[str, ...] = (
     "git_tiers/git_repository.py",
     "git_tiers/fault_injection.py",
+    "git_tiers/fault_injection_repo.py",
     "baseline/",
     "tests/",
     "scripts/git-perf-benchmark.py",
@@ -59,6 +60,7 @@ SANCTIONED_DIRECT_GIT: tuple[str, ...] = (
     "git_tiers/snapshot.py",
     "git_tiers/disaster_recovery.py",
     "git_tiers/fault_injection.py",
+    "git_tiers/fault_injection_repo.py",
     "baseline/",
     "tests/",
     "scripts/git-perf-benchmark.py",
@@ -78,8 +80,10 @@ SANCTIONED_AUDIT_WRITERS: tuple[str, ...] = (
 SANCTIONED_PARSERS: tuple[str, ...] = (
     "git_tiers/porcelain.py",
     "git_tiers/self_commit.py",
+    "git_tiers/self_commit_core.py",
     "git_tiers/snapshot.py",
     "git_tiers/disaster_recovery.py",
+    "git_tiers/disaster_recovery_diagnose.py",
     "baseline/",
     "tests/",
 )
@@ -89,6 +93,7 @@ SANCTIONED_LOCKS: tuple[str, ...] = (
     "git_tiers/locks.py",
     "git_tiers/process_lock.py",
     "git_tiers/audit_chain.py",
+    "git_tiers/audit_chain_core.py",
     "baseline/",
     "tests/",
 )

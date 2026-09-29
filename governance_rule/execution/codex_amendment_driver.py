@@ -4,7 +4,7 @@ This module is the missing orchestration between a staged request artifact
 and the governor's publication decision:
 
     staged request file → CodexAmendmentRequestLedger.begin (lineage lock)
-        → build_successor (authority export → candidate sqlite + manifest)
+        → build_successor (authority export → candidate artifact + manifest)
         → run_five_sovereign_audit (unanimous receipts + certificate)
         → ready-for-governor
 
@@ -14,10 +14,10 @@ publication remains governor-invoked through
 ``codex_amendment_executor --apply`` (A382).
 
 Authority source: the live PostgreSQL codex schema is authoritative
-(A173).  When the canonical ``codex/data/governance_codex.sqlite3`` file
+(A173).  When the canonical ``codex/data/governance_codex.sql`` artifact
 is absent the driver exports the PostgreSQL authority into a
-non-authoritative scratch copy via ``export_postgresql_codex`` — the same
-contract ``isolate_generation`` uses in the update pipeline.
+non-authoritative ``.sql`` artifact via ``export_postgresql_codex`` — the
+same contract ``isolate_generation`` uses in the update pipeline.
 
 ``codex.amend`` channel submissions are notifications only: the staged
 request artifact file (``artifact=codex-amendment-request``) is the
@@ -43,7 +43,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -83,12 +82,16 @@ from governance_rule.execution.codex_amendment_lifecycle import (
     CodexAmendmentRequestLedger,
     load_amendment_request,
 )
+from governance_rule.execution.codex_postgresql_stage import (
+    artifact_table_names,
+    artifact_version,
+)
 from governance_rule.execution.codex_successor_builder import build_successor
 
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 CANONICAL_CODEX_ROOT: Final[Path] = PROJECT_ROOT / "governance_rule" / "codex"
 CANONICAL_DATABASE: Final[Path] = (
-    CANONICAL_CODEX_ROOT / "data" / "governance_codex.sqlite3"
+    CANONICAL_CODEX_ROOT / "data" / "governance_codex.sql"
 )
 STATE_DIR: Final[Path] = PROJECT_ROOT / "main-system" / "runtime" / "state"
 CONVERGENCE_DIR: Final[Path] = (
@@ -106,25 +109,9 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _sqlite_table_names(database: Path) -> frozenset[str] | None:
-    """Table names of a readable sqlite database; None when unreadable."""
-    try:
-        connection = sqlite3.connect(
-            f"file:{database.as_posix()}?mode=ro", uri=True
-        )
-    except (OSError, sqlite3.Error):
-        return None
-    try:
-        return frozenset(
-            str(row[0])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
-        )
-    except sqlite3.Error:
-        return None
-    finally:
-        connection.close()
+def _artifact_table_names(artifact: Path) -> frozenset[str] | None:
+    """Table names of a readable ``.sql`` artifact; None when unreadable."""
+    return artifact_table_names(artifact)
 
 
 def _authority_source_database() -> Path:
@@ -135,7 +122,7 @@ def _authority_source_database() -> Path:
         export_postgresql_codex,
     )
 
-    target = EXPORT_DIR / "authority-export.sqlite3"
+    target = EXPORT_DIR / "authority-export.sql"
     if target.exists():
         # export_postgresql_codex creates tables verbatim; a stale export
         # must never masquerade as the live authority, so refresh it.
@@ -258,7 +245,7 @@ def _permission_check(
         unverifiable = False
         if scope_tables:
             names = (
-                _sqlite_table_names(source_database)
+                _artifact_table_names(source_database)
                 if source_database is not None
                 else None
             )
@@ -307,7 +294,7 @@ def _runtime_check(
         flow_ok = flow == AMENDMENT_FLOW
         started = time.perf_counter()
         names = (
-            _sqlite_table_names(source_database)
+            _artifact_table_names(source_database)
             if source_database is not None
             else None
         )
@@ -381,16 +368,7 @@ def _automation_check(
         seal_ok = isinstance(seal, Mapping) and bool(seal)
         version = str(manifest.get("successor_version") or "").strip()
         if not version:
-            names_connection = sqlite3.connect(
-                f"file:{candidate.as_posix()}?mode=ro", uri=True
-            )
-            try:
-                row = names_connection.execute(
-                    "SELECT value FROM metadata WHERE key='codex_version'"
-                ).fetchone()
-                version = str(row[0]).strip() if row else ""
-            finally:
-                names_connection.close()
+            version = artifact_version(candidate)
         predecessor_version = str(
             (manifest.get("predecessor") or {}).get("codex_version") or ""
         ).strip()
@@ -542,12 +520,12 @@ def default_sovereign_checks(
         Path(candidate_path)
         if candidate_path
         else (
-            manifest.parent / f"{manifest.stem.replace('.candidate-manifest', '')}.sqlite3"
+            manifest.parent / f"{manifest.stem.replace('.candidate-manifest', '')}.sql"
             if manifest is not None
             else None
         )
     )
-    if candidate is not None and not str(candidate).endswith(".sqlite3"):
+    if candidate is not None and not str(candidate).endswith(".sql"):
         candidate = None
     try:
         request = load_amendment_request(request_path)
@@ -667,7 +645,7 @@ def _execute_ready_request(
             "error": "AUDIT_RESULT_UNAVAILABLE",
         }
     candidate = (
-        ledger.root / CANDIDATES_DIRNAME / f"{request_id}.sqlite3"
+        ledger.root / CANDIDATES_DIRNAME / f"{request_id}.sql"
     )
     if not candidate.is_file():
         return {
@@ -823,7 +801,7 @@ async def advance_request(
                 return result
         source = Path(source_database)
         candidates = ledger.root / CANDIDATES_DIRNAME
-        candidate = candidates / f"{request_id}.sqlite3"
+        candidate = candidates / f"{request_id}.sql"
         # Staleness is only checked when the driver derived the authority
         # itself; a caller-supplied source is validated as-is.
         if caller_supplied_source:
@@ -970,7 +948,7 @@ def cli_main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scan", action="store_true")
     parser.add_argument("--request", default="")
     parser.add_argument("--all", action="store_true")
-    parser.add_argument("--source", default="", help="predecessor sqlite export")
+    parser.add_argument("--source", default="", help="predecessor .sql artifact")
     parser.add_argument(
         "--auto-execute",
         action="store_true",

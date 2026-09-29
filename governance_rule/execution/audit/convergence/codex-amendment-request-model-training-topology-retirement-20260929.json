@@ -1,0 +1,80 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "model-training-topology-retirement-20260929",
+  "title": "收斂 MODEL_TRAINING 拓撲：訓練模組退役（法典＋registry）",
+  "summary": "Human-governor directive 2026-09-29: converge the MODEL_TRAINING topology with the retired Python/JAX training domain (B73/B167/D140). The activation state becomes retired/retired with retirement evidence, the project architecture directory row becomes a retired-former module with retired_version bound to the successor codex version, and architecture_registry.json retires the model-training component into module_labels.trash with a git-history external locator. No Python code or other implementation is changed by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 收斂衝突條文並重新排練（拓撲收斂）",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T17:11:20Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "47e899dcd0687af0138a94a53e34940c38efa3579e861b7830f4ecfdb9cc9ef3",
+    "revision_sequence": 163
+  },
+  "problem": {
+    "summary": "The training domain is retired by law but the topology still declares MODEL_TRAINING active: activation state active/active, project architecture directory row active, architecture registry component on-demand/canonical with a python-process path that the implementation stream is deleting."
+  },
+  "changes": [
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "MODEL_TRAINING"
+      },
+      "field": "current_state",
+      "proposed": "retired"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "MODEL_TRAINING"
+      },
+      "field": "required_state",
+      "proposed": "retired"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "MODEL_TRAINING"
+      },
+      "field": "activation_evidence",
+      "proposed": "retirement-law+B73+B167+D140"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "MODEL_TRAINING"
+      },
+      "field": "changed_at_utc",
+      "proposed": "2026-09-28T17:21:57Z"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "MODEL_TRAINING"
+      },
+      "field": "entity_kind",
+      "proposed": "retired-former-model-training-module"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "MODEL_TRAINING"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    }
+  ],
+  "proposed_successors": [],
+  "verification": {
+    "requested_at": "2026-09-28T17:21:57Z",
+    "expected_audit_result": "MODEL_TRAINING is retired in activation state, project directory and the architecture registry; the governance audit passes with the retired component in module_labels.trash and a git-history external locator"
+  }
+}

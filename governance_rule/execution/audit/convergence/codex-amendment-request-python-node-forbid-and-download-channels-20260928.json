@@ -1,0 +1,205 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "python-node-forbid-and-download-channels-20260928",
+  "title": "禁止 Python 與 Node；套件管理下載僅限 Visual Studio Installer 與 Winget",
+  "summary": "Human-governor directive 2026-09-28: Python and Node are forbidden with no download, install, execution, residency or transitional period; package-management downloads use exactly two channels, Visual Studio Installer and Winget; language package managers (Cargo, Go modules, NuGet, npm, pip and successors) never perform a network download and may use only vendored or already-registered artifacts inside the managed dependency root; anything neither channel can provide requires an explicit permission artifact. Codex-only change: no implementation is migrated by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 套件管理下載只能 Visual Studio 與 Winget",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-28T16:13:12Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "cf425bbd974614f673df2ddd98db104f30d80d20a878f7a3c83f78410ef5aedc",
+    "revision_sequence": 159
+  },
+  "problem": {
+    "summary": "The published generation allows language package managers to manage project-local dependency artifacts without an explicit download-channel restriction; the governor limits package downloads to Visual Studio Installer and Winget."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C117"
+      },
+      "field": "rule",
+      "proposed": "PACKAGE-VERSION-SYNC:the automation core owns periodic package version reconciliation as a registered periodic flow: detect installed toolchain and package versions across every governed surface (vendored toolchains, language runtimes, dependency manifests, services), run governed upgrades through Winget where one exists under policy bounds,with Visual Studio Installer as the only other authorized download channel;language package managers (Cargo,Go modules,NuGet,npm,pip and successors) never perform a network download and may use only vendored or already-registered dependency artifacts inside the registered dependency root;components installed through the Visual Studio Installer (MSVC toolset,Windows SDK and VS-managed build components) remain a registered exception, and reconcile declared codex versions to installed actuals by emitting codex-amendment-request artifacts through the governed intake pipeline -- never by direct authority writes; upgrades are fail-closed when the ecosystem is offline or vendored.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C28"
+      },
+      "field": "rule",
+      "proposed": "DEPENDENCY-AUTHORITY:automation-core automatically updates registered dependency versions but cannot admit a new dependency identity/source/runtime without current explicit permission artifact. ADMISSION:request declares purpose+owner+consumers+alternatives+direct/transitive graph+source+exact candidate+license+security+privilege/network/data/resource footprint; permission-core allow/deny precedes any fetch/install/lock/execute. UPDATE:registered identity follows 14-day normal rule or verified emergency exception and all gates;every package download uses exactly Visual Studio Installer or Winget;language package managers never perform a network download and use only vendored or already-registered artifacts;a package neither channel can provide requires an explicit permission artifact;Python and Node.js are forbidden:no download,install,execution,residency or transitional period. RETIREMENT:consumer cutover+stability+zero active consumer+zero lock/manifest/runtime reference+data/config migration+bounded rollback retention+purge receipt; terminal PURGED means no binary,package,cache,environment,model artifact or executable reference remains. INVENTORY:current+rollback-only+retirement state machine machine-readable.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C29"
+      },
+      "field": "rule",
+      "proposed": "BOUNDARY:local authored code remains authority;third-party dependencies are exact pinned immutable artifacts. NEW-ADMISSION:explicit permission required for every new identity,source and introduced transitive dependency; no permission means no network fetch,installation,manifest/lock change or execution;package download channels are exactly Visual Studio Installer and Winget;language package managers never perform a network download and use only vendored or already-registered artifacts except under an explicitly permitted exception;Python and Node.js are forbidden without exception. EXISTING-UPDATE:D28/C28 automated timing and gates. RETIREMENT:replace consumers+remove lock/manifest reference+verify zero runtime load+retain at most one prior version during bounded rollback window+automatic purge after expiry; purge removes installed files,caches,staging remnants and rebuildable artifacts while retaining only audit/receipt metadata.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "D28"
+      },
+      "field": "rule",
+      "proposed": "UPDATE-BOUNDARY:automatic update applies only to an already registered dependency identity and source; NEW-DEPENDENCY:any new direct/transitive package,runtime,SDK,toolchain,provider/source or capability dependency requires explicit permission artifact before download/install/lock/execute;DOWNLOADS:package downloads use exactly Visual Studio Installer or Winget and language package managers never perform a network download. VERSION-TIMING:normal latest waits 14 complete days from verified upstream published_at; verified major/critical security,major compatibility failure,withdrawal or EOL may waive waiting only. ACTIVATION:immutable staging>identity/provenance/license/security/API-ABI/contract/build/test/resource/rollback>canary>waves>atomic switch>stability. RETIREMENT:prior version SUPERSEDED>ROLLBACK_ONLY>RETENTION_EXPIRED>PURGE_READY>PURGED; after stable successor+zero consumers/references+completed migration+rollback window+purge evidence,automatically remove binaries,packages,caches,old environment and rebuildable artifacts; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B79"
+      },
+      "field": "rule",
+      "proposed": "GATE:BUILD ABI REPRO GATE answers only:approved toolchain used? artifact conforms to approved ABI/API baseline? same input yields acceptably equivalent artifact? FLOW:source>toolchain verification>canonical build configuration>native/.NET/build>symbol+ABI inspection>artifact digest>reproducibility comparison>PASS|WARN|FAIL. STRUCTURE:code/checkers/BuildAbiReproChecker.ts+code/policy/BuildAbiPolicy.ts+code/registry/ToolchainRegistry.ts+code/registry/AbiBaselineRegistry.ts+code/evidence/build-abi/ (grandfathered JavaScript-ESM artifacts; migration follows D62); policy and registries are immutable governance data only,checker verifies and never repairs. TOOLCHAINS:Python/NumPy/JAX are retired and record no toolchain;C/C++ records MSVC/clang/gcc family+version+target_arch+runtime_library+language_standard+optimization_level+exception_policy+rtti_policy+calling_convention+symbol_visibility+CMake;CSharp/FSharp records compiler+.NET 10 runtime+target_framework+PlatformTarget+RID;JavaScript records ESM+bundler config and JavaScript-ESM grandfathered artifacts additionally record the JavaScript-ESM toolchain;Go/Rust record go toolchain/cargo+rustc;SQL records migration version/order+schema baseline. CPP-LOCK:C++23+x64+public ABI C only+C++ symbols hidden unless explicit successor; /MD versus /MT,architecture,standard,flags,exception/RTTI/calling/visibility differences are distinct ABI build identities. ABI-BASELINE:abi_major+abi_minor+exported_symbols+struct_sizes+struct_alignments+field widths/signedness+calling_convention+architecture+runtime; permit compatible minor additive change; FAIL removed symbol+changed width/layout/calling convention+breaking semantics without major bump. EXPORT-GATE:public allowlist only registered gptbridge_* symbols; std/internal classes/vector/parser/mangled C++ symbols private. CSHARP:x64 required when consuming x64 native unless registered multi-arch strategy; verify target framework+RID+interop signature+DllImport calling convention+CharSet/encoding."
+    },
+    {
+      "table": "formal_rule_registry",
+      "key": {
+        "rule_code": "RULE_GO_RUST_NODE"
+      },
+      "field": "predicate",
+      "proposed": "RETIRED:the former node-retain justification is void;runtime must declare language_id in (go1.27.1,rust1.98.1);Node.js is forbidden with no download,install,execution or transitional period"
+    },
+    {
+      "table": "formal_rule_registry",
+      "key": {
+        "rule_code": "RULE_RETIRED_DEPENDENCIES"
+      },
+      "field": "predicate",
+      "proposed": "retired dependencies must be exactly PyTorch/Electron/TypeScript/Qdrant/SQLite/Node.js/JAX/NumPy with status RETIRED or MIGRATION_ONLY and no active consumer;Node.js and Python are additionally forbidden:no download,install,execution or transitional period"
+    },
+    {
+      "table": "edicts",
+      "key": {
+        "provision_id": "E172"
+      },
+      "field": "edict",
+      "proposed": "LOCAL-CODE:owned-source; DEPENDENCY:exact-identity+lock+provenance+SBOM+license+security+compatibility+owner+purpose; TRANSITIVE:included; TOOLCHAIN:governed-third-party; FLOATING/AUTO-INSTALL/UNMANAGED-BINARY/POSTINSTALL-UNREVIEWED/LEGACY-SUB-SOVEREIGN:none;PACKAGE-MANAGER:download-channels=visual-studio-installer|winget+language-managers-no-network-download+exceptions-require-explicit-permission+python-node-forbidden"
+    },
+    {
+      "table": "edicts",
+      "key": {
+        "provision_id": "E176"
+      },
+      "field": "edict",
+      "proposed": "ROOT:E:\\AI; INSTALL-ONLY:runtime|interpreter|SDK|toolchain|package|library|non-Ollama-model|managed-service-binary|dependency-cache; EXCEPTION-1:Windows-11-native-tools-at-OS-owned-paths; EXCEPTION-2:Ollama-runtime+download+Ollama-managed-model-store-at-exact-registered-C-drive-paths; PROJECT-CODE:E:\\GPTBridge-only;PACKAGE-MANAGER:download-channels=visual-studio-installer|winget+language-managers-offline-vendored-only+vendor-install-paths-permitted+other-exceptions-require-explicit-permission+python-node-forbidden; OTHER-PROJECT-LOCAL/GLOBAL/PROFILE/TEMP/DRIVE/UNC/FALLBACK/IN-PLACE-UPDATE:none"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "package_manager"
+      },
+      "field": "value",
+      "proposed": "winget+visual-studio-installer"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "package_manager_exception"
+      },
+      "field": "value",
+      "proposed": "explicit-permission-required"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "package_manager_registered_exception"
+      },
+      "field": "value",
+      "proposed": "visual-studio-installer-authorized-download-channel"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "package_download_channels",
+          "value": "visual-studio-installer|winget"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "package_download_policy",
+          "value": "exactly-two-channels|language-managers-no-network-download|vendored-artifacts-only"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "forbidden_runtimes",
+          "value": "python|node"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "forbidden_runtimes_state",
+          "value": "forbidden|no-download-install-execute-residency|no-transition"
+        }
+      ]
+    },
+    {
+      "registry": "formal_rule_ownership_map",
+      "action": "update",
+      "key": {
+        "invariant_code": "runtime-migration:RULE_GO_RUST_NODE"
+      },
+      "set": {
+        "status": "retired"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-languages.md"
+      },
+      "set": {
+        "content_hash": "e5bc33e7665a730417d80c9f624d47d3d42ef62bab1f597e32e43fe1038a9b4f",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T16:52:17Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "c5e92ff06bc95951eb5dcb7117d33bbfaf578c4310b6bb9a5b63cf07b23ff781",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-09-28T16:52:17Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-09-28T16:52:17Z",
+    "expected_audit_result": "package download channels are exactly Visual Studio Installer and Winget, language package managers perform no network download, and the architecture artifacts and Chinese mirror carry the same generation"
+  }
+}

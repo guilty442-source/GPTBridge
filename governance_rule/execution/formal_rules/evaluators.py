@@ -1074,8 +1074,6 @@ def _declared_provision_evaluator(
     """Predicate factory: controlling provision is declared and active."""
 
     def evaluator(facts: Mapping[str, Any]) -> tuple[bool, str, str]:
-        import sqlite3
-
         import psycopg
 
         from governance_rule.execution.codex_repository import (
@@ -1090,7 +1088,7 @@ def _declared_provision_evaluator(
                     "WHERE provision_type='article' AND provision_id=?",
                     (provision_id,),
                 ).fetchone()
-        except (OSError, sqlite3.Error, psycopg.Error) as error:
+        except (OSError, psycopg.Error) as error:
             return False, "FAIL_CLOSED", f"codex unreadable: {error}"
         if row is None:
             return False, "FAIL_CLOSED", f"provision {provision_id} is not declared"

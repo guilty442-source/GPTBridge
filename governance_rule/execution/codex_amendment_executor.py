@@ -20,7 +20,7 @@ CLI::
 
     python -m governance_rule.execution.codex_amendment_executor \
         --request main-system/runtime/state/codex-amendment-request-*.json \
-        --prepared <successor.sqlite3> --staging <dir> [--apply] \
+        --prepared <successor.sql> --staging <dir> [--apply] \
         [--audit-result <audit.json>]
 """
 from __future__ import annotations

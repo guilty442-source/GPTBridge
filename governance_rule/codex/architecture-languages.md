@@ -15,7 +15,13 @@
 | Julia | 統計、數學模型、最佳化、模擬與科學計算 | 治理、權限及 UI |
 | Native JavaScript ESM + JSDoc | 設定、工具面板、表格、表單與一般 UI | 直接資料庫、原生 ABI 或後端模組存取 |
 | SQL／PostgreSQL 18.6 | 集合式資料操作、完整性、RLS 與正式 schema | 工作流、權限來源及業務決策 |
-| Python | 單次治理語意轉接；已授權星澄 JAX／XLA 訓練 | 常駐、機械性工作、推論、RAG、UI、API、SQL 編排、測試與審計 |
+| Python／NumPy／JAX | 已全面退役並立即生效：零角色、零常駐、零相依、零產物、零回退 | 任何殘留使用（fail-closed 拒絕） |
+
+套件下載：套件管理的下載來源僅限 Visual Studio Installer 與 Winget 兩個通道。語言套件管理器（Cargo、Go modules、NuGet、npm、pip、Bun 等）不得連網下載（禁止透過 Bun 下載套件），只能使用受管相依根內已 vendored／已登錄的產物；兩通道皆無法提供者須先取得明確許可。Python 與 Node 全面禁止：不得下載、安裝、重新安裝、修復安裝、還原、執行或常駐；Python 直譯器、虛擬環境、pip、NumPy、JAX 及其他 Python 套件均不得重建或補裝。
+
+撰寫原則：所有新增或修改的程式碼一律以已登錄的原生擁有語言撰寫（C／C++23／Rust／Go／C#／F#／JavaScript-ESM／Julia／SQL），並以高效方式實作：編譯形式、批次、零複製、容量預留、單趟處理、受限並行與期限取消；大型結構以型別化指標、參照、借用視圖或句柄傳遞，禁止不必要的整體值複製。熱迴圈優先採編譯器最佳化；實測有益時才使用迴圈展開與安全遞減計數，且不得造成溢位、錯誤終止或程式膨脹。語言支援且可證明無別名時善用 `restrict` 或等價契約；經量測的小型熱函式可使用 `inline`，但不得強制膨脹程式或改變語意。建置須善用已登錄、可重現且經量測的編譯器最佳化參數、連結時最佳化與目標架構設定；禁止未經證明即啟用會放寬數值、安全或相容語意的旗標。效能敏感路徑須有量測（p50／p95／p99、CPU、RAM、VRAM、queue depth）證據；直譯／腳本與已退役 runtime 不得作為撰寫或回退目標。
+
+WebAssembly：已登錄的執行格式（UI／WebView 與受治理沙箱；Tauri 桌面殼層保留）。僅限已登錄之原生擁有語言編譯產生（Rust／C++ 優先）；wasm 不是來源語言、不得手寫，也不得自網路取得未登錄的 wasm 產物；套件下載、撰寫與沙箱契約規則一體適用。
 
 ## 執行拓撲
 
@@ -31,7 +37,8 @@ flowchart TB
   CABI --> CPP[C++23 Native Core]
   CS --> SQL[(PostgreSQL SQL)]
   JULIA[Julia Scientific Compute] --> CS
-  PY[Python Request-scoped Governance or JAX Training] -.typed result or artifact.-> CS
+  RUST --> WASM[WebAssembly UI and Governed Sandbox]
+  CPP --> WASM
 ```
 
 跨語言邊界只能使用具內部時間戳記世代、具 owner、具型別、具期限與取消語義的正式契約。契約名稱不攜帶版本號，條文不顯示機器識別。Adapter 只能轉換型別、錯誤、生命週期與傳輸，不能取得目標能力的語義或權威。
@@ -48,19 +55,19 @@ flowchart TB
   ESBUILD --> JS
 ```
 
-Electron、TypeScript、Node.js、React 已排除。SWC 與 Esbuild 混用，但只負責編譯與打包，不取得 UI runtime 或應用權責。
+Electron、TypeScript、Node.js、React 已排除；TypeScript、Node 與 Python 全面禁用並立即生效，不得下載、安裝、撰寫或常駐。SWC 與 Esbuild 混用，但只負責編譯與打包，不取得 UI runtime 或應用權責。JavaScript-ESM 少用：互動關鍵與高頻視圖以原生 GPUI／egui／Rust 為主，JS 僅保留不可化約的 WebView 呈現面。
 
-## Python 最終界線
+## Python／NumPy／JAX 退役
 
 ```mermaid
 flowchart LR
-  REQUEST[Explicit Governed Request] --> GOV[Python Semantic Adapter]
-  GOV --> RESULT[Typed Result and Exit]
-  JOB[Authorized Training Job] --> JAX[Python + JAX/XLA]
-  JAX --> ARTIFACT[Model Artifact and Exit]
+  RETIRED[Python / NumPy / JAX] --> REMOVED[Retired: no role, no residency, no dependency, no artifact, no fallback]
+  REMOVED --> DENY[Any residual use is denied fail-closed]
 ```
 
-正常 production 的 Python 行程數固定為零。Python 不得作為正式測試、審計、發布、推送、推論、資料處理、排程、監控、網路、檔案或應用服務的回退路徑。
+Python、NumPy 與 JAX 已全面退役並立即生效。不得承擔任何角色、常駐程序、相依套件、模型產物或回退路徑；任何殘留引用一律 fail-closed 拒絕，替代能力須經另行登錄的修訂案。
+
+模型訓練能力不隨退役技術消失：C++23 是星澄內部原生訓練與模型產物唯一執行擁有者，F# 是訓練評估與高正確性分析擁有者；原獨立 MODEL_TRAINING 模組維持退役。
 
 ## 測試與審計
 
@@ -86,3 +93,13 @@ flowchart LR
 ```
 
 所有程式碼與檔案格式須減少不必要的配置、複製、序列化、鎖競爭、程序／語言跳轉、系統呼叫及資料庫／IPC／網路往返。高頻資料採量測證明的具型別格式；大型資料避免整檔載入；所有 queue、thread、goroutine、task、process、cache 與 batch 必須有明確上限。
+
+## 各語言高效撰寫模式
+
+- **C++（零成本抽象與記憶體控制）**：`std::move` 移轉所有權；唯讀參數用 `std::string_view`；容器先 `reserve()`。
+- **C#（與 GC 共存）**：`ValueTask`／`async`／`await` 減少配置；`Span<T>`／`ReadOnlySpan<T>` 切片不新配置；小型資料用 `struct`。
+- **F#（尾端遞迴與管線）**：尾端遞迴化為迴圈；大數據用 `seq` 惰性求值；小型 DU 加 `[<Struct>]`。
+- **Go**：能用值不用指標；`make` 帶 capacity；大字串用 `strings.Builder`（迴圈禁 `+`）；高頻物件用 `sync.Pool`；不盲目開 Goroutine。
+- **Rust**：多用 `&[T]`／`&str`，不亂 `clone()`；迭代器取代索引迴圈；集合 `with_capacity`。
+
+編譯器優化：production 一律使用擁有語言的 release 優化組態——C／C++ 為 `/O2` 或 `-O3`（必要時 LTO）；Rust 為 `cargo build --release`（必要時 `lto=true`／`codegen-units=1`）；C#／F# 為 Release＋optimize（Tiered PGO 依量測）；Go 為最佳化 release 建置＋`-trimpath`；Julia 為 `-O3`。未優化或 Debug 組態不得進入 production，實際組態記入 B79 工具鏈／ABI 證據。

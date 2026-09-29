@@ -21,19 +21,18 @@ recompute the same metrics from the live files.
 from __future__ import annotations
 
 import json
-import sqlite3
-from typing import Final, Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Any, Final, Iterable, Mapping, Sequence
 
-# psycopg is optional at import time: commit-gate manifests only probe
-# SQLite mirrors, and the driver is required solely when an actual
-# PostgreSQL connection is passed in.
-_SCHEMA_ERRORS: tuple[type[BaseException], ...] = (sqlite3.Error,)
+# psycopg is the codex store driver; staged schemas answer the same
+# introspection surface the legacy sqlite PRAGMAs exposed.
 try:
     import psycopg
-except ImportError:
-    pass
-else:
-    _SCHEMA_ERRORS = (sqlite3.Error, psycopg.Error)
+except ImportError:  # pragma: no cover — psycopg is a runtime requirement
+    psycopg = None  # type: ignore[assignment]
+_SCHEMA_ERRORS: tuple[type[BaseException], ...] = (
+    (psycopg.Error,) if psycopg is not None else ()
+)
 
 # A run of five or more U+003F characters is treated as replacement damage.
 # Legitimate prose question marks are single, so the threshold keeps the
@@ -100,7 +99,7 @@ def is_replacement_damaged(text: object, threshold: int = REPLACEMENT_RUN_THRESH
     return longest_replacement_run(text) >= threshold
 
 
-def _table_columns(connection: sqlite3.Connection, table: str) -> tuple[str, ...]:
+def _table_columns(connection: Any, table: str) -> tuple[str, ...]:
     try:
         return tuple(
             str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")
@@ -110,7 +109,7 @@ def _table_columns(connection: sqlite3.Connection, table: str) -> tuple[str, ...
 
 
 def find_replacement_damage(
-    connection: sqlite3.Connection,
+    connection: Any,
     fields: Iterable[tuple[str, str]] = TEXT_FIELDS,
     *,
     threshold: int = REPLACEMENT_RUN_THRESHOLD,
@@ -142,7 +141,7 @@ def find_replacement_damage(
 
 
 def generation_text_metrics(
-    connection: sqlite3.Connection,
+    connection: Any,
     fields: Iterable[tuple[str, str]] = TEXT_FIELDS,
 ) -> dict[str, int]:
     """Recomputable mirror-quality metrics for one database generation."""
@@ -164,7 +163,7 @@ def generation_text_metrics(
 
 
 def foreign_key_violations(
-    connection: sqlite3.Connection,
+    connection: Any,
 ) -> tuple[tuple[str, ...], ...]:
     """Normalized ``PRAGMA foreign_key_check`` rows for baseline comparison."""
     return tuple(
@@ -174,7 +173,7 @@ def foreign_key_violations(
 
 
 def validate_database_integrity(
-    connection: sqlite3.Connection,
+    connection: Any,
     *,
     baseline_violations: Iterable[Sequence[object]] = (),
 ) -> tuple[str, ...]:
@@ -208,12 +207,17 @@ def staged_generation_errors(
     version: str | None = None,
     baseline_violations: Iterable[Sequence[object]] = (),
 ) -> tuple[str, ...]:
-    """Validate one staged database: integrity, version identity, text."""
+    """Validate one staged generation: integrity, version identity, text."""
+    from governance_rule.execution.codex_postgresql_stage import (  # noqa: PLC0415
+        open_codex_store,
+    )
+
     errors: list[str] = []
     try:
-        connection = sqlite3.connect(f"file:{database_path}?mode=ro", uri=True)
-    except sqlite3.Error as error:
-        return (f"staged codex database cannot be opened: {error}",)
+        context = open_codex_store(Path(database_path))
+        connection = context.__enter__()
+    except Exception as error:
+        return (f"staged codex store cannot be opened: {error}",)
     try:
         errors.extend(
             validate_database_integrity(
@@ -231,10 +235,10 @@ def staged_generation_errors(
             )
         for finding in find_replacement_damage(connection):
             errors.append(f"staged codex text replacement damage: {finding}")
-    except sqlite3.Error as error:
-        errors.append(f"staged codex database validation failed: {error}")
+    except Exception as error:
+        errors.append(f"staged codex store validation failed: {error}")
     finally:
-        connection.close()
+        context.__exit__(None, None, None)
     return tuple(errors)
 
 
@@ -273,7 +277,7 @@ def mirror_identity_sets(
 
 
 def mirror_text_parity_errors(
-    connection: sqlite3.Connection,
+    connection: Any,
     mirror_tables: Mapping[str, Sequence[Mapping[str, object]]],
 ) -> tuple[str, ...]:
     """Compare per-provision mirror text with the database generation.
