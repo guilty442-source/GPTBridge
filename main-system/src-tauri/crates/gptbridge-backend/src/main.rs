@@ -7,6 +7,7 @@
 
 mod audit;
 mod auth;
+mod channel_host;
 mod fault;
 mod health;
 mod outbox;
@@ -172,6 +173,7 @@ fn handle_connection(mut stream: TcpStream) {
         }
         "/shutdown" => {
             if auth::authorize_shutdown(request.header("x-gptbridge-shutdown-token")) {
+                channel_host::stop();
                 let _ = write_http_response(&mut stream, 200, "OK", "text/plain", b"OK");
                 std::process::exit(0);
             }
@@ -330,6 +332,10 @@ fn main() {
         }
     };
     write_state_file();
+    // Channel-layer automation: spawn + supervise the governed
+    // shared-layer channel host (shared-layer/manifest.json
+    // ``background_service`` contract, managed_by=main-system).
+    channel_host::start(port);
     println!("gptbridge-backend listening on 127.0.0.1:{port}");
     for stream in listener.incoming() {
         match stream {
