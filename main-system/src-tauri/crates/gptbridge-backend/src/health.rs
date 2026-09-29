@@ -17,6 +17,7 @@ use gptbridge_core::native::paths;
 use gptbridge_core::security::token;
 
 static AUTHENTICATED_CONNECTIONS: AtomicU64 = AtomicU64::new(0);
+static AUTHENTICATED_EVER: AtomicBool = AtomicBool::new(false);
 static RUNTIME_FAILED: AtomicBool = AtomicBool::new(false);
 static STARTUP_DEAD: AtomicBool = AtomicBool::new(false);
 static BOOT_INSTANT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
@@ -53,6 +54,7 @@ pub fn startup_dead() -> bool {
 }
 
 pub fn note_authenticated_connect() {
+    AUTHENTICATED_EVER.store(true, Ordering::SeqCst);
     AUTHENTICATED_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
 }
 
@@ -60,8 +62,14 @@ pub fn note_authenticated_disconnect() {
     AUTHENTICATED_CONNECTIONS.fetch_sub(1, Ordering::SeqCst);
 }
 
+/// ``authenticated_ipc_connected`` is a same-generation latch (parity with
+/// the retired Python flag): one proven authenticated session attests the
+/// IPC plane for the whole generation.  Reading the live connection gauge
+/// here would let any client disconnect after the startup deadline feed a
+/// false ``not-ready`` into the permanent ``STARTUP_DEAD`` latch — every
+/// later reconnect would then be served ``runtime_degraded`` forever.
 pub fn authenticated_ipc_connected() -> bool {
-    AUTHENTICATED_CONNECTIONS.load(Ordering::SeqCst) > 0
+    AUTHENTICATED_EVER.load(Ordering::SeqCst)
 }
 
 /// Record a failed runtime-initialization outcome — the readiness gate
@@ -170,7 +178,11 @@ pub fn evaluate() -> Readiness {
     let dependencies_ready = core_ok;
     let ready =
         backend_runtime_ready && gov_ready && dependencies_ready && authed;
-    if !ready && boot_instant().elapsed() >= startup_deadline() {
+    // The dead latch may only fire once a session generation has begun
+    // (some client has authenticated at least once).  A backend probed via
+    // /health past the deadline before any UI attaches is "starting", not
+    // dead — otherwise the first real client would be latched out forever.
+    if !ready && authed && boot_instant().elapsed() >= startup_deadline() {
         STARTUP_DEAD.store(true, Ordering::SeqCst);
     }
     let dead = STARTUP_DEAD.load(Ordering::SeqCst);
@@ -212,6 +224,12 @@ pub fn health_payload(level: &str) -> Value {
         "workspace_instance_id": token::workspace_instance_id(),
         "runtime_state": readiness.runtime_state,
         "runtime_scope": "main",
+        // Retired-Python parity: maintenance_ready reported the resident
+        // maintenance controller's health-monitor startup outcome.  The
+        // native backend's readiness/probe loop is that plane's successor —
+        // report it from the same evaluated readiness instead of a phantom
+        // subsystem.
+        "maintenance_ready": readiness.ok,
         "governance_ready": readiness.governance_ready,
         "backend_runtime_ready": readiness.backend_runtime_ready,
         "dependencies_ready": readiness.dependencies_ready,
