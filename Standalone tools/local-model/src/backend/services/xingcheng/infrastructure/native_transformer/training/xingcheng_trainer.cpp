@@ -127,6 +127,7 @@ namespace xct {
 #include "xct_tpu.h"
 #include "xct_math.h"
 #include "xct_gemma4.h"
+#include "xct_mtp.h"
 #include "xct_backward.h"
 #include "xct_ckpt.h"
 #include "xct_job.h"

@@ -197,6 +197,7 @@ static JsonValue run_job(const JsonValue& job) {
     bool deadline_hit = false;
     Fwd fw;
     std::vector<float> dlogits;
+    float mtp_last = 0.0f;
     int64_t grpo_rollouts = 0;
     double grpo_reward_sum = 0.0, grpo_kl_sum = 0.0;
 
@@ -356,13 +357,19 @@ static JsonValue run_job(const JsonValue& job) {
                     const int T = ex.vision_patches + (int)ex.ids.size();
                     fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
                     loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
-                           + fw.moe_aux;
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
+                           + fw.moe_aux + fw.moe_zloss;
+                    std::vector<std::vector<float>> dmtp;
+                    loss += mtp_last =
+                        mtp_aux_loss(c, ex.ids, fw, dmtp);
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision, &dmtp);
                 } else {
                     fwd(p, c, ex.ids, fw);
                     loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                           + fw.moe_aux;
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                           + fw.moe_aux + fw.moe_zloss;
+                    std::vector<std::vector<float>> dmtp;
+                    loss += mtp_last =
+                        mtp_aux_loss(c, ex.ids, fw, dmtp);
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
             }
             // grad clip (global norm)
@@ -426,7 +433,12 @@ static JsonValue run_job(const JsonValue& job) {
     }
     // Router-health observation (B139): last forward's accumulated
     // load-balancing aux — ≈moe_aux_w×layers at perfect balance.
-    if (c.moe_experts > 0) put("moe_aux_last", num(fw.moe_aux));
+    if (c.moe_experts > 0) {
+        put("moe_aux_last", num(fw.moe_aux));
+        put("moe_zlast", num(fw.moe_zloss));
+    }
+    // v29 MTP head observability: weighted aux CE of the last example.
+    if (c.mtp_depth > 0) put("mtp_loss_last", num(mtp_last));
     if (task == "grpo") {
         put("rollouts", num((double)grpo_rollouts));
         const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;
