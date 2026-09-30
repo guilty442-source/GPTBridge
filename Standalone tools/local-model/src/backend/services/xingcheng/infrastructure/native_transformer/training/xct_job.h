@@ -298,6 +298,20 @@ static int gradcheck() {
             w.d[i] = orig;
             double num = (lp - lm) / (2.0 * eps);
             double ana = g.d[i];
+            if (std::string(n).find("experts.0.w1") != std::string::npos ||
+                std::string(n).find("shared.0.w1") != std::string::npos) {
+                // second probe at larger step to separate ulp noise from
+                // systematic gradient error
+                double eps2 = 4.0 * eps;
+                w.d[i] = orig + (float)eps2; double lp2 = loss_of();
+                w.d[i] = orig - (float)eps2; double lm2 = loss_of();
+                w.d[i] = orig;
+                double num2 = (lp2 - lm2) / (2.0 * eps2);
+                if (i == 384 || i == 480)
+                    std::printf("  probe %s[%zu]: ana=%.6f num(4e-3)=%.6f "
+                                "num(1.6e-2)=%.6f lp=%.6f lm=%.6f\n",
+                                n.c_str(), i, ana, num, num2, lp, lm);
+            }
             double abs_err = std::fabs(num - ana);
             double rel = abs_err / std::max(1e-4, std::fabs(num));
             ++checked;
