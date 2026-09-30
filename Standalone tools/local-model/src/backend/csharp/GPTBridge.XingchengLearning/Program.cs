@@ -577,6 +577,82 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? ck)
                             ? ck : "", "ACTIVE_PARAMS_MISSING")));
+            // ---- XC-1B Mature Standard (maturity directive §1-§40)
+            if (flags.Contains("maturity-checks"))
+                return Emit(MaturityChecks.Run(toolRoot));
+            if (flags.Contains("maturity-baseline"))
+                return Emit(MaturityStandard.SeedBaseline(toolRoot));
+            if (flags.Contains("maturity-registry"))
+                return Emit(MaturityStandard.BaselineRegistry(toolRoot));
+            if (flags.Contains("capability-floor-gate"))
+            {
+                var fg = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? fgf)
+                        ? fgf : "",
+                    "MATURITY_CAPABILITY_FLOOR_FAILED");
+                var scores = new Dictionary<string, double>();
+                var floors = new Dictionary<string, double>();
+                foreach (var p in fg.GetProperty("scores")
+                                      .EnumerateObject())
+                    scores[p.Name] = p.Value.GetDouble();
+                foreach (var p in fg.GetProperty("floors")
+                                      .EnumerateObject())
+                    floors[p.Name] = p.Value.GetDouble();
+                return Emit(MaturityStandard.FloorGate(
+                    scores, floors,
+                    fg.TryGetProperty("layer", out var ly)
+                        ? ly.GetString() ?? "BASE_MODEL"
+                        : "BASE_MODEL"));
+            }
+            if (flags.Contains("retention-gate"))
+            {
+                var rt = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? rtf)
+                        ? rtf : "", "POST_COMPRESSION_REGRESSION");
+                Dictionary<string, double> Map(string k)
+                {
+                    var m = new Dictionary<string, double>();
+                    if (rt.TryGetProperty(k, out var o))
+                        foreach (var p in o.EnumerateObject())
+                            m[p.Name] = p.Value.GetDouble();
+                    return m;
+                }
+                return Emit(MaturityStandard.RetentionGate(
+                    rt.TryGetProperty("phase", out var ph)
+                        ? ph.GetString() ?? "compress" : "compress",
+                    Map("pre"), Map("post"), Map("min_retention")));
+            }
+            if (flags.Contains("golden-gate"))
+                return Emit(MaturityStandard.GoldenGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gg)
+                            ? gg : "", "GOLDEN_USABILITY_FAILED")));
+            if (flags.Contains("certification-gate"))
+            {
+                var cg = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? cgf)
+                        ? cgf : "", "MATURITY_CAPABILITY_FLOOR_FAILED");
+                var certs = new Dictionary<string, bool>();
+                foreach (var p in cg.EnumerateObject())
+                    if (p.Value.ValueKind is JsonValueKind.True or
+                            JsonValueKind.False)
+                        certs[p.Name] = p.Value.ValueKind ==
+                            JsonValueKind.True;
+                return Emit(MaturityStandard.Certification(certs));
+            }
+            if (flags.Contains("maturity-promotion"))
+            {
+                var mp = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? mpf)
+                        ? mpf : "", "MATURITY_CAPABILITY_FLOOR_FAILED");
+                var conds = new Dictionary<string, bool>();
+                foreach (var p in mp.EnumerateObject())
+                    if (p.Value.ValueKind is JsonValueKind.True or
+                            JsonValueKind.False)
+                        conds[p.Name] = p.Value.ValueKind ==
+                            JsonValueKind.True;
+                return Emit(MaturityStandard.PromotionDecision(conds));
+            }
             // ---- persona / style / steerability (Hermes lessons)
             if (flags.Contains("persona-validate"))
                 return Emit(PersonaRuntime.ValidatePersona(

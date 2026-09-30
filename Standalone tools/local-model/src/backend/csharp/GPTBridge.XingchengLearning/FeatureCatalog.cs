@@ -520,6 +520,43 @@ internal static class FeatureCatalog
             "INTEGRATED_GOVERNANCE", false, true, false,
             "csharp-runtime",
             new[] { "promotion-gate" }),
+        // ---- XC-1B Mature Standard (maturity directive §1-§40) ----
+        new("f-maturity-baseline", "maturity directive",
+            "star-maturity-baseline/v1 registry — per-capability " +
+            "floors, versioned, single source (§29-§30)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "maturity-baseline", "maturity-registry" }),
+        new("f-capability-floor", "maturity directive",
+            "per-capability minimum + no-compensation + BASE_MODEL " +
+            "layer gate + THINK_OFF first (§5-§9, §28)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "capability-floor-gate" }),
+        new("f-retention-gates", "maturity directive",
+            "per-capability retention through distill/compress/" +
+            "quantize — mean never hides an item (§10-§12)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "retention-gate" }),
+        new("f-golden-usability", "maturity directive",
+            "eval-only golden suite + stability across seeds/runs/" +
+            "context; leakage denied (§31-§33)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "golden-gate" }),
+        new("f-xc1b-certification", "maturity directive",
+            "nine-cert bundle + promotion AND + replacement gate " +
+            "(§13, §27, §35)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "certification-gate", "maturity-promotion" }),
+        new("f-300m-to-1b-gate", "maturity directive",
+            "lab tier proves process readiness, not mature floors " +
+            "(§37)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "maturity-checks" }),
     };
 
     private static string Path_(string toolRoot)
