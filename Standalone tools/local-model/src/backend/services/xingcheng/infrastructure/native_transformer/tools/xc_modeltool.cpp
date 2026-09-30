@@ -4,8 +4,11 @@
 //   tokenize      --tokenizer <tokenizer.json|dir> --in rows.jsonl
 //                 --out rows.jsonl [--max-length N] [--chat]
 //   import-bundle --bundle <dir> --out <ckpt.xcn>
+//   distill-init  --teacher <bundle-dir|ckpt.xcn> --config <model.json>
+//                 --out <student.xcn> [--seed N] [--overwrite]
 //   export-bundle --ckpt <file> --out <dir>
 //                 --config-from <manifest.json> --tokenizer <tokenizer.json>
+//                 [--quant none|int8|int4_packed]
 //   eval          --bundle <dir> --suite <suite.json>
 //                 [--baseline-bundle <dir>|--baseline-metrics <file>]
 //   capability    --bundle <dir> --suite <suite.json>
@@ -23,10 +26,11 @@
 // xct's ce_loss consumes aligned labels directly and only shifts for the
 // pretrain task/format.
 //
-// Bundles are self-contained (manifest.json + weights.bin fp64 +
-// tokenizer.json); checkpoints are the XCN2 fp32 format emitted by
-// xingcheng_trainer. import/export translate tensor names bidirectionally
-// so trained weights become evaluable/inferable through the C++ engine.
+// Bundles are self-contained (manifest.json + weights.bin fp64 or
+// int8/int4_packed quantized tensors + tokenizer.json); checkpoints are
+// the XCN2 fp32 format emitted by xingcheng_trainer. import/export
+// translate tensor names bidirectionally so trained weights become
+// evaluable/inferable through the C++ engine.
 //
 // Data residency: this tool only reads/writes paths given on the command
 // line; the C# orchestrator owns the tool-root confinement checks.
@@ -795,17 +799,17 @@ int64_t numel_of(const JsonValue& shape) {
     return n;
 }
 
-int mode_import_bundle(const Args& a) {
-    fs::path bundle = a.get("bundle");
-    std::string out = a.get("out");
-    if (bundle.empty() || out.empty()) fail("IMPORT_ARGS_MISSING");
+// Loads a bundle directory into xct Params (fp32). Fails closed on any
+// dtype/shape/contract violation — shared by import-bundle and
+// distill-init.
+void load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
+                        xct::Params& p) {
     JsonValue manifest = parse_json_file((bundle / "manifest.json").string());
     const JsonValue* cfg = manifest.get("config");
     const JsonValue* tensors = manifest.get("tensors");
     if (!cfg || !tensors || tensors->type != JsonValue::Type::Object)
         fail("IMPORT_MANIFEST_INVALID");
-    xct::ModelConfig c = config_from_manifest(*cfg);
-    xct::Params p;
+    c = config_from_manifest(*cfg);
     xct::init_params(p, c, 0);
 
     std::ifstream bin((bundle / "weights.bin").string(), std::ios::binary);
@@ -840,12 +844,143 @@ int mode_import_bundle(const Args& a) {
     }
     for (const auto& n : p.order)
         if (!filled.count(n)) fail("IMPORT_MISSING_TENSOR:" + n);
+}
+
+int mode_import_bundle(const Args& a) {
+    fs::path bundle = a.get("bundle");
+    std::string out = a.get("out");
+    if (bundle.empty() || out.empty()) fail("IMPORT_ARGS_MISSING");
+    xct::ModelConfig c;
+    xct::Params p;
+    load_bundle_params(bundle, c, p);
     if (!xct::ckpt_save(p, c, out, /*overwrite=*/false))
         fail("IMPORT_CKPT_WRITE_FAILED:" + out);
     std::printf("{\"ok\":true,\"mode\":\"import-bundle\",\"out\":\"%s\","
                 "\"ckpt_sha256\":\"%s\",\"tensors\":%zu}\n",
                 gptbridge::jsonlite::json_escape(out).c_str(),
                 sha256_file(out).c_str(), filled.size());
+    return 0;
+}
+
+// -------------------------------------------------------- distill-init ----
+// Sequence-level distillation companion: builds the student checkpoint by
+// transplanting every teacher tensor whose shape matches the smaller
+// architecture (embeddings, attention, norms, dense MLPs) so SFT starts
+// from the teacher's language competence instead of a random init.
+// Teacher MoE layers contribute only attention/norms; student dense MLPs
+// are filled round-robin from the teacher's own dense layers.
+//
+//   xc_modeltool distill-init --teacher <bundle-dir|ckpt.xcn>
+//       --config <student-model.json> --out <student.xcn>
+//       [--seed N] [--overwrite]
+
+static bool copy_if_same_shape(xct::Params& dst, const std::string& dname,
+                               const xct::Params& src,
+                               const std::string& sname,
+                               int64_t& copied_params) {
+    auto s = src.w.find(sname);
+    auto d = dst.w.find(dname);
+    if (s == src.w.end() || d == dst.w.end()) return false;
+    if (s->second.shape != d->second.shape) return false;
+    d->second.d = s->second.d;
+    copied_params += d->second.numel();
+    return true;
+}
+
+int mode_distill_init(const Args& a) {
+    std::string teacher_path = a.get("teacher");
+    std::string cfg_path = a.get("config");
+    std::string out = a.get("out");
+    if (teacher_path.empty() || cfg_path.empty() || out.empty())
+        fail("DISTILL_ARGS_MISSING");
+    uint64_t seed = a.has("seed") ? (uint64_t)std::stoull(a.get("seed")) : 42;
+
+    // -- teacher weights (bundle dir or XCN checkpoint).
+    xct::ModelConfig tc;
+    xct::Params tp;
+    if (fs::is_directory(teacher_path)) {
+        load_bundle_params(teacher_path, tc, tp);
+    } else {
+        if (!xct::ckpt_peek_config(teacher_path, tc))
+            fail("DISTILL_TEACHER_UNREADABLE");
+        xct::init_params(tp, tc, 0);
+        if (!xct::ckpt_load(tp, tc, teacher_path))
+            fail("DISTILL_TEACHER_LOAD_FAILED");
+    }
+
+    // -- student architecture from a model-config JSON (same field names
+    //    as job.json's model block / bundle manifest config).
+    JsonValue cfgroot = parse_json_file(cfg_path);
+    const JsonValue* scfg = cfgroot.get("model");
+    if (!scfg) scfg = cfgroot.get("config");
+    if (!scfg) scfg = &cfgroot;
+    xct::ModelConfig sc = config_from_manifest(*scfg);
+    if (sc.vocab != tc.vocab || sc.hidden != tc.hidden ||
+        sc.heads != tc.heads || sc.kv_heads != tc.kv_heads)
+        fail("DISTILL_DIM_MISMATCH: student vocab/hidden/heads must equal "
+             "teacher for weight transplant");
+    xct::Params sp;
+    xct::init_params(sp, sc, seed);
+
+    int64_t copied_params = 0, copied_tensors = 0;
+    auto copy = [&](const std::string& d, const std::string& s) {
+        if (copy_if_same_shape(sp, d, tp, s, copied_params))
+            ++copied_tensors;
+    };
+    copy("embed", "embed");
+    copy("lm_head", "lm_head");
+    copy("norm_f", "norm_f");
+
+    // Teacher dense-MLP pool (layers carrying layers.N.w1).
+    std::vector<int> dense_layers;
+    for (int l = 0; l < tc.layers; ++l)
+        if (tp.w.count(xct::ln(l, "w1"))) dense_layers.push_back(l);
+    int dense_cursor = 0;
+    std::ostringstream layer_map;
+    layer_map << '[';
+    for (int l = 0; l < sc.layers; ++l) {
+        // Spread teacher layers across the student depth.
+        int tl = sc.layers > 1
+                     ? (int)std::lround((double)l * (tc.layers - 1) /
+                                        (sc.layers - 1))
+                     : 0;
+        for (const char* t :
+             {"norm1", "wq", "wk", "wv", "wo", "norm2"})
+            copy(xct::ln(l, t), xct::ln(tl, t));
+        int ml = tl;
+        if (!tp.w.count(xct::ln(tl, "w1"))) {
+            if (dense_layers.empty())
+                fail("DISTILL_NO_DENSE_MLP: teacher has no dense MLP layer");
+            ml = dense_layers[(size_t)dense_cursor++ %
+                              dense_layers.size()];
+        }
+        for (const char* t : {"w1", "w2", "w3"})
+            copy(xct::ln(l, t), xct::ln(ml, t));
+        if (l) layer_map << ',';
+        layer_map << "{\"student\":" << l << ",\"teacher_attn\":" << tl
+                  << ",\"teacher_mlp\":" << ml << '}';
+    }
+    layer_map << ']';
+
+    int64_t total = 0;
+    for (const auto& n : sp.order) total += sp.w[n].numel();
+    if (!xct::ckpt_save(sp, sc, out, a.has("overwrite")))
+        fail("DISTILL_CKPT_WRITE_FAILED:" + out);
+    std::printf(
+        "{\"ok\":true,\"mode\":\"distill-init\",\"out\":\"%s\","
+        "\"ckpt_sha256\":\"%s\",\"student_params\":%lld,"
+        "\"teacher_params\":%lld,\"copied_tensors\":%lld,"
+        "\"copied_params\":%lld,\"fresh_params\":%lld,"
+        "\"layer_map\":%s}\n",
+        gptbridge::jsonlite::json_escape(out).c_str(),
+        sha256_file(out).c_str(), (long long)total,
+        (long long)std::accumulate(
+            tp.order.begin(), tp.order.end(), (int64_t)0,
+            [&](int64_t s, const std::string& n) {
+                return s + tp.w[n].numel();
+            }),
+        (long long)copied_tensors, (long long)copied_params,
+        (long long)(total - copied_params), layer_map.str().c_str());
     return 0;
 }
 
@@ -861,26 +996,7 @@ int mode_export_bundle(const Args& a) {
 
     // Pass 1: read XCN header -> config; then allocate + load.
     xct::ModelConfig c;
-    {
-        std::ifstream f(ckpt, std::ios::binary);
-        if (!f) fail("EXPORT_CKPT_UNREADABLE");
-        char magic[4]; f.read(magic, 4);
-        if (std::memcmp(magic, "XCN1", 4) != 0) fail("EXPORT_CKPT_BAD_MAGIC");
-        uint32_t ver = xct::r32(f);
-        if (ver != 1 && ver != 2) fail("EXPORT_CKPT_VERSION");
-        c.vocab = (int)xct::r32(f); c.hidden = (int)xct::r32(f);
-        c.inter = (int)xct::r32(f); c.layers = (int)xct::r32(f);
-        c.heads = (int)xct::r32(f); c.kv_heads = (int)xct::r32(f);
-        c.max_pos = (int)xct::r32(f); c.moe_experts = (int)xct::r32(f);
-        c.moe_top_k = (int)xct::r32(f); c.moe_layer_interval = (int)xct::r32(f);
-        f.read((char*)&c.rope_theta, 4); f.read((char*)&c.rms_eps, 4);
-        f.read((char*)&c.moe_aux_w, 4);
-        if (ver >= 2) {
-            c.moe_expert_inter = (int)xct::r32(f);
-            c.moe_shared_experts = (int)xct::r32(f);
-            c.moe_shared_inter = (int)xct::r32(f);
-        }
-    }
+    if (!xct::ckpt_peek_config(ckpt, c)) fail("EXPORT_CKPT_UNREADABLE");
     xct::Params p;
     xct::init_params(p, c, 0);
     if (!xct::ckpt_load(p, c, ckpt)) fail("EXPORT_CKPT_LOAD_FAILED");
@@ -906,6 +1022,14 @@ int mode_export_bundle(const Args& a) {
     }
     std::sort(pairs.begin(), pairs.end());
 
+    // --quant none|int8|int4_packed: weight-only per-tensor symmetric
+    // quantization of 2-D matrices (mirrors kernels/quant.py; the engine
+    // dequantizes to fp64 at load). 1-D tensors (norms) stay fp64.
+    std::string quant = a.get("quant");
+    if (quant.empty()) quant = "none";
+    if (quant != "none" && quant != "int8" && quant != "int4_packed")
+        fail("EXPORT_QUANT_UNSUPPORTED:" + quant);
+
     std::string bin_path = (out_dir / "weights.bin").string();
     std::string bin_tmp = bin_path + ".tmp";
     std::ofstream bin(bin_tmp, std::ios::binary | std::ios::trunc);
@@ -913,18 +1037,66 @@ int mode_export_bundle(const Args& a) {
     std::ostringstream tensors_json;
     tensors_json << '{';
     int64_t offset = 0;
+    int64_t param_count = 0, quantized_tensors = 0;
     for (size_t i = 0; i < pairs.size(); ++i) {
         const xct::Tensor& t = p.w.at(pairs[i].second);
         int64_t n = t.numel();
-        std::vector<double> tmp((size_t)n);
-        for (int64_t k = 0; k < n; ++k) tmp[(size_t)k] = (double)t.d[(size_t)k];
-        bin.write((char*)tmp.data(), (std::streamsize)n * 8);
-        int64_t bytes = n * 8;
+        param_count += n;
+        bool q = quant != "none" && t.shape.size() == 2;
+        int64_t bytes;
+        std::string dtype;
+        double scale = 0.0;
+        if (q && quant == "int8") {
+            double mx = 0.0;
+            for (int64_t k = 0; k < n; ++k)
+                mx = std::max(mx, (double)std::fabs(t.d[(size_t)k]));
+            scale = mx > 0.0 ? mx / 127.0 : 1.0;
+            std::vector<int8_t> qd((size_t)n);
+            for (int64_t k = 0; k < n; ++k) {
+                double v = std::lround((double)t.d[(size_t)k] / scale);
+                qd[(size_t)k] = (int8_t)std::clamp(v, -127.0, 127.0);
+            }
+            bin.write((char*)qd.data(), (std::streamsize)n);
+            bytes = n;
+            dtype = "int8";
+        } else if (q && quant == "int4_packed") {
+            double mx = 0.0;
+            for (int64_t k = 0; k < n; ++k)
+                mx = std::max(mx, (double)std::fabs(t.d[(size_t)k]));
+            scale = mx > 0.0 ? mx / 8.0 : 1.0;
+            const int64_t last = t.shape.back();
+            const int64_t rows = n / last, packed_row = (last + 1) / 2;
+            std::vector<unsigned char> qd((size_t)(rows * packed_row), 0);
+            for (int64_t r = 0; r < rows; ++r) {
+                for (int64_t col = 0; col < last; ++col) {
+                    double v = std::lround(
+                        (double)t.d[(size_t)(r * last + col)] / scale);
+                    int nib = (int)std::clamp(v, -8.0, 7.0) + 8;
+                    unsigned char& byte = qd[(size_t)(r * packed_row + col / 2)];
+                    if (col % 2 == 0) byte |= (unsigned char)nib;
+                    else byte |= (unsigned char)(nib << 4);
+                }
+            }
+            bin.write((char*)qd.data(), (std::streamsize)qd.size());
+            bytes = (int64_t)qd.size();
+            dtype = "int4_packed";
+        } else {
+            std::vector<double> tmp((size_t)n);
+            for (int64_t k = 0; k < n; ++k)
+                tmp[(size_t)k] = (double)t.d[(size_t)k];
+            bin.write((char*)tmp.data(), (std::streamsize)n * 8);
+            bytes = n * 8;
+            dtype = "float64";
+        }
+        if (q) ++quantized_tensors;
         if (i) tensors_json << ',';
         tensors_json << '"' << pairs[i].first
                      << "\":{\"bytes\":" << bytes
-                     << ",\"dtype\":\"float64\",\"endianness\":\"little\","
-                     << "\"offset\":" << offset << ",\"shape\":[";
+                     << ",\"dtype\":\"" << dtype
+                     << "\",\"endianness\":\"little\","
+                     << "\"offset\":" << offset;
+        if (q) tensors_json << ",\"scale\":" << scale;
+        tensors_json << ",\"shape\":[";
         for (size_t d = 0; d < t.shape.size(); ++d) {
             if (d) tensors_json << ',';
             tensors_json << t.shape[d];
@@ -945,9 +1117,20 @@ int mode_export_bundle(const Args& a) {
     std::string cfg_canon;
     {
         // Serialize config through the JsonValue tree (engine only reads
-        // fields; whitespace is irrelevant for manifest consumers).
-        std::string s = gptbridge::jsonlite::json_serialize(*cfg);
-        cfg_canon = s;
+        // fields; whitespace is irrelevant for manifest consumers). Patch
+        // the engine-visible quantization marker to match the shipped
+        // tensor dtypes.
+        JsonValue cfg_copy = *cfg;
+        bool found = false;
+        for (auto& kv : cfg_copy.object)
+            if (kv.first == "quantization") { kv.second.string = quant;
+                kv.second.type = JsonValue::Type::String; found = true; }
+        if (!found) {
+            JsonValue qv; qv.type = JsonValue::Type::String;
+            qv.string = quant;
+            cfg_copy.object.emplace_back("quantization", qv);
+        }
+        cfg_canon = gptbridge::jsonlite::json_serialize(cfg_copy);
     }
     std::string ckpt_sha = sha256_file(ckpt);
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
@@ -965,7 +1148,9 @@ int mode_export_bundle(const Args& a) {
        << ",\"tensors\":" << tensors_json.str()
        << ",\"weights_file\":\"weights.bin\""
        << ",\"weights_sha256\":\"" << weights_sha << "\""
-       << ",\"quantization\":\"none\"}";
+       << ",\"param_count\":" << param_count
+       << ",\"quantized_tensors\":" << quantized_tensors
+       << ",\"quantization\":\"" << quant << "\"}";
     std::string mf_path = (out_dir / "manifest.json").string();
     std::string mf_tmp = mf_path + ".tmp";
     {
@@ -982,9 +1167,11 @@ int mode_export_bundle(const Args& a) {
 
     std::printf("{\"ok\":true,\"mode\":\"export-bundle\",\"out\":\"%s\","
                 "\"weights_sha256\":\"%s\",\"checkpoint_sha256\":\"%s\","
-                "\"tensors\":%zu}\n",
+                "\"tensors\":%zu,\"param_count\":%lld,"
+                "\"quantization\":\"%s\",\"weights_bytes\":%lld}\n",
                 gptbridge::jsonlite::json_escape(out_dir.string()).c_str(),
-                weights_sha.c_str(), ckpt_sha.c_str(), pairs.size());
+                weights_sha.c_str(), ckpt_sha.c_str(), pairs.size(),
+                (long long)param_count, quant.c_str(), (long long)offset);
     return 0;
 }
 
@@ -1785,7 +1972,7 @@ int mode_serve(const Args& a) {
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
-            "xc_modeltool <tokenize|import-bundle|export-bundle|eval|"
+            "xc_modeltool <tokenize|import-bundle|distill-init|export-bundle|eval|"
             "capability|serve> [args]\n");
         return 2;
     }
@@ -1794,6 +1981,7 @@ int main(int argc, char** argv) {
     try {
         if (mode == "tokenize") return mode_tokenize(a);
         if (mode == "import-bundle") return mode_import_bundle(a);
+        if (mode == "distill-init") return mode_distill_init(a);
         if (mode == "export-bundle") return mode_export_bundle(a);
         if (mode == "eval") return mode_eval(a);
         if (mode == "capability") return mode_capability(a);

@@ -46,6 +46,27 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     return std::rename(tmp.c_str(), path.c_str()) == 0;
 }
 
+static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    char magic[4]; f.read(magic, 4);
+    if (std::memcmp(magic, "XCN1", 4) != 0) return false;
+    const uint32_t ver = r32(f);
+    if (ver != 1 && ver != 2) return false;
+    c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
+    c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
+    c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
+    c.moe_top_k = (int)r32(f); c.moe_layer_interval = (int)r32(f);
+    f.read((char*)&c.rope_theta, 4); f.read((char*)&c.rms_eps, 4);
+    f.read((char*)&c.moe_aux_w, 4);
+    if (ver >= 2) {
+        c.moe_expert_inter = (int)r32(f);
+        c.moe_shared_experts = (int)r32(f);
+        c.moe_shared_inter = (int)r32(f);
+    }
+    return (bool)f;
+}
+
 static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return false;

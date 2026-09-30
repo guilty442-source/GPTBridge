@@ -61,6 +61,7 @@ var mimeTypes = map[string]string{
 
 func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := filepath.ToSlash(filepath.Clean("/" + r.URL.Path))
+	trace("http " + r.URL.Path + " -> " + path)
 	switch {
 	case path == "/" || path == "/index.html":
 		h.serveIndex(w)
