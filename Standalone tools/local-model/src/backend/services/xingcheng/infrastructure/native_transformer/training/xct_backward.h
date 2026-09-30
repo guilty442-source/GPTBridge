@@ -503,8 +503,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             });
             // inverse decoupled rope on the rope-channel grads
             const float th = c.rope_theta_at(l);
-            rope_hf_partial(dqr.data(), T, c.heads, kr, kr, th, true);
-            rope_hf_partial(dkr.data(), T, 1, kr, kr, th, true);
+            rope_hf_partial(dqr.data(), T, c.heads, kr, kr, th, true, &c);
+            rope_hf_partial(dkr.data(), T, 1, kr, kr, th, true, &c);
             // q path: repack [nope|rope] per head, then direct wq or the
             // low-rank chain W_uq -> latent norm -> W_dq.
             std::vector<float> dqf((size_t)T * c.heads * qd, 0.0f);
@@ -630,11 +630,13 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const int rd = c.rotary_dim_at(l);
             const float th = c.rope_theta_at(l);
             if (rd < hd) {
-                rope_hf_partial(dq.data(), T, c.heads, hd, rd, th, true);
-                rope_hf_partial(dk.data(), T, kvh, hd, rd, th, true);
+                rope_hf_partial(dq.data(), T, c.heads, hd, rd, th,
+                                true, &c);
+                rope_hf_partial(dk.data(), T, kvh, hd, rd, th,
+                                true, &c);
             } else {
-                rope(dq.data(), T, c.heads, hd, th, true);
-                rope(dk.data(), T, kvh, hd, th, true);
+                rope(dq.data(), T, c.heads, hd, th, true, &c);
+                rope(dk.data(), T, kvh, hd, th, true, &c);
             }
             if (c.qk_norm) {
                 std::vector<float> dq_raw((size_t)T * Hq, 0.0f),
@@ -813,8 +815,8 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
             }
         }
     });
-    rope(dq.data(), PT, c.heads, hd, c.rope_theta, true);
-    rope(dk.data(), PT, kvh, hd, c.rope_theta, true);
+    rope(dq.data(), PT, c.heads, hd, c.rope_theta, true, &c);
+    rope(dk.data(), PT, kvh, hd, c.rope_theta, true, &c);
     std::vector<float> dn1((size_t)PT * H, 0.0f);
     linear_bwd(dq.data(), L.n1.data(), p.w.at("mtp.wq"), dn1.data(),
                p.g["mtp.wq"].d.data(), PT, H, Hq);

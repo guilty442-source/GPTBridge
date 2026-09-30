@@ -46,28 +46,20 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <functional>
 #include <limits>
-#include <mutex>
 #include <numeric>
 #include <random>
 #include <regex>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#if defined(_M_X64) || defined(__x86_64__)
-#include <immintrin.h>
-#include <intrin.h>
-#endif
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -88,9 +80,6 @@ using gptbridge::jsonlite::JsonValue;
 
 namespace xct {
 #include "xct_util.h"
-#include "xct_tpu.h"
-#include "xct_math.h"
-#include "xct_backward.h"
 #include "xct_ckpt.h"
 }  // namespace xct
 

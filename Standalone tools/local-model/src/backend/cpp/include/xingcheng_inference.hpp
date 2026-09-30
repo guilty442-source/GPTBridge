@@ -87,6 +87,18 @@ struct ModelConfig {
     // Qwen3-A3B softmax denominator — scores stay independent under many
     // fine-grained experts; deterministic top-k + renorm are unchanged.
     bool moe_router_sigmoid = false;
+    // Qwen3-Coder YaRN context extension (v29/XCN8 contract, default
+    // off): per-channel blend of raw and factor-interpolated rope
+    // inv-freqs plus attention-factor mscale.
+    double yarn_factor = 0.0;
+    int64_t yarn_original_max_position_embeddings = 0;
+    double yarn_beta_fast = 32.0;
+    double yarn_beta_slow = 1.0;
+    double yarn_attention_factor = 0.0;
+    bool use_yarn() const {
+        return yarn_factor > 1.0 &&
+               yarn_original_max_position_embeddings > 0;
+    }
     bool is_linear_layer(int64_t layer) const {
         return full_attention_interval > 0 && linear_num_key_heads > 0 &&
                ((layer + 1) % full_attention_interval) != 0;

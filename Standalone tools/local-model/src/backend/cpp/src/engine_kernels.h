@@ -419,9 +419,47 @@ void rope_tables(
 // full rotary pairs (2i, 2i+1) interleaved.  Both differ from the legacy
 // C-ABI rotate-half kernel, so fused bundles apply them here in the
 // engine layer — same math, same operand order as the trainer.
+// v29 Qwen3-Coder YaRN — per-channel blend of raw and
+// factor-interpolated inv-freqs (fp64 twin of the trainer's
+// xct_math.h yarn_blend_i). Returns a yarn-adjusted copy of `bases`.
+inline std::vector<double> yarn_adjust_bases(
+    const std::vector<double>& bases, int64_t dim, double theta,
+    double factor, int64_t orig_pos,
+    double beta_fast, double beta_slow) {
+    const int64_t half = dim / 2;
+    const double logb = std::log(theta);
+    auto corr = [&](double beta) {
+        return static_cast<double>(dim) *
+               std::log(static_cast<double>(orig_pos) /
+                        (beta * 6.283185307179586)) /
+               (2.0 * logb);
+    };
+    const double lo = std::max(0.0, std::floor(corr(beta_fast)));
+    double hi =
+        std::min(static_cast<double>(half - 1), std::ceil(corr(beta_slow)));
+    if (hi == lo) hi = lo + 1e-3;
+    std::vector<double> out = bases;
+    for (int64_t i = 0; i < half; ++i) {
+        const double ext =
+            1.0 - std::min(1.0,
+                           std::max(0.0, (static_cast<double>(i) - lo) /
+                                             (hi - lo)));
+        out[static_cast<size_t>(i)] *= ext + (1.0 - ext) / factor;
+    }
+    return out;
+}
+
+// YaRN attention-factor mscale (fp64 twin of xct_math.h yarn_mscale);
+// applied to the cos/sin operands so the rotated channels scale.
+inline double yarn_mscale_d(double factor, double attn_factor) {
+    return attn_factor > 0.0 ? attn_factor
+                             : 0.1 * std::log(factor) + 1.0;
+}
+
 void rope_partial_rows(
     double* v, int64_t heads, int64_t seq, int64_t head_dim, int64_t rd,
-    int64_t offset, const std::vector<double>& bases) {
+    int64_t offset, const std::vector<double>& bases,
+    double mscale = 1.0) {
     const int64_t half = rd / 2;
     for (int64_t s = 0; s < seq; ++s) {
         const double position = static_cast<double>(offset + s);
@@ -429,8 +467,8 @@ void rope_partial_rows(
             double* row = v + static_cast<size_t>((h * seq + s) * head_dim);
             for (int64_t i = 0; i < half; ++i) {
                 const double angle = position * bases[static_cast<size_t>(i)];
-                const double c = std::cos(angle);
-                const double sn = std::sin(angle);
+                const double c = std::cos(angle) * mscale;
+                const double sn = std::sin(angle) * mscale;
                 const double a = row[i];
                 const double b = row[i + half];
                 row[i] = a * c - b * sn;
@@ -442,7 +480,8 @@ void rope_partial_rows(
 
 void rope_interleaved_rows(
     double* v, int64_t heads, int64_t seq, int64_t head_dim,
-    int64_t offset, const std::vector<double>& bases) {
+    int64_t offset, const std::vector<double>& bases,
+    double mscale = 1.0) {
     const int64_t half = head_dim / 2;
     for (int64_t s = 0; s < seq; ++s) {
         const double position = static_cast<double>(offset + s);
@@ -450,8 +489,8 @@ void rope_interleaved_rows(
             double* row = v + static_cast<size_t>((h * seq + s) * head_dim);
             for (int64_t i = 0; i < half; ++i) {
                 const double angle = position * bases[static_cast<size_t>(i)];
-                const double c = std::cos(angle);
-                const double sn = std::sin(angle);
+                const double c = std::cos(angle) * mscale;
+                const double sn = std::sin(angle) * mscale;
                 const double a = row[2 * i];
                 const double b = row[2 * i + 1];
                 row[2 * i] = a * c - b * sn;

@@ -313,7 +313,7 @@ internal sealed class TrainingJobExecutor
             magic[0] != 'X' || magic[1] != 'C' || magic[2] != 'N' || magic[3] != '1')
             throw new ExecutorError("EXECUTOR_CKPT_BAD_MAGIC", ckptPath);
         uint ver = r.ReadUInt32();
-        if (ver < 1 || ver > 7)
+        if (ver < 1 || ver > 8)
             throw new ExecutorError("EXECUTOR_CKPT_VERSION", $"v{ver}");
         uint vocab = r.ReadUInt32();
         uint hidden = r.ReadUInt32();
@@ -408,6 +408,18 @@ internal sealed class TrainingJobExecutor
             cfg["moe_lb_bias_rate"] = (double)r.ReadSingle();
             cfg["num_nextn_predict_layers"] = (long)r.ReadUInt32();
             cfg["mtp_loss_weight"] = (double)r.ReadSingle();
+        }
+        if (ver >= 8)
+        {
+            // XCN8 Qwen3-Coder YaRN block (see xct_ckpt.h write order):
+            // extension factor, original context length, beta band
+            // bounds, attention factor (mscale).
+            cfg["yarn_factor"] = (double)r.ReadSingle();
+            cfg["yarn_original_max_position_embeddings"] =
+                (long)r.ReadUInt32();
+            cfg["yarn_beta_fast"] = (double)r.ReadSingle();
+            cfg["yarn_beta_slow"] = (double)r.ReadSingle();
+            cfg["yarn_attention_factor"] = (double)r.ReadSingle();
         }
         return cfg;
     }

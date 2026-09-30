@@ -957,8 +957,8 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     linear_fwd(L.n1.data(), p.w.at("mtp.wq"), L.q.data(), PT, H, Hq);
     linear_fwd(L.n1.data(), p.w.at("mtp.wk"), L.k.data(), PT, H, Hkvl);
     linear_fwd(L.n1.data(), p.w.at("mtp.wv"), L.v.data(), PT, H, Hkvl);
-    rope(L.q.data(), PT, c.heads, hd, c.rope_theta, false);
-    rope(L.k.data(), PT, kvh, hd, c.rope_theta, false);
+    rope(L.q.data(), PT, c.heads, hd, c.rope_theta, false, &c);
+    rope(L.k.data(), PT, kvh, hd, c.rope_theta, false, &c);
     const int group = c.heads / kvh;
     const float scale = 1.0f / std::sqrt((float)hd);
     L.probs.assign((size_t)c.heads * PT * PT, 0.0f);

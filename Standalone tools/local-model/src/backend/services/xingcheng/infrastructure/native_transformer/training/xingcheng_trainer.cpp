@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --routecheck | --dsvcheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --routecheck | --dsvcheck | --yarncheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -80,6 +80,14 @@
 //   predicts t+2 through a conditioned decoder block sharing embed /
 //   lm_head). --dsvcheck probes all three plus an XCN7 round-trip.
 //
+// Qwen3-Coder-480B axis (config-gated, off by default): YaRN context
+//   extension on top of every rope path — yarn_factor /
+//   yarn_original_max_position_embeddings enable per-channel blending
+//   of raw and factor-interpolated inv-freqs between the beta_fast /
+//   beta_slow band boundaries, plus the attention-factor mscale.
+//   --yarncheck probes the blended table, the extension regime
+//   (positions > orig_pos), causality and the XCN8 round-trip.
+//
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
 //   model: { vocab_size, hidden_size, intermediate_size, num_hidden_layers,
@@ -143,6 +151,7 @@ namespace xct {
 #include "xct_pos.h"
 #include "xct_mix.h"
 #include "xct_route.h"
+#include "xct_yarn.h"
 
 } // namespace xct
 
@@ -165,10 +174,11 @@ int main(int argc, char** argv) {
         else if (a == "--mixcheck") return xct::mixcheck();
         else if (a == "--routecheck") return xct::routecheck();
         else if (a == "--dsvcheck") return xct::dsvcheck();
+        else if (a == "--yarncheck") return xct::yarncheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --routecheck | --gemmacheck | --dsvcheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --routecheck | --gemmacheck | --dsvcheck | --yarncheck\n");
         return 2;
     }
     try {

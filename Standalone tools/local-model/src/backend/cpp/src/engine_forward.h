@@ -116,6 +116,14 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         lin_kh * lin_group_sz + lin_val_dim + 2 * lin_vh;
     const int64_t rotary_dim = cfg.rotary_dim();
     const bool fused_contract = cfg.fused_rope_contract();
+    // Qwen3-Coder YaRN (v29): when configured, inv-freq bases are
+    // per-channel blended (raw vs factor-interpolated) and the cos/sin
+    // operands gain the attention-factor mscale — matching the
+    // trainer's rope_cs.
+    const bool yarn = cfg.use_yarn();
+    const double yarn_ms =
+        yarn ? yarn_mscale_d(cfg.yarn_factor, cfg.yarn_attention_factor)
+             : 1.0;
     // Per-span RoPE tables (each sequence carries its own position offset);
     // the frequency bases are model-constant and cached once per engine.
     std::vector<std::vector<double>> rope_cos(spans.size());
@@ -124,23 +132,42 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         const std::vector<double>& bases = rope_bases(
             cfg.head_dim, cfg.rope_theta,
             rope_base_, rope_base_dim_, rope_base_theta_);
+        std::vector<double> yarn_adj;
+        const std::vector<double>* eff_bases = &bases;
+        if (yarn) {
+            yarn_adj = yarn_adjust_bases(
+                bases, cfg.head_dim, cfg.rope_theta, cfg.yarn_factor,
+                cfg.yarn_original_max_position_embeddings,
+                cfg.yarn_beta_fast, cfg.yarn_beta_slow);
+            eff_bases = &yarn_adj;
+        }
         for (size_t i = 0; i < spans.size(); ++i) {
             rope_tables(
                 vlens[i],
-                spans[i].position_offset, cfg.head_dim, bases,
+                spans[i].position_offset, cfg.head_dim, *eff_bases,
                 rope_cos[i], rope_sin[i]);
+            for (double& x : rope_cos[i]) x *= yarn_ms;
+            for (double& x : rope_sin[i]) x *= yarn_ms;
         }
     }
     // Fused-contract rope: partial rotary uses bases over rotary_dim,
     // full rotary (rd == head_dim) uses the interleaved pairing over
     // head_dim — both exactly as the trainer computes them.
     const std::vector<double>* fused_bases = nullptr;
+    std::vector<double> fused_yarn_bases;
     if (fused_contract && cfg.position_embedding_type == "rope") {
         const int64_t base_dim =
             rotary_dim < cfg.head_dim ? rotary_dim : cfg.head_dim;
         fused_bases = &rope_bases(
             base_dim, cfg.rope_theta,
             rope_base_, rope_base_dim_, rope_base_theta_);
+        if (yarn) {
+            fused_yarn_bases = yarn_adjust_bases(
+                *fused_bases, base_dim, cfg.rope_theta, cfg.yarn_factor,
+                cfg.yarn_original_max_position_embeddings,
+                cfg.yarn_beta_fast, cfg.yarn_beta_slow);
+            fused_bases = &fused_yarn_bases;
+        }
     }
 
     for (int64_t layer_idx = 0; layer_idx < cfg.num_hidden_layers; ++layer_idx) {
@@ -532,20 +559,20 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                         rope_partial_rows(
                             q_heads.data(), cfg.num_attention_heads, seq,
                             cfg.head_dim, rotary_dim, span.position_offset,
-                            *fused_bases);
+                            *fused_bases, yarn_ms);
                         rope_partial_rows(
                             k_heads.data(), cfg.num_key_value_heads, seq,
                             cfg.head_dim, rotary_dim, span.position_offset,
-                            *fused_bases);
+                            *fused_bases, yarn_ms);
                     } else {
                         rope_interleaved_rows(
                             q_heads.data(), cfg.num_attention_heads, seq,
                             cfg.head_dim, span.position_offset,
-                            *fused_bases);
+                            *fused_bases, yarn_ms);
                         rope_interleaved_rows(
                             k_heads.data(), cfg.num_key_value_heads, seq,
                             cfg.head_dim, span.position_offset,
-                            *fused_bases);
+                            *fused_bases, yarn_ms);
                     }
                 } else {
                 std::vector<double>& q_rope = fs_.q_rope;

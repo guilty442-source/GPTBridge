@@ -160,7 +160,7 @@ internal static class SelfLearning
                 magic[2] != 'N' || magic[3] != '1')
                 return null;
             uint ver = r.ReadUInt32();
-            if (ver < 1 || ver > 4) return null;
+            if (ver < 1 || ver > 8) return null;
             var cfg = new Dictionary<string, object?>
             {
                 ["vocab_size"] = (long)r.ReadUInt32(),
@@ -202,6 +202,50 @@ internal static class SelfLearning
                 cfg["use_vision"] = r.ReadUInt32() != 0u;
                 cfg["vision_patch_dim"] = (long)r.ReadUInt32();
                 cfg["vision_max_patches"] = (long)r.ReadUInt32();
+            }
+            if (ver >= 5)
+            {
+                // XCN5 Gemma A4B block (see xct_ckpt.h write order).
+                cfg["global_attention_interval"] = (long)r.ReadUInt32();
+                cfg["sliding_window_size"] = (long)r.ReadUInt32();
+                cfg["num_global_kv_heads"] = (long)r.ReadUInt32();
+                uint gflags = r.ReadUInt32();
+                cfg["k_eq_v_global"] = (gflags & 1u) != 0;
+                cfg["use_post_attn_norm"] = (gflags & 2u) != 0;
+                cfg["use_post_ffw_norm"] = (gflags & 4u) != 0;
+                if ((gflags & 8u) != 0) cfg["ffn_activation"] = "gelu_tanh";
+                cfg["local_rope_proportion"] = (double)r.ReadSingle();
+                cfg["global_rope_proportion"] = (double)r.ReadSingle();
+                cfg["local_base_frequency"] = (double)r.ReadSingle();
+                cfg["global_base_frequency"] = (double)r.ReadSingle();
+                cfg["final_logit_softcap"] = (double)r.ReadSingle();
+            }
+            if (ver >= 6)
+            {
+                // XCN6 fused router flag.
+                cfg["moe_router_sigmoid"] = r.ReadUInt32() != 0u;
+            }
+            if (ver >= 7)
+            {
+                // XCN7 DeepSeek V4-Pro block (see xct_ckpt.h).
+                cfg["kv_lora_rank"] = (long)r.ReadUInt32();
+                cfg["q_lora_rank"] = (long)r.ReadUInt32();
+                cfg["qk_nope_head_dim"] = (long)r.ReadUInt32();
+                cfg["qk_rope_head_dim"] = (long)r.ReadUInt32();
+                cfg["moe_auxfree_balance"] = r.ReadUInt32() != 0u;
+                cfg["moe_lb_bias_rate"] = (double)r.ReadSingle();
+                cfg["num_nextn_predict_layers"] = (long)r.ReadUInt32();
+                cfg["mtp_loss_weight"] = (double)r.ReadSingle();
+            }
+            if (ver >= 8)
+            {
+                // XCN8 Qwen3-Coder YaRN block (see xct_ckpt.h).
+                cfg["yarn_factor"] = (double)r.ReadSingle();
+                cfg["yarn_original_max_position_embeddings"] =
+                    (long)r.ReadUInt32();
+                cfg["yarn_beta_fast"] = (double)r.ReadSingle();
+                cfg["yarn_beta_slow"] = (double)r.ReadSingle();
+                cfg["yarn_attention_factor"] = (double)r.ReadSingle();
             }
             return cfg;
         }

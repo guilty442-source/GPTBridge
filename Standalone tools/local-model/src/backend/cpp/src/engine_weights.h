@@ -191,6 +191,37 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("JSON_NUM_EXPECTED:partial_rotary_factor");
         cfg.partial_rotary_factor = v->number;
     }
+    // v29 Qwen3-Coder YaRN fields — optional; absent means plain rope
+    // (use_yarn()==false), so older bundles load unchanged.
+    if (const JsonValue* v = json_optional(config_json, "yarn_factor")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_factor");
+        cfg.yarn_factor = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json,
+                                         "yarn_original_max_position_embeddings")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError(
+                "JSON_INT_EXPECTED:yarn_original_max_position_embeddings");
+        cfg.yarn_original_max_position_embeddings =
+            static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "yarn_beta_fast")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_beta_fast");
+        cfg.yarn_beta_fast = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json, "yarn_beta_slow")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_beta_slow");
+        cfg.yarn_beta_slow = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json,
+                                         "yarn_attention_factor")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_attention_factor");
+        cfg.yarn_attention_factor = v->number;
+    }
     for (const auto& field : {
              "linear_num_key_heads", "linear_key_head_dim",
              "linear_num_value_heads", "linear_value_head_dim",
