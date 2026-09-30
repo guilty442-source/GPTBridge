@@ -329,6 +329,28 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? cm)
                             ? cm : "", "CITATION_METRICS_INVALID")));
+            // ---- inference efficiency plane
+            if (flags.Contains("eff-tier-plan"))
+                return Emit(EfficiencyRuntime.TierPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? etp)
+                            ? etp : "", "RUNTIME_CAPS_INVALID")));
+            if (flags.Contains("rag-prefix-manifest"))
+                return Emit(EfficiencyRuntime.RagPrefixManifest(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rpm)
+                            ? rpm : "", "PREFIX_STATE_INCOMPATIBLE")));
+            if (flags.Contains("evidence-cache"))
+                return Emit(EfficiencyRuntime.EvidenceCacheOp(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? eoc)
+                            ? eoc : "", "PREFIX_STATE_INCOMPATIBLE")));
+            if (flags.Contains("eff-policy"))
+                return Emit(EfficiencyRuntime.ResolvePolicy(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ep)
+                            ? ep : "", "RUNTIME_CAPS_INVALID")));
             // ---- persona / style / steerability (Hermes lessons)
             if (flags.Contains("persona-validate"))
                 return Emit(PersonaRuntime.ValidatePersona(
@@ -660,6 +682,37 @@ internal static class Program
             // §36 community-fine-tune acceptance battery
             if (flags.Contains("community-checks"))
                 return Emit(CommunityChecks.Run(toolRoot));
+            // single-core-axis contracts (taxonomy / core / drift)
+            if (flags.Contains("taxonomy"))
+                return Emit(ArchitectureTaxonomy.Emit());
+            if (flags.Contains("core-contract"))
+                return Emit(ArchitectureTaxonomy.CoreContract(
+                    opts.TryGetValue("architecture", out string? acn)
+                        ? acn : ArchitectureTaxonomy.CanonicalArchitecture,
+                    opts.TryGetValue("layers", out string? lc) &&
+                        long.TryParse(lc, out long lcv) ? lcv : 12,
+                    opts.TryGetValue("hidden", out string? hd) &&
+                        long.TryParse(hd, out long hdv) ? hdv : 768,
+                    opts.TryGetValue("heads", out string? qh) &&
+                        long.TryParse(qh, out long qhv) ? qhv : 12,
+                    opts.TryGetValue("kv-heads", out string? kvh) &&
+                        long.TryParse(kvh, out long kvhv) ? kvhv : 4));
+            if (flags.Contains("drift-gate"))
+                return Emit(ArchitectureTaxonomy.DriftGate(
+                    opts.TryGetValue("job-hash", out string? jh)
+                        ? jh : "",
+                    opts.TryGetValue("checkpoint-hash", out string? ch)
+                        ? ch : "",
+                    opts.TryGetValue("bundle-hash", out string? bh)
+                        ? bh : "",
+                    opts.TryGetValue("runtime-hash", out string? rh)
+                        ? rh : ""));
+            if (flags.Contains("version-dimensions"))
+                return Emit(ArchitectureTaxonomy.VersionDimensions(
+                    toolRoot));
+            // §42 acceptance battery
+            if (flags.Contains("axis-checks"))
+                return Emit(AxisChecks.Run(toolRoot));
             return Usage();
         }
         catch (Exception exc)
@@ -710,7 +763,12 @@ internal static class Program
             "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +
             "--tool-metrics | --grounded-validate --file <f.json> | " +
             "--structured-validate --output <f.json> --schema <f.json> | " +
-            "--langcheck | --community-checks)");
+            "--langcheck | --community-checks | " +
+            "--taxonomy | --core-contract [--architecture <a>] " +
+            "[--layers N] [--hidden N] [--heads N] [--kv-heads N] | " +
+            "--drift-gate --job-hash <h> --checkpoint-hash <h> " +
+            "--bundle-hash <h> --runtime-hash <h> | " +
+            "--version-dimensions | --axis-checks)");
         return 2;
     }
 

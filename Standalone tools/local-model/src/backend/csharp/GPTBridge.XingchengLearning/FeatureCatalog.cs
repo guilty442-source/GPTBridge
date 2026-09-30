@@ -21,6 +21,9 @@ internal static class FeatureCatalog
     {
         "INTEGRATED", "ALREADY_NATIVE", "EXPERIMENTAL",
         "DEFERRED_TRAINING", "FUTURE_GENERATION", "REJECTED",
+        // Efficiency plane (§50): runtime-only integration that never
+        // touches weights/architecture/generation.
+        "INTEGRATED_RUNTIME", "CERTIFIED_AFTER_BENCH",
     };
 
     public sealed record Feature(
@@ -172,6 +175,28 @@ internal static class FeatureCatalog
             "UncensoredMode / governance bypass",
             "REJECTED", false, false, true, "governance",
             Array.Empty<string>()),
+        // ---- inference efficiency plane (§50) ----
+        new("f-expert-residency", "vLLM/SGLang-class",
+            "ExpertResidencyManager + async prefetch",
+            "INTEGRATED_RUNTIME", false, true, false, "cpp-runtime",
+            new[] { "expert-residency", "expert-offload-bench" }),
+        new("f-expert-quant-storage", "vLLM/SGLang-class",
+            "Quantized expert host storage (INT8/FP8/FP4)",
+            "EXPERIMENTAL", false, false, false, "cpp-runtime",
+            new[] { "expert-quant-parity" }),
+        new("f-hybrid-prefix", "vLLM/SGLang-class",
+            "HybridPrefixCache v2 (KV + DeltaStateSnapshot)",
+            "INTEGRATED", false, true, false, "cpp-runtime",
+            new[] { "hybrid-prefix-smoke", "rag-prefix-bench" }),
+        new("f-rag-prefix", "vLLM/SGLang-class",
+            "RagPrefixManifest + RAG evidence cache",
+            "INTEGRATED", false, true, false, "csharp-runtime",
+            new[] { "rag-prefix-manifest", "evidence-cache" }),
+        new("f-pd-disaggregation", "vLLM/SGLang-class",
+            "PrefillDecodeScheduler + star-prefill-artifact/v1",
+            "CERTIFIED_AFTER_BENCH", false, true, false,
+            "cpp-runtime",
+            new[] { "pd-pipeline-bench", "prefill-artifact" }),
     };
 
     private static string Path_(string toolRoot)
@@ -179,12 +204,24 @@ internal static class FeatureCatalog
             toolRoot, Rel.Replace('/', Path.DirectorySeparatorChar));
 
     public static Dictionary<string, object?> FeatureDict(Feature f)
-        => new()
+    {
+        // §14: every feature carries exactly one primary axis under
+        // star-architecture-taxonomy/v1.
+        var cls = ArchitectureTaxonomy.Classify(f.XingchengComponent);
+        return new()
         {
             ["feature_id"] = f.FeatureId,
             ["source_inspiration"] = f.SourceInspiration,
             ["xingcheng_component"] = f.XingchengComponent,
             ["status"] = f.Status,
+            ["primary_axis"] = cls.PrimaryAxis,
+            ["secondary_tags"] = cls.SecondaryTags
+                .Cast<object?>().ToList(),
+            ["architecture_affecting"] = cls.ArchitectureAffecting,
+            ["checkpoint_affecting"] = cls.CheckpointAffecting,
+            ["runtime_only"] = cls.RuntimeOnly,
+            ["training_only"] = cls.TrainingOnly,
+            ["capability_only"] = cls.CapabilityOnly,
             ["training_required"] = f.TrainingRequired,
             ["runtime_required"] = f.RuntimeRequired,
             ["generation_change_required"] =
@@ -192,6 +229,7 @@ internal static class FeatureCatalog
             ["owner"] = f.Owner,
             ["tests"] = f.Tests.Cast<object?>().ToList(),
         };
+    }
 
     /// <summary>Persist the canonical catalog (atomic write) ??the file
     /// is the governance artifact; the code is its source of truth.</summary>
@@ -200,13 +238,17 @@ internal static class FeatureCatalog
         var features = new List<object?>();
         var byStatus = new Dictionary<string, int>();
         var bySource = new Dictionary<string, int>();
+        var byAxis = new Dictionary<string, int>();
         foreach (var f in Canonical)
         {
-            features.Add(FeatureDict(f));
+            var fd = FeatureDict(f);
+            features.Add(fd);
             byStatus[f.Status] =
                 byStatus.GetValueOrDefault(f.Status) + 1;
             bySource[f.SourceInspiration] =
                 bySource.GetValueOrDefault(f.SourceInspiration) + 1;
+            string ax = (string)fd["primary_axis"]!;
+            byAxis[ax] = byAxis.GetValueOrDefault(ax) + 1;
         }
         var doc = new Dictionary<string, object?>
         {
@@ -222,6 +264,8 @@ internal static class FeatureCatalog
                 ["by_status"] = byStatus.ToDictionary(
                     kv => kv.Key, kv => (object?)kv.Value),
                 ["by_source"] = bySource.ToDictionary(
+                    kv => kv.Key, kv => (object?)kv.Value),
+                ["by_primary_axis"] = byAxis.ToDictionary(
                     kv => kv.Key, kv => (object?)kv.Value),
             },
         };
@@ -281,6 +325,19 @@ internal static class FeatureCatalog
                 failures.Add(new Dictionary<string, object?>
                     { ["feature_id"] = id,
                       ["error"] = $"bad status {s.GetString()}" });
+            // §14 taxonomy: when primary_axis is present it must be one
+            // of the legal axes; exactly one primary is implied by the
+            // schema (single string field).
+            if (el.TryGetProperty("primary_axis", out var pa))
+            {
+                if (pa.ValueKind != JsonValueKind.String ||
+                    !ArchitectureTaxonomy.Axes.Contains(
+                        pa.GetString()))
+                    failures.Add(new Dictionary<string, object?>
+                        { ["feature_id"] = id,
+                          ["error"] =
+                              $"bad primary_axis {pa}" });
+            }
         }
         return new Dictionary<string, object?>
         {

@@ -423,6 +423,50 @@ Implementation: `GPTBridge.XingchengLearning/CapabilityTrace.cs`
 (append-only JSONL; generation identity auto-stamps from the active
 generation state).
 
+## 星澄 Model Core Axis (`star-model-core/v1` / `star-architecture-taxonomy/v1`)
+
+星澄只有**一個**模型核心：**HybridCausalDecoder** —— 單向因果、自回歸、
+decoder-only，內部交錯 DeltaNet recurrent layers（`DELTA_RECURRENT`）與
+週期性 Full Attention layers（`FULL_ATTENTION`，canonical `xc-fused-1`
+為 interval=4 → `D D D A` 重複）。**不得**再使用「多核心軸」「多模型核心」
+的表述；DeltaNet 與 Full Attention 是同一核心的兩種 layer type，不是兩顆核心。
+
+其他全部是正交軸，每個 feature 恰有一個 `primary_axis`：
+
+- `MODEL_COMPONENT`（GQA/QKNorm/AttentionGate/RMSNorm/SwiGLU/Embedding/LMHead）
+- `EXPERT_AXIS`（MoE/Router/SharedExpert — 模型側）
+- `POSITION_AXIS`（RoPE/PartialRoPE/YaRN）
+- `MODALITY_AXIS`（Vision early fusion 餵同一核心；audio/video contract-only）
+- `TRAINING_AXIS`（MTP 是 training auxiliary，不是 inference core）
+- `STATE_AXIS`（KV/PagedKV/KV-INT8/PrefixCache/DeltaState…，唯一 owner 為
+  state manager；PrefixCache = STATE_AXIS + runtime_optimization tag）
+- `RUNTIME_OPTIMIZATION_AXIS`（ExpertOffloading/Prefill-Decode/CUDA/
+  Speculative… — 永不改變模型語意，也不產生新 architecture generation）
+- `PRECISION_AXIS`（FP64/BF16/INT8… — runtime/storage policy，非世代身份）
+- `CAPABILITY_AXIS`（RAG/Thinking/Persona/Roleplay/Agent… — 能做什麼，
+  不是架構）
+- `GOVERNANCE_AXIS`（XCN10/Lifecycle/Migration/Audit… — 不進 forward path）
+- `EXPERIMENTAL_ARCHITECTURE`（MLA/CSA/Gemma4/KDA/Mamba/RWKV/AttnRes/
+  LatentMoE/MSA — 永不列入 canonical core）
+
+Version 維度分開：`architecture_generation` / `weight_version` /
+`runtime_version` / `state_contract_version` / `bundle_version` /
+`capability_version` / `evaluation_version` — 不得再用單一編號混表。
+`architecture_contract_hash`（star-model-core/v1 canonical JSON 的 sha256）
+在 job/checkpoint/bundle/runtime 必須一致，否則
+`ARCHITECTURE_CONTRACT_DRIFT` fail-closed。
+
+```powershell
+& $X --tool-root "Standalone tools\local-model" --taxonomy          # 軸表
+& $X --tool-root "Standalone tools\local-model" --core-contract    # star-model-core/v1
+& $X --tool-root "Standalone tools\local-model" --axis-checks      # §42 電池
+& $X --tool-root "Standalone tools\local-model" --version-dimensions
+```
+
+Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
+`AxisChecks.cs`；feature registry 的 `primary_axis` 由
+`FeatureCatalog.FeatureDict` 經 taxonomy `Classify` 派生。
+
 ## 星澄 Data Residency (`xingcheng-internal`)
 
 > Human-governor directive 2026-09-28: 星澄資料只能保留在星澄內部。
