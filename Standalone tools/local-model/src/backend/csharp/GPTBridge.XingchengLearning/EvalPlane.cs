@@ -476,6 +476,57 @@ internal static class RuntimeCertGates
     }
 }
 
+/// <summary>§21 multimodal eval schema — the closed case vocabulary and
+/// the per-case evidence contract. Evaluation only; nothing here claims
+/// a vision capability the model was never trained or measured on.</summary>
+internal static class MultimodalEval
+{
+    public const string Format = "star-multimodal-eval/v1";
+
+    /// <summary>§21 closed case kinds.</summary>
+    public static readonly string[] Cases =
+    {
+        "vision_ocr", "vision_document", "vision_chart",
+        "vision_multi_image", "vision_spatial", "vision_gui",
+        "vision_scene", "vision_grounding",
+    };
+
+    /// <summary>Validate a case record: kind closed, evidence fields
+    /// present (evidence, confidence, input_hash, patch_count, latency,
+    /// memory). Fail-closed — a vision eval row without provenance is
+    /// not evaluable.</summary>
+    public static Dictionary<string, object?> ValidateCase(
+        Dictionary<string, object?> record)
+    {
+        string kind = record.TryGetValue("case", out var k)
+            ? k?.ToString() ?? "" : "";
+        if (!Cases.Contains(kind))
+            throw new ExecutorError(
+                "VISION_EVAL_CASE_UNKNOWN", kind);
+        foreach (string f in new[]
+                 { "evidence", "confidence", "input_hash",
+                   "patch_count", "latency_ms", "memory_bytes" })
+            if (!record.ContainsKey(f))
+                throw new ExecutorError(
+                    "VISION_EVAL_FIELD_MISSING", f);
+        var norm = new Dictionary<string, object?>
+        {
+            ["format"] = Format,
+            ["case"] = kind,
+            ["evidence"] = record["evidence"],
+            ["confidence"] = record["confidence"],
+            ["input_hash"] = record["input_hash"],
+            ["patch_count"] = record["patch_count"],
+            ["latency_ms"] = record["latency_ms"],
+            ["memory_bytes"] = record["memory_bytes"],
+        };
+        if (record.TryGetValue("pass", out var p)) norm["pass"] = p;
+        if (record.TryGetValue("budget_profile", out var bp))
+            norm["budget_profile"] = bp;
+        return norm;
+    }
+}
+
 /// <summary>§24 sink — probe results that inform future architecture
 /// research; they never change xc-fused-1.</summary>
 internal static class FutureArchitectureResearch

@@ -192,28 +192,34 @@ inline DeltaStateSnapshot delta_snapshot_save(
     return s;
 }
 
-inline void delta_snapshot_restore(
+// Returns nullptr on success, else the fail-closed error code. A return
+// code (not fail()) keeps negative tests exercisable inside one process.
+inline const char* delta_snapshot_restore(
     xingcheng::inference::NativeInferenceEngine& engine,
     const DeltaStateSnapshot& s) {
     // Verify before touching the live state — a bad blob is an error,
     // never a partial restore.
     if (cap_sha256(s.blob.data(), s.blob.size()) != s.state_sha256) {
-        fail("STATE_SNAPSHOT_HASH_MISMATCH");
+        return "STATE_SNAPSHOT_HASH_MISMATCH";
     }
     const std::string gen = engine.bundle()
         ? engine.bundle()->architecture_generation() : "";
-    if (!gen.empty() && s.generation != gen) {
-        fail("STATE_GENERATION_MISMATCH");
+    // Generation binding is unconditional: a snapshot claiming a
+    // different generation (or claiming one an unlabeled bundle cannot
+    // prove) never loads.
+    if (s.generation != gen) {
+        return "STATE_GENERATION_MISMATCH";
     }
     const std::string wh = engine.bundle()
         ? engine.bundle()->weights_sha256() : "";
-    if (!wh.empty() && s.model_hash != wh) {
-        fail("STATE_MODEL_MISMATCH");
+    if (s.model_hash != wh) {
+        return "STATE_MODEL_MISMATCH";
     }
     if (!engine.delta_state_restore(s.slot, s.blob.data(),
                                     static_cast<int64_t>(s.blob.size()))) {
-        fail("STATE_MODEL_MISMATCH");
+        return "STATE_MODEL_MISMATCH";
     }
+    return nullptr;
 }
 
 // --------------------------------------- §20 vision budget controller ----
@@ -377,13 +383,7 @@ inline RouterDiagnosis analyze_router(
                              layer.expert_counts.end()));
         for (const auto& sel : layer.selected) {
             if (sel.empty()) continue;
-            const int64_t top = sel[0];
-            if (top != modal) ++flips;
-        }
-                layer.expert_counts.begin(),
-                std::max_element(layer.expert_counts.begin(),
-                                 layer.expert_counts.end()));
-            if (top != modal) ++flips;
+            if (sel[0] != modal) ++flips;
         }
         d.instability =
             static_cast<double>(flips) / layer.selected.size();

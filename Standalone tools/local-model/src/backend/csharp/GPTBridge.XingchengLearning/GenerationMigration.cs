@@ -636,6 +636,43 @@ internal static class GenerationMigration
                 "not_evaluated (no --suite)"));
         }
 
+        // §33 runtime-contract gates: every new runtime contract joins
+        // the certification evidence — a generation can never promote
+        // without them (bundle targets only; .xcn candidates have no
+        // bundle envelope to prove).
+        if (IsBundleDir(target))
+        {
+            try
+            {
+                string Mf(string key, string dflt) =>
+                    m.TryGetValue(key, out var v) &&
+                    v is string s && s.Length > 0 ? s : dflt;
+                var provenance = BundleProvenance.Compute(
+                    target,
+                    Mf("target_generation", ""),
+                    Mf("architecture_profile", "xc-fused-1"),
+                    Mf("xcn_version", "XCN1 v10"),
+                    id,
+                    "xc-native-cpp23",
+                    Mf("source_generation", ""));
+                var gates = RuntimeCertGates.Evaluate(
+                    toolRoot, target, provenance);
+                checks.Add(Check("runtime_contract_gates",
+                    (bool)gates["pass"]!,
+                    CanonicalJson.PlainDict(
+                        (Dictionary<string, object?>)
+                        new Dictionary<string, object?>
+                        {
+                            ["gates"] = gates["gates"],
+                        })));
+            }
+            catch (Exception ex)
+            {
+                checks.Add(Check("runtime_contract_gates", false,
+                    ex.Message));
+            }
+        }
+
         // gate: every required data domain reached a completing status.
         var dv = (Dictionary<string, object?>)m["data_validation"]!;
         bool domainsOk = DomainsComplete(

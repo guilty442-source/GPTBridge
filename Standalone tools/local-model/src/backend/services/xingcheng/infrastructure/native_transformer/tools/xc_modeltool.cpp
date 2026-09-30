@@ -1342,23 +1342,17 @@ struct Run {
 Run probe_run(const std::string& bundle,
               const std::vector<int64_t>& ids) {
     NativeInferenceEngine e;
-    std::fprintf(stderr, "dbg: load\n"); std::fflush(stderr);
     e.load(bundle);
-    std::fprintf(stderr, "dbg: loaded\n"); std::fflush(stderr);
     Run r;
     r.ref_logits = e.logits(ids);
-    std::fprintf(stderr, "dbg: logits1\n"); std::fflush(stderr);
     r.logits_finite = all_finite(r.ref_logits);
     r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
-    std::fprintf(stderr, "dbg: logits2\n"); std::fflush(stderr);
     SamplingConfig sc;                    // do_sample=false → argmax
     std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
     std::vector<int64_t> g1 =
         e.generate(prompt, 6, sc);        // miss → stores prefix entry
-    std::fprintf(stderr, "dbg: gen1\n"); std::fflush(stderr);
     const int64_t h1 = prefix_hits(e);
     std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
-    std::fprintf(stderr, "dbg: gen2\n"); std::fflush(stderr);
     const int64_t h2 = prefix_hits(e);
     r.prefix_hit = (h2 > h1);
     r.gen_nonempty = !g1.empty();
@@ -1368,7 +1362,6 @@ Run probe_run(const std::string& bundle,
     // longest-match restore path as well.
     std::vector<int64_t> prompt2(ids.begin(), ids.begin() + 24);
     std::vector<int64_t> g3 = e.generate(prompt2, 4, sc);
-    std::fprintf(stderr, "dbg: gen3\n"); std::fflush(stderr);
     const int64_t h3 = prefix_hits(e);
     r.partial_prefix_hit = (h3 > h2) && !g3.empty();
     return r;
@@ -1392,7 +1385,6 @@ int mode_cache_smoke(const Args& a) {
     if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
-    std::fprintf(stderr, "dbg: cfg read ok\n"); std::fflush(stderr);
     // v27 fused hybrid: prefix cache stores K/V only and cannot restore
     // DeltaNet recurrent state, so the engine bypasses it for hybrid
     // bundles. The contract inverts: hits must stay absent while the
@@ -1408,9 +1400,7 @@ int mode_cache_smoke(const Args& a) {
     }
     Run fp;
     try {
-        std::fprintf(stderr, "dbg: probe_run enter\n"); std::fflush(stderr);
         fp = probe_run(bundle, ids);
-        std::fprintf(stderr, "dbg: probe_run done\n"); std::fflush(stderr);
     } catch (const std::exception& e) {
         fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
     }
@@ -3145,13 +3135,15 @@ int mode_state_snapshot(const Args& a) {
     for (auto& t : ids) t = tok(rng);
     SamplingConfig sc;
     sc.temperature = 0.0;
-    // Warm the slot, snapshot, extend, restore, verify.
-    (void)engine.logits(ids);
+    // Warm the slot, snapshot, extend, restore, verify. generate()
+    // allocates slot 0 and appends KV + DeltaNet state; logits() is the
+    // cache-free probe path and would leave lin_states_ empty.
+    (void)engine.generate(ids, 4, sc);
     std::vector<char> blob_a;
     if (!engine.delta_state_save(0, blob_a)) fail("STATE_SNAPSHOT_SAVE");
     std::vector<int64_t> ext(8);
     for (auto& t : ext) t = tok(rng);
-    (void)engine.logits(ext);   // mutates recurrence (probe path appends)
+    (void)engine.generate(ext, 4, sc);   // advances the recurrence
     if (!engine.delta_state_restore(0, blob_a.data(),
                                     (int64_t)blob_a.size())) {
         fail("STATE_SNAPSHOT_RESTORE");
@@ -3166,24 +3158,33 @@ int mode_state_snapshot(const Args& a) {
     {
         DeltaStateSnapshot bad = env;
         bad.generation = "gen-x-other";
-        try { delta_snapshot_restore(engine, bad); }
-        catch (...) { gen_reject = true; }
+        gen_reject = delta_snapshot_restore(engine, bad) != nullptr;
     }
+    // A bad hash must fail closed too.
+    bool hash_reject = false;
+    {
+        DeltaStateSnapshot bad = env;
+        bad.state_sha256 = "00";
+        hash_reject = delta_snapshot_restore(engine, bad) != nullptr;
+    }
+    const bool ok = identical && gen_reject && hash_reject;
     std::printf(
         "{\"ok\":%s,\"format\":\"%s\",\"version\":%lld,"
         "\"delta_state\":true,\"slot\":0,\"state_bytes\":%lld,"
         "\"state_sha256\":\"%s\",\"restore_identical\":%s,"
         "\"generation_mismatch_rejected\":%s,"
+        "\"hash_mismatch_rejected\":%s,"
         "\"generation\":\"%s\"}\n",
-        (identical && gen_reject) ? "true" : "false",
+        ok ? "true" : "false",
         DeltaStateSnapshot::kFormat,
         (long long)DeltaStateSnapshot::kVersion,
         (long long)env.state_bytes,
         env.state_sha256.c_str(),
         identical ? "true" : "false",
         gen_reject ? "true" : "false",
+        hash_reject ? "true" : "false",
         gptbridge::jsonlite::json_escape(env.generation).c_str());
-    return (identical && gen_reject) ? 0 : 1;
+    return ok ? 0 : 1;
 }
 
 // §23 sequence-state benchmark: state/kv bytes per token, prefill/decode
@@ -3261,7 +3262,7 @@ int mode_router_analyze(const Args& a) {
     JsonValue manifest =
         parse_json_file((fs::path(bundle) / "manifest.json").string());
     const JsonValue* mcfg = manifest.get("config");
-    if (!mcfg || xct::j_num(mcfg, "num_experts", 0) <= 0)
+    if (!mcfg || xct::j_num(mcfg, "moe_num_experts", 0) <= 0)
         fail("ROUTER_NOT_MOE");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     std::mt19937_64 rng(3);

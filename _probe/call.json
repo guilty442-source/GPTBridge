@@ -1,1 +1,0 @@
-{"format":"star-tool-call/v2","request_id":"r1","tool":"fs.read","arguments":{"path":"a.txt"},"schema_version":"star-tool-call/v2","reason_code":"read","requires_confirmation":false,"expected_result":{"kind":"text"}}

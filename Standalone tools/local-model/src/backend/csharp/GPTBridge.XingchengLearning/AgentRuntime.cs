@@ -329,7 +329,8 @@ internal static class StarCodeAgentRuntime
         if (kind.Length == 0) kind = Str("kind").ToLowerInvariant();
         if (!TaskKinds.Contains(kind))
             throw new ExecutorError(
-                "CODE_TASK_KIND_INVALID", kind);
+                "CODE_TASK_KIND_INVALID",
+                $"unknown code task kind '{kind}'");
         if (Str("goal").Length == 0)
             throw new ExecutorError(
                 "CODE_TASK_GOAL_REQUIRED", "missing goal");
