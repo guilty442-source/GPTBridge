@@ -543,6 +543,211 @@ void NativeInferenceEngine::set_prefix_cache_limit(
     }
 }
 
+void NativeInferenceEngine::mem_note(int64_t seq_tokens) {
+    int64_t total = (bundle_ ? bundle_->weights_bytes() : 0) +
+                    kv_memory_bytes();
+    for (const auto& slot_states : lin_states_) {
+        for (const LinLayerState& st : slot_states) {
+            total += static_cast<int64_t>(
+                (st.conv_tail.size() + st.s.size()) * sizeof(double));
+        }
+    }
+    if (seq_tokens > 1)
+        mem_prefill_peak_ = std::max(mem_prefill_peak_, total);
+    else
+        mem_decode_peak_ = std::max(mem_decode_peak_, total);
+}
+
+NativeInferenceEngine::MemoryReport
+NativeInferenceEngine::memory_report() const {
+    MemoryReport r;
+    r.weight_bytes = bundle_ ? bundle_->weights_bytes() : 0;
+    r.kv_bytes = kv_memory_bytes();
+    for (const PrefixEntry& e : prefix_cache_) {
+        r.prefix_cache_bytes += static_cast<int64_t>(
+            e.tokens.size() * sizeof(int64_t) +
+            e.k.size() + e.v.size() +
+            e.logits.size() * sizeof(double));
+    }
+    for (const auto& slot_states : lin_states_) {
+        for (const LinLayerState& st : slot_states) {
+            r.recurrent_state_bytes += static_cast<int64_t>(
+                (st.conv_tail.size() + st.s.size()) * sizeof(double));
+        }
+    }
+    r.vision_bytes = static_cast<int64_t>(
+        vision_patch_proj_t_.size() * sizeof(double) +
+        fs_.vision_prefix.capacity() * sizeof(double));
+    // Workspace: capacity of the persistent scratch arena — the
+    // buffers whose size the steady-state forward actually holds.
+    auto cap = [](const std::vector<double>& v) {
+        return static_cast<int64_t>(v.capacity() * sizeof(double));
+    };
+    r.workspace_bytes =
+        cap(fs_.hidden) + cap(fs_.normed) + cap(fs_.qkv) +
+        cap(fs_.attn_flat) + cap(fs_.attn_out) +
+        cap(fs_.mlp_in) + cap(fs_.mlp_out) + cap(fs_.gate_up) +
+        cap(fs_.moe_gate_up) + cap(fs_.moe_act) +
+        cap(fs_.moe_grouped_out) + cap(fs_.lin_fused) +
+        cap(fs_.lin_conv_in) + cap(fs_.lin_conv_pad) +
+        cap(fs_.lin_o) + cap(fs_.lin_on);
+    r.prefill_peak_bytes = mem_prefill_peak_;
+    r.decode_peak_bytes = mem_decode_peak_;
+    return r;
+}
+
+std::vector<double>
+NativeInferenceEngine::recurrent_state_norms() const {
+    std::vector<double> norms;
+    if (lin_states_.empty()) return norms;
+    const std::vector<LinLayerState>& slot0 = lin_states_[0];
+    for (const LinLayerState& st : slot0) {
+        if (st.s.empty()) continue;
+        double sq = 0.0;
+        for (double v : st.s) sq += v * v;
+        norms.push_back(
+            std::sqrt(sq / static_cast<double>(st.s.size())));
+    }
+    return norms;
+}
+
+// --- DeltaStateSnapshot (versioned, hashed, generation/model-bound) ---
+//
+// Layout (little-endian):
+//   "XSST" u32 ver | u32 gen_len + gen bytes | u32 hash_len +
+//   weights_sha256 bytes | u32 slot_count |
+//   per slot: u32 layer_count { per layer: u64 conv_n + conv doubles |
+//   u64 s_n + s doubles | i64 tokens } | sha256(payload) hex 64B
+// KV / prefix cache are policy-evictable and never serialized here.
+
+std::string NativeInferenceEngine::snapshot_delta_state(
+    const std::string& generation) const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    std::string out;
+    auto put_u32 = [&out](uint32_t v) {
+        out.append(reinterpret_cast<const char*>(&v), 4);
+    };
+    auto put_u64 = [&out](uint64_t v) {
+        out.append(reinterpret_cast<const char*>(&v), 8);
+    };
+    auto put_i64 = [&out](int64_t v) {
+        out.append(reinterpret_cast<const char*>(&v), 8);
+    };
+    auto put_doubles = [&out](const std::vector<double>& v) {
+        put_u64(static_cast<uint64_t>(v.size()));
+        if (!v.empty())
+            out.append(reinterpret_cast<const char*>(v.data()),
+                       v.size() * sizeof(double));
+    };
+    out.append("XSST", 4);
+    put_u32(1);
+    put_u32(static_cast<uint32_t>(generation.size()));
+    out.append(generation);
+    const std::string model_hash =
+        bundle_ ? bundle_->weights_sha256() : std::string();
+    put_u32(static_cast<uint32_t>(model_hash.size()));
+    out.append(model_hash);
+    put_u32(static_cast<uint32_t>(lin_states_.size()));
+    for (const auto& slot_states : lin_states_) {
+        put_u32(static_cast<uint32_t>(slot_states.size()));
+        for (const LinLayerState& st : slot_states) {
+            put_doubles(st.conv_tail);
+            put_doubles(st.s);
+            put_i64(st.tokens);
+        }
+    }
+    const std::string sha = sha256_hex(
+        reinterpret_cast<const unsigned char*>(out.data()),
+        out.size());
+    out.append(sha);
+    return out;
+}
+
+std::string NativeInferenceEngine::delta_state_sha256(
+    const std::string& blob) {
+    if (blob.size() < 4 + 4 + 64 ||
+        blob.compare(0, 4, "XSST") != 0)
+        throw InferenceError("SEQUENCE_STATE_INVALID:magic");
+    return sha256_hex(
+        reinterpret_cast<const unsigned char*>(blob.data()),
+        blob.size() - 64);
+}
+
+void NativeInferenceEngine::restore_delta_state(
+    const std::string& blob, const std::string& generation) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    const std::string sha = delta_state_sha256(blob);
+    if (blob.compare(blob.size() - 64, 64, sha) != 0)
+        throw InferenceError("SEQUENCE_STATE_INVALID:hash");
+    size_t pos = 4;  // skip "XSST" magic
+    auto rd_u32 = [&blob, &pos]() -> uint32_t {
+        uint32_t v;
+        std::memcpy(&v, blob.data() + pos, 4);
+        pos += 4;
+        return v;
+    };
+    auto rd_u64 = [&blob, &pos]() -> uint64_t {
+        uint64_t v;
+        std::memcpy(&v, blob.data() + pos, 8);
+        pos += 8;
+        return v;
+    };
+    auto rd_i64 = [&blob, &pos]() -> int64_t {
+        int64_t v;
+        std::memcpy(&v, blob.data() + pos, 8);
+        pos += 8;
+        return v;
+    };
+    uint32_t version = 0;
+    pos = 4;
+    version = rd_u32();
+    if (version != 1)
+        throw InferenceError("SEQUENCE_STATE_INVALID:version");
+    const uint32_t gen_len = rd_u32();
+    const std::string gen = blob.substr(pos, gen_len);
+    pos += gen_len;
+    if (gen != generation)
+        throw InferenceError("STATE_GENERATION_MISMATCH");
+    const uint32_t hash_len = rd_u32();
+    const std::string model_hash = blob.substr(pos, hash_len);
+    pos += hash_len;
+    const std::string current =
+        bundle_ ? bundle_->weights_sha256() : std::string();
+    if (model_hash != current)
+        throw InferenceError("STATE_MODEL_MISMATCH");
+    const uint32_t slot_count = rd_u32();
+    std::vector<std::vector<LinLayerState>> states(slot_count);
+    for (uint32_t s = 0; s < slot_count; ++s) {
+        const uint32_t layer_count = rd_u32();
+        states[s].resize(layer_count);
+        for (uint32_t l = 0; l < layer_count; ++l) {
+            LinLayerState& st = states[s][l];
+            const uint64_t conv_n = rd_u64();
+            st.conv_tail.resize(conv_n);
+            if (conv_n > 0) {
+                std::memcpy(st.conv_tail.data(), blob.data() + pos,
+                            conv_n * sizeof(double));
+                pos += conv_n * sizeof(double);
+            }
+            const uint64_t s_n = rd_u64();
+            st.s.resize(s_n);
+            if (s_n > 0) {
+                std::memcpy(st.s.data(), blob.data() + pos,
+                            s_n * sizeof(double));
+                pos += s_n * sizeof(double);
+            }
+            st.tokens = rd_i64();
+        }
+    }
+    if (pos + 64 != blob.size())
+        throw InferenceError("SEQUENCE_STATE_INVALID:trailing");
+    lin_states_ = std::move(states);
+    // Slot bookkeeping must match: ensure vectors parallel to
+    // lin_states_ are at least as wide.
+    while (kv_block_tables_.size() < lin_states_.size())
+        kv_alloc_slot();
+}
+
 std::string NativeInferenceEngine::describe() const {
     if (!loaded()) return "{\"loaded\":false}";
     const ModelConfig& cfg = bundle_->config();

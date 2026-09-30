@@ -137,4 +137,150 @@ internal static class CodeAgent
                     ? fv.GetString() : null,
         };
     }
+
+    // -------------------------------------------------- governed run --
+
+    /// <summary>StarCodeAgentRuntime (§10): the governed pipeline
+    /// inspect → plan → propose → static_validate → compile/test (only
+    /// when the task's allowed_actions authorizes it) → verify →
+    /// result. Proposals only — the lane never writes source and never
+    /// runs a command the task did not declare. Every attempt emits a
+    /// star-repo-harness/v1 evidence record (§22).</summary>
+    public static Dictionary<string, object?> Run(
+        string toolRoot, string taskFile)
+    {
+        var task = ToolContracts.ReadJson(
+            taskFile, "REPO_TASK_SCOPE_INVALID");
+        var check = ValidateTask(task);
+        string repo = task.GetProperty("repository").GetString() ?? "";
+        var actions = task.GetProperty("allowed_actions")
+            .EnumerateArray().Select(x => x.GetString() ?? "")
+            .ToList();
+        var files = task.GetProperty("files").EnumerateArray()
+            .Select(x => x.GetString() ?? "")
+            .Where(s => s.Length > 0).ToList();
+        var stages = new List<object?>();
+        void Stage(string name, string result, string detail = "")
+            => stages.Add(new Dictionary<string, object?>
+            {
+                ["stage"] = name, ["result"] = result,
+                ["detail"] = detail,
+            });
+
+        // inspect: bounded read — files stay inside the declared repo.
+        var filesRead = new List<object?>();
+        var missing = new List<object?>();
+        foreach (var rel in files)
+        {
+            string full = Path.GetFullPath(Path.Combine(repo, rel));
+            if (!full.StartsWith(
+                    Path.GetFullPath(repo) + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                Stage("inspect", "fail",
+                      $"path escapes repository: {rel}");
+                missing.Add(rel);
+                continue;
+            }
+            if (File.Exists(full)) filesRead.Add(rel);
+            else missing.Add(rel);
+        }
+        Stage("inspect", missing.Count == 0 ? "pass" : "partial",
+              $"{filesRead.Count} read, {missing.Count} missing");
+        Stage("plan", "pass", "goal: " +
+              (task.GetProperty("goal").GetString() ?? "")[..Math.Min(
+                  160, (task.GetProperty("goal").GetString() ?? "")
+                      .Length)]);
+        Stage("propose", "pass",
+              "proposal-only boundary — no source writes");
+
+        // static_validate: only when authorized.
+        if (actions.Contains("static_validate"))
+        {
+            var violations = files
+                .Where(f => missing.Contains(f)).ToList();
+            Stage("static_validate",
+                  violations.Count == 0 ? "pass" : "fail",
+                  violations.Count == 0
+                      ? "scope clean"
+                      : "unreadable: " + string.Join(",", violations));
+        }
+        else Stage("static_validate", "skipped", "not authorized");
+
+        // compile/test: only the declared commands, only when
+        // authorized — executed via the supervised NativeTools lane.
+        string compilerOutput = "not authorized";
+        string testOutput = "not authorized";
+        bool compiled = false, tested = false;
+        string logDir = Path.Combine(
+            toolRoot, "xingcheng/runtime/logs");
+        if (actions.Contains("compile"))
+        {
+            string cmd = task.GetProperty("build_command")
+                .GetString() ?? "";
+            if (cmd.Length == 0)
+            {
+                compilerOutput = "build_command empty";
+                Stage("compile_test", "fail", compilerOutput);
+            }
+            else
+            {
+                var rr = NativeTools.Run(
+                    "cmd.exe",
+                    new[] { "/c", cmd }, repo,
+                    Path.Combine(logDir, "code-agent-stderr.log"),
+                    timeoutS: 900);
+                compilerOutput =
+                    $"exit={rr.ExitCode} {rr.StdoutTail}";
+                compiled = rr.ExitCode == 0;
+                Stage("compile_test", compiled ? "pass" : "fail",
+                      compilerOutput[..Math.Min(240,
+                          compilerOutput.Length)]);
+            }
+        }
+        else Stage("compile_test", "skipped", "compile not authorized");
+        if (actions.Contains("test"))
+        {
+            string cmd = task.GetProperty("test_command")
+                .GetString() ?? "";
+            if (cmd.Length == 0)
+                testOutput = "test_command empty";
+            else
+            {
+                var rr = NativeTools.Run(
+                    "cmd.exe",
+                    new[] { "/c", cmd }, repo,
+                    Path.Combine(logDir, "code-agent-stderr.log"),
+                    timeoutS: 900);
+                testOutput = $"exit={rr.ExitCode} {rr.StdoutTail}";
+                tested = rr.ExitCode == 0;
+            }
+        }
+
+        bool verified = missing.Count == 0 &&
+            (!actions.Contains("compile") || compiled) &&
+            (!actions.Contains("test") || tested);
+        Stage("verify", verified ? "pass" : "fail");
+        Stage("result", verified ? "success" : "failure");
+
+        var harness = new Dictionary<string, object?>
+        {
+            ["format"] = HarnessFormat,
+            ["task_id"] = check["task_type"]?.ToString() ?? "task",
+            ["task_file"] = taskFile,
+            ["language"] = check["language"],
+            ["files_read"] = filesRead,
+            ["files_changed_proposed"] = new List<object?>(),
+            ["compiler_output"] = compilerOutput,
+            ["test_output"] = testOutput,
+            ["tool_calls"] = new List<object?>(),
+            ["iterations"] = 1,
+            ["recovery_steps"] = missing.Cast<object?>().ToList(),
+            ["final_validation"] = verified ? "pass" : "fail",
+            ["stages"] = stages,
+            ["recorded_at"] = XcPaths.IsoNow(),
+        };
+        harness["ok"] = verified;
+        return harness;
+    }
 }

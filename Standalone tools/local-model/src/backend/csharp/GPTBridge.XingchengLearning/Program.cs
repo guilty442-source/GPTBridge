@@ -1,4 +1,4 @@
-// Program.cs — governed entry points for the xingcheng learning lane.
+// Program.cs ??governed entry points for the xingcheng learning lane.
 //
 // CLI surface preserves the retired Python module's contract:
 //   --status              policy + state + training-window snapshot
@@ -208,48 +208,60 @@ internal static class Program
                         ? ttr2 : ""));
             if (flags.Contains("task-status"))
                 return Emit(LongHorizonTasks.Status(toolRoot));
-            // ---- coding lane (§10/§11/§22)
+            // ---- coding lane
             if (flags.Contains("code-task-validate"))
                 return Emit(CodeAgent.ValidateTask(
                     ToolContracts.ReadJson(
-                        opts.TryGetValue("task-file", out string? ct)
+                        opts.TryGetValue("file", out string? ct)
                             ? ct : "",
-                        "REPO_TASK_SCOPE_INVALID")));
+                        "CODE_TASK_INVALID")));
             if (flags.Contains("fim-validate"))
                 return Emit(CodeAgent.ValidateFim(
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? ff)
                             ? ff : "",
                         "FIM_CONTRACT_INVALID")));
-            if (flags.Contains("code-run"))
-                return Emit(CodeAgent.Run(
-                    toolRoot,
-                    opts.TryGetValue("task-file", out string? cr)
-                        ? cr : ""));
-            // ---- modality + teacher lineage (§12)
-            if (flags.Contains("modality-record"))
-                return Emit(ModalityContracts.RecordModality(
-                    toolRoot,
-                    opts.TryGetValue("file", out string? mf) ? mf : ""));
-            if (flags.Contains("teacher-lineage"))
-                return Emit(ModalityContracts.RecordTeacher(
-                    toolRoot,
-                    opts.TryGetValue("file", out string? tlf)
-                        ? tlf : ""));
-            // ---- dataset quality (§14/§19)
+            if (flags.Contains("harness-validate"))
+                return Emit(CodeAgent.ValidateHarness(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hvf)
+                            ? hvf : "",
+                        "REPO_TASK_SCOPE_INVALID")));
+            // ---- modality + teacher lineage
+            if (flags.Contains("modality-validate"))
+                return Emit(Modality.ValidateProvenance(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mf)
+                            ? mf : "", "MODALITY_RECORD_INVALID")));
+            if (flags.Contains("teacher-validate"))
+                return Emit(Modality.ValidateTeacher(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tlf)
+                            ? tlf : "", "TEACHER_LINEAGE_INVALID")));
+            // ---- dataset quality
             if (flags.Contains("dataset-quality"))
-                return Emit(DatasetQuality.Evaluate(
+                return Emit(DataQuality.Evaluate(
                     toolRoot,
-                    opts.TryGetValue("record", out string? dq)
-                        ? dq : ""));
-            // ---- evaluation plane (§30) + arch gate (§15) + provenance
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? dq)
+                            ? dq : "", "DQ_RECORD_INVALID")));
+            // ---- evaluation plane + arch gate + provenance
             if (flags.Contains("eval-result"))
-                return Emit(EvaluationCoordinator.Record(
-                    toolRoot,
-                    opts.TryGetValue("file", out string? erf)
-                        ? erf : ""));
+                return Emit(EvalCoordinator.ValidateResult(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? erf)
+                            ? erf : "", "EVAL_RESULT_INVALID")));
             if (flags.Contains("eval-status"))
-                return Emit(EvaluationCoordinator.Status(toolRoot));
+                return Emit(EvalCoordinator.SuitesStatus());
+            // ---- two-level routing trace
+            if (flags.Contains("routing-record"))
+                return Emit(RoutingAnalysis.Record(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rrf)
+                            ? rrf : "", "ROUTING_TRACE_INVALID")));
+            if (flags.Contains("routing-aggregate"))
+                return Emit(RoutingAnalysis.Aggregate(toolRoot));
             if (flags.Contains("arch-gate"))
                 return Emit(ArchitectureGate.Evaluate(
                     ToolContracts.ReadJson(
@@ -413,7 +425,7 @@ internal static class Program
     /// <summary>Registers a completed job's exported bundle as an adapter
     /// candidate and runs the governed native evaluation (capability or
     /// eval suite) against an optional baseline bundle. Records the full
-    /// result row in the repository — the same gate self-learning uses.
+    /// result row in the repository ??the same gate self-learning uses.
     /// --chat measures the deployed chat surface.</summary>
     private static Dictionary<string, object?> Evaluate(
         string toolRoot, string jobId, string bundle, string suitePath,
@@ -627,7 +639,7 @@ internal static class Program
             ["inserted"] = dataset.GetValueOrDefault("inserted"),
         });
 
-        // Tiny scratch model — the point is the governed chain, not
+        // Tiny scratch model ??the point is the governed chain, not
         // capacity. No init_checkpoint => trainer inits from ``model``.
         var job = repo.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
@@ -681,7 +693,7 @@ internal static class Program
                 ["job"] = report.GetValueOrDefault("job"),
             };
 
-        // Lifecycle smoke against a scratch directory — production
+        // Lifecycle smoke against a scratch directory ??production
         // lifecycle roots are never touched.
         string bundleDir = Path.GetDirectoryName(
             report["output_path"]!.ToString()!)!;
@@ -758,8 +770,8 @@ internal static class Program
         var reloaded = ModelLifecycle.Load(lcDir);
         if (reloaded.ActiveWeightsVersion != 2)
             throw new InvalidOperationException("lifecycle reload mismatch");
-        // 世代繼任契約：v2 啟用時自動攜入 v1 完整記錄 —— 刪除前代後其
-        // 資料仍保留在新代 metadata.succeeded_from 內。
+        // 世代繼任契�?：v2 ?�用?�自?��???v1 完整記�? ?��??�除?�代後其
+        // 資�?仍�??�在?�代 metadata.succeeded_from ?��?
         bool successionRecorded = false;
         if (reloaded.Artifacts.TryGetValue("weights", out var wg) &&
             wg.TryGetValue("versions", out object? wv) &&
