@@ -82,6 +82,12 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         : embedding_;
     lm_head_t_ = transpose_matrix(lm_head_);
 
+    // XCN10 MTP head: declaration/tensor parity is a load-time contract —
+    // declared-but-absent -> MTP_HEAD_MISSING, present-but-undeclared or
+    // shape mismatch -> MTP_BUNDLE_MISMATCH. Failure aborts the load; the
+    // catch below leaves the engine unloaded.
+    bind_mtp_drafter();
+
     // Gemma4 "sqrt_hidden_size" embedding scale resolves at load.
     if (cfg.embedding_scale < 0.0) {
         const_cast<ModelConfig&>(cfg).embedding_scale =
