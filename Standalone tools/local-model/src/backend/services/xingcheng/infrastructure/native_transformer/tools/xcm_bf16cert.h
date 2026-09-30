@@ -20,6 +20,8 @@ int xcuda_matmul_f64(const double* a, long long m, long long k,
 int xcuda_matmul_bf16(const double* a, long long m, long long k,
                       const double* b, long long n, double* out);
 int xcuda_release_weights();
+void xengine_cuda_lane(int cuda_requested, int bf16_requested);
+int xengine_cuda_lane_state();
 }
 
 static void bf16cert_oracle(const std::vector<double>& a,
@@ -175,4 +177,98 @@ static int mode_bf16_cert(const Args& a) {
     std::printf("%s\n", o.str().c_str());
     (void)xcuda_release_weights();
     return ok ? 0 : 1;
+}
+
+// ---------------- (section)58 end-to-end drift: fp64 lane vs bf16 lane ------
+// Same engine instance, same prompts; xengine_cuda_lane flips the atomic the
+// matmul dispatcher reads, so logits()/generate() run each lane back to back
+// without respawning. logits() never touches the prefix cache
+// (append_cache=false), so the comparison is not contaminated.
+int mode_bf16_drift(const Args& a) {
+    const std::string bundle = a.get("--bundle", "");
+    const int prefill = a.num_arg("--prefill", 64);
+    const int decode = a.num_arg("--decode", 32);
+    const int64_t seed = a.num_arg("--seed", 7);
+    JsonWriter w;
+    w.begin().kv("schema", "star-bf16-drift-report/v1")
+            .kv("bundle", bundle).kv("prefill", prefill)
+            .kv("decode", decode).kv("seed", seed);
+    if (bundle.empty()) {
+        w.kv("cuda_available", false).kv("verdict", "NO_BUNDLE")
+         .kv("ok", false).end();
+        emit_line(w.str());
+        return 0;
+    }
+    try {
+        NativeInferenceEngine e;
+        e.load(bundle);
+        std::vector<int64_t> ids(static_cast<size_t>(prefill));
+        for (int i = 0; i < prefill; ++i)
+            ids[static_cast<size_t>(i)] = seed + i;
+
+        // Lane 1: CUDA fp64 cuBLAS (current primary).
+        std::vector<double> l64, l16;
+        std::vector<int64_t> g64, g16;
+        std::string err64, err16;
+        SamplingConfig sc;
+        sc.temperature = 0.0;
+        sc.max_tokens = decode;
+        xengine_cuda_lane(1, 0);
+        try { l64 = e.logits(ids); g64 = e.generate(ids, decode, sc); }
+        catch (const std::exception& ex) { err64 = ex.what(); }
+        xengine_cuda_lane(1, 1);
+        try { l16 = e.logits(ids); g16 = e.generate(ids, decode, sc); }
+        catch (const std::exception& ex) { err16 = ex.what(); }
+        xengine_cuda_lane(0, 0);
+
+        w.kv("f64_lane_ok", err64.empty())
+         .kv("bf16_lane_ok", err16.empty());
+        if (!err64.empty()) w.kv("f64_error", err64);
+        if (!err16.empty()) w.kv("bf16_error", err16);
+        if (err64.empty() && err16.empty() && l64.size() == l16.size()) {
+            double se = 0.0, sr = 0.0, max_abs = 0.0;
+            int64_t arg64 = -1, arg16 = -1;
+            double b64 = -1.0, b16 = -1.0;
+            for (size_t i = 0; i < l64.size(); ++i) {
+                const double d = l16[i] - l64[i];
+                se += d * d; sr += l64[i] * l64[i];
+                max_abs = std::max(max_abs, std::fabs(d));
+                if (l64[i] > b64) { b64 = l64[i]; arg64 = (int64_t)i; }
+                if (l16[i] > b16) { b16 = l16[i]; arg16 = (int64_t)i; }
+            }
+            const double rms_rel = sr > 0.0 ? std::sqrt(se / sr) : 0.0;
+            const bool argmax_same = arg64 == arg16;
+            int64_t agree = 0, first_div = -1;
+            const size_t gn = std::min(g64.size(), g16.size());
+            for (size_t i = 0; i < gn; ++i) {
+                if (g64[i] == g16[i]) ++agree;
+                else if (first_div < 0) first_div = (int64_t)i;
+            }
+            const bool gen_same =
+                g64.size() == g16.size() && agree == (int64_t)g64.size();
+            bool finite = true;
+            for (double v : l16) finite = finite && std::isfinite(v);
+            w.kv("logits", l64.size())
+             .kv("max_abs_err", max_abs).kv("rms_rel", rms_rel)
+             .kv("logit_argmax_match", argmax_same)
+             .kv("gen_len_64", (int64_t)g64.size())
+             .kv("gen_len_16", (int64_t)g16.size())
+             .kv("gen_agree_tokens", agree)
+             .kv("gen_first_divergence", first_div)
+             .kv("gen_identical", gen_same)
+             .kv("logits_finite", finite);
+            const bool cert = finite && argmax_same && gen_same &&
+                              rms_rel < 0.02;
+            w.kv("verdict", cert ? "BF16_E2E_AGREEMENT" : "BF16_E2E_DRIFT")
+             .kv("ok", true);
+        } else {
+            w.kv("verdict", "BF16_E2E_NO_LANE").kv("ok", true);
+        }
+    } catch (const std::exception& ex) {
+        w.kv("error", ex.what()).kv("verdict", "BF16_E2E_ERROR")
+         .kv("ok", false);
+    }
+    w.end();
+    emit_line(w.str());
+    return 0;
 }

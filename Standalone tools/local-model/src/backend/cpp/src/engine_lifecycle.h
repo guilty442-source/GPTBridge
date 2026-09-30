@@ -937,3 +937,17 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
     span.append_cache = append_cache;
     return forward_batch_hidden({span}, layer_rms, module_rms);
 }
+
+// §58 governed lane switch for certification probes. The CUDA
+// request flags are atomics consulted per matmul call, so toggling
+// between forwards lets one process compare lanes without respawning.
+// Production admission stays env-gated (XINGCHENG_CPP_CUDA*); this is
+// a probe hook on the same atomics, not a second admission path.
+extern "C" void xengine_cuda_lane(int cuda_requested, int bf16_requested) {
+    g_cuda_requested.store(cuda_requested != 0);
+    g_cuda_bf16_requested.store(bf16_requested != 0);
+}
+extern "C" int xengine_cuda_lane_state() {
+    return (g_cuda_requested.load() ? 1 : 0) |
+           (g_cuda_bf16_requested.load() ? 2 : 0);
+}

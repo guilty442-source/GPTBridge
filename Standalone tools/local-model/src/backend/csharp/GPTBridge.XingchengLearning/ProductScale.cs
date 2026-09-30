@@ -112,20 +112,22 @@ internal static class ProductScale
                      new long[] { 4, 8 }, 8),
                 Tier("xc-1b-standard",
                      "STANDARD — default production / primary training " +
-                     "and capability model (§3)",
+                     "and capability model; sparse-first from day one " +
+                     "(capacity §2/§46)",
                      900_000_000, 1_100_000_000,
-                     450_000_000, 650_000_000, 800_000_000, 0.65,
+                     400_000_000, 600_000_000, 1_000_000_000, 0.6,
                      300_000_000, 400_000_000, 500_000_000,
                      50_000_000, 100_000_000,
                      new long[] { 16, 32 }, 16),
                 Tier("xc-20b-extreme-sparse",
-                     "EXTREME_SPARSE — knowledge + specialization " +
-                     "capacity at sub-1B active cost (§4, §61)",
+                     "EXTREME_SPARSE — temporary maximum capacity; " +
+                     "knowledge + specialization at sub-1B active " +
+                     "(capacity §3/§47)",
                      18_000_000_000L, 22_000_000_000L,
-                     500_000_000, 700_000_000, 1_000_000_000, 0.035,
+                     500_000_000, 750_000_000, 1_000_000_000, 0.035,
                      300_000_000, 450_000_000, 500_000_000,
                      50_000_000, 150_000_000,
-                     new long[] { 64, 128, 256 }, 128),
+                     new long[] { 32, 64, 128, 256 }, 128),
             },
             ["probe_scales"] =
                 new long[] { 2_000_000_000L, 3_000_000_000L,
@@ -367,19 +369,29 @@ internal static class ProductScale
         var violations = new List<object?>();
         string verdict = "ACTIVE_VALID";
 
+        // §35/§53: the 1B active ceiling is global — any candidate
+        // above it is rejected before benchmark, regardless of tier.
+        if (active > CapacityPlane.ActiveCeiling)
+        {
+            violations.Add(
+                $"active {active} exceeds the 1B hard ceiling (§0/§35)");
+            verdict = "ACTIVE_PARAMETER_CEILING_EXCEEDED";
+        }
         // tier-specific bounds
         if (scale == "xc-1b-standard")
         {
-            if (active > 800_000_000)
-            { violations.Add($"active {active} exceeds 1B ceiling 800M");
-              verdict = "ACTIVE_CEILING_EXCEEDED"; }
+            if (active > CapacityPlane.ActiveCeiling &&
+                verdict != "ACTIVE_PARAMETER_CEILING_EXCEEDED")
+            { violations.Add($"active {active} exceeds 1B ceiling");
+              verdict = "ACTIVE_PARAMETER_CEILING_EXCEEDED"; }
             if (total < 900_000_000 || total > 1_100_000_000)
                 violations.Add(
                     $"total {total} outside 0.9B-1.1B band (§6)");
         }
         else if (scale == "xc-20b-extreme-sparse")
         {
-            if (active > 1_000_000_000)
+            if (active > CapacityPlane.ActiveCeiling &&
+                verdict != "ACTIVE_PARAMETER_CEILING_EXCEEDED")
             { violations.Add($"active {active} exceeds 20B ceiling " +
                              "1B"); verdict = "LOW_SPARSITY_FAILURE"; }
             if (total < 18_000_000_000L || total > 22_000_000_000L)
@@ -457,6 +469,13 @@ internal static class ProductScale
         if (common > 600_000_000 && scale == "xc-20b-extreme-sparse")
             violations.Add("common_core >600M on 20B — architecture " +
                            "efficiency must be re-evaluated (§13)");
+        // capacity §32: the floor is common+shared combined — >=600M
+        // on 20B is COMMON_FLOOR_TOO_HIGH.
+        if (scale == "xc-20b-extreme-sparse" &&
+            common + shared >= CapacityPlane.CommonFloorHard)
+            violations.Add(
+                $"common+shared {common + shared} >= 600M — " +
+                "COMMON_FLOOR_TOO_HIGH (capacity §32)");
         var sb = (Dictionary<string, object?>)
             tier["shared_expert_budget"]!;
         if (shared > 0 && shared > (long)sb["max"]!)

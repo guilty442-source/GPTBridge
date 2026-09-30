@@ -3467,6 +3467,7 @@ static const ModeEntry kModeRegistry[] = {
     {"capacity-metrics",      "SCALE",      mode_capacity_metrics},
     // §58 BF16 production certification (FP64 oracle comparison).
     {"bf16-cert",             "PRECISION",  mode_bf16_cert},
+    {"bf16-drift",            "PRECISION",  mode_bf16_drift},
 };
 
 static int mode_registry_emit() {
