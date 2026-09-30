@@ -1,0 +1,41 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "migration-history-summary-20260929-r2",
+  "supersedes": "migration-history-summary-20260929",
+  "title": "Migration-history summary encoding repair (revision 177)",
+  "summary": "The revision_history entry sequence=177 summary was written with an encoding-corrupted separator: \"Five-core responsibility closure ??authority/execution separation restated\". The intended text used an em-dash separator (as in the r7 amendment request title). The corrupted literal now trips the mirror-part-pollution audit check on every mirror refresh. This is a surgical metadata repair of the hash-chain head entry only: the summary field is corrected to an ASCII-safe equivalent and the entry_hash is recomputed by the intake pipeline; previous_hash (pointing at sequence 176) stays untouched, preserving chain integrity.",
+  "requested_by": "permission-sovereign",
+  "origin": "star-audit-engine/v1 mirror-part-pollution FAIL on governance_codex.zh-TW.part-4.txt (revision_history sequence=177 summary contains literal ?? emitted by summary sanitization)",
+  "change_class": "editorial",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T11:33:57Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "c554c734ded87a011ffa43ee8e5af3bc49861b7bad6be3fe5eb8ac1775faec20",
+    "revision_sequence": 177
+  },
+  "changes": [
+    {
+      "table": "revision_history",
+      "key": {
+        "sequence": 177
+      },
+      "field": "summary",
+      "proposed": "Five-core responsibility closure (authority/execution separation restated)"
+    }
+  ],
+  "evidence": {
+    "registries": [
+      "mirror part-4 pollution detail: pollution at revision_history entry_hash c554c734..., summary contains literal '??'",
+      "source request title (r7 file) contains the same ?? separator, confirming encoding loss at intake-generation time, not authored intent",
+      "revision 177 is the chain head: recomputing its entry_hash after the summary repair keeps previous_hash (873dc55c...) valid and preserves downstream chain integrity"
+    ],
+    "audit_state": "star-audit-engine/v1 3507 checks: sole FAIL = mirror-part-pollution:governance_codex.zh-TW.part-4.txt",
+    "superseded_disposition": "r1 rejected by intake: REQUEST_CHANGE_CLASS_INVALID (correction is not a codex amendment class)"
+  }
+}

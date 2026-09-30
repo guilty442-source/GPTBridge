@@ -26,108 +26,148 @@
       "description": "C# host 內含 worktree self-commit sweep（debounce）＋workspace sync cycle；Python task 只 spawn/活性探測/有界 respawn，不執行 git 工作（C66 單一編排器）；host 每週期重讀 enabled＋runtime override，sentinel 檔觸發優雅停止；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS＋強制測試 PASS 才推；推送與 ahead==0 收斂證據入帳）"
     },
     "daily-global-cleaner": {
-      "owner": "daily-global-cleaner service",
+      "owner": "daily-global-cleaner service（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
-      "enabled": true,
-      "description": "每日全域清理（due-gated，實際執行依 is_due 期限）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python daily-global-cleaner removed with the Python lane; daily cleanup duty recorded for a native port. 原職責：每日全域清理（due-gated，實際執行依 is_due 期限）。"
     },
     "system-automation-coordinator": {
-      "owner": "system-automation-coordinator（決策層健康聚合）",
+      "owner": "system-automation-coordinator（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": false,
-      "enabled": true,
-      "description": "主宰健康聚合＋退化路由；內部自適應 60–300 s 與熔斷保留"
+      "enabled": false,
+      "description": "retired (B167/B38): Python decision-layer coordinator removed with the Python lane; sovereign health aggregation duty recorded for a native port. 原職責：主宰健康聚合＋退化路由；內部自適應 60–300 s 與熔斷保留。"
     },
     "maintenance-controller": {
-      "owner": "maintenance sovereign / maintenance_controller",
+      "owner": "maintenance-controller（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 30,
       "pausable": true,
-      "enabled": true,
-      "description": "PG/SQLite/reconcile/backup 維護信號 tick；控制器 start(spawn_loop=False)，核心以 to_thread 驅動 run_once"
+      "enabled": false,
+      "description": "retired (B167/B38): Python maintenance_controller removed with the Python lane; maintenance signal duty recorded for a native port. 原職責：PG/SQLite/reconcile/backup 維護信號 tick。"
     },
     "sleep-policy": {
-      "owner": "sleep_policy / SleepPolicyManager",
+      "owner": "sleep-policy（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": true,
-      "description": "sleepable 單元 idle 分層掃描（hot→warm→cold＋需求喚醒回退）；kill switch 在 sleep-policy.json enabled，flow 停用即不再巡掃"
+      "enabled": false,
+      "description": "retired (B167/B38): Python SleepPolicyManager removed with the Python lane; idle-tiering duty recorded for a native port. 原職責：sleepable 單元 idle 分層掃描（hot→warm→cold＋需求喚醒回退）。"
     },
     "rag-maintenance": {
-      "owner": "rag-runtime-integration / CanonicalRagPipeline",
+      "owner": "rag-maintenance（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
-      "enabled": true,
-      "description": "canonical RAG 維護循環（outbox 租約回收＋未完成工作 drain＋tombstone 驗證後 purge＋慢頻 parity 修復）；在 RAG worker loop 上有界執行"
+      "enabled": false,
+      "description": "retired (B167/B38): Python CanonicalRagPipeline removed with the Python lane; RAG maintenance duty recorded for a native port. 原職責：canonical RAG 維護循環（outbox 租約回收＋未完成工作 drain＋tombstone 驗證後 purge＋慢頻 parity 修復）。"
     },
     "permission-automation-lifecycle": {
-      "owner": "permission sovereign / PermissionLifecycleManager",
+      "owner": "GPTBridge.Permission.PermissionLifecycleAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
       "enabled": true,
-      "description": "權限授予過期／自動續期檢查（orchestrator 經核心註冊 run_once）"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — grant expiry sweep, delegated auto-renew adjudication, revoke/suspend, 30-day terminal cleanup; stays disabled until a resident automation host registers it. 原職責：權限授予過期／自動續期檢查（發權/收權/停權）。"
     },
     "permission-automation-directory": {
-      "owner": "permission sovereign / DirectorySyncManager",
+      "owner": "GPTBridge.Permission.DirectorySyncAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
       "enabled": true,
-      "description": "受管目錄快照同步（雜湊比對；orchestrator 經核心註冊 run_once）"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — managed-registry sync hash (code-rules initial version + authority current version + sealed identity count); stays disabled until a resident automation host registers it. 原職責：受管目錄快照同步（雜湊比對）。"
     },
     "permission-automation-compliance": {
-      "owner": "permission sovereign / ComplianceMonitor",
+      "owner": "GPTBridge.Permission.ComplianceMonitorAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
       "enabled": true,
-      "description": "合規檢查／違規處理／風險評分（orchestrator 經核心註冊 run_once）"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — violation ingestion/dedup/severity, directory integrity, ledger-vs-directory drift (A436), hourly risk-score decay; stays disabled until a resident automation host registers it. 原職責：合規檢查／違規處理／風險評分。"
     },
     "permission-automation-healing": {
-      "owner": "permission sovereign / SelfHealingManager",
+      "owner": "GPTBridge.Permission.SelfHealingAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
       "enabled": true,
-      "description": "權限平面自我修復健康檢查（orchestrator 經核心註冊 run_once）"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — four health checks (registry access, governance connection, sovereign state, directory permissions) with injected governed repair delegates (A297); stays disabled until a resident automation host registers it. 原職責：權限平面自我修復健康檢查。"
     },
     "permission-automation-audit": {
-      "owner": "permission sovereign / AuditScheduler",
+      "owner": "GPTBridge.Permission.AuditSchedulerAutomation (C# library; RunOnceAsync driven by the automation host)",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
       "enabled": true,
-      "description": "定期治理審計子行程（orchestrator 經核心註冊 run_once）"
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — bounded native audit-engine invocation (60s timeout, metadata-only history records); stays disabled until a resident automation host registers it. 原職責：定期治理審計子行程。"
+    },
+    "permission-automation-identity": {
+      "owner": "GPTBridge.Permission.IdentityGroupLifecycleAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": true,
+      "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — auto-register sealed groups missing locally, sovereign-decided deletion of unregistered retired-tool groups (A297 fail-closed pending), duplicate-actor conflict resolution, metadata-only lifecycle ledger. 原職責：身份組註冊與刪除自動化（協調層，封印登錄不可寫）。"
+    },
+    "investment-autotrade-cycle": {
+      "owner": "InvestmentMobile.Service.TradingEngineCluster (C#; investment-mobile-autotrade-cycle command dispatched via governed system channel)",
+      "kind": "periodic",
+      "interval_s": 300,
+      "pausable": true,
+      "enabled": false,
+      "description": "native port delivered (B167/B38): Standalone tools/investment-mobile/src/InvestmentMobile.Service — bounded autotrade tick (signal book → strategy → optional xingcheng advisory → risk+mode gates). enabled=false pending resident tool-host registration of the system-channel dispatch; ANALYSIS/SHADOW never submit, LIVE phase-locked, halt liftable only via governance main actor."
     },
     "connection-watchdog": {
-      "owner": "connection-watchdog（boot_core 監督行程）",
+      "owner": "gptbridge-core lifecycle monitor（main-system/src-tauri/crates/gptbridge-core/src/lifecycle/monitor.rs）",
       "kind": "supervision-plane",
       "interval_s": 60,
       "pausable": true,
       "enabled": true,
-      "description": "前端/後端連線探針（boot_core 監督行程內 thread 迴圈、自適應退避）。監督面正確歸屬：監督者不得位於被監督行程之自動化核心內（A69 分層；主行程 hang 時仍須可探針與修復），非待遷移項"
+      "description": "前端/後端連線探針已由 Rust lifecycle monitor 承接（子行程活性探測＋attached-backend 探針＋有界自動重啟佇列）。監督面正確歸屬：監督者不得位於被監督行程之自動化核心內（A69 分層；主行程 hang 時仍須可探針與修復），非待遷移項"
     },
     "state-outbox": {
-      "owner": "state-outbox",
+      "owner": "gptbridge-backend outbox（main-system/src-tauri/crates/gptbridge-backend/src/outbox.rs）",
       "kind": "event",
       "interval_s": null,
       "pausable": false,
       "enabled": true,
-      "description": "交易式 outbox：狀態變更事件＋重試期限驅動（無固定輪詢）"
+      "description": "交易式 outbox：狀態變更事件＋重試期限驅動（無固定輪詢）；由原生後端承接：session/generation/cursor 協定＋批次 drain＋未確認重送＋min-acked 修剪"
     },
     "model-service-activation": {
-      "owner": "model-service-activation broker",
+      "owner": "model-service-activation（executor-retired B167/B38）",
       "kind": "event",
       "interval_s": null,
       "pausable": false,
+      "enabled": false,
+      "description": "retired (B167/B38): Python activation broker removed with the Python lane; ai→xingcheng on-demand activation duty (A540) recorded for a native port. 原職責：偵測佇列 ai→xingcheng 請求並按需啟動 local-model。"
+    },
+    "channel-host-supervision": {
+      "owner": "gptbridge-backend channel_host（main-system/src-tauri/crates/gptbridge-backend/src/channel_host.rs）",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": false,
       "enabled": true,
-      "description": "偵測佇列 ai→xingcheng 請求並按需啟動 local-model（A540）"
+      "description": "通道層自動化：依 shared-layer/manifest.json background_service 契約（managed_by=main-system、auto_restart、max_restart_attempts=5、restart_backoff_seconds=1）由原生後端 spawn＋監督受管 GPTBridge.ChannelHost.exe（A263 通道）；受管關閉抑制重啟、預算耗盡 fail-closed；狀態檔 runtime/state/channel-host.json、稽核 channel-host.jsonl。監督者位於被監督行程之外（A170 邊界）"
+    },
+    "codex-pipeline-supervision": {
+      "owner": "gptbridge-backend pipeline_host（main-system/src-tauri/crates/gptbridge-backend/src/pipeline_host.rs）",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "管線自動化：由原生後端 spawn＋監督 GPTBridge.CodexPipeline.exe --watch 常駐 host（codex-amendment-intake / codex-pin-sync / codex-maintenance 三 flow 的執行主體；flow 級 kill switch 在 watch loop 內逐 tick 生效）。重啟預算同 channel-host 契約（5 次／1s backoff，外部 force-close 仍重啟）；preflight 以 codex-automation.lock 單例鎖仲裁——外部實例持有時延後接管而不耗預算。缺 exe 或 GPTBRIDGE_POSTGRES_DSN 時 fail-closed。狀態檔 runtime/state/codex-pipeline.json、稽核 codex-pipeline.jsonl；host 自身狀態 codex-automation.json"
+    },
+    "permission-host-supervision": {
+      "owner": "gptbridge-backend permission_host（main-system/src-tauri/crates/gptbridge-backend/src/permission_host.rs）",
+      "kind": "supervision-plane",
+      "interval_s": null,
+      "pausable": false,
+      "enabled": true,
+      "description": "監督面自動化：由原生後端 spawn＋監督 GPTBridge.Permission.exe --watch 常駐 host（permission-automation-lifecycle/directory/compliance/healing/audit/identity 六 flow 的執行主體；各 flow 的 kill switch 在 watch loop 內逐 tick 生效）。重啟預算同 channel-host 契約（5 次、1s backoff，外部 force-close 仍重啟）；preflight 以 permission-automation.lock 仲裁——外部實例持有時延後、釋放後收編，避免重複實例燒光重啟預算。缺 publish exe 即 fail-closed。狀態：runtime/state/permission-host.json＋稽核 permission-host.jsonl；host 自身狀態 permission-automation.json"
     },
     "resource-governor": {
       "owner": "resource governor",
@@ -138,148 +178,148 @@
       "description": "§10.64 資源管制：native/resource_governor/bin/resource-governor.exe 獨立行程（C++23，Windows 工作排程／登入啟動）。監督面正確歸屬：管制對象含主系統本身，管制者必須活得比被管制者久（A170 監督邊界），非待遷移項。kill switch 只停動作不停觀測"
     },
     "update-manager": {
-      "owner": "update-manager",
+      "owner": "update-manager（executor-retired B167/B38）",
       "kind": "event",
       "interval_s": null,
       "pausable": false,
-      "enabled": true,
-      "description": "發布／更新流程（認證更新走 A330 例外鏈）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python update-manager removed with the Python lane; release/update duty recorded for a native port（codex 更新發布由 GPTBridge.CodexPipeline UpdatePipeline 承接）。原職責：發布／更新流程（認證更新走 A330 例外鏈）。"
     },
     "update-manager-auto": {
-      "owner": "UpdateManager（Assistant 開關 gated）",
+      "owner": "update-manager-auto（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
-      "enabled": true,
-      "description": "自動更新偵測/決策/執行 tick（熔斷、健康閘、自適應間隔保留於 tick 內；interval 為註冊時基線）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python UpdateManager removed with the Python lane; auto-update tick duty recorded for a native port. 原職責：自動更新偵測/決策/執行 tick（熔斷、健康閘、自適應間隔保留於 tick 內）。"
     },
     "hot-update-idle": {
-      "owner": "HotUpdateService idle mixin",
+      "owner": "hot-update-idle（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 30,
       "pausable": true,
-      "enabled": true,
-      "description": "閒置時套用 deferred 模組替換（_idle_tick 經核心驅動）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python HotUpdateService removed with the Python lane; deferred-module idle-apply duty recorded for a native port. 原職責：閒置時套用 deferred 模組替換。"
     },
     "hot-reload-watcher": {
-      "owner": "hot-reload-watcher",
+      "owner": "hot-reload-watcher（executor-retired B167/B38）",
       "kind": "on-demand",
       "interval_s": null,
       "pausable": true,
-      "enabled": true,
-      "description": "按需（R5）：能力常駐、輪詢迴圈僅在 GPTBRIDGE_HOT_RELOAD_WATCH=1 啟動"
+      "enabled": false,
+      "description": "retired (B167/B38): Python hot-reload watcher removed with the Python lane; governed reload capability recorded for a native port. 原職責：按需（R5）能力常駐、輪詢迴圈僅在 GPTBRIDGE_HOT_RELOAD_WATCH=1 啟動。"
     },
     "authority-reanchor": {
-      "owner": "authority-reanchor service",
+      "owner": "authority-reanchor（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 3,
       "pausable": false,
-      "enabled": true,
-      "description": "受管權威檔案 digest 探針（行程內完整性監督，經核心 to_thread 驅動 _probe_once）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python authority-reanchor service removed with the Python lane; managed-authority digest probe duty recorded for a native port. 原職責：受管權威檔案 digest 探針（行程內完整性監督）。"
     },
     "main-system-self-maintenance": {
-      "owner": "MainSystemSelfMaintenance",
+      "owner": "main-system-self-maintenance（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 21600,
       "pausable": true,
-      "enabled": true,
-      "description": "主系統自我維護 duty pass（預設 6h，env 可覆寫；啟動 duty pass 屬一次性啟動工作非週期對象）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python MainSystemSelfMaintenance removed with the Python lane; self-maintenance duty pass recorded for a native port. 原職責：主系統自我維護 duty pass（預設 6h，env 可覆寫）。"
     },
     "idle-memory-maintenance": {
-      "owner": "IdleMemoryMaintainer（resource_maintenance）",
+      "owner": "idle-memory-maintenance（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": true,
-      "description": "閒置 RAM 釋放（EmptyWorkingSet）；§10.63 R3 起乘共享排程"
+      "enabled": false,
+      "description": "retired (B167/B38): Python IdleMemoryMaintainer removed with the Python lane; idle RAM release duty recorded for a native port. 原職責：閒置 RAM 釋放（EmptyWorkingSet）。"
     },
     "runtime-status-push": {
-      "owner": "runtime-status push loop（ipc server_lifecycle）",
+      "owner": "gptbridge-backend runtime status（main-system/src-tauri/crates/gptbridge-backend/src/main.rs）",
       "kind": "event",
       "interval_s": null,
       "pausable": false,
       "enabled": true,
-      "description": "就緒狀態推送：事件驅動＋無 UI shell 時降頻；私有 asyncio task（低延遲語義，不適合 15s 排程粒度）"
+      "description": "就緒狀態推送：由原生後端承接——連線建立即推 runtime 狀態＋runtime_degraded/startup_dead 事件；事件驅動、無固定輪詢"
     },
     "tool-isolation-health": {
-      "owner": "tool isolation manager（iso_mgr.start_monitor）",
+      "owner": "tool-isolation-health（executor-retired B167/B38）",
       "kind": "supervision-plane",
       "interval_s": 30,
       "pausable": false,
-      "enabled": true,
-      "description": "工具行程健康監控 thread 迴圈（監控對象為外部工具行程，相對於被監督者位於其外）；行程內部署屬殘項，可評估改經核心 to_thread 驅動"
+      "enabled": false,
+      "description": "retired (B167/B38): Python iso_mgr monitor removed with the Python lane; tool-process health monitoring duty recorded for a native port（工具 spawn/health-wait/stop 已由 gptbridge-backend tools/lifecycle.rs 承接，週期監控迴圈待 port）。原職責：工具行程健康監控 thread 迴圈。"
     },
     "maintenance-capability-monitor": {
-      "owner": "maintenance sovereign / capability",
+      "owner": "maintenance-capability-monitor（executor-retired B167/B38）",
       "kind": "supervision-plane",
       "interval_s": null,
       "pausable": true,
-      "enabled": true,
-      "description": "能力偵測迴圈（唯讀 detection）；maintenance 主宰內部監督面殘項"
+      "enabled": false,
+      "description": "retired (B167/B38): Python maintenance capability monitor removed with the Python lane; capability detection duty recorded for a native port. 原職責：能力偵測迴圈（唯讀 detection）。"
     },
     "maintenance-repair-chain": {
-      "owner": "maintenance sovereign / repair chain",
+      "owner": "maintenance-repair-chain（executor-retired B167/B38）",
       "kind": "supervision-plane",
       "interval_s": null,
       "pausable": true,
-      "enabled": true,
-      "description": "修復鏈輪詢迴圈；maintenance 主宰內部監督面殘項"
+      "enabled": false,
+      "description": "retired (B167/B38): Python maintenance repair chain removed with the Python lane; repair-chain polling duty recorded for a native port. 原職責：修復鏈輪詢迴圈。"
     },
     "backup-scheduler": {
-      "owner": "backup scheduler（shared-layer）",
+      "owner": "backup-scheduler（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": true,
-      "description": "受管備份排程（GPTBRIDGE_BACKUP_SCHEDULER=1 啟動條件控制）；核心驅動 run_once"
+      "enabled": false,
+      "description": "retired (B167/B38): Python backup scheduler removed with the Python lane; governed backup duty recorded for a native port. 原職責：受管備份排程（GPTBRIDGE_BACKUP_SCHEDULER=1 啟動條件控制）。"
     },
     "perf-baseline": {
-      "owner": "perf-baseline collector（tasks/perf_baseline_job）",
+      "owner": "perf-baseline（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
-      "enabled": true,
-      "description": "§10.11 全系統效能基線定期快照；注入 IPC p50/p95/p99 等子系統量測；star-perf-baseline/v1"
+      "enabled": false,
+      "description": "retired (B167/B38): Python perf_baseline_job removed with the Python lane; §10.11 baseline snapshot duty recorded for a native port（即時 SLO 量測已由 gptbridge-core state/perf_slo.rs 承接，定期快照待 port）。原職責：全系統效能基線定期快照；star-perf-baseline/v1。"
     },
     "rag-schema-migration": {
-      "owner": "RagRuntimeIntegration.run_schema_migration（rag lifecycle migration executor）",
+      "owner": "rag-schema-migration（executor-retired B167/B38）",
       "kind": "on-demand",
       "interval_s": null,
       "pausable": false,
-      "enabled": true,
-      "description": "P2/G50 schema-drift 受管入口：僅 operator／受管流程顯式呼叫，絕不於維護 tick 或 init 自動觸發；向量軸漂移走 rebuild_canonical 新世代建置；metadata 軸無 apply_metadata executor 即 fail-closed 阻斷（依設計）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python RagRuntimeIntegration removed with the Python lane; schema-drift governed entry recorded for a native port（向量軸由 vectord-rs rebuild_canonical 承接）。原職責：P2/G50 schema-drift 受管入口，僅 operator／受管流程顯式呼叫。"
     },
     "toolbox-registry-reconcile": {
-      "owner": "toolbox service (start_process_registry_monitor)",
+      "owner": "toolbox-registry-reconcile（executor-retired B167/B38）",
       "kind": "supervision-plane",
       "interval_s": 30,
       "pausable": true,
-      "enabled": true,
-      "description": "定期 reconcile 受管工具 PID registry；kill switch 拒絕時不回落私有迴圈。"
+      "enabled": false,
+      "description": "retired (B167/B38): Python process registry monitor removed with the Python lane; toolbox PID registry reconcile duty recorded for a native port（running registry 由 gptbridge-backend tools/runtime.rs 承接，定期 reconcile 待 port）。原職責：定期 reconcile 受管工具 PID registry。"
     },
     "cag-context-refresh": {
-      "owner": "core_system.cag_integration",
+      "owner": "cag-context-refresh（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 600,
       "pausable": true,
-      "enabled": true,
-      "description": "CAG 預載 context TTL 刷新（lazy 啟動後由 automation core 驅動；deny 不回落私有迴圈——查詢降級 RAG 為既有 fail-soft 語義）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python cag_integration removed with the Python lane; CAG preload TTL refresh duty recorded for a native port. 原職責：CAG 預載 context TTL 刷新（deny 不回落私有迴圈）。"
     },
     "resource-mode-advisor": {
-      "owner": "resource-mode-advisor（tasks/resource_mode_advisor → resource_governor_signal.auto_adjust_mode）",
+      "owner": "resource-mode-advisor（executor-retired B167/B38；規則/狀態/稽核機制由 gptbridge-backend resource_mode.rs 承接）",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": false,
-      "enabled": true,
-      "description": "需求驅動＋夜間睡眠省電自動調整：22:00-07:00 夜間窗口強制 sleep（睡眠/省電深眠 CPU 5% strict/RAM 30%/VRAM禁用，最高優先、立即切換）；strained/CPU≥85%/RAM≥90%→low（立即）；worker 需求（admission hold 或帳本≥80%預算）＋機器餘裕（CPU<60%/RAM<75%）→high；其餘→medium；high/medium 需連續 3 次評估、切換冷卻 600s。檔位 sleep/low/medium/high；預設 auto_mode=true（預設自動）；power_saving_schedule.enabled=true（22-07 睡眠）。僅在 auto_mode=true 時生效；手動選檔自動關閉 auto（使用者意圖優先）"
+      "enabled": false,
+      "description": "retired (B167/B38): Python resource_mode_advisor removed with the Python lane; auto-adjust tick driver recorded for a native port。機制已承接：gptbridge-backend resource_mode.rs 持有 rules/state/advisor 檔案契約、22:00-07:00 夜間評估、resource-mode-audit.jsonl 稽核與 app:set/get-resource-mode 命令；缺 60s 週期驅動器。原職責：需求驅動＋夜間睡眠省電自動調整（22-07 強制 sleep；strained→low 立即；worker 需求＋餘裕→high；high/medium 連續 3 次評估＋600s 冷卻；auto_mode 預設 true，手動選檔關閉 auto）。"
     },
     "file-sorter-automation": {
       "owner": "FileSorterAutomationService（file-sorter 工具行程內）",
       "kind": "private-loop",
       "interval_s": null,
       "pausable": false,
-      "enabled": true,
-      "description": "檔案管理服務（inventory-only）：standalone 工具行程內的受管檔案整理 loop。啟動後 20 秒執行第一次整理；之後依級距調整間隔（10s→30s→60s→5m→15m→1h→6h→12h→24h 上限），快照發現新檔案/目錄變化即回到最快級距重新開始。新增關鍵字後 CLI 子行程先同步執行一次掃描，並在 state root 寫入 signals/automation-wake.json 喚醒信號；常駐 loop 每 ≤20 秒輪詢該信號（單次 stat），保證確認性整理在 20 秒內執行，啟動時已存在的信號檔視為已消費不觸發。每輪執行 recover_transactions→prune_state→run_enabled_profiles_once（二階觀察+transaction journal+undo）。遞迴目錄監看與重複回收範圍對齊：頂層檔案 metadata＋巢狀目錄 mtime（重複回收範圍），symlink/reparse 不追蹤，同名覆寫不改 mtime 者仍走 fallback poll。不經 AutomationCore——獨立工具行程邊界外。kill switch：manifest automation.enabled 或 env GPTBRIDGE_FILE_SORTER_AUTOMATION_ENABLED=0"
+      "enabled": false,
+      "description": "retired (B167/B38): FileSorterAutomationService removed with the Python lane; governed file-sorter loop duty recorded for a native port. 原職責：standalone 工具行程內的受管檔案整理 loop（級距調整 10s→24h、signals/automation-wake.json 喚醒、recover_transactions→prune_state→run_enabled_profiles_once）。kill switch：manifest automation.enabled"
     },
     "xingcheng-internal-maintenance": {
       "owner": "LocalAiLifecycleMixin._internal_maintenance_loop（xingcheng 工具行程內）",
@@ -289,44 +329,68 @@
       "enabled": false,
       "description": "retired (B167/B38): _internal_maintenance_loop removed with the Python training/maintenance lane"
     },
+    "self-learning": {
+      "owner": "GPTBridge.XingchengLearning xc-learning.exe --run-once（local-model 受管 lane；native port B167/B38 已交付）",
+      "kind": "periodic",
+      "interval_s": 900,
+      "pausable": true,
+      "enabled": false,
+      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載；kill switch 仍以 runtime/settings/self-learning.json enabled 為準。enabled=false pending resident tool-host registration of the system-channel dispatch（原 SelfLearningDriver 職責：tool 冷卻喚醒、inference exclusion 預檢、900s 節奏）。"
+    },
+    "retention": {
+      "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（local-model 受管 lane；native port B167/B38 已交付）",
+      "kind": "periodic",
+      "interval_s": 3600,
+      "pausable": true,
+      "enabled": false,
+      "description": "native port delivered (B167/B38): star-retention-policy/v1 由 xc-learning.exe --retention [--apply] 承載；opportunistic（tool 冷卻時不叫醒），self-learning 每循環結尾亦跑一次；kill switch 以 runtime/settings/retention.json enabled 為準。enabled=false pending governed system-channel dispatch。"
+    },
     "vaultly-auto-scan": {
       "owner": "VaultlyScanMixin._auto_scan_loop（vaultly 工具行程內）",
       "kind": "private-loop",
       "interval_s": null,
       "pausable": false,
-      "enabled": true,
-      "description": "清單登記（inventory-only）：平台自動掃描＋下載 job 排程（成功間隔 30min、錯誤重試 30s、僅使用者開啟後運行）。媒體寫入使用者自選 destination——治理 retention 不適用（使用者資料面，分類≠授權）；工具內部歷史表由 repository.prune_state 於每次啟動修剪（jobs≤200/post_scan_jobs≤100/entity_history 每實體≤20 版本；dedupe 表與 removed_accounts 還原清單不動）"
+      "enabled": false,
+      "description": "retired (B167/B38): VaultlyScanMixin._auto_scan_loop removed with the Python lane; platform auto-scan/download scheduling duty recorded for a native port. 原職責：清單登記（inventory-only）平台自動掃描＋下載 job 排程（成功 30min、錯誤重試 30s）；repository.prune_state 啟動修剪（jobs≤200/post_scan_jobs≤100/entity_history 每實體≤20 版本）。"
     },
     "package-version-sync": {
-      "owner": "package-version-driver（main-system tasks/package_version_driver）",
+      "owner": "package-version-driver（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
-      "enabled": true,
-      "description": "A624 套件版本收斂：每 tick 偵測已安裝工具鏈／套件版本（vendored go、venv python+pip、rustc、dotnet SDK、PostgreSQL、git、manifest 宣告）→ mode=upgrade 的技術執行其套件管理器升級（bounded timeout、env 政策；離線/vendored fail-closed 記帳，不走網路）→ 偵測值與法典條文宣告值漂移時產生 codex-amendment-request 投遞 convergence intake，由既有管線五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。kill switch：本 flow enabled=false 或 config/package-version-sync.json enabled=false"
+      "enabled": false,
+      "description": "retired (B167/B38): Python package_version_driver removed with the Python lane; A624 duty remains recorded for a native driver port. 原職責：每 tick 偵測已安裝工具鏈／套件版本→ mode=upgrade 執行升級→漂移時產生 codex-amendment-request 投遞 convergence intake；driver 永不直寫權威庫。"
     },
     "architecture-artifact-sync": {
-      "owner": "architecture-artifact-sync-driver（main-system tasks/codex_sync_drivers）",
+      "owner": "architecture-artifact-sync-driver（executor-retired B167/B38）",
       "kind": "periodic",
       "interval_s": 600,
       "pausable": true,
-      "enabled": true,
-      "description": "架構 artifact registry 收斂：每 tick 對 architecture_diagram_artifact_registry active 列做 byte-level SHA-256 比對檔案；content_hash／source_codex_version 漂移時產生 codex-amendment-request（per-row update）投遞 convergence intake，由 codex-amendment-intake 五主權稽核＋auto_execute 落地；driver 永不直寫權威庫。檔案缺失的 active 列僅記入 state（retire 屬 governor 決策）。kill switch：本 flow enabled=false"
+      "enabled": false,
+      "description": "retired (B167/B38): Python codex_sync_drivers removed with the Python lane; artifact-hash drift detection duty remains recorded for a native driver port. 原職責：對 architecture_diagram_artifact_registry active 列做 byte-level SHA-256 比對，漂移時產生 codex-amendment-request。"
     },
     "codex-pin-sync": {
-      "owner": "codex-pin-sync-driver（main-system tasks/codex_sync_drivers）",
+      "owner": "GPTBridge.CodexPipeline.exe --watch (C# resident host; CodexAutomation.PinSync)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
       "enabled": true,
       "description": "Release contract 法典釘定收斂：每 tick 讀 PostgreSQL 權威 authority_state，與 shared-layer/release-dependencies.json 的 governance_references codex_version/codex_sha256 比對，漂移時外科式改寫該兩欄位（實作面檔案，非權威寫入；落盤由 self-commit 收檔）。kill switch：本 flow enabled=false"
     },
+    "codex-maintenance": {
+      "owner": "GPTBridge.CodexPipeline.exe --watch (C# resident host; CodexAutomation.Maintain)",
+      "kind": "periodic",
+      "interval_s": 600,
+      "pausable": true,
+      "enabled": true,
+      "description": "Codex 產物/投影維護（SQL 全自動化）：每 tick 檢查 governance_codex.sql 產物存在性 → verify-parity（隔離 stage schema 比對 218 表）→ codex_search_document 污染探針（??）→ zh-TW 鏡像一致性。drift 時先 repair-projections 重建 live 衍生表再複驗；權威本身已合法漂移才重新 export 產物並重算鏡像（AtomicReplace 唯讀復原）。本 pass 永不寫入權威表。kill switch：本 flow enabled=false"
+    },
     "codex-amendment-intake": {
-      "owner": "codex-amendment-driver（governance_rule/execution/codex_amendment_driver）",
+      "owner": "GPTBridge.CodexPipeline.exe --watch (C# resident host; codex-amendment-intake tick → Driver.AdvanceAll)",
       "kind": "periodic",
       "pausable": false,
       "enabled": true,
-      "description": "Codex 修訂請求管線驅動（pausable=false 保障治理關鍵路徑不受資源管制/睡眠模式暫停）：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative .sql artifact）→ run_five_sovereign_audit → ready-for-governor → auto_execute=true 時經 codex_amendment_executor 自動解除唯讀、ATOMIC-PUBLISH 至 PostgreSQL 權威、恢復唯讀並封印（五主權一致稽核憑證為封印條件，executor 於變更前重新驗證；失敗一律終態 rejected，owner 以 -rN 重送）。auto_execute=false 時停在 ready-for-governor 由 human governor 手動 codex_amendment_executor --apply。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient → local-model）；未接線時 defer（successor-built）而非永久拒絕。CLI：python -m governance_rule.execution.codex_amendment_driver --scan|--request|--all [--auto-execute]",
+      "description": "Codex 修訂請求管線驅動（pausable=false 保障治理關鍵路徑不受資源管制/睡眠模式暫停）：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative .sql artifact）→ run_five_sovereign_audit → ready-for-governor → auto_execute=true 時經 codex_amendment_executor 自動解除唯讀、ATOMIC-PUBLISH 至 PostgreSQL 權威、恢復唯讀並封印（五主權一致稽核憑證為封印條件，executor 於變更前重新驗證；失敗一律終態 rejected，owner 以 -rN 重送）。auto_execute=false 時停在 ready-for-governor 由 human governor 手動 codex_amendment_executor --apply。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient → local-model）；未接線時 defer（successor-built）而非永久拒絕。CLI：shared-layer/csharp/GPTBridge.CodexPipeline/publish/GPTBridge.CodexPipeline.exe --scan|--request|--all [--auto-execute]（Python driver 已退役 B167/B38）",
       "interval_s": 300,
       "auto_execute": true
     }

@@ -2081,44 +2081,6 @@
       "path": "Standalone tools/vectord-rs/src/store.rs"
     },
     {
-      "id": "architecture:ragd-retrieval-route",
-      "kind": "file-contains",
-      "markers": [
-        "/v1/retrieve",
-        "/v1/rag/query"
-      ],
-      "path": "Standalone tools/ragd-rs/src/main.rs"
-    },
-    {
-      "id": "architecture:ragd-dag-plane",
-      "kind": "file-contains",
-      "markers": [
-        "HARD_MAX_STEPS",
-        "dag-cycle",
-        "node-timeout"
-      ],
-      "path": "Standalone tools/ragd-rs/src/dag.rs"
-    },
-    {
-      "id": "architecture:ragd-cag-gate",
-      "kind": "file-contains",
-      "markers": [
-        "payload-integrity",
-        "cache-denied:",
-        "CagGate"
-      ],
-      "path": "Standalone tools/ragd-rs/src/cag.rs"
-    },
-    {
-      "id": "architecture:ragd-pg-authority",
-      "kind": "file-contains",
-      "markers": [
-        "vectord never decides authority",
-        "gptbridge_rag"
-      ],
-      "path": "Standalone tools/ragd-rs/src/retrieve.rs"
-    },
-    {
       "id": "architecture:network-allowlist:market_data.json",
       "kind": "file-contains",
       "markers": [
@@ -2308,6 +2270,20 @@
       "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs"
     },
     {
+      "id": "tool-host:proxy-submit-ops",
+      "kind": "file-contains",
+      "markers": [
+        "SubmitRequestAsync",
+        "SubmitResponseAsync",
+        "SubmitCancelAsync",
+        "\"request\"",
+        "\"response\"",
+        "\"cancel\"",
+        "SubmitBinding"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs"
+    },
+    {
       "id": "tool-host:spawn-exe-branch",
       "kind": "file-contains",
       "markers": [
@@ -2324,6 +2300,473 @@
         "\"exe_required\""
       ],
       "path": "main-system/config/tool-runtime-contract.json"
+    },
+    {
+      "id": "tool-host:dir:GPTBridge.ToolHost.App",
+      "kind": "dir-exists",
+      "path": "shared-layer/csharp/GPTBridge.ToolHost.App"
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:HMACSHA",
+      "kind": "glob-not-contains",
+      "markers": [
+        "HMACSHA"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:issue_token",
+      "kind": "glob-not-contains",
+      "markers": [
+        "issue_token"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:launcher_key",
+      "kind": "glob-not-contains",
+      "markers": [
+        "launcher_key"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:integrity_manifest",
+      "kind": "glob-not-contains",
+      "markers": [
+        "integrity_manifest"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:identity_attestation",
+      "kind": "glob-not-contains",
+      "markers": [
+        "identity_attestation"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:gptbridge_transport",
+      "kind": "glob-not-contains",
+      "markers": [
+        "gptbridge_transport"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:Npgsql",
+      "kind": "glob-not-contains",
+      "markers": [
+        "Npgsql"
+      ]
+    },
+    {
+      "glob": "shared-layer/csharp/GPTBridge.ToolHost.App/*.cs",
+      "id": "tool-host-app:forbidden:pg_notify",
+      "kind": "glob-not-contains",
+      "markers": [
+        "pg_notify"
+      ]
+    },
+    {
+      "id": "permission-core:GPTBridge.Permission.csproj",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/GPTBridge.Permission.csproj"
+    },
+    {
+      "id": "permission-core:PermissionGrant.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionGrant.cs"
+    },
+    {
+      "id": "permission-core:PermissionGrantLedger.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionGrantLedger.cs"
+    },
+    {
+      "id": "permission-core:PermissionLifecycleAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAutomation.cs"
+    },
+    {
+      "id": "permission-core:PermissionLifecycleAdjudicator.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAdjudicator.cs"
+    },
+    {
+      "id": "permission-core:RegistrySnapshot.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/RegistrySnapshot.cs"
+    },
+    {
+      "id": "permission-core:DirectorySyncAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/DirectorySyncAutomation.cs"
+    },
+    {
+      "id": "permission-core:ComplianceMonitorAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/ComplianceMonitorAutomation.cs"
+    },
+    {
+      "id": "permission-core:SelfHealingAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/SelfHealingAutomation.cs"
+    },
+    {
+      "id": "permission-core:AuditSchedulerAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/AuditSchedulerAutomation.cs"
+    },
+    {
+      "id": "permission-core:IdentityGroupManager.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupManager.cs"
+    },
+    {
+      "id": "permission-core:IdentityGroupLifecycleAutomation.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupLifecycleAutomation.cs"
+    },
+    {
+      "id": "permission-core:GPTBridge.Permission.Tests.csproj",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission.Tests/GPTBridge.Permission.Tests.csproj"
+    },
+    {
+      "id": "permission-core:PermissionResidualTests.cs",
+      "kind": "file-exists",
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission.Tests/PermissionResidualTests.cs"
+    },
+    {
+      "id": "permission-core:ledger-schema",
+      "kind": "file-contains",
+      "markers": [
+        "permission-grant-ledger.jsonl",
+        "permission-violation-ledger.jsonl",
+        "\"terminate\"",
+        "\"revoke\"",
+        "\"suspend\""
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionGrantLedger.cs"
+    },
+    {
+      "id": "permission-core:delegated-execution",
+      "kind": "file-contains",
+      "markers": [
+        "delegated-to-governed-executor",
+        "MISSING_PERMISSION_ID",
+        "PERMISSION_NOT_ISSUED",
+        "PERMISSION_ALREADY_TERMINATED"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAdjudicator.cs"
+    },
+    {
+      "id": "permission-core:stop-triggers",
+      "kind": "file-contains",
+      "markers": [
+        "MapStopTrigger",
+        "PermissionStopTrigger.SecurityEvent",
+        "LifecycleOperation.Suspend",
+        "LifecycleOperation.Revoke",
+        "LifecycleOperation.Terminate"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/PermissionLifecycleAutomation.cs"
+    },
+    {
+      "id": "permission-core:directory-sync",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "SHA256.HashData",
+        "InitialCodeVersion",
+        "AuthorityCurrentVersion",
+        "IdentityGroupIds.Count"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/DirectorySyncAutomation.cs"
+    },
+    {
+      "id": "permission-core:compliance-monitor",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "ComplianceSeverity.Critical",
+        "grant-actor-not-in-directory",
+        "high_risk_actors",
+        "unresolved_violations"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/ComplianceMonitorAutomation.cs"
+    },
+    {
+      "id": "permission-core:self-healing",
+      "kind": "file-contains",
+      "markers": [
+        "HealingIssue.DirectoryAccess",
+        "HealingIssue.GovernanceConnection",
+        "HealingIssue.SovereignState",
+        "HealingIssue.DirectoryPermissions",
+        "RegisterRepair"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/SelfHealingAutomation.cs"
+    },
+    {
+      "id": "permission-core:audit-scheduler",
+      "kind": "file-contains",
+      "markers": [
+        "audit-engine.exe",
+        "RunOnceAsync",
+        "CancelAfter",
+        "[PASS]"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/AuditSchedulerAutomation.cs"
+    },
+    {
+      "id": "permission-core:identity-groups",
+      "kind": "file-contains",
+      "markers": [
+        "RegisterGroup",
+        "ReconcileWithDirectory",
+        "unregistered_in_directory",
+        "duplicate_actor",
+        "ResolveConflicts"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupManager.cs"
+    },
+    {
+      "id": "permission-core:identity-lifecycle",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "GroupDeletionProposal",
+        "PendingDeletions",
+        "DeleteGroup",
+        "identity-group-lifecycle.jsonl"
+      ],
+      "path": "shared-layer/csharp/GPTBridge.Permission/GPTBridge.Permission/IdentityGroupLifecycleAutomation.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobile.Service.csproj",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/InvestmentMobile.Service.csproj"
+    },
+    {
+      "id": "investment-mobile:XingchengChannel.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/XingchengChannel.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobileService.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/InvestmentMobileService.cs"
+    },
+    {
+      "id": "investment-mobile:SignalBook.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/SignalBook.cs"
+    },
+    {
+      "id": "investment-mobile:AiSignalIntake.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AiSignalIntake.cs"
+    },
+    {
+      "id": "investment-mobile:NativeRiskGate.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/NativeRiskGate.cs"
+    },
+    {
+      "id": "investment-mobile:AutoTradingEngine.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AutoTradingEngine.cs"
+    },
+    {
+      "id": "investment-mobile:TradingEngineCluster.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/TradingEngineCluster.cs"
+    },
+    {
+      "id": "investment-mobile:ProxySubmitChannel.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/ProxySubmitChannel.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobile.ToolHost.csproj",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.ToolHost/InvestmentMobile.ToolHost.csproj"
+    },
+    {
+      "id": "investment-mobile:Program.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.ToolHost/Program.cs"
+    },
+    {
+      "id": "investment-mobile:InvestmentMobile.Service.Tests.csproj",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/InvestmentMobile.Service.Tests.csproj"
+    },
+    {
+      "id": "investment-mobile:ServiceContractTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/ServiceContractTests.cs"
+    },
+    {
+      "id": "investment-mobile:PipelineTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/PipelineTests.cs"
+    },
+    {
+      "id": "investment-mobile:EngineClusterTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/EngineClusterTests.cs"
+    },
+    {
+      "id": "investment-mobile:SubmitChannelTests.cs",
+      "kind": "file-exists",
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service.Tests/SubmitChannelTests.cs"
+    },
+    {
+      "id": "investment-mobile:sealed-route",
+      "kind": "file-contains",
+      "markers": [
+        "xingcheng_mobile_get_investment_snapshot",
+        "xingcheng_mobile_submit_investment_instruction",
+        "AI_CHANNEL_NOT_CONNECTED",
+        "governance/main-system",
+        "governance/tool/investment-mobile"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/XingchengChannel.cs"
+    },
+    {
+      "id": "investment-mobile:ai-boundary",
+      "kind": "file-contains",
+      "markers": [
+        "INVALID_PROPOSAL",
+        "SubmitSignal",
+        "SubmitProposal",
+        "DrainProposals"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AiSignalIntake.cs"
+    },
+    {
+      "id": "investment-mobile:risk-gate",
+      "kind": "file-contains",
+      "markers": [
+        "risk_evaluate_order",
+        "RISK_ENGINE_UNAVAILABLE",
+        "RiskOrderInput",
+        "AllowedMarketMask"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/NativeRiskGate.cs"
+    },
+    {
+      "id": "investment-mobile:autotrade",
+      "kind": "file-contains",
+      "markers": [
+        "RunOnceAsync",
+        "ModelBlocked",
+        "RiskHalted",
+        "LIVE_PHASE_LOCKED",
+        "AiAssisted"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/AutoTradingEngine.cs"
+    },
+    {
+      "id": "investment-mobile:cluster",
+      "kind": "file-contains",
+      "markers": [
+        "investment-mobile-signal-ingest",
+        "investment-mobile-autotrade-recover",
+        "RESUME_REQUIRES_GOVERNANCE",
+        "investment-mobile-autotrade-risk-check"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/TradingEngineCluster.cs"
+    },
+    {
+      "id": "investment-mobile:native-entry",
+      "kind": "file-contains",
+      "markers": [
+        "dist/InvestmentMobile.ToolHost.exe",
+        "\"native_entry\""
+      ],
+      "path": "Standalone tools/investment-mobile/manifest.json"
+    },
+    {
+      "id": "investment-mobile:submit-channel",
+      "kind": "file-contains",
+      "markers": [
+        "SubmitRequestAsync",
+        "SubmitResponseAsync",
+        "SubmitCancelAsync",
+        "REQUEST_TIMEOUT",
+        "AI_CHANNEL_NOT_CONNECTED"
+      ],
+      "path": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/ProxySubmitChannel.cs"
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:HMACSHA",
+      "kind": "glob-not-contains",
+      "markers": [
+        "HMACSHA"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:issue_token",
+      "kind": "glob-not-contains",
+      "markers": [
+        "issue_token"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:launcher_key",
+      "kind": "glob-not-contains",
+      "markers": [
+        "launcher_key"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:integrity_manifest",
+      "kind": "glob-not-contains",
+      "markers": [
+        "integrity_manifest"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:identity_attestation",
+      "kind": "glob-not-contains",
+      "markers": [
+        "identity_attestation"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:gptbridge_transport",
+      "kind": "glob-not-contains",
+      "markers": [
+        "gptbridge_transport"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:Npgsql",
+      "kind": "glob-not-contains",
+      "markers": [
+        "Npgsql"
+      ]
+    },
+    {
+      "glob": "Standalone tools/investment-mobile/src/InvestmentMobile.Service/*.cs",
+      "id": "investment-mobile:forbidden:pg_notify",
+      "kind": "glob-not-contains",
+      "markers": [
+        "pg_notify"
+      ]
     },
     {
       "exclude": [
@@ -9280,6 +9723,72 @@
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
     },
     {
+      "id": "tool-manifest:parse:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-key-value",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "permissions.code_scope=tool-root-only",
+        "permissions.database_scope=tool-database-only"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:absent:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-key-absent",
+      "markers": [
+        "name",
+        "window.title"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-manifest:dicts:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-has-keys",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tool-locale:exists:Standalone tools/model-dialogue/manifest.json",
+      "kind": "file-exists",
+      "path": "Standalone tools/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-parses",
+      "path": "Standalone tools/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:Standalone tools/model-dialogue/manifest.json",
+      "kind": "json-has-keys",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ],
+      "path": "Standalone tools/model-dialogue/locales/zh-TW.json"
+    },
+    {
+      "id": "self-health:test-target:model-dialogue:0:pending-native",
+      "items": "rows",
+      "kind": "json-array-min-count",
+      "markers": [
+        "status=PENDING",
+        "source_test^=Standalone tools/model-dialogue/"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
+    },
+    {
       "id": "tool-manifest:parse:Standalone tools/vaultly/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/vaultly/manifest.json"
@@ -9341,71 +9850,6 @@
       "markers": [
         "status=PENDING",
         "source_test^=Standalone tools/vaultly/"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
-    },
-    {
-      "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-manifest:values:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-key-value",
-      "markers": [
-        "name_key=tool.name",
-        "window.title_key=tool.window_title",
-        "physical_owner_root=local-model"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-manifest:absent:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-key-absent",
-      "markers": [
-        "name",
-        "window.title"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-manifest:dicts:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-has-keys",
-      "markers": [
-        "permissions",
-        "capabilities"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tool-locale:exists:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "file-exists",
-      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
-    },
-    {
-      "id": "tool-locale:parse:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
-    },
-    {
-      "id": "tool-locale:keys:Standalone tools/local-model/model-dialogue/manifest.json",
-      "kind": "json-has-keys",
-      "markers": [
-        "errors.permission_denied",
-        "tool.description",
-        "tool.name",
-        "tool.window_title"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/locales/zh-TW.json"
-    },
-    {
-      "id": "self-health:test-target:model-dialogue:0:pending-native",
-      "items": "rows",
-      "kind": "json-array-min-count",
-      "markers": [
-        "status=PENDING",
-        "source_test^=Standalone tools/local-model/model-dialogue/"
       ],
       "min_count": 1,
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -9476,48 +9920,48 @@
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
     },
     {
-      "id": "tool-manifest:parse:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:parse:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-manifest:values:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:values:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-key-value",
       "markers": [
         "name_key=tool.name",
-        "physical_owner_root=local-model"
+        "physical_owner_root=model-dialogue"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-manifest:absent:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:absent:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-key-absent",
       "markers": [
         "name"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-manifest:dicts:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-manifest:dicts:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-has-keys",
       "markers": [
         "permissions",
         "capabilities"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
-      "id": "tool-locale:exists:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-locale:exists:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "file-exists",
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+      "path": "Standalone tools/model-dialogue/star-chat/locales/zh-TW.json"
     },
     {
-      "id": "tool-locale:parse:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-locale:parse:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-parses",
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+      "path": "Standalone tools/model-dialogue/star-chat/locales/zh-TW.json"
     },
     {
-      "id": "tool-locale:keys:Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+      "id": "tool-locale:keys:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-has-keys",
       "markers": [
         "errors.permission_denied",
@@ -9525,7 +9969,7 @@
         "tool.name",
         "tool.window_title"
       ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/locales/zh-TW.json"
+      "path": "Standalone tools/model-dialogue/star-chat/locales/zh-TW.json"
     },
     {
       "id": "self-health:test-target:star-chat:0:pending-native",
@@ -9533,7 +9977,7 @@
       "kind": "json-array-min-count",
       "markers": [
         "status=PENDING",
-        "source_test^=Standalone tools/local-model/model-dialogue/star-chat/"
+        "source_test^=Standalone tools/model-dialogue/star-chat/"
       ],
       "min_count": 1,
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -17919,30 +18363,6 @@
       "path": "Standalone tools/local-model/manifest.json"
     },
     {
-      "id": "tm:model-dialogue:id",
-      "kind": "json-key-value",
-      "markers": [
-        "id=model-dialogue"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/manifest.json"
-    },
-    {
-      "id": "tm:star-chat:id",
-      "kind": "json-key-value",
-      "markers": [
-        "id=star-chat"
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
-    },
-    {
-      "id": "tm:star-chat:cap:ai-connections",
-      "kind": "file-contains",
-      "markers": [
-        "\"ai-connections\""
-      ],
-      "path": "Standalone tools/local-model/model-dialogue/star-chat/manifest.json"
-    },
-    {
       "id": "tm:xingcheng:id",
       "kind": "json-key-value",
       "markers": [
@@ -17957,6 +18377,30 @@
         "\"ai-connections\""
       ],
       "path": "Standalone tools/local-model/xingcheng/manifest.json"
+    },
+    {
+      "id": "tm:model-dialogue:id",
+      "kind": "json-key-value",
+      "markers": [
+        "id=model-dialogue"
+      ],
+      "path": "Standalone tools/model-dialogue/manifest.json"
+    },
+    {
+      "id": "tm:star-chat:id",
+      "kind": "json-key-value",
+      "markers": [
+        "id=star-chat"
+      ],
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
+    },
+    {
+      "id": "tm:star-chat:cap:ai-connections",
+      "kind": "file-contains",
+      "markers": [
+        "\"ai-connections\""
+      ],
+      "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
     },
     {
       "id": "tm:vaultly:id",
@@ -26110,9 +26554,9 @@
       "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/local-model/model-dialogue/src/backend/services/star_chat:application",
+      "id": "pkg-layer:Standalone tools/model-dialogue/src/backend/services/star_chat:application",
       "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/model-dialogue/src/backend/services/star_chat/application/__init__.py"
+      "path": "Standalone tools/model-dialogue/src/backend/services/star_chat/application/__init__.py"
     },
     {
       "glob": "*.py",
@@ -26135,6 +26579,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_collaboration:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "optional": true,
+      "path": "Standalone tools/investment-mobile/src"
     },
     {
       "glob": "*.py",
@@ -26270,6 +26725,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_nexus:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "optional": true,
+      "path": "Standalone tools/investment-mobile/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_nexus:Standalone tools/julia-compute/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26399,6 +26865,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ai-collaboration/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:file_sorter:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "optional": true,
+      "path": "Standalone tools/investment-mobile/src"
     },
     {
       "glob": "*.py",
@@ -26688,6 +27165,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:xingcheng:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "optional": true,
+      "path": "Standalone tools/investment-mobile/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:xingcheng:Standalone tools/julia-compute/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26817,6 +27305,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:vaultly:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "optional": true,
+      "path": "Standalone tools/investment-mobile/src"
     },
     {
       "glob": "*.py",
@@ -26960,6 +27459,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/file-sorter/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:star_chat:Standalone tools/investment-mobile/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "optional": true,
+      "path": "Standalone tools/investment-mobile/src"
     },
     {
       "glob": "*.py",
@@ -27126,7 +27636,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3511,
+    "native_checks": 3577,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27149,7 +27659,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-09-29T12:22:39Z",
+  "generated_at": "2026-09-30T01:58:06Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

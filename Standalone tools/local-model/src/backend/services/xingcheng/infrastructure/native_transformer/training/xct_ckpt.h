@@ -17,7 +17,10 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     std::string tmp = path + ".tmp";
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     if (!f) return false;
-    f.write("XCN1", 4); u32(f, 1);
+    // XCN2 = XCN1 header + three u32 MoE dimension fields (expert inter,
+    // shared experts, shared inter) appended before the tensor table.
+    // v1 checkpoints still load: absent fields default to dense-equivalent.
+    f.write("XCN1", 4); u32(f, 2);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
     u32(f, (uint32_t)c.heads); u32(f, (uint32_t)c.kv_heads);
@@ -25,6 +28,9 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     u32(f, (uint32_t)c.moe_top_k); u32(f, (uint32_t)c.moe_layer_interval);
     f.write((char*)&c.rope_theta, 4); f.write((char*)&c.rms_eps, 4);
     f.write((char*)&c.moe_aux_w, 4);
+    u32(f, (uint32_t)c.moe_expert_inter);
+    u32(f, (uint32_t)c.moe_shared_experts);
+    u32(f, (uint32_t)c.moe_shared_inter);
     u32(f, (uint32_t)p.order.size());
     for (auto& n : p.order) {
         const Tensor& t = p.w.at(n);
@@ -45,13 +51,19 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     if (!f) return false;
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
-    if (r32(f) != 1) return false;
+    const uint32_t ver = r32(f);
+    if (ver != 1 && ver != 2) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
     c.moe_top_k = (int)r32(f); c.moe_layer_interval = (int)r32(f);
     f.read((char*)&c.rope_theta, 4); f.read((char*)&c.rms_eps, 4);
     f.read((char*)&c.moe_aux_w, 4);
+    if (ver >= 2) {
+        c.moe_expert_inter = (int)r32(f);
+        c.moe_shared_experts = (int)r32(f);
+        c.moe_shared_inter = (int)r32(f);
+    }
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {
         uint32_t nl = r32(f);

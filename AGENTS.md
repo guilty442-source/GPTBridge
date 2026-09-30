@@ -171,10 +171,13 @@ worktrees — run when the tree is in a state you want committed):
 ## 星澄 Self-Learning & Automatic Upgrade
 
 > Normative authority: Codex D131。
-> Note: the `main-system\.venv\Scripts\python.exe -m ...` invocations below
-> are retired with the local Python lane (B167/B38); they remain here as
-> interface documentation only until the governed owner-language entries
-> land. Production scheduling is unchanged — cycles run inside the
+> Native lane landed (B167/B38 successor): `GPTBridge.XingchengLearning`
+> (`xc-learning.exe`, C#) at
+> `Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning`
+> — orchestration, governed interfaces and dataset/eval gates in C#; model
+> execution stays in the native C++ lane (`xingcheng_trainer.exe` +
+> `xc_modeltool.exe`), reached only through audited subprocesses.
+> Production scheduling is unchanged — cycles run inside the
 > xingcheng tool process via the governed system channel.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/self-learning.json`。
 
@@ -238,22 +241,34 @@ private loop.
 
 ```powershell
 # status / one-shot / force (ignore the new-example threshold) / kill switch
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --status
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --run-once --force
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.self_learning --disable
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --status
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --run-once
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --run-once --force
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --disable
+
+# governed end-to-end smoke (scratch model; never touches the pinned bundle):
+& "...\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --self-test
 ```
 
-Run from `Standalone tools\local-model\src\backend\services` (the package root).
-
-Implementation: `native_transformer/self_learning.py` +
-`native_transformer/self_learning_support.py` (cycle); driver:
-`main-system/src-core/tasks/self_learning_driver.py`; tool handler:
-`xingcheng/application/local_ai_lifecycle.py::_handle_self_learning`.
+Implementation: `GPTBridge.XingchengLearning` (C#) —
+`SelfLearning.cs` (cycle + gates), `Collectors.cs` (role DB),
+`SftDataset.cs` (SFT/DPO snapshot bridges), `Repository.cs`
+(PostgreSQL `gptbridge_xingcheng` schema + audit chain),
+`JobExecutor.cs` + `NativeTools.cs` (native subprocess lane),
+`Evaluation.cs` (`xc_modeltool eval`/`capability` gates),
+`Lifecycle.cs` (`star-model-lifecycle/v1`), `Retention.cs`; native
+execution: `infrastructure/native_transformer/training/xingcheng_trainer.exe`,
+bridge: `infrastructure/native_transformer/tools/xc_modeltool.exe`.
+The retired Python `self_learning*.py`/`training_job_executor.py` are
+interface documentation only — never execution.
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
 > Normative authority: Codex B134/B135。
+> Retired lane (B166/B167/B38): the `python.exe -m ...maturity`
+> invocations and `native_transformer/maturity.py` implementation below
+> are removed; they remain as interface documentation only until the
+> governed owner-language entries land. Do not run them.
 
 Unified maturity ladder; the certified level is decided **only by executed
 tests** — parameter count is recorded as evidence, never a criterion.
@@ -290,6 +305,9 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 ## 星澄 Data Retention (`star-retention-policy/v1`)
 
 > Normative authority: Codex C17/C18。
+> Native lane landed (B167/B38 successor): `Retention.cs` inside
+> `GPTBridge.XingchengLearning` (`xc-learning.exe`, C#) — same policy,
+> same fail-closed boundary rules as the retired Python lane.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/retention.json`。
 
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
@@ -311,12 +329,13 @@ schedule; `retention.json` `enabled=false` stops deletion. Manual:
 
 ```powershell
 # dry-run (default) / apply / status
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model"
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --apply
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.retention --tool-root "Standalone tools\local-model" --status
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention --apply
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention --status
 ```
 
-Implementation: `native_transformer/retention.py` (`apply_retention`).
+Implementation: `GPTBridge.XingchengLearning/Retention.cs`
+(`apply_retention` port; `star-retention-policy/v1`).
 
 ## 星澄 Data Residency (`xingcheng-internal`)
 
@@ -327,23 +346,25 @@ lifecycle snapshots, self-learning pools/reports, ledgers, eval output,
 and any recovery or scratch artifacts — resolves inside the registered
 xingcheng domain roots only (`XINGCHENG_INSTITUTION_ROOT` =
 `Standalone tools/local-model/xingcheng/`, `STAR_DIRECTORY` =
-`Standalone tools/local-model/model-dialogue/xingcheng/`; codex
+`Standalone tools/model-dialogue/xingcheng/`; codex
 `data_authority: residency XINGCHENG_DOMAIN_ONLY, no external
 persistence`). Copies under `main-system/runtime/`, other tools, other
 drives, or ad-hoc scratch dirs are violations and must be moved in or
 deleted, never left behind.
 
-Enforcement is fail-closed in code:
+Enforcement is fail-closed; the retired Python lane (B166) implemented
+the boundary as follows — the policy still binds, and the native
+successor must preserve it:
 
-- `native_transformer/cpp_runtime.py::assert_inside_xingcheng` refuses any
-  path outside `tool_root()/xingcheng` with `XINGCHENG_DATA_BOUNDARY`.
-  Applied to bundle export/staging targets, the execution ledger, and the
-  pinned serving artifact at `generate_via_cpp_engine` (an out-of-boundary
-  pin refuses to serve).
-- `native_transformer/retention.py::apply_retention` re-checks every delete
-  victim against the same boundary and skips (counted as
-  `boundary_skipped` in the audit entry) rather than touching a foreign
-  path.
+- `native_transformer/cpp_runtime.py::assert_inside_xingcheng` (retired)
+  refused any path outside `tool_root()/xingcheng` with
+  `XINGCHENG_DATA_BOUNDARY`. Applied to bundle export/staging targets,
+  the execution ledger, and the pinned serving artifact at
+  `generate_via_cpp_engine` (an out-of-boundary pin refuses to serve).
+- `native_transformer/retention.py::apply_retention` (retired)
+  re-checked every delete victim against the same boundary and skipped
+  (counted as `boundary_skipped` in the audit entry) rather than
+  touching a foreign path.
 
 Operational test/fixture bundles and probe scripts live under
 `xingcheng/runtime/devin/` so scratch work also stays in-boundary.
@@ -351,6 +372,10 @@ Operational test/fixture bundles and probe scripts live under
 ## 星澄 Training GPU Gate & Auto-Release
 
 > Normative authority: Codex B44/B16。
+> Retired lane (B166/B167/B38): the Python classes/modules referenced
+> below (`TrainingJobExecutor`, `gpu_coordinator`, `auto_release.py`,
+> `NativeTransformerEngine`, `chat_foundation_dataset.py`) are removed;
+> the policy contracts remain binding on their native successors.
 > Tunables single source: `Standalone tools/local-model/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
@@ -382,6 +407,10 @@ Operational test/fixture bundles and probe scripts live under
 ## Lazy RAG/CAG (MS1/MS2)
 
 > Normative authority: Codex B154/B155。
+> Retired lane (B166/B167/B38): the Python modules referenced below
+> (`core_system/app_lifecycle.py`, `boot_core_handover.py`,
+> `test_p0_lazy_lifecycle_handover.py`) are removed; the lazy-start
+> contract remains binding on the Rust/C# successors.
 
 RAG + CAG are capability-critical, not boot-critical. By default the
 composition root does NOT import or construct them — measured import
@@ -408,7 +437,8 @@ Lite), URL-normalization dedupe, deterministic reciprocal-rank fusion
 (k=60), bounded metadata-only results.
 
 Governance boundary is unchanged: the only entry point is the governed
-`xingcheng_web_search` command (`local_ai_lifecycle._run_web_search`),
+`xingcheng_web_search` command (former `local_ai_lifecycle._run_web_search`,
+retired with the Python lane — B166),
 which audits into `web_search_log` and returns bounded metadata.
 Provider chain is driven by `runtime/settings/web-search.json`
 (`provider`: `auto`/`searchd`/`searxng`; env `XINGCHENG_SEARCH_PROVIDER`
@@ -433,6 +463,9 @@ go test ./...
 ## On-Demand Model Activation (Lazy 星澄)
 
 > Normative authority: Codex B154。
+> Retired lane (B166/B167/B38): `main-system/src-core/tasks/model_service_activation.py`
+> (`ModelServiceActivationBroker`) is removed; the activation contract
+> below remains binding on its native successor.
 > Tunables single source: `main-system/config/tool-isolation-policy.json`＋`sleep-policy.json`。
 
 `model-dialogue` opens without the local model (governor directive 2026-09-17).
@@ -459,9 +492,11 @@ identity `xingcheng`) is not running:
 | `xingcheng_codex_alignment` | 法典 × 實作對齊 | architecture registry（法典 == registry == permission routes == module manifests == 實體目錄）、formal rules 對應、法典摘要 |
 | `xingcheng_codex_mirror_check` | 法典 × 架構圖同步 | 中文鏡像（版本、身分集合、必要表、五段鏈、hash、汙染、replacement damage）＋`architecture-*.md` 缺陷／工具文件覆蓋缺口 |
 
-- 實作：`Standalone tools/local-model/src/backend/services/xingcheng/application/codex_diagnostics.py`；
-  架構文件檢查：`governance_rule/execution/audit/architecture_docs.py`（診斷用，尚未納入硬性 audit）。
-- 路由：`tool_routes.py` 中 `(model-dialogue|star-chat) -> xingcheng` 已含兩指令（唯讀註冊檔已恢復 read-only）。
+- 實作（已退役，B166）：原 `xingcheng/application/codex_diagnostics.py` 與
+  `governance_rule/execution/audit/architecture_docs.py`（診斷用）均已移除，
+  待受管原生語言接替者落地。
+- 路由：原 `tool_routes.py` 已退役；`(model-dialogue|star-chat) -> xingcheng`
+  兩指令的唯讀註冊現存於 `tool_routes.json` port 檔。
 - model-dialogue 於送出前若 owner 未啟動，會先走懶啟動；報告以 zh-TW 摘要顯示於對話。
 
 ## Resource Governor
@@ -503,6 +538,11 @@ contract is unchanged.
 
 ## Adaptive SQL Layer
 
+> Retired lane (B166/B167/B38): the Python `shared_layer.adaptive`
+> implementation and its tests are removed; the envelope contracts below
+> remain binding on the governed native/C# successor. Only `.json` port
+> files remain under `shared-layer/src/shared_layer/adaptive/`.
+
 `shared-layer/src/shared_layer/adaptive/` is the bounded, pre-approved control
 layer for the local data platform (admission control, dynamic pool/batch,
 retry, per-domain breakers, maintenance scheduling, cost gate and Qdrant
@@ -535,6 +575,10 @@ producer feeds `observe()`.  Tests: `shared-layer/tests/test_adaptive_control.py
 
 ## Access Control Plane
 
+> Retired lane (B166/B167/B38): the Python `shared_layer.security`
+> implementation and `test_security_control.py` are removed; the control
+> contracts below remain binding on the governed native/C# successor.
+
 `shared-layer/src/shared_layer/security/` covers identity, connection,
 credential, session, permission, rotation and revocation:
 
@@ -562,6 +606,11 @@ credential, session, permission, rotation and revocation:
   Tests: `shared-layer/tests/test_security_control.py`.
 
 ## Cross-Engine Workflow (Saga)
+
+> Retired lane (B166/B167/B38): the Python `shared_layer.workflow`
+> implementation and `test_workflow_consistency.py` are removed; the
+> Saga contracts below remain binding on the governed native/C#
+> successor.
 
 `shared-layer/src/shared_layer/workflow/` makes one business operation across
 PostgreSQL + Qdrant + NTFS recoverable, re-runnable and verifiable —
@@ -613,7 +662,8 @@ canonical / dependencies / information_channels`.
 - Do not create a second copy of the topology: docs, manifests and code must
   reference this registry instead of restating it.
 
-Tests: `governance_rule/tests/test_architecture_registry.py`.
+Tests: the Python `test_architecture_registry.py` lane is retired (B166);
+registry drift is covered by the native audit engine checks.
 
 ## Work authority
 
@@ -673,9 +723,9 @@ powershell -ExecutionPolicy Bypass -File native/test_suites/build.ps1
   the language ownership contract.
 - UI: Rust + Tauri + Native JavaScript ESM with JSDoc + GPUI + egui; Esbuild
   and SWC may be combined as governed build tools.
-- Python: only the thinnest necessary governance semantics, on-demand JAX
-  training, and development verification; production must not start pytest,
-  Python inference, RAG, UI, process management, file or network workers.
+- Python: fully retired (B166/B167/B38). No Python source, interpreter,
+  virtual environment, package manager, dependency, build/test/audit/
+  training/inference or fallback path exists or may be added anywhere.
 
 ## Native UI stack
 
@@ -705,10 +755,11 @@ from the application to the native owner rather than chains such as Rust → C#
 
 - inference: Rust model service → C++ inference → Rust;
 - RAG: application → Rust RAG / `vectord-rs` → result;
-- training: Rust/C# scheduler → Python + JAX → artifact → process exit.
+- training: Rust/C# scheduler → native C++ training engine → artifact →
+  process exit (the Python + JAX lane is retired, B166).
 
-Python may be installed for governed, on-demand training or verification, but
-must not remain resident after the request completes.
+Python may not be installed or invoked for any purpose — governed training and
+verification run on the registered native owner languages only (B166).
 
 ## Model Runtime Residency
 
@@ -751,13 +802,12 @@ owns the UI application/state/security/IPC/lifecycle core and native RAG
 retrieval. Go owns high-concurrency file, batch and network work. F# owns data
 analysis, machine learning and correctness-sensitive complex calculations.
 Julia owns specialized numerical research. Native JavaScript ESM with JSDoc is
-UI-only. Python is limited to irreducible governance semantics, on-demand JAX
-training and development verification, and may not continuously execute bulk
-mechanical work. PostgreSQL is the sole structured-data authority and Qdrant is
+UI-only. Python holds zero role — it is retired in every domain (B166), with
+no residual governance, training, verification or bulk-work path. PostgreSQL
+is the sole structured-data authority and Qdrant is
 the scoped semantic index; no embedded database may act as authority or fallback.
 
-The canonical runtime path uses the shortest governed native boundary and
-avoids Python on request-critical paths. C/C++ execution does not create or
+The canonical runtime path uses the shortest governed native boundary. C/C++ execution does not create or
 change governance rules; C# orchestration cannot bypass decision or permission
 checks.
 
@@ -838,8 +888,8 @@ Execute optimization in this order:
 Stages 1–4 have priority. Avoid premature SIMD, handwritten memory pools, and
 complex lock-free structures when profiling has not demonstrated a bottleneck.
 The convergence rule is: native owners execute bounded work, PostgreSQL owns
-structured truth, Qdrant owns scoped vectors, Python stays minimal and
-on-demand, and every operation remains cancellable, observable and governed.
+structured truth, Qdrant owns scoped vectors, Python stays retired with zero
+role, and every operation remains cancellable, observable and governed.
 
 
 ## Codex Read Access (no-Python path)

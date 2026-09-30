@@ -2,7 +2,7 @@
   "schema_version": 1,
   "registry_id": "gptbridge-architecture",
   "authority": "governance_rule",
-  "updated_at": "2026-09-29T09:35:56Z",
+  "updated_at": "2026-09-29T13:33:31Z",
   "architectural_roles": [
     "governance",
     "startup",
@@ -24,7 +24,8 @@
     "build-tooling",
     "git-repository",
     "native-library",
-    "internal-service"
+    "internal-service",
+    "companion-service"
   ],
   "lifecycles": [
     "resident",
@@ -176,7 +177,7 @@
     },
     {
       "component_id": "main-system",
-      "architectural_role": "decision",
+      "architectural_role": "execution",
       "runtime_form": "standalone-service",
       "owner_sovereign": "system-runtime",
       "execution_identity": "main-system",
@@ -583,7 +584,7 @@
     },
     {
       "component_id": "xingcheng-assistant",
-      "architectural_role": "decision",
+      "architectural_role": "governance",
       "runtime_form": "native-javascript-esm",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-assistant-identity-group",
@@ -689,7 +690,7 @@
       "runtime_form": "standalone-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "model-dialogue-ui",
-      "physical_path": "Standalone tools/local-model/model-dialogue",
+      "physical_path": "Standalone tools/model-dialogue",
       "lifecycle": "on-demand",
       "canonical": true,
       "dependencies": [
@@ -709,7 +710,7 @@
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "star-chat",
       "physical_path":
-        "Standalone tools/local-model/model-dialogue/star-chat",
+        "Standalone tools/model-dialogue/star-chat",
       "lifecycle": "on-demand",
       "canonical": true,
       "independent_tool": false,
@@ -1139,12 +1140,12 @@
     },
     {
       "component_id": "permission-sovereign",
-      "architectural_role": "decision",
+      "architectural_role": "governance",
       "runtime_form": "internal-service",
       "owner_sovereign": "permission",
       "owner_sub_sovereign": "",
       "execution_identity": "permission-sovereign",
-      "physical_path": "shared-layer/csharp/GPTBridge.CodexPipeline",
+      "physical_path": "shared-layer/csharp/GPTBridge.Permission",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -1155,11 +1156,11 @@
       "unit": "UNIT_DECISION",
       "block": "BLOCK_CORE",
       "python_residency": "retire",
-      "external_locator": "git-history:main-system/governance/sovereigns/permission_sovereign.py (retired with the Python lane — C# GPTBridge.CodexPipeline SovereignAudit supersedes)"
+      "external_locator": "git-history:main-system/governance/sovereigns/permission_sovereign.py (retired with the Python lane — C# GPTBridge.Permission identity/directory/registry host supersedes; codex read-session mint + dual-key grants live in GPTBridge.CodexPipeline CodexSession/CodexEntryState)"
     },
     {
       "component_id": "system-runtime-sovereign",
-      "architectural_role": "governance",
+      "architectural_role": "execution",
       "runtime_form": "internal-service",
       "owner_sovereign": "system-runtime",
       "owner_sub_sovereign": "",
@@ -1176,6 +1177,30 @@
       "block": "BLOCK_CORE",
       "python_residency": "retire",
       "external_locator": "git-history:main-system/governance/sovereigns/system_runtime_sovereign.py (retired with the Python lane — C# GPTBridge.MainSystem StartupGate supersedes)"
+    },
+    {
+      "component_id": "runtime-backend",
+      "architectural_role": "execution",
+      "runtime_form": "internal-service",
+      "owner_sovereign": "system-runtime",
+      "owner_sub_sovereign": "",
+      "execution_identity": "gptbridge-backend",
+      "physical_path": "main-system/src-tauri/crates/gptbridge-backend",
+      "lifecycle": "resident",
+      "canonical": true,
+      "dependencies": [
+        "governance_rule",
+        "shared-layer",
+        "postgresql"
+      ],
+      "information_channels": [
+        "information-channel"
+      ],
+      "architecture_code": "MAIN_SYSTEM",
+      "unit": "UNIT_RUNTIME",
+      "block": "BLOCK_CORE",
+      "implementation_language": "rust",
+      "formal_responsibility": "runtime-core execution surface (B162): governed IPC gateway, resident module supervision and dispatch; sole execution authority for process lifecycle, no self-authorization"
     }
   ],
   "five_cores": {
@@ -1189,7 +1214,8 @@
         "dependency-and-state-decision",
         "sovereign-delegation-decision",
         "system-change-acceptance-decision",
-        "task-assignment-validation"
+        "task-assignment-validation",
+        "system-governance-management"
       ],
       "processes": [
         "codex-authority",
@@ -1203,7 +1229,10 @@
       "owner_sovereign": "permission",
       "unit": "UNIT_PERMISSION",
       "capabilities": [
-        "preserve-independent-two-key-permission-authorization-boundary"
+        "identity-management",
+        "directory-and-registry-list-management",
+        "codex-governance-plane-management",
+        "codex-read-session-mint-and-dual-key-grants"
       ],
       "processes": [
         "permission-sovereign"
@@ -1217,12 +1246,11 @@
       "owner_sovereign": "system-runtime",
       "unit": "UNIT_RUNTIME",
       "capabilities": [
-        "system-runtime-management",
-        "startup-and-shutdown-coordination",
-        "service-continuity-management",
-        "runtime-state-synchronization",
-        "runtime-dispatch-decision",
-        "execution-validation"
+        "startup-management",
+        "process-lifecycle-management",
+        "governed-dispatch",
+        "execution-validation",
+        "sole-execution-authority"
       ],
       "processes": [
         "ai-assistant",
@@ -1240,6 +1268,7 @@
         "postgresql",
         "process-metrics-csharp",
         "shared-layer",
+        "runtime-backend",
         "system-runtime-sovereign",
         "vaultly"
       ],
@@ -1255,7 +1284,8 @@
       "owner_sovereign": "automation",
       "unit": "UNIT_AUTOMATION",
       "capabilities": [
-        "decide-synchronization-policy-priority-conflict-and-acceptance"
+        "system-wide-automation-flow-orchestration",
+        "scheduling-and-dispatch-assignment"
       ],
       "processes": [
         "automation-sovereign",
@@ -1275,6 +1305,9 @@
       "owner_sovereign": "xingcheng-domain",
       "unit": "UNIT_ASSISTANT",
       "capabilities": [
+        "global-review-inspection-audit-authority",
+        "typed-receipt-and-audit-evidence-convergence",
+        "read-side-supervision",
         "native programming analysis code authoring editing debugging refactoring testing and independent verification",
         "programming-language conformance acceptance migration and generated-code review",
         "whole-system automatic classification decomposition scheduling dispatch coordination convergence evidence and fault isolation through the 星澄 auxiliary system and native model"

@@ -43,17 +43,6 @@ impl EngineeringConsolePanel {
                 Self::row(ui, "app_root", lib.app_root.display().to_string());
                 Self::row(
                     ui,
-                    "python_executable",
-                    lib.python_executable.display().to_string(),
-                );
-                Self::row(ui, "python_entry", lib.python_entry.display().to_string());
-                Self::row(
-                    ui,
-                    "boot_core_entry",
-                    lib.boot_core_entry.display().to_string(),
-                );
-                Self::row(
-                    ui,
                     "renderer_entry",
                     lib.renderer_entry_html.display().to_string(),
                 );

@@ -6,7 +6,6 @@
 //! ``main-system/config/startup_manifest.json``.  Probes are bounded by
 //! per-dependency deadlines; a probe that cannot run fails closed.
 
-use std::io::Read;
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -17,6 +16,7 @@ use gptbridge_core::native::paths;
 use gptbridge_core::security::token;
 
 static AUTHENTICATED_CONNECTIONS: AtomicU64 = AtomicU64::new(0);
+static AUTHENTICATED_EVER: AtomicBool = AtomicBool::new(false);
 static RUNTIME_FAILED: AtomicBool = AtomicBool::new(false);
 static STARTUP_DEAD: AtomicBool = AtomicBool::new(false);
 static BOOT_INSTANT: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
@@ -27,22 +27,27 @@ fn boot_instant() -> Instant {
 
 /// ``startup_gate_deadline_seconds`` from ``startup_manifest.json``
 /// (``timeouts`` block); the 90 s default matches the shipped manifest.
+/// Memoized: the deadline is a per-boot constant — evaluate() used to
+/// re-read and re-parse the manifest on every call.
 fn startup_deadline() -> Duration {
-    let manifest = paths::path_library()
-        .workspace_root
-        .join("main-system")
-        .join("config")
-        .join("startup_manifest.json");
-    let seconds = std::fs::read_to_string(manifest)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-        .and_then(|m| {
-            m["timeouts"]["startup_gate_deadline_seconds"]
-                .as_f64()
-                .or_else(|| m["startup_gate_deadline_seconds"].as_f64())
-        })
-        .unwrap_or(90.0);
-    Duration::from_secs_f64(seconds.max(1.0))
+    static DEADLINE: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
+    *DEADLINE.get_or_init(|| {
+        let manifest = paths::path_library()
+            .workspace_root
+            .join("main-system")
+            .join("config")
+            .join("startup_manifest.json");
+        let seconds = std::fs::read_to_string(manifest)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+            .and_then(|m| {
+                m["timeouts"]["startup_gate_deadline_seconds"]
+                    .as_f64()
+                    .or_else(|| m["startup_gate_deadline_seconds"].as_f64())
+            })
+            .unwrap_or(90.0);
+        Duration::from_secs_f64(seconds.max(1.0))
+    })
 }
 
 /// Permanent latch (parity with the Python ``startup_dead`` flag): once the
@@ -53,6 +58,7 @@ pub fn startup_dead() -> bool {
 }
 
 pub fn note_authenticated_connect() {
+    AUTHENTICATED_EVER.store(true, Ordering::SeqCst);
     AUTHENTICATED_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
 }
 
@@ -60,8 +66,14 @@ pub fn note_authenticated_disconnect() {
     AUTHENTICATED_CONNECTIONS.fetch_sub(1, Ordering::SeqCst);
 }
 
+/// ``authenticated_ipc_connected`` is a same-generation latch (parity with
+/// the retired Python flag): one proven authenticated session attests the
+/// IPC plane for the whole generation.  Reading the live connection gauge
+/// here would let any client disconnect after the startup deadline feed a
+/// false ``not-ready`` into the permanent ``STARTUP_DEAD`` latch — every
+/// later reconnect would then be served ``runtime_degraded`` forever.
 pub fn authenticated_ipc_connected() -> bool {
-    AUTHENTICATED_CONNECTIONS.load(Ordering::SeqCst) > 0
+    AUTHENTICATED_EVER.load(Ordering::SeqCst)
 }
 
 /// Record a failed runtime-initialization outcome — the readiness gate
@@ -102,36 +114,76 @@ fn dependencies() -> &'static [DependencySpec] {
 }
 
 fn probe_loopback(port: u16, deadline: Duration) -> bool {
-    let start = Instant::now();
-    if start.elapsed() >= deadline {
-        return false;
-    }
-    match TcpStream::connect(("127.0.0.1", port)) {
-        Ok(mut stream) => {
-            let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
-            let mut buf = [0u8; 1];
-            let _ = stream.read(&mut buf); // readiness = connect succeeded
-            true
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    // Readiness = connect succeeded.  The old parity code additionally
+    // issued a 1-byte read which always ran out the 200 ms timeout on
+    // silent services (PostgreSQL/vectord) — pure latency, no signal.
+    TcpStream::connect_timeout(&addr, deadline).is_ok()
+}
+
+/// Dependency probes are the readiness gate's only network I/O: a fresh
+/// probe costs a TCP connect plus up to one read-timeout (~200 ms) per
+/// dependency when healthy.  The WS status loop re-evaluates readiness on
+/// a short cadence to catch transitions, so probe results are reused for
+/// PROBE_TTL instead of re-opening sockets per evaluation.  Staleness only
+/// delays a transition report by at most TTL, never a gate decision that
+/// outlives a generation.
+const PROBE_TTL: Duration = Duration::from_secs(5);
+static PROBE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<u16, (Instant, bool)>>,
+> = std::sync::OnceLock::new();
+
+fn probe_loopback_cached(port: u16, deadline: Duration) -> bool {
+    let cache = PROBE_CACHE.get_or_init(|| {
+        std::sync::Mutex::new(std::collections::HashMap::new())
+    });
+    {
+        let map = cache.lock().unwrap();
+        if let Some((at, ok)) = map.get(&port) {
+            if at.elapsed() < PROBE_TTL {
+                return *ok;
+            }
         }
-        Err(_) => false,
     }
+    let ok = probe_loopback(port, deadline);
+    cache.lock().unwrap().insert(port, (Instant::now(), ok));
+    ok
 }
 
 /// Governance readiness: the codex authority and permission directory
 /// must exist and parse — fail-closed on any unreadable artifact.
+/// Filesystem probes are TTL-cached like the dependency probes; staleness
+/// only delays a transition report by GOVERNANCE_TTL.
+const GOVERNANCE_TTL: Duration = Duration::from_secs(5);
+
 fn governance_ready() -> bool {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<(Instant, bool)>> =
+        std::sync::OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        // Pre-expired sentinel: the first call must probe, never serve
+        // the pessimistic default.
+        std::sync::Mutex::new((Instant::now() - GOVERNANCE_TTL, false))
+    });
+    {
+        let (at, ok) = *cache.lock().unwrap();
+        if at.elapsed() < GOVERNANCE_TTL {
+            return ok;
+        }
+    }
     let root = &paths::path_library().workspace_root;
     let codex_dir = root.join("governance_rule");
-    if !codex_dir.join("permission_directory").exists() {
-        return false;
-    }
-    // The release pin records which sealed codex generation this runtime
-    // answers to; an unreadable pin means governance cannot be verified.
-    root.join("shared-layer")
-        .join("release-dependencies.json")
-        .metadata()
-        .map(|m| m.len() > 0)
-        .unwrap_or(false)
+    let ok = codex_dir.join("permission_directory").exists()
+        // The release pin records which sealed codex generation this
+        // runtime answers to; an unreadable pin means governance cannot
+        // be verified.
+        && root
+            .join("shared-layer")
+            .join("release-dependencies.json")
+            .metadata()
+            .map(|m| m.len() > 0)
+            .unwrap_or(false);
+    *cache.lock().unwrap() = (Instant::now(), ok);
+    ok
 }
 
 pub struct Readiness {
@@ -154,7 +206,8 @@ pub fn evaluate() -> Readiness {
     let mut deps = Vec::new();
     let mut core_ok = true;
     for dep in dependencies() {
-        let reachable = probe_loopback(dep.port, Duration::from_secs(3));
+        let reachable =
+            probe_loopback_cached(dep.port, Duration::from_secs(3));
         let ready = reachable || dep.on_demand;
         if dep.criticality == "core-critical" && !ready {
             core_ok = false;
@@ -170,15 +223,28 @@ pub fn evaluate() -> Readiness {
     let dependencies_ready = core_ok;
     let ready =
         backend_runtime_ready && gov_ready && dependencies_ready && authed;
-    if !ready && boot_instant().elapsed() >= startup_deadline() {
+    // The dead latch may only fire once a session generation has begun
+    // (some client has authenticated at least once).  A backend probed via
+    // /health past the deadline before any UI attaches is "starting", not
+    // dead — otherwise the first real client would be latched out forever.
+    if !ready && authed && boot_instant().elapsed() >= startup_deadline() {
         STARTUP_DEAD.store(true, Ordering::SeqCst);
     }
     let dead = STARTUP_DEAD.load(Ordering::SeqCst);
     let startup_failures = if dead {
-        deps.iter()
-            .filter(|d| d["ready"].as_bool() != Some(true))
-            .filter_map(|d| d["identity"].as_str().map(String::from))
-            .collect()
+        let mut failures: Vec<String> = Vec::new();
+        if !backend_runtime_ready {
+            failures.push("backend_runtime".to_string());
+        }
+        if !gov_ready {
+            failures.push("governance".to_string());
+        }
+        failures.extend(
+            deps.iter()
+                .filter(|d| d["ready"].as_bool() != Some(true))
+                .filter_map(|d| d["identity"].as_str().map(String::from)),
+        );
+        failures
     } else {
         Vec::new()
     };
@@ -212,6 +278,12 @@ pub fn health_payload(level: &str) -> Value {
         "workspace_instance_id": token::workspace_instance_id(),
         "runtime_state": readiness.runtime_state,
         "runtime_scope": "main",
+        // Retired-Python parity: maintenance_ready reported the resident
+        // maintenance controller's health-monitor startup outcome.  The
+        // native backend's readiness/probe loop is that plane's successor —
+        // report it from the same evaluated readiness instead of a phantom
+        // subsystem.
+        "maintenance_ready": readiness.ok,
         "governance_ready": readiness.governance_ready,
         "backend_runtime_ready": readiness.backend_runtime_ready,
         "dependencies_ready": readiness.dependencies_ready,
@@ -223,4 +295,32 @@ pub fn health_payload(level: &str) -> Value {
         "capabilities": {},
         "health_level": level,
     })
+}
+
+/// Memoized ``brief`` payload for the per-connection status push loop.
+/// Every WS connection ticks STATUS_EVAL_INTERVAL; without sharing, each
+/// socket re-ran evaluate() plus a full Value build per tick.  The TTL is
+/// shorter than the push cadence so every tick still re-evaluates, while
+/// the immediate-on-connect push and concurrent sockets share one build.
+const BRIEF_TTL: Duration = Duration::from_millis(900);
+static BRIEF_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<(Instant, std::sync::Arc<Value>)>,
+> = std::sync::OnceLock::new();
+
+pub fn brief_payload() -> std::sync::Arc<Value> {
+    let cache = BRIEF_CACHE.get_or_init(|| {
+        std::sync::Mutex::new((
+            Instant::now() - BRIEF_TTL,
+            std::sync::Arc::new(Value::Null),
+        ))
+    });
+    {
+        let (at, value) = &*cache.lock().unwrap();
+        if at.elapsed() < BRIEF_TTL {
+            return std::sync::Arc::clone(value);
+        }
+    }
+    let value = std::sync::Arc::new(health_payload("brief"));
+    *cache.lock().unwrap() = (Instant::now(), std::sync::Arc::clone(&value));
+    value
 }

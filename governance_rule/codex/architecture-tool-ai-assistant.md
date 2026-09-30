@@ -2,7 +2,9 @@
 
 ```mermaid
 flowchart LR
-  UI[Native JavaScript ESM UI] --> API[C# Application API]
+  UI[Tauri Desktop UI] --> BUN[Bun + JavaScript ESM]
+  BUN --> RUST[Rust UI Core]
+  RUST --> API[C# Application API]
   API --> DOMAIN[F# Investment Domain]
   DOMAIN --> RISK[Risk and Validation]
   API --> PG[(PostgreSQL Canonical Data)]

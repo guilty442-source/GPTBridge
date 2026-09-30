@@ -149,12 +149,21 @@ internal static class Executor
                         ? s : amendmentId,
             });
         var phases = result.Phases.Select(phase =>
-            new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            var dict = new Dictionary<string, object?>(
+                StringComparer.Ordinal)
             {
                 ["phase"] = phase.Phase,
                 ["ok"] = phase.Ok,
                 ["detail"] = phase.Detail,
-            }).ToList();
+            };
+            if (phase.Evidence is not null
+                && phase.Evidence.TryGetValue("errors", out var errors)
+                && errors is IEnumerable<object?> list
+                && list.Any())
+                dict["errors"] = list.ToList();
+            return dict;
+        }).ToList();
         return new AmendmentExecutionResult(result.Ok, result.Applied,
             amendmentId, result.Version,
             result.Ok ? "" : "update-pipeline-rejected", phases);

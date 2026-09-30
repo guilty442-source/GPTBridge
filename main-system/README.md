@@ -7,20 +7,25 @@ GPTBridge 是以 Windows 11 為目標的桌面應用程式啟動器。主系統�
 ## 環境需求
 
 - Windows 11
-- Node.js 20+
-- Python 3.11
+- .NET 10 SDK（bootstrap/launcher 建置）
+- MSVC（Visual Studio 18）C++ 工具鏈（原生核心與外層 EXE）
+- Rust 工具鏈（src-tauri 桌面殼）
 - Google Chrome（僅由需要瀏覽器能力的獨立工具使用）
+
+Python 已全面退役（B166/B167/B38）：本專案不存在任何 Python 原始碼、
+直譯器、虛擬環境、套件管理器或回退路徑，不得新增或呼叫。
 
 ## 安裝與啟動
 
 ```powershell
-npm ci
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-npm start
+# 原生自辦安裝（bootstrap → desktop EXE）
+launcher\bin\GPTBridge.Bootstrap.exe --install-desktop
+
+# 直接啟動（準備 + 啟動 Tauri host）
+launcher\bin\GPTBridge.Bootstrap.exe
 ```
 
-Python IPC 使用 `127.0.0.1:8765`。
+受管 loopback IPC 使用 `127.0.0.1`（端口由受管通道指派）。
 
 獨立工具視窗採用前景生命週期：使用者關閉視窗時，主系統會強制結束該工具完整程序樹並確認不再背景執行。此規則不套用於治理核准且明確宣告為無介面常駐服務的工具。
 
@@ -31,23 +36,24 @@ Python IPC 使用 `127.0.0.1:8765`。
 ## 架構
 
 ```text
-Electron main process
-  -> React launcher renderer
-  -> Python backend manager
-       -> WebSocket command router
-       -> governance request adapter
+GPTBridgeLauncher.exe（桌面 Win32 輕量入口）
+  -> GPTBridge.Bootstrap（C# 14 / .NET 10 啟動管線）
+       -> gptbridge-shell（Rust/Tauri 桌面殼 + WebView）
+       -> governed loopback IPC / command router
        -> independent-tool lifecycle broker
             -> standalone tool processes
 ```
 
 主要目錄：
 
-- `src-ui`: Electron main process、preload 與 React renderer
-- `src-core`: Python 啟動、IPC 與工具生命週期請求
+- `launcher`: C# `GPTBridge.Bootstrap` 啟動管線與原生桌面入口
+- `src-tauri`: Rust/Tauri 桌面殼與原生核心 crate
+- `src-ui`: Native JavaScript ESM renderer 來源
+- `src-core`: 已退役 Python 樹的墓碑殘留（僅 registry/port 資料檔）
 - `<tool-id>`: 數量可動態增減的直屬獨立工具
 - `governance_rule`: 唯一的治理與權限權威
 - `shared-layer`: 只承載受治理的系統通道與 AI 通道
-- `tests`: Python 單元與整合測試
+- `native/test_suites`: 原生 C++ 測試套件（pytest 已退役）
 - `runtime`: 執行期狀態；不納入版本控制
 
 更完整的系統邊界請見 [ARCHITECTURE.md](ARCHITECTURE.md)。
@@ -55,12 +61,12 @@ Electron main process
 ## 品質檢查
 
 ```powershell
-# 治理審計（倉庫根目錄執行）
-main-system\.venv\Scripts\python.exe -m governance_rule.execution.audit
-# 前端建置（main-system 目錄執行，SWC→ESM→esbuild 原生鏈）
-.venv\Scripts\python.exe scripts/packager/renderer_build.py --all
-# 環境檢查
-.venv\Scripts\python.exe scripts/doctor_environment.py --strict
+# 治理審計（倉庫根目錄執行；原生 audit engine，Python 審計車道已退役）
+native\test_suites\bin\audit-engine.exe --manifest governance_rule\execution\audit\audit_checks_manifest.json --root E:\GPTBridge
+# 原生測試套件（MSVC 建置 + 受管平行執行）
+powershell -ExecutionPolicy Bypass -File native\test_suites\build.ps1
+# renderer 建置（SWC→ESM→esbuild 原生鏈，由 bootstrap 驅動）
+launcher\bin\GPTBridge.Bootstrap.exe --force-build
 ```
 
 CI 會阻擋前端建置、治理與環境檢查失敗。

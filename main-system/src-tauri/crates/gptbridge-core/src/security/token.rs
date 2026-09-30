@@ -274,17 +274,24 @@ pub fn backend_session_token() -> Result<String, String> {
 }
 
 /// Stable per-checkout identity — SHA-256 of the normalized workspace root,
-/// truncated to 24 hex chars (parity with ipcSession.ts).
+/// truncated to 24 hex chars (parity with ipcSession.ts).  Memoized: the
+/// workspace root is a per-process constant and this used to re-hash on
+/// every call (health payloads, WS auth, status evaluations).
 pub fn workspace_instance_id() -> String {
-    let normalized = paths::path_library()
-        .workspace_root
-        .to_string_lossy()
-        .replace('\\', "/");
-    let normalized = if cfg!(windows) {
-        normalized.to_lowercase()
-    } else {
-        normalized
-    };
-    let digest = Sha256::digest(normalized.as_bytes());
-    hex::encode(digest)[..24].to_string()
+    static CACHED: OnceLock<String> = OnceLock::new();
+    CACHED
+        .get_or_init(|| {
+            let normalized = paths::path_library()
+                .workspace_root
+                .to_string_lossy()
+                .replace('\\', "/");
+            let normalized = if cfg!(windows) {
+                normalized.to_lowercase()
+            } else {
+                normalized
+            };
+            let digest = Sha256::digest(normalized.as_bytes());
+            hex::encode(digest)[..24].to_string()
+        })
+        .clone()
 }

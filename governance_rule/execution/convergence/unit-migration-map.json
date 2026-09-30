@@ -227,7 +227,7 @@
   {
    "component_id": "model-dialogue",
    "unit": "UNIT_DIALOGUE",
-   "current_path": "Standalone tools/local-model/model-dialogue",
+   "current_path": "Standalone tools/model-dialogue",
    "target_unit_root": "E:\\GPTBridge\\blocks\\model\\dialogue",
    "already_at_target": false,
    "exists": true,

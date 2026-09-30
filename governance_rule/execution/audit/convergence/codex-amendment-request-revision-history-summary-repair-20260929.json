@@ -1,0 +1,41 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "revision-history-summary-repair-20260929-r1",
+  "title": "Repair mojibake in revision_history seq-177 summary",
+  "summary": "Audit-engine text-no-pollution detected a literal \"??\" mojibake pair in revision_history.change_id=five-core-executive-boundary-20260929-r7 summary (seq 177, version 2026-09-29T11:33:57Z), propagated verbatim into the zh-TW mirror part-4 and failing the governed mirror contract. This editorial amendment restores the summary text and recomputes entry_hash so the revision chain stays content-consistent.",
+  "requested_by": "automation-sovereign",
+  "origin": "codex-maintenance automation: audit FAIL mirror-part-pollution:governance_codex.zh-TW.part-4.txt traced to live authority row revision_history seq 177 summary containing \"??\" (mojibake from the r7 request title).",
+  "change_class": "editorial",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T11:33:57Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "c554c734ded87a011ffa43ee8e5af3bc49861b7bad6be3fe5eb8ac1775faec20",
+    "revision_sequence": 177
+  },
+  "changes": [
+    {
+      "table": "revision_history",
+      "key": {
+        "change_id": "five-core-executive-boundary-20260929-r7"
+      },
+      "field": "summary",
+      "proposed": "Five-core responsibility closure — authority/execution separation restated",
+      "also": {
+        "entry_hash": "b6188dbfa9f9819d444c2d8a73b5c7dd442dd4a388fa162ab0a4470679e58370"
+      }
+    }
+  ],
+  "evidence": {
+    "detector": "native/audit text-no-pollution",
+    "check_id": "mirror-part-pollution:governance_codex.zh-TW.part-4.txt",
+    "polluted_field": "revision_history.summary",
+    "sequence": 177,
+    "hash_recomputed": "b6188dbfa9f9819d444c2d8a73b5c7dd442dd4a388fa162ab0a4470679e58370"
+  }
+}

@@ -28,34 +28,15 @@ public sealed class GovernedEnvironment
     public required string SessionToken { get; init; }
     public required int Port { get; init; }
     public required string ShutdownToken { get; init; }
-    public required string PythonExecutable { get; init; }
     /// <summary>
-    /// Sidecar entry. Default is the governed transport proxy module —
-    /// spawned as ``python -m governance_rule.execution.tool_runtime.
-    /// transport_proxy`` so its relative imports resolve (spec P2). The
-    /// GPTBRIDGE_TOOLHOST_PROXY_ENTRY override is the wire-fixture seam
-    /// used by interop smoke tests and is a plain script path.
+    /// Resolved native sidecar executable speaking
+    /// star-governed-transport-proxy/v1 over stdio. The Python
+    /// transport_proxy module lane is retired (B162/B167/B38); the
+    /// executable is injected via GPTBRIDGE_TOOLHOST_PROXY_ENTRY, mirroring
+    /// the native tool_host config.proxy_command_line seam — absent or
+    /// invalid values fail closed with PERMISSION_DENIED in Load().
     /// </summary>
-    public string ProxyEntry =>
-        string.IsNullOrWhiteSpace(
-            Environment.GetEnvironmentVariable("GPTBRIDGE_TOOLHOST_PROXY_ENTRY"))
-            ? "governance_rule.execution.tool_runtime.transport_proxy"
-            : Environment.GetEnvironmentVariable(
-                "GPTBRIDGE_TOOLHOST_PROXY_ENTRY")!.Trim();
-
-    /// <summary>True when ProxyEntry is a module name (``-m`` form).</summary>
-    public bool ProxyIsModule =>
-        string.IsNullOrWhiteSpace(
-            Environment.GetEnvironmentVariable("GPTBRIDGE_TOOLHOST_PROXY_ENTRY"));
-
-    /// <summary>
-    /// Sidecar import roots: project root (``governance_rule``) plus the
-    /// shared-layer src tree (``shared_layer``) — mirrors the path set a
-    /// governed source runtime builds in its entry module.
-    /// </summary>
-    public string ProxyPythonPath =>
-        ProjectRoot + ";" + Path.Combine(
-            ProjectRoot, "shared-layer", "src");
+    public required string SidecarExecutable { get; init; }
 
     public string WorkspaceInstanceId()
     {
@@ -126,12 +107,22 @@ public sealed class GovernedEnvironment
             throw new PermissionDeniedException();
         var shutdownToken = (getenv("GPTBRIDGE_SHUTDOWN_TOKEN") ?? "").Trim();
 
-        var python = Path.Combine(
-            root, "main-system", ".venv", "Scripts", "python.exe");
-        if (!fileExists(python))
-            python = Path.Combine(
-                root, "main-system", ".venv", "Scripts", "pythonw.exe");
-        if (!fileExists(python))
+        // Native sidecar (star-governed-transport-proxy/v1 over stdio) is
+        // injected via env — no implicit default exists now that the
+        // Python transport_proxy module is retired. The executable must
+        // be an .exe inside the project root; anything else fails closed.
+        var rawEntry = (getenv("GPTBRIDGE_TOOLHOST_PROXY_ENTRY") ?? "").Trim();
+        if (rawEntry.Length == 0)
+            throw new PermissionDeniedException();
+        var sidecar = Path.GetFullPath(
+            Path.IsPathRooted(rawEntry)
+                ? rawEntry : Path.Combine(root, rawEntry));
+        var sidecarRel = Path.GetRelativePath(root, sidecar);
+        if (sidecarRel == ".." || sidecarRel.StartsWith(".." + Path.DirectorySeparatorChar)
+            || Path.IsPathRooted(sidecarRel)
+            || !string.Equals(Path.GetExtension(sidecar), ".exe",
+                StringComparison.OrdinalIgnoreCase)
+            || !fileExists(sidecar))
             throw new PermissionDeniedException();
 
         return new GovernedEnvironment
@@ -142,7 +133,7 @@ public sealed class GovernedEnvironment
             SessionToken = token,
             Port = port,
             ShutdownToken = shutdownToken,
-            PythonExecutable = python,
+            SidecarExecutable = sidecar,
         };
     }
 }

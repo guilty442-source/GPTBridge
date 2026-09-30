@@ -6,12 +6,10 @@
   "display_version": "1.0",
   "status": "stopped",
   "enabled": true,
-  "independent_tool": true,
-  "main_system_independent_tool": true,
-  "host_tool_id": "local-model",
+  "service_kind": "independent-privileged-institution",
+  "independent_tool": false,
+  "main_system_independent_tool": false,
   "runtime_owner_tool_id": "xingcheng",
-  "companion_tool": true,
-  "companion_owner": "local-model",
   "canonical_source_root": "local-model/xingcheng",
   "physical_owner_root": "local-model",
   "lifecycle": {
@@ -28,7 +26,7 @@
   "shared_cache_owner": "xingcheng",
   "cache_storage": "xingcheng/runtime/cache",
   "backup_owner": "xingcheng",
-  "backup_storage": "system-rescue/data/business/backups/xingcheng",
+  "backup_storage": "xingcheng/runtime/backups",
   "permissions": {
     "profile": "local-model-platform-v1",
     "business_permission_owner": "xingcheng",
@@ -49,11 +47,7 @@
       "separate-settings-layer"
     ]
   },
-  "runtime": {
-    "type": "python",
-    "entry": "src/channel_runtime.py",
-    "workingDirectory": "."
-  },
+  "runtime": {    "type": "native-model-service",    "service_contract": "star-model-service-descriptor/v1",    "descriptor": "xingcheng/runtime/ipc/model-service.json",    "worker_entry": "src/backend/services/xingcheng/infrastructure/native_transformer/tools/xc_modeltool.exe",    "worker_mode": "serve --bundle <runtime/settings/native-engine.json::checkpoint>",    "lifecycle_owner": "local-model/toolhost-model-service",    "consumer_policy": "csharp-orchestrator-client-only",    "retired_entry": "src/channel_runtime.py",    "note": "Xingcheng is the local native model: the C++ xc_modeltool serve worker holds the engine in its own process (B81 separate process/lifecycle); the local-model governed ToolHost owns the authenticated loopback /v1/* surface and publishes this descriptor contract.",    "workingDirectory": "."  },
   "distribution": {
     "mode": "special-unpackaged",
     "package": false

@@ -290,7 +290,12 @@ internal sealed class CodexStore : IDisposable
             System.Security.Cryptography.SHA256.HashData(
                 Encoding.UTF8.GetBytes(fullPath)))
             .ToLowerInvariant()[..16];
-        var schema = StageCodec.StageName(token);
+        // Per-invocation suffix: a watcher tick and a CLI run can open
+        // the same artifact concurrently; a deterministic schema name
+        // would let one side's DROP/CREATE SCHEMA race the other's
+        // inserts (observed: 42P01 on codex_timestamps).
+        var schema = StageCodec.StageName(
+            token + "_" + Guid.NewGuid().ToString("N")[..8]);
         StageCodec.MaterializeArtifact(artifact, schema);
         return new CodexStore(new StageConnection(schema), artifact,
             schema, writeBack);

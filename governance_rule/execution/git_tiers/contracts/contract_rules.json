@@ -5,7 +5,7 @@
       "name": "schema-migration-contract",
       "trigger_globs": ["shared-layer/migrations/*.sql"],
       "require_globs": [
-        "shared-layer/src/shared_layer/database/schema_contract_registry.py",
+        "shared-layer/database-release.json",
         "main-system/config/*.json"
       ],
       "severity": "warn",
@@ -17,7 +17,7 @@
       "require_globs": [
         "main-system/config/*contract*.json",
         "main-system/src-ui/**",
-        "main-system/tests/**"
+        "native/test_suites/**"
       ],
       "severity": "warn",
       "detail": "IPC 介面變更應附對端契約、UI 或測試更新"
@@ -27,8 +27,8 @@
       "trigger_globs": ["Standalone tools/*/manifest.json"],
       "require_globs": [
         "main-system/config/tool-runtime-contract.json",
-        "main-system/src-core/tasks/toolbox_*.py",
-        "main-system/tests/**"
+        "main-system/src-tauri/crates/gptbridge-backend/src/tools/*.rs",
+        "native/test_suites/**"
       ],
       "severity": "warn",
       "detail": "工具 manifest 變更應附 runtime 契約或 toolbox 對應更新"

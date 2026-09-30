@@ -157,14 +157,13 @@ internal static class ArchitectureDocs
             var identifier = Repo.Str(component, "component_id");
             var physical = Repo.Str(component, "physical_path");
             var parts = physical.Split('/');
+            // parity: component.get("independent_tool") is not False
             var isTopTool = parts.Length == 2
                 && parts[0] == "Standalone tools"
                 && parts[1] == identifier
-                && Repo.Get(component, "independent_tool") is not
-                    (JsonValue jt)
-                    || !(Repo.Get(component, "independent_tool")
-                        is JsonValue tv
-                        && tv.TryGetValue<bool>(out var tb) && !tb);
+                && !(Repo.Get(component, "independent_tool")
+                    is JsonValue tv
+                    && tv.TryGetValue<bool>(out var tb) && !tb);
             if (!isTopTool)
                 continue;
             var expected = $"{ToolDocPrefix}{identifier}.md";

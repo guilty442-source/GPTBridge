@@ -126,10 +126,10 @@
     "Standalone tools/investment-mobile/tests/test_simulation_acceptance.py",
     "Standalone tools/investment-mobile/tests/test_strategy_backtest.py",
     "Standalone tools/investment-mobile/tests/test_trading_engines.py",
-    "Standalone tools/local-model/model-dialogue/star-chat/tests/test_star_chat.py",
-    "Standalone tools/local-model/model-dialogue/tests/test_generation_controls.py",
-    "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_contracts.py",
-    "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_reexport.py",
+    "Standalone tools/model-dialogue/star-chat/tests/test_star_chat.py",
+    "Standalone tools/model-dialogue/tests/test_generation_controls.py",
+    "Standalone tools/model-dialogue/tests/test_model_dialogue_contracts.py",
+    "Standalone tools/model-dialogue/tests/test_model_dialogue_reexport.py",
     "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_batch_generate.py",
     "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_bf16_matmul.py",
     "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_fp8_matmul.py",
@@ -2734,22 +2734,22 @@
   {
    "category": "python-unit",
    "language": "python",
-   "path": "Standalone tools/local-model/model-dialogue/star-chat/tests/test_star_chat.py"
+   "path": "Standalone tools/model-dialogue/star-chat/tests/test_star_chat.py"
   },
   {
    "category": "python-unit",
    "language": "python",
-   "path": "Standalone tools/local-model/model-dialogue/tests/test_generation_controls.py"
+   "path": "Standalone tools/model-dialogue/tests/test_generation_controls.py"
   },
   {
    "category": "python-unit",
    "language": "python",
-   "path": "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_contracts.py"
+   "path": "Standalone tools/model-dialogue/tests/test_model_dialogue_contracts.py"
   },
   {
    "category": "python-unit",
    "language": "python",
-   "path": "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_reexport.py"
+   "path": "Standalone tools/model-dialogue/tests/test_model_dialogue_reexport.py"
   },
   {
    "category": "python-unit",

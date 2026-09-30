@@ -65,7 +65,14 @@ fn resolve_code_path(folder: &Path, manifest: &serde_json::Value) -> PathBuf {
 }
 
 pub(super) fn build_inventory(resolved_root: &Path) -> Vec<serde_json::Value> {
-    let mut tools = Vec::new();
+    // Phase 1 (cheap, serial): discover qualifying tools.
+    struct Pending {
+        folder: PathBuf,
+        manifest_path: PathBuf,
+        id: String,
+        code_path: PathBuf,
+    }
+    let mut pending = Vec::new();
     for folder in collect_candidate_folders(resolved_root) {
         let folder = folder.canonicalize().unwrap_or(folder);
         if !is_path_inside(resolved_root, &folder) {
@@ -94,19 +101,44 @@ pub(super) fn build_inventory(resolved_root: &Path) -> Vec<serde_json::Value> {
             continue;
         }
         let code_path = resolve_code_path(&folder, &manifest);
-        let size = folder_size(&folder, &HashSet::new(), true);
-        tools.push(serde_json::json!({
-            "id": id,
-            "folder_path": folder.to_string_lossy(),
-            "manifest_path": manifest_path.to_string_lossy(),
-            "code_path": code_path.to_string_lossy(),
-            "project_size_bytes": size.bytes,
-            "file_count": size.file_count,
-            "size_breakdown": size
-                .breakdown
-                .map(|b| b.to_json())
-                .unwrap_or_else(|| ToolSizeBreakdown::default().to_json()),
-        }));
+        pending.push(Pending {
+            folder,
+            manifest_path,
+            id,
+            code_path,
+        });
     }
-    tools
+    // Phase 2: the per-tool size walk dominates the call (seconds on a
+    // cold disk).  Scoped threads scan tools concurrently; discovery
+    // order is preserved for the emitted inventory.
+    let mut sizes: Vec<super::measure::FolderSize> = Vec::with_capacity(pending.len());
+    std::thread::scope(|scope| {
+        let mut handles = Vec::with_capacity(pending.len());
+        for entry in &pending {
+            handles.push(scope.spawn(move || {
+                folder_size(&entry.folder, &HashSet::new(), true)
+            }));
+        }
+        for handle in handles {
+            sizes.push(handle.join().unwrap_or_default());
+        }
+    });
+    pending
+        .into_iter()
+        .zip(sizes)
+        .map(|(entry, size)| {
+            serde_json::json!({
+                "id": entry.id,
+                "folder_path": entry.folder.to_string_lossy(),
+                "manifest_path": entry.manifest_path.to_string_lossy(),
+                "code_path": entry.code_path.to_string_lossy(),
+                "project_size_bytes": size.bytes,
+                "file_count": size.file_count,
+                "size_breakdown": size
+                    .breakdown
+                    .map(|b| b.to_json())
+                    .unwrap_or_else(|| ToolSizeBreakdown::default().to_json()),
+            })
+        })
+        .collect()
 }

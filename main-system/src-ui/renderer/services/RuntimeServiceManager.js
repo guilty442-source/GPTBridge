@@ -84,16 +84,10 @@ export class RuntimeServiceManager {
 			this._updateWebSocketStatus();
 		};
 		eventBus.on("runtime_status_push", this._statusPushHandler);
-		// Also listen for the ipc_event window event (same payload, different path)
-		this._ipcStatusHandler = (event) => {
-			const customEvent = event;
-			const detail = customEvent.detail || {};
-			if (detail.event !== "runtime_status_push") return;
-			this._lastStatus = detail.payload;
-			this._updateBackendStatus(detail.payload);
-			this._updateWebSocketStatus();
-		};
-		window.addEventListener("ipc_event", this._ipcStatusHandler);
+		// No ipc_event window listener: backendSocket emits both the eventBus
+		// event and the window CustomEvent for the same payload — a second
+		// listener just re-ran _updateBackendStatus/_updateWebSocketStatus on
+		// every 2 s push.
 		// Safety-net heartbeat: 30s fallback in case push events stop arriving.
 		// A67 FORBID:stale-status — on transient IPC failure we re-fetch fresh
 		// status rather than keeping a stale snapshot indefinitely.
@@ -131,13 +125,8 @@ export class RuntimeServiceManager {
 			eventBus.off("runtime_status_push", this._statusPushHandler);
 			this._statusPushHandler = null;
 		}
-		if (this._ipcStatusHandler) {
-			window.removeEventListener("ipc_event", this._ipcStatusHandler);
-			this._ipcStatusHandler = null;
-		}
 	}
 	_statusPushHandler = null;
-	_ipcStatusHandler = null;
 	// Last backend status snapshot — used by _updateWebSocketStatus to apply
 	// the A67 four-condition gate (socket-open alone is not ready).
 	_lastStatus = null;
@@ -234,7 +223,10 @@ export async function startStartupPipeline() {
 		return;
 	}
 	const config = await serviceManager.registerAndRun("config", "Config", async () => api.invoke("app:get-status"), 3e3);
-	const startupChecks = [serviceManager.registerAndRun("platform-tools", "Platform Tools", async () => inspectPlatformTools(api), 5e3), serviceManager.registerAndRun("websocket", "WebSocket", async () => waitForWebSocketReady(), 16e3)];
+	// Platform-tools budget covers a cold workspace size walk (.git /
+	// .worktrees / build trees); the shell warm-up usually beats it, but a
+	// genuinely cold disk can legitimately take tens of seconds.
+	const startupChecks = [serviceManager.registerAndRun("platform-tools", "Platform Tools", async () => inspectPlatformTools(api), 3e4), serviceManager.registerAndRun("websocket", "WebSocket", async () => waitForWebSocketReady(), 16e3)];
 	if (config?.backendManaged === false) {
 		serviceManager.markSkipped("backend", "Backend", "Managed externally");
 	} else {

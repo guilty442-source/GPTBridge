@@ -18,8 +18,8 @@ public class GovernedEnvironmentTests
         {
             [Path.Combine(toolDir, "manifest.json")] =
                 "{\"id\":\"" + toolId + "\"}",
-            [Path.Combine(root, "main-system", ".venv", "Scripts",
-                "python.exe")] = "",
+            [Path.Combine(root, "native", "tool_runtime", "bin",
+                "proxy-sidecar.exe")] = "",
         };
         return GovernedEnvironment.Load(
             getenv: k => vars.TryGetValue(k, out var v) ? v : null,
@@ -38,6 +38,8 @@ public class GovernedEnvironmentTests
             ["GPTBRIDGE_IPC_SESSION_TOKEN"] = Token(),
             ["GPTBRIDGE_IPC_PORT"] = "18233",
             ["GPTBRIDGE_SHUTDOWN_TOKEN"] = "shtok",
+            ["GPTBRIDGE_TOOLHOST_PROXY_ENTRY"] =
+                @"native\tool_runtime\bin\proxy-sidecar.exe",
         };
 
     [Fact]
@@ -84,38 +86,46 @@ public class GovernedEnvironmentTests
         var env = LoadEnv(BaseVars());
         Assert.Equal("vaultly", env.ToolId);
         Assert.Equal(18233, env.Port);
-        // Default sidecar is the governed proxy module (-m form), matching
-        // spec P2 — a script path would break its package-relative imports.
+        // The sidecar executable is injected via env and resolves to an
+        // absolute .exe path inside the project root (native lane — the
+        // Python transport_proxy module default is retired, B162).
         Assert.Equal(
-            "governance_rule.execution.tool_runtime.transport_proxy",
-            env.ProxyEntry);
-        Assert.True(env.ProxyIsModule);
-        Assert.Contains(
-            Path.Combine("shared-layer", "src"), env.ProxyPythonPath);
+            Path.Combine(
+                @"E:\GPTBridge", "native", "tool_runtime", "bin",
+                "proxy-sidecar.exe"),
+            env.SidecarExecutable);
     }
 
     [Fact]
-    public void Proxy_entry_override_is_script_mode()
+    public void Load_missing_sidecar_entry_denied()
     {
-        const string key = "GPTBRIDGE_TOOLHOST_PROXY_ENTRY";
-        var previous = Environment.GetEnvironmentVariable(key);
-        Environment.SetEnvironmentVariable(key, "wire-fixture.py");
-        try
-        {
-            var env = LoadEnv(BaseVars());
-            Assert.Equal("wire-fixture.py", env.ProxyEntry);
-            Assert.False(env.ProxyIsModule);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(key, previous);
-        }
+        var vars = BaseVars();
+        vars.Remove("GPTBRIDGE_TOOLHOST_PROXY_ENTRY");
+        Assert.Throws<PermissionDeniedException>(() => LoadEnv(vars));
     }
 
     [Fact]
-    public void WorkspaceInstanceId_matches_python_formula()
+    public void Load_sidecar_outside_root_denied()
     {
-        // Python: sha256(normcase(str(root)).replace("\\","/"))[:24]
+        var vars = BaseVars();
+        vars["GPTBRIDGE_TOOLHOST_PROXY_ENTRY"] =
+            @"..\outside\proxy-sidecar.exe";
+        Assert.Throws<PermissionDeniedException>(() => LoadEnv(vars));
+    }
+
+    [Fact]
+    public void Load_non_exe_sidecar_denied()
+    {
+        var vars = BaseVars();
+        vars["GPTBRIDGE_TOOLHOST_PROXY_ENTRY"] =
+            @"native\tool_runtime\bin\proxy-sidecar.py";
+        Assert.Throws<PermissionDeniedException>(() => LoadEnv(vars));
+    }
+
+    [Fact]
+    public void WorkspaceInstanceId_matches_spec_formula()
+    {
+        // Spec: sha256(normcase(str(root)).replace("\\","/"))[:24]
         // normcase on Windows lowercases; root "E:\GPTBridge" → "e:/gptbridge"
         var expected = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes("e:/gptbridge")))

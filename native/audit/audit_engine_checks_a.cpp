@@ -93,8 +93,8 @@ AuditCheckResult check_file_contains(const AuditCheck& check,
     AuditCheckResult r;
     r.id = check.id;
     r.kind = check.kind;
-    std::string content;
-    if (!read_file(target, &content)) {
+    const auto text = cached_text(target);
+    if (!text) {
         if (check.optional && !fs::exists(target, ec)) {
             r.status = AuditStatus::PASS;
             return r;
@@ -102,6 +102,7 @@ AuditCheckResult check_file_contains(const AuditCheck& check,
         r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
         return r;
     }
+    const std::string& content = *text;
     for (const auto& m : check.markers) {
         if (content.find(m) == std::string::npos) {
             r.status = AuditStatus::FAIL;
@@ -120,8 +121,8 @@ AuditCheckResult check_file_not_contains(const AuditCheck& check,
     AuditCheckResult r;
     r.id = check.id;
     r.kind = check.kind;
-    std::string content;
-    if (!read_file(target, &content)) {
+    const auto text = cached_text(target);
+    if (!text) {
         if (check.optional && !fs::exists(target, ec)) {
             r.status = AuditStatus::PASS;   /* 條件式禁標檢查：缺席即略過 */
             return r;
@@ -129,8 +130,8 @@ AuditCheckResult check_file_not_contains(const AuditCheck& check,
         r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
         return r;
     }
-    const std::string haystack =
-        check.ignore_case ? to_lower(content) : content;
+    const auto lower = check.ignore_case ? cached_lower(target) : nullptr;
+    const std::string& haystack = check.ignore_case ? *lower : *text;
     for (const auto& m : check.markers) {
         const std::string needle =
             check.ignore_case ? to_lower(m) : m;
@@ -154,8 +155,8 @@ AuditCheckResult check_file_not_contains_unless(const AuditCheck& check,
     /* 條件式禁標：markers 任一命中時，檔案必須同時持有至少一個
      * unless 解禁標記，否則 FAIL。
      * 對齊 Python 複合條件「含 A 且不含 B → 錯」。 */
-    std::string content;
-    if (!read_file(target, &content)) {
+    const auto text = cached_text(target);
+    if (!text) {
         if (check.optional && !fs::exists(target, ec)) {
             r.status = AuditStatus::PASS;
             return r;
@@ -163,8 +164,8 @@ AuditCheckResult check_file_not_contains_unless(const AuditCheck& check,
         r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
         return r;
     }
-    const std::string haystack =
-        check.ignore_case ? to_lower(content) : content;
+    const auto lower = check.ignore_case ? cached_lower(target) : nullptr;
+    const std::string& haystack = check.ignore_case ? *lower : *text;
     for (const auto& m : check.markers) {
         const std::string needle =
             check.ignore_case ? to_lower(m) : m;
@@ -196,18 +197,15 @@ AuditCheckResult check_json_has_keys(const AuditCheck& check,
     AuditCheckResult r;
     r.id = check.id;
     r.kind = check.kind;
-    std::string content;
-    if (!read_file(target, &content)) {
-        r.status = AuditStatus::FAIL; r.detail = "unreadable: " + check.path;
-        return r;
-    }
-    JsonValue doc;
-    try { doc = JsonParser(content).parse(); }
-    catch (const JsonError&) {
+    bool unreadable = false;
+    const auto docp = cached_json(target, &unreadable);
+    if (!docp) {
         r.status = AuditStatus::FAIL;
-        r.detail = "invalid json: " + check.path;
+        r.detail = (unreadable ? "unreadable: " : "invalid json: ")
+            + check.path;
         return r;
     }
+    const JsonValue& doc = *docp;
     if (doc.type != JsonValue::Type::Object) {
         r.status = AuditStatus::FAIL;
         r.detail = "json root is not an object: " + check.path;

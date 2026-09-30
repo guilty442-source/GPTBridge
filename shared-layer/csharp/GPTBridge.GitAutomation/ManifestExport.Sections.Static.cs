@@ -230,12 +230,259 @@ internal static partial class ManifestExport
                 "\"hello\"", "\"claim\"", "\"respond\"",
                 "\"request_cancelled\"", "\"notification_stamp\"",
             });
+        e.Contains("tool-host:proxy-submit-ops",
+            $"{toolHost}/TransportProxyClient.cs",
+            new[]
+            {
+                "SubmitRequestAsync", "SubmitResponseAsync",
+                "SubmitCancelAsync", "\"request\"", "\"response\"",
+                "\"cancel\"", "SubmitBinding",
+            });
         e.Contains("tool-host:spawn-exe-branch",
             "main-system/config/tool-runtime-contract.json",
             new[] { "\"allowed_modes\"", "\"executable\"" });
         e.Contains("tool-host:resolver-native-entry",
             "main-system/config/tool-runtime-contract.json",
             new[] { "\"special-unpackaged\"", "\"exe_required\"" });
+
+        const string toolHostApp =
+            "shared-layer/csharp/GPTBridge.ToolHost.App";
+        e.Checks.Add(new JsonObject
+        {
+            ["id"] = "tool-host:dir:GPTBridge.ToolHost.App",
+            ["kind"] = "dir-exists",
+            ["path"] = toolHostApp,
+        });
+        // The generic host exe runs inside the same E4 boundary: no
+        // credential minting, no transport-store access.
+        foreach (var marker in new[]
+        {
+            "HMACSHA", "issue_token", "launcher_key",
+            "integrity_manifest", "identity_attestation",
+            "gptbridge_transport", "Npgsql", "pg_notify",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"tool-host-app:forbidden:{marker}",
+                ["kind"] = "glob-not-contains",
+                ["glob"] = $"{toolHostApp}/*.cs",
+                ["markers"] = Emitter.Arr(new[] { marker }),
+            });
+
+        const string permissionLib =
+            "shared-layer/csharp/GPTBridge.Permission/" +
+            "GPTBridge.Permission";
+        foreach (var rel in new[]
+        {
+            $"{permissionLib}/GPTBridge.Permission.csproj",
+            $"{permissionLib}/PermissionGrant.cs",
+            $"{permissionLib}/PermissionGrantLedger.cs",
+            $"{permissionLib}/PermissionLifecycleAutomation.cs",
+            $"{permissionLib}/PermissionLifecycleAdjudicator.cs",
+            $"{permissionLib}/RegistrySnapshot.cs",
+            $"{permissionLib}/DirectorySyncAutomation.cs",
+            $"{permissionLib}/ComplianceMonitorAutomation.cs",
+            $"{permissionLib}/SelfHealingAutomation.cs",
+            $"{permissionLib}/AuditSchedulerAutomation.cs",
+            $"{permissionLib}/IdentityGroupManager.cs",
+            $"{permissionLib}/IdentityGroupLifecycleAutomation.cs",
+            "shared-layer/csharp/GPTBridge.Permission/" +
+            "GPTBridge.Permission.Tests/" +
+            "GPTBridge.Permission.Tests.csproj",
+            "shared-layer/csharp/GPTBridge.Permission/" +
+            "GPTBridge.Permission.Tests/" +
+            "PermissionResidualTests.cs",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"permission-core:{rel.Split('/')[^1]}",
+                ["kind"] = "file-exists",
+                ["path"] = rel,
+            });
+        e.Contains("permission-core:ledger-schema",
+            $"{permissionLib}/PermissionGrantLedger.cs",
+            new[]
+            {
+                "permission-grant-ledger.jsonl",
+                "permission-violation-ledger.jsonl",
+                "\"terminate\"", "\"revoke\"", "\"suspend\"",
+            });
+        e.Contains("permission-core:delegated-execution",
+            $"{permissionLib}/PermissionLifecycleAdjudicator.cs",
+            new[]
+            {
+                "delegated-to-governed-executor",
+                "MISSING_PERMISSION_ID", "PERMISSION_NOT_ISSUED",
+                "PERMISSION_ALREADY_TERMINATED",
+            });
+        e.Contains("permission-core:stop-triggers",
+            $"{permissionLib}/PermissionLifecycleAutomation.cs",
+            new[]
+            {
+                "MapStopTrigger", "PermissionStopTrigger.SecurityEvent",
+                "LifecycleOperation.Suspend",
+                "LifecycleOperation.Revoke",
+                "LifecycleOperation.Terminate",
+            });
+        e.Contains("permission-core:directory-sync",
+            $"{permissionLib}/DirectorySyncAutomation.cs",
+            new[]
+            {
+                "RunOnceAsync", "SHA256.HashData",
+                "InitialCodeVersion", "AuthorityCurrentVersion",
+                "IdentityGroupIds.Count",
+            });
+        e.Contains("permission-core:compliance-monitor",
+            $"{permissionLib}/ComplianceMonitorAutomation.cs",
+            new[]
+            {
+                "RunOnceAsync", "ComplianceSeverity.Critical",
+                "grant-actor-not-in-directory",
+                "high_risk_actors", "unresolved_violations",
+            });
+        e.Contains("permission-core:self-healing",
+            $"{permissionLib}/SelfHealingAutomation.cs",
+            new[]
+            {
+                "HealingIssue.DirectoryAccess",
+                "HealingIssue.GovernanceConnection",
+                "HealingIssue.SovereignState",
+                "HealingIssue.DirectoryPermissions",
+                "RegisterRepair",
+            });
+        e.Contains("permission-core:audit-scheduler",
+            $"{permissionLib}/AuditSchedulerAutomation.cs",
+            new[]
+            {
+                "audit-engine.exe", "RunOnceAsync",
+                "CancelAfter", "[PASS]",
+            });
+        e.Contains("permission-core:identity-groups",
+            $"{permissionLib}/IdentityGroupManager.cs",
+            new[]
+            {
+                "RegisterGroup", "ReconcileWithDirectory",
+                "unregistered_in_directory", "duplicate_actor",
+                "ResolveConflicts",
+            });
+        e.Contains("permission-core:identity-lifecycle",
+            $"{permissionLib}/IdentityGroupLifecycleAutomation.cs",
+            new[]
+            {
+                "RunOnceAsync", "GroupDeletionProposal",
+                "PendingDeletions", "DeleteGroup",
+                "identity-group-lifecycle.jsonl",
+            });
+
+        // 星澄 AI 投資管理與自動操盤系統 — investment-mobile native
+        // service: sealed xingcheng relay, AI signal/proposal intake,
+        // native risk+strategy gates, SHADOW/PAPER autotrade (LIVE
+        // phase-locked). The retired Python channel_runtime lane is
+        // replaced by src/InvestmentMobile.ToolHost.exe.
+        const string invSvc =
+            "Standalone tools/investment-mobile/src/" +
+            "InvestmentMobile.Service";
+        const string invHost =
+            "Standalone tools/investment-mobile/src/" +
+            "InvestmentMobile.ToolHost";
+        const string invTests =
+            "Standalone tools/investment-mobile/src/" +
+            "InvestmentMobile.Service.Tests";
+        foreach (var rel in new[]
+        {
+            $"{invSvc}/InvestmentMobile.Service.csproj",
+            $"{invSvc}/XingchengChannel.cs",
+            $"{invSvc}/InvestmentMobileService.cs",
+            $"{invSvc}/SignalBook.cs",
+            $"{invSvc}/AiSignalIntake.cs",
+            $"{invSvc}/NativeRiskGate.cs",
+            $"{invSvc}/AutoTradingEngine.cs",
+            $"{invSvc}/TradingEngineCluster.cs",
+            $"{invSvc}/ProxySubmitChannel.cs",
+            $"{invHost}/InvestmentMobile.ToolHost.csproj",
+            $"{invHost}/Program.cs",
+            $"{invTests}/InvestmentMobile.Service.Tests.csproj",
+            $"{invTests}/ServiceContractTests.cs",
+            $"{invTests}/PipelineTests.cs",
+            $"{invTests}/EngineClusterTests.cs",
+            $"{invTests}/SubmitChannelTests.cs",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"investment-mobile:{rel.Split('/')[^1]}",
+                ["kind"] = "file-exists",
+                ["path"] = rel,
+            });
+        e.Contains("investment-mobile:sealed-route",
+            $"{invSvc}/XingchengChannel.cs",
+            new[]
+            {
+                "xingcheng_mobile_get_investment_snapshot",
+                "xingcheng_mobile_submit_investment_instruction",
+                "AI_CHANNEL_NOT_CONNECTED",
+                "governance/main-system",
+                "governance/tool/investment-mobile",
+            });
+        e.Contains("investment-mobile:ai-boundary",
+            $"{invSvc}/AiSignalIntake.cs",
+            new[]
+            {
+                "INVALID_PROPOSAL", "SubmitSignal", "SubmitProposal",
+                "DrainProposals",
+            });
+        e.Contains("investment-mobile:risk-gate",
+            $"{invSvc}/NativeRiskGate.cs",
+            new[]
+            {
+                "risk_evaluate_order", "RISK_ENGINE_UNAVAILABLE",
+                "RiskOrderInput", "AllowedMarketMask",
+            });
+        e.Contains("investment-mobile:autotrade",
+            $"{invSvc}/AutoTradingEngine.cs",
+            new[]
+            {
+                "RunOnceAsync", "ModelBlocked", "RiskHalted",
+                "LIVE_PHASE_LOCKED", "AiAssisted",
+            });
+        e.Contains("investment-mobile:cluster",
+            $"{invSvc}/TradingEngineCluster.cs",
+            new[]
+            {
+                "investment-mobile-signal-ingest",
+                "investment-mobile-autotrade-recover",
+                "RESUME_REQUIRES_GOVERNANCE",
+                "investment-mobile-autotrade-risk-check",
+            });
+        e.Contains("investment-mobile:native-entry",
+            "Standalone tools/investment-mobile/manifest.json",
+            new[]
+            {
+                "dist/InvestmentMobile.ToolHost.exe",
+                "\"native_entry\"",
+            });
+        e.Contains("investment-mobile:submit-channel",
+            $"{invSvc}/ProxySubmitChannel.cs",
+            new[]
+            {
+                "SubmitRequestAsync", "SubmitResponseAsync",
+                "SubmitCancelAsync", "REQUEST_TIMEOUT",
+                "AI_CHANNEL_NOT_CONNECTED",
+            });
+        // Same E4 boundary as the governed host: the service never
+        // mints tokens or touches transport internals.
+        foreach (var marker in new[]
+        {
+            "HMACSHA", "issue_token", "launcher_key",
+            "integrity_manifest", "identity_attestation",
+            "gptbridge_transport", "Npgsql", "pg_notify",
+        })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"investment-mobile:forbidden:{marker}",
+                ["kind"] = "glob-not-contains",
+                ["glob"] = $"{invSvc}/*.cs",
+                ["markers"] = Emitter.Arr(new[] { marker }),
+            });
 
         var tsExclude = new[]
         {

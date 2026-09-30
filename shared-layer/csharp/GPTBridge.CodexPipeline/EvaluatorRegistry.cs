@@ -43,6 +43,21 @@ internal static class EvaluatorRegistry
         if (doc?["evaluators"] is JsonObject evaluators)
             foreach (var (code, _) in evaluators)
                 codes.Add(code);
+        // Python parity: every DECLARED_PROVISION_RULES key was
+        // auto-registered as a machine evaluator via
+        // _declared_provision_evaluator(provision_id).
+        if (doc?["DECLARED_PROVISION_RULES"] is JsonObject declared)
+            foreach (var (code, _) in declared)
+                codes.Add(code);
+        // ``REGISTERED_RULE_CODES`` is the frozen union list emitted by
+        // the Python module (machine predicates + declared rules +
+        // post-loop registrations).
+        if (doc?["REGISTERED_RULE_CODES"] is JsonArray registered)
+            foreach (var item in registered)
+                if (item is JsonValue value
+                    && value.TryGetValue<string>(out var code)
+                    && code.Length > 0)
+                    codes.Add(code);
         if (codes.Count == 0)
             throw new InvalidOperationException(
                 "FORMAL_RULE_EVALUATOR_REGISTRY_UNAVAILABLE:empty");

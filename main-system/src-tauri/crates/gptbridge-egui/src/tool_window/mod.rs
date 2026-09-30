@@ -66,19 +66,20 @@ pub fn run_tool_window(cfg: ToolWindowConfig) -> eframe::Result<()> {
             .with_min_inner_size([720.0, 560.0]),
         ..Default::default()
     };
+    let launch = |app: Box<dyn eframe::App>| {
+        eframe::run_native(
+            &title,
+            options.clone(),
+            Box::new(|cc| {
+                crate::fonts::install_ui_fonts(&cc.egui_ctx);
+                Ok(app)
+            }),
+        )
+    };
     match cfg.tool_id.as_str() {
-        "model-dialogue" | "star-chat" => {
-            let app = StarChatWindow::new(cfg);
-            eframe::run_native(&title, options, Box::new(|_cc| Ok(Box::new(app))))
-        }
-        "file-sorter" => {
-            let app = crate::tool_file_sorter::FileSorterWindow::new(cfg);
-            eframe::run_native(&title, options, Box::new(|_cc| Ok(Box::new(app))))
-        }
-        "vaultly" => {
-            let app = crate::tool_vaultly::VaultlyWindow::new(cfg);
-            eframe::run_native(&title, options, Box::new(|_cc| Ok(Box::new(app))))
-        }
+        "model-dialogue" | "star-chat" => launch(Box::new(StarChatWindow::new(cfg))),
+        "file-sorter" => launch(Box::new(crate::tool_file_sorter::FileSorterWindow::new(cfg))),
+        "vaultly" => launch(Box::new(crate::tool_vaultly::VaultlyWindow::new(cfg))),
         other => {
             eprintln!("NATIVE_UI_UNSUPPORTED:{other}");
             std::process::exit(2);

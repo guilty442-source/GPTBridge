@@ -9,12 +9,9 @@ use tauri::{Manager, WebviewUrl};
 use crate::tool_bridge;
 use crate::webview_host as embedded;
 
-use super::backend::{TOOL_PRELOAD_SHIM, acquire_tool_mutex, spawn_packaged_backend};
+use super::backend::{TOOL_PRELOAD_SHIM, acquire_tool_mutex};
 use super::config::{load_env_config, load_packaged_config};
-use super::{
-    SHUTDOWN_DEADLINE_MS, backend_child_pid, shutdown_complete,
-    tool_config, tool_config_cell, tool_log,
-};
+use super::{shutdown_complete, tool_config, tool_config_cell, tool_log};
 
 fn renderer_file_url(entry: &Path) -> tauri::Url {
     tauri::Url::from_file_path(entry).unwrap_or_else(|_| "about:blank".parse().unwrap())
@@ -70,19 +67,6 @@ fn shutdown(app: &tauri::AppHandle) {
     }
     embedded::close_all_sessions(app);
     tool_bridge::stop_tool_bridge();
-    let pid = *backend_child_pid().lock().unwrap();
-    if pid != 0 {
-        // Packaged backend spawned by this host — bounded tree kill so the
-        // window never leaves a detached backend behind.
-        let (tx, rx) = std::sync::mpsc::channel::<()>();
-        std::thread::spawn(move || {
-            let _ = std::process::Command::new("taskkill")
-                .args(["/PID", &pid.to_string(), "/T", "/F"])
-                .output();
-            let _ = tx.send(());
-        });
-        let _ = rx.recv_timeout(Duration::from_millis(SHUTDOWN_DEADLINE_MS));
-    }
     tool_log("tool.window-closed", "");
 }
 
@@ -124,19 +108,6 @@ pub fn run() -> i32 {
         worker_data_root: config.cache_root.join("embedded-webview"),
         worker_events: true,
     });
-
-    match spawn_packaged_backend(&config) {
-        Ok(pid) => {
-            *backend_child_pid().lock().unwrap() = pid;
-            if pid != 0 {
-                tool_log("backend.spawned", &config.tool_id);
-            }
-        }
-        Err(message) => {
-            tool_log("backend.start-failed", &message);
-            return 1;
-        }
-    }
 
     let renderer_entry = config.renderer_entry.clone();
     let width = config.width;

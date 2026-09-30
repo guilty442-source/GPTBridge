@@ -230,16 +230,26 @@ export const createBackendSocket = () => {
 				reconnectAttempt = 0;
 				resetBackendRecovery();
 				updateBackendConnectionSnapshot("Connected", current, true);
-				store.merge({ status: "Connected", reconnectAttempt: 0 });
-				eventBus.emit("socket_connected", { connected: true });
+				// Status pushes arrive every cycle; merge only on an actual
+				// transition so subscribers don't re-render on every push.
+				const prev = store.get();
+				if (prev.status !== "Connected" || prev.reconnectAttempt !== 0) {
+					store.merge({ status: "Connected", reconnectAttempt: 0 });
+					eventBus.emit("socket_connected", { connected: true });
+				}
 				flushCommandQueue();
-				store.merge({ queuedCommands: commandQueue.length - commandQueueHead });
+				const pending = commandQueue.length - commandQueueHead;
+				if (store.get().queuedCommands !== pending) {
+					store.merge({ queuedCommands: pending });
+				}
 			} else {
 				// No polling: the backend pushes a fresh report every cycle and on
 				// every readiness change, so this state converges without requests.
 				updateBackendConnectionSnapshot("Synchronizing", current, false);
-				store.merge({ status: "Synchronizing" });
-				eventBus.emit("socket_connected", { connected: false });
+				if (store.get().status !== "Synchronizing") {
+					store.merge({ status: "Synchronizing" });
+					eventBus.emit("socket_connected", { connected: false });
+				}
 				// A195/A196: a startup_dead payload means the
 				// backend PROCESS is alive (it just sent us a message) but its
 				// runtime init failed — the governed recovery owner is boot_core,

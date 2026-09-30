@@ -2356,7 +2356,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/model-dialogue/star-chat/tests/test_star_chat.py",
+   "source_test": "Standalone tools/model-dialogue/star-chat/tests/test_star_chat.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2365,7 +2365,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/model-dialogue/tests/test_generation_controls.py",
+   "source_test": "Standalone tools/model-dialogue/tests/test_generation_controls.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2374,7 +2374,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_contracts.py",
+   "source_test": "Standalone tools/model-dialogue/tests/test_model_dialogue_contracts.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2383,7 +2383,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/model-dialogue/tests/test_model_dialogue_reexport.py",
+   "source_test": "Standalone tools/model-dialogue/tests/test_model_dialogue_reexport.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",

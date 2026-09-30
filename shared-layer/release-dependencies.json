@@ -2,10 +2,11 @@
   "contract_version": 1,
   "release_root_markers": [
     "src-core",
-    ".venv",
     "config"
   ],
   "python": {
+    "status": "retired",
+    "note": "B166/B167/B38: Python is not part of the release payload; no interpreter, venv, package or extension may ship or be required",
     "version_range": {
       "min": [
         3,
@@ -55,6 +56,8 @@
     {
       "module": "numpy",
       "class": "RELEASE_DEPENDENCY",
+      "status": "retired",
+      "note": "Python module dependency retired (B166)",
       "required": false,
       "allowed_roots": [
         "main-system/.venv/Lib/site-packages",
@@ -70,6 +73,8 @@
     {
       "module": "torch",
       "class": "RELEASE_DEPENDENCY",
+      "status": "retired",
+      "note": "Python module dependency retired (B166)",
       "required": false,
       "allowed_roots": [
         "main-system/.venv/Lib/site-packages",
@@ -122,7 +127,10 @@
     "main-system/runtime"
   ],
   "runtime_environment": {
+    "status": "retired-python",
+    "note": "B166/B167/B38: no Python runtime or venv ships or is required; entries below are historical evidence",
     "python": {
+      "status": "retired",
       "version": "3.14.7",
       "version_range": {
         "min": [
@@ -138,26 +146,28 @@
       "bits": 64
     },
     "venv": {
-      "required": true,
+      "required": false,
+      "status": "retired",
       "include_system_site_packages": false,
       "user_site": "forbidden",
       "pythonpath": "forbidden",
       "require_built_at_final_location": true,
       "pyvenv_cfg_sha256": "03b8c6664dd276712d40e3c128cb084b7dd02181f0d389f3162c6bd1afac1b6a",
-      "note": "RC venv rebuilt at main-system/runtime/releases/rc-2026-09-21/venv (G76)"
+      "note": "RC venv rebuilt at main-system/runtime/releases/rc-2026-09-21/venv (G76); retired with the Python lane (B166)"
     },
-    "site_packages_roots": [
-      "main-system/.venv/Lib/site-packages",
-      "venv/Lib/site-packages"
-    ]
+    "site_packages_roots": []
   },
   "dependency_lock": {
+    "status": "retired",
+    "note": "Python package lock retired with the Python lane (B166); native/C# owners carry their own dependency manifests",
     "identity": "a8199078c3c5b7dbb36aa12fe16b03a1a58b7a22a48125fb6404bef5a516b5d2",
     "entries": 52,
     "source": "importlib.metadata@rc-2026-09-21/venv measured 2026-09-21 (uv sync --locked --extra local-model; torch pinned cpu build)"
   },
   "native_extensions": [
     {
+      "status": "retired",
+      "note": "Python extension modules (.pyd) retired with the Python lane (B166); native ABI ships as plain DLL via xingcheng_engine_c.h / gptbridge_native.h",
       "file": "backend/core_system/native/_sovereign_native.cp311-win_amd64.pyd",
       "machine": "AMD64",
       "abi": "cp311",
@@ -206,23 +216,28 @@
       "owner": "Standalone tools/local-model"
     }
   ],
-  "required_dlls": [
-    "venv/Lib/site-packages/numpy.libs/libscipy_openblas64_-63c857e738469261263c764a36be9436.dll",
-    "venv/Lib/site-packages/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
-    "venv/Lib/site-packages/psycopg_binary.libs/libcrypto-3-x64-f68dc1082768389676d5901a38532935.dll",
-    "venv/Lib/site-packages/psycopg_binary.libs/libpq-6313a3ff78f1e8f3f57b69cdef91d822.dll",
-    "venv/Lib/site-packages/psycopg_binary.libs/libssl-3-x64-6439b6cfa7f3ef0146444effd227e690.dll"
-  ],
+  "required_dlls": {
+    "status": "retired",
+    "note": "all entries were Python venv site-packages DLLs — retired with the Python lane (B166); native engine DLLs are covered by the native ABI contract",
+    "files": [
+      "venv/Lib/site-packages/numpy.libs/libscipy_openblas64_-63c857e738469261263c764a36be9436.dll",
+      "venv/Lib/site-packages/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll",
+      "venv/Lib/site-packages/psycopg_binary.libs/libcrypto-3-x64-f68dc1082768389676d5901a38532935.dll",
+      "venv/Lib/site-packages/psycopg_binary.libs/libpq-6313a3ff78f1e8f3f57b69cdef91d822.dll",
+      "venv/Lib/site-packages/psycopg_binary.libs/libssl-3-x64-6439b6cfa7f3ef0146444effd227e690.dll"
+    ]
+  },
   "shared_layer_classification": [
     {
       "path": "shared-layer/src/shared_layer/contracts",
       "class": "RUNTIME_CONTRACT",
-      "evidence": "registry.py CanonicalTypeRegistry (versioned, language-neutral, append-only)"
+      "evidence": "registry.json CanonicalTypeRegistry JSON port (versioned, language-neutral, append-only)"
     },
     {
       "path": "shared-layer/src/shared_layer/security",
       "class": "RUNTIME_CONTRACT",
-      "evidence": "session_identity/generation/rotation/dsn_policy contract modules (A087)"
+      "status": "retired-python",
+      "evidence": "session_identity/generation/rotation/dsn_policy contract modules (A087); Python implementation retired (B166) — only .json port files remain"
     },
     {
       "path": "shared-layer/csharp/GPTBridge.ChannelHost",
@@ -235,34 +250,28 @@
       "evidence": "A263 information-layer channel runtime (canonical C# owner); one resident instance"
     },
     {
-      "path": "shared-layer/src/shared_layer/store.py",
-      "class": "SHARED_SERVICE",
-      "evidence": "central transport store on PostgreSQL canonical (single authority)"
-    },
-    {
-      "path": "shared-layer/src/shared_layer/store_async.py",
-      "class": "SHARED_SERVICE",
-      "evidence": "async transport store; same canonical transport authority"
-    },
-    {
       "path": "shared-layer/src/shared_layer/database",
       "class": "RELEASE_DEPENDENCY",
-      "evidence": "PG lifecycle/pool/migration library packaged with the release"
+      "status": "retired-python",
+      "evidence": "PG lifecycle/pool/migration library packaged with the release; Python implementation retired (B166) — only .json port files remain"
     },
     {
       "path": "shared-layer/src/shared_layer/adaptive",
       "class": "RELEASE_DEPENDENCY",
-      "evidence": "bounded control plane library (envelope 2-8/50-500/1-2)"
+      "status": "retired-python",
+      "evidence": "bounded control plane library (envelope 2-8/50-500/1-2); Python implementation retired (B166) — only .json port files remain"
     },
     {
       "path": "shared-layer/src/shared_layer/workflow",
       "class": "RELEASE_DEPENDENCY",
-      "evidence": "Saga/outbox library; PostgreSQL remains operation authority"
+      "status": "retired-python",
+      "evidence": "Saga/outbox library; PostgreSQL remains operation authority; Python implementation retired (B166) — only .json port files remain"
     },
     {
       "path": "shared-layer/src/shared_layer/local",
       "class": "PERSISTENT_STATE",
-      "evidence": "retired local-state shim; PostgreSQL sole authority; never copied as authority"
+      "status": "retired-python",
+      "evidence": "retired local-state shim; PostgreSQL sole authority; never copied as authority; Python implementation removed (B166)"
     },
     {
       "path": "shared-layer/src/ui/toolWindow",
@@ -273,8 +282,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-09-29T03:01:49Z",
-    "codex_sha256": "7ea9fe2d98067dcc35fa90e7b5be1e6f97744652cc5cf8fc0d4f861e39b99fde",
+    "codex_version": "2026-09-29T15:47:57Z",
+    "codex_sha256": "244b24a6b3be47849771724a1fe134bce22bd0e5458378af767227d20fd21097",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -295,12 +304,12 @@
     "*.onnx"
   ],
   "shared_layer_contract": {
-    "version_key": "shared_layer.contracts.registry:REGISTRY_VERSION",
+    "version_key": "shared-layer/src/shared_layer/contracts/registry.json:registry_version",
     "version": 1,
     "compatible_versions": [
       1
     ],
-    "contract_file": "shared-layer/src/shared_layer/contracts/registry.py"
+    "contract_file": "shared-layer/src/shared_layer/contracts/registry.json"
   },
   "service_topology": {
     "shared_layer_service": {
@@ -314,14 +323,16 @@
   },
   "governance_dependencies": [
     {
-      "dependency": "governance_rule.execution.audit",
-      "kind": "module",
-      "required": true
+      "dependency": "governance_rule/execution/audit/audit_checks_manifest.json",
+      "kind": "manifest",
+      "required": true,
+      "note": "executed by the native audit engine (native/test_suites/bin/audit-engine.exe); replaces the retired governance_rule.execution.audit Python module (B166)"
     },
     {
-      "dependency": "governance_rule.execution.codex_postgresql",
-      "kind": "module",
-      "required": true
+      "dependency": "shared-layer/csharp/GPTBridge.CodexPipeline",
+      "kind": "csharp-host",
+      "required": true,
+      "note": "replaces the retired governance_rule.execution.codex_postgresql Python module (B166)"
     },
     {
       "dependency": "governance_rule/permission_directory",
@@ -440,13 +451,13 @@
   },
   "config_contract": {
     "required_files": {
-      "main-system/config/tool-runtime-contract.json": "4677327c3aa089799b8d4b719c0c061a87a2b862c05949aae8b75f4754c57318",
+      "main-system/config/tool-runtime-contract.json": "8d604adfdea752d14a27682ed92addb0b4056a643e798605dee713e40c4813cc",
       "main-system/config/tool-isolation-policy.json": "caaf5cd5f154399d4b105cc9b546cffb65647155122564aaf2ca162535fe944c",
       "main-system/config/startup_manifest.json": "d6822763e8a4710f80e8704552969ad08c8ce996d806834af8938414208955bb",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
       "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
       "shared-layer/database-release.json": "388f304da1a8549aa08a9dc88061658bee9507f9291fa671b1f3c48dd0287d3e",
-      "Standalone tools/local-model/runtime/settings/native-engine.json": "370eaf7a3b5e6b2c63b582d598804aea95007f5cbae42ea6b0f490cc67178f05"
+      "Standalone tools/local-model/runtime/settings/native-engine.json": "bfbc7980cf7eacfa15c92d2d94055ed7028fb740885010d4d8c958f11ba67abc"
     },
     "database_schema": {
       "manifest": "shared-layer/database-release.json",
@@ -499,6 +510,8 @@
     "note": "packaged mode overrides RELEASE_ROOT via GPTBRIDGE_RELEASE_ROOT; roots never rely on the process working directory"
   },
   "native_measurement": {
+    "status": "retired",
+    "note": "measured via the retired Python lane (B166); kept as historical evidence",
     "measured_at": "2026-09-21",
     "method": "psutil.Process().memory_maps() + sys.modules extension scan on core_system+shared_layer import surface",
     "extension_modules_loaded": 19,

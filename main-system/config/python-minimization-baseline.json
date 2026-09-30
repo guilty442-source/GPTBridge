@@ -235,7 +235,7 @@
     "note": "production runtime .py only; tests/eval/scripts/build/acceptance/migration/provision/rehearsal/cache excluded; first-match substring classification over the '/'-normalized lowercase repo-relative path; unmatched -> GENERAL_APP",
     "scan_roots": [
       "Standalone tools/local-model/src",
-      "Standalone tools/local-model/model-dialogue/src",
+      "Standalone tools/model-dialogue/src",
       "main-system/src-core",
       "shared-layer/src",
       "governance_rule",

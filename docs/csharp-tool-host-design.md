@@ -1,5 +1,11 @@
 # 設計：受管 C# 工具 Host（`GPTBridge.ToolHost`）
 
+> 歷史設計文件：文中所有 Python fallback／降級路徑、`transport_proxy.py`
+> spawn、`channel_runtime.py` 與 pytest 合約測試均隨 Python 艦隊退役
+> （B166/B167/B38）。原生接替：`GPTBridge.ToolHost`（C#）＋
+> `GPTBridge.Channels`/`GPTBridge.ChannelHost`（A263）；Python 路徑不復存在，
+> 亦不得恢復。
+
 > 目標：把 `migrate-csharp` 佇列中的「按需工具型」標的從 Python 受管 runtime
 > 遷到 C#，作為後續 resident/channel host 的範式。
 > 首個 workload：`system-rescue`（on-demand、headless、channel-only）。

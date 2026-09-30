@@ -2,7 +2,7 @@
 
 PostgreSQL `gptbridge_codex` 是唯一法典權威。不得保留 SQL dump、資料庫檔、JSON、快取、備份或其他 machine Codex 鏡像；唯一例外是五份唯讀中文法典鏡像，其不具裁決、執行、匯入、寫入或回退權。架構圖只是同步投影，不是法典鏡像或權威。
 
-程式語言分工由 C、C++23、C#、Rust、Go、F# 六語言池在既有責任與契約內自適化配置。既有分工只作原則參考與初始偏好，不構成固定語言綁定；每項能力同時只能有一個主要語言擁有者，並以正確性、安全、效能、資源與維護證據決定。調整只能在六種語言內進行，不得改變權威、權限、業務語意、引入第七種語言或建立重複執行路徑。Python 與直譯式執行全面禁止，正式環境只執行已驗證的預編譯原生產物。
+程式語言分工由 C、C++23、C#、Rust、Go、F# 核心語言池在既有責任與契約內自適化配置，Tauri、Wails 或 Qt UI 另可使用受管 Bun 執行 JavaScript ESM。每項能力同時只能有一個主要語言擁有者，並以正確性、安全、效能、資源與維護證據決定；不得改變權威、權限、業務語意或建立重複執行路徑。Python 全面禁止。
 
 本文件是現行 PostgreSQL Codex 與架構登記的非權威同步投影。衝突時以最新已發布 Codex 為準；業務規則與實作細節由各 owner-local contract 管理。
 
@@ -10,7 +10,7 @@ PostgreSQL `gptbridge_codex` 是唯一法典權威。不得保留 SQL dump、資
 
 ```mermaid
 flowchart TB
-  USER[使用者] --> UI[主系統 Tauri UI]
+  USER[使用者] --> UI[核准 Tauri／Wails／Qt UI]
   UI --> INFO[Information Channel]
   CODEX[(PostgreSQL Codex<br/>唯一治理權威)] --> DEC[Decision Core]
   CODEX --> PERM[Permission Core]
@@ -66,11 +66,11 @@ flowchart TB
   ROOT --> T4[investment-mobile<br/>投資管家手機版]
   ROOT --> T5[local-model<br/>本地模型]
   ROOT --> T6[vaultly<br/>影音下載自動化]
-  ROOT --> T7[model-dialogue<br/>模型對話]
-  T5 --> XC[星澄原生模型]
+  ROOT --> T7[model-dialogue／對話<br/>獨立本地 LLM 工具]
+  SERVICES[Independent Services] --> XC[星澄原生模型服務<br/>無工具卡片]
 ```
 
-只有上述七項是獨立工具。星澄、星澄助理、搜尋服務、資源管制器、資料服務及修復／學習能力均不是獨立工具；已退役工具不得重新進入現行拓撲。
+只有上述七項是獨立工具。星澄已從 `local-model` 分離為具獨立程序、生命週期、服務身分、擁有根與 PostgreSQL 資料範圍的本地原生模型服務，但不建立獨立工具卡片，也不計入七工具名單。星澄助理、搜尋服務、資源管制器、資料服務及修復／學習能力均不是獨立工具；已退役工具不得重新進入現行拓撲。
 
 ## 四、資料與 SQL
 
@@ -137,18 +137,25 @@ Git 只管理原始碼版本與開發歷史。每次提交限定明確路徑，�
 ```mermaid
 flowchart TB
   RUST[Rust 1.98.1<br/>UI Core, State, Lifecycle, IPC, Security, RAG and Vector]
-  TAURI[Tauri<br/>Desktop Shell and WebView]
-  JS[Native JavaScript ESM + JSDoc<br/>General UI]
+  TAURI[Tauri<br/>Rust Desktop Shell]
+  WAILS[Wails<br/>Go Desktop Shell]
+  QT[Qt<br/>C++23 Desktop Shell and Native Views]
+  BUN[Bun + JavaScript ESM<br/>Managed UI Presentation]
+  RUSTUI[Rust<br/>UI Core, State, Lifecycle, IPC and Security]
   GPUI[GPUI<br/>Model Dialogue and Coding Workspace]
+  SLINT[Slint<br/>Native Declarative UI]
   EGUI[egui<br/>Diagnostics and Engineering Console]
-  RUST --> TAURI --> JS
+  RUST --> TAURI --> BUN --> RUSTUI
+  GO[Go Application Core] --> WAILS --> BUN
+  CPP[C++23 Application Core] --> QT --> RUSTUI
   RUST --> GPUI
+  RUST --> SLINT
   RUST --> EGUI
 ```
 
-Electron、TypeScript、Node.js、React 不屬現行 UI 架構。C／C++／Rust 承載高頻原生工作，C++23 亦承載星澄內部原生訓練與正式推論，C# 承載應用與工作流，F# 承載業務規則、訓練評估與高正確性分析，Go 承載高併發網路／檔案／批次，Julia 承載科學計算。Python 全面禁止並立即生效：零角色、零原始碼、零直譯器、零虛擬環境、零套件、零相依、零建置、零測試、零審計、零訓練、零推論、零腳本、零工具、零常駐、零產物、零回退；禁止下載、安裝、重新安裝、修復、還原、重建或補裝 Python、pip、NumPy、JAX 及其他 Python 套件。歷史文字只能作不可執行的歷史紀錄。原獨立 MODEL_TRAINING 模組維持退役，訓練僅為星澄內部能力。套件下載僅限 Visual Studio Installer 與 Winget 兩個通道；語言套件管理器（Cargo、Go modules、NuGet、npm、pip、Bun 等）不得連網下載（禁止透過 Bun 下載套件），只能使用受管相依根內已 vendored／已登錄的產物；兩通道皆無法提供者須先取得明確許可。Node 全面禁止：不得下載、安裝、重新安裝、執行或常駐。所有新增或修改的程式碼一律以已登錄之原生擁有語言撰寫，並以高效方式（編譯形式、批次、零複製、容量預留、單趟處理、受限並行）實作，須有量測證據；直譯／腳本與已退役 runtime 不得作為撰寫或回退目標。WebAssembly 為已登錄執行格式（UI 與受治理沙箱），僅得由已登錄原生擁有語言編譯產生，不得手寫或自網路取得未登錄產物；Tauri 桌面殼層保留。TypeScript 與 Node 全面禁用並立即生效；JavaScript-ESM 少用，互動關鍵與高頻視圖以原生 GPUI／egui 為主。
+Tauri、Wails 與 Qt 是核准桌面 UI 殼層；每個應用只能依 Rust、Go 或 C++23 擁有邊界選用其中一個，不得多重宿主。Bun 是 Tauri／Wails 內唯一核准的 UI script-engine 例外，只能執行已登錄且完整性驗證通過的 JavaScript ESM，禁止動態下載、`eval`、未登錄動態載入、套件安裝、程序派生與後端工作；Qt、GPUI、Slint 及 egui 維持原生執行。Electron、TypeScript、Node.js、React 與 Python 禁用；語言選擇不得新增權威、繞過權限或形成重複實作。
 
-Python 原責任依既有所有權直接收斂：C＝決定性規則與 ABI；C++23＝模型訓練、推論、原生測試及審計熱路徑；Rust＝程序、生命週期、安全、RAG、向量與 UI 核心；C#＝應用、API、工作流與唯一測試編排；F#＝業務規則、驗證、訓練評估與高正確性分析；Go＝檔案、網路及批次併發；Julia＝科學與大量數值運算；PostgreSQL＝集合式資料處理。禁止以 Python 橋接、代理、參考實作或回退保留舊責任。
+Python 原責任依既有所有權直接收斂：C＝決定性規則與 ABI；C++23＝模型訓練、推論、原生測試及審計熱路徑；Rust＝程序、生命週期、安全、RAG、向量與 UI 核心；C#＝應用、API、工作流與唯一測試編排；F#＝業務規則、驗證、訓練評估、科學與高正確性分析；Go＝檔案、網路及批次併發；PostgreSQL＝集合式資料處理。禁止以 Python 橋接、代理、參考實作或回退保留舊責任。
 
 正式程式碼語言限定為 C、C++23、C#、Rust、Go、F#。編譯器與連結器只屬受管建置工具；正式 runtime 不得啟動編譯器、直譯器、即時原始碼編譯器或腳本引擎，只執行已驗證的預編譯原生產物。C# 與 F# 發布使用 NativeAOT 或等價預先編譯形式，禁止依賴執行期動態編譯。
 
@@ -157,7 +164,7 @@ Python 原責任依既有所有權直接收斂：C＝決定性規則與 ABI；C+
 ```mermaid
 flowchart LR
   SRC[Source Revision] --> CSHARP[C# TestSuiteOrchestrator]
-  CSHARP --> NATIVE[C/C++/Rust/Go/.NET/JS/Julia Native Runners]
+  CSHARP --> NATIVE[C/C++/Rust/Go/.NET/JS Native Runners]
   NATIVE --> TEST[Typed Test Result]
   TEST --> CPP[C++23 Audit Engine]
   CPP --> AUDIT[Typed Audit Result]

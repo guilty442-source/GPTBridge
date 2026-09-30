@@ -1,0 +1,43 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "five-core-executive-boundary-20260929",
+  "title": "Five-core responsibility closure — authority/execution separation restated",
+  "summary": "Governor directive 2026-09-29: restate the five peer cores as closed authority classes with explicit execution-power boundaries. permission-core = identity management + all directory/registry list management + codex governance-plane management (identity registry, directory boundaries, managed read-only registry paths, codex directory entry, codex read-session mint and dual-key grants; codex content authority remains the PostgreSQL codex itself). decision-core = all decisions and governance management with zero execution power (policy, priority, change, result acceptance; forbidden: directly executing module work). runtime-core = the sole execution authority (startup, process lifecycle, governed dispatch, execution validation; forbidden: self-authorization, policy modification). automation-core = all system-wide automation flows and orchestration without execution power (scheduling and dispatch decisions only; forbidden: generating permissions, accepting results). xingcheng-assistant = global review, inspection and audit authority (all typed receipts/audits converge into its review surface; forbidden: substituting user choice, persisting xingcheng data, acting as repair or upgrade authority). EXECUTION-BOUNDARY: business executes at the registered-module layer; independent tools are physical isolation containers (process tree, lifecycle, data domain, UI, owner root) and are not themselves the business executors; modules hold single owner, single primary responsibility and no independent authority.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-09-29: five-core responsibility and execution-boundary restatement (verbatim clauses: permission-core owns identity/directory/codex management; decision-core owns all decisions and governance with no execution right; runtime-core is the sole execution right; automation-core owns all system-wide automation orchestration without execution right; xingcheng-assistant owns global review/inspection/audit; business executes in modules, not in independent tools)",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T05:25:52Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "873dc55c70ace5fa85a769fa3fc2f775a5739b969286389266324e6c0252ec39",
+    "revision_sequence": 176
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A604"
+      },
+      "field": "rule",
+      "proposed": "SUCCESSOR:A604 continues to control five-core and historical-sub-sovereign responsibility convergence; this amendment restates RESPONSIBILITY-NORMALIZATION in closed authority-class form. CURRENT-PEER-CORES:decision-core|permission-core|runtime-core|automation-core|xingcheng-assistant. XINGCHENG native model remains a separate owned model identity and not a core or independent tool. SUB-SOVEREIGN-LAYER:abolished; former identities are retired lineage only. AUTHORITY-CLASS-CLOSURE:permission-core owns identity management, all directory and registry list management, and codex governance-plane management (identity registry, directory boundaries, managed read-only registry paths, the GOVERNANCE_CODEX directory entry, codex read-session mint and dual-key grants; codex content authority remains the PostgreSQL codex itself and amendment adjudication remains decision-tier). decision-core owns all decisions and governance management and holds zero execution power (policy, priority, change and result acceptance; FORBID:decision-core-direct-module-execution). runtime-core is the sole execution authority (startup, process lifecycle, governed dispatch and execution validation; FORBID:runtime-core-self-authorization|runtime-core-policy-modification). automation-core owns all system-wide automation flows and orchestration and holds no execution power (scheduling and dispatch assignment only; FORBID:automation-core-permission-generation|automation-core-result-acceptance). xingcheng-assistant owns global review, inspection and audit authority (all typed receipts and audit evidence converge into its review surface; FORBID:assistant-user-choice-substitution|assistant-xingcheng-data-persistence|assistant-repair-authority|assistant-upgrade-authority|assistant-learning-ownership). EXECUTION-BOUNDARY:business executes at the registered-module layer only; independent tools are physical isolation containers (process tree, lifecycle, data domain, UI, owner root) and are not the business executors; modules hold a single owner, a single primary responsibility and contracts versioned by internal timestamps, with no independent authority. FORBID:module-self-governance|module-cross-owner-execution|tool-as-executor-of-record. LANGUAGE-RESPONSIBILITY and CORE-LANGUAGE-ASSIGNMENT clauses of A604 remain as amended by subsequent landed provisions (B36/B162/B167/B38 Python retirement; native language pool C/C++23/C#14/F#10/Go1.27.1/Rust1.98.1/Julia)."
+    }
+  ],
+  "evidence": {
+    "registries": [
+      "capability_dispatch_registry: decision_authority/execution_identity are distinct columns; business execution_identity is never a core",
+      "module_assignment_registry: automation-sovereign holds dispatch decision_authority for 9 module/services while execution_identity remains the module itself",
+      "sovereign_duties: system-runtime-sovereign = system-runtime-management|startup-shutdown-coordination|service-continuity|runtime-state-sync|runtime-dispatch-decision|execution-validation; decision-sovereign = six decision verbs only; codex declares no-execution-boundary",
+      "project_architecture_directory: GOVERNANCE_CODEX entry owner=permission-sovereign, tamper fails governance closed",
+      "architecture_assertion_evidence: GLOBAL_CLEANER_AUDIT_OWNER expected=observed=xingcheng-assistant (PASS)",
+      "articles C104/C105: FORBID assistant-as-repair-authority|xingcheng-self-upgrade-via-assistant|assistant-owning-native-model-learning"
+    ],
+    "physical_implementation": "GPTBridge.CodexPipeline (codex session mint/dual-key/grants), GPTBridge.MainSystem core_sovereigns resident set (decision/permission/system-runtime/maintenance), GPTBridge.GitAutomation + automation-flows.json (automation registry), governed tool runtime host for module execution",
+    "audit_state": "star-audit-engine/v1 2056/2056 PASS at source_revision 25f72091"
+  }
+}

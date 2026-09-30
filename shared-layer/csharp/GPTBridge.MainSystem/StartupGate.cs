@@ -48,16 +48,20 @@ public sealed class StartupGate
     private readonly DependencyProbes _probes;
     private readonly Func<string, CancellationToken, Task<ProbeResult>>?
         _bootstrapHandlers;
+    private readonly CoreActivationChecks _coreChecks;
 
     public StartupGate(
         StartupManifest manifest,
         DependencyProbes? probes = null,
         Func<string, CancellationToken, Task<ProbeResult>>?
-            bootstrapHandlers = null)
+            bootstrapHandlers = null,
+        string? projectRoot = null)
     {
         _manifest = manifest;
         _probes = probes ?? new DependencyProbes(manifest);
         _bootstrapHandlers = bootstrapHandlers;
+        _coreChecks = new CoreActivationChecks(
+            projectRoot ?? Environment.CurrentDirectory);
     }
 
     public async Task<StartupGateResult> RunAsync(
@@ -172,12 +176,30 @@ public sealed class StartupGate
         var deadlineExceeded = totalMs > gateDeadlineMs;
         if (deadlineExceeded) gateOk = false;
 
-        var observed = new Dictionary<string, bool>
+        var observed = new Dictionary<string, bool>();
+        foreach (var condition in _manifest.CoreReadyConditions)
         {
-            ["all-core-critical-dependencies-ready"] = dag.CoreCritical.All(
-                d => dependencyResults.TryGetValue(d.Identity, out var r)
-                     && r.Ready),
-        };
+            observed[condition] = condition switch
+            {
+                "all-core-critical-dependencies-ready" =>
+                    dag.CoreCritical.All(
+                        d => dependencyResults.TryGetValue(
+                            d.Identity, out var r) && r.Ready),
+                "official-codex-valid" =>
+                    await _coreChecks.OfficialCodexValid(ct)
+                        .ConfigureAwait(false),
+                "permission-sovereign-active" =>
+                    _coreChecks.PermissionActive(),
+                "decision-active" => _coreChecks.DecisionActive(),
+                "system-runtime-active" => _coreChecks.RuntimeActive(),
+                "automation-active" => _coreChecks.AutomationActive(),
+                "normal-information-layer-active" =>
+                    _coreChecks.NormalInformationLayerActive(),
+                // Fail-closed: an undeclared/unknown condition is
+                // observed false, matching VerifyCoreReady semantics.
+                _ => false,
+            };
+        }
         var coreReady = GovernedStartup.VerifyCoreReady(
             _manifest.CoreReadyConditions, observed);
 
@@ -198,19 +220,70 @@ public sealed class StartupGate
     {
         if (_bootstrapHandlers is not null)
             return await _bootstrapHandlers(phase, ct).ConfigureAwait(false);
-        // Default bootstrap gates are local preflight checks; the full
-        // governed handlers stay Python-side during migration (parity
-        // window). An unmapped gate reports deferred, never silently ok.
+        var start = Stopwatch.GetTimestamp();
+        // Native bootstrap gates (B162: no Python fallback). Each gate
+        // is a bounded local preflight; an unmapped phase reports
+        // deferred, never silently ok.
+        var (ready, message) = phase switch
+        {
+            "environment-check" => CheckEnvironment(),
+            "governance-audit" => CheckGovernanceAudit(),
+            _ => (false, "unmapped:deferred"),
+        };
         return new ProbeResult
         {
             Phase = phase,
             Label = phase,
             Critical = false,
-            Ready = false,
-            State = "deferred",
-            FaultCode = "BOOTSTRAP_PHASE_DELEGATED",
-            Message = "delegated:python-authoritative-during-migration",
-            DurationMs = 0,
+            Ready = ready,
+            State = ready ? "ready" : "deferred",
+            FaultCode = ready ? "" : "BOOTSTRAP_PHASE_UNMAPPED",
+            Message = message,
+            DurationMs = (int)Stopwatch.GetElapsedTime(start)
+                .TotalMilliseconds,
         };
+    }
+
+    private (bool Ready, string Message) CheckEnvironment()
+    {
+        var configDir = Path.Combine(
+            _coreChecks.Root, "main-system", "config");
+        if (!File.Exists(Path.Combine(
+                configDir, "startup_manifest.json")))
+        {
+            return (false, "missing:startup_manifest.json");
+        }
+        if (!Directory.Exists(Path.Combine(
+                _coreChecks.Root, "governance_rule")))
+        {
+            return (false, "missing:governance_rule");
+        }
+        var stateDir = Path.Combine(
+            _coreChecks.Root, "main-system", "runtime", "state");
+        try
+        {
+            Directory.CreateDirectory(stateDir);
+        }
+        catch (Exception error)
+        {
+            return (false,
+                $"state-dir:{error.GetType().Name}");
+        }
+        return (true, "environment-ready");
+    }
+
+    private (bool Ready, string Message) CheckGovernanceAudit()
+    {
+        var auditDir = Path.Combine(
+            _coreChecks.Root, "governance_rule", "execution", "audit");
+        foreach (var name in new[]
+                 { "audit_checks_manifest.json", "audit_protected.json" })
+        {
+            var path = Path.Combine(auditDir, name);
+            if (!File.Exists(path)) return (false, $"missing:{name}");
+            try { JsonNode.Parse(File.ReadAllText(path)); }
+            catch { return (false, $"unparseable:{name}"); }
+        }
+        return (true, "governance-audit-inputs-ready");
     }
 }

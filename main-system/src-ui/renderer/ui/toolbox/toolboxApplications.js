@@ -55,26 +55,23 @@ export function createToolboxApplications({ socketState, subscribeSocket, sendCo
 		try {
 			const payload = await api.invoke("app:get-platform-tool-sizes", { forceRefresh });
 			if (payload?.ok === false) return tools;
-			const mainSystemBytes = Number(payload?.main_system?.project_size_bytes);
-			if (Number.isFinite(mainSystemBytes) && mainSystemBytes >= 0) {
-				store.merge({ mainSystemSizeBytes: mainSystemBytes });
-			}
-			store.merge({ mainSystemFileCount: normalizeInventoryCount(payload?.main_system?.file_count) });
-			const dependencyBytes = Number(payload?.main_system?.dependency_size_bytes);
-			if (Number.isFinite(dependencyBytes) && dependencyBytes >= 0) {
-				store.merge({ dependencySizeBytes: dependencyBytes });
-			}
-			store.merge({ dependencyFileCount: normalizeInventoryCount(payload?.main_system?.dependency_file_count) });
-			const sharedLayerBytes = Number(payload?.shared_layer?.project_size_bytes);
-			if (Number.isFinite(sharedLayerBytes) && sharedLayerBytes >= 0) {
-				store.merge({ sharedLayerSizeBytes: sharedLayerBytes });
-			}
-			store.merge({ sharedLayerFileCount: normalizeInventoryCount(payload?.shared_layer?.file_count) });
-			const workspaceBytes = Number(payload?.workspace?.project_size_bytes);
-			if (Number.isFinite(workspaceBytes) && workspaceBytes >= 0) {
-				store.merge({ workspaceSizeBytes: workspaceBytes });
-			}
-			store.merge({ workspaceFileCount: normalizeInventoryCount(payload?.workspace?.file_count) });
+			// Single merge: eight separate merges used to fan out eight
+			// subscriber passes (full App update each) per hydration run.
+			const setBytes = (patch, key, value) => {
+				const n = Number(value);
+				if (Number.isFinite(n) && n >= 0) patch[key] = n;
+			};
+			const patch = {
+				mainSystemFileCount: normalizeInventoryCount(payload?.main_system?.file_count),
+				dependencyFileCount: normalizeInventoryCount(payload?.main_system?.dependency_file_count),
+				sharedLayerFileCount: normalizeInventoryCount(payload?.shared_layer?.file_count),
+				workspaceFileCount: normalizeInventoryCount(payload?.workspace?.file_count)
+			};
+			setBytes(patch, "mainSystemSizeBytes", payload?.main_system?.project_size_bytes);
+			setBytes(patch, "dependencySizeBytes", payload?.main_system?.dependency_size_bytes);
+			setBytes(patch, "sharedLayerSizeBytes", payload?.shared_layer?.project_size_bytes);
+			setBytes(patch, "workspaceSizeBytes", payload?.workspace?.project_size_bytes);
+			store.merge(patch);
 			const localCatalog = hydrateToolboxRuntimeStateFromBackend(payload?.tools);
 			const discovered = tools.length ? tools : localCatalog;
 			return mergeToolboxProjectSizes(discovered, payload?.tools);

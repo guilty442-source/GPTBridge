@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Npgsql;
 
 namespace GPTBridge.CodexPipeline;
 
@@ -51,6 +52,11 @@ internal static partial class SuccessorBuilder
                 throw new SuccessorBuildError("REQUEST_NOT_UNDER_REVIEW",
                     $"{requestId}:{record.State}");
             File.Copy(source, output, overwrite: false);
+            // The authoritative export is sealed read-only. File.Copy keeps
+            // that attribute on Windows, but the candidate is a writable
+            // staging artifact until validation and publication finish.
+            File.SetAttributes(output,
+                File.GetAttributes(output) & ~FileAttributes.ReadOnly);
             outputCreated = true;
             var errors = new List<string>();
             List<Dictionary<string, object?>> applied;
@@ -65,8 +71,8 @@ internal static partial class SuccessorBuilder
                 SetCandidateVersion(connection, successorVersion);
                 (applied, deferred) = ApplyChanges(connection,
                     request.Payload, successorVersion);
-                connection.Commit();
                 errors.AddRange(FormalRuleErrors(connection));
+                connection.Commit();
             }
             errors.AddRange(UpdateValidation.StagedGenerationErrors(
                 output, version: successorVersion,
@@ -130,7 +136,8 @@ internal static partial class SuccessorBuilder
                 SealPreview: sealPreview);
         }
         catch (Exception error) when (error is AmendmentLifecycleError
-            or SuccessorBuildError or IOException)
+            or SuccessorBuildError or IOException or PostgresException
+            or InvalidOperationException)
         {
             if (outputCreated)
             {

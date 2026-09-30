@@ -7,10 +7,14 @@
 
 mod audit;
 mod auth;
+mod channel_host;
 mod fault;
 mod health;
 mod outbox;
 mod pg;
+mod permission_host;
+mod pipeline_host;
+mod resident;
 mod resource_mode;
 mod saga;
 mod tools;
@@ -31,6 +35,7 @@ const DEFAULT_PORT: u16 = 8765;
 const MAX_WS_CONNECTIONS: u64 = 32;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(20);
+const STATUS_EVAL_INTERVAL: Duration = Duration::from_secs(2);
 
 static ACTIVE_CONNECTIONS: AtomicU64 = AtomicU64::new(0);
 static NEXT_CONNECTION: AtomicU64 = AtomicU64::new(1);
@@ -87,8 +92,16 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
             json!({
                 "ok": r.ok,
                 "backend": r.runtime_state,
+                // A67 readiness gate: the renderer's applyRuntimeReadiness
+                // requires `runtime_state` on BOTH runtime_status_push and
+                // app:get-runtime-status_result.  Without it the readiness
+                // gate's own status request knocks a Connected socket back
+                // to Synchronizing (stuck 系統審查中).  `backend` is kept
+                // for wire-compat with older consumers.
+                "runtime_state": r.runtime_state,
                 "version": gptbridge_core::app::PRODUCT_VERSION,
                 "runtime_scope": "main",
+                "maintenance_ready": r.ok,
                 "governance_ready": r.governance_ready,
                 "backend_runtime_ready": r.backend_runtime_ready,
                 "dependencies_ready": r.dependencies_ready,
@@ -98,6 +111,13 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
                 "dependencies": r.dependencies,
             })
         }
+        "app:get-platform-tool-sizes" => json!({
+            "ok": true,
+            "tools": gptbridge_core::native::sizes::platform_tool_sizes(
+                &tools::workspace_root(),
+                payload["forceRefresh"].as_bool().unwrap_or(false),
+            ),
+        }),
         "app:get-resource-mode" => resource_mode::get(payload),
         "app:set-resource-mode" => resource_mode::set(payload),
         "app:get-saga-operations" | "app:get-saga-operation" => {
@@ -170,6 +190,7 @@ fn handle_connection(mut stream: TcpStream) {
         }
         "/shutdown" => {
             if auth::authorize_shutdown(request.header("x-gptbridge-shutdown-token")) {
+                resident::stop_all();
                 let _ = write_http_response(&mut stream, 200, "OK", "text/plain", b"OK");
                 std::process::exit(0);
             }
@@ -200,7 +221,8 @@ fn handle_connection(mut stream: TcpStream) {
         return;
     }
     if !auth::authorize_websocket(&request.query()) {
-        eprintln!("[backend] ws auth rejected: {}", request.target);
+        // Path only — the target carries the credential query string.
+        eprintln!("[backend] ws auth rejected: {}", request.path());
         let _ = write_http_response(&mut stream, 403, "FORBIDDEN", "text/plain", b"Forbidden");
         return;
     }
@@ -215,11 +237,14 @@ fn handle_connection(mut stream: TcpStream) {
     ACTIVE_CONNECTIONS.fetch_add(1, Ordering::SeqCst);
     health::note_authenticated_connect();
 
-    // Immediate compact status push — the renderer never polls.
-    let mut status = health::health_payload("brief");
+    // Immediate compact status push — the renderer never polls.  The
+    // memoized brief snapshot is shared across sockets; the immediate
+    // push clones once per connection to stamp its own flags.
+    let mut status = (*health::brief_payload()).clone();
     status["push"] = json!(true);
     status["immediate"] = json!(true);
     let _ = socket.send(&json!({"event": "runtime_status_push", "payload": status}));
+    let mut next_status_eval = Instant::now() + STATUS_EVAL_INTERVAL;
 
     // Parity with the Python session loop: a latched-dead startup enters
     // degraded mode so the client stays connected and can observe status.
@@ -249,17 +274,39 @@ fn handle_connection(mut stream: TcpStream) {
                 break;
             }
         }
+        // Retired-Python parity: the backend re-pushes a status report on
+        // every cycle — the renderer never polls, so a lost or stale push
+        // must self-heal; change-detection alone leaves a client that
+        // missed the immediate push stuck in Synchronizing forever.
+        if now >= next_status_eval {
+            next_status_eval = now + STATUS_EVAL_INTERVAL;
+            let current = health::brief_payload();
+            if !socket.send(&json!({
+                "event": "runtime_status_push",
+                "payload": &*current,
+            })) {
+                break;
+            }
+        }
         if last_seen.elapsed() > HEARTBEAT_TIMEOUT {
             break;
         }
-        match socket.events().recv_timeout(Duration::from_millis(500)) {
+        // Sleep until the next housekeeping deadline instead of waking on
+        // a fixed 500 ms poll — an idle socket only wakes for the ping /
+        // status push it is actually due to send (inbound frames still
+        // interrupt the wait immediately).
+        let wait = next_ping
+            .min(next_status_eval)
+            .min(last_seen + HEARTBEAT_TIMEOUT)
+            .saturating_duration_since(Instant::now());
+        match socket.events().recv_timeout(wait) {
             Ok(ServerEvent::Message(msg)) => {
                 last_seen = Instant::now();
-                let command = msg["command"].as_str().unwrap_or_default().to_string();
+                let command = msg["command"].as_str().unwrap_or_default();
                 if command.is_empty() {
                     continue;
                 }
-                if let Some(frame) = session_command(conn, &socket, &command, &msg["payload"]) {
+                if let Some(frame) = session_command(conn, &socket, command, &msg["payload"]) {
                     if !socket.send(&frame) {
                         break;
                     }
@@ -287,8 +334,10 @@ fn write_state_file() {
         "status": "serving",
         "pid": std::process::id(),
         "active_backend_port": ipc_port(),
-        "updated_at": format!("{:?}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap_or_default()),
+        "updated_at": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64(),
     });
     let tmp = state_dir.join("boot-core.json.tmp");
     if std::fs::write(&tmp, state.to_string()).is_ok() {
@@ -311,6 +360,16 @@ fn main() {
         }
     };
     write_state_file();
+    // Channel-layer automation: spawn + supervise the governed
+    // shared-layer channel host (shared-layer/manifest.json
+    // ``background_service`` contract, managed_by=main-system).
+    channel_host::start(port);
+    // Pipeline automation: supervise the governed CodexPipeline watch
+    // host (automation-flows.json codex-* flows, managed_by=main-system).
+    pipeline_host::start();
+    // Permission automation: supervise the governed GPTBridge.Permission
+    // watch host (automation-flows.json permission-automation-* flows).
+    permission_host::start();
     println!("gptbridge-backend listening on 127.0.0.1:{port}");
     for stream in listener.incoming() {
         match stream {

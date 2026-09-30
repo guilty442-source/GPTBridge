@@ -555,7 +555,7 @@
      "implementation": "primary",
      "runtime_form": "standalone-service",
      "resident_lifecycle": "on-demand",
-     "physical_path": "Standalone tools/local-model/model-dialogue",
+     "physical_path": "Standalone tools/model-dialogue",
      "external_locator": null,
      "unit": "UNIT_DIALOGUE",
      "contracts": [],

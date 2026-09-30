@@ -50,6 +50,18 @@ struct ModelConfig {
     int moe_top_k = 2;
     int moe_layer_interval = 1;
     float moe_aux_w = 0.01f;
+    // v26 fine-grained/shared-expert fields (XCN2): 0 = fall back to
+    // inter (expert) / moe_expert_inter (shared), mirroring the engine's
+    // moe_expert_intermediate_size / moe_shared_intermediate_size.
+    int moe_expert_inter = 0;
+    int moe_shared_experts = 0;
+    int moe_shared_inter = 0;
+    int expert_inter() const {
+        return moe_expert_inter > 0 ? moe_expert_inter : inter;
+    }
+    int shared_inter() const {
+        return moe_shared_inter > 0 ? moe_shared_inter : expert_inter();
+    }
 };
 
 static ModelConfig parse_model(const JsonValue* o) {
@@ -67,6 +79,9 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.moe_top_k = j_int(o, "moe_top_k", c.moe_top_k);
     c.moe_layer_interval = j_int(o, "moe_layer_interval", c.moe_layer_interval);
     c.moe_aux_w = (float)j_num(o, "moe_aux_loss_weight", c.moe_aux_w);
+    c.moe_expert_inter = j_int(o, "moe_expert_intermediate_size", c.moe_expert_inter);
+    c.moe_shared_experts = j_int(o, "moe_num_shared_experts", c.moe_shared_experts);
+    c.moe_shared_inter = j_int(o, "moe_shared_intermediate_size", c.moe_shared_inter);
     if (c.kv_heads <= 0) c.kv_heads = c.heads;
     if (c.heads <= 0 || c.hidden % c.heads) throw "model: bad head geometry";
     return c;
@@ -133,12 +148,20 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
         std::fill(n2.d.begin(), n2.d.end(), 1.0f);
         bool moe = c.moe_experts > 0 && (l % c.moe_layer_interval == 0);
         if (moe) {
+            const int ei = c.expert_inter();
+            const int si = c.shared_inter();
             fill(p.add(ln(l, "gate"), {c.moe_experts, c.hidden}));
             for (int e = 0; e < c.moe_experts; ++e) {
                 std::string b = ln(l, "experts.") + std::to_string(e) + ".";
-                fill(p.add(b + "w1", {c.inter, c.hidden}));
-                fill(p.add(b + "w3", {c.inter, c.hidden}));
-                fill(p.add(b + "w2", {c.hidden, c.inter}));
+                fill(p.add(b + "w1", {ei, c.hidden}));
+                fill(p.add(b + "w3", {ei, c.hidden}));
+                fill(p.add(b + "w2", {c.hidden, ei}));
+            }
+            for (int s = 0; s < c.moe_shared_experts; ++s) {
+                std::string b = ln(l, "shared.") + std::to_string(s) + ".";
+                fill(p.add(b + "w1", {si, c.hidden}));
+                fill(p.add(b + "w3", {si, c.hidden}));
+                fill(p.add(b + "w2", {c.hidden, si}));
             }
         } else {
             fill(p.add(ln(l, "w1"), {c.inter, c.hidden}));

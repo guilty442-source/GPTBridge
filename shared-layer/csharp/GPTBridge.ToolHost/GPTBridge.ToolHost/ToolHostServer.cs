@@ -220,9 +220,26 @@ public sealed class ToolHostServer : IAsyncDisposable
         await DrainWebSocketAsync(wsContext.WebSocket).ConfigureAwait(false);
     }
 
+    /// <summary>Per-connection state: one writer at a time, a linked
+    /// cancellation scope, and the running executor dispatches.</summary>
+    private sealed class WsConnection : IDisposable
+    {
+        public readonly SemaphoreSlim SendLock = new(1, 1);
+        public readonly CancellationTokenSource ConnCts = new();
+        public readonly List<Task> Running = new();
+        public readonly object RunningLock = new();
+
+        public void Dispose()
+        {
+            ConnCts.Dispose();
+            SendLock.Dispose();
+        }
+    }
+
     private async Task DrainWebSocketAsync(WebSocket socket)
     {
         var buffer = new byte[64 * 1024];
+        using var conn = new WsConnection();
         try
         {
             while (socket.State == WebSocketState.Open
@@ -246,15 +263,35 @@ public sealed class ToolHostServer : IAsyncDisposable
                 while (!frame.EndOfMessage);
                 if (frame.MessageType != WebSocketMessageType.Text)
                     continue;
-                await HandleWsMessageAsync(socket, message.ToArray())
+                await HandleWsMessageAsync(socket, conn, message.ToArray())
                     .ConfigureAwait(false);
             }
         }
         catch (WebSocketException) { /* client disconnected mid-stream */ }
         catch (OperationCanceledException) { /* shutdown */ }
+        finally
+        {
+            // Socket teardown cancels the in-flight executor work it
+            // carried; dispatched tasks may still be racing their own
+            // cleanup, so give them a bounded drain before returning.
+            conn.ConnCts.Cancel();
+            Task[] running;
+            lock (conn.RunningLock) running = conn.Running.ToArray();
+            if (running.Length > 0)
+            {
+                try
+                {
+                    await Task.WhenAll(running)
+                        .WaitAsync(TimeSpan.FromSeconds(5))
+                        .ConfigureAwait(false);
+                }
+                catch { /* timeout/cancel — bounded drain is best-effort */ }
+            }
+        }
     }
 
-    private async Task HandleWsMessageAsync(WebSocket socket, byte[] raw)
+    private async Task HandleWsMessageAsync(
+        WebSocket socket, WsConnection conn, byte[] raw)
     {
         string command = "";
         string requestId = "";
@@ -271,7 +308,7 @@ public sealed class ToolHostServer : IAsyncDisposable
             {
                 var cancelled = requestId.Length > 0
                     && _host.CancelRequest(requestId);
-                await SendWsJsonAsync(socket, new JsonObject
+                await SendWsJsonAsync(socket, conn, new JsonObject
                 {
                     ["event"] = "toolbox_cancel_tool_run_result",
                     ["payload"] = new JsonObject
@@ -284,15 +321,28 @@ public sealed class ToolHostServer : IAsyncDisposable
                 }).ConfigureAwait(false);
                 return;
             }
-            // v1: inbound WS commands other than cancel are denied —
-            // governed commands reach headless tools through the store
-            // claim path; submit-side re-queueing (source-UI tools) is a
-            // later phase (design §10).
+            // design §10: executor-declared commands dispatch on a
+            // detached task so the read loop stays live for cancel and
+            // heartbeat traffic while generation runs. Unknown commands
+            // stay PERMISSION_DENIED — the surface is an allowlist, not
+            // a passthrough.
+            if (_host.OwnsWsCommand(command))
+            {
+                var task = RunWsCommandAsync(
+                    socket, conn, command, (JsonObject)payload.DeepClone(),
+                    requestId);
+                lock (conn.RunningLock) conn.Running.Add(task);
+                _ = task.ContinueWith(t =>
+                {
+                    lock (conn.RunningLock) conn.Running.Remove(t);
+                }, TaskScheduler.Default);
+                return;
+            }
             throw new PermissionDeniedException();
         }
         catch (JsonException)
         {
-            await SendWsJsonAsync(socket, new JsonObject
+            await SendWsJsonAsync(socket, conn, new JsonObject
             {
                 ["event"] = "error",
                 ["payload"] = new JsonObject { ["ok"] = false },
@@ -300,7 +350,7 @@ public sealed class ToolHostServer : IAsyncDisposable
         }
         catch (Exception)
         {
-            await SendWsJsonAsync(socket, new JsonObject
+            await SendWsJsonAsync(socket, conn, new JsonObject
             {
                 ["event"] = command.Length > 0 ? $"{command}_result" : "error",
                 ["payload"] = new JsonObject
@@ -315,13 +365,85 @@ public sealed class ToolHostServer : IAsyncDisposable
         }
     }
 
+    private async Task RunWsCommandAsync(
+        WebSocket socket,
+        WsConnection conn,
+        string command,
+        JsonObject payload,
+        string requestId)
+    {
+        try
+        {
+            Task EmitProgress(JsonObject progress)
+            {
+                progress["request_id"] = requestId;
+                return SendWsJsonAsync(socket, conn, new JsonObject
+                {
+                    ["event"] = $"{command}_progress",
+                    ["payload"] = progress,
+                });
+            }
+            var (evt, result) = await _host.DispatchWsAsync(
+                command, payload, requestId, EmitProgress,
+                conn.ConnCts.Token).ConfigureAwait(false);
+            result["request_id"] = requestId;
+            await SendWsJsonAsync(socket, conn, new JsonObject
+            {
+                ["event"] = evt,
+                ["payload"] = result,
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await SendWsJsonAsync(socket, conn, new JsonObject
+            {
+                ["event"] = $"{command}_result",
+                ["payload"] = new JsonObject
+                {
+                    ["ok"] = false,
+                    ["tool_id"] = _host.ToolId,
+                    ["request_id"] = requestId,
+                    ["error_code"] = "CANCELLED",
+                    ["message"] = "Request cancelled.",
+                },
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await SendWsJsonAsync(socket, conn, new JsonObject
+            {
+                ["event"] = $"{command}_result",
+                ["payload"] = new JsonObject
+                {
+                    ["ok"] = false,
+                    ["tool_id"] = _host.ToolId,
+                    ["request_id"] = requestId,
+                    ["error_code"] = "TOOL_COMMAND_FAILED",
+                    ["message"] = ex.Message.Length > 240
+                        ? ex.Message[..240] : ex.Message,
+                },
+            }).ConfigureAwait(false);
+        }
+    }
+
     private static async Task SendWsJsonAsync(
-        WebSocket socket, JsonObject message)
+        WebSocket socket, WsConnection conn, JsonObject message)
     {
         var bytes = Encoding.UTF8.GetBytes(message.ToJsonString());
-        await socket.SendAsync(
-            bytes, WebSocketMessageType.Text, endOfMessage: true,
-            CancellationToken.None).ConfigureAwait(false);
+        await conn.SendLock.WaitAsync(CancellationToken.None)
+            .ConfigureAwait(false);
+        try
+        {
+            if (socket.State != WebSocketState.Open)
+                return;
+            await socket.SendAsync(
+                bytes, WebSocketMessageType.Text, endOfMessage: true,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        finally
+        {
+            conn.SendLock.Release();
+        }
     }
 
     private static void WriteJson(

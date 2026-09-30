@@ -4,20 +4,152 @@
 //! child webview), the single-instance contract, renderer hot-reload and
 //! load watchdogs, and the complete-close shutdown contract.
 
+use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use tauri::{Manager, WebviewUrl};
 
 use gptbridge_core::app::{self, manage_backend};
+use gptbridge_core::ipc::discovery;
 use gptbridge_core::lifecycle;
-use gptbridge_core::native::paths;
+use gptbridge_core::native::{paths, sizes};
 
 use crate::js_bridge;
 use crate::webview_host;
 
 const SHUTDOWN_DEADLINE_MS: u64 = 15_000;
+
+/// The main dashboard runs as a governed native egui surface
+/// (``gptbridge-egui.exe --main-window``); the shell keeps supervising
+/// backend + tool windows without hosting a WebView2 main window.
+/// Escape hatch for renderer development: ``GPTBRIDGE_RENDERER_DEV_URL``
+/// or ``GPTBRIDGE_MAIN_UI=webview`` restores the webview path.
+fn native_main_ui() -> bool {
+    if std::env::var("GPTBRIDGE_RENDERER_DEV_URL")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .is_some()
+    {
+        return false;
+    }
+    !std::env::var("GPTBRIDGE_MAIN_UI")
+        .map(|v| v.trim().eq_ignore_ascii_case("webview"))
+        .unwrap_or(false)
+}
+
+fn native_ui_child() -> &'static Mutex<Option<Child>> {
+    static CHILD: OnceLock<Mutex<Option<Child>>> = OnceLock::new();
+    CHILD.get_or_init(|| Mutex::new(None))
+}
+
+/// Resolve ``gptbridge-egui.exe`` — the same binary the backend's
+/// ``native-ui-surfaces.json`` contract uses for tool windows.
+fn native_ui_binary() -> Option<std::path::PathBuf> {
+    if let Ok(exe) = std::env::current_exe() {
+        let sibling = exe.parent().unwrap_or(exe.as_path()).join("gptbridge-egui.exe");
+        if sibling.is_file() {
+            return Some(sibling);
+        }
+    }
+    let root = paths::path_library().workspace_root.clone();
+    for profile in ["release", "debug"] {
+        let candidate = root
+            .join("main-system")
+            .join("src-tauri")
+            .join("target")
+            .join(profile)
+            .join("gptbridge-egui.exe");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+/// Spawn the native main-window surface and supervise it: the egui
+/// window closing (child exit) drives the same complete-close contract
+/// as the retired webview ``CloseRequested`` path.
+fn spawn_native_main_ui(app: &tauri::AppHandle) -> Result<(), String> {
+    {
+        let mut guard = native_ui_child().lock().unwrap();
+        if let Some(child) = guard.as_mut() {
+            if child.try_wait().map(|s| s.is_none()).unwrap_or(false) {
+                return Ok(()); // already running — second-instance focus path
+            }
+        }
+        *guard = None;
+    }
+
+    let binary = native_ui_binary()
+        .ok_or_else(|| "NATIVE_MAIN_UI_UNAVAILABLE:gptbridge-egui.exe".to_string())?;
+    let ws_url = discovery::backend_session_descriptor()["websocketUrl"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    if !ws_url.starts_with("ws://127.0.0.1:") {
+        return Err("NATIVE_MAIN_UI_SESSION_UNAVAILABLE".to_string());
+    }
+
+    let mut command = std::process::Command::new(&binary);
+    command
+        .arg("--main-window")
+        .current_dir(paths::path_library().workspace_root.clone())
+        .env("GPTBRIDGE_SOURCE_UI_TOOL_ID", "main-system")
+        .env("GPTBRIDGE_SOURCE_UI_TITLE", "GPTBridge")
+        .env("GPTBRIDGE_SOURCE_UI_WEBSOCKET_URL", &ws_url)
+        .env("GPTBRIDGE_SOURCE_UI_WIDTH", "1400")
+        .env("GPTBRIDGE_SOURCE_UI_HEIGHT", "900");
+    let child = command
+        .spawn()
+        .map_err(|e| format!("NATIVE_MAIN_UI_SPAWN_FAILED:{e}"))?;
+    app::report(
+        "main-ui.native-spawned",
+        serde_json::json!({"pid": child.id()}),
+    );
+    *native_ui_child().lock().unwrap() = Some(child);
+
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            // Poll so the same cell stays killable from
+            // shutdown_application.
+            let exited = native_ui_child()
+                .lock()
+                .unwrap()
+                .as_mut()
+                .and_then(|c| c.try_wait().ok().flatten())
+                .is_some();
+            if exited {
+                let _ = native_ui_child().lock().unwrap().take();
+                break;
+            }
+            if shutdown_complete().load(Ordering::SeqCst) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        if shutdown_complete().load(Ordering::SeqCst) {
+            return;
+        }
+        app::report("main-ui.native-exited", serde_json::json!({}));
+        // Main window closed by the user — drive the governed shutdown
+        // exactly like the webview CloseRequested path did.
+        shutdown_application(&handle);
+        handle.exit(0);
+    });
+    Ok(())
+}
+
+/// Main-UI entry shared by setup and the single-instance callback.
+fn ensure_main_ui(app: &tauri::AppHandle) -> Result<(), String> {
+    if native_main_ui() {
+        spawn_native_main_ui(app)
+    } else {
+        create_main_window(app).map(|_| ()).map_err(|e| e.to_string())
+    }
+}
 
 fn shutdown_complete() -> &'static AtomicBool {
     static FLAG: OnceLock<AtomicBool> = OnceLock::new();
@@ -30,6 +162,9 @@ fn shutdown_complete() -> &'static AtomicBool {
 fn shutdown_application(app: &tauri::AppHandle) {
     if shutdown_complete().swap(true, Ordering::SeqCst) {
         return;
+    }
+    if let Some(mut child) = native_ui_child().lock().unwrap().take() {
+        let _ = child.kill();
     }
     webview_host::close_all_sessions(app);
     js_bridge::loopback::stop_embedded_browser_bridge();
@@ -99,6 +234,21 @@ fn start_load_watchdog(app: tauri::AppHandle) {
             }
             _ => {}
         }
+    });
+}
+
+/// Warm the platform-tool size cache during shell startup.  A cold
+/// workspace walk (.git / .worktrees / target trees) can exceed the
+/// renderer's platform-tools startup budget — starting the scan before
+/// the webview asks makes the first ``app:get-platform-tool-sizes`` call
+/// a cache hit (or a short remainder) instead of a full cold walk.
+fn start_sizes_warmup() {
+    std::thread::spawn(|| {
+        let root = paths::path_library().workspace_root.clone();
+        let tools = sizes::platform_tool_sizes(&root, false);
+        let main_system = sizes::main_system_size(&root, false);
+        let shared_layer = sizes::shared_layer_size(&root, false);
+        let _ = sizes::workspace_size(&root, &tools, &main_system, &shared_layer, false);
     });
 }
 
@@ -179,8 +329,8 @@ pub fn run() {
                 }
                 let _ = window.show();
                 let _ = window.set_focus();
-            } else {
-                let _ = create_main_window(app);
+            } else if let Err(code) = ensure_main_ui(app) {
+                app::report("main-ui.unavailable", serde_json::json!({"code": code}));
             }
         }))
         .plugin(tauri_plugin_dialog::init())
@@ -195,9 +345,19 @@ pub fn run() {
                 }),
             );
 
-            create_main_window(&app.handle())?;
-            start_renderer_watch(app.handle().clone());
-            start_load_watchdog(app.handle().clone());
+            if native_main_ui() {
+                if let Err(code) = ensure_main_ui(&app.handle()) {
+                    app::report(
+                        "main-ui.unavailable",
+                        serde_json::json!({"code": code}),
+                    );
+                }
+            } else {
+                create_main_window(&app.handle())?;
+                start_renderer_watch(app.handle().clone());
+                start_load_watchdog(app.handle().clone());
+                start_sizes_warmup();
+            }
             // The loopback bridge publishes the embedded-browser session
             // store for tool UIs/backends (A44/E30 + A49/E35).
             js_bridge::loopback::start_embedded_browser_bridge(&app.handle());

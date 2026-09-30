@@ -24,11 +24,7 @@
     ]
   },
   "entry": "Standalone tools/ai-assistant/src/main",
-  "runtime": {
-    "type": "python",
-    "entry": "src/main.py",
-    "workingDirectory": "."
-  },
+  "runtime": {    "type": "retired-python", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/main.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry — absent until the native tool host is built, so it fails closed (TOOL_RUNTIME_RETIRED:python-entry-pending-native-host)",    "workingDirectory": "."  },
   "request_channel": {
     "model": "governance-authenticated-shared-layer",
     "runtime_entry": "shared-layer/csharp/GPTBridge.ChannelHost/publish/GPTBridge.ChannelHost.exe",

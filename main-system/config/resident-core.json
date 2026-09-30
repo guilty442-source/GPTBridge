@@ -20,11 +20,11 @@
     },
     "periodic_scheduler": {
       "mode": "resident-core",
-      "rationale": "single deadline-driven loop; hosts coordinator / idle-memory / daily-cleaner / git sweep+sync jobs (R3 consolidation)"
+      "rationale": "single deadline-driven loop; hosts git sweep+sync, codex and permission automation flows (R3 consolidation)"
     },
     "core_sovereigns": {
       "mode": "resident-core",
-      "rationale": "decision / maintenance / permission / system-runtime — codex-required resident governance"
+      "rationale": "decision / permission / system-runtime / automation / xingcheng-assistant (B162 five-core set) — codex-required resident governance"
     },
     "model_service_activation": {
       "mode": "resident-core",

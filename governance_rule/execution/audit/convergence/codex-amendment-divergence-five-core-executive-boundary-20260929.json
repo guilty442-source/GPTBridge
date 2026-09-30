@@ -1,0 +1,63 @@
+{
+  "id": "codex-amendment-divergence-five-core-executive-boundary-20260929",
+  "type": "divergence-report",
+  "date": "2026-09-29",
+  "worker": "devin-cli",
+  "subject": "r7 governed execution half-applied: PostgreSQL authority sealed, file publication interrupted by foreign-process file lock",
+  "amendment": {
+    "request_id": "five-core-executive-boundary-20260929-r7",
+    "supersedes": "five-core-executive-boundary-20260929-r6",
+    "change_class": "clarification",
+    "target_article": "B162",
+    "audit": {
+      "ok": true,
+      "reason": "ALL_FIVE_SOVEREIGNS_AUDITED",
+      "certificate_hash": "dce242a1be0dc6b7fe7d712b1880f80352b2580380922edb633c4ca5eafe5d1f",
+      "state_reached": "ready-for-governor"
+    }
+  },
+  "divergence": {
+    "ledger_verdict": "rejected (EXECUTE_ERROR:UnauthorizedAccessException during wire phase)",
+    "authority_reality": "applied — PostgreSQL codex sealed at 2026-09-29T11:33:57Z (row_count 23164, +5 seal rows over predecessor 05:25:52Z); B162 carries the amended five-core responsibility/boundary text",
+    "nature": "atomicity boundary crossed: PgImport.ImportCodexArtifact committed inside wire; the subsequent zh-TW mirror AtomicReplace loop failed on governance_codex.zh-TW.part-2.txt because a foreign process (grep.exe pid=14916, repo-wide scan) held the read-only target open without FILE_SHARE_DELETE for longer than the 10x500ms retry window"
+  },
+  "timeline": [
+    "19:34 candidate r7 staged (STAGE_ISOLATION.json)",
+    "19:35:44 PG import committed; authority sealed at codex_version 2026-09-29T11:33:57Z",
+    "19:36:35 codex-maintenance observed authority drift -> export:authority-drift wrote governance_rule/codex/data/governance_codex.sql",
+    "wire AtomicReplace part-1 succeeded; part-2 move blocked (ACCESS_DENIED x10) -> executor rejected request; staging retained",
+    "19:42 codex-maintenance MirrorRefresh re-rendered part-1 from live PG, then hit the same part-2 lock; parts 2-5 stayed on the predecessor generation (mixed-generation mirror)",
+    "post-incident: lock released; --mirror-zh re-rendered all five parts from live PG; --maintain PASS (parity PASS, mirror_errors [], polluted_rows 0)"
+  ],
+  "root_cause": [
+    "AtomicReplace cleared the read-only attribute once before the retry loop; a re-sealing racer or a long-lived foreign reader without delete-sharing defeats the window",
+    "AtomicReplace used a shared fixed temp name (target + .staging-tmp): two concurrent publishers could truncate/move each other's temp bytes",
+    "codex-maintenance had no mutual exclusion with an in-flight amendment wire, so MirrorRefresh raced the publisher on the same targets"
+  ],
+  "repairs": [
+    {
+      "file": "shared-layer/csharp/GPTBridge.CodexPipeline/UpdatePipeline.cs",
+      "change": "AtomicReplace: unique per-attempt temp name (.staging-tmp-<8hex>), read-only re-clear inside the retry loop, retry window raised to 60x1000ms, failure wraps target+temporary paths"
+    },
+    {
+      "file": "shared-layer/csharp/GPTBridge.CodexPipeline/CodexAutomation.cs",
+      "change": "AmendmentInFlight(): maintenance defers (deferred:amendment-in-flight) while any codex-amendment-stage dir holds a fresh STAGE_ISOLATION.json without STAGE_RELEASED.json; markers age out after 15 min so a dead executor cannot deadlock maintenance"
+    },
+    {
+      "file": "shared-layer/csharp/GPTBridge.CodexPipeline/Driver.Execute.cs",
+      "change": "EXECUTE_ERROR evidence now records the full exception (stack) so the failing file/operation is observable in the ledger"
+    }
+  ],
+  "verification": {
+    "authority_state": "codex_version 2026-09-29T11:33:57Z, row_count 23164, table_count 218, source_sha256 c92ee7382fd5e60e948e4aee451e29cf30a6c5bb6a81284ed0cf662da01421e4",
+    "b162_in_authority": true,
+    "mirror": "all five parts regenerated from live PG; codex_version 2026-09-29T11:33:57Z; assembled_payload_hash c128d8c89e8b... uniform; read-only restored",
+    "artifact": "governance_rule/codex/data/governance_codex.sql exists (PG export); --verify-parity PASS (23164 rows, 218 tables, 0 mismatches)",
+    "maintain": "clean pass"
+  },
+  "residual": {
+    "ledger_correction": "r7 terminal verdict (rejected) cannot be reopened; content is live in authority. This report is the reconciliation record. Future amendment predecessors must anchor to codex_version 2026-09-29T11:33:57Z.",
+    "r8_request": "codex-amendment-request-five-core-executive-boundary-20260929-r8.json was created before the applied state was discovered; it was rejected on STALE_PREDECESSOR_VERSION and is a lineage artifact only - the amendment content requires no further application",
+    "stale_staging": "main-system/runtime/temp/codex-amendment-stage/five-core-executive-boundary-20260929-r7/ retained as failure evidence; IsolateGeneration quarantines stale stage dirs on reuse"
+  }
+}

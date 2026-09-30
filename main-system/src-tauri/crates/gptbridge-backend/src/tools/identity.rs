@@ -23,7 +23,7 @@ const BOUND_IDENTITY_MANIFESTS: [(&str, &str); 4] = [
     ),
     (
         "star-chat",
-        "Standalone tools/local-model/model-dialogue/star-chat/manifest.json",
+        "Standalone tools/model-dialogue/star-chat/manifest.json",
     ),
 ];
 

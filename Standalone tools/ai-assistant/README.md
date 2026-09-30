@@ -18,6 +18,8 @@ Project ID: `ai-assistant`
 
 ## 程式架構
 
+Python 原始碼層已退役（B167/B38）；以下 `.py` 模組名稱為歷史架構參考，執行由受管通道與原生宿主承接。
+
 - `investment_watch.py`：命令路由、生命週期、狀態與診斷。
 - `investment_portfolio_service.py`：持股、帳本、同步與配息資料。
 - `investment_operations_service.py`：壓力測試、回測、配置、排程與備份。
@@ -38,7 +40,7 @@ Project ID: `ai-assistant`
 
 ## 測試
 
-測試以主系統 venv 直接執行：
+測試原以主系統 venv 執行；Python 車道已退役（B167/B38），`.venv` 已移除，pytest 指令為歷史參考：
 
 ```powershell
 main-system\.venv\Scripts\python.exe -m pytest -q "Standalone tools\ai-assistant\tests"

@@ -66,7 +66,10 @@ internal static partial class Driver
             ledger.Reject(requestId,
                 reason: $"EXECUTE_ERROR:{error.Message}",
                 evidence: new Dictionary<string, object?>
-                { ["stage"] = "execute" });
+                {
+                    ["stage"] = "execute",
+                    ["detail"] = error.ToString(),
+                });
             return new Dictionary<string, object?>(
                 StringComparer.Ordinal)
             {
@@ -74,6 +77,7 @@ internal static partial class Driver
                 ["state"] = Lifecycle.StateRejected,
                 ["error"] = "EXECUTE_ERROR:"
                     + $"{error.GetType().Name}:{error.Message}",
+                ["detail"] = error.ToString(),
             };
         }
         if (!execution.Ok)

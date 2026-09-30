@@ -85,7 +85,12 @@ internal static partial class UpdatePipeline
     /// half file.</summary>
     internal static void AtomicReplace(string source, string target)
     {
-        var temporary = target + ".staging-tmp";
+        // Unique temp name: concurrent publishers (update pipeline and
+        // codex-maintenance mirror refresh) may target the same file;
+        // a shared temp name lets one caller truncate or move the
+        // other's bytes.
+        var temporary = target + ".staging-tmp-"
+            + Guid.NewGuid().ToString("N")[..8];
         using (var handle = new FileStream(temporary, FileMode.Create,
             FileAccess.Write, FileShare.None))
         {
@@ -93,15 +98,19 @@ internal static partial class UpdatePipeline
             handle.Write(bytes);
             handle.Flush(flushToDisk: true);
         }
-        if (File.Exists(target))
-            SetReadOnly(target, false);
         // Windows readers may hold the target without delete sharing for
-        // a short window (indexers, watchers); retry before failing.
+        // a while (indexers, watchers, repo-wide scans), and a racing
+        // publisher may re-seal the read-only attribute between our
+        // clear and our move.  Re-clear inside the retry loop and allow
+        // a generous window before failing.
         Exception? lastError = null;
-        for (var attempt = 0; attempt < 10; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             try
             {
+                if (File.Exists(target)
+                    && new FileInfo(target).IsReadOnly)
+                    SetReadOnly(target, false);
                 File.Move(temporary, target, overwrite: true);
                 lastError = null;
                 break;
@@ -110,7 +119,7 @@ internal static partial class UpdatePipeline
                 or UnauthorizedAccessException)
             {
                 lastError = error;
-                Thread.Sleep(500);
+                Thread.Sleep(1000);
             }
         }
         if (lastError is not null)
@@ -119,7 +128,9 @@ internal static partial class UpdatePipeline
             catch (IOException) { }
             if (File.Exists(target))
                 SetReadOnly(target, true);
-            throw lastError;
+            throw new IOException(
+                $"atomic-replace failed: {temporary} -> {target}: "
+                + lastError.Message, lastError);
         }
         SetReadOnly(target, true);
     }

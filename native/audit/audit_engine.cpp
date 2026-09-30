@@ -14,9 +14,11 @@ manifest（star-audit-manifest/v1）由 Python 受管工具產生；本引擎執
 #include <fstream>
 #include <future>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -132,6 +134,97 @@ std::string to_lower(const std::string& s) {
     return out;
 }
 
+/* ------------------------------------------------------------------
+ * Per-run shared resource caches (bounded: one entry per distinct path)
+ *
+ * The manifest concentrates content/JSON work on a handful of hot
+ * targets — the five zh-TW mirror parts absorb ~1k JSON checks plus
+ * not-contains scans, and the permission registries absorb several
+ * hundred marker checks.  Every check previously re-read and re-parsed
+ * them independently.  Successes are memoized as shared_ptr<const T>
+ * so the worker threads share one build; failures are NEVER cached —
+ * a transient IO/parse error must not stick (fail-closed parity).
+ * ------------------------------------------------------------------ */
+
+/* The memo maps are per-run: audit_run() calls cache_reset() first,
+ * so a file mutated between runs (rewritten baseline, edited target)
+ * is never served stale while a single run still shares one read. */
+std::mutex g_cache_mu;
+std::unordered_map<std::string, std::shared_ptr<const std::string>>
+    g_text_cache;
+std::unordered_map<std::string, std::shared_ptr<const std::string>>
+    g_lower_cache;
+std::unordered_map<std::string, std::shared_ptr<const JsonValue>>
+    g_json_cache;
+
+void cache_reset() {
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    g_text_cache.clear();
+    g_lower_cache.clear();
+    g_json_cache.clear();
+}
+
+std::shared_ptr<const std::string> cached_text(const fs::path& target) {
+    const std::string key = u8_bytes(target.lexically_normal());
+    {
+        std::lock_guard<std::mutex> g(g_cache_mu);
+        const auto it = g_text_cache.find(key);
+        if (it != g_text_cache.end()) return it->second;
+    }
+    auto content = std::make_shared<std::string>();
+    if (!read_file(target, content.get())) return nullptr;
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    return g_text_cache.emplace(std::move(key), std::move(content))
+        .first->second;
+}
+
+std::shared_ptr<const std::string> cached_lower(const fs::path& target) {
+    const std::string key = u8_bytes(target.lexically_normal());
+    {
+        std::lock_guard<std::mutex> g(g_cache_mu);
+        const auto it = g_lower_cache.find(key);
+        if (it != g_lower_cache.end()) return it->second;
+    }
+    const auto text = cached_text(target);
+    if (!text) return nullptr;
+    auto lowered = std::make_shared<std::string>(to_lower(*text));
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    return g_lower_cache.emplace(std::move(key), std::move(lowered))
+        .first->second;
+}
+
+/* unreadable_out distinguishes "file missing/unreadable" from
+ * "present but invalid JSON" — both yield nullptr but the check sites
+ * report different detail strings (and optional→PASS applies only to
+ * the missing case). */
+std::shared_ptr<const JsonValue> cached_json(const fs::path& target,
+                                             bool* unreadable_out) {
+    const std::string key = u8_bytes(target.lexically_normal());
+    {
+        std::lock_guard<std::mutex> g(g_cache_mu);
+        const auto it = g_json_cache.find(key);
+        if (it != g_json_cache.end()) {
+            *unreadable_out = false;
+            return it->second;
+        }
+    }
+    const auto text = cached_text(target);
+    if (!text) {
+        *unreadable_out = true;
+        return nullptr;
+    }
+    std::shared_ptr<JsonValue> doc;
+    try { doc = std::make_shared<JsonValue>(JsonParser(*text).parse()); }
+    catch (const JsonError&) {
+        *unreadable_out = false;
+        return nullptr;
+    }
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    *unreadable_out = false;
+    return g_json_cache.emplace(std::move(key), std::move(doc))
+        .first->second;
+}
+
 /* dotted 路徑解析：逐層走 object；段名可帶 [KEY] 選取 object 陣列中
  * id==KEY 的元素（對齊 Python {item['id']: item for item in arr}）。
  * 路徑不可解析時回傳 nullptr。 */
@@ -216,6 +309,7 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
 
 AuditReport audit_run(const std::vector<AuditCheck>& checks,
                       const std::string& root) {
+    cache_reset();
     AuditReport report;
     report.manifest_ok = true;
     // Bounded parallel execution — 5-core budget, 4 workers max (thread_budget cap)

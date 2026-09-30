@@ -18,6 +18,7 @@ Project ID: file-sorter
 - 無法分類的檔案會保留原位、不移動；同名檔案會自動加流水號避免覆蓋。
 - 媒體掃描以 PostgreSQL 快取影片指紋，並以候選索引減少大型資料夾的兩兩比較。
 - 完全重複檔與相似圖片偵測已移除，不再提供相關 UI、CLI 或獨立工具入口。
+- Python CLI 車道已退役（B167/B38）：`.venv` 與 `platform_tools` 路徑均已移除，以下歷史指令僅供參考，操作請經由受管通道與工具 UI。
 
 ```powershell
 .venv\Scripts\python.exe platform_tools/file-sorter/src/main.py <目標資料夾> --preview-json

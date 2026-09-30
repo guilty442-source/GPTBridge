@@ -1,11 +1,11 @@
 {
   "contract_version": 1,
   "minimum_supported_contract_version": 1,
-  "description": "SQL schema axis: shared-layer PostgreSQL schema version recorded in *_schema_metadata (schema_version row) and checked by shared_layer.health.check_schema_version.",
+  "description": "SQL schema axis: shared-layer PostgreSQL schema version recorded in *_schema_metadata (schema_version row); the shared_layer.health.check_schema_version Python check retired with B167/B38 and is pending a native owner.",
   "axes": {
     "schema_version": "transformer_schema_metadata.schema_version",
-    "health_check": "check_schema_version(expected_schema_version)",
-    "workload_lanes": "workload_lanes.py lane isolation unchanged across v1"
+    "health_check": "check_schema_version(expected_schema_version) — native owner pending",
+    "workload_lanes": "lane isolation unchanged across v1 (workload_lanes.py retired B167/B38; native owner pending)"
   },
   "compatibility_rule": "schema migrations bump contract_version; readers declaring minimum_supported > 1 are incompatible"
 }

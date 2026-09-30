@@ -93,21 +93,22 @@ internal static class Program
         return mode switch
         {
             "startup-gate" => await RunStartupGate(
-                manifest, generationId).ConfigureAwait(false),
+                manifest, generationId, root).ConfigureAwait(false),
             "status" => RunStatus(manifest, generationId),
             _ => 2,
         };
     }
 
     private static async Task<int> RunStartupGate(
-        StartupManifest manifest, string generationId)
+        StartupManifest manifest, string generationId,
+        string projectRoot)
     {
         using var cts = new CancellationTokenSource(
             TimeSpan.FromMilliseconds(
                 manifest.StartupCompleteDeadlineMs > 0
                     ? manifest.StartupCompleteDeadlineMs
                     : 40000));
-        var gate = new StartupGate(manifest);
+        var gate = new StartupGate(manifest, projectRoot: projectRoot);
         var result = await gate.RunAsync(generationId, cts.Token)
             .ConfigureAwait(false);
         Console.WriteLine(result.AsJson().ToJsonString());

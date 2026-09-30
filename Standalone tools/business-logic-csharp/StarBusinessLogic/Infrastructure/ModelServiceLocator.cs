@@ -68,7 +68,7 @@ public static class ModelServiceLocator
         var consumerPolicy = root.TryGetProperty("consumer_policy", out var policy)
             ? policy.GetString()
             : null;
-        if (lifecycleOwner != "local-model/channel_runtime.py")
+        if (lifecycleOwner != "local-model/toolhost-model-service")
             throw new InvalidOperationException("MODEL_SERVICE_LIFECYCLE_OWNER_MISMATCH");
         if (consumerPolicy != "csharp-orchestrator-client-only")
             throw new InvalidOperationException("MODEL_SERVICE_CONSUMER_POLICY_MISMATCH");

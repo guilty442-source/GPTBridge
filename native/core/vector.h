@@ -2,8 +2,8 @@
  * vector.h — private header for vector compute core (A221/E186).
  *
  * Private to native/core/.  Never application-facing; the pybind11
- * binding (_binding.cpp) includes this to call the compute functions.
- * Python owns all memory; C borrows raw pointers + length.
+ * binding (_binding.cpp) is retired with the Python lane (B166).
+ * Callers borrow raw pointers + length; ownership stays with the caller.
  * Pure C compute core — no exceptions exist at this layer.
  */
 #ifndef GPTBRIDGE_NATIVE_VECTOR_H

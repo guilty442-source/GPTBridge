@@ -35,6 +35,10 @@ internal static partial class Program
         var authorityState = false;
         var repairProjections = false;
         var mirrorZh = false;
+        var watch = false;
+        var maintain = false;
+        var pinSync = false;
+        string? watchInterval = null;
         var codexRead = false;
         var mintDualKey = false;
         var revokeReads = false;
@@ -70,6 +74,10 @@ internal static partial class Program
                 case "--repair-projections": repairProjections = true;
                     break;
                 case "--mirror-zh": mirrorZh = true; break;
+                case "--watch": watch = true; break;
+                case "--maintain": maintain = true; break;
+                case "--pin-sync": pinSync = true; break;
+                case "--interval": watchInterval = Value(); break;
                 case "--codex-read": codexRead = true; break;
                 case "--mint-dual-key": mintDualKey = true; break;
                 case "--revoke-codex-reads": revokeReads = true; break;
@@ -200,6 +208,14 @@ internal static partial class Program
                     ["exported"] =
                         PgExport.ExportPostgresqlCodex(exportTarget),
                 });
+            if (pinSync)
+                return Emit(CodexAutomation.PinSync());
+            if (maintain)
+                return Emit(CodexAutomation.Maintain());
+            if (watch)
+                return await CodexAutomation.RunWatch(
+                    double.TryParse(watchInterval, out var seconds)
+                        && seconds > 0 ? seconds : null);
             if (authorityState)
                 return Emit(PgExport.AuthorityState());
             if (verifyParity is not null)
@@ -397,6 +413,7 @@ internal static partial class Program
             {
                 ["ok"] = false,
                 ["error"] = $"{error.GetType().Name}:{error.Message}",
+                ["trace"] = error.StackTrace,
             });
             return 1;
         }

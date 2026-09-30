@@ -89,8 +89,9 @@ struct LayerCache {
     std::vector<float> fa, fb, fh;
     std::vector<int> moe_idx;                // [T*K]
     std::vector<float> moe_w;                // [T*K]
-    std::vector<std::vector<float>> mfa, mfb, mfh; // [T*K][inter]
+    std::vector<std::vector<float>> mfa, mfb, mfh; // [T*K][expert_inter]
     std::vector<float> gate_logits, gate_probs;    // [T,E]
+    std::vector<std::vector<float>> sfa, sfb, sfh; // [shared][T*shared_inter]
 };
 
 struct Fwd {
@@ -171,6 +172,7 @@ static void fwd(const Params& p, const ModelConfig& c,
             linear_fwd(L.fh.data(), p.w.at(ln(l, "w2")), proj.data(), T, c.inter, H);
         } else {
             const int E = c.moe_experts, K = c.moe_top_k;
+            const int EI = c.expert_inter();
             L.gate_logits.resize((size_t)T * E);
             linear_fwd(L.n2.data(), p.w.at(ln(l, "gate")), L.gate_logits.data(), T, H, E);
             L.gate_probs.resize((size_t)T * E);
@@ -199,15 +201,35 @@ static void fwd(const Params& p, const ModelConfig& c,
                     auto& fa = L.mfa[(size_t)t * K + s];
                     auto& fb = L.mfb[(size_t)t * K + s];
                     auto& fh = L.mfh[(size_t)t * K + s];
-                    fa.resize(c.inter); fb.resize(c.inter); fh.resize(c.inter);
-                    linear_fwd(xr, p.w.at(b + "w1"), fa.data(), 1, H, c.inter);
-                    linear_fwd(xr, p.w.at(b + "w3"), fb.data(), 1, H, c.inter);
-                    for (int i = 0; i < c.inter; ++i) fh[i] = silu_f(fa[i]) * fb[i];
+                    fa.resize(EI); fb.resize(EI); fh.resize(EI);
+                    linear_fwd(xr, p.w.at(b + "w1"), fa.data(), 1, H, EI);
+                    linear_fwd(xr, p.w.at(b + "w3"), fb.data(), 1, H, EI);
+                    for (int i = 0; i < EI; ++i) fh[i] = silu_f(fa[i]) * fb[i];
                     std::vector<float> eo(H);
-                    linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, c.inter, H);
+                    linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
                     for (int i = 0; i < H; ++i) proj[(size_t)t * H + i] += wgt * eo[i];
                 }
                 for (int s = 0; s < K; ++s) aux += (gp[idx[s]] / wsum) * (1.0f / K);
+            }
+            // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
+            // the engine's `output + shared(x)` residual contribution.
+            const int SI = c.shared_inter();
+            L.sfa.resize((size_t)c.moe_shared_experts);
+            L.sfb.resize((size_t)c.moe_shared_experts);
+            L.sfh.resize((size_t)c.moe_shared_experts);
+            for (int se = 0; se < c.moe_shared_experts; ++se) {
+                std::string b = ln(l, "shared.") + std::to_string(se) + ".";
+                auto& fa = L.sfa[(size_t)se];
+                auto& fb = L.sfb[(size_t)se];
+                auto& fh = L.sfh[(size_t)se];
+                fa.resize((size_t)T * SI); fb.resize((size_t)T * SI);
+                fh.resize((size_t)T * SI);
+                linear_fwd(L.n2.data(), p.w.at(b + "w1"), fa.data(), T, H, SI);
+                linear_fwd(L.n2.data(), p.w.at(b + "w3"), fb.data(), T, H, SI);
+                for (size_t i = 0; i < fh.size(); ++i) fh[i] = silu_f(fa[i]) * fb[i];
+                std::vector<float> so((size_t)T * H);
+                linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
+                for (size_t i = 0; i < so.size(); ++i) proj[i] += so[i];
             }
             o.moe_aux += c.moe_aux_w * c.moe_experts * aux / std::max(1, T);
         }

@@ -1,0 +1,52 @@
+{
+  "registry_identity": "canonical-type-registry",
+  "registry_version": 1,
+  "semantics": "Versioned, language-neutral type source. Single authority for cross-language data contracts. Registry content is append-only per version: raising registry_version is the only way to change semantics, and parity tests pin every projection. JSON port of retired shared-layer/src/shared_layer/contracts/registry.py (B38/C54 python retirement); data content preserved verbatim.",
+  "hard_rules": [
+    "No platform-dependent types at any boundary (C long, size_t, raw Windows types are forbidden contract forms).",
+    "i64/u64 cross JavaScript as bigint with a decimal-string wire form (JS number is lossy beyond 2**53).",
+    "bool crosses as uint8_t/BOOLEAN - never C++ bool at the ABI.",
+    "Text is UTF-8 canonical; UTF-16 exists only inside the C# adapter.",
+    "timestamp (UTC instant), duration (monotonic elapsed), deadline (monotonic instant) are three distinct semantics.",
+    "Large binary/numeric payloads use bounded typed buffers, never expanded JSON number arrays."
+  ],
+  "presence": {
+    "required": "key must exist AND hold a value (missing or null = error)",
+    "nullable": "key must exist; value may be explicitly null",
+    "optional": "key may be absent; absence resolves to default"
+  },
+  "int_ranges": {
+    "i32": [-2147483648, 2147483647],
+    "u32": [0, 4294967295],
+    "i64": [-9223372036854775808, 9223372036854775807],
+    "u64": [0, 18446744073709551615]
+  },
+  "js_safe_integer": 9007199254740991,
+  "types": [
+    { "name": "i32", "kind": "i32", "wire": "number" },
+    { "name": "u32", "kind": "u32", "wire": "number" },
+    { "name": "i64", "kind": "i64", "wire": "decimal_string" },
+    { "name": "u64", "kind": "u64", "wire": "decimal_string" },
+    { "name": "f32", "kind": "f32", "wire": "number" },
+    { "name": "f64", "kind": "f64", "wire": "number" },
+    { "name": "bool", "kind": "bool", "wire": "bool" },
+    { "name": "string", "kind": "string", "wire": "string" },
+    { "name": "bytes", "kind": "bytes", "wire": "base64" },
+    { "name": "timestamp_utc", "kind": "timestamp_utc", "wire": "iso8601_utc" },
+    { "name": "duration", "kind": "duration", "wire": "int_ns" },
+    { "name": "deadline", "kind": "deadline", "wire": "f64_seconds" },
+    { "name": "identifier", "kind": "identifier", "wire": "string", "identifier": { "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$", "max_length": 128, "display_name": false } },
+    { "name": "list", "kind": "list", "wire": "json_array" },
+    { "name": "object", "kind": "object", "wire": "json_object" },
+    { "name": "typed_buffer", "kind": "typed_buffer", "wire": "binary_frame", "buffer": { "dtype": "u32", "max_bytes": 1048576, "rank": 1, "nullable_elements": false } },
+    { "name": "status", "kind": "enum", "wire": "int_value", "enum": { "unknown": "UNKNOWN", "values": [ { "name": "UNKNOWN", "value": 0 }, { "name": "PENDING", "value": 1 }, { "name": "RUNNING", "value": 2 }, { "name": "SUCCEEDED", "value": 3 }, { "name": "FAILED", "value": 4 }, { "name": "CANCELLED", "value": 5 } ] } }
+  ],
+  "typed_buffer_dtype_whitelist": ["i32", "u32", "i64", "u64", "f32", "f64", "bytes"],
+  "enum_rules": [
+    "enum must reserve UNKNOWN",
+    "UNKNOWN must be ordinal 0",
+    "enum ordinals must be unique"
+  ],
+  "module_identity_fields": ["module_id", "version", "instance_id", "capabilities"],
+  "notes": "TypedBufferSpec enforces dtype in whitelist, max_bytes > 0, elements never nullable. IdentifierSpec separates machine keys from display text. CapabilityRegistry (module capability declarations placeholder for Chinese Semantic Engine v2) carries no contract data and is not ported."
+}

@@ -25,6 +25,8 @@ internal sealed class FakeTransport : IToolTransport
     public Task<JsonObject> HelloAsync(
         string toolId, string instance,
         IReadOnlyDictionary<string, string> channels,
+        IReadOnlyDictionary<string, SubmitBinding>? submitBindings =
+            null,
         CancellationToken ct = default)
     {
         Hello = new JsonObject
@@ -35,6 +37,14 @@ internal sealed class FakeTransport : IToolTransport
                 new KeyValuePair<string, JsonNode?>(
                     p.Key, p.Value)).ToArray()),
         };
+        if (submitBindings is not null)
+            Hello["submit"] = new JsonObject(submitBindings.Select(p =>
+                new KeyValuePair<string, JsonNode?>(
+                    p.Key, new JsonObject
+                    {
+                        ["actor"] = p.Value.Actor,
+                        ["authorizer"] = p.Value.Authorizer,
+                    })).ToArray());
         return Task.FromResult(Hello);
     }
 
@@ -99,7 +109,7 @@ public class GovernedToolHostTests
         SessionToken = new string('a', 64),
         Port = 0,
         ShutdownToken = "shtok",
-        PythonExecutable = "python.exe",
+        SidecarExecutable = "proxy-sidecar.exe",
     };
 
     private static JsonObject Request(

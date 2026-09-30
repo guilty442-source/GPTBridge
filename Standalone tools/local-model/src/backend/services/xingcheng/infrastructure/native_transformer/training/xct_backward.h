@@ -40,6 +40,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                        dn2.data(), p.g[ln(l, "w3")].d.data(), T, H, c.inter);
         } else {
             const int E = c.moe_experts, K = c.moe_top_k;
+            const int EI = c.expert_inter();
+            const int SI = c.shared_inter();
             std::vector<float> dgl((size_t)T * E, 0.0f);
             for (int t = 0; t < T; ++t) {
                 const float* xr = L.n2.data() + (size_t)t * H;
@@ -58,20 +60,20 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     const float* dpr = dproj.data() + (size_t)t * H;
                     std::vector<float> deo(H);
                     for (int i = 0; i < H; ++i) deo[i] = dpr[i] * wgt;
-                    std::vector<float> dfh(c.inter, 0.0f);
+                    std::vector<float> dfh((size_t)EI, 0.0f);
                     linear_bwd(deo.data(), fh.data(), p.w.at(b + "w2"),
-                               dfh.data(), p.g[b + "w2"].d.data(), 1, c.inter, H);
-                    std::vector<float> dfa(c.inter, 0.0f), dfb(c.inter, 0.0f);
-                    for (int i = 0; i < c.inter; ++i) {
+                               dfh.data(), p.g[b + "w2"].d.data(), 1, EI, H);
+                    std::vector<float> dfa((size_t)EI, 0.0f), dfb((size_t)EI, 0.0f);
+                    for (int i = 0; i < EI; ++i) {
                         float a = fa[i], bb = fb[i], d = dfh[i];
                         float sig = silu_f(a);
                         dfa[i] += d * bb * sig * (1.0f + a * (1.0f - sig) / (sig == 0.0f ? 1.0f : sig));
                         dfb[i] += d * sig;
                     }
                     linear_bwd(dfa.data(), xr, p.w.at(b + "w1"),
-                               dxr, p.g[b + "w1"].d.data(), 1, H, c.inter);
+                               dxr, p.g[b + "w1"].d.data(), 1, H, EI);
                     linear_bwd(dfb.data(), xr, p.w.at(b + "w3"),
-                               dxr, p.g[b + "w3"].d.data(), 1, H, c.inter);
+                               dxr, p.g[b + "w3"].d.data(), 1, H, EI);
                     // router weight grad: d(wgt * eo)/d gp[e]
                     float dot = 0.0f;
                     for (int i = 0; i < H; ++i) {
@@ -80,7 +82,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     // dout/d(gp[e]) = eo/wsum - sum_s(wgt_s*eo_s)*gp[e]/wsum^2 + aux
                     // compute eo once:
                     std::vector<float> eo(H);
-                    linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, c.inter, H);
+                    linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
                     for (int i = 0; i < H; ++i) dot += dpr[i] * eo[i];
                     float dlogit = dot / wsum;            // contribution via this slot
                     dgl[(size_t)t * E + e] += dlogit;
@@ -97,6 +99,30 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
                            dxr, p.g[ln(l, "gate")].d.data(), 1, H, E);
                 (void)gll; (void)aux_scale;
+            }
+            // Shared experts (v26): always-on SwiGLU backward — the shared
+            // output adds into proj with weight 1.0, so dproj flows through
+            // each shared FFN identically to the dense FFN backward.
+            for (int se = 0; se < c.moe_shared_experts; ++se) {
+                std::string b = ln(l, "shared.") + std::to_string(se) + ".";
+                const auto& sfa = L.sfa[(size_t)se];
+                const auto& sfb = L.sfb[(size_t)se];
+                const auto& sfh = L.sfh[(size_t)se];
+                std::vector<float> dsh((size_t)T * SI, 0.0f);
+                linear_bwd(dproj.data(), sfh.data(), p.w.at(b + "w2"),
+                           dsh.data(), p.g[b + "w2"].d.data(), T, SI, H);
+                std::vector<float> dsa((size_t)T * SI, 0.0f);
+                std::vector<float> dsb((size_t)T * SI, 0.0f);
+                for (size_t i = 0; i < sfh.size(); ++i) {
+                    float a = sfa[i], bb = sfb[i], d = dsh[i];
+                    float sig = silu_f(a);
+                    dsa[i] += d * bb * sig * (1.0f + a * (1.0f - sig) / (sig == 0.0f ? 1.0f : sig));
+                    dsb[i] += d * sig;
+                }
+                linear_bwd(dsa.data(), L.n2.data(), p.w.at(b + "w1"),
+                           dn2.data(), p.g[b + "w1"].d.data(), T, H, SI);
+                linear_bwd(dsb.data(), L.n2.data(), p.w.at(b + "w3"),
+                           dn2.data(), p.g[b + "w3"].d.data(), T, H, SI);
             }
         }
         // norm2 backward: dn2 -> dx_res (accumulate into residual branch)

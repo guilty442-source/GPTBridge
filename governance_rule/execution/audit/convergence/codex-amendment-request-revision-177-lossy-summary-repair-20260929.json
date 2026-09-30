@@ -1,0 +1,56 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "revision-177-lossy-summary-repair-20260929",
+  "title": "Revision-history seq-177 summary lossy-encoding repair (no semantic change)",
+  "summary": "Repair revision_history sequence 177: the sealed summary 'Five-core responsibility closure ??authority/execution separation restated' contains a lossy-encoding artifact (double question mark) introduced when the r7 request title's em-dash was mangled by a non-UTF-8 round-trip before reaching the pipeline. Per the historical_revision_correction_H045 precedent, restore the intended text 'Five-core responsibility closure — authority/execution separation restated' without semantic change, recompute entry_hash under sha256-canonical-utf8-pipe-v1 (verified: polluted row reproduces c554c734; corrected row yields b6188dbf...), and re-point the current-version seal manifests' history_head to the corrected head so the live chain stays self-consistent. The correction is recorded via a historical_revision_correction_H177 metadata marker preserving the original sealed hash c554c734ded87a011ffa43ee8e5af3bc49861b7bad6be3fe5eb8ac1775faec20 as evidence.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: full-automatic correction flow 2026-09-29; pollution detected by mirror-part-pollution gate on governance_codex.zh-TW.part-4.txt after the r7 execution sealed the lossy summary",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T11:33:57Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "c554c734ded87a011ffa43ee8e5af3bc49861b7bad6be3fe5eb8ac1775faec20",
+    "revision_sequence": 177
+  },
+  "changes": [
+    {
+      "table": "revision_history",
+      "key": { "sequence": 177 },
+      "field": "summary",
+      "proposed": "Five-core responsibility closure — authority/execution separation restated",
+      "also": {
+        "entry_hash": "b6188dbfa9f9819d444c2d8a73b5c7dd442dd4a388fa162ab0a4470679e58370"
+      }
+    },
+    {
+      "table": "seal_manifest",
+      "key": { "version": "2026-09-29T11:33:57Z" },
+      "field": "history_head",
+      "proposed": "b6188dbfa9f9819d444c2d8a73b5c7dd442dd4a388fa162ab0a4470679e58370"
+    },
+    {
+      "table": "epoch_seal_manifest",
+      "key": { "version": "2026-09-29T11:33:57Z" },
+      "field": "history_head",
+      "proposed": "b6188dbfa9f9819d444c2d8a73b5c7dd442dd4a388fa162ab0a4470679e58370"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "historical_revision_correction_H177",
+          "value": "damaged=lossy-encoding double-question-mark in sealed summary of revision_history seq177 (entry_hash c554c734ded87a011ffa43ee8e5af3bc49861b7bad6be3fe5eb8ac1775faec20);corrected=em-dash restored;entry-hash-recomputed-without-semantic-change=b6188dbfa9f9819d444c2d8a73b5c7dd442dd4a388fa162ab0a4470679e58370;seal-heads-repointed"
+        }
+      ]
+    }
+  ]
+}

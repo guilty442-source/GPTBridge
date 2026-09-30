@@ -17,8 +17,9 @@
 //!     bridge is published at
 //!     ``<tool-root>/runtime/ipc/tool-window-browser-bridge.json``
 //!   - a packaged tool (``resources/app/manifest.json`` next to the exe)
-//!     falls back to the packaged layout: the shell spawns the bundled
-//!     Python backend itself and derives the session contract
+//!     falls back to the packaged layout: the shell derives the session
+//!     contract from the manifest (B166: no bundled Python backend lane
+//!     exists — retired with the Python fleet)
 //!   - minimize/hide detaches sessions, resize re-clamps, close tears
 //!     down sessions and removes the bridge state file
 
@@ -28,13 +29,9 @@ mod window;
 
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::sync::OnceLock;
 
 pub use window::run;
-
-const BACKEND_READY_TIMEOUT: Duration = Duration::from_secs(30);
-const SHUTDOWN_DEADLINE_MS: u64 = 8_000;
 
 pub(super) fn tool_log(event: &str, detail: &str) {
     eprintln!("[tool-window] {event}: {detail}");
@@ -43,12 +40,6 @@ pub(super) fn tool_log(event: &str, detail: &str) {
 pub fn tool_window_requested() -> bool {
     std::env::args().any(|a| a == "--tool-window")
 }
-pub struct PackagedBackend {
-    pub python: PathBuf,
-    pub entry: PathBuf,
-    pub port: u16,
-}
-
 pub struct ToolConfig {
     pub tool_id: String,
     pub workspace_root: PathBuf,
@@ -57,7 +48,6 @@ pub struct ToolConfig {
     pub renderer_entry: PathBuf,
     pub websocket_url: String,
     pub backend_token: String,
-    pub shutdown_token: String,
     pub tool_version: String,
     pub title: String,
     pub width: f64,
@@ -66,7 +56,6 @@ pub struct ToolConfig {
     pub min_height: f64,
     pub runtime_mode: &'static str,
     pub start_hidden: bool,
-    pub packaged_backend: Option<PackagedBackend>,
 }
 
 pub(super) fn tool_config_cell() -> &'static OnceLock<ToolConfig> {
@@ -83,9 +72,4 @@ pub fn tool_config() -> &'static ToolConfig {
 pub(super) fn shutdown_complete() -> &'static AtomicBool {
     static FLAG: OnceLock<AtomicBool> = OnceLock::new();
     FLAG.get_or_init(|| AtomicBool::new(false))
-}
-
-pub(super) fn backend_child_pid() -> &'static Mutex<u32> {
-    static PID: OnceLock<Mutex<u32>> = OnceLock::new();
-    PID.get_or_init(|| Mutex::new(0))
 }

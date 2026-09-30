@@ -1,0 +1,96 @@
+{
+  "record": "codex-full-project-divergence-fix",
+  "date": "2026-09-29",
+  "request": "檢查全專案與法典差異執行修正",
+  "authority": {
+    "codex_identity": "governance-codex://official",
+    "codex_authority": "postgresql://local/gptbridge_codex",
+    "codex_version": "2026-09-29T05:25:52Z",
+    "codex_sha256": "de403abf3a150a6c898d6553c5a6ea9088a6cc33fa78135fab99761bcfe925e",
+    "provisions": ["A113", "A116", "A163", "A263", "A435", "A537", "A538", "B32", "B38", "B157", "C27", "C54", "E180"]
+  },
+  "fixed": [
+    {
+      "item": "shared-layer/release-dependencies.json shared_layer_classification",
+      "divergence": "entries for retired shared-layer/src/shared_layer/store.py + store_async.py (both pinned in retired_sources.json)",
+      "fix": "removed the two stale SHARED_SERVICE entries"
+    },
+    {
+      "item": "shared-layer/release-dependencies.json shared_layer_contract",
+      "divergence": "contract_file + version_key pointed at retired contracts/registry.py",
+      "fix": "ported CanonicalTypeRegistry to shared-layer/src/shared_layer/contracts/registry.json (17 types + status enum + hard rules preserved verbatim as data, B38 star-port pattern); contract_file/version_key repointed; classification evidence updated"
+    },
+    {
+      "item": "shared-layer/release-dependencies.json governance_references",
+      "divergence": "codex_version 2026-09-29T03:01:49Z / sha 7ea9fe2d… stale vs authority 2026-09-29T05:25:52Z / de403abf…",
+      "fix": "surgical 2-field re-pin to current authority (same semantics as the governed release-contract pin flow)"
+    },
+    {
+      "item": "shared-layer/release-dependencies.json config_contract.required_files",
+      "divergence": "stale sha pins for tool-runtime-contract.json (4677327c→8d604adf, committed change) and native-engine.json (370eaf7a→bfbc7980, lifecycle re-pin)",
+      "fix": "re-pinned both to current state"
+    },
+    {
+      "item": "main-system/config/automation-flows.json file-sorter-automation + vaultly-auto-scan",
+      "divergence": "enabled=true private-loop flows whose Python owners (FileSorterAutomationService, VaultlyScanMixin._auto_scan_loop) were retired (B167/B38); no native port exists under either tool root",
+      "fix": "enabled=false + retired (B167/B38) description preserving original duty text, matching the xingcheng-internal-maintenance / package-version-sync precedent"
+    },
+    {
+      "item": "Standalone tools/file-sorter + vaultly manifest.json automation blocks",
+      "divergence": "automation.enabled=true pointing at deleted automation_service.py / vaultly_scan.py entry modules",
+      "fix": "enabled=false + retired annotation pointing at the automation-flows record"
+    },
+    {
+      "item": "governance_rule/execution/git_tiers/contracts/contract_rules.json",
+      "divergence": "require_globs pointed at retired schema_contract_registry.py, toolbox_*.py, main-system/tests/**",
+      "fix": "repointed to live successors: shared-layer/database-release.json, gptbridge-backend/src/tools/*.rs, native/test_suites/**"
+    },
+    {
+      "item": "governance_rule/execution/audit/audit_protected.json REQUIRED_GOVERNANCE_ENFORCEMENT_SOURCES",
+      "divergence": "frozenset still listed retired Python governance-enforcement modules (authentication/integrity/versioning/git_tiers __init__.py, governance_runtime.py)",
+      "fix": "repointed to native enforcement set: native/audit/audit_engine*.cpp + audit_engine.h + GPTBridge.GitAutomation + GPTBridge.CodexPipeline"
+    },
+    {
+      "item": "docs/python-reduction-queue.md",
+      "divergence": "information-channel-gateway row still claimed Python channel_runtime live path; system-rescue row claimed channel_runtime.py kept as fallback",
+      "fix": "updated to retired/converged state (C++ channel_runtime + C# Channels/ChannelHost canonical)"
+    }
+  ],
+  "not_a_divergence": [
+    "main-system/config/cross-language-contract.json reported 'malformed' — false positive: PowerShell Get-Content ANSI-decode of a BOM-less UTF-8 file produced a spurious quote byte; file parses clean under UTF-8 and is byte-identical to HEAD after verification",
+    "audit_checks_manifest.json / retired_sources.json .py references — intentional forbidden-source/retired pins",
+    "runtime-corpora manifest snapshots (xingcheng/runtime/corpus-*/manifest.json) — historical fixtures, frozen by definition",
+    "DEVELOPMENT_CONFIG path list in release-dependencies.json — guard patterns, still correct even though dirs are absent"
+  ],
+  "routed": [
+    {
+      "item": "tool manifest runtime blocks",
+      "divergence": "all Standalone tools/*/manifest.json declare runtime.type=python + entry=src/main.py|src/channel_runtime.py (deleted); runtime.native_entry absent",
+      "owner": "toolbox-launch / per-tool native-host lane",
+      "note": "resolve_native_entry already fails closed TOOL_RUNTIME_RETIRED:python-entry-pending-native-host; delivery of per-tool native_entry exes is that lane's scope — not unilaterally rewritten here"
+    },
+    {
+      "item": "source_ownership.json",
+      "divergence": "still enumerates retired .py sources (contracts/registry.py, ai_channel/, mobile_channel/, store*.py, channel_runtime.py …)",
+      "owner": "permission-directory / manifest-export retirement reconcile lane",
+      "note": "registry feeds audit ownership checks; full reconcile belongs to that lane"
+    },
+    {
+      "item": "release-dependencies.json python/dependency_lock/native_extensions/required_dlls/site_packages_roots",
+      "divergence": "venv site-packages, numpy/psycopg pyd locks required=true while the Python runtime is retired",
+      "owner": "system-runtime-sovereign (RELEASE_MANIFEST_CONTRACT owner; dependency_lock is a contract-required field)",
+      "note": "field cannot be dropped (contract-required); content re-authoring is a release-packaging decision"
+    },
+    {
+      "item": "RELEASE_MANIFEST_CONTRACT.json bound_to/enforcing_modules",
+      "divergence": "still binds to retired active_release_verify.py + python_release_dependencies.py",
+      "owner": "system-runtime-sovereign (contract artifact owner)"
+    },
+    {
+      "item": "language_architecture_baseline_v1.json canonical_type_registry pins",
+      "divergence": "pins registry_sha256/types_sha256 of the retired Python registry; new registry.json port has different bytes by definition",
+      "owner": "audit baseline lane — baseline re-anchor needs its governed process, not a freehand rewrite"
+    }
+  ],
+  "verification": "native audit-engine run post-edit: 3507/3507 PASS / 0 FAIL; release-dependencies.json + registry.json re-parsed clean; landed f286d45a + cbd6588a"
+}

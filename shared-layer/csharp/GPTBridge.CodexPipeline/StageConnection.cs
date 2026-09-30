@@ -44,6 +44,12 @@ internal sealed class StageConnection : IDisposable
     private static readonly Regex OrderByRowid = new(
         @"ORDER\s+BY\s+rowid\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex IsNotPlaceholder = new(
+        @"\bIS\s+NOT\s+\?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex IsPlaceholder = new(
+        @"\bIS\s+\?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex InsertTarget = new(
         @"INSERT\s+INTO\s+""?([\w$]+)""?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -51,7 +57,7 @@ internal sealed class StageConnection : IDisposable
     public string Schema { get; }
 
     private readonly NpgsqlConnection _connection;
-    private readonly NpgsqlTransaction? _transaction;
+    private NpgsqlTransaction? _transaction;
 
     /// <summary>Truthy marker (sqlite3.Row parity) → rows indexable by
     /// column name.</summary>
@@ -132,6 +138,10 @@ internal sealed class StageConnection : IDisposable
                     + "table_schema=current_schema()");
         }
         text = OrderByRowid.Replace(text, "ORDER BY 1");
+        // sqlite ``IS ?``/``IS NOT ?`` NULL-safe equality → PostgreSQL
+        // DISTINCT FROM forms; a bare ``IS $n`` is a syntax error.
+        text = IsNotPlaceholder.Replace(text, "IS DISTINCT FROM ?");
+        text = IsPlaceholder.Replace(text, "IS NOT DISTINCT FROM ?");
         var orReplace = InsertOrReplace.Match(text);
         var orIgnore = InsertOrIgnore.Match(text);
         if (orReplace.Success || orIgnore.Success)
@@ -280,8 +290,21 @@ internal sealed class StageConnection : IDisposable
         }
     }
 
-    public void Commit() => _transaction?.Commit();
-    public void Rollback() => _transaction?.Rollback();
+    public void Commit()
+    {
+        // sqlite parity: commit ends the transaction; further
+        // statements run in autocommit until the next commit.
+        var transaction = _transaction;
+        _transaction = null;
+        transaction?.Commit();
+    }
+
+    public void Rollback()
+    {
+        var transaction = _transaction;
+        _transaction = null;
+        transaction?.Rollback();
+    }
     public void Dispose() { _transaction?.Dispose(); _connection.Dispose(); }
     public void Close() => Dispose();
 
