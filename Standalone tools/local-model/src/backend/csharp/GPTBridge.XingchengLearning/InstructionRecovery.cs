@@ -41,6 +41,8 @@ internal static class InstructionRecovery
         "structured_output" => "star-structured-eval-result/v1",
         "tool_calling" => "star-toolcall-eval-result/v1",
         "reading_grounding" => "star-reading-eval-result/v1",
+        "rag" => "star-rag-eval-result/v1",
+        "math" => "star-math-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -51,6 +53,8 @@ internal static class InstructionRecovery
             "star-structured-recovery-dataset/v1",
         "tool_calling" => "star-toolcall-recovery-dataset/v1",
         "reading_grounding" => "star-reading-recovery-dataset/v1",
+        "rag" => "star-rag-recovery-dataset/v1",
+        "math" => "star-math-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
@@ -62,12 +66,15 @@ internal static class InstructionRecovery
         "tool_calling" => "star-toolcall-recovery-eval-20261001",
         "reading_grounding" =>
             "star-reading-recovery-eval-20261001",
+        "rag" => "star-rag-recovery-eval-20261001",
+        "math" => "star-math-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
-          "structured_output", "tool_calling", "reading_grounding" };
+          "structured_output", "tool_calling", "reading_grounding",
+          "rag", "math" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -141,6 +148,35 @@ internal static class InstructionRecovery
         ("fact_extraction", 0.10),
         ("retrieval_failure_isolated", 0.10),
         ("comprehension_failure_isolated", 0.10),
+    };
+    // Registered names from Maturation300M (6 metrics). Necessity and
+    // evidence use dominate — knowing WHEN to retrieve and using ONLY
+    // the retrieved text is the capability; quality/conflict/revision
+    // are the honesty surfaces.
+    private static readonly (string metric, double w)[]
+        RagMetricWeights =
+    {
+        ("retrieval_necessity", 0.20),
+        ("evidence_use", 0.20),
+        ("citation_correctness", 0.15),
+        ("document_conflict", 0.15),
+        ("revision_awareness", 0.15),
+        ("retrieval_quality", 0.15),
+    };
+    // Registered names from Maturation300M (8 metrics). Arithmetic
+    // weighting is flat — a model that adds but cannot carry is not
+    // half-good at arithmetic, it is broken at carry_borrow.
+    private static readonly (string metric, double w)[]
+        MathMetricWeights =
+    {
+        ("add_sub", 0.15),
+        ("mul_div", 0.15),
+        ("carry_borrow", 0.13),
+        ("percentage", 0.12),
+        ("ratio", 0.10),
+        ("parentheses", 0.10),
+        ("simple_algebra", 0.12),
+        ("word_problem", 0.13),
     };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
@@ -2758,6 +2794,346 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // ------------------------------------------------------------ rag --
+
+    // RAG training pools — all entities/values disjoint from the
+    // canonical star-capability-suite-rag-300m (which uses ACME/休假/
+    // warranty-24/returns-30/refund-5/office-hours/會議室/price-50-65/
+    // 密碼碼數) and from the generated recovery suite below.
+    private static readonly string[] RagStableQ =
+        { "五乘以六等於多少", "台灣的首都在哪裡",
+          "英文字母共有幾個", "水結冰是攝氏幾度",
+          "「聰明」的反義詞是什麼", "一斤有幾兩" };
+    private static readonly string[] RagPrivateQ =
+        { "我們公司的加班費率是多少", "內部系統的登入網址是什麼",
+          "本月產品出貨量是多少", "我們的差旅補助上限",
+          "內部專案 Phoenix 的負責人是誰", "本季的行銷預算多少" };
+    private static readonly (string chunk, string q, string ans)[]
+        RagChunks =
+    {
+        ("「保固期為購買日起 12 個月。」", "保固期多長？",
+         "12 個月"),
+        ("「訂單滿 500 元免運費。」", "滿多少免運？", "500"),
+        ("「客服服務時間為週一至週五上午九點到下午六點。」",
+         "客服週末有服務嗎？", "週一至週五"),
+        ("\"The trial period is 14 days from signup.\"",
+         "How long is the trial?", "14"),
+        ("「退貨需在收到商品後七天內提出申請。」",
+         "退貨期限多久？", "七天"),
+        ("「會員年費為 1200 元，含十二期電子報。」",
+         "年費多少錢？", "1200"),
+    };
+    private static readonly string[] RagDocTopics =
+        { "辦公室搬遷", "系統維護", "發薪日", "餐廳營業時間" };
+
+    // RAG recovery — six surfaces: judge retrieval necessity, answer
+    // strictly from chunks, cite the right document, report conflicts
+    // without picking a side, prefer the superseding revision, and
+    // call out irrelevant retrieval. The anti-surfaces (memory answer
+    // with empty retrieval, adding unstated conditions, silently
+    // picking a side) are trained as negative-adjacent rows with
+    // honest completions.
+    private static IEnumerable<Row> GenerateRag(int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        bool Hard() => r.Next(4) == 0;
+
+        // -- A. retrieval_necessity (~20%) — YES/NO judgments:
+        //    stable knowledge → NO; private/realtime → YES.
+        for (int i = 0; i < count / 5; i++)
+        {
+            bool need = r.Next(2) == 0;
+            string q = need ? Take(r, RagPrivateQ)
+                            : Take(r, RagStableQ);
+            int v = r.Next(3);
+            bool zh = v != 2;
+            string prompt = v switch
+            {
+                0 => $"判斷：回答「{q}」是否需要檢索文件？回答 YES 或 "
+                   + "NO。",
+                1 => $"問題：「{q}」。若需要檢索外部或內部文件請回答 "
+                   + "YES，否則回答 NO。",
+                _ => $"Decide: does answering \"{q}\" require "
+                   + "retrieving documents? Answer YES or NO.",
+            };
+            Add(new Row
+            {
+                Prompt = prompt,
+                Completion = need ? "YES" : "NO",
+                Category = "A",
+                Rule = $"exact:{(need ? "YES" : "NO")}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- B. evidence_use (~20%) — answer from the chunk verbatim;
+        //    no unstated additions.
+        var ragFrames = new[]
+        {
+            "檢索到的片段：{0}問題：{1}請只根據片段回答。",
+            "根據檢索內容作答：{0}問：{1}",
+            "[檢索結果] {0} 使用者問題：{1}（只用檢索內容回答）",
+        };
+        foreach (var (c, q, a) in RagChunks)
+            for (int i = 0; i < count / 30; i++)
+            {
+                bool zh = ZhRatio(c) > 0.3;
+                Add(new Row
+                {
+                    Prompt = zh
+                        ? string.Format(Take(r, ragFrames), c, q)
+                        : $"Retrieved chunk: {c} Question: {q} Answer "
+                          + "only from the chunk.",
+                    Completion = a,
+                    Category = "B", Rule = $"exact:{a}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+
+        // -- C. citation_correctness (~15%) — the cited doc must be
+        //    the one carrying the answer.
+        for (int i = 0; i < count / 6; i++)
+        {
+            string topic = Take(r, RagDocTopics);
+            int v1 = 1 + r.Next(20), v2 = 21 + r.Next(20);
+            bool zh = r.Next(2) == 0;
+            if (zh)
+            {
+                string ans = $"公告於第 {v2} 號修正。（來源：文件二）";
+                Add(new Row
+                {
+                    Prompt = $"[文件一]「{topic}公告第 {v1} 號。」"
+                           + $"[文件二]「{topic}公告第 {v2} 號為最新版。"
+                           + "」問題：目前最新公告是第幾號？回答並引用"
+                           + "正確文件。",
+                    Completion = ans, Category = "C",
+                    Rule = $"exact:{ans}",
+                });
+            }
+            else
+            {
+                string ans = $"It is version {v2} (Doc 2).";
+                Add(new Row
+                {
+                    Prompt = $"[Doc 1] \"{topic} notice v{v1}.\" "
+                           + $"[Doc 2] \"{topic} notice v{v2} is the "
+                           + "current revision.\" Question: which is "
+                           + "current? Answer and cite the document.",
+                    Completion = ans, Category = "C",
+                    Rule = $"exact:{ans}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+        }
+
+        // -- D. document_conflict (~15%) — two disagreeing docs:
+        //    report both claims, never pick a side.
+        for (int i = 0; i < count / 6; i++)
+        {
+            string topic = Take(r, RagDocTopics);
+            int x = 5 + r.Next(30), y = x + 1 + r.Next(20);
+            string ans = $"文件甲說 {x}，文件乙說 {y}，兩份資料不一致"
+                       + "，需要人工確認。";
+            Add(new Row
+            {
+                Prompt = $"[文件甲]「{topic}上限為 {x}。」[文件乙]「"
+                       + $"{topic}上限為 {y}。」兩份文件衝突——分別"
+                       + "指出各自的數字，不要選邊。",
+                Completion = ans, Category = "D",
+                Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- E. revision_awareness (~15%) — superseding revision wins.
+        for (int i = 0; i < count / 6; i++)
+        {
+            string topic = Take(r, RagDocTopics);
+            int v1 = 1 + r.Next(9), v2 = v1 + 1 + r.Next(5);
+            int p1 = 100 + r.Next(400), p2 = p1 + 10 + r.Next(200);
+            bool zh = r.Next(2) == 0;
+            if (zh)
+            {
+                string ans = $"{p2} 元";
+                Add(new Row
+                {
+                    Prompt = $"[手冊 v{v1}]「{topic}費用 {p1} 元。」"
+                           + $"[手冊 v{v2}，取代 v{v1}]「{topic}費用 "
+                           + $"{p2} 元。」問題：目前費用是多少？",
+                    Completion = ans, Category = "E",
+                    Rule = $"exact:{ans}",
+                });
+            }
+            else
+            {
+                string ans = $"{p2} USD";
+                Add(new Row
+                {
+                    Prompt = $"[Guide v{v1}] \"{topic} fee: {p1} USD.\""
+                           + $" [Guide v{v2}, supersedes v{v1}] "
+                           + $"\"{topic} fee: {p2} USD.\" Question: "
+                           + "current fee?",
+                    Completion = ans, Category = "E",
+                    Rule = $"exact:{ans}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+        }
+
+        // -- F. retrieval_quality (~15%) — irrelevant retrieval: name
+        //    the miss, never stretch the chunk to fit.
+        for (int i = 0; i < count / 6; i++)
+        {
+            string topic = Take(r, new[]
+                { "園藝", "食譜", "交通時刻", "電影評論" });
+            string q = Take(r, new[]
+                { "合約違約金怎麼算", "勞基法加班上限",
+                  "資遣費計算方式", "消保法退費規定" });
+            bool zh = r.Next(3) != 0;
+            string ans = zh
+                ? "檢索到的內容與問題無關，無法據此回答。"
+                : "The retrieved chunks are irrelevant to the "
+                  + "question; I cannot answer from them.";
+            Add(new Row
+            {
+                Prompt = zh
+                    ? $"檢索到的片段都是關於「{topic}」的內容，但使用者"
+                      + $"問的是「{q}」。檢索未命中——請說明證據不相"
+                      + "關，不要硬答。"
+                    : $"The retrieved chunks are all about \"{topic}\" "
+                      + $"but the question is \"{q}\". The retrieval "
+                      + "missed — say the evidence is irrelevant "
+                      + "instead of forcing an answer.",
+                Completion = ans, Category = "F",
+                Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        return rows;
+    }
+
+    private static List<Dictionary<string, object?>>
+        BuildRagSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+
+        // retrieval_necessity — values disjoint from canonical suite
+        // (no 2+2/stock close/年假) and from training pools.
+        It("rg-ne-1", "retrieval_necessity", "contains",
+           "Decide: does answering \"how many minutes are in an hour\" "
+           + "require retrieving documents? Answer YES or NO.",
+           "NECESSITY_ERROR", ("expected", "NO"),
+           ("max_new_tokens", 12));
+        It("rg-ne-2", "retrieval_necessity", "contains",
+           "Decide: does answering \"what is our internal VPN "
+           + "address\" require retrieving documents? Answer YES or "
+           + "NO.",
+           "NECESSITY_ERROR", ("expected", "YES"),
+           ("max_new_tokens", 12));
+        It("rg-ne-3", "retrieval_necessity", "contains",
+           "判斷：回答「今天的天氣預報」是否需要檢索即時資料？回答 "
+           + "YES 或 NO。",
+           "NECESSITY_ERROR", ("expected", "YES"),
+           ("max_new_tokens", 12));
+
+        // evidence_use — chunk-only answers.
+        It("rg-eu-1", "evidence_use", "contains",
+           "Retrieved chunk: \"The campus shuttle runs every 20 "
+           + "minutes during term time.\" Question: how often does "
+           + "the shuttle run? Answer using the chunk.",
+           "WRONG_ANSWER", ("expected", "20"),
+           ("max_new_tokens", 32));
+        It("rg-eu-2", "evidence_use", "not_contains",
+           "Retrieved chunk: \"Tickets go on sale at noon.\" Question: "
+           + "when do tickets go on sale? Answer ONLY from the chunk "
+           + "— do not add unstated conditions.",
+           "OVERCLAIM", ("expected", "with ID"),
+           ("forbidden", new List<object?>
+            { "requires", "must", "需出示" }),
+           ("max_new_tokens", 32));
+
+        // citation_correctness — the supporting doc must be named.
+        It("rg-cc-1", "citation_correctness", "regex",
+           "[Doc 1] \"Check-in opens 3 hours before departure.\" "
+           + "[Doc 2] \"Boarding closes 20 minutes before.\" "
+           + "Question: when does check-in open? Answer and cite the "
+           + "document.",
+           "NO_CITATION",
+           ("pattern", "Doc ?1|文件 ?1|\\[1\\]"),
+           ("max_new_tokens", 48));
+        It("rg-cc-2", "citation_correctness", "regex",
+           "[文件一]「押金為 500 元。」[文件二]「租金每月 8000 元。」"
+           + "問題：押金是多少？回答並引用正確文件。",
+           "NO_CITATION",
+           ("pattern", "文件一|文件 ?1|\\[一\\]|Doc ?1"),
+           ("max_new_tokens", 48));
+
+        // document_conflict — both figures, no side.
+        It("rg-dc-1", "document_conflict", "regex_all",
+           "[Doc A] \"Delivery takes 2 days.\" [Doc B] \"Delivery "
+           + "takes 5 days.\" The docs disagree — report both versions "
+           + "with their sources.",
+           "OVERCLAIM",
+           ("patterns", new List<object?> { "2", "5" }),
+           ("max_new_tokens", 64));
+        It("rg-dc-2", "document_conflict", "not_contains",
+           "[資料甲]「電梯載重 8 人。」[資料乙]「電梯載重 13 人。」"
+           + "資料衝突——指出兩個來源各自的說法，不要選邊。",
+           "OVERCLAIM", ("expected", "確定是8人"),
+           ("forbidden", new List<object?>
+            { "就是8人", "就是13人" }),
+           ("max_new_tokens", 64));
+
+        // revision_awareness — the superseding revision wins.
+        It("rg-ra-1", "revision_awareness", "contains",
+           "[Policy v1, 2021] \"Remote work: 1 day per week.\" "
+           + "[Policy v3, 2024 — supersedes v1] \"Remote work: 3 days "
+           + "per week.\" Question: current remote-work allowance?",
+           "STALE_REVISION", ("expected", "3"),
+           ("max_new_tokens", 32));
+        It("rg-ra-2", "revision_awareness", "not_contains",
+           "[舊版規範]「報表截止日為每月 20 日。」[新版規範 v2，取代"
+           + "舊版]「報表截止日為每月 25 日。」問題：目前截止日？",
+           "STALE_REVISION", ("expected", "20 日"),
+           ("forbidden", new List<object?>
+            { "20 日", "每月20" }),
+           ("max_new_tokens", 32));
+
+        // retrieval_quality — irrelevant chunks → name the miss.
+        It("rg-rq-1", "retrieval_quality", "regex",
+           "Retrieved chunks are all about cooking recipes, but the "
+           + "question is about labor law. The retrieval missed — "
+           + "state that the evidence is irrelevant instead of "
+           + "answering.",
+           "FORCED_ANSWER",
+           ("pattern", "irrelevant|unrelated|not.*(about|relevant)|"
+                       + "無關|不相關|不符"),
+           ("max_new_tokens", 48));
+
+        // retrieval empty → no memory answer.
+        It("rg-rq-2", "retrieval_quality", "not_contains",
+           "檢索結果為空。使用者問：「我們產品的序號格式是什麼？」不"
+           + "得憑記憶回答——請說明沒有檢索到資料。",
+           "MEMORY_LEAKAGE", ("expected", "XC-"),
+           ("forbidden", new List<object?>
+            { "XC-", "格式為" }),
+           ("max_new_tokens", 48));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -2775,6 +3151,7 @@ internal static class InstructionRecovery
             "structured_output" => GenerateStructuredOutput(seed, count),
             "tool_calling" => GenerateToolCalling(seed, count),
             "reading_grounding" => GenerateReading(seed, count),
+            "rag" => GenerateRag(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -2823,6 +3200,7 @@ internal static class InstructionRecovery
             "structured_output" => BuildStructuredSuiteItems(),
             "tool_calling" => BuildToolCallingSuiteItems(),
             "reading_grounding" => BuildReadingSuiteItems(),
+            "rag" => BuildRagSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
