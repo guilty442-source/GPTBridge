@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --routecheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --mtpcheck | --routecheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -129,6 +129,7 @@ namespace xct {
 #include "xct_gemma4.h"
 #include "xct_mtp.h"
 #include "xct_backward.h"
+#include "xct_mtp.h"
 #include "xct_ckpt.h"
 #include "xct_job.h"
 #include "xct_depth.h"
@@ -155,11 +156,12 @@ int main(int argc, char** argv) {
         else if (a == "--inputcheck") return xct::inputcheck();
         else if (a == "--gemmacheck") return xct::gemmacheck();
         else if (a == "--mixcheck") return xct::mixcheck();
+        else if (a == "--mtpcheck") return xct::mtpcheck();
         else if (a == "--routecheck") return xct::routecheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --routecheck | --gemmacheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --mtpcheck | --routecheck | --gemmacheck\n");
         return 2;
     }
     try {

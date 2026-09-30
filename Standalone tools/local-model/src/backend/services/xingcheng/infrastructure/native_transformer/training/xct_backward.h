@@ -505,8 +505,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const int Hkvl = kvh * hd;
             // CSA2 (V4.1-Flash): CSA layers bound raw coverage to their
             // window and add a selected compressed-KV union term.
-            const int crole = L.csa_src >= 0 || L.csa_nc > 0 || c.use_csa(l)
-                                  ? L.csa_role : -1;
+            const int crole = c.use_csa(l) ? L.csa_role : -1;
             const int csa_nc = c.use_csa(l) ? L.csa_nc : 0;
             const int win = c.use_csa(l) ? L.csa_win
                                          : (c.is_local_attn(l)
@@ -654,8 +653,6 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float* gwik = p.g[ln(l, "wik")].d.data();
                     for (int cc = 0; cc < csa_nc; ++cc) {
                         const float* dik = L.csa_dik.data() + (size_t)cc * hd;
-                        float mk[(size_t)0]; // placeholder (unused)
-                        (void)mk;
                         std::vector<float> mkr((size_t)hd, 0.0f);
                         for (int gg = 0; gg < kvh; ++gg)
                             tpu_axpy(mkr.data(), 1.0f / (float)kvh,
