@@ -195,6 +195,7 @@ static int probe_all() {
         {"routecheck", routecheck}, {"dsvcheck", dsvcheck},
         {"yarncheck", yarncheck},   {"csacheck", csacheck},
         {"mtpcheck", mtpcheck},     {"canoncheck", canoncheck},
+        {"freezecheck", freezecheck},
     };
 
     std::fflush(stdout);

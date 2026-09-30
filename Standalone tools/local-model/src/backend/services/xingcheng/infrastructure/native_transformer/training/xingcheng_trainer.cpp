@@ -128,6 +128,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #if defined(_M_X64) || defined(__x86_64__)
 #include <immintrin.h>
@@ -182,6 +183,7 @@ int main(int argc, char** argv) {
         else if (a == "--csacheck") return xct::csacheck();
         else if (a == "--mtpcheck") return xct::mtpcheck();
         else if (a == "--canoncheck") return xct::canoncheck();
+        else if (a == "--freezecheck") return xct::freezecheck();
         else if (a == "--probe-all") return xct::probe_all();
     }
     if (do_smoke) return xct::smoke();
