@@ -3994,7 +3994,7 @@ bool decode_delta_state_flat(const std::vector<char>& blob,
 // Compares reference vs candidate *bundles* on identical prompts:
 // logit MAE/max, top1/top5, generation agreement, router agreement and
 // DeltaNet state drift; TPS/TTFT per side. FP64 stays the production
-// reference — this mode only produces evidence.
+// reference — this mode only produces evidence, it never promotes.
 int parity_bundle_vs_bundle(const std::string& ref_bundle,
                             const std::string& cand_bundle) {
     JsonValue manifest =
@@ -4009,36 +4009,122 @@ int parity_bundle_vs_bundle(const std::string& ref_bundle,
     SamplingConfig sc;
     sc.temperature = 0.0;
 
-    std::vector<double> ref, cand;
-    std::vector<int64_t> ref_gen, cand_gen;
-    std::vector<char> ref_state, cand_state;
-    int64_t router_same = 0, router_total = 0;
-    double ref_ttft = 0, cand_ttft = 0, ref_s = 0, cand_s = 0;
-    {
+    struct Side {
+        std::vector<double> logits;
+        std::vector<int64_t> gen;
+        std::vector<char> state;
+        xingcheng::inference::MoeTrace trace;
+        double ttft = 0, gen_s = 0;
+        bool has_state = false;
+    };
+    auto run_side = [&](const std::string& b, Side& s) {
         NativeInferenceEngine e;
-        e.load(ref_bundle);
+        e.load(b);
         auto t0 = std::chrono::steady_clock::now();
-        ref = e.logits(ids);
-        ref_ttft = std::chrono::duration<double>(
+        s.logits = e.logits(ids);
+        s.ttft = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - t0).count();
         e.set_moe_trace_enabled(true);
         t0 = std::chrono::steady_clock::now();
-        ref_gen = e.generate(ids, 16, sc);
-        ref_s = std::chrono::duration<double>(
+        s.gen = e.generate(ids, 16, sc);
+        s.gen_s = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - t0).count();
-        e.delta_state_save(0, ref_state);
-        for (const auto& tl : e.moe_trace().layers)
-            for (const auto& s : tl.selected) {
-                for (int64_t x : s) { (void)x; }
-            }
-        ref_trace = &e.moe_trace();   // can't — engine dies; copy below
+        s.trace = e.moe_trace();
+        s.has_state = e.delta_state_save(0, s.state);
+    };
+    Side r, c;
+    run_side(ref_bundle, r);
+    run_side(cand_bundle, c);
+
+    const size_t n = std::min(r.logits.size(), c.logits.size());
+    if (n == 0) fail("PRECISION_EMPTY_LOGITS");
+    double mae = 0.0, max_diff = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        const double d = std::abs(r.logits[i] - c.logits[i]);
+        mae += d;
+        max_diff = std::max(max_diff, d);
     }
-    return 0;
+    mae /= n;
+    auto topk = [](const std::vector<double>& v, int k) {
+        std::vector<int64_t> ord(v.size());
+        std::iota(ord.begin(), ord.end(), 0);
+        std::partial_sort(ord.begin(), ord.begin() + k, ord.end(),
+                          [&](int64_t x, int64_t y) {
+                              return v[(size_t)x] > v[(size_t)y];
+                          });
+        ord.resize(k);
+        return ord;
+    };
+    const auto r5 = topk(r.logits, 5), c5 = topk(c.logits, 5);
+    const bool top1 = r5[0] == c5[0];
+    int64_t top5_hits = 0;
+    for (int64_t x : c5)
+        if (std::find(r5.begin(), r5.end(), x) != r5.end()) ++top5_hits;
+    const double top5 = top5_hits / 5.0;
+    const bool gen_agree = r.gen == c.gen;
+
+    int64_t router_same = 0, router_total = 0;
+    for (size_t li = 0;
+         li < r.trace.layers.size() && li < c.trace.layers.size();
+         ++li) {
+        const auto& rs = r.trace.layers[li].selected;
+        const auto& cs = c.trace.layers[li].selected;
+        for (size_t i = 0; i < rs.size() && i < cs.size(); ++i) {
+            ++router_total;
+            if (rs[i] == cs[i]) ++router_same;
+        }
+    }
+    const double router_agree =
+        router_total ? (double)router_same / router_total : 1.0;
+
+    double state_drift = 0.0;
+    bool state_eval = false;
+    if (r.has_state && c.has_state) {
+        std::vector<double> rf, cf;
+        if (decode_delta_state_flat(r.state, rf) &&
+            decode_delta_state_flat(c.state, cf) &&
+            rf.size() == cf.size()) {
+            state_eval = true;
+            for (size_t i = 0; i < rf.size(); ++i)
+                state_drift = std::max(state_drift,
+                                       std::abs(rf[i] - cf[i]));
+        }
+    }
+
+    const bool pass = max_diff < 0.05 && mae < 0.02 && top1 &&
+                      top5 >= 0.8 && gen_agree && router_agree >= 0.9;
+    std::printf(
+        "{\"ok\":%s,\"format\":\"star-precision-parity/v1\","
+        "\"lane\":\"bundle-vs-bundle\","
+        "\"resolved_precision\":\"%s\","
+        "\"logit_mae\":%.6g,\"logit_max_abs_diff\":%.6g,"
+        "\"top1_agreement\":%s,\"top5_agreement\":%.4g,"
+        "\"generation_agreement\":%s,\"router_agreement\":%.4g,"
+        "\"state_drift_evaluated\":%s,\"state_drift_max\":%.6g,"
+        "\"ref_ttft_s\":%.4f,\"cand_ttft_s\":%.4f,"
+        "\"ref_tps\":%.4f,\"cand_tps\":%.4f,"
+        "\"capability_training_frozen\":true,"
+        "\"threshold\":{\"logit_max_abs_diff\":0.05,"
+        "\"logit_mae\":0.02,\"top5\":0.8,\"router\":0.9}}\n",
+        pass ? "true" : "false",
+        pass ? "CANDIDATE_PASSES" : "REFERENCE_FP64",
+        mae, max_diff,
+        top1 ? "true" : "false", top5,
+        gen_agree ? "true" : "false", router_agree,
+        state_eval ? "true" : "false", state_drift,
+        r.ttft, c.ttft,
+        r.gen_s > 0 ? 16.0 / r.gen_s : 0.0,
+        c.gen_s > 0 ? 16.0 / c.gen_s : 0.0);
+    return pass ? 0 : 1;
 }
 
 int mode_precision_parity(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("PRECISION_ARGS_MISSING");
+    const std::string ref_bundle = a.get("ref-bundle");
+    if (!ref_bundle.empty()) {
+        return parity_bundle_vs_bundle(ref_bundle, bundle);
+    }
     JsonValue manifest =
         parse_json_file((fs::path(bundle) / "manifest.json").string());
     const JsonValue* mcfg = manifest.get("config");
