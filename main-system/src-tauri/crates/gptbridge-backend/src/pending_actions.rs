@@ -101,6 +101,46 @@ pub fn pending_action_cardinality(actions: &[Value]) -> Value {
     })
 }
 
+/// ``xingcheng-set-update-release`` successor — retired
+/// ``auto_action_policy.set_automation_switch`` port.  Only
+/// ``automatic_update_enabled`` is user-writable; the repair switch was
+/// removed from the store (system-audit flow owns it).  Persists the
+/// reshaped record and appends the A366-style audit entry.
+pub fn set_automatic_update(enabled: bool) -> Value {
+    let mut data = automation_switches();
+    let previous = data["automatic_update_enabled"].as_bool().unwrap_or(false);
+    data["automatic_update_enabled"] = json!(enabled);
+    data["updated_at"] = json!(gptbridge_core::app::iso_now());
+    data["updated_by"] = json!("authenticated-ui");
+    let dir = state_dir();
+    let path = dir.join("automation-switches.json");
+    let tmp = dir.join(".automation-switches.json.tmp");
+    let serialized = serde_json::to_string_pretty(&data).unwrap_or_default() + "\n";
+    if std::fs::write(&tmp, &serialized).is_ok() {
+        let _ = std::fs::rename(&tmp, &path);
+    }
+    let audit = json!({
+        "timestamp": gptbridge_core::app::iso_now(),
+        "actor": "authenticated-ui",
+        "switch": "automatic_update_enabled",
+        "previous": previous,
+        "enabled": enabled,
+    });
+    if let Ok(mut handle) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("automation-switch-audit.jsonl"))
+    {
+        use std::io::Write;
+        let _ = writeln!(
+            handle,
+            "{}",
+            serde_json::to_string(&audit).unwrap_or_default()
+        );
+    }
+    automation_switches()
+}
+
 /// Persisted automation switches with the pinned repair attribution —
 /// automatic repair executes through the governed system-audit chain, so the
 /// surface reports the standing policy rather than a stale persisted toggle.

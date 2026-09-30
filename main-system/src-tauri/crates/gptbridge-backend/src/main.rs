@@ -129,6 +129,38 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
         // apply the transition, verify the resulting state, and report the
         // status fields.  The first-party model lives inside the governed
         // local-model runtime, so enable = governed start / disable = stop.
+        // Retired parity (xingcheng_handler._handle_set_release): the
+        // update switch persists user intent; the repair switch was
+        // retired — autonomous repair runs under the system-audit flow.
+        "xingcheng-set-update-release" => match payload["enabled"].as_bool() {
+            None => json!({
+                "ok": false,
+                "error_code": "MISSING_ENABLED_STATE",
+                "message": "enabled (boolean) is required",
+            }),
+            Some(enabled) => json!({
+                "ok": true,
+                "switches": pending_actions::set_automatic_update(enabled),
+            }),
+        },
+        "xingcheng-set-repair-release" => json!({
+            "ok": false,
+            "error_code": "SWITCH_RETIRED",
+            "message": "repair_release was retired: autonomous repair runs under the system-audit flow",
+        }),
+        // Confirmation-service commands have no native sovereign successor
+        // yet — fail closed instead of fabricating queue mutations.
+        "xingcheng-confirm-automatic-repair"
+        | "xingcheng-confirm-automatic-update"
+        | "xingcheng-revoke-automatic-repair"
+        | "xingcheng-revoke-automatic-update"
+        | "xingcheng-deny-pending-action"
+        | "sync-execute-approved-automatic-repair"
+        | "sync-execute-approved-automatic-update" => json!({
+            "ok": false,
+            "error_code": "CONFIRMATION_SOVEREIGN_UNAVAILABLE",
+            "message": "confirmation sovereign not started",
+        }),
         "xingcheng-set-native-model-enabled" => {
             match payload["enabled"].as_bool() {
                 None => json!({

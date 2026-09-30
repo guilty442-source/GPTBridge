@@ -367,6 +367,8 @@ private:
         std::vector<double> shared_sgu;
         std::vector<double> shared_sg;
         std::vector<double> shared_sd;
+        // Vision early-fusion prefix projection output.
+        std::vector<double> vision_prefix;
     };
     ForwardScratch fs_;
     // RoPE frequency-base cache (dim/theta keyed): pow() once per model.
