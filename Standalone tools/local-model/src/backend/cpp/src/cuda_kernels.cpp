@@ -25,6 +25,7 @@
 
 #include <windows.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -539,6 +540,55 @@ extern "C" __global__ void xc_kv_attention(
     for (long long d = tid; d < head_dim; d += blockDim.x)
         orow[d] = acc[d] * inv_l;
 }
+
+// --------------------------------------------------- training plane ----
+// NativeCudaTrainingPlane §26 NativeCudaFusedAdamW — one fused pass per
+// element: gradient scale -> bias-corrected moments -> decoupled weight
+// decay -> parameter update. Semantics mirror the trainer's scalar
+// adamw_step exactly (fp32 state, bc1/bc2 computed host-side so the
+// bias-correction matches std::pow to the bit).
+
+extern "C" __global__ void xc_adamw_fused(
+    const float* g, float* m, float* v, float* w,
+    float gscale, float lr_t, float wd,
+    float b1, float b2, float bc1, float bc2, float eps,
+    long long n) {
+    const long long stride = (long long)gridDim.x * blockDim.x;
+    for (long long i = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+         i < n; i += stride) {
+        const float gi = g[i] * gscale;
+        const float mi = b1 * m[i] + (1.0f - b1) * gi;
+        const float vi = b2 * v[i] + (1.0f - b2) * gi * gi;
+        m[i] = mi;
+        v[i] = vi;
+        const float mh = mi / bc1;
+        const float vh = vi / bc2;
+        w[i] -= lr_t * (mh / (sqrtf(vh) + eps) + wd * w[i]);
+    }
+}
+
+// Global gradient-norm front half (§26 clip fused into the same pass
+// family): block partial sums of x*x; the host reduces partials in fp64
+// — same accumulation precision class as the trainer's scalar loop.
+extern "C" __global__ void xc_sqsum_part(
+    const float* x, float* part, long long n) {
+    __shared__ float red[256];
+    const long long stride = (long long)gridDim.x * blockDim.x;
+    float acc = 0.0f;
+    for (long long i = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+         i < n; i += stride)
+        acc += x[i] * x[i];
+    for (int off = 16; off > 0; off >>= 1)
+        acc += __shfl_down_sync(0xffffffffu, acc, off);
+    if ((threadIdx.x & 31) == 0) red[threadIdx.x >> 5] = acc;
+    __syncthreads();
+    if (threadIdx.x == 0) {
+        const int warps = (blockDim.x + 31) / 32;
+        float s = 0.0f;
+        for (int w2 = 0; w2 < warps; ++w2) s += red[w2];
+        part[blockIdx.x] = s;
+    }
+}
 )XCSRC";
 
 // ------------------------------------------------- module compile/cache --
@@ -553,6 +603,8 @@ CUfunction_t g_f_conv_fp8 = nullptr;
 CUfunction_t g_f_gemm_fp8 = nullptr;
 CUfunction_t g_f_gemv_fp8 = nullptr;
 CUfunction_t g_f_kv_attn = nullptr;
+CUfunction_t g_f_adamw = nullptr;
+CUfunction_t g_f_sqsum = nullptr;
 std::mutex g_module_mu;
 bool g_module_tried = false;
 
@@ -627,6 +679,8 @@ bool ensure_module() {
     ok &= get_func(&g_f_gemm_fp8, "xc_gemm_fp8");
     ok &= get_func(&g_f_gemv_fp8, "xc_gemv_fp8_part");
     ok &= get_func(&g_f_kv_attn, "xc_kv_attention");
+    ok &= get_func(&g_f_adamw, "xc_adamw_fused");
+    ok &= get_func(&g_f_sqsum, "xc_sqsum_part");
     if (!ok) {
         XCK_DBG("get_func fail");
         g_drv.module_unload(g_module);
@@ -1019,6 +1073,24 @@ void kv_free_locked() {
     g_layers = g_kv_heads = g_head_dim = g_max_len = 0;
 }
 
+// ------------------------------------------------- fused AdamW state --
+// NativeCudaTrainingPlane §26/§9/§24: optimizer state lives on device,
+// keyed by the caller's host weight pointer (stable for a run). One
+// fused kernel pass per element replaces the trainer's 5 host sweeps;
+// H2D ships only the gradient per step, D2H runs at checkpoint/eval
+// boundaries — never per step.
+struct AdamwState {
+    CUdevptr_t dw = 0, dm = 0, dv = 0, dg = 0;
+    long long n = 0;
+};
+
+std::mutex g_adamw_mu;
+std::unordered_map<const void*, AdamwState> g_adamw;
+DevPool g_adamw_norm_part;
+std::vector<float> g_adamw_norm_host;
+
+constexpr int kSqsumBlocks = 128;
+
 }  // namespace
 
 extern "C" {
@@ -1311,6 +1383,157 @@ int xcuda_kv_attention(long long layer, const double* q_host,
         kCudaSuccess) {
         return 3;
     }
+    return 0;
+}
+
+// ------------------------------------------------- fused AdamW API ----
+// §26 NativeCudaFusedAdamW host surface. rc contract: 0 ok, 2 bad args,
+// 3 device/module/copy failure, 4 unknown key, 5 bind mismatch.
+
+int xcuda_adamw_probe() {
+    return device_ready() && ensure_module() &&
+                   g_f_adamw != nullptr && g_f_sqsum != nullptr
+               ? 1 : 0;
+}
+
+// Bind (idempotent) one tensor's fp32 w/m/v onto the device, keyed by
+// the host weight pointer — the same stability contract as
+// device_weight_bf16: pointers are stable for the run; a rebind with a
+// different element count fails closed rather than aliasing.
+int xcuda_adamw_bind(const float* w_host, const float* m_host,
+                     const float* v_host, long long n) {
+    if (w_host == nullptr || m_host == nullptr || v_host == nullptr ||
+        n <= 0)
+        return 2;
+    if (!use_ctx() || !ensure_module()) return 3;
+    std::lock_guard<std::mutex> lk(g_adamw_mu);
+    auto it = g_adamw.find(w_host);
+    if (it != g_adamw.end())
+        return it->second.n == n ? 0 : 5;
+    AdamwState st;
+    st.n = n;
+    const size_t bytes = static_cast<size_t>(n) * sizeof(float);
+    st.dw = dev_alloc(bytes, mp::Tier::PINNED_PERMANENT);
+    st.dm = dev_alloc(bytes, mp::Tier::PINNED_PERMANENT);
+    st.dv = dev_alloc(bytes, mp::Tier::PINNED_PERMANENT);
+    st.dg = dev_alloc(bytes, mp::Tier::KERNEL_SCRATCH);
+    if (st.dw == 0 || st.dm == 0 || st.dv == 0 || st.dg == 0) {
+        if (st.dw) dev_free(st.dw);
+        if (st.dm) dev_free(st.dm);
+        if (st.dv) dev_free(st.dv);
+        if (st.dg) dev_free(st.dg);
+        return 3;
+    }
+    if (xmemcpy_htod(st.dw, w_host, bytes) != kCudaSuccess ||
+        xmemcpy_htod(st.dm, m_host, bytes) != kCudaSuccess ||
+        xmemcpy_htod(st.dv, v_host, bytes) != kCudaSuccess) {
+        dev_free(st.dw); dev_free(st.dm); dev_free(st.dv);
+        dev_free(st.dg);
+        return 3;
+    }
+    g_adamw.emplace(w_host, st);
+    return 0;
+}
+
+// §26 fused step: H2D the gradient then one kernel pass — moments,
+// decoupled decay and the parameter update never touch the host.
+// gscale folds the caller's global-clip coefficient (xc_adamw_sqsum or
+// the host norm); b1/b2/eps mirror the trainer's adamw_step constants.
+int xcuda_adamw_step_dev(const float* g_host, const void* w_key,
+                         float gscale, float lr_t, float wd, int step) {
+    if (g_host == nullptr || w_key == nullptr || step < 0) return 2;
+    std::lock_guard<std::mutex> lk(g_adamw_mu);
+    auto it = g_adamw.find(w_key);
+    if (it == g_adamw.end()) return 4;
+    AdamwState& st = it->second;
+    if (!use_ctx() || !ensure_module()) return 3;
+    const size_t bytes = static_cast<size_t>(st.n) * sizeof(float);
+    if (xmemcpy_htod(st.dg, g_host, bytes) != kCudaSuccess) return 3;
+    // Bias corrections are computed on the host in fp64 — identical to
+    // the trainer's std::pow path, so the update matches bit-for-bit.
+    float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
+    float bc1 = static_cast<float>(
+        1.0 - std::pow(0.9, static_cast<double>(step + 1)));
+    float bc2 = static_cast<float>(
+        1.0 - std::pow(0.999, static_cast<double>(step + 1)));
+    long long n = st.n;
+    float gs = gscale, lt = lr_t, wdv = wd;
+    void* params[] = {&st.dg, &st.dm, &st.dv, &st.dw,
+                      &gs, &lt, &wdv, &b1, &b2, &bc1, &bc2, &eps, &n};
+    const unsigned blocks = static_cast<unsigned int>(
+        std::min<long long>((n + 255) / 256, 65535));
+    if (!launch(g_f_adamw, blocks, 1, 256, 1, 0, params)) return 3;
+    return 0;
+}
+
+// Checkpoint/eval boundary sync — never on the hot path.
+int xcuda_adamw_sync(const void* w_key, float* w_out, float* m_out,
+                     float* v_out) {
+    if (w_key == nullptr) return 2;
+    std::lock_guard<std::mutex> lk(g_adamw_mu);
+    auto it = g_adamw.find(w_key);
+    if (it == g_adamw.end()) return 4;
+    if (!use_ctx()) return 3;
+    const size_t bytes = static_cast<size_t>(it->second.n) * sizeof(float);
+    if (w_out != nullptr &&
+        xmemcpy_dtoh(w_out, it->second.dw, bytes) != kCudaSuccess)
+        return 3;
+    if (m_out != nullptr &&
+        xmemcpy_dtoh(m_out, it->second.dm, bytes) != kCudaSuccess)
+        return 3;
+    if (v_out != nullptr &&
+        xmemcpy_dtoh(v_out, it->second.dv, bytes) != kCudaSuccess)
+        return 3;
+    return 0;
+}
+
+// §26 clip front half: Σx² for one tensor — block partials on device,
+// host reduces in fp64 (same precision class as the scalar loop; the
+// partials reduce over 128 blocks, not per element, so the sum differs
+// from the host's sequential order only below fp32 clip tolerance).
+int xcuda_adamw_sqsum(const float* x_host, long long n, double* out) {
+    if (x_host == nullptr || out == nullptr || n <= 0) return 2;
+    if (!use_ctx() || !ensure_module() || g_f_sqsum == nullptr) return 3;
+    const size_t bytes = static_cast<size_t>(n) * sizeof(float);
+    CUdevptr_t dx = dev_alloc(bytes, mp::Tier::KERNEL_SCRATCH);
+    if (dx == 0) return 3;
+    int rc = 3;
+    CUdevptr_t part = dev_get_pooled(
+        g_adamw_norm_part, kSqsumBlocks * sizeof(float));
+    if (part != 0 &&
+        xmemcpy_htod(dx, x_host, bytes) == kCudaSuccess) {
+        long long nl = n;
+        void* params[] = {&dx, &part, &nl};
+        if (launch(g_f_sqsum, kSqsumBlocks, 1, 256, 1, 0, params)) {
+            g_adamw_norm_host.resize(kSqsumBlocks);
+            if (xmemcpy_dtoh(g_adamw_norm_host.data(), part,
+                             kSqsumBlocks * sizeof(float)) ==
+                kCudaSuccess) {
+                double s = 0.0;
+                for (int b = 0; b < kSqsumBlocks; ++b)
+                    s += static_cast<double>(g_adamw_norm_host[b]);
+                *out = s;
+                rc = 0;
+            }
+        }
+    }
+    dev_free(dx);
+    return rc;
+}
+
+// Run teardown: free every bound tensor's device state.
+int xcuda_adamw_release() {
+    std::lock_guard<std::mutex> lk(g_adamw_mu);
+    for (auto& kv : g_adamw) {
+        dev_free(kv.second.dw);
+        dev_free(kv.second.dm);
+        dev_free(kv.second.dv);
+        dev_free(kv.second.dg);
+    }
+    g_adamw.clear();
+    dev_pool_release(g_adamw_norm_part);
+    g_adamw_norm_host.clear();
+    g_adamw_norm_host.shrink_to_fit();
     return 0;
 }
 

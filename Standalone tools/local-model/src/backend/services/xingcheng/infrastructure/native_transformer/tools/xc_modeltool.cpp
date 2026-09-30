@@ -3483,19 +3483,9 @@ int mode_state_drift(const Args& a) {
     return 0;
 }
 
-// 禮13 spec-probe: speculative-decode runtime metrics schema ??the
-// infrastructure exists, production speculation stays disabled.
-int mode_spec_probe(const Args&) {
-    xcm2::SpeculativeDecoder s;
-    std::printf(
-        "{\"ok\":true,\"format\":\"star-speculative-decode/v1\","
-        "\"available\":%s,\"status\":\"INFRASTRUCTURE_ONLY\","
-        "\"metrics\":[\"draft_depth\",\"acceptance_length\","
-        "\"acceptance_rate\",\"verify_latency\",\"net_speedup\"],"
-        "\"production_enabled\":false}\n",
-        s.available() ? "true" : "false");
-    return 0;
-}
+// spec-probe lives in xcm_integration.h — it exercises the
+// SpeculativeDecoder ABI with a synthetic drafter; the trivial
+// metrics-schema stub was removed by the merge.
 
 // 禮27 hw-caps: hardware capability registry ??detection only; a
 // precision profile is never enabled by env-var fiat (禮27 last rule).

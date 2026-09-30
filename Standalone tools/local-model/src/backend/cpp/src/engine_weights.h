@@ -571,7 +571,6 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
                     }
                 }
             }
-            }
             view.data = dst.data();
         }
         bundle.tensors_.emplace(name, item);
