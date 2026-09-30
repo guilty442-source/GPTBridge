@@ -497,8 +497,12 @@ void NativeInferenceEngine::validate_supported() const {
          cfg.moe_shared_intermediate_size < 0)) {
         throw InferenceError("MOE_CONFIG_UNSUPPORTED");
     }
+    // Quantization whitelist: the writer emits none|int8|int4_packed|
+    // bf16 (bf16 and int8/int4 weights are dequantized to fp64 at
+    // load — the marker records storage, not a different math lane).
     if (cfg.quantization != "none" && cfg.quantization != "int8" &&
-        cfg.quantization != "int4") {
+        cfg.quantization != "int4" && cfg.quantization != "int4_packed" &&
+        cfg.quantization != "bf16") {
         throw InferenceError("QUANTIZED_INFERENCE_UNSUPPORTED");
     }
     if (cfg.norm_type != "rmsnorm") throw InferenceError("NORM_TYPE_UNSUPPORTED");
