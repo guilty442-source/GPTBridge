@@ -2155,26 +2155,51 @@ internal static class Program
             ["step"] = "job-queued", ["job_id"] = job["job_id"],
         });
 
-        var report = new TrainingJobExecutor(repo, toolRoot)
-            .RunJob((string)job["job_id"]!);
+        // Under FROZEN (no recovery lane) the governed chain must seal at
+        // execution: the denial is the expected outcome, not a failure.
+        // Downstream smoke that needs a produced artifact falls back to
+        // existing files (lifecycle registration only hashes the path).
+        var freezePol = SelfLearningPolicy.Load(toolRoot);
+        bool frozenSealExpected = freezePol.CapabilityTrainingFrozen &&
+            !CapabilityFreeze.RecoveryLaneOpen(freezePol);
+        Dictionary<string, object?>? report = null;
+        bool executeDeniedFrozen = false;
+        try
+        {
+            report = new TrainingJobExecutor(repo, toolRoot)
+                .RunJob((string)job["job_id"]!);
+        }
+        catch (ExecutorError ee) when (
+            ee.ErrorCode == "EXECUTOR_TRAINING_FROZEN" && frozenSealExpected)
+        {
+            executeDeniedFrozen = true;
+        }
         steps.Add(new Dictionary<string, object?>
         {
             ["step"] = "execute",
-            ["ok"] = report["ok"],
-            ["error_code"] = report.GetValueOrDefault("error_code"),
-            ["output_path"] = report.GetValueOrDefault("output_path"),
+            ["ok"] = executeDeniedFrozen || (report != null &&
+                     TransformerTrainingRepository.Truthy(report["ok"])),
+            ["frozen_denial"] = executeDeniedFrozen,
+            ["error_code"] = report?.GetValueOrDefault("error_code"),
+            ["output_path"] = report?.GetValueOrDefault("output_path"),
         });
-        if (!TransformerTrainingRepository.Truthy(report["ok"]))
+        if (!executeDeniedFrozen &&
+            (report == null ||
+             !TransformerTrainingRepository.Truthy(report["ok"])))
             return new Dictionary<string, object?>
             {
                 ["ok"] = false, ["steps"] = steps,
-                ["job"] = report.GetValueOrDefault("job"),
+                ["job"] = report?.GetValueOrDefault("job"),
             };
 
         // Lifecycle smoke against a scratch directory ??production
-        // lifecycle roots are never touched.
-        string bundleDir = Path.GetDirectoryName(
-            report["output_path"]!.ToString()!)!;
+        // lifecycle roots are never touched. Under a sealed queue the
+        // artifact paths point at the deterministic snapshot instead —
+        // registration hashes file content, mechanics are identical.
+        string outputPath = executeDeniedFrozen
+            ? snapshotPath
+            : report!["output_path"]!.ToString()!;
+        string bundleDir = Path.GetDirectoryName(outputPath)!;
         string jobDir = Directory.GetParent(bundleDir)!.FullName;
         string lcDir = Path.Combine(
             toolRoot, XcPaths.SelfLearningSnapshotRel,
@@ -2183,29 +2208,45 @@ internal static class Program
         // Adapter registration + native eval gate: candidate bundle vs
         // itself as baseline (regression delta = 0). The gate outcome is
         // reported; the step asserts the eval ran and was recorded.
-        var adapter = repo.RegisterAdapterCandidate(
-            (string)job["job_id"]!,
-            report["output_path"]!.ToString()!,
-            new Dictionary<string, object?>
-            {
-                ["origin"] = "xc-learning-selftest",
-            });
-        string suitePath = Path.Combine(
-            toolRoot, "xingcheng", "eval",
-            "star-native-eval-dialogue-20260921-125054.json");
-        var eval = Evaluation.RunEvaluation(
-            repo, (string)adapter["adapter_id"]!,
-            report["output_path"]!.ToString()!, suitePath,
-            baselineArtifact: report["output_path"]!.ToString()!,
-            evaluatedBy: "xc-learning-selftest");
-        steps.Add(new Dictionary<string, object?>
+        // Under a sealed queue no candidate artifact exists — the eval
+        // lane is exercised on the next recovery lane; mark skipped.
+        bool evalOk = true;
+        if (!executeDeniedFrozen)
         {
-            ["step"] = "evaluate",
-            ["adapter_id"] = adapter["adapter_id"],
-            ["suite"] = eval.GetValueOrDefault("suite"),
-            ["passed"] = eval.GetValueOrDefault("passed"),
-            ["eval_ok"] = eval.GetValueOrDefault("ok"),
-        });
+            var adapter = repo.RegisterAdapterCandidate(
+                (string)job["job_id"]!,
+                report!["output_path"]!.ToString()!,
+                new Dictionary<string, object?>
+                {
+                    ["origin"] = "xc-learning-selftest",
+                });
+            string suitePath = Path.Combine(
+                toolRoot, "xingcheng", "eval",
+                "star-native-eval-dialogue-20260921-125054.json");
+            var eval = Evaluation.RunEvaluation(
+                repo, (string)adapter["adapter_id"]!,
+                report!["output_path"]!.ToString()!, suitePath,
+                baselineArtifact: report!["output_path"]!.ToString()!,
+                evaluatedBy: "xc-learning-selftest");
+            evalOk = TransformerTrainingRepository.Truthy(
+                eval.GetValueOrDefault("ok"));
+            steps.Add(new Dictionary<string, object?>
+            {
+                ["step"] = "evaluate",
+                ["adapter_id"] = adapter["adapter_id"],
+                ["suite"] = eval.GetValueOrDefault("suite"),
+                ["passed"] = eval.GetValueOrDefault("passed"),
+                ["eval_ok"] = eval.GetValueOrDefault("ok"),
+            });
+        }
+        else
+        {
+            steps.Add(new Dictionary<string, object?>
+            {
+                ["step"] = "evaluate",
+                ["skipped"] = "sealed_by_freeze",
+            });
+        }
 
         // DPO preference-pair bridge: build a governed snapshot and
         // register it (dataset row + audit), without queueing training.
@@ -2241,9 +2282,13 @@ internal static class Program
             ["maturity_level"] = 7,
         };
         lc.RegisterArtifact("weights",
-            Path.Combine(jobDir, "final.xcn"), meta, activate: true);
+            executeDeniedFrozen ? snapshotPath
+                                : Path.Combine(jobDir, "final.xcn"),
+            meta, activate: true);
         lc.RegisterArtifact("weights",
-            Path.Combine(bundleDir, "weights.bin"), meta, activate: true);
+            executeDeniedFrozen ? pairsPath
+                                : Path.Combine(bundleDir, "weights.bin"),
+            meta, activate: true);
         lc.Save(lcDir);
         var reloaded = ModelLifecycle.Load(lcDir);
         if (reloaded.ActiveWeightsVersion != 2)
@@ -2290,11 +2335,10 @@ internal static class Program
         return new Dictionary<string, object?>
         {
             ["ok"] = denied && successionRecorded && retireActiveDenied &&
-                     reloaded.ActiveWeightsVersion == 1 &&
-                     TransformerTrainingRepository.Truthy(
-                         eval.GetValueOrDefault("ok")),
+                     reloaded.ActiveWeightsVersion == 1 && evalOk,
+            ["frozen_sealed"] = executeDeniedFrozen,
             ["steps"] = steps,
-            ["job"] = report.GetValueOrDefault("job"),
+            ["job"] = report?.GetValueOrDefault("job"),
         };
     }
 }

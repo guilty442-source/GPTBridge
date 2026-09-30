@@ -689,7 +689,9 @@ struct Params {
     }
     Tensor& add(const std::string& n, std::initializer_list<int64_t> s) {
         w[n] = mk(s);
-        g[n] = mk(s);
+        // frozen params never own a gradient buffer — backward emits a
+        // null dW for them (dw()), so the slot would only ever hold zeros.
+        if (!is_frozen(n)) g[n] = mk(s);
         order.push_back(n);
         return w[n];
     }
@@ -711,7 +713,8 @@ struct Params {
         return t;
     }
     void zero_grad() {
-        for (auto& n : order) std::fill(g[n].d.begin(), g[n].d.end(), 0.0f);
+        for (auto& kv : g)
+            std::fill(kv.second.d.begin(), kv.second.d.end(), 0.0f);
     }
 };
 
