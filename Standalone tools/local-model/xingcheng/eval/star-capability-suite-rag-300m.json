@@ -1,0 +1,113 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-rag-300m",
+  "seed": 48,
+  "notes": "300M maturation P5: RAG capability suite — distinct from reading/grounding. Measures retrieval necessity judgment, evidence use, citation correctness, document-conflict handling and revision awareness given retrieved chunks.",
+  "items": [
+    {
+      "id": "rag-nec-1",
+      "category": "retrieval_necessity",
+      "check": "contains",
+      "prompt": "Decide: does answering \"what is 2+2\" require retrieving documents? Answer YES or NO.",
+      "expected": "NO",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "rag-nec-2",
+      "category": "retrieval_necessity",
+      "check": "contains",
+      "prompt": "Decide: does answering \"what was yesterday's stock close for ACME\" require retrieving documents? Answer YES or NO.",
+      "expected": "YES",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "rag-nec-3",
+      "category": "retrieval_necessity",
+      "check": "contains",
+      "prompt": "判斷：回答「我們公司的休假政策有幾天年假」是否需要檢索內部文件？回答 YES 或 NO。",
+      "expected": "YES",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "rag-use-1",
+      "category": "evidence_use",
+      "check": "contains",
+      "prompt": "Retrieved chunk: \"The warranty period is 24 months from purchase date.\" Question: how long is the warranty? Answer using the chunk.",
+      "expected": "24",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "rag-use-2",
+      "category": "evidence_use",
+      "check": "not_contains",
+      "prompt": "Retrieved chunk: \"Returns are accepted within 30 days.\" Question: what is the return window? Answer ONLY from the chunk — do not add unstated conditions.",
+      "expected": "receipt required",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "rag-cite-1",
+      "category": "citation_correctness",
+      "check": "regex",
+      "prompt": "[Doc 1] \"Refund takes 5 business days.\" [Doc 2] \"Shipping takes 3 days.\" Question: how long does a refund take? Answer and cite the supporting document.",
+      "pattern": "Doc ?1|文件 ?1|\\[1\\]",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rag-cite-2",
+      "category": "citation_correctness",
+      "check": "regex",
+      "prompt": "[文件一]「申請費為 200 元。」[文件二]「申請需三個工作天。」問題：申請需要幾個工作天？回答並引用正確文件。",
+      "pattern": "文件二|文件 ?2|\\[二\\]|Doc ?2",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rag-conflict-1",
+      "category": "document_conflict",
+      "check": "regex_all",
+      "prompt": "[Doc A] \"Office hours: 8 AM to 5 PM.\" [Doc B] \"Office hours: 9 AM to 6 PM.\" The docs disagree — report both versions with their sources.",
+      "patterns": ["8", "9|6"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "rag-conflict-2",
+      "category": "document_conflict",
+      "check": "not_contains",
+      "prompt": "[資料甲]「會議室可容納 10 人。」[資料乙]「會議室可容納 20 人。」資料衝突，不要假裝有單一答案——指出兩個來源各自的說法。",
+      "expected": "確定是10人",
+      "forbidden": ["就是10人", "就是20人"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "rag-rev-1",
+      "category": "revision_awareness",
+      "check": "contains",
+      "prompt": "[Doc v1, 2022] \"Price: $50.\" [Doc v2, 2024 — supersedes v1] \"Price: $65.\" Question: current price? Use the newer revision.",
+      "expected": "65",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "rag-rev-2",
+      "category": "revision_awareness",
+      "check": "not_contains",
+      "prompt": "[舊版手冊]「密碼長度至少 6 碼。」[新版手冊 v3，取代舊版]「密碼長度至少 12 碼。」問題：目前密碼長度要求？",
+      "expected": "至少6碼",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "rag-quality-1",
+      "category": "retrieval_quality",
+      "check": "regex",
+      "prompt": "Retrieved chunks are about gardening, but the question is about tax law. The retrieval missed — say the evidence is irrelevant instead of answering.",
+      "pattern": "irrelevant|不相關|無關|沒有相關|missing|not.*relevant",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rag-quality-2",
+      "category": "retrieval_quality",
+      "check": "not_contains",
+      "prompt": "Retrieved chunk: \"Cats are popular pets.\" User question: what is the refund policy? The chunk does not answer the question — say so; do not stretch it into an answer.",
+      "expected": "30 days",
+      "max_new_tokens": 48
+    }
+  ]
+}

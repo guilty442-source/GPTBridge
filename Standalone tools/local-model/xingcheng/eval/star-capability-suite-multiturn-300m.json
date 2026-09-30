@@ -1,0 +1,109 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-multiturn-300m",
+  "seed": 44,
+  "notes": "300M maturation: multi-turn suite (distinct from context_tracking — this measures conversational behavior, not entity/state recall). Dimensions: dialogue_consistency, intent_continuation, no_repeated_questions, constraint_persistence, topic_switch, topic_recovery. Prior turns are embedded in the prompt; the reply must continue appropriately.",
+  "items": [
+    {
+      "id": "mt-cons-1",
+      "category": "dialogue_consistency",
+      "check": "contains",
+      "prompt": "User: 我想學做麵包。Assistant: 好的，先從白吐司開始最簡單。User: 那我需要什麼材料？請繼續這段對話，列出白吐司的基本材料。",
+      "expected": "麵粉",
+      "max_new_tokens": 96
+    },
+    {
+      "id": "mt-cons-2",
+      "category": "dialogue_consistency",
+      "check": "regex",
+      "prompt": "User: I want a short poem about rain. Assistant: Rain taps on the window pane. User: nice, one more line please. Give exactly one more poetic line about rain.",
+      "pattern": "\\w",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "mt-intent-1",
+      "category": "intent_continuation",
+      "check": "contains",
+      "prompt": "User: 幫我規劃三天東京行程，第一天去淺草。Assistant: 第一天：淺草寺、仲見世通。User: 第二天呢？請繼續規劃第二天，維持相同風格。",
+      "expected": "第二天",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "mt-intent-2",
+      "category": "intent_continuation",
+      "check": "contains",
+      "prompt": "User: Teach me Spanish, start with greetings. Assistant: Hola = hello, Buenos días = good morning. User: next. Continue teaching — give one more greeting.",
+      "expected": "=",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "mt-norepeat-1",
+      "category": "no_repeated_questions",
+      "check": "not_contains",
+      "prompt": "User: 我叫小明，今年 28 歲，住台北，想找健身建議。Assistant: 請問你叫什麼名字？User: 我剛才說過了。Assistant: 抱歉，我應該直接給你健身建議。請給出健身建議，不要再次詢問已提供的資訊。",
+      "expected": "你叫什麼名字",
+      "forbidden": ["請問你叫", "你幾歲", "你住哪"],
+      "max_new_tokens": 96
+    },
+    {
+      "id": "mt-norepeat-2",
+      "category": "no_repeated_questions",
+      "check": "not_contains",
+      "prompt": "User: My budget is $500 and I want a laptop recommendation. Assistant: What is your budget? User: I already told you — $500. Assistant: Right, sorry. Recommend within $500 now.",
+      "expected": "budget",
+      "forbidden": ["What is your budget", "what is your budget", "?"],
+      "max_new_tokens": 96
+    },
+    {
+      "id": "mt-persist-1",
+      "category": "constraint_persistence",
+      "check": "json_valid",
+      "prompt": "User: From now on, always answer in JSON with a single field \"a\". User: what is 2+2? Reply in the established format.",
+      "required_fields": ["a"],
+      "exact_fields": 1,
+      "max_new_tokens": 32
+    },
+    {
+      "id": "mt-persist-2",
+      "category": "constraint_persistence",
+      "check": "count_lines",
+      "prompt": "User: 之後所有回答都只給一行。Assistant: 了解。User: 天空為什麼是藍的？Answer in exactly one line.",
+      "expected": 1,
+      "total_lines": 1,
+      "max_new_tokens": 64
+    },
+    {
+      "id": "mt-switch-1",
+      "category": "topic_switch",
+      "check": "contains",
+      "prompt": "User: 我們在討論台北的咖啡店。換個話題：推薦一個週末健行路線。The user explicitly switched topics — answer only about the hiking trail.",
+      "expected": "健行",
+      "forbidden": ["咖啡"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "mt-switch-2",
+      "category": "topic_switch",
+      "check": "not_contains",
+      "prompt": "User: (discussing Python decorators) — actually forget that, what's the capital of France? Answer the new question only.",
+      "expected": "decorator",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "mt-recover-1",
+      "category": "topic_recovery",
+      "check": "contains",
+      "prompt": "User: 第一步把麵粉過篩。Assistant: 好的。User: 對了烤箱要預熱嗎？Assistant: 要，180 度 10 分鐘。User: 好，回到剛才——第二步是什麼？Return to the recipe flow — the second step after sifting flour is adding the wet ingredients.",
+      "expected": "第二",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "mt-recover-2",
+      "category": "topic_recovery",
+      "check": "contains",
+      "prompt": "User: List three fruits. Assistant: apple, banana. User: wait, also tell me a color. Assistant: blue. User: ok finish the fruit list. Complete the interrupted list with the third fruit.",
+      "expected": ",",
+      "max_new_tokens": 24
+    }
+  ]
+}

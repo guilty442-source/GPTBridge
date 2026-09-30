@@ -1,0 +1,78 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-thinking-300m",
+  "seed": 51,
+  "notes": "300M maturation P11: native-thinking benchmark prompts. §15-16 protocol: evaluate this suite with thinking OFF first (baseline), then ON — the comparison report (not the suite) records accuracy_gain / token_cost / branch_acceptance / latency. Any base-model regression masked by thinking still counts as regression.",
+  "items": [
+    {
+      "id": "th-logic-1", "category": "thinking_logic", "check": "contains",
+      "prompt": "All bloops are razzies. All razzies are lazzies. Tom is a bloop. Is Tom a lazzie? Answer yes or no.",
+      "expected": "yes",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "th-logic-2", "category": "thinking_logic", "check": "contains",
+      "prompt": "If it rains, the match is cancelled. The match was cancelled. Did it rain? Answer yes, no, or cannot tell.",
+      "expected": "cannot tell",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "th-logic-3", "category": "thinking_logic", "check": "contains",
+      "prompt": "甲說：乙在說謊。乙說：丙在說謊。丙說：甲和乙都在說謊。三人中恰有一人說實話，是誰？只回答甲、乙或丙。",
+      "expected": "乙",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "th-arith-1", "category": "thinking_arithmetic", "check": "first_int",
+      "prompt": "A book costs $12. You buy 3 and pay with $50. How much change? Number only.",
+      "expected": 14, "max_new_tokens": 12
+    },
+    {
+      "id": "th-arith-2", "category": "thinking_arithmetic", "check": "first_int",
+      "prompt": "有 5 個袋子，每袋裝 8 個蘋果；壞了 6 個。剩幾個好蘋果？只回答數字。",
+      "expected": 34, "max_new_tokens": 12
+    },
+    {
+      "id": "th-seq-1", "category": "thinking_sequence", "check": "contains",
+      "prompt": "Continue the sequence: 2, 6, 18, 54, ? Answer with the next number only.",
+      "expected": "162",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "th-seq-2", "category": "thinking_sequence", "check": "contains",
+      "prompt": "Continue: Monday, Wednesday, Friday, ? Answer the day only.",
+      "expected": "Sunday",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "th-plan-1", "category": "thinking_planning", "check": "count_lines",
+      "prompt": "List the steps to make tea in exactly 3 numbered steps.",
+      "expected": 3, "total_lines": 3,
+      "max_new_tokens": 64
+    },
+    {
+      "id": "th-plan-2", "category": "thinking_planning", "check": "regex_all",
+      "prompt": "Plan: to move a fridge upstairs safely, name the first and last steps you would take (two short lines).",
+      "patterns": ["first|1\\.|step", "last|final|2\\."],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "th-verify-1", "category": "thinking_verification", "check": "contains",
+      "prompt": "Check this claim: '17 * 13 = 221'. Is the arithmetic correct? Answer correct or incorrect.",
+      "expected": "correct",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "th-verify-2", "category": "thinking_verification", "check": "contains",
+      "prompt": "驗證這個說法：「9 的平方是 81，9 的立方是 729，兩者相加是 800」。對或錯？只回答對或錯。",
+      "expected": "錯",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "th-cond-1", "category": "thinking_conditional", "check": "contains",
+      "prompt": "There are three boxes: one has only apples, one only oranges, one mixed. All labels are wrong. You pick one fruit from the box labeled 'mixed' and it is an apple. What does that box actually contain? Answer: apples, oranges, or mixed.",
+      "expected": "apples",
+      "max_new_tokens": 16
+    }
+  ]
+}

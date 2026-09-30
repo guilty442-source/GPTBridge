@@ -2306,6 +2306,19 @@ int mode_capability(const Args& a) {
                 track(cat, d.str());
                 continue;
             }
+            {
+                // 300M P10: non-text modality items (vision suite) can
+                // only pass through a real image adapter — a text-only
+                // replay would be fake evidence, so they fail closed.
+                std::string modality = jget_str(item, "modality");
+                if (!modality.empty() && modality != "text") {
+                    d << ",\"passed\":false,\"skipped\":\"modality-unavailable:"
+                      << gptbridge::jsonlite::json_escape(modality)
+                      << "\"}";
+                    track(cat, d.str());
+                    continue;
+                }
+            }
             if (kind == "ppl_max") {
                 double ppl = block_perplexity(engine, jget_str(item, "eval_text"));
                 double max = xct::j_num(&item, "max", 0);

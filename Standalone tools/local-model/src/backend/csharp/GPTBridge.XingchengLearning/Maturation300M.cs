@@ -490,4 +490,96 @@ internal static class Maturation300M
                     $"hardware baseline field '{f}' must be numeric");
         }
     }
+
+    // --------------------------------------------- §15/§16 thinking --
+
+    /// <summary>§15/§16 thinking OFF/ON comparison gate. Inputs are
+    /// star-capability-eval/v1 reports over the SAME suite:
+    /// baselineOff = previous weights, thinking OFF;
+    /// candidateOff = candidate weights, thinking OFF (the §16 baseline
+    /// — evaluated first, always);
+    /// candidateOn = candidate weights, thinking ON.
+    /// Verdicts: MASKED_REGRESSION (base-model drop recovered by
+    /// thinking — still a regression), OFF_REGRESSION (drop thinking
+    /// cannot explain), GAIN (real improvement from ON over OFF with no
+    /// OFF regression), NO_GAIN (ON is not better than OFF — per §15
+    /// "only actual gains are used"), NEUTRAL.</summary>
+    public static Dictionary<string, object?> ThinkingCompare(
+        JsonElement baselineOff, JsonElement candidateOff,
+        JsonElement candidateOn, JsonElement cost)
+    {
+        var bo = PassRates(baselineOff, "baseline_off");
+        var co = PassRates(candidateOff, "candidate_off");
+        var cn = PassRates(candidateOn, "candidate_on");
+        var cats = bo.Keys.Union(co.Keys).Union(cn.Keys)
+                     .OrderBy(k => k, StringComparer.Ordinal).ToList();
+        var regressions = new List<object?>();
+        var masked = new List<object?>();
+        var gains = new List<object?>();
+        foreach (var cat in cats)
+        {
+            double b = bo.GetValueOrDefault(cat, double.NaN);
+            double cOff = co.GetValueOrDefault(cat, double.NaN);
+            double cOn = cn.GetValueOrDefault(cat, double.NaN);
+            if (double.IsNaN(b) || double.IsNaN(cOff)) continue;
+            double offDelta = cOff - b;
+            if (offDelta < -1e-9)
+            {
+                var rec = new Dictionary<string, object?>
+                {
+                    ["category"] = cat,
+                    ["baseline_off"] = b,
+                    ["candidate_off"] = cOff,
+                    ["delta"] = offDelta,
+                };
+                regressions.Add(rec);
+                if (!double.IsNaN(cOn) && cOn >= b - 1e-9)
+                    masked.Add(rec);   // §16: recovery ≠ no regression
+            }
+            if (!double.IsNaN(cOn) && cOn - cOff > 1e-9)
+                gains.Add(new Dictionary<string, object?>
+                {
+                    ["category"] = cat,
+                    ["off"] = cOff, ["on"] = cOn,
+                    ["accuracy_gain"] = cOn - cOff,
+                });
+        }
+        string verdict =
+            masked.Count > 0 ? "MASKED_REGRESSION" :
+            regressions.Count > 0 ? "OFF_REGRESSION" :
+            gains.Count > 0 ? "GAIN" : "NO_GAIN";
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-thinking-compare/v1",
+            ["protocol"] =
+                "OFF evaluated before ON; thinking can never mask a "
+                + "base-model regression (§15-§16)",
+            ["verdict"] = verdict,
+            ["off_regressions"] = regressions,
+            ["masked_regressions"] = masked,
+            ["on_gains"] = gains,
+            ["cost"] = cost.ValueKind == JsonValueKind.Object
+                ? ModelLifecycle.Decode(cost) : null,
+            ["promotable"] = verdict == "GAIN" || verdict == "NO_GAIN",
+        };
+    }
+
+    private static Dictionary<string, double> PassRates(
+        JsonElement report, string tag)
+    {
+        if (!report.TryGetProperty("categories", out var cats) ||
+            cats.ValueKind != JsonValueKind.Object)
+            throw new ExecutorError("THINKING_COMPARE_INVALID",
+                $"{tag}: report missing categories");
+        var map = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var p in cats.EnumerateObject())
+        {
+            if (p.Value.ValueKind == JsonValueKind.Object &&
+                p.Value.TryGetProperty("pass_rate", out var r) &&
+                r.ValueKind == JsonValueKind.Number)
+                map[p.Name] = r.GetDouble();
+        }
+        return map;
+    }
 }

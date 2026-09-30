@@ -76,6 +76,22 @@ internal static class Program
                         ? me : ""));
             if (flags.Contains("maturation-baseline"))
                 return Emit(MaturationBaseline(toolRoot, opts));
+            // §15/§16: thinking OFF/ON comparison over identical-suite
+            // star-capability-eval/v1 reports; cost JSON optional.
+            if (flags.Contains("thinking-compare"))
+                return Emit(Maturation300M.ThinkingCompare(
+                    ReadJsonElement(
+                        opts.TryGetValue("baseline-off", out string? tbo)
+                            ? tbo : ""),
+                    ReadJsonElement(
+                        opts.TryGetValue("candidate-off", out string? tco)
+                            ? tco : ""),
+                    ReadJsonElement(
+                        opts.TryGetValue("candidate-on", out string? tcn)
+                            ? tcn : ""),
+                    opts.TryGetValue("cost", out string? tcj)
+                        ? ReadJsonElement(tcj)
+                        : default));
             if (flags.Contains("release-gate"))
                 return Emit(ConvergenceGate.Run(
                     toolRoot,
@@ -375,6 +391,15 @@ internal static class Program
     }
 
     // ── convergence helpers ───────────────────────────────────────────
+
+    private static JsonElement ReadJsonElement(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            throw new ExecutorError("THINKING_COMPARE_INVALID",
+                $"json file missing or unreadable: {path}");
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        return doc.RootElement.Clone();
+    }
 
     private static Dictionary<string, object?> ParseJsonFile(string path)
     {

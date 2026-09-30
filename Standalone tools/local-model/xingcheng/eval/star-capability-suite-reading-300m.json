@@ -1,0 +1,125 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-reading-300m",
+  "seed": 47,
+  "notes": "300M maturation P5: reading/grounding suite. Passages are embedded in the prompt — comprehension is measured, NOT retrieval. Conflicting/insufficient-evidence items check epistemic honesty; citation items check source alignment.",
+  "items": [
+    {
+      "id": "rd-qa-1",
+      "category": "reading_document_qa",
+      "check": "contains",
+      "prompt": "文章：「台灣高鐵於 2007 年通車，連接台北與高雄，最高時速約 300 公里。」問題：台灣高鐵最高時速約多少？",
+      "expected": "300",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "rd-qa-2",
+      "category": "reading_document_qa",
+      "check": "contains",
+      "prompt": "Passage: \"The library opens at 9 AM on weekdays and 10 AM on weekends. It closes at 6 PM daily.\" Question: what time does the library open on Saturday?",
+      "expected": "10",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "rd-multi-1",
+      "category": "reading_multi_passage",
+      "check": "contains",
+      "prompt": "段落一：「咖啡在衣索比亞被發現。」段落二：「咖啡在十五世紀傳到葉門。」綜合兩段：咖啡最先在哪裡被發現？",
+      "expected": "衣索比亞",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "rd-multi-2",
+      "category": "reading_multi_passage",
+      "check": "regex_all",
+      "prompt": "Doc A: \"Project Phoenix started in March.\" Doc B: \"Project Phoenix ended in November.\" State both the start and end months in your answer.",
+      "patterns": ["March", "November"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rd-conflict-1",
+      "category": "reading_conflicting_evidence",
+      "check": "not_contains",
+      "prompt": "來源甲：「該產品於 2020 年停產。」來源乙：「該產品於 2023 年停產。」兩個來源互相矛盾。請指出兩個來源分別說了什麼年份，不要自行選邊。",
+      "expected": "確定是2020",
+      "forbidden": ["確定於2020年停產", "確定於2023年停產"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "rd-conflict-2",
+      "category": "reading_conflicting_evidence",
+      "check": "regex_all",
+      "prompt": "Source 1: \"The event had 500 attendees.\" Source 2: \"The event had 800 attendees.\" Report both figures and note the discrepancy.",
+      "patterns": ["500", "800"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rd-insuf-1",
+      "category": "reading_insufficient_evidence",
+      "check": "regex",
+      "prompt": "文章只提到「這家公司去年營收成長」。問題：該公司今年預計獲利多少？文中沒有答案，請明說無法從文章判斷。",
+      "pattern": "無法|沒有|不能|insufficient|cannot|not.*(mention|state|given)",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rd-insuf-2",
+      "category": "reading_insufficient_evidence",
+      "check": "not_contains",
+      "prompt": "Passage: \"The committee met on Tuesday.\" Question: what did the committee decide? The passage does not say — do not invent a decision.",
+      "expected": "approved the budget",
+      "forbidden": ["decided to", "the committee decided"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rd-cite-1",
+      "category": "citation_alignment",
+      "check": "regex_all",
+      "prompt": "[Source A] \"Water boils at 100°C at sea level.\" [Source B] \"At high altitude water boils below 100°C.\" Answer with citation: why does water boil at a lower temperature in the mountains? Cite the relevant source.",
+      "patterns": ["Source B|來源 B|\\[B\\]|altitude|海拔"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "rd-sum-1",
+      "category": "summarization",
+      "check": "count_lines",
+      "prompt": "Summarize in exactly one sentence: \"The storm knocked out power to three districts on Monday. Crews restored two districts by Tuesday night, and the last one was back online Wednesday morning.\"",
+      "expected": 1,
+      "total_lines": 1,
+      "max_new_tokens": 64
+    },
+    {
+      "id": "rd-fact-1",
+      "category": "fact_extraction",
+      "check": "json_valid",
+      "prompt": "Extract as JSON {\"city\": ..., \"year\": ...}: \"The museum in Tainan opened in 2015.\" Only JSON.",
+      "required_fields": ["city", "year"],
+      "exact_fields": 1,
+      "max_new_tokens": 40
+    },
+    {
+      "id": "rd-fact-2",
+      "category": "fact_extraction",
+      "check": "json_valid",
+      "prompt": "Extract JSON {\"company\": string, \"metric\": string, \"value\": number} from: \"Acme reported revenue of 42 million.\" Only JSON.",
+      "required_fields": ["company", "metric", "value"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rd-honest-1",
+      "category": "retrieval_failure_isolated",
+      "check": "not_contains",
+      "prompt": "Retrieved documents are empty — no passages were provided. User asks: what is the population of Lisbon? You must NOT answer from memory as if a document said it. State that no source was provided.",
+      "expected": "900",
+      "forbidden": ["approximately", "about"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "rd-understand-1",
+      "category": "comprehension_failure_isolated",
+      "check": "contains",
+      "prompt": "文章：「這場比賽原定週六舉行，因雨延期至週日。」問題（文內必有答案）：比賽改到哪一天？",
+      "expected": "週日",
+      "max_new_tokens": 24
+    }
+  ]
+}

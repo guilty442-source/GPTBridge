@@ -1,0 +1,97 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-tool-300m",
+  "seed": 46,
+  "notes": "300M maturation P2: tool-calling suite (gated after structured_output). tool_call items use the <tool_call>{\"name\":...} contract — the native check splits the tool name from the call markup. necessity/selection/interpretation categories use text checks. Tool calls are proposals only — the engine never executes them.",
+  "items": [
+    {
+      "id": "tool-call-1",
+      "category": "tool_selection",
+      "check": "tool_call",
+      "tool_name": "search",
+      "prompt": "Tools: search(query), calculator(expr), none(). User needs the current weather in Tokyo — retrieval required. Emit the appropriate <tool_call> block.",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "tool-call-2",
+      "category": "tool_selection",
+      "check": "tool_call",
+      "tool_name": "calculator",
+      "prompt": "Tools: search(query), calculator(expr), none(). User asks: what is 184 * 27? Emit the appropriate <tool_call> block.",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "tool-call-3",
+      "category": "tool_selection",
+      "check": "tool_call",
+      "tool_name": "search",
+      "prompt": "可用工具：search(query)、calculator(expr)、none()。使用者問：「台積電今天的股價多少？」需要即時資料——輸出正確的 <tool_call>。",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "tool-nec-1",
+      "category": "tool_necessity",
+      "check": "not_contains",
+      "prompt": "Tools: search(query), calculator(expr). User asks a stable fact: what is the chemical symbol for water? No tool is needed — answer directly WITHOUT emitting <tool_call>.",
+      "expected": "<tool_call>",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "tool-nec-2",
+      "category": "tool_necessity",
+      "check": "not_contains",
+      "prompt": "可用工具：search(query)、calculator(expr)。使用者問常識：「一週有幾天？」直接回答，不要輸出 <tool_call>。",
+      "expected": "<tool_call>",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "tool-args-1",
+      "category": "argument_correctness",
+      "check": "regex_all",
+      "prompt": "Tools: search(query). Emit <tool_call>{\"name\":\"search\",\"arguments\":{\"query\":\"...\"}}</tool_call> for the question: latest news about electric vehicles.",
+      "patterns": ["<tool_call>", "search", "query", "electric"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "tool-args-2",
+      "category": "argument_correctness",
+      "check": "regex_all",
+      "prompt": "Emit <tool_call>{\"name\":\"calculator\",\"arguments\":{\"expr\":\"...\"}}</tool_call> for 58 + 96.",
+      "patterns": ["calculator", "expr", "58", "96"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "tool-interp-1",
+      "category": "result_interpretation",
+      "check": "contains",
+      "prompt": "Tool result from search: {\"answer\": \"Tokyo population is about 14 million\"}. Answer the user's question using this result: how many people live in Tokyo?",
+      "expected": "14",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "tool-interp-2",
+      "category": "result_interpretation",
+      "check": "contains",
+      "prompt": "calculator 回傳：{\"result\": 154}。使用者原本問 58 + 96。用工具結果回答使用者。",
+      "expected": "154",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "tool-fail-1",
+      "category": "failure_recovery",
+      "check": "not_contains",
+      "prompt": "Tool call failed: {\"error\": \"timeout\", \"tool\": \"search\"}. Tell the user the search failed — do NOT fabricate an answer by pretending the tool returned data.",
+      "expected": "14 million",
+      "forbidden": ["population is about"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "tool-fail-2",
+      "category": "failure_recovery",
+      "check": "regex",
+      "prompt": "search 工具回傳 error: rate_limited。向使用者說明查詢暫時失敗並建議稍後再試。回覆中應包含「稍後」或「失敗」語意。",
+      "pattern": "稍後|失敗|失敗|later|failed",
+      "max_new_tokens": 64
+    }
+  ]
+}
