@@ -94,6 +94,11 @@ _commit_msg.txt
 *.dll
 *.pyd
 *.pyd.locked-*
+# MSVC linker byproducts (native_transformer lane)
+**/native_transformer/**/*.exp
+**/native_transformer/**/*.lib
+**/native_transformer/**/obj/
+**/native_transformer/**/_conv_test/
 launcher/logs/*
 !launcher/logs/.gitkeep
 launcher/state/*

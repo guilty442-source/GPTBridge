@@ -1037,6 +1037,13 @@ internal static class SelfLearning
         Directory.CreateDirectory(snapshotDir);
         string snapshotPath = Path.Combine(snapshotDir,
             $"sft-{DateTime.UtcNow:yyyyMMdd-HHmmss}.jsonl");
+        // §5 provenance: stamp the producing generation + active weights
+        // version on every collected record.
+        string sftGeneration = GenerationMigration.CurrentGeneration(tool);
+        string sftModelVersion =
+            $"w{ModelLifecycle.LoadOrCreate(
+                Path.Combine(tool, XcPaths.LifecycleRel),
+                XcPaths.ModelId).ActiveWeightsVersion}";
         Dictionary<string, object?>? snapshot = null;
         Exception? lastError = null;
         foreach (int permille in new[]
@@ -1049,7 +1056,9 @@ internal static class SelfLearning
                 snapshot = SftDataset.BuildSftDataset(
                     outputPath: snapshotPath,
                     examplesByScope: examples,
-                    valPermille: permille);
+                    valPermille: permille,
+                    generation: sftGeneration,
+                    modelVersion: sftModelVersion);
                 break;
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -1231,7 +1240,9 @@ internal static class SelfLearning
         try
         {
             manifest = SftDataset.BuildPairsSnapshot(
-                pairs, snapshotPath, valPermille: policy.ValPermille);
+                pairs, snapshotPath, valPermille: policy.ValPermille,
+                generation: GenerationMigration.CurrentGeneration(tool),
+                modelVersion: $"w{lifecycle.ActiveWeightsVersion}");
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
@@ -1244,7 +1255,9 @@ internal static class SelfLearning
             };
         }
         var dataset = SftDataset.RegisterPairsSnapshot(
-            repository, manifest, createdBy: "star-self-learning");
+            repository, manifest, createdBy: "star-self-learning",
+            generation: GenerationMigration.CurrentGeneration(tool),
+            modelVersion: $"w{lifecycle.ActiveWeightsVersion}");
 
         int pairsTotal = pairs.Count;
         int newPairs = Math.Max(0, pairsTotal -
