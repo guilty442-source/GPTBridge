@@ -244,3 +244,67 @@ internal static class ReasoningRuntime
         return regressed ? DeploymentProfile.Balanced : profile;
     }
 }
+
+/// <summary>§10 ThinkingPolicy — the single facade mapping reasoning
+/// modes to Native Thinking engine parameters (think_steps, branches).
+/// Reuses ReasoningRuntime.Classify for AUTO so there is no second
+/// policy engine; §9: when the recorded AUTO thinking_gain is
+/// non-positive, AUTO resolves to OFF.</summary>
+internal static class ThinkingPolicy
+{
+    public const string Format = "star-thinking-policy/v1";
+    public const int MaxThinkSteps = 32;
+    public const int MaxBranches = 8;
+
+    public static Dictionary<string, object?> Resolve(
+        string mode, TaskAssessment? assessment = null,
+        bool autoGainNegative = false)
+    {
+        if (!Enum.TryParse<ReasoningRtMode>(
+                (mode ?? "OFF").ToUpperInvariant(), out var m))
+            throw new ExecutorError(
+                ConvErr.ToolDecisionInvalid,
+                $"unknown thinking policy mode '{mode}'");
+        var effective = m;
+        string? fallback = null;
+        if (m == ReasoningRtMode.AUTO)
+        {
+            if (autoGainNegative)
+            {
+                // §9: negative aggregate value => default OFF.
+                effective = ReasoningRtMode.OFF;
+                fallback = "auto_gain_negative";
+            }
+            else if (assessment == null)
+            {
+                effective = ReasoningRtMode.OFF;
+                fallback = "auto_requires_assessment";
+            }
+        }
+        var (steps, branches) = effective switch
+        {
+            ReasoningRtMode.OFF => (0, 0),
+            ReasoningRtMode.LOW => (2, 1),
+            ReasoningRtMode.MEDIUM => (4, 4),
+            ReasoningRtMode.HIGH => (8, 4),
+            ReasoningRtMode.AUTO =>
+                ReasoningRuntime.Classify(assessment!) switch
+                {
+                    ReasoningStrategy.FAST => (2, 1),
+                    ReasoningStrategy.DEEP => (8, 4),
+                    _ => (4, 4),
+                },
+            _ => (0, 0),
+        };
+        return new Dictionary<string, object?>
+        {
+            ["format"] = Format,
+            ["mode"] = m.ToString(),
+            ["effective_mode"] = effective.ToString(),
+            ["enabled"] = steps > 0,
+            ["think_steps"] = Math.Min(steps, MaxThinkSteps),
+            ["branches"] = Math.Min(branches, MaxBranches),
+            ["fallback_reason"] = fallback,
+        };
+    }
+}

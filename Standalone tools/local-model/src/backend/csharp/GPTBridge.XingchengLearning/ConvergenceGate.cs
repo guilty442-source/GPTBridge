@@ -218,12 +218,15 @@ internal static class ConvergenceGate
             {
                 try
                 {
+                    // §34: provenance is a sibling file — embedding it
+                    // in manifest.json would make manifest_hash
+                    // self-referential.
                     var prov = ReadProvenance(bundle!);
                     if (prov == null)
                         return Fail(ConvErr.BundleProvenanceInvalid,
-                                    "manifest lacks provenance block");
+                                    "bundle lacks provenance.json");
                     BundleProvenance.Verify(bundle!, prov,
-                        "gen-2-consolidated", "xc-fused-1");
+                        "", "xc-fused-1");
                     return Pass("provenance verified");
                 }
                 catch (ExecutorError ex)
@@ -333,10 +336,20 @@ internal static class ConvergenceGate
     private static Dictionary<string, object?>? ReadProvenance(
         string bundle)
     {
+        string pp = Path.Combine(bundle, "provenance.json");
+        if (File.Exists(pp))
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(pp));
+            return (Dictionary<string, object?>)
+                ModelLifecycle.Decode(doc.RootElement)!;
+        }
+        // Legacy lane: a provenance block embedded in the manifest
+        // (manifest_hash then covers the unsigned manifest — see
+        // export flow which writes provenance.json separately).
         string mp = Path.Combine(bundle, "manifest.json");
         if (!File.Exists(mp)) return null;
-        using var doc = JsonDocument.Parse(File.ReadAllText(mp));
-        if (!doc.RootElement.TryGetProperty("provenance", out var p)
+        using var mdoc = JsonDocument.Parse(File.ReadAllText(mp));
+        if (!mdoc.RootElement.TryGetProperty("provenance", out var p)
             || p.ValueKind != JsonValueKind.Object)
             return null;
         return (Dictionary<string, object?>)

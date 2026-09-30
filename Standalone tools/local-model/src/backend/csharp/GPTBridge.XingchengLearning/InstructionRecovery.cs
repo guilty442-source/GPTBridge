@@ -597,7 +597,7 @@ internal static class InstructionRecovery
         It("fa-bullets-3", "format_accuracy", "count_lines",
            "只列出3項甜點，每行一項以「- 」開頭，不要其他內容。",
            "FORMAT_VIOLATION",
-           ("line_pattern", "^-\\s"), ("expected", 3),
+           ("line_pattern", "^- "), ("expected", 3),
            ("total_lines", 3), ("max_new_tokens", 32));
         It("fa-kv-1", "format_accuracy", "regex_all",
            "以 key=value 格式逐行輸出：rank=gold，level=3。" +
@@ -613,7 +613,7 @@ internal static class InstructionRecovery
            "以 Markdown 輸出：一個 ## 標題加上恰好兩個清單項目。",
            "FORMAT_VIOLATION",
            ("patterns", new List<object?>
-            { "##", "^-\\s", "^[\\s\\S]*(-\\s[^\\n]*\\n?){2}$" }),
+            { "##", "- ", "[\\s\\S]*(- [^\\n]*\\n?){2}\\s*$" }),
            ("max_new_tokens", 40));
 
         // constraint_following — multi-condition instructions.
@@ -626,7 +626,7 @@ internal static class InstructionRecovery
            "使用繁體中文將以下項目整理為 JSON 字串陣列，依原順序：" +
            "風箏、陀螺、毽子", "PARTIAL_INSTRUCTION",
            ("patterns", new List<object?>
-            { "^\\s*\\[", "風箏[\\s\\S]*陀螺[\\s\\S]*毽子", "\\]\\s*$" }),
+            { "^\\s*[[]", "風箏[\\s\\S]*陀螺[\\s\\S]*毽子", "[]]\\s*$" }),
            ("max_new_tokens", 40));
         It("cf-len-1", "constraint_following", "regex",
            "用繁體中文回答：一天有幾小時？答案不超過8個字。",
@@ -636,7 +636,7 @@ internal static class InstructionRecovery
            "先說明檸檬是水果，再以 JSON 輸出 {\"ok\": true}。" +
            "只輸出最終結果。", "PARTIAL_INSTRUCTION",
            ("patterns", new List<object?>
-            { "^\\s*\\{[\\s\\S]*\"ok\"", "\"ok\"\\s*:\\s*true" }),
+            { "^\\s*[{]", "\"ok\"\\s*:\\s*true" }),
            ("max_new_tokens", 32));
 
         // negative_constraint — forbidden content must be absent.
@@ -688,7 +688,7 @@ internal static class InstructionRecovery
         It("ec-nofence", "extra_content", "regex",
            "輸出 JSON 物件 {\"done\": true}，不要加說明，" +
            "不要用程式碼區塊。", "EXTRA_CONTENT",
-           ("pattern", "^(?![\\s\\S]*```)\\s*\\{[\\s\\S]*\\}\\s*$"),
+           ("pattern", "^(?![\\s\\S]*```)\\s*[{][\\s\\S]*[}]\\s*$"),
            ("max_new_tokens", 24));
 
         // ambiguous — follow the determinable part only.

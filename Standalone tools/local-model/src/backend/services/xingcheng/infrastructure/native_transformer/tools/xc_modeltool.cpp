@@ -2773,30 +2773,46 @@ int mode_hw_caps(const Args&) {
     return 0;
 }
 
-// §29 state2-smoke: star-native-state/v2 seal/verify + generation
-// binding — a mismatched generation or corrupted state must fail.
+// §29/§14-15 state2-smoke: star-native-state/v2 seal/verify + the
+// typed binding gate — every mismatch class must return its §15 code.
 int mode_state2_smoke(const Args&) {
     xcm2::NativeStateHeader h;
     h.generation = "gen-2-consolidated";
     h.bundle_hash = "b1";
-    h.architecture = "xc-fused-1";
+    h.model_hash = "m1";
     h.tokenizer_hash = "tok";
+    h.architecture = "xc-fused-1";
     h.state_type = "DELTA_RECURRENT";
     h.precision = "FP64";
     h.sequence_length = 8;
     double state[8] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8};
     h.seal(state, sizeof(state));
-    bool ok = h.verify(state, sizeof(state)) &&
-              h.binds_to("gen-2-consolidated", "b1") &&
-              !h.binds_to("gen-3", "b1") &&
-              !h.binds_to("gen-2-consolidated", "b2");
+    bool ok = h.verify(state, sizeof(state));
+    ok &= h.bind_error("gen-2-consolidated", "b1", "m1", "tok")
+          == nullptr;
+    auto code = [&](const char* g, const char* b, const char* m,
+                    const char* t) {
+        const char* e = h.bind_error(g, b, m, t);
+        return e == nullptr ? "" : std::string(e);
+    };
+    ok &= code("gen-3", "b1", "m1", "tok") == "STATE_GENERATION_MISMATCH";
+    ok &= code("gen-2-consolidated", "b2", "m1", "tok")
+          == "STATE_MODEL_MISMATCH";
+    ok &= code("gen-2-consolidated", "b1", "m2", "tok")
+          == "STATE_MODEL_MISMATCH";
+    ok &= code("gen-2-consolidated", "b1", "m1", "tok2")
+          == "STATE_TOKENIZER_MISMATCH";
     double bad[8]; std::memcpy(bad, state, sizeof(bad)); bad[0] = 9.9;
     ok &= !h.verify(bad, sizeof(bad));
+    std::ostringstream types;
+    for (const char* t : xcm2::NativeStateHeader::kStateTypes)
+        types << (types.tellp() > 0 ? ",\"" : "\"") << t << '"';
     std::printf("{\"ok\":%s,\"format\":\"star-native-state/v2\","
-                "\"state_types\":[\"KV\",\"DELTA_RECURRENT\","
-                "\"VISION_PREFIX\",\"CONTEXT_INDEX\"],"
-                "\"model_hash_binding\":true}\n",
-                ok ? "true" : "false");
+                "\"state_version\":%lld,\"state_types\":[%s],"
+                "\"model_hash_binding\":true,"
+                "\"tokenizer_binding\":true}\n",
+                ok ? "true" : "false",
+                (long long)h.state_version, types.str().c_str());
     return ok ? 0 : 1;
 }
 

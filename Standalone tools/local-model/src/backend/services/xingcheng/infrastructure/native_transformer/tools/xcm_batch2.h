@@ -368,15 +368,35 @@ struct HardwareCapabilityRegistry {
 
 // ------------------------------------------------- §29 native state
 
-/// star-native-state/v2 header — a state snapshot is bound to a
-/// generation + bundle + architecture + tokenizer; a different model
-/// hash never loads (§29 last rule).
+/// star-native-state/v2 header — the single §14 state envelope for
+/// KV / KV-INT8 / paged KV / prefix cache / Delta recurrent / vision
+/// prefix / thinking branch / speculative temp state. A snapshot is
+/// bound to generation + bundle + model + tokenizer; a mismatched
+/// binding never loads — §15 fail-closed, no best-effort restore.
 struct NativeStateHeader {
     const char* format = "star-native-state/v2";
-    std::string generation, bundle_hash, architecture,
-        tokenizer_hash, state_type, precision;
+    int64_t state_version = 2;
+    std::string generation, bundle_hash, model_hash,
+        tokenizer_hash, architecture, state_type, precision;
     int64_t sequence_length = 0;
     uint64_t checksum = 0;
+
+    /// §14 state_type vocabulary.
+    static const char* const kStateTypes[];
+    /// §15 binding verdicts — nullptr when the header binds cleanly.
+    const char* bind_error(const std::string& gen,
+                           const std::string& bundle,
+                           const std::string& model,
+                           const std::string& tokenizer) const {
+        if (generation != gen) return "STATE_GENERATION_MISMATCH";
+        if (!bundle_hash.empty() && bundle_hash != bundle)
+            return "STATE_MODEL_MISMATCH";
+        if (!model_hash.empty() && model_hash != model)
+            return "STATE_MODEL_MISMATCH";
+        if (!tokenizer_hash.empty() && tokenizer_hash != tokenizer)
+            return "STATE_TOKENIZER_MISMATCH";
+        return nullptr;
+    }
 
     static uint64_t fnv1a(const void* p, size_t n) {
         uint64_t h = 1469598103934665603ull;
@@ -392,11 +412,19 @@ struct NativeStateHeader {
     bool verify(const void* state, size_t bytes) const {
         return checksum == fnv1a(state, bytes);
     }
-    /// Generation/model binding — the load gate (§29).
+    /// Generation/model binding — the load gate (§29). Prefer
+    /// bind_error() for the typed §15 verdict; this stays as the
+    /// boolean fast path.
     bool binds_to(const std::string& gen,
                   const std::string& bundle) const {
         return generation == gen && bundle_hash == bundle;
     }
+};
+
+inline const char* const NativeStateHeader::kStateTypes[] = {
+    "KV", "KV_INT8", "PAGED_KV", "PREFIX_CACHE", "DELTA_RECURRENT",
+    "VISION_PREFIX", "THINKING_BRANCH", "SPECULATIVE_TEMP",
+    "CONTEXT_INDEX",
 };
 
 } // namespace xcm2
