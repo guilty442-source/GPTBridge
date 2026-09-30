@@ -3004,6 +3004,9 @@ std::string serve_render_chat(const JsonValue& messages) {
 // available=0 — capability lives in the CUDA TU, the decision above.
 extern "C" int xcuda_probe(long long* free_bytes, long long* total_bytes,
                            int* cc_major, int* cc_minor);
+// NVML instantaneous sensors: bitmask bit0 = gpu util %, bit1 = power mW.
+extern "C" int xcuda_gpu_stats(unsigned* gpu_util_pct,
+                               unsigned* power_mw);
 
 int mode_probe_cuda() {
     long long fb = 0, tb = 0;
@@ -4112,9 +4115,10 @@ int mode_state_bench(const Args& a) {
 // process RAM peak via psapi, CPU utilization from process times over
 // the bench window, prefill/decode TPS, TTFT (prefill + first decode
 // step) and ITL (per-token decode latency). GPU utilization and power
-// have no sensor on this lane — they are emitted null rather than
-// fabricated; --train-report <file.json> supplies the trainer-side
-// tokens_per_sec from a governed train report.
+// come from NVML sampled on a 50ms cadence across the bench window
+// (peak values); a host without NVML emits null rather than a
+// fabricated value. --train-report <file.json> supplies the
+// trainer-side tokens_per_sec from a governed train report.
 //
 //   xc_modeltool hw-baseline --bundle <dir> [--prefill N] [--decode N]
 //       [--train-report <report.json>]
@@ -4157,6 +4161,31 @@ int mode_hw_baseline(const Args& a) {
 
     // CPU% is measured over the bench window only — the FILETIME pair
     // must align with t0/t2 or the engine load inflates the numerator.
+    // NVML sampling runs concurrently on a 50ms cadence so a short
+    // decode still catches the working utilization/power rather than a
+    // post-idle read. Missing sensors stay unmeasured (null below).
+    std::atomic<bool> sample_run{true};
+    std::atomic<unsigned> util_max{0}, power_max{0};
+    std::atomic<int> util_seen{0}, power_seen{0};
+    std::thread sampler([&] {
+        while (sample_run.load()) {
+            unsigned u = 0, p = 0;
+            const int m = xcuda_gpu_stats(&u, &p);
+            if (m & 1) {
+                util_seen.fetch_add(1);
+                unsigned cur = util_max.load();
+                while (u > cur &&
+                       !util_max.compare_exchange_weak(cur, u)) {}
+            }
+            if (m & 2) {
+                power_seen.fetch_add(1);
+                unsigned cur = power_max.load();
+                while (p > cur &&
+                       !power_max.compare_exchange_weak(cur, p)) {}
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    });
     FILETIME c0{}, e0{}, k0{}, u0{};
     GetProcessTimes(GetCurrentProcess(), &c0, &e0, &k0, &u0);
     auto t0 = std::chrono::steady_clock::now();
@@ -4164,6 +4193,8 @@ int mode_hw_baseline(const Args& a) {
     auto t1 = std::chrono::steady_clock::now();
     std::vector<int64_t> gen = engine.generate(ids, decode, sc);
     auto t2 = std::chrono::steady_clock::now();
+    sample_run.store(false);
+    sampler.join();
 
     FILETIME c1{}, e1{}, k1{}, u1{};
     GetProcessTimes(GetCurrentProcess(), &c1, &e1, &k1, &u1);
@@ -4206,20 +4237,30 @@ int mode_hw_baseline(const Args& a) {
             train_tps = v->number;
     }
     char vram_buf[24] = "null", tps_buf[32] = "null";
+    char gpu_buf[24] = "null", pwr_buf[24] = "null";
     if (vram_used >= 0)
         std::snprintf(vram_buf, sizeof(vram_buf), "%lld", vram_used);
     if (train_tps >= 0.0)
         std::snprintf(tps_buf, sizeof(tps_buf), "%.2f", train_tps);
+    // §66: NVML reports util in whole %; normalize to the same 0-1
+    // fraction as cpu_utilization. Power is milliwatts -> watts.
+    // Unread sensors keep "null" — never fabricated.
+    if (util_seen.load() > 0)
+        std::snprintf(gpu_buf, sizeof(gpu_buf), "%.4f",
+                      util_max.load() / 100.0);
+    if (power_seen.load() > 0)
+        std::snprintf(pwr_buf, sizeof(pwr_buf), "%.1f",
+                      power_max.load() / 1000.0);
 
     std::printf(
         "{\"ok\":true,\"format\":\"star-hardware-baseline-300m/v1\","
         "\"model_scale\":\"300m\",\"bundle\":\"%s\","
         "\"weights_sha256\":\"%s\","
         "\"vram_peak_bytes\":%s,\"ram_peak_bytes\":%lld,"
-        "\"cpu_utilization\":%.4f,\"gpu_utilization\":null,"
+        "\"cpu_utilization\":%.4f,\"gpu_utilization\":%s,"
         "\"prefill_tps\":%.1f,\"decode_tps\":%.1f,"
         "\"ttft_ms\":%.2f,\"itl_ms\":%.2f,"
-        "\"training_tokens_per_sec\":%s,\"power_watts\":null,"
+        "\"training_tokens_per_sec\":%s,\"power_watts\":%s,"
         "\"prefill_tokens\":%lld,\"decode_tokens\":%lld,"
         "\"load_s\":%.3f,\"kv_bytes\":%lld,"
         "\"cuda_available\":%s}\n",

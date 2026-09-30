@@ -206,6 +206,7 @@ int xcuda_kv_attention(long long, const double*, long long, long long,
     return 1;
 }
 int xcuda_probe(long long*, long long*, int*, int*) { return 0; }
+int xcuda_gpu_stats(unsigned*, unsigned*) { return 0; }
 #endif
 
 int xcuda_available() {
