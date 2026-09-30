@@ -1225,17 +1225,23 @@ struct Run {
 Run probe_run(const std::string& bundle,
               const std::vector<int64_t>& ids) {
     NativeInferenceEngine e;
+    std::fprintf(stderr, "dbg: load\n"); std::fflush(stderr);
     e.load(bundle);
+    std::fprintf(stderr, "dbg: loaded\n"); std::fflush(stderr);
     Run r;
     r.ref_logits = e.logits(ids);
+    std::fprintf(stderr, "dbg: logits1\n"); std::fflush(stderr);
     r.logits_finite = all_finite(r.ref_logits);
     r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
+    std::fprintf(stderr, "dbg: logits2\n"); std::fflush(stderr);
     SamplingConfig sc;                    // do_sample=false → argmax
     std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
     std::vector<int64_t> g1 =
         e.generate(prompt, 6, sc);        // miss → stores prefix entry
+    std::fprintf(stderr, "dbg: gen1\n"); std::fflush(stderr);
     const int64_t h1 = prefix_hits(e);
     std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
+    std::fprintf(stderr, "dbg: gen2\n"); std::fflush(stderr);
     const int64_t h2 = prefix_hits(e);
     r.prefix_hit = (h2 > h1);
     r.gen_nonempty = !g1.empty();
@@ -1245,6 +1251,7 @@ Run probe_run(const std::string& bundle,
     // longest-match restore path as well.
     std::vector<int64_t> prompt2(ids.begin(), ids.begin() + 24);
     std::vector<int64_t> g3 = e.generate(prompt2, 4, sc);
+    std::fprintf(stderr, "dbg: gen3\n"); std::fflush(stderr);
     const int64_t h3 = prefix_hits(e);
     r.partial_prefix_hit = (h3 > h2) && !g3.empty();
     return r;
@@ -1268,6 +1275,7 @@ int mode_cache_smoke(const Args& a) {
     if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
+    std::fprintf(stderr, "dbg: cfg read ok\n"); std::fflush(stderr);
     // v27 fused hybrid: prefix cache stores K/V only and cannot restore
     // DeltaNet recurrent state, so the engine bypasses it for hybrid
     // bundles. The contract inverts: hits must stay absent while the
@@ -1283,7 +1291,9 @@ int mode_cache_smoke(const Args& a) {
     }
     Run fp;
     try {
+        std::fprintf(stderr, "dbg: probe_run enter\n"); std::fflush(stderr);
         fp = probe_run(bundle, ids);
+        std::fprintf(stderr, "dbg: probe_run done\n"); std::fflush(stderr);
     } catch (const std::exception& e) {
         fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
     }
