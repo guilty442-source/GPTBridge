@@ -40,8 +40,10 @@ static int yarncheck() {
     const int T = 24;                 // > orig_pos exercises extension
     const float ms = yarn_mscale(c);
     if (!(ms > 1.0f)) fail("table: mscale <= 1");
-    const RopeCs& raw = rope_cs(T, rd, c.rope_theta, nullptr);
-    const RopeCs& ext = rope_cs(T, rd, c.rope_theta, &c);
+    // rope_cs caches a single static table — copy both variants before
+    // the second call recomputes it (references would alias).
+    const RopeCs raw = rope_cs(T, rd, c.rope_theta, nullptr);
+    const RopeCs ext = rope_cs(T, rd, c.rope_theta, &c);
     const float logb = std::log(c.rope_theta);
     auto corr = [&](float beta) {
         return (float)rd *
@@ -54,9 +56,10 @@ static int yarncheck() {
     for (int i = 0; i < half; ++i) {
         const float fraw =
             std::pow(c.rope_theta, -(float)(2 * i) / (float)rd);
-        float frx = fraw;
-        if (i <= (int)lo) frx = fraw;                  // raw band
+        float frx;
+        if (i <= (int)lo) frx = fraw;                     // raw band
         else if (i >= (int)hi) frx = fraw / c.yarn_factor;  // ext band
+        else continue;                                    // ramp interior
         for (int t = 0; t < T; ++t) {
             const float ec = std::cos(t * frx) * ms;
             const float es = std::sin(t * frx) * ms;

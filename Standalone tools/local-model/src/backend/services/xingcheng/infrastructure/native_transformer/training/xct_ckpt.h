@@ -102,7 +102,7 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 7) return false;
+    if (ver < 1 || ver > 8) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);

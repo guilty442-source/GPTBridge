@@ -620,23 +620,38 @@ internal sealed class LocalModelExecutor
             try { await _acceptLoop.ConfigureAwait(false); }
             catch { /* shutdown */ }
         }
-        // Ask the worker to quit before killing — a clean quit unloads
-        // the engine's mapped weights instead of abandoning them.
-        if (_child is { HasExited: false } child)
+        // Teardown takes _childLock: an in-flight ServeOpAsync owns the
+        // child's stdin/stdout framing, and its awaits are all linked to
+        // _cts — cancelled above — so it drains promptly and releases.
+        // No new ServeOpAsync can start (accept loop joined). Waiting
+        // without a token: shutdown must not fail-open on an already
+        // cancelled token.
+        await _childLock.WaitAsync().ConfigureAwait(false);
+        try
         {
-            try
+            // Ask the worker to quit before killing — a clean quit unloads
+            // the engine's mapped weights instead of abandoning them.
+            if (_child is { HasExited: false } child)
             {
-                await child.StandardInput
-                    .WriteLineAsync("{\"op\":\"quit\"}")
-                    .ConfigureAwait(false);
-                await child.StandardInput.FlushAsync().ConfigureAwait(false);
-                if (!child.WaitForExit(5000)) KillChild();
+                try
+                {
+                    await child.StandardInput
+                        .WriteLineAsync("{\"op\":\"quit\"}")
+                        .ConfigureAwait(false);
+                    await child.StandardInput.FlushAsync()
+                        .ConfigureAwait(false);
+                    if (!child.WaitForExit(5000)) KillChild();
+                }
+                catch { KillChild(); }
             }
-            catch { KillChild(); }
+            else
+            {
+                KillChild();
+            }
         }
-        else
+        finally
         {
-            KillChild();
+            _childLock.Release();
         }
         foreach (var name in new[] { DescriptorFileName, TokenFileName })
         {
