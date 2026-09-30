@@ -3,7 +3,7 @@
     "format": "sft",
     "max_len": 128,
     "max_rows": 100000000,
-    "path": "E:\GPTBridge\.worktrees\devin\Standalone tools\local-model\src\backend\services\xingcheng\infrastructure\native_transformer\training\_hwb\train-ids.jsonl"
+    "path": "E:/GPTBridge/.worktrees/devin/Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_hwb/train-ids.jsonl"
   },
   "model": {
     "hidden_size": 64,
@@ -17,12 +17,9 @@
   },
   "task": "sft",
   "train": {
-    "beta": 0.1,
     "checkpoint_every": 0,
-    "deadline_s": 600.0,
-    "emit_checkpoint": "E:\GPTBridge\.worktrees\devin\Standalone tools\local-model\src\backend\services\xingcheng\infrastructure\native_transformer\training\_hwb\final.xcn",
+    "emit_checkpoint": "E:/GPTBridge/.worktrees/devin/Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_hwb/final.xcn",
     "grad_clip": 1.0,
-    "init_checkpoint": null,
     "log_every": 1,
     "lr": 0.001,
     "lr_decay": "cosine",
