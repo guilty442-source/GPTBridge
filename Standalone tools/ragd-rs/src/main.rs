@@ -8,37 +8,44 @@
 //! barrier).  Loopback-only; PG failure is fail-closed (zero hits).
 
 mod barrier;
+mod cag;
+mod context;
+mod dag;
 mod dsn;
+mod evidence;
+mod fusion;
 mod http;
 mod pg;
+mod retrieve;
 mod vectord;
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-const CONTRACT: &str = "ragd/v1";
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(crate) const CONTRACT: &str = "ragd/v1";
+pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_BIND: &str = "127.0.0.1:8094";
 const DEFAULT_VECTORD: &str = "http://127.0.0.1:8092";
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 
-struct App {
-    vectord_base: String,
-    dsn: Option<String>,
-    pg: Mutex<Option<pg::Authority>>,
+pub(crate) struct App {
+    pub vectord_base: String,
+    pub dsn: Option<String>,
+    pub pg: Mutex<Option<pg::Authority>>,
+    pub cache: Mutex<cag::CagCacheStore>,
     started: Instant,
 }
 
 impl App {
     /// Lazily (re)connect the authority client. A dead connection is
     /// dropped and retried once per call — never cached across errors.
-    fn with_pg<T>(
+    pub(crate) fn with_pg<T>(
         &self,
         f: impl FnOnce(&mut pg::Authority) -> Result<T, String>,
     ) -> Result<T, String> {
@@ -131,15 +138,15 @@ fn read_request(stream: &mut TcpStream) -> Result<(String, String, Vec<u8>), Str
     Ok((method, path, body))
 }
 
+pub(crate) fn err(code: &str) -> Value {
+    json!({"ok": false, "contract": CONTRACT, "error": code})
+}
+
 fn ok(extra: Value) -> Value {
     let mut map = extra.as_object().cloned().unwrap_or_default();
     map.insert("ok".to_string(), Value::Bool(true));
     map.insert("contract".to_string(), json!(CONTRACT));
     Value::Object(map)
-}
-
-fn err(code: &str) -> Value {
-    json!({"ok": false, "contract": CONTRACT, "error": code})
 }
 
 /// `POST /v1/rag/query` — canonical dense query with PG read barrier.
@@ -272,7 +279,7 @@ fn handle_query(app: &App, body: &[u8]) -> Value {
     }))
 }
 
-fn route(app: &App, method: &str, path: &str, body: &[u8]) -> Value {
+fn route(app: &Arc<App>, method: &str, path: &str, body: &[u8]) -> Value {
     match (method, path) {
         ("GET", "/healthz") => ok(json!({
             "service": "ragd",
@@ -280,13 +287,15 @@ fn route(app: &App, method: &str, path: &str, body: &[u8]) -> Value {
             "vectord": app.vectord_base,
             "dsn_configured": app.dsn.is_some(),
             "uptime_s": app.started.elapsed().as_secs(),
+            "cag": app.cache.lock().map(|c| c.stats()).unwrap_or_default(),
         })),
         ("POST", "/v1/rag/query") => handle_query(app, body),
+        ("POST", "/v1/retrieve") => retrieve::handle_retrieve(app, body),
         _ => err("NOT_FOUND"),
     }
 }
 
-fn handle_connection(mut stream: TcpStream, app: &App) {
+fn handle_connection(mut stream: TcpStream, app: &Arc<App>) {
     match read_request(&mut stream) {
         Ok((method, path, body)) => {
             send_response(&mut stream, "200 OK", &route(app, &method, &path, &body));
@@ -335,12 +344,13 @@ fn main() {
         }
     };
 
-    let app = App {
+    let app = Arc::new(App {
         vectord_base,
         dsn,
         pg: Mutex::new(None),
+        cache: Mutex::new(cag::CagCacheStore::new()),
         started: Instant::now(),
-    };
+    });
     let listener = match TcpListener::bind(&bind) {
         Ok(l) => l,
         Err(e) => {
@@ -351,10 +361,8 @@ fn main() {
     eprintln!("ragd: listening on {} ({})", bind, CONTRACT);
     for stream in listener.incoming() {
         if let Ok(stream) = stream {
-            let app_ref = &app;
-            std::thread::scope(|s| {
-                s.spawn(|| handle_connection(stream, app_ref));
-            });
+            let app_ref = Arc::clone(&app);
+            std::thread::spawn(move || handle_connection(stream, &app_ref));
         }
     }
 }

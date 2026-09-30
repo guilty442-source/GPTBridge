@@ -122,6 +122,18 @@ internal static partial class ManifestExport
                 "never the formal data authority",
                 "PostgreSQL owns canonical",
             });
+        e.Contains("architecture:ragd-retrieval-route",
+            "Standalone tools/ragd-rs/src/main.rs",
+            new[] { "/v1/retrieve", "/v1/rag/query" });
+        e.Contains("architecture:ragd-dag-plane",
+            "Standalone tools/ragd-rs/src/dag.rs",
+            new[] { "HARD_MAX_STEPS", "dag-cycle", "node-timeout" });
+        e.Contains("architecture:ragd-cag-gate",
+            "Standalone tools/ragd-rs/src/cag.rs",
+            new[] { "payload-integrity", "cache-denied:", "CagGate" });
+        e.Contains("architecture:ragd-pg-authority",
+            "Standalone tools/ragd-rs/src/retrieve.rs",
+            new[] { "vectord never decides authority", "gptbridge_rag" });
         foreach (var name in new[]
                  { "market_data.json",
                    "xingcheng_tools/search/searchd.json" })
