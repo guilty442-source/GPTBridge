@@ -68,7 +68,7 @@ internal sealed class TransformerTrainingRepository
 
         CREATE TABLE IF NOT EXISTS transformer_training_dataset (
             dataset_id TEXT PRIMARY KEY,
-            content_sha256 TEXT NOT NULL UNIQUE,
+            content_sha256 TEXT NOT NULL,
             format_version TEXT NOT NULL,
             base_model_id TEXT NOT NULL,
             runtime_model_id TEXT NOT NULL,
@@ -88,8 +88,23 @@ internal sealed class TransformerTrainingRepository
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL,
             CHECK(example_count =
-                  training_example_count + validation_example_count)
+                  training_example_count + validation_example_count),
+            UNIQUE (content_sha256, snapshot_sha256)
         );
+
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'transformer_training_dataset_content_sha256_key'
+            ) THEN
+                ALTER TABLE transformer_training_dataset
+                    DROP CONSTRAINT transformer_training_dataset_content_sha256_key;
+                ALTER TABLE transformer_training_dataset
+                    ADD CONSTRAINT transformer_training_dataset_snapshot_key
+                    UNIQUE (content_sha256, snapshot_sha256);
+            END IF;
+        END $$;
 
         CREATE TABLE IF NOT EXISTS transformer_training_dataset_example (
             dataset_id TEXT NOT NULL,
@@ -501,7 +516,12 @@ internal sealed class TransformerTrainingRepository
             throw new ArgumentException("transformer training snapshot SHA-256 mismatch");
         var normalized = NormalizeDatasetExamples(examples);
         var (trainCount, validationCount) = DatasetExampleCounts(normalized);
-        string datasetId = $"star-transformer-dataset-{contentDigest[..24]}";
+        // Dataset identity is (content_sha256, snapshot_sha256): identical
+        // content re-exported with different bytes (e.g. after a snapshot
+        // serialization change) registers a new row instead of colliding
+        // with an unrecoverable stale one.
+        string datasetId = $"star-transformer-dataset-" +
+            Sha256Text(contentDigest + ":" + snapshotDigest)[..24];
         string manifestJson = CanonicalJson.CanonicalDict(sourceManifest);
         string createdAt = Now();
 
@@ -509,13 +529,15 @@ internal sealed class TransformerTrainingRepository
         {
             var existing = db.QueryOne(
                 $"SELECT {DatasetColumns} FROM transformer_training_dataset " +
-                "WHERE content_sha256 = $1", contentDigest);
+                "WHERE content_sha256 = $1 AND snapshot_sha256 = $2",
+                contentDigest, snapshotDigest);
             if (existing != null)
             {
-                // content_sha256 is UNIQUE and the snapshot columns are
-                // immutable (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a
-                // pruned file can only be repaired by restoring identical
-                // bytes at the stored path.
+                // Snapshot columns are immutable
+                // (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a pruned file
+                // can only be repaired by restoring identical bytes at the
+                // stored path — guaranteed possible since the digest in the
+                // row equals the digest of the file just verified.
                 string storedPath = (string?)existing["snapshot_path"] ?? "";
                 string storedSha = (string?)existing["snapshot_sha256"] ?? "";
                 bool usable = storedPath.Length > 0 &&
@@ -523,11 +545,6 @@ internal sealed class TransformerTrainingRepository
                               Sha256File(storedPath) == storedSha;
                 if (!usable)
                 {
-                    if (snapshotDigest != storedSha)
-                        throw new ArgumentException(
-                            "transformer training snapshot lost and " +
-                            "re-export digest differs — the registered " +
-                            "dataset is unrecoverable");
                     string restored = Path.IsPathRooted(storedPath)
                         ? storedPath
                         : Path.Combine(ToolRoot, storedPath);
