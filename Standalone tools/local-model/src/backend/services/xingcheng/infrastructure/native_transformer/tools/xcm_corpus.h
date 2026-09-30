@@ -306,7 +306,13 @@ int mode_corpus(const Args& a) {
                 FileCacheRec r;
                 r.present = true;
                 r.size = (int64_t)xct::j_num(&v, "size", -1);
-                r.mtime = (int64_t)xct::j_num(&v, "mtime", -1);
+                // mtime is stored as a string: file-time ticks exceed
+                // double precision and must round-trip exactly.
+                const JsonValue* mv = v.get("mtime");
+                if (mv && mv->type == JsonValue::Type::String)
+                    r.mtime = std::atoll(mv->string.c_str());
+                else if (mv && mv->type == JsonValue::Type::Number)
+                    r.mtime = (int64_t)mv->number;
                 const JsonValue* sv = v.get("status");
                 r.skip = sv && sv->type == JsonValue::Type::String &&
                          sv->string == "skip";
@@ -607,7 +613,7 @@ int mode_corpus(const Args& a) {
                << "\",\"source_id\":\""
                << gptbridge::jsonlite::json_escape(rec.doc.source_id)
                << "\",\"size\":" << rec.size
-               << ",\"mtime\":" << rec.mtime;
+               << ",\"mtime\":\"" << rec.mtime << "\"";
             if (R.kind == ScanResult::Kind::Skip) {
                 cc << ",\"status\":\"skip\"}\n";
                 continue;
