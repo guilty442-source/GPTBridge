@@ -295,6 +295,11 @@ internal static class ConvergenceGate
             }),
             new("generation-convergence", true, () =>
                 GenerationConvergence(toolRoot)),
+            new("convergence-checks", true, () =>
+            {
+                var r = ConvergenceChecks.Run(toolRoot);
+                return TruthyField(r, "ok", "convergence-checks");
+            }),
             new("resource-cert", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "scale-status",
                        "--bundle", bundle!))),

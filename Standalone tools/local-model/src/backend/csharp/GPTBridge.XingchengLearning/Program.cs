@@ -278,6 +278,11 @@ internal static class Program
             if (flags.Contains("catalog-validate"))
                 return Emit(FeatureCatalog.Validate(
                     opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- repo-level convergence battery: platform invariants
+            // (single runtime owner, canonical contract, frozen
+            // training, supported axes). star-convergence-checks/v1.
+            if (flags.Contains("converge-check"))
+                return Emit(ConvergenceChecks.Run(toolRoot));
             // ---- XingchengConvergenceGate: the single release gate.
             // Ordered steps; any critical FAIL -> PROMOTION_BLOCKED.
             if (flags.Contains("release-gate"))
