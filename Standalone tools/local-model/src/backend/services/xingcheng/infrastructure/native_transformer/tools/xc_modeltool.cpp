@@ -1053,8 +1053,14 @@ size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
         for (auto& n : unmapped) { if (!list.empty()) list += ','; list += n; }
         fail("IMPORT_UNMAPPED_TENSORS:" + list);
     }
-    for (const auto& n : p.order)
+    for (const auto& n : p.order) {
+        // lb_bias is a train-time routing buffer that never exports —
+        // absence from a bundle is not a contract violation. mtp.* must
+        // be present (§22) so it is NOT exempted.
+        if (n.size() >= 7 &&
+            n.compare(n.size() - 7, 7, "lb_bias") == 0) continue;
         if (!filled.count(n)) fail("IMPORT_MISSING_TENSOR:" + n);
+    }
     return filled.size();
 }
 

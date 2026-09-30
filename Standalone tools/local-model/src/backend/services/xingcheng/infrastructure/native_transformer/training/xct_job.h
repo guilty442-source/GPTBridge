@@ -430,10 +430,14 @@ static JsonValue run_job(const JsonValue& job) {
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
             }
-            // grad clip (global norm)
+            // grad clip (global norm over trainable params only —
+            // frozen grads would inflate the norm and shrink the
+            // effective scale for the params actually being updated)
             double gnorm = 0.0f;
-            for (auto& n : p.order)
+            for (auto& n : p.order) {
+                if (p.frozen.count(n)) continue;
                 for (float x : p.g[n].d) gnorm += (double)x * x;
+            }
             gnorm = std::sqrt(gnorm);
             float gscale = (tc.clip > 0 && gnorm > tc.clip) ? tc.clip / (float)gnorm : 1.0f;
             // adamw
