@@ -2409,6 +2409,24 @@ std::string generate_reply(NativeInferenceEngine& engine,
     return engine.decode(out, true);
 }
 
+// §15/§16 suite-level thinking-ON lane: same contract as
+// generate_reply but the answer comes from generate_thinking
+// (think_steps>0). The thinking trace is never decoded — only the
+// chosen branch's answer tokens are returned.
+std::string generate_reply_thinking(NativeInferenceEngine& engine,
+                                    const std::string& prompt,
+                                    int64_t max_new, uint64_t seed,
+                                    int64_t think_steps,
+                                    int64_t branches) {
+    SamplingConfig sc;
+    sc.do_sample = false;
+    sc.seed = seed;
+    std::vector<int64_t> ids = engine.encode(prompt, true, false);
+    auto res = engine.generate_thinking(
+        ids, think_steps, branches, max_new, sc);
+    return engine.decode(res.answer_ids, true);
+}
+
 double block_perplexity(NativeInferenceEngine& engine,
                         const std::string& text) {
     std::vector<int64_t> ids = engine.encode(text, false, false);
@@ -2483,6 +2501,23 @@ int mode_capability(const Args& a) {
     std::string suite_sha = suite_sha256(raw);
     bool chat = a.has("chat");
 
+    // §15/§16 thinking-ON eval lane: --think-steps N [--think-branches M]
+    // routes item generation through generate_thinking; absent = OFF.
+    int64_t think_steps = 0;
+    int64_t think_branches = 1;
+    if (a.has("think-steps")) {
+        try { think_steps = std::stoll(a.get("think-steps")); }
+        catch (...) { fail("CAPABILITY_BAD_THINK_STEPS"); }
+        if (a.has("think-branches")) {
+            try { think_branches = std::stoll(a.get("think-branches")); }
+            catch (...) { fail("CAPABILITY_BAD_THINK_BRANCHES"); }
+        }
+        if (think_steps < 1 || think_steps > 32)
+            fail("CAPABILITY_BAD_THINK_STEPS");
+        if (think_branches < 1 || think_branches > 8)
+            fail("CAPABILITY_BAD_THINK_BRANCHES");
+    }
+
     // Fail-closed overlap check against the training corpus manifest.
     std::unordered_set<std::string> corpus_hashes;
     bool overlap_free = true;
@@ -2553,6 +2588,16 @@ int mode_capability(const Args& a) {
             track(cat, d.str());
             continue;
         }
+        // Fail-closed modality gate: this engine serves text only, so a
+        // suite item declaring a non-text modality is skipped (never
+        // scored) — a text replay of an image prompt would be fake
+        // evidence.
+        std::string modality = jget_str(item, "modality");
+        if (!modality.empty() && modality != "text") {
+            d << ",\"passed\":false,\"skipped\":\"modality-unavailable\"}";
+            track(cat, d.str());
+            continue;
+        }
         try {
             if (kind == "router_health") {
                 // The C++ engine exposes no router-metrics surface ??
@@ -2577,7 +2622,11 @@ int mode_capability(const Args& a) {
                          "\n<|eot|>\n<|assistant|>\n";
             }
             int64_t max_new = (int64_t)xct::j_num(&item, "max_new_tokens", 32);
-            std::string reply = generate_reply(engine, prompt, max_new, seed);
+            std::string reply = think_steps > 0
+                ? generate_reply_thinking(
+                      engine, prompt, max_new, seed, think_steps,
+                      think_branches)
+                : generate_reply(engine, prompt, max_new, seed);
             std::string reply_shown = reply.substr(0, 200);
             d << ",\"reply\":\""
               << gptbridge::jsonlite::json_escape(reply_shown) << "\"";
@@ -2860,6 +2909,8 @@ int mode_capability(const Args& a) {
     if (!overlap_error.empty())
         report << ",\"error\":\"" << overlap_error << "\"";
     report << "},\"third_party_used\":false"
+           << ",\"thinking\":{\"steps\":" << think_steps
+           << ",\"branches\":" << think_branches << "}"
            << ",\"recorded_at\":\"" << now << "\"}";
 
     // Optional regression comparison against a baseline report file.

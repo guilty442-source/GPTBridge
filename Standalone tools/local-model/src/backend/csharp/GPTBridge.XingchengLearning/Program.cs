@@ -75,6 +75,15 @@ internal static class Program
                         ? mc : "",
                     opts.TryGetValue("evidence", out string? me)
                         ? me : ""));
+            if (flags.Contains("maturation-unsupported"))
+                return Emit(Maturation300M.MarkUnsupported(
+                    toolRoot,
+                    opts.TryGetValue("capability", out string? muc)
+                        ? muc : "",
+                    opts.TryGetValue("evidence", out string? mue)
+                        ? mue : "",
+                    opts.TryGetValue("reason", out string? mur)
+                        ? mur : ""));
             if (flags.Contains("maturation-baseline"))
                 return Emit(MaturationBaseline(toolRoot, opts));
             // §15/§16: thinking OFF/ON comparison over identical-suite

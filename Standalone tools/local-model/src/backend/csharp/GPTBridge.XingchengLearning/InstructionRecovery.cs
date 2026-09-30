@@ -44,6 +44,7 @@ internal static class InstructionRecovery
         "rag" => "star-rag-eval-result/v1",
         "math" => "star-math-eval-result/v1",
         "coding" => "star-coding-eval-result/v1",
+        "native_thinking" => "star-thinking-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -195,6 +196,21 @@ internal static class InstructionRecovery
         ("bug_fix", 0.15),
         ("small_multi_file", 0.10),
     };
+    // Registered names from Maturation300M (6 metrics). These are
+    // decode-surface measurements, not SFT-trainable skills — the
+    // capability gate is the §15/§16 OFF/ON comparison, so
+    // native_thinking is intentionally absent from
+    // SupportedCapabilities (an SFT plan for it fails closed).
+    private static readonly (string metric, double w)[]
+        ThinkingMetricWeights =
+    {
+        ("off_baseline", 0.30),
+        ("accuracy_gain", 0.25),
+        ("token_cost", 0.15),
+        ("branch_acceptance", 0.15),
+        ("latency", 0.10),
+        ("gpu_cost", 0.05),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
@@ -206,6 +222,7 @@ internal static class InstructionRecovery
             "rag" => RagMetricWeights,
             "math" => MathMetricWeights,
             "coding" => CodingMetricWeights,
+            "native_thinking" => ThinkingMetricWeights,
             _ => InstructionMetricWeights,
         };
 
