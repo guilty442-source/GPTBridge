@@ -876,19 +876,35 @@ internal static class InstructionRecovery
             ? cd : new Dictionary<string, object?>();
         var metrics = new Dictionary<string, object?>();
         var taxonomy = new Dictionary<string, int>();
-        double score = 0, wsum = 0;
+        double score = 0, wsum = 0, wfound = 0;
         foreach (var (metric, w) in MetricWeights)
         {
             double pr = 0;
             if (cats.TryGetValue(metric, out var mv) &&
                 mv is Dictionary<string, object?> md &&
                 md["pass_rate"] is double d)
-                pr = d;
+            { pr = d; wfound += w; }
             metrics[metric] = pr;
             score += w * pr;
             wsum += w;
         }
         if (wsum > 0) score /= wsum;
+        if (wfound <= 0)
+        {
+            // Suites whose categories are not the §20 metric names (e.g.
+            // the reconstructed L5 parity probes) score by plain
+            // pass-rate so the parity gate sees the real number.
+            long it = 0, ps = 0;
+            foreach (var (_, cv2) in cats)
+                if (cv2 is Dictionary<string, object?> cd2)
+                {
+                    it += TransformerTrainingRepository.Long(
+                        cd2, "items");
+                    ps += TransformerTrainingRepository.Long(
+                        cd2, "passed");
+                }
+            if (it > 0) score = (double)ps / it;
+        }
         var itemsObj = report.TryGetValue("items", out var iv) &&
                        iv is Dictionary<string, object?> io
             ? io : new Dictionary<string, object?>();
