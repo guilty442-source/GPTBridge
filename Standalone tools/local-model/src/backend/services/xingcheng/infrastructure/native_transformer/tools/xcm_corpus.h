@@ -136,6 +136,20 @@ uint64_t corpus_mix(uint64_t x) {
     return x ^ (x >> 31);
 }
 
+// Band keys for a 64-lane signature (16 bands of 4) — the exact keys the
+// near-duplicate gate consumes, stored in the incremental scan-state so
+// unchanged files never need re-signature.
+std::vector<uint64_t> corpus_band_keys(const std::vector<uint64_t>& sig) {
+    std::vector<uint64_t> keys(16);
+    for (int b = 0; b < 16; ++b) {
+        keys[(size_t)b] = corpus_mix(
+            sig[(size_t)(b * 4)] ^ sig[(size_t)(b * 4 + 1)] ^
+            (sig[(size_t)(b * 4 + 2)] << 1) ^
+            (sig[(size_t)(b * 4 + 3)] >> 1) ^ (uint64_t)b);
+    }
+    return keys;
+}
+
 // 64-lane MinHash signature over whitespace word 5-grams; band width 4
 // (16 bands). A shared band ≈ Jaccard ≥0.65 near-duplicate.
 std::vector<uint64_t> corpus_sig(const std::string& text) {
@@ -271,61 +285,219 @@ int mode_corpus(const Args& a) {
               [](const Cand& x, const Cand& y) { return x.rel < y.rel; });
     scanned_files = (int64_t)cands.size();
 
+    // ---- incremental scan-state (changed-files detection) ------------
+    // Per-file cache keyed by repo-relative path: size+mtime act as the
+    // freshness token — a hit means the file is byte-identical (same
+    // size AND same write time), so every derived artifact (hashes,
+    // NFC flag, language, MinHash band keys, token ids) is reused
+    // without re-reading or re-tokenizing. A size/mtime miss re-runs the
+    // full per-document pipeline for that file only. The cache is
+    // invalidated wholesale when the tokenizer or doc-length limit
+    // changes (ids would otherwise be stale).
+    struct FileRec {
+        uint64_t size = 0, mtime = 0;
+        int status = 0;  // 0 ok, 1 empty, 2 unreadable, 3 binary
+        CorpusDoc doc;
+        std::vector<uint64_t> bands;  // 16 MinHash band keys
+    };
+    const std::string tk_sha = sha256_file(tk_path);
+    std::unordered_map<std::string, FileRec> cache;
+    const fs::path state_path = out_dir / "scan-state.json";
+    bool cache_valid = false;
+    if (fs::exists(state_path)) {
+        try {
+            JsonValue st = parse_json_file(state_path.string());
+            const JsonValue* tk2 = st.get("tokenizer_sha256");
+            const JsonValue* mdc = st.get("max_doc_chars");
+            cache_valid =
+                tk2 && tk2->type == JsonValue::Type::String &&
+                tk2->string == tk_sha && mdc &&
+                mdc->type == JsonValue::Type::Number &&
+                (int64_t)mdc->number == max_doc_chars;
+            if (cache_valid) {
+                const JsonValue* files = st.get("files");
+                if (files && files->type == JsonValue::Type::Object) {
+                    for (const auto& kv : files->object) {
+                        const JsonValue& r = kv.second;
+                        if (r.type != JsonValue::Type::Object) continue;
+                        FileRec fr;
+                        fr.size = (uint64_t)xct::j_num(&r, "size", 0);
+                        fr.mtime = (uint64_t)xct::j_num(&r, "mtime", 0);
+                        fr.status = (int)xct::j_num(&r, "status", 0);
+                        fr.doc.source_id = jget_str(r, "source_id");
+                        fr.doc.sha_raw = jget_str(r, "sha256_raw");
+                        fr.doc.sha_nfc = jget_str(r, "sha256_nfc");
+                        fr.doc.overlap_sha = jget_str(r, "overlap_sha");
+                        fr.doc.language = jget_str(r, "language");
+                        if (const JsonValue* nb = r.get("nfc_changed"))
+                            fr.doc.nfc_changed =
+                                nb->type == JsonValue::Type::Bool &&
+                                nb->boolean;
+                        if (const JsonValue* ids = r.get("ids"))
+                            for (const auto& v : ids->array)
+                                fr.doc.ids.push_back((int64_t)v.number);
+                        if (const JsonValue* bk = r.get("bands"))
+                            for (const auto& v : bk->array)
+                                fr.bands.push_back((uint64_t)v.number);
+                        cache[kv.first] = std::move(fr);
+                    }
+                }
+            }
+        } catch (...) {
+            cache.clear();
+            cache_valid = false;
+        }
+    }
+
     // ---- per-document pipeline (elements 3/6/7/8/9/10) ---------------
+    // Stage 1: stat every candidate; a size+mtime cache hit skips the
+    // file entirely (no read, no hash, no tokenize).
+    std::vector<FileRec> recs(cands.size());
+    std::vector<int64_t> stale;
+    stale.reserve(cands.size());
+    int64_t cache_hits = 0;
+    for (size_t i = 0; i < cands.size(); ++i) {
+        std::error_code ec;
+        const uint64_t sz =
+            (uint64_t)fs::file_size(cands[i].abs, ec);
+        const uint64_t mt = ec ? 0 : (uint64_t)std::chrono::
+            duration_cast<std::chrono::nanoseconds>(
+                fs::last_write_time(cands[i].abs, ec)
+                    .time_since_epoch()).count();
+        auto it = cache.find(cands[i].rel);
+        if (it != cache.end() && !ec && it->second.size == sz &&
+            it->second.mtime == mt) {
+            recs[i] = it->second;
+            recs[i].doc.relpath = cands[i].rel;
+            recs[i].doc.source_id = cands[i].src->id;
+            ++cache_hits;
+            continue;
+        }
+        recs[i].size = sz;
+        recs[i].mtime = mt;
+        recs[i].doc.relpath = cands[i].rel;
+        recs[i].doc.source_id = cands[i].src->id;
+        stale.push_back((int64_t)i);
+    }
+
+    // Stage 2: bounded parallel re-parse of stale files only. Each
+    // worker owns its slot — join order is the candidate index, so the
+    // merged result is identical regardless of thread scheduling.
+    {
+        const unsigned nt = std::max(
+            1u, std::min(8u, std::thread::hardware_concurrency()));
+        std::atomic<int64_t> next{0};
+        auto worker = [&]() {
+            for (;;) {
+                const int64_t si =
+                    next.fetch_add(1, std::memory_order_relaxed);
+                if (si >= (int64_t)stale.size()) break;
+                FileRec& fr = recs[(size_t)stale[(size_t)si]];
+                const Cand& c = cands[(size_t)stale[(size_t)si]];
+                std::ifstream f(c.abs, std::ios::binary);
+                if (!f) { fr.status = 2; continue; }
+                std::ostringstream ss; ss << f.rdbuf();
+                std::string raw = ss.str();
+                if (raw.empty()) { fr.status = 1; continue; }
+                if ((int64_t)raw.size() > max_doc_chars)
+                    raw.resize((size_t)max_doc_chars);
+                if (raw.find('\0', 0) != std::string::npos) {
+                    fr.status = 3;
+                    continue;
+                }
+                fr.doc.sha_raw = sha256_text(raw);
+                std::string norm = nfc(raw);
+                fr.doc.nfc_changed = norm != raw;
+                fr.doc.sha_nfc = sha256_text(norm);
+                fr.bands = corpus_band_keys(corpus_sig(norm));
+                fr.doc.language = corpus_lang(
+                    norm, fs::path(c.rel).extension().string());
+                fr.doc.overlap_sha = norm_text_sha(norm);
+                fr.doc.ids = tk.encode(norm, true, false);
+                if (eos_id >= 0) fr.doc.ids.push_back(eos_id);
+                fr.status = fr.doc.ids.empty() ? 1 : 0;
+            }
+        };
+        std::vector<std::thread> pool;
+        for (unsigned t = 0; t < nt; ++t) pool.emplace_back(worker);
+        for (auto& th : pool) th.join();
+    }
+
+    // Stage 3: deterministic sequential merge — dedup and packing see
+    // the records in sorted relpath order, identical to a cold scan.
     std::vector<CorpusDoc> docs;
     std::unordered_set<std::string> seen_sha;
     std::unordered_map<uint64_t, std::vector<int64_t>> bands;
     int64_t exact_dup = 0, near_dup = 0, empty_docs = 0,
             unreadable = 0, total_tokens = 0;
     std::unordered_map<std::string, int64_t> lang_counts;
-    for (const Cand& c : cands) {
+    for (FileRec& fr : recs) {
         if ((int64_t)docs.size() >= max_docs ||
             total_tokens >= max_tokens)
             break;
-        std::ifstream f(c.abs, std::ios::binary);
-        if (!f) { ++unreadable; continue; }
-        std::ostringstream ss; ss << f.rdbuf();
-        std::string raw = ss.str();
-        if (raw.empty()) { ++empty_docs; continue; }
-        if ((int64_t)raw.size() > max_doc_chars)
-            raw.resize((size_t)max_doc_chars);
-        if (raw.find('\0', 0) != std::string::npos) continue;  // binary
-        CorpusDoc d;
-        d.source_id = c.src->id;
-        d.relpath = c.rel;
-        d.sha_raw = sha256_text(raw);
-        std::string norm = nfc(raw);
-        d.nfc_changed = norm != raw;
-        d.sha_nfc = sha256_text(norm);
-        if (!seen_sha.insert(d.sha_nfc).second) { ++exact_dup; continue; }
-        std::vector<uint64_t> sig = corpus_sig(norm);
+        if (fr.status == 2) { ++unreadable; continue; }
+        if (fr.status != 0) { ++empty_docs; continue; }  // empty/binary
+        if (!seen_sha.insert(fr.doc.sha_nfc).second) {
+            ++exact_dup;
+            continue;
+        }
         bool dup = false;
-        for (int b = 0; b < 16 && !dup; ++b) {
-            uint64_t key = corpus_mix(
-                sig[(size_t)(b * 4)] ^ sig[(size_t)(b * 4 + 1)] ^
-                (sig[(size_t)(b * 4 + 2)] << 1) ^
-                (sig[(size_t)(b * 4 + 3)] >> 1) ^ (uint64_t)b);
-            dup = bands.count(key) != 0;
+        for (uint64_t key : fr.bands) {
+            if (bands.count(key)) { dup = true; break; }
         }
         if (dup) { ++near_dup; continue; }
-        for (int b = 0; b < 16; ++b) {
-            uint64_t key = corpus_mix(
-                sig[(size_t)(b * 4)] ^ sig[(size_t)(b * 4 + 1)] ^
-                (sig[(size_t)(b * 4 + 2)] << 1) ^
-                (sig[(size_t)(b * 4 + 3)] >> 1) ^ (uint64_t)b);
+        for (uint64_t key : fr.bands)
             bands[key].push_back((int64_t)docs.size());
+        total_tokens += (int64_t)fr.doc.ids.size();
+        uint64_t kh =
+            corpus_fnv(fr.doc.source_id + ":" + fr.doc.relpath);
+        fr.doc.split =
+            (kh % 1000 < (uint64_t)(val_pct * 10)) ? "valid" : "train";
+        lang_counts[fr.doc.language]++;
+        docs.push_back(std::move(fr.doc));
+    }
+
+    // Persist the refreshed scan-state (drops files that vanished, adds
+    // newly parsed ones). Auxiliary artifact — not part of the dataset
+    // integrity manifest.
+    {
+        std::ostringstream st;
+        st << "{\"schema\":\"star-corpus-scan-state/v1\""
+           << ",\"tokenizer_sha256\":\"" << tk_sha << "\""
+           << ",\"max_doc_chars\":" << max_doc_chars << ",\"files\":{";
+        bool first = true;
+        for (size_t i = 0; i < cands.size(); ++i) {
+            const FileRec& fr = recs[i];
+            if (fr.status == 2) continue;  // retry unreadable next run
+            if (!first) st << ',';
+            first = false;
+            st << '"' << gptbridge::jsonlite::json_escape(cands[i].rel)
+               << "\":{\"size\":" << fr.size << ",\"mtime\":" << fr.mtime
+               << ",\"status\":" << fr.status
+               << ",\"source_id\":\""
+               << gptbridge::jsonlite::json_escape(fr.doc.source_id)
+               << "\",\"sha256_raw\":\"" << fr.doc.sha_raw
+               << "\",\"sha256_nfc\":\"" << fr.doc.sha_nfc
+               << "\",\"overlap_sha\":\"" << fr.doc.overlap_sha
+               << "\",\"language\":\"" << fr.doc.language
+               << "\",\"nfc_changed\":"
+               << (fr.doc.nfc_changed ? "true" : "false")
+               << ",\"bands\":[";
+            for (size_t b = 0; b < fr.bands.size(); ++b) {
+                if (b) st << ',';
+                st << fr.bands[b];
+            }
+            st << "],\"ids\":[";
+            for (size_t k = 0; k < fr.doc.ids.size(); ++k) {
+                if (k) st << ',';
+                st << fr.doc.ids[k];
+            }
+            st << "]}";
         }
-        d.language = corpus_lang(norm, fs::path(c.rel).extension().string());
-        const std::string overlap_sha = norm_text_sha(norm);
-        d.overlap_sha = overlap_sha;
-        d.ids = tk.encode(norm, true, false);
-        if (eos_id >= 0) d.ids.push_back(eos_id);
-        if (d.ids.empty()) { ++empty_docs; continue; }
-        total_tokens += (int64_t)d.ids.size();
-        uint64_t kh = corpus_fnv(d.source_id + ":" + d.relpath);
-        d.split = (kh % 1000 < (uint64_t)(val_pct * 10)) ? "valid" : "train";
-        lang_counts[d.language]++;
-        docs.push_back(std::move(d));
+        st << "}}";
+        fs::create_directories(out_dir);
+        std::ofstream sfo(state_path, std::ios::binary | std::ios::trunc);
+        sfo << st.str();
     }
 
     // ---- emit (elements 2/8/9/11): packed ids + records + manifest ---
@@ -403,6 +575,8 @@ int mode_corpus(const Args& a) {
        << ",\"counts\":{\"sources_allowed\":" << (int64_t)allowed.size()
        << ",\"sources_rejected\":" << (int64_t)rejected_sources.size()
        << ",\"files_scanned\":" << scanned_files
+       << ",\"files_cached\":" << cache_hits
+       << ",\"files_reparsed\":" << (int64_t)stale.size()
        << ",\"paths_denied\":" << denied_paths
        << ",\"docs_kept\":" << (int64_t)docs.size()
        << ",\"exact_duplicates\":" << exact_dup
