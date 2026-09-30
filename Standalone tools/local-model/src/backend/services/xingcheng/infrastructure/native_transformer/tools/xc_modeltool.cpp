@@ -935,25 +935,28 @@ int mode_distill_init(const Args& a) {
     std::vector<int> dense_layers;
     for (int l = 0; l < tc.layers; ++l)
         if (tp.w.count(xct::ln(l, "w1"))) dense_layers.push_back(l);
+    if (dense_layers.empty())
+        fail("DISTILL_NO_DENSE_MLP: teacher has no dense MLP layer");
+    auto nearest_dense = [&](int tl) {
+        int best = dense_layers[0];
+        for (int d : dense_layers)
+            if (std::abs(d - tl) < std::abs(best - tl)) best = d;
+        return best;
+    };
     int dense_cursor = 0;
     std::ostringstream layer_map;
     layer_map << '[';
     for (int l = 0; l < sc.layers; ++l) {
-        // Spread teacher layers across the student depth.
-        int tl = sc.layers > 1
-                     ? (int)std::lround((double)l * (tc.layers - 1) /
-                                        (sc.layers - 1))
-                     : 0;
+        // Positional transplant: student layer l inherits teacher layer l
+        // when in range (no representational drift); extra student depth
+        // reuses whole teacher dense layers (attn+MLP stay coherent).
+        int tl = l < tc.layers ? l
+                               : dense_layers[(size_t)dense_cursor++ %
+                                              dense_layers.size()];
+        int ml = tp.w.count(xct::ln(tl, "w1")) ? tl : nearest_dense(tl);
         for (const char* t :
              {"norm1", "wq", "wk", "wv", "wo", "norm2"})
             copy(xct::ln(l, t), xct::ln(tl, t));
-        int ml = tl;
-        if (!tp.w.count(xct::ln(tl, "w1"))) {
-            if (dense_layers.empty())
-                fail("DISTILL_NO_DENSE_MLP: teacher has no dense MLP layer");
-            ml = dense_layers[(size_t)dense_cursor++ %
-                              dense_layers.size()];
-        }
         for (const char* t : {"w1", "w2", "w3"})
             copy(xct::ln(l, t), xct::ln(ml, t));
         if (l) layer_map << ',';
