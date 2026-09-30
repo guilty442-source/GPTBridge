@@ -484,6 +484,36 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? rem)
                             ? rem : "", "RETRIEVAL_RECALL_REGRESSION")));
+            // ---- product scale tiers (1B STANDARD / 20B EXTREME) ----
+            if (flags.Contains("scale-tiers"))
+                return Emit(ProductScale.Tiers());
+            if (flags.Contains("model-identity"))
+                return Emit(ProductScale.Identity(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mi)
+                            ? mi : "", "SCALE_PROFILE_INVALID")));
+            if (flags.Contains("active-compute-gate"))
+                return Emit(ProductScale.ActiveGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? acg)
+                            ? acg : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("scale-tier-validate"))
+                return Emit(ProductScale.ValidateTier(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? stv)
+                            ? stv : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("residency-plan"))
+                return Emit(ProductScale.ResidencyPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rp)
+                            ? rp : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("trainable-budget"))
+                return Emit(ProductScale.TrainableBudget(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tbg)
+                            ? tbg : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("thinking-levels"))
+                return Emit(ProductScale.ThinkingContract());
             // ---- persona / style / steerability (Hermes lessons)
             if (flags.Contains("persona-validate"))
                 return Emit(PersonaRuntime.ValidatePersona(

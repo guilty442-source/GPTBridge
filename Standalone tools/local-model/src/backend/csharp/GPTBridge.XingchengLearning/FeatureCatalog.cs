@@ -431,6 +431,50 @@ internal static class FeatureCatalog
             "FUTURE_TRAINING", false, true, false,
             "training",
             new[] { "adaptive-embedding-probe" }),
+        // ---- product-tier directive (300M dev / 1B STANDARD /
+        //      20B EXTREME_SPARSE) ----
+        new("f-scale-tiers", "product-tier directive",
+            "star-scale-tier/v1 — xc-300m-dev / xc-1b-standard / " +
+            "xc-20b-extreme-sparse, one xc-fused-1 core (§0-§1)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "scale-tiers" }),
+        new("f-active-compute-gate", "product-tier directive",
+            "ActiveComputeGate — total-params-only reports rejected; " +
+            "tier active ceilings + ratio enforced (§47)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "active-compute-gate" }),
+        new("f-model-identity", "product-tier directive",
+            "star-model-identity/v1 — arch + scale + weight + " +
+            "runtime + bundle hash (§2)",
+            "INTEGRATED_SCHEMA", false, true, false,
+            "csharp-runtime",
+            new[] { "model-identity" }),
+        new("f-scale-residency", "product-tier directive",
+            "star-scale-residency/v1 — 1B all-hot GPU, 20B " +
+            "GPU/RAM/NVMe bands (§28-§32)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "residency-plan" }),
+        new("f-trainable-budget", "product-tier directive",
+            "star-trainable-budget/v1 — 20B sparse optimizer " +
+            "100-500M bound, dormant experts skipped (§35-§38)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "trainable-budget" }),
+        new("f-sparse-thinking", "product-tier directive",
+            "star-thinking-levels/v1 — OFF..MAX + AUTO; system-1 " +
+            "answers without decode (§48-§51)",
+            "EXPERIMENTAL_RUNTIME", false, true, false,
+            "csharp-runtime",
+            new[] { "thinking-levels" }),
+        new("f-extreme-sparse-planner", "product-tier directive",
+            "EXTREME_SPARSE scale_class — active-first ranking + " +
+            "256E sweep (§61, §23)",
+            "INTEGRATED_RUNTIME", false, true, false,
+            "csharp-runtime",
+            new[] { "hardware-scale-search" }),
     };
 
     private static string Path_(string toolRoot)

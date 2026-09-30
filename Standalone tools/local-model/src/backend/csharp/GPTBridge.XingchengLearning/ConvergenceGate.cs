@@ -106,14 +106,15 @@ internal static class ConvergenceGate
                         $"{exe} exceeded {timeoutS}s");
         }
         p.WaitForExit(); // drain async readers
+        string detail = (stderr + "\n" + stdout).Trim();
         if (p.ExitCode != 0)
             return Fail("GATE_STEP_FAILED",
-                (stderr.Length > 0 ? stderr : stdout).ToString()
-                    .Trim()[..Math.Min(400,
-                        (stderr.Length > 0 ? stderr : stdout)
-                            .ToString().Trim().Length)]);
-        return Pass(stdout.ToString().Trim()[..Math.Min(200,
-            stdout.ToString().Trim().Length)]);
+                detail.Length > 0
+                    ? detail[^Math.Min(400, detail.Length)..]
+                    : $"exit={p.ExitCode} (no output captured)");
+        return Pass(detail.Length > 0
+            ? detail[^Math.Min(200, detail.Length)..]
+            : "exit=0");
     }
 
     private static StepResult Native(string toolRoot, string exe,

@@ -189,6 +189,16 @@ internal static class ScaleSearch
              prefix = Num(bs, "prefix_cache_bytes", 256L << 20);
         double wb = DNum(bs, "weight_bytes_per_param", 2.0);
         double targetScale = DNum(el, "target_param_scale", 2.0);
+        // §61: STANDARD balances capability/latency; EXTREME_SPARSE
+        // ranks active-efficiency first and opens the 256E sweep.
+        string scaleClass =
+            el.TryGetProperty("scale_class", out var sc) &&
+            sc.ValueKind == JsonValueKind.String
+                ? sc.GetString()!.ToUpperInvariant() : "STANDARD";
+        if (scaleClass != "STANDARD" && scaleClass != "EXTREME_SPARSE")
+            throw new ExecutorError("SCALE_TIER_INVALID",
+                $"scale_class '{scaleClass}' — STANDARD or " +
+                "EXTREME_SPARSE only (§61)");
         bool forTraining =
             el.TryGetProperty("for_training", out var ft) &&
             ft.ValueKind == JsonValueKind.True;
@@ -295,7 +305,11 @@ internal static class ScaleSearch
             if (candidates.Count >= candCount * 2) break;
         }
         // EXPERT: same core, routed count up — Top-2 stays fixed (§26).
-        foreach (long n in new[] { 16L, 32L, 64L, 128L })
+        // §21-24: EXTREME_SPARSE opens the 256E stretch candidate.
+        long[] expertSteps = scaleClass == "EXTREME_SPARSE"
+            ? new[] { 16L, 32L, 64L, 128L, 256L }
+            : new[] { 16L, 32L, 64L, 128L };
+        foreach (long n in expertSteps)
         {
             if (n <= ec) continue;
             Consider("EXPERT_SCALE", hidden, layers, heads, kvHeads,
@@ -307,9 +321,18 @@ internal static class ScaleSearch
                          eiFine, n * 2, ctx);
         }
 
+        // §61 ranking: EXTREME_SPARSE orders by capacity/active ratio
+        // (params reachable per active param, alignment-weighted);
+        // STANDARD orders by aligned capability headroom — total
+        // capacity per resident byte, so a candidate that buys params
+        // at flat working-set still wins.
         var ranked = candidates
-            .OrderByDescending(c =>
-                Convert.ToDouble(c["capacity_hardware_ratio"]))
+            .OrderByDescending(c => scaleClass == "EXTREME_SPARSE"
+                ? Convert.ToDouble(c["capacity_hardware_ratio"])
+                : Convert.ToDouble(c["capacity_hardware_ratio"]) *
+                  Math.Log2(1.0 + (double)
+                      Convert.ToInt64(c["active_params"]) /
+                      Convert.ToInt64(c["total_params"]) * 8.0))
             .Take(candCount)
             .ToList();
         for (int i = 0; i < ranked.Count; i++)
@@ -320,6 +343,7 @@ internal static class ScaleSearch
             ["base_params"] = baseParams,
             ["hardware"] = caps.ToDict(),
             ["target_param_scale"] = targetScale,
+            ["scale_class"] = scaleClass,
             ["for_training"] = forTraining,
             ["canonical_invariants"] = new Dictionary<string, object?>
             {
