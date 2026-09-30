@@ -14,5 +14,5 @@ hex.workspace = true
 hmac = "0.12"
 sha2 = "0.10"
 postgres = { version = "0.19", features = ["with-serde_json-1"] }
-time = { version = "0.3.55", features = ["local-offset", "formatting"] }
+time = { version = "0.3.55", features = ["local-offset", "formatting", "parsing"] }
 uuid = { version = "1.26.1", features = ["v4"] }

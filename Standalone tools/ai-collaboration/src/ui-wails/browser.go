@@ -94,6 +94,7 @@ func (m *BrowserManager) pump() {
 	coInitialize()
 	defer coUninitialize()
 	m.tid = currentThreadID()
+	forceMessageQueue()
 	close(m.ready)
 	pumpLoop(m.jobs)
 }

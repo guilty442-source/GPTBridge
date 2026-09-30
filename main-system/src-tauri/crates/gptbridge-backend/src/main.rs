@@ -11,6 +11,7 @@ mod channel_host;
 mod fault;
 mod health;
 mod outbox;
+mod pending_actions;
 mod pg;
 mod permission_host;
 mod pipeline_host;

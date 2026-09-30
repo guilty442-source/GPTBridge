@@ -272,6 +272,12 @@ pub fn evaluate() -> Readiness {
 /// ``/health`` payload — wire-compatible with the Python server.
 pub fn health_payload(level: &str) -> Value {
     let readiness = evaluate();
+    // Retired-parity projections of the governed pending-action queue and
+    // automation-switch store (file contracts under runtime/state).  The
+    // drawer surfaces render these on every status push.
+    let pending = crate::pending_actions::actionable_pending_actions();
+    let pending_cardinality =
+        crate::pending_actions::pending_action_cardinality(&pending);
     json!({
         "ok": readiness.ok,
         "version": gptbridge_core::app::PRODUCT_VERSION,
@@ -300,6 +306,15 @@ pub fn health_payload(level: &str) -> Value {
         // backend's registry, `available` means its native entry is
         // installed.  A stopped tool is "stopped", never "unavailable".
         "xingcheng_native_model_runtime": native_model_status(),
+        // Retired-parity: runtime_status_push carried ``resource_mode``
+        // (resource_governor_signal's governor_mode snapshot); the
+        // drawer reads it off the push rather than polling the command.
+        "resource_mode": crate::resource_mode::snapshot(),
+        // auto_action_policy parity: actionable queue items only — terminal
+        // and reconciled records stay durable evidence, never surface.
+        "pending_actions": pending,
+        "pending_action_cardinality": pending_cardinality,
+        "automation_switches": crate::pending_actions::automation_switches(),
         "health_level": level,
     })
 }
