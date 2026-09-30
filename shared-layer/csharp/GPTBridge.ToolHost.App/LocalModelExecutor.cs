@@ -195,11 +195,12 @@ internal sealed class LocalModelExecutor
             using var probe = Process.Start(psi);
             if (probe == null) return false;
             var stdout = probe.StandardOutput.ReadToEnd();
-            if (!probe.WaitForExit(15000) || probe.ExitCode != 0)
+            if (!probe.WaitForExit(15000))
             {
                 try { probe.Kill(); } catch { }
                 return false;
             }
+            if (probe.ExitCode != 0) return false;
             using var doc = JsonDocument.Parse(stdout);
             var cuda = doc.RootElement.GetProperty("cuda");
             return cuda.TryGetProperty("available", out var av)
