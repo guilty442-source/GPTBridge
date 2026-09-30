@@ -2829,14 +2829,20 @@ internal static class InstructionRecovery
             bool need = r.Next(2) == 0;
             string q = need ? Take(r, RagPrivateQ)
                             : Take(r, RagStableQ);
-            bool zh = r.Next(2) == 0;
+            int v = r.Next(3);
+            bool zh = v != 2;
+            string prompt = v switch
+            {
+                0 => $"判斷：回答「{q}」是否需要檢索文件？回答 YES 或 "
+                   + "NO。",
+                1 => $"問題：「{q}」。若需要檢索外部或內部文件請回答 "
+                   + "YES，否則回答 NO。",
+                _ => $"Decide: does answering \"{q}\" require "
+                   + "retrieving documents? Answer YES or NO.",
+            };
             Add(new Row
             {
-                Prompt = zh
-                    ? $"判斷：回答「{q}」是否需要檢索文件？回答 YES 或 "
-                      + "NO。"
-                    : $"Decide: does answering \"{q}\" require "
-                      + "retrieving documents? Answer YES or NO.",
+                Prompt = prompt,
                 Completion = need ? "YES" : "NO",
                 Category = "A",
                 Rule = $"exact:{(need ? "YES" : "NO")}",
@@ -2846,19 +2852,24 @@ internal static class InstructionRecovery
 
         // -- B. evidence_use (~20%) — answer from the chunk verbatim;
         //    no unstated additions.
+        var ragFrames = new[]
+        {
+            "檢索到的片段：{0}問題：{1}請只根據片段回答。",
+            "根據檢索內容作答：{0}問：{1}",
+            "[檢索結果] {0} 使用者問題：{1}（只用檢索內容回答）",
+        };
         foreach (var (c, q, a) in RagChunks)
             for (int i = 0; i < count / 30; i++)
             {
                 bool zh = ZhRatio(c) > 0.3;
-                string ans = zh ? a : a;
                 Add(new Row
                 {
                     Prompt = zh
-                        ? $"檢索到的片段：{c}問題：{q}請只根據片段回答。"
+                        ? string.Format(Take(r, ragFrames), c, q)
                         : $"Retrieved chunk: {c} Question: {q} Answer "
                           + "only from the chunk.",
-                    Completion = ans,
-                    Category = "B", Rule = $"exact:{ans}",
+                    Completion = a,
+                    Category = "B", Rule = $"exact:{a}",
                     Source = Hard() ? "failure-pool" : "synthetic",
                 });
             }
@@ -3122,6 +3133,7 @@ internal static class InstructionRecovery
             "structured_output" => GenerateStructuredOutput(seed, count),
             "tool_calling" => GenerateToolCalling(seed, count),
             "reading_grounding" => GenerateReading(seed, count),
+            "rag" => GenerateRag(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -3170,6 +3182,7 @@ internal static class InstructionRecovery
             "structured_output" => BuildStructuredSuiteItems(),
             "tool_calling" => BuildToolCallingSuiteItems(),
             "reading_grounding" => BuildReadingSuiteItems(),
+            "rag" => BuildRagSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
