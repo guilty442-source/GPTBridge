@@ -394,6 +394,15 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                    const std::vector<int>& ids, Fwd& o);
 static void mtp_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o);
+// mtp_aux_loss/mtp_bwd live in xct_mtp.h (included last); xct_job.h and
+// xct_backward.h call them, so they need forward declarations here.
+static float mtp_aux_loss(const ModelConfig& c, const std::vector<int>& ids,
+                          const Fwd& fw,
+                          std::vector<std::vector<float>>& dmtp);
+static void mtp_bwd(Params& p, const ModelConfig& c,
+                    const std::vector<int>& ids, Fwd& o,
+                    const std::vector<std::vector<float>>& dm,
+                    float* dh_main);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,

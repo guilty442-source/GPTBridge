@@ -423,8 +423,9 @@ static int mtpcheck() {
     auto loss_of = [&](Params& pp, const std::vector<int>& idv) {
         Fwd f;
         fwd(pp, c, idv, f);
-        std::vector<int> lab = idv;
-        shift_labels(lab);
+        std::vector<int> lab = idv;   // next-token shift (shift_labels eq.)
+        std::rotate(lab.begin(), lab.begin() + 1, lab.end());
+        lab.back() = -100;
         std::vector<float> dl;
         double l = ce_loss(f.logits, lab, PT, c.vocab, dl) + f.moe_aux +
                    f.moe_zloss;
@@ -439,8 +440,9 @@ static int mtpcheck() {
         for (auto& n : p.order) std::fill(p.g[n].d.begin(), p.g[n].d.end(), 0.0f);
         Fwd f;
         fwd(p, c, ids, f);
-        std::vector<int> lab = ids;
-        shift_labels(lab);
+        std::vector<int> lab = ids;   // next-token shift (shift_labels eq.)
+        std::rotate(lab.begin(), lab.begin() + 1, lab.end());
+        lab.back() = -100;
         std::vector<float> dl;
         (void)ce_loss(f.logits, lab, PT, c.vocab, dl);
         std::vector<std::vector<float>> dmtp(f.mtp.size());

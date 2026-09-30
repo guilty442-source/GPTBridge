@@ -211,7 +211,7 @@ static JsonValue run_job(const JsonValue& job) {
             float loss = 0.0f;
             if (task == "dpo") {
                 // policy chosen
-                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
+                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 fwd(p, c, ex.ids, fw);
                 float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
                 Fwd fc; fwd(ref, c, ex.ids, fc);
@@ -263,7 +263,7 @@ static JsonValue run_job(const JsonValue& job) {
                 for (auto& r : ro) {
                     std::vector<int> seq = ex.ids;
                     for (int m = 0; m < M; ++m) {
-                        fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
+                        fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                         fwd(p, c, seq, fw);
                         const float* lr = fw.logits.data() +
                             ((size_t)seq.size() - 1) * c.vocab;
@@ -305,7 +305,7 @@ static JsonValue run_job(const JsonValue& job) {
                     for (int t = P - 1; t < T - 1; ++t) {
                         lab[(size_t)t] = full[(size_t)t + 1];
                     }
-                    fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
+                    fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                     fwd(p, c, std::vector<int>(full.begin(), full.end() - 1),
                         fw);
                     Fwd rf;
@@ -342,7 +342,7 @@ static JsonValue run_job(const JsonValue& job) {
                 std::vector<int> lab = ex.labels;
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
                     shift_labels(lab);
-                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
+                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 if (!ex.vision.empty()) {
                     // Vision early-fusion: prefix rows carry -100 labels
                     // (ce_loss skips them; loss normalizes over text only).
@@ -357,7 +357,7 @@ static JsonValue run_job(const JsonValue& job) {
                     const int T = ex.vision_patches + (int)ex.ids.size();
                     fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
                     loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
-                           + fw.moe_aux + fw.moe_zloss;
+                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx;
                     std::vector<std::vector<float>> dmtp;
                     loss += mtp_last =
                         mtp_aux_loss(c, ex.ids, fw, dmtp);
@@ -365,7 +365,7 @@ static JsonValue run_job(const JsonValue& job) {
                 } else {
                     fwd(p, c, ex.ids, fw);
                     loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                           + fw.moe_aux + fw.moe_zloss;
+                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx;
                     std::vector<std::vector<float>> dmtp;
                     loss += mtp_last =
                         mtp_aux_loss(c, ex.ids, fw, dmtp);
@@ -437,6 +437,10 @@ static JsonValue run_job(const JsonValue& job) {
         put("moe_aux_last", num(fw.moe_aux));
         put("moe_zlast", num(fw.moe_zloss));
     }
+    // CSA2 indexer health: last forward's alignment CE (~0 once index
+    // scores track the main attention mass).
+    if (c.csa_ratio >= 2 && c.csa_indexer)
+        put("csa_idx_last", num(fw.csa_idx));
     // v29 MTP head observability: weighted aux CE of the last example.
     if (c.mtp_depth > 0) put("mtp_loss_last", num(mtp_last));
     if (task == "grpo") {
@@ -502,14 +506,14 @@ static int gradcheck() {
         fwd(p, c, ids, fw, &vpatches, VP);
         std::vector<float> dl;
         return (double)ce_loss(fw.logits, vlabels, VT, c.vocab,
-                               dl) + fw.moe_aux;
+                               dl) + fw.moe_aux + fw.csa_idx;
     };
     p.zero_grad();
     Fwd fw;
     fwd(p, c, ids, fw, &vpatches, VP);
     std::vector<float> dl;
     double loss0 = ce_loss(fw.logits, vlabels, VT, c.vocab, dl)
-                   + fw.moe_aux;
+                   + fw.moe_aux + fw.csa_idx;
     bwd(p, c, ids, fw, dl, 1.0f, &vpatches);
     const double eps = 4e-3;   // lift true signal above fp32 ulp noise in loss
     double worst_rel = 0.0, worst_abs = 0.0;
@@ -1095,7 +1099,7 @@ static int rulecheck() {
             Fwd f;
             fwd(p, c, ids, f);
             std::vector<float> dl;
-            float l = ce_loss(f.logits, lab, T, c.vocab, dl) + f.moe_aux;
+            float l = ce_loss(f.logits, lab, T, c.vocab, dl) + f.moe_aux + f.csa_idx;
             if (s == 0) first = l;
             last = l;
             bwd(p, c, ids, f, dl, 1.0f);
@@ -1434,7 +1438,7 @@ static int gemmacheck() {
             fwd(p, c, ids, f);
             std::vector<float> dl;
             return (double)ce_loss(f.logits, lab, T, c.vocab, dl) +
-                   f.moe_aux;
+                   f.moe_aux + f.csa_idx;
         };
         p.zero_grad();
         Fwd f0;
