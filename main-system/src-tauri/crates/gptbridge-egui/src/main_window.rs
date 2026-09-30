@@ -45,9 +45,6 @@ fn line_strong() -> egui::Color32 {
 fn brand_soft() -> egui::Color32 {
     egui::Color32::from_rgba_unmultiplied(91, 140, 255, 31)
 }
-fn hairline() -> egui::Color32 {
-    egui::Color32::from_rgba_unmultiplied(125, 163, 255, 41)
-}
 /// Neon accent for HUD slashes / scan slivers.
 const NEON: egui::Color32 = egui::Color32::from_rgb(96, 165, 250);
 fn tag_line() -> egui::Color32 {
@@ -1195,7 +1192,7 @@ impl eframe::App for MainWindow {
                         }
                         if filtered.is_empty() {
                             egui::Frame::new()
-                                .corner_radius(egui::CornerRadius::same(14))
+                                .corner_radius(egui::CornerRadius::same(4))
                                 .inner_margin(egui::Margin::symmetric(24, 32))
                                 .stroke(egui::Stroke::new(1.0, line_strong()))
                                 .show(ui, |ui| {
