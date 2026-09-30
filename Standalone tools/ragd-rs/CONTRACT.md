@@ -88,6 +88,18 @@ validation is fail-closed.
 `gptbridge_rag.generation WHERE state='ACTIVE'` for `alias`
 (default `gptbridge_rag`).
 
+## Bounded concurrency
+
+Fixed worker pool + bounded pending queue (bounded-concurrency/v1,
+same envelope as vectord): worker count is the governor `rag`-class
+quota (`concurrency-budget/v1` from `GPTBRIDGE_GOVERNOR_STATE` or
+`main-system/runtime/state/resource-governor.json`), clamped to
+[2, 16], failing open to `available_parallelism`. Pending capacity 64;
+a full queue rejects with `503 CAPACITY_EXHAUSTED`; a connection still
+queued after 2000 ms is dropped unserved. `GET /healthz` reports live
+counters under `conn` (submitted/completed/rejected/expired,
+pending_approx). Never a thread per connection (PERF-04/PERF-05).
+
 ## Configuration
 
 - `--bind` (default `127.0.0.1:8094`)

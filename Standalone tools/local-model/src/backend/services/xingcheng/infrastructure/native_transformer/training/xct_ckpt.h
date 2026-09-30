@@ -25,9 +25,13 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // heads/dim, conv kernel).
     // XCN4 = XCN3 + vision early-fusion block: use_vision, vision
     // patch_dim, vision max_patches.
-    // v1/v2/v3 checkpoints still load: absent fields default to dense /
-    // text-only.
-    f.write("XCN1", 4); u32(f, 4);
+    // XCN5 = XCN4 + Gemma A4B block: global_attention_interval,
+    // sliding_window, num_global_kv_heads, flag bits (k_eq_v_global |
+    // post_attn_norm | post_ffw_norm | ffn_act), local/global rope
+    // proportions and base frequencies, final_logit_softcap.
+    // v1..v4 checkpoints still load: absent fields default to the
+    // Qwen-style fused behaviour.
+    f.write("XCN1", 4); u32(f, 5);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
     u32(f, (uint32_t)c.heads); u32(f, (uint32_t)c.kv_heads);
@@ -48,6 +52,16 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     u32(f, c.use_vision ? 1u : 0u);
     u32(f, (uint32_t)c.vision_patch_dim);
     u32(f, (uint32_t)c.vision_max_patches);
+    u32(f, (uint32_t)c.global_attn_interval);
+    u32(f, (uint32_t)c.sliding_window);
+    u32(f, (uint32_t)c.num_global_kv_heads);
+    u32(f, (c.k_eq_v_global ? 1u : 0u) | (c.post_attn_norm ? 2u : 0u) |
+           (c.post_ffw_norm ? 4u : 0u) | (c.ffn_act ? 8u : 0u));
+    f.write((char*)&c.local_rope_proportion, 4);
+    f.write((char*)&c.global_rope_proportion, 4);
+    f.write((char*)&c.rope_theta_local, 4);
+    f.write((char*)&c.rope_theta_global, 4);
+    f.write((char*)&c.final_logit_softcap, 4);
     u32(f, (uint32_t)p.order.size());
     for (auto& n : p.order) {
         const Tensor& t = p.w.at(n);
@@ -69,7 +83,7 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver != 1 && ver != 2 && ver != 3 && ver != 4) return false;
+    if (ver < 1 || ver > 5) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -96,6 +110,21 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
         c.use_vision = r32(f) != 0;
         c.vision_patch_dim = (int)r32(f);
         c.vision_max_patches = (int)r32(f);
+    }
+    if (ver >= 5) {
+        c.global_attn_interval = (int)r32(f);
+        c.sliding_window = (int)r32(f);
+        c.num_global_kv_heads = (int)r32(f);
+        uint32_t fl = r32(f);
+        c.k_eq_v_global = (fl & 1u) != 0;
+        c.post_attn_norm = (fl & 2u) != 0;
+        c.post_ffw_norm = (fl & 4u) != 0;
+        c.ffn_act = (fl & 8u) != 0 ? 1 : 0;
+        f.read((char*)&c.local_rope_proportion, 4);
+        f.read((char*)&c.global_rope_proportion, 4);
+        f.read((char*)&c.rope_theta_local, 4);
+        f.read((char*)&c.rope_theta_global, 4);
+        f.read((char*)&c.final_logit_softcap, 4);
     }
     return (bool)f;
 }
@@ -106,7 +135,7 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver != 1 && ver != 2 && ver != 3 && ver != 4) return false;
+    if (ver < 1 || ver > 5) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -133,6 +162,21 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
         c.use_vision = r32(f) != 0;
         c.vision_patch_dim = (int)r32(f);
         c.vision_max_patches = (int)r32(f);
+    }
+    if (ver >= 5) {
+        c.global_attn_interval = (int)r32(f);
+        c.sliding_window = (int)r32(f);
+        c.num_global_kv_heads = (int)r32(f);
+        uint32_t fl = r32(f);
+        c.k_eq_v_global = (fl & 1u) != 0;
+        c.post_attn_norm = (fl & 2u) != 0;
+        c.post_ffw_norm = (fl & 4u) != 0;
+        c.ffn_act = (fl & 8u) != 0 ? 1 : 0;
+        f.read((char*)&c.local_rope_proportion, 4);
+        f.read((char*)&c.global_rope_proportion, 4);
+        f.read((char*)&c.rope_theta_local, 4);
+        f.read((char*)&c.rope_theta_global, 4);
+        f.read((char*)&c.final_logit_softcap, 4);
     }
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {

@@ -413,6 +413,75 @@ void rope_tables(
     }
 }
 
+// v27 fused-hybrid rope — trainer contract (xct_math.h rope_hf_partial /
+// rope).  Two pairings coexist: partial rotary rotates channel i against
+// i + rd/2 within the first rd channels (channels >= rd pass through);
+// full rotary pairs (2i, 2i+1) interleaved.  Both differ from the legacy
+// C-ABI rotate-half kernel, so fused bundles apply them here in the
+// engine layer — same math, same operand order as the trainer.
+void rope_partial_rows(
+    double* v, int64_t heads, int64_t seq, int64_t head_dim, int64_t rd,
+    int64_t offset, const std::vector<double>& bases) {
+    const int64_t half = rd / 2;
+    for (int64_t s = 0; s < seq; ++s) {
+        const double position = static_cast<double>(offset + s);
+        for (int64_t h = 0; h < heads; ++h) {
+            double* row = v + static_cast<size_t>((h * seq + s) * head_dim);
+            for (int64_t i = 0; i < half; ++i) {
+                const double angle = position * bases[static_cast<size_t>(i)];
+                const double c = std::cos(angle);
+                const double sn = std::sin(angle);
+                const double a = row[i];
+                const double b = row[i + half];
+                row[i] = a * c - b * sn;
+                row[i + half] = a * sn + b * c;
+            }
+        }
+    }
+}
+
+void rope_interleaved_rows(
+    double* v, int64_t heads, int64_t seq, int64_t head_dim,
+    int64_t offset, const std::vector<double>& bases) {
+    const int64_t half = head_dim / 2;
+    for (int64_t s = 0; s < seq; ++s) {
+        const double position = static_cast<double>(offset + s);
+        for (int64_t h = 0; h < heads; ++h) {
+            double* row = v + static_cast<size_t>((h * seq + s) * head_dim);
+            for (int64_t i = 0; i < half; ++i) {
+                const double angle = position * bases[static_cast<size_t>(i)];
+                const double c = std::cos(angle);
+                const double sn = std::sin(angle);
+                const double a = row[2 * i];
+                const double b = row[2 * i + 1];
+                row[2 * i] = a * c - b * sn;
+                row[2 * i + 1] = a * sn + b * c;
+            }
+        }
+    }
+}
+
+// v27 scalar helpers — fp64 twins of the trainer's fp32 primitives
+// (identical formulas; lane order unchanged).
+double sigmoid_d(double x) { return 1.0 / (1.0 + std::exp(-x)); }
+double silu_d(double x) { return x / (1.0 + std::exp(-x)); }
+double softplus_d(double x) {
+    return x > 20.0 ? x : std::log1p(std::exp(x));
+}
+
+// In-place L2 row normalization on a [rows x dim] flat buffer
+// (deltanet q/k, eps folded into the length like the trainer).
+void l2norm_rows(std::vector<double>& v, int64_t rows, int64_t dim,
+                 double eps) {
+    for (int64_t r = 0; r < rows; ++r) {
+        double* row = v.data() + static_cast<size_t>(r * dim);
+        double ss = 0.0;
+        for (int64_t i = 0; i < dim; ++i) ss += row[i] * row[i];
+        const double inv = 1.0 / std::sqrt(ss + eps);
+        for (int64_t i = 0; i < dim; ++i) row[i] *= inv;
+    }
+}
+
 std::string json_escape(const std::string& text) {
     std::string out;
     for (const unsigned char ch : text) {

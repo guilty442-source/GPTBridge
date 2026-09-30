@@ -100,11 +100,27 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
 
     const int64_t q_dim = cfg.num_attention_heads * cfg.head_dim;
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
+    const int64_t q_mul = cfg.attn_output_gate ? 2 : 1;
+    // Fused-hybrid DeltaNet geometry (unused on dense bundles).
+    const int64_t lin_kh = cfg.linear_num_key_heads;
+    const int64_t lin_kd = cfg.linear_key_head_dim;
+    const int64_t lin_vh = cfg.linear_num_value_heads;
+    const int64_t lin_vd = cfg.linear_value_head_dim;
+    const int64_t lin_ratio = lin_kh > 0 ? lin_vh / lin_kh : 0;
+    const int64_t lin_key_dim = lin_kh * lin_kd;
+    const int64_t lin_val_dim = lin_vh * lin_vd;
+    const int64_t lin_conv_dim = 2 * lin_key_dim + lin_val_dim;
+    const int64_t lin_group_sz = 2 * lin_kd + lin_vd * lin_ratio;
+    const int64_t lin_kernel = cfg.linear_conv_kernel_dim;
+    const int64_t lin_fused_cols =
+        lin_kh * lin_group_sz + lin_val_dim + 2 * lin_vh;
+    const int64_t rotary_dim = cfg.rotary_dim();
+    const bool fused_contract = cfg.fused_rope_contract();
     // Per-span RoPE tables (each sequence carries its own position offset);
     // the frequency bases are model-constant and cached once per engine.
     std::vector<std::vector<double>> rope_cos(spans.size());
     std::vector<std::vector<double>> rope_sin(spans.size());
-    if (cfg.position_embedding_type == "rope") {
+    if (cfg.position_embedding_type == "rope" && !fused_contract) {
         const std::vector<double>& bases = rope_bases(
             cfg.head_dim, cfg.rope_theta,
             rope_base_, rope_base_dim_, rope_base_theta_);
@@ -114,6 +130,17 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 spans[i].position_offset, cfg.head_dim, bases,
                 rope_cos[i], rope_sin[i]);
         }
+    }
+    // Fused-contract rope: partial rotary uses bases over rotary_dim,
+    // full rotary (rd == head_dim) uses the interleaved pairing over
+    // head_dim — both exactly as the trainer computes them.
+    const std::vector<double>* fused_bases = nullptr;
+    if (fused_contract && cfg.position_embedding_type == "rope") {
+        const int64_t base_dim =
+            rotary_dim < cfg.head_dim ? rotary_dim : cfg.head_dim;
+        fused_bases = &rope_bases(
+            base_dim, cfg.rope_theta,
+            rope_base_, rope_base_dim_, rope_base_theta_);
     }
 
     for (int64_t layer_idx = 0; layer_idx < cfg.num_hidden_layers; ++layer_idx) {
@@ -407,13 +434,22 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             order.resize(static_cast<size_t>(experts));
             for (int64_t s = 0; s < total_tokens; ++s) {
                 double* row = probs.data() + static_cast<size_t>(s * experts);
-                const double mx = *std::max_element(row, row + experts);
-                double total = 0.0;
-                for (int64_t e = 0; e < experts; ++e) {
-                    row[e] = std::exp(row[e] - mx);
-                    total += row[e];
+                if (cfg.moe_router_sigmoid) {
+                    // v28 fused router (Qwen3.5): per-expert logistic
+                    // score instead of a shared softmax denominator —
+                    // mirrors xct_math.h; deterministic top-k + renorm
+                    // below are unchanged.
+                    for (int64_t e = 0; e < experts; ++e)
+                        row[e] = 1.0 / (1.0 + std::exp(-row[e]));
+                } else {
+                    const double mx = *std::max_element(row, row + experts);
+                    double total = 0.0;
+                    for (int64_t e = 0; e < experts; ++e) {
+                        row[e] = std::exp(row[e] - mx);
+                        total += row[e];
+                    }
+                    for (int64_t e = 0; e < experts; ++e) row[e] /= total;
                 }
-                for (int64_t e = 0; e < experts; ++e) row[e] /= total;
                 std::iota(order.begin(), order.end(), 0);
                 std::stable_sort(
                     order.begin(), order.end(),

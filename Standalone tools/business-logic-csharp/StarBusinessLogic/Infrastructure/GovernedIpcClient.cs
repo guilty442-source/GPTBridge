@@ -9,7 +9,7 @@ namespace StarBusinessLogic.Infrastructure;
 //
 //   ws://127.0.0.1:<port>/?token=<session-token>&instance=<workspace-instance-id>
 //
-// Mirrors ipc/server_tokens.py:
+// Mirrors the governed IPC token/instance contract (Rust backend tools/env.rs):
 //   * token precedence: GPTBRIDGE_IPC_SESSION_TOKEN env (64-hex) →
 //     $GPTBRIDGE_IPC_STATE_ROOT/session-token → %LOCALAPPDATA%/GPTBridge/ipc/session-token
 //   * instance id: sha256(normcase(abspath(project_root)) with '/' separators)[:24]
@@ -58,7 +58,7 @@ public static class GovernedIpcDiscovery
     public static string WorkspaceInstanceId(string projectRoot)
     {
         if (string.IsNullOrWhiteSpace(projectRoot)) throw new ArgumentException("PROJECT_ROOT_REQUIRED", nameof(projectRoot));
-        // Python: os.path.normcase(str(Path(root).expanduser().absolute())).replace("\\", "/")
+        // Norm: normcase(abspath(project_root)) with '/' separators (ex-Python ipc/server_tokens.py).
         // Windows normcase = lowercase + '\\' separators; .absolute() does not
         // collapse '..' — GetFullPath is the closest managed equivalent and is
         // safe for the normalized roots this deployment passes in.

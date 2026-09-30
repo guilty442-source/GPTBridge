@@ -17,9 +17,23 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         throw "vision: fwd/bwd prefix mismatch";
     const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
-    const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;
+    const int Hq = c.heads * hd;
+    // Gemma final logit softcap: y = cap*tanh(z/cap) — chain the incoming
+    // dlogits through dz = dy * (1 - (y/cap)^2) (recoverable from the
+    // capped logits themselves).
+    std::vector<float> dlog;
+    const float* dlp = dlogits.data();
+    if (c.final_logit_softcap > 0.0f) {
+        dlog = dlogits;
+        const float inv = 1.0f / c.final_logit_softcap;
+        tpu_elementwise((int64_t)dlog.size(), [&](int64_t i) {
+            float yc = o.logits[(size_t)i] * inv;
+            dlog[(size_t)i] *= 1.0f - yc * yc;
+        });
+        dlp = dlog.data();
+    }
     std::vector<float> dh((size_t)T * H, 0.0f);
-    linear_bwd(dlogits.data(), o.hidden.data(), p.w.at("lm_head"),
+    linear_bwd(dlp, o.hidden.data(), p.w.at("lm_head"),
                dh.data(), p.g["lm_head"].d.data(), T, H, c.vocab);
     std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
@@ -29,8 +43,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         LayerCache& L = o.layers[l];
         bool moe = c.moe_experts > 0 && (l % c.moe_layer_interval == 0);
         // residual split: dx flows to ffn path (through dproj) and to x_res.
-        std::vector<float> dproj = dx;                    // [T,H]
         std::vector<float> dx_res = dx;                   // residual branch
+        std::vector<float> dproj;
+        if (c.post_ffw_norm) {
+            // Gemma sandwich: x_out = x_res + rmsnorm(ffn_proj) — route dx
+            // through the post norm backward to reach the raw FFN output.
+            dproj.assign((size_t)T * H, 0.0f);
+            rmsnorm_bwd(dx.data(), L.ffn_proj.data(),
+                        p.w.at(ln(l, "norm_ffw_out")).d.data(),
+                        L.post_ffn_rms.data(), dproj.data(),
+                        p.g[ln(l, "norm_ffw_out")].d.data(), T, H);
+        } else {
+            dproj = dx;                                 // [T,H]
+        }
         std::vector<float> dn2((size_t)T * H, 0.0f);
         if (!moe) {
             std::vector<float> dfh((size_t)T * c.inter, 0.0f);
@@ -39,9 +64,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             std::vector<float> dfa((size_t)T * c.inter, 0.0f), dfb((size_t)T * c.inter, 0.0f);
             tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
                 float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
-                float sig = sigmoid_f(a);
-                dfa[(size_t)i] += d * b * sig * (1.0f + a * (1.0f - sig));
-                dfb[(size_t)i] += d * a * sig;
+                dfa[(size_t)i] += d * b * gate_act_df(a, c.ffn_act);
+                dfb[(size_t)i] += d * gate_act_f(a, c.ffn_act);
             });
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
                        dn2.data(), p.g[ln(l, "w1")].d.data(), T, H, c.inter);
@@ -75,9 +99,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     std::vector<float> dfa((size_t)EI, 0.0f), dfb((size_t)EI, 0.0f);
                     for (int i = 0; i < EI; ++i) {
                         float a = fa[i], bb = fb[i], d = dfh[i];
-                        float sig = sigmoid_f(a);
-                        dfa[i] += d * bb * sig * (1.0f + a * (1.0f - sig));
-                        dfb[i] += d * a * sig;
+                        dfa[i] += d * bb * gate_act_df(a, c.ffn_act);
+                        dfb[i] += d * gate_act_f(a, c.ffn_act);
                     }
                     linear_bwd(dfa.data(), xr, p.w.at(b + "w1"),
                                dxr, p.g[b + "w1"].d.data(), 1, H, EI);
@@ -96,18 +119,25 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float dlogit = dot / wsum;            // contribution via this slot
                     dgl[(size_t)t * E + e] += dlogit;
                 }
-                // softmax backward at router logits (aux + weighted path share
-                // the logit grads approximated by direct slot contribution).
+                // Router backward (aux + weighted path share the logit
+                // grads approximated by direct slot contribution):
+                // softmax mode uses the full Jacobian p⊙(din−⟨p,din⟩);
+                // v28 sigmoid mode is diagonal — scores are per-expert
+                // independent, dσ/dz = s(1−s).
                 float* gpl = L.gate_probs.data() + (size_t)t * E;
-                float dotp = 0.0f;
                 const float* dglr = dgl.data() + (size_t)t * E;
-                for (int e = 0; e < E; ++e) dotp += dglr[e] * gpl[e];
-                float* gll = nullptr; // accumulate into gate weight directly
                 std::vector<float> din(E);
-                for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
+                if (c.moe_router_sigmoid) {
+                    for (int e = 0; e < E; ++e)
+                        din[e] = gpl[e] * (1.0f - gpl[e]) * dglr[e];
+                } else {
+                    float dotp = 0.0f;
+                    for (int e = 0; e < E; ++e) dotp += dglr[e] * gpl[e];
+                    for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
+                }
                 linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
                            dxr, p.g[ln(l, "gate")].d.data(), 1, H, E);
-                (void)gll; (void)aux_scale;
+                (void)aux_scale;
             }
             // Shared experts (v26): always-on SwiGLU backward — the shared
             // output adds into proj with weight 1.0, so dproj flows through
@@ -143,9 +173,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 std::vector<float> dsb((size_t)T * SI, 0.0f);
                 tpu_elementwise((int64_t)sfh.size(), [&](int64_t i) {
                     float a = sfa[(size_t)i], bb = sfb[(size_t)i], d = dsh[(size_t)i];
-                    float sig = sigmoid_f(a);
-                    dsa[(size_t)i] += d * bb * sig * (1.0f + a * (1.0f - sig));
-                    dsb[(size_t)i] += d * a * sig;
+                    dsa[(size_t)i] += d * bb * gate_act_df(a, c.ffn_act);
+                    dsb[(size_t)i] += d * gate_act_f(a, c.ffn_act);
                 });
                 linear_bwd(dsa.data(), L.n2.data(), p.w.at(b + "w1"),
                            dn2.data(), p.g[b + "w1"].d.data(), T, H, SI);
@@ -183,7 +212,18 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
         });
         // attention block: dpre splits into attn path + layer-input residual
-        std::vector<float> dproj_attn = dpre;             // through output proj
+        std::vector<float> dproj_attn;
+        if (!L.post_attn.empty()) {
+            // Gemma sandwich: x_res = x + rmsnorm(attn_proj) — route dpre
+            // through the post norm backward to reach the raw proj output.
+            dproj_attn.assign((size_t)T * H, 0.0f);
+            rmsnorm_bwd(dpre.data(), L.attn_proj.data(),
+                        p.w.at(ln(l, "norm_attn_out")).d.data(),
+                        L.post_attn_rms.data(), dproj_attn.data(),
+                        p.g[ln(l, "norm_attn_out")].d.data(), T, H);
+        } else {
+            dproj_attn = dpre;                          // through output proj
+        }
         std::vector<float> dx_attn_in = dpre;             // residual to x_in
         std::vector<float> dn1((size_t)T * H, 0.0f);
         if (c.is_linear(l)) {
@@ -408,14 +448,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     dao[(size_t)i] *= sg;
                 });
             }
-            int group = c.heads / c.kv_heads;
+            // Gemma axis mirrors fwd: per-layer kv head count, local window
+            // bounds, per-type rope, and K==V unified gradient merge.
+            const int kvh = c.kv_heads_at(l);
+            const int Hkvl = kvh * hd;
+            const int win = c.is_local_attn(l) ? c.sliding_window : 0;
+            int group = c.heads / kvh;
             float scale = 1.0f / std::sqrt((float)hd);
-            std::vector<float> dq((size_t)T * Hq, 0.0f), dk((size_t)T * Hkv, 0.0f),
-                                dvv((size_t)T * Hkv, 0.0f);
+            std::vector<float> dq((size_t)T * Hq, 0.0f), dk((size_t)T * Hkvl, 0.0f),
+                                dvv((size_t)T * Hkvl, 0.0f);
             // TPU lanes: one lane per kv-head group — the q-heads of a GQA
             // group share its k/v slices, so grouping keeps dk/dv writes
             // disjoint across lanes; per-element order is unchanged.
-            parallel_for(c.kv_heads, [&](int64_t gb, int64_t ge) {
+            parallel_for(kvh, [&](int64_t gb, int64_t ge) {
             for (int64_t g = gb; g < ge; ++g)
             for (int h = (int)g * group;
                  h < std::min((int)(g + 1) * group, c.heads); ++h) {
@@ -424,40 +469,40 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 for (int t = 0; t < T; ++t) {
                     const float* pr = L.probs.data() + ((size_t)h * T + t) * T;
                     const float* dao_r = dao.data() + ((size_t)t * c.heads + h) * hd;
-                    dscore.assign((size_t)t + 1, 0.0f);
-                    for (int s = 0; s <= t; ++s) {
-                        const float* vr = L.v.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        dscore[s] = tpu_dot(dao_r, vr, hd);
+                    const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
+                    dscore.assign((size_t)(t - s0) + 1, 0.0f);
+                    for (int s = s0; s <= t; ++s) {
+                        const float* vr = L.v.data() + ((size_t)s * kvh + kh2) * hd;
+                        dscore[(size_t)s - s0] = tpu_dot(dao_r, vr, hd);
                     }
                     float dsum = 0.0f;
-                    for (int s = 0; s <= t; ++s) dsum += dscore[s] * pr[s];
-                    for (int s = 0; s <= t; ++s) dscore[s] = pr[s] * (dscore[s] - dsum) * scale;
+                    for (int s = s0; s <= t; ++s) dsum += dscore[(size_t)s - s0] * pr[s];
+                    for (int s = s0; s <= t; ++s) dscore[(size_t)s - s0] = pr[s] * (dscore[(size_t)s - s0] - dsum) * scale;
                     const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
                     float* dqr = dq.data() + ((size_t)t * c.heads + h) * hd;
-                    for (int s = 0; s <= t; ++s) {
-                        const float* kr = L.k.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        float* dkr = dk.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        tpu_axpy(dqr, dscore[s], kr, hd);
-                        tpu_axpy(dkr, dscore[s], qr, hd);
-                        float* dvr = dvv.data() + ((size_t)s * c.kv_heads + kh2) * hd;
+                    for (int s = s0; s <= t; ++s) {
+                        const float* kr = L.k.data() + ((size_t)s * kvh + kh2) * hd;
+                        float* dkr = dk.data() + ((size_t)s * kvh + kh2) * hd;
+                        tpu_axpy(dqr, dscore[(size_t)s - s0], kr, hd);
+                        tpu_axpy(dkr, dscore[(size_t)s - s0], qr, hd);
+                        float* dvr = dvv.data() + ((size_t)s * kvh + kh2) * hd;
                         tpu_axpy(dvr, pr[s], dao_r, hd);
                     }
                 }
             }
             });
-            const int rd = c.rotary_dim();
+            const int rd = c.rotary_dim_at(l);
+            const float th = c.rope_theta_at(l);
             if (rd < hd) {
-                rope_hf_partial(dq.data(), T, c.heads, hd, rd,
-                                c.rope_theta, true);
-                rope_hf_partial(dk.data(), T, c.kv_heads, hd, rd,
-                                c.rope_theta, true);
+                rope_hf_partial(dq.data(), T, c.heads, hd, rd, th, true);
+                rope_hf_partial(dk.data(), T, kvh, hd, rd, th, true);
             } else {
-                rope(dq.data(), T, c.heads, hd, c.rope_theta, true);
-                rope(dk.data(), T, c.kv_heads, hd, c.rope_theta, true);
+                rope(dq.data(), T, c.heads, hd, th, true);
+                rope(dk.data(), T, kvh, hd, th, true);
             }
             if (c.qk_norm) {
                 std::vector<float> dq_raw((size_t)T * Hq, 0.0f),
-                                   dk_raw((size_t)T * Hkv, 0.0f);
+                                   dk_raw((size_t)T * Hkvl, 0.0f);
                 for (int t = 0; t < T; ++t) {
                     for (int h = 0; h < c.heads; ++h) {
                         size_t off = ((size_t)t * c.heads + h) * (size_t)hd;
@@ -467,11 +512,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                     dq_raw.data() + off,
                                     p.g[ln(l, "q_norm")].d.data(), 1, hd);
                     }
-                    for (int h = 0; h < c.kv_heads; ++h) {
-                        size_t off = ((size_t)t * c.kv_heads + h) * (size_t)hd;
+                    for (int h = 0; h < kvh; ++h) {
+                        size_t off = ((size_t)t * kvh + h) * (size_t)hd;
                         rmsnorm_bwd(dk.data() + off, L.qk_kraw.data() + off,
                                     p.w.at(ln(l, "k_norm")).d.data(),
-                                    L.qk_krms.data() + (size_t)t * c.kv_heads + h,
+                                    L.qk_krms.data() + (size_t)t * kvh + h,
                                     dk_raw.data() + off,
                                     p.g[ln(l, "k_norm")].d.data(), 1, hd);
                     }
@@ -498,10 +543,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 linear_bwd(dq.data(), L.n1.data(), p.w.at(ln(l, "wq")),
                            dn1.data(), p.g[ln(l, "wq")].d.data(), T, H, Hq);
             }
-            linear_bwd(dk.data(), L.n1.data(), p.w.at(ln(l, "wk")),
-                       dn1.data(), p.g[ln(l, "wk")].d.data(), T, H, Hkv);
-            linear_bwd(dvv.data(), L.n1.data(), p.w.at(ln(l, "wv")),
-                       dn1.data(), p.g[ln(l, "wv")].d.data(), T, H, Hkv);
+            if (c.kv_unified(l)) {
+                // unified K==V: the shared projection sees dk + dv.
+                tpu_elementwise((int64_t)dk.size(), [&](int64_t i) {
+                    dk[(size_t)i] += dvv[(size_t)i];
+                });
+                linear_bwd(dk.data(), L.n1.data(), p.w.at(ln(l, "wkv")),
+                           dn1.data(), p.g[ln(l, "wkv")].d.data(), T, H, Hkvl);
+            } else {
+                linear_bwd(dk.data(), L.n1.data(), p.w.at(ln(l, "wk")),
+                           dn1.data(), p.g[ln(l, "wk")].d.data(), T, H, Hkvl);
+                linear_bwd(dvv.data(), L.n1.data(), p.w.at(ln(l, "wv")),
+                           dn1.data(), p.g[ln(l, "wv")].d.data(), T, H, Hkvl);
+            }
         }
         std::vector<float> dx_in2((size_t)T * H, 0.0f);
         rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at(ln(l, "norm1")).d.data(),

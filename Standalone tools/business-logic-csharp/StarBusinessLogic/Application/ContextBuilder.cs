@@ -2,7 +2,7 @@ using StarDomain;
 
 namespace StarBusinessLogic.Application;
 
-// 對應 Python Context Builder：把工具回傳轉為模型可理解的標準對話/證據格式
+// C# Context Builder：把工具回傳轉為模型可理解的標準對話/證據格式
 public interface IContextBuilder
 {
     string Build(ExecutionPlan plan, GroundingResult grounding);

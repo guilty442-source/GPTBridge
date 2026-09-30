@@ -3,6 +3,10 @@
 // Modes (single JSON object on stdout; non-zero exit on failure):
 //   tokenize      --tokenizer <tokenizer.json|dir> --in rows.jsonl
 //                 --out rows.jsonl [--max-length N] [--chat]
+//   corpus        --registry <corpus-registry.json> --root <repo-root>
+//                 --tokenizer <tokenizer.json|dir> --out <dir>
+//                 [--max-len N] [--val-ratio PCT] [--max-docs N]
+//                 [--max-doc-chars N] [--max-tokens N]
 //   import-bundle --bundle <dir> --out <ckpt.xcn>
 //   distill-init  --teacher <bundle-dir|ckpt.xcn> --config <model.json>
 //                 --out <student.xcn> [--seed N] [--overwrite]
@@ -2148,12 +2152,14 @@ int mode_serve(const Args& a) {
     return 0;
 }
 
+#include "xcm_corpus.h"
+
 }  // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
-            "xc_modeltool <tokenize|import-bundle|distill-init|export-bundle|eval|"
+            "xc_modeltool <tokenize|corpus|import-bundle|distill-init|export-bundle|eval|"
             "capability|vision-smoke|serve> [args]\n");
         return 2;
     }
@@ -2161,6 +2167,7 @@ int main(int argc, char** argv) {
     Args a = parse_args(argc, argv);
     try {
         if (mode == "tokenize") return mode_tokenize(a);
+        if (mode == "corpus") return mode_corpus(a);
         if (mode == "import-bundle") return mode_import_bundle(a);
         if (mode == "distill-init") return mode_distill_init(a);
         if (mode == "export-bundle") return mode_export_bundle(a);

@@ -3,7 +3,8 @@ using StarDomain;
 namespace StarBusinessLogic.Application;
 
 // 核心編排器：串起 Intent → Plan → Tool → Grounding → Context → Model 推論
-// 訓練仍以 Python+PyTorch 為主，推論允許 Python/C++ 雙路徑，此層為 C# 業務編排
+// 訓練/推論皆以 C++23 原生引擎為唯一執行器（xingcheng_trainer / xc_modeltool serve），
+// C# 只做業務編排、F#（StarDomain）做意圖/計劃/接地、Rust 做 RAG 檢索；Python 已退役（B166）。
 public sealed record OrchestratorRequest(
     string Prompt,
     string? Context = null,
@@ -77,7 +78,7 @@ public sealed class StarOrchestrator
         // 5. Context（速度：無證據時回傳空字串，避免多餘 Join）
         var contextForModel = grounding.Evidences.Count == 0 ? string.Empty : _contextBuilder.Build(plan, grounding);
 
-        // 6. 推論（Python 模型，C# 不直接持有權重；正確性：模型失敗不偽造成功，速度：直接透傳 cancellation）
+        // 6. 推論（C++23 原生引擎，C# 不直接持有權重；正確性：模型失敗不偽造成功，速度：直接透傳 cancellation）
         var inferReq = new ModelInferenceRequest(
             Prompt: plan.GenerationPrompt,
             Context: contextForModel,

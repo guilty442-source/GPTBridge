@@ -3,7 +3,7 @@ using StarDomain;
 
 namespace StarBusinessLogic.Application;
 
-// 對應 Python Tool Router：根據 Plan 決定需要的自有域工具，執行器實際執行
+// C# Tool Router：根據 F# Plan 決定需要的治理域工具，執行器實際執行
 // C# 負責決策與協調，執行權仍受治理邊界約束
 public sealed record ToolCallResult(
     string ToolId,
@@ -94,7 +94,7 @@ public sealed class DefaultToolRouter : IToolRouter
         if (toRun.Count == 0) return Array.Empty<ToolCallResult>();
 
         // 正確性：個別工具失敗不影響其他工具（fail-closed 單點，整體仍可部分成功）
-        // 速度：並行執行，單工具超時 5s 避免拖慢整體（對應 Python 的 transport priority/deadline）
+        // 速度：並行執行，單工具超時 5s 避免拖慢整體（有界優先級/deadline，由全域調度預算約束）
         var tasks = toRun.Select(async exec =>
         {
             // admission: wait on the bounded gate — the plan's fan-out

@@ -74,6 +74,10 @@ struct ModelConfig {
     int moe_top_k = 2;
     int moe_layer_interval = 1;
     float moe_aux_w = 0.01f;
+    // v28 fused router scoring: true = Qwen3.5 per-expert sigmoid scores
+    // (independent under many fine-grained experts); false keeps the
+    // Qwen3-A3B softmax denominator. Top-k + renorm contract is shared.
+    bool moe_router_sigmoid = false;
     // v26 fine-grained/shared-expert fields (XCN2): 0 = fall back to
     // inter (expert) / moe_expert_inter (shared), mirroring the engine's
     // moe_expert_intermediate_size / moe_shared_intermediate_size.
@@ -95,6 +99,23 @@ struct ModelConfig {
     int lin_value_dim = 0;              // deltanet: value head dim
     int lin_conv_kernel = 4;            // depthwise causal conv width
     bool shared_expert_gate = false;    // sigmoid gate on shared expert out
+    // Gemma 4 26B A4B signatures (all default-off; zero/false keeps the
+    // Qwen-style fused behaviour bit-identical):
+    int global_attn_interval = 0;  // >0: non-linear layers with
+                                   // (l+1)%interval != 0 become local
+                                   // sliding-window attention; the rest are
+                                   // global (5 local : 1 global for A4B).
+    int sliding_window = 0;        // local-attn causal window (1024 in A4B)
+    int num_global_kv_heads = 0;   // global-layer kv heads (0 = kv_heads)
+    bool k_eq_v_global = false;    // global layers: unified K==V projection
+    float local_rope_proportion = 0.0f;   // 0 -> partial_rotary
+    float global_rope_proportion = 0.0f;  // 0 -> partial_rotary (A4B: 0.25)
+    float rope_theta_local = 0.0f;        // 0 -> rope_theta (A4B: 1e4)
+    float rope_theta_global = 0.0f;       // 0 -> rope_theta (A4B: 1e6)
+    float final_logit_softcap = 0.0f;     // A4B: 30.0
+    bool post_attn_norm = false;          // rmsnorm on attn out-proj
+    bool post_ffw_norm = false;           // rmsnorm on ffn out-proj
+    int ffn_act = 0;                      // 0 = silu, 1 = gelu_tanh
     // Native vision early-fusion (v1): optional linear patch projection.
     // use_vision=false (default) keeps text-only behaviour bit-identical.
     bool use_vision = false;
@@ -115,6 +136,39 @@ struct ModelConfig {
         int rd = (int)(hd * partial_rotary);
         return rd > 0 && rd < hd ? rd & ~1 : hd;
     }
+    // Gemma hybrid axis (independent of the deltanet/full axis): an
+    // attention layer is LOCAL sliding-window when a global interval and
+    // window are configured and the layer sits off the global beat; all
+    // other attention layers are GLOBAL (k_eq_v / global kv heads /
+    // p-RoPE / global theta apply there).
+    bool is_local_attn(int l) const {
+        return !is_linear(l) && global_attn_interval > 0 &&
+               sliding_window > 0 && ((l + 1) % global_attn_interval) != 0;
+    }
+    bool is_global_attn(int l) const {
+        return !is_linear(l) && !is_local_attn(l);
+    }
+    int kv_heads_at(int l) const {
+        return is_global_attn(l) && num_global_kv_heads > 0
+                   ? num_global_kv_heads : kv_heads;
+    }
+    bool kv_unified(int l) const {
+        return is_global_attn(l) && k_eq_v_global;
+    }
+    float rope_theta_at(int l) const {
+        float th = is_global_attn(l) ? rope_theta_global : rope_theta_local;
+        return th > 0.0f ? th : rope_theta;
+    }
+    float rope_prop_at(int l) const {
+        float pr = is_global_attn(l) ? global_rope_proportion
+                                     : local_rope_proportion;
+        return pr > 0.0f ? pr : partial_rotary;
+    }
+    int rotary_dim_at(int l) const {
+        int hd = heads > 0 ? hidden / heads : 0;
+        int rd = (int)(hd * rope_prop_at(l));
+        return rd > 0 && rd < hd ? rd & ~1 : hd;
+    }
 };
 
 static ModelConfig parse_model(const JsonValue* o) {
@@ -132,6 +186,7 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.moe_top_k = j_int(o, "moe_top_k", c.moe_top_k);
     c.moe_layer_interval = j_int(o, "moe_layer_interval", c.moe_layer_interval);
     c.moe_aux_w = (float)j_num(o, "moe_aux_loss_weight", c.moe_aux_w);
+    c.moe_router_sigmoid = j_bool(o, "moe_router_sigmoid", c.moe_router_sigmoid);
     c.moe_expert_inter = j_int(o, "moe_expert_intermediate_size", c.moe_expert_inter);
     c.moe_shared_experts = j_int(o, "moe_num_shared_experts", c.moe_shared_experts);
     c.moe_shared_inter = j_int(o, "moe_shared_intermediate_size", c.moe_shared_inter);
@@ -145,6 +200,26 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.lin_value_dim = j_int(o, "linear_value_head_dim", c.lin_value_dim);
     c.lin_conv_kernel = j_int(o, "linear_conv_kernel_dim", c.lin_conv_kernel);
     c.shared_expert_gate = j_bool(o, "shared_expert_gate", c.shared_expert_gate);
+    // Gemma 4 A4B fields (gm.nn.Gemma4_26B_A4B naming where applicable)
+    c.global_attn_interval = j_int(o, "global_attention_interval",
+                                   c.global_attn_interval);
+    c.sliding_window = j_int(o, "sliding_window_size", c.sliding_window);
+    c.num_global_kv_heads = j_int(o, "num_global_kv_heads",
+                                  c.num_global_kv_heads);
+    c.k_eq_v_global = j_bool(o, "k_eq_v_global", c.k_eq_v_global);
+    c.local_rope_proportion =
+        (float)j_num(o, "local_rope_proportion", c.local_rope_proportion);
+    c.global_rope_proportion =
+        (float)j_num(o, "global_rope_proportion", c.global_rope_proportion);
+    c.rope_theta_local =
+        (float)j_num(o, "local_base_frequency", c.rope_theta_local);
+    c.rope_theta_global =
+        (float)j_num(o, "global_base_frequency", c.rope_theta_global);
+    c.final_logit_softcap =
+        (float)j_num(o, "final_logit_softcap", c.final_logit_softcap);
+    c.post_attn_norm = j_bool(o, "use_post_attn_norm", c.post_attn_norm);
+    c.post_ffw_norm = j_bool(o, "use_post_ffw_norm", c.post_ffw_norm);
+    if (j_str(o, "ffn_activation", "") == "gelu_tanh") c.ffn_act = 1;
     c.use_vision = j_bool(o, "use_vision", c.use_vision);
     c.vision_patch_dim = j_int(o, "vision_patch_dim", c.vision_patch_dim);
     c.vision_max_patches = j_int(o, "vision_max_patches", c.vision_max_patches);
@@ -157,6 +232,18 @@ static ModelConfig parse_model(const JsonValue* o) {
          c.lin_value_heads <= 0 || c.lin_value_dim <= 0 ||
          c.lin_value_heads % c.lin_key_heads != 0))
         throw "model: bad linear-attention geometry";
+    // Gemma-axis validation (fail-closed, same style as above).
+    if (c.sliding_window > 0 && c.global_attn_interval <= 0)
+        throw "model: sliding_window_size needs global_attention_interval";
+    if (c.num_global_kv_heads < 0 ||
+        (c.num_global_kv_heads > 0 &&
+         c.heads % c.num_global_kv_heads != 0))
+        throw "model: bad num_global_kv_heads";
+    if (c.local_rope_proportion < 0.0f || c.local_rope_proportion > 1.0f ||
+        c.global_rope_proportion < 0.0f || c.global_rope_proportion > 1.0f)
+        throw "model: rope proportion out of (0,1]";
+    if (c.final_logit_softcap < 0.0f)
+        throw "model: bad final_logit_softcap";
     return c;
 }
 
@@ -241,17 +328,30 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
         } else {
             // attn_output_gate: q_proj rows are per-head [q|gate] pairs
             // (HF Qwen3NextAttention layout — verbatim transplantable).
+            // Gemma axis: global layers may shrink the kv fan-out
+            // (num_global_kv_heads) or unify K==V into one projection
+            // (k_eq_v_global -> `wkv`).
+            const int kvh = c.kv_heads_at(l);
+            const int64_t Hkvl = (int64_t)kvh * hd;
             const int64_t qrows =
                 (int64_t)c.heads * hd * (c.attn_output_gate ? 2 : 1);
             fill(p.add(ln(l, "wq"), {qrows, c.hidden}));
-            fill(p.add(ln(l, "wk"), {(int64_t)c.kv_heads * hd, c.hidden}));
-            fill(p.add(ln(l, "wv"), {(int64_t)c.kv_heads * hd, c.hidden}));
+            if (c.kv_unified(l)) {
+                fill(p.add(ln(l, "wkv"), {Hkvl, c.hidden}));
+            } else {
+                fill(p.add(ln(l, "wk"), {Hkvl, c.hidden}));
+                fill(p.add(ln(l, "wv"), {Hkvl, c.hidden}));
+            }
             fill(p.add(ln(l, "wo"), {c.hidden, (int64_t)c.heads * hd}));
             if (c.qk_norm) {
                 auto& qn = p.add(ln(l, "q_norm"), {hd});
                 auto& kn = p.add(ln(l, "k_norm"), {hd});
                 std::fill(qn.d.begin(), qn.d.end(), 1.0f);
                 std::fill(kn.d.begin(), kn.d.end(), 1.0f);
+            }
+            if (c.post_attn_norm) {
+                auto& pn = p.add(ln(l, "norm_attn_out"), {c.hidden});
+                std::fill(pn.d.begin(), pn.d.end(), 1.0f);
             }
         }
         auto& n2 = p.add(ln(l, "norm2"), {c.hidden});
@@ -279,6 +379,10 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
             fill(p.add(ln(l, "w1"), {c.inter, c.hidden}));
             fill(p.add(ln(l, "w3"), {c.inter, c.hidden}));
             fill(p.add(ln(l, "w2"), {c.hidden, c.inter}));
+        }
+        if (c.post_ffw_norm) {
+            auto& pn = p.add(ln(l, "norm_ffw_out"), {c.hidden});
+            std::fill(pn.d.begin(), pn.d.end(), 1.0f);
         }
     }
     auto& nf = p.add("norm_f", {c.hidden});

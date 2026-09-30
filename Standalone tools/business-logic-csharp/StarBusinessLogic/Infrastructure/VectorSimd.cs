@@ -6,7 +6,7 @@ namespace StarBusinessLogic.Infrastructure;
 
 // 計算核心 SIMD：對應 native/core/vector.c 的 AVX2 加速（4×double/指令，FMA）
 // C# 業務層如需對 RAG 向量做餘弦相似度，可走此 AVX2 路徑（速度 4×double / 8×float）
-// Python 側 oneDNN/CUDA 已對應，確保全鏈 CPU 路徑 AVX2 向量化
+// Rust vectord 側以同構向量核對拍；確保全鏈 CPU 路徑 AVX2 向量化
 public static class VectorSimd
 {
     // 正確性：與純量結果誤差 <1e-12，空/維度不匹配回 0

@@ -1,7 +1,7 @@
 namespace StarBusinessLogic.Application;
 
-// 模型推論仍由 Python 負責（PyTorch + native_transformer），C# 經此介面呼叫
-// 實作可為 HttpClient（呼叫 Python 的 inference 端點）、gRPC 或 pythonnet
+// 模型推論由 C++23 原生引擎負責（xingcheng_trainer / xc_modeltool serve），C# 經此介面呼叫
+// 實作可為 HttpClient（呼叫 local-model loopback inference 端點）或 NativeModelClient（同行程 C ABI）
 public sealed record ModelInferenceRequest(
     string Prompt,
     string Context,
@@ -32,7 +32,7 @@ public sealed class FakeModelClient : IModelClient
     public Task<ModelInferenceResponse> InferAsync(ModelInferenceRequest request, CancellationToken cancellationToken = default)
     {
         // 不直接生成權重文字，僅回傳可驗證的占位，證明 C# 業務已準備好 Context
-        var text = $"[C# Business] Intent={request.Intent} Prompt=\"{request.Prompt}\" ContextLen={request.Context?.Length ?? 0} -> awaiting Python native_transformer";
+        var text = $"[C# Business] Intent={request.Intent} Prompt=\"{request.Prompt}\" ContextLen={request.Context?.Length ?? 0} -> awaiting native C++ engine";
         return Task.FromResult(new ModelInferenceResponse(text, Array.Empty<int>(), "fake-native", 1.0));
     }
 }

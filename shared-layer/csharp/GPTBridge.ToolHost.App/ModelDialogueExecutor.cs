@@ -192,46 +192,20 @@ internal sealed class ModelDialogueExecutor
         }
     }
 
-    /// <summary>star-model-service-descriptor/v1 read — local copy of
-    /// ModelServiceLocator.Discover semantics (self-contained App).</summary>
+    /// <summary>star-model-service-descriptor/v1 read — delegates to the
+    /// single owned implementation (ModelServiceDescriptor.TryRead);
+    /// this wrapper only adapts to the local ServiceEndpoint shape.</summary>
     private sealed record ServiceEndpoint(string Endpoint, string SessionToken);
 
     private ServiceEndpoint? DiscoverService()
     {
-        var descriptorPath = Path.Combine(_ipcDir, "model-service.json");
-        if (!File.Exists(descriptorPath)) return null;
-        try
-        {
-            using var doc = JsonDocument.Parse(
-                File.ReadAllText(descriptorPath));
-            var root = doc.RootElement;
-            if (root.TryGetProperty("schema", out var s)
-                is false
-                || s.GetString() != "star-model-service-descriptor/v1")
-                return null;
-            var port = root.TryGetProperty("port", out var p)
-                ? p.GetInt32() : 0;
-            if (port < 1 || port > 65535) return null;
-            var tokenFile = root.TryGetProperty("token_file", out var tf)
-                ? tf.GetString() : null;
-            if (string.IsNullOrWhiteSpace(tokenFile)
-                || tokenFile.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-                || tokenFile.Contains(Path.DirectorySeparatorChar)
-                || tokenFile.Contains(Path.AltDirectorySeparatorChar))
-                return null;
-            var token = File.ReadAllText(
-                Path.Combine(_ipcDir, tokenFile)).Trim();
-            if (token.Length == 0) return null;
-            var owner = root.TryGetProperty("lifecycle_owner", out var lo)
-                ? lo.GetString() : null;
-            if (owner != LocalModelExecutor.LifecycleOwner) return null;
-            if (root.TryGetProperty("consumer_policy", out var cp)
-                && cp.GetString() != LocalModelExecutor.ConsumerPolicy)
-                return null;
-            return new ServiceEndpoint(
-                $"http://127.0.0.1:{port}", token);
-        }
-        catch { return null; }
+        var endpoint = ModelServiceDescriptor.TryRead(
+            _ipcDir,
+            LocalModelExecutor.LifecycleOwner,
+            LocalModelExecutor.ConsumerPolicy);
+        return endpoint is null
+            ? null
+            : new ServiceEndpoint(endpoint.Url, endpoint.SessionToken);
     }
 
     // -------------------------------------------------------- activation --

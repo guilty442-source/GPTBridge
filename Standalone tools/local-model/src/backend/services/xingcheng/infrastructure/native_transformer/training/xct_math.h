@@ -95,6 +95,27 @@ static inline float softplus_f(float x) {
 }
 static inline float sigmoid_f(float x) { return 1.0f / (1.0f + std::exp(-x)); }
 
+// GeGLU activation (Gemma FFN): tanh-approximated gelu gate.
+static inline float gelu_tanh_f(float x) {
+    const float c0 = 0.7978845608028654f, c1 = 0.044715f;
+    return 0.5f * x * (1.0f + std::tanh(c0 * (x + c1 * x * x * x)));
+}
+static inline float gelu_tanh_df(float x) {
+    const float c0 = 0.7978845608028654f, c1 = 0.044715f;
+    float u = c0 * (x + c1 * x * x * x), t = std::tanh(u);
+    return 0.5f * (1.0f + t) +
+           0.5f * x * (1.0f - t * t) * c0 * (1.0f + 3.0f * c1 * x * x);
+}
+// FFN gate dispatch: act=0 SwiGLU (silu), act=1 GeGLU (gelu_tanh).
+static inline float gate_act_f(float x, int act) {
+    return act ? gelu_tanh_f(x) : silu_f(x);
+}
+static inline float gate_act_df(float x, int act) {
+    if (act) return gelu_tanh_df(x);
+    float s = sigmoid_f(x);
+    return s * (1.0f + x * (1.0f - s));
+}
+
 // HF rotate_half convention over the first `rd` channels only (partial
 // rotary). rd must be even; channels >= rd pass through. inverse runs the
 // transpose (backward / inverse rotation).
@@ -184,6 +205,12 @@ struct LayerCache {
     std::vector<float> q, k, v, probs, attn_out, x_res;
     std::vector<float> attn_gate;            // [T*Hq] raw gate logits (attn_output_gate)
     std::vector<float> attn_gated;           // [T*Hq] sigmoid(gate) ⊙ attn_out
+    std::vector<float> attn_proj;            // post_attn_norm: pre-norm proj [T*H]
+    std::vector<float> post_attn;            // rmsnorm(attn_proj) [T*H]
+    std::vector<float> post_attn_rms;        // [T]
+    std::vector<float> ffn_proj;             // post_ffw_norm: pre-norm proj [T*H]
+    std::vector<float> post_ffn;             // rmsnorm(ffn_proj) [T*H]
+    std::vector<float> post_ffn_rms;         // [T]
     std::vector<float> qk_qraw, qk_kraw;     // pre qk_norm q/k (for bwd)
     std::vector<float> qk_qrms, qk_krms;     // per (t,h) rms factors
     // gated deltanet (linear attention) caches
@@ -240,7 +267,7 @@ static void fwd(const Params& p, const ModelConfig& c,
     }
     const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
-    const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;
+    const int Hq = c.heads * hd;
     std::vector<float> x((size_t)T * H);
     if (P > 0) {
         linear_fwd(vision->data(), p.w.at("vision.patch_proj"),
@@ -424,13 +451,27 @@ static void fwd(const Params& p, const ModelConfig& c,
                 linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")),
                            L.q.data(), T, H, Hq);
             }
-            L.k.resize((size_t)T * Hkv); L.v.resize((size_t)T * Hkv);
-            linear_fwd(L.n1.data(), p.w.at(ln(l, "wk")), L.k.data(), T, H, Hkv);
-            linear_fwd(L.n1.data(), p.w.at(ln(l, "wv")), L.v.data(), T, H, Hkv);
+            // Gemma axis: local layers keep the job kv fan-out inside a
+            // sliding window; global layers may shrink kv heads and unify
+            // K==V into one projection (wkv).
+            const int kvh = c.kv_heads_at(l);
+            const int Hkvl = kvh * hd;
+            const bool loc = c.is_local_attn(l);
+            L.k.resize((size_t)T * Hkvl); L.v.resize((size_t)T * Hkvl);
+            if (c.kv_unified(l)) {
+                linear_fwd(L.n1.data(), p.w.at(ln(l, "wkv")),
+                           L.k.data(), T, H, Hkvl);
+                L.v = L.k;                     // unified K == V
+            } else {
+                linear_fwd(L.n1.data(), p.w.at(ln(l, "wk")),
+                           L.k.data(), T, H, Hkvl);
+                linear_fwd(L.n1.data(), p.w.at(ln(l, "wv")),
+                           L.v.data(), T, H, Hkvl);
+            }
             if (c.qk_norm) {
                 L.qk_qraw = L.q; L.qk_kraw = L.k;
                 L.qk_qrms.resize((size_t)T * c.heads);
-                L.qk_krms.resize((size_t)T * c.kv_heads);
+                L.qk_krms.resize((size_t)T * kvh);
                 for (int t = 0; t < T; ++t) {
                     for (int h = 0; h < c.heads; ++h) {
                         float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
@@ -439,26 +480,28 @@ static void fwd(const Params& p, const ModelConfig& c,
                                     &rms, 1, hd, c.rms_eps);
                         L.qk_qrms[(size_t)t * c.heads + h] = rms;
                     }
-                    for (int h = 0; h < c.kv_heads; ++h) {
-                        float* kr = L.k.data() + ((size_t)t * c.kv_heads + h) * hd;
+                    for (int h = 0; h < kvh; ++h) {
+                        float* kr = L.k.data() + ((size_t)t * kvh + h) * hd;
                         float rms;
                         rmsnorm_fwd(kr, p.w.at(ln(l, "k_norm")).d.data(), kr,
                                     &rms, 1, hd, c.rms_eps);
-                        L.qk_krms[(size_t)t * c.kv_heads + h] = rms;
+                        L.qk_krms[(size_t)t * kvh + h] = rms;
                     }
                 }
             }
-            const int rd = c.rotary_dim();
+            // per-layer-type rotary: local full-rope / global p-RoPE,
+            // independent base frequencies.
+            const int rd = c.rotary_dim_at(l);
+            const float th = c.rope_theta_at(l);
             if (rd < hd) {
-                rope_hf_partial(L.q.data(), T, c.heads, hd, rd,
-                                c.rope_theta, false);
-                rope_hf_partial(L.k.data(), T, c.kv_heads, hd, rd,
-                                c.rope_theta, false);
+                rope_hf_partial(L.q.data(), T, c.heads, hd, rd, th, false);
+                rope_hf_partial(L.k.data(), T, kvh, hd, rd, th, false);
             } else {
-                rope(L.q.data(), T, c.heads, hd, c.rope_theta, false);
-                rope(L.k.data(), T, c.kv_heads, hd, c.rope_theta, false);
+                rope(L.q.data(), T, c.heads, hd, th, false);
+                rope(L.k.data(), T, kvh, hd, th, false);
             }
-            int group = c.heads / c.kv_heads;
+            int group = c.heads / kvh;
+            const int win = loc ? c.sliding_window : 0;
             float scale = 1.0f / std::sqrt((float)hd);
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * Hq, 0.0f);
@@ -469,20 +512,22 @@ static void fwd(const Params& p, const ModelConfig& c,
                 int kh2 = (int)h / group;
                 for (int t = 0; t < T; ++t) {
                     float* pr = L.probs.data() + ((size_t)h * T + t) * T;
+                    // local layers: causal + last-W window; global: causal.
+                    const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
                     float mx = -1e30f;
                     const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
-                    for (int s = 0; s <= t; ++s) {
-                        const float* kr = L.k.data() + ((size_t)s * c.kv_heads + kh2) * hd;
+                    for (int s = s0; s <= t; ++s) {
+                        const float* kr = L.k.data() + ((size_t)s * kvh + kh2) * hd;
                         pr[s] = tpu_dot(qr, kr, hd) * scale;
                         mx = std::max(mx, pr[s]);
                     }
                     float sum = 0.0f;
-                    for (int s = 0; s <= t; ++s) { pr[s] = std::exp(pr[s] - mx); sum += pr[s]; }
+                    for (int s = s0; s <= t; ++s) { pr[s] = std::exp(pr[s] - mx); sum += pr[s]; }
                     float inv = 1.0f / sum;
                     float* ao = L.attn_out.data() + ((size_t)t * c.heads + h) * hd;
-                    for (int s = 0; s <= t; ++s) {
+                    for (int s = s0; s <= t; ++s) {
                         pr[s] *= inv;
-                        const float* vr = L.v.data() + ((size_t)s * c.kv_heads + kh2) * hd;
+                        const float* vr = L.v.data() + ((size_t)s * kvh + kh2) * hd;
                         tpu_axpy(ao, pr[s], vr, hd);
                     }
                 }
@@ -498,6 +543,17 @@ static void fwd(const Params& p, const ModelConfig& c,
                 wo_in = L.attn_gated.data();
             }
             linear_fwd(wo_in, p.w.at(ln(l, "wo")), proj.data(), T, Hq, H);
+            if (c.post_attn_norm) {
+                // Gemma sandwich norm: residual adds rmsnorm(attn_out).
+                L.attn_proj = proj;
+                L.post_attn.resize((size_t)T * H);
+                L.post_attn_rms.resize(T);
+                rmsnorm_fwd(L.attn_proj.data(),
+                            p.w.at(ln(l, "norm_attn_out")).d.data(),
+                            L.post_attn.data(), L.post_attn_rms.data(),
+                            T, H, c.rms_eps);
+                proj = L.post_attn;
+            }
         }
         L.x_res.resize((size_t)T * H);
         for (size_t i = 0; i < (size_t)T * H; ++i) L.x_res[i] = x[i] + proj[i];
@@ -512,7 +568,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             linear_fwd(L.n2.data(), p.w.at(ln(l, "w1")), L.fa.data(), T, H, c.inter);
             linear_fwd(L.n2.data(), p.w.at(ln(l, "w3")), L.fb.data(), T, H, c.inter);
             tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
-                L.fh[(size_t)i] = silu_f(L.fa[(size_t)i]) * L.fb[(size_t)i];
+                L.fh[(size_t)i] = gate_act_f(L.fa[(size_t)i], c.ffn_act) *
+                                  L.fb[(size_t)i];
             });
             linear_fwd(L.fh.data(), p.w.at(ln(l, "w2")), proj.data(), T, c.inter, H);
         } else {
@@ -526,10 +583,18 @@ static void fwd(const Params& p, const ModelConfig& c,
             float aux = 0.0f;
             for (int t = 0; t < T; ++t) {
                 const float* gl = L.gate_logits.data() + (size_t)t * E;
-                float mx = *std::max_element(gl, gl + E), sum = 0.0f;
                 float* gp = L.gate_probs.data() + (size_t)t * E;
-                for (int e = 0; e < E; ++e) { gp[e] = std::exp(gl[e] - mx); sum += gp[e]; }
-                for (int e = 0; e < E; ++e) gp[e] /= sum;
+                if (c.moe_router_sigmoid) {
+                    // v28 fused scoring (Qwen3.5): per-expert sigmoid —
+                    // no shared denominator, so scores stay scale-robust
+                    // under many fine-grained experts. The deterministic
+                    // top-k + renorm below is unchanged.
+                    for (int e = 0; e < E; ++e) gp[e] = sigmoid_f(gl[e]);
+                } else {
+                    float mx = *std::max_element(gl, gl + E), sum = 0.0f;
+                    for (int e = 0; e < E; ++e) { gp[e] = std::exp(gl[e] - mx); sum += gp[e]; }
+                    for (int e = 0; e < E; ++e) gp[e] /= sum;
+                }
                 std::vector<int> idx(E);
                 std::iota(idx.begin(), idx.end(), 0);
                 std::partial_sort(idx.begin(), idx.begin() + K, idx.end(),
@@ -555,7 +620,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     fa.resize(EI); fb.resize(EI); fh.resize(EI);
                     linear_fwd(xr, p.w.at(b + "w1"), fa.data(), 1, H, EI);
                     linear_fwd(xr, p.w.at(b + "w3"), fb.data(), 1, H, EI);
-                    for (int i = 0; i < EI; ++i) fh[i] = silu_f(fa[i]) * fb[i];
+                    for (int i = 0; i < EI; ++i)
+                        fh[i] = gate_act_f(fa[i], c.ffn_act) * fb[i];
                     std::vector<float> eo(H);
                     linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
                     for (int i = 0; i < H; ++i) proj[(size_t)t * H + i] += wgt * eo[i];
@@ -588,7 +654,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                 linear_fwd(L.n2.data(), p.w.at(b + "w1"), fa.data(), T, H, SI);
                 linear_fwd(L.n2.data(), p.w.at(b + "w3"), fb.data(), T, H, SI);
                 tpu_elementwise((int64_t)fh.size(), [&](int64_t i) {
-                    fh[(size_t)i] = silu_f(fa[(size_t)i]) * fb[(size_t)i];
+                    fh[(size_t)i] = gate_act_f(fa[(size_t)i], c.ffn_act) *
+                                    fb[(size_t)i];
                 });
                 std::vector<float> so((size_t)T * H);
                 linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
@@ -603,6 +670,17 @@ static void fwd(const Params& p, const ModelConfig& c,
             }
             o.moe_aux += c.moe_aux_w * c.moe_experts * aux / std::max(1, T);
         }
+        if (c.post_ffw_norm) {
+            // Gemma sandwich norm: residual adds rmsnorm(ffn_out).
+            L.ffn_proj = proj;
+            L.post_ffn.resize((size_t)T * H);
+            L.post_ffn_rms.resize(T);
+            rmsnorm_fwd(L.ffn_proj.data(),
+                        p.w.at(ln(l, "norm_ffw_out")).d.data(),
+                        L.post_ffn.data(), L.post_ffn_rms.data(),
+                        T, H, c.rms_eps);
+            proj = L.post_ffn;
+        }
         for (size_t i = 0; i < (size_t)T * H; ++i) x[i] = L.x_res[i] + proj[i];
     }
     o.x_fin = x;
@@ -611,4 +689,13 @@ static void fwd(const Params& p, const ModelConfig& c,
                 o.hidden.data(), o.rmsf.data(), T, H, c.rms_eps);
     o.logits.resize((size_t)T * c.vocab);
     linear_fwd(o.hidden.data(), p.w.at("lm_head"), o.logits.data(), T, H, c.vocab);
+    if (c.final_logit_softcap > 0.0f) {
+        // Gemma final logit softcapping: y = cap*tanh(z/cap). The backward
+        // factor 1 - (y/cap)^2 is recoverable from the capped values, so no
+        // pre-cap cache is kept.
+        const float cap = c.final_logit_softcap, inv = 1.0f / cap;
+        tpu_elementwise((int64_t)o.logits.size(), [&](int64_t i) {
+            o.logits[(size_t)i] = cap * std::tanh(o.logits[(size_t)i] * inv);
+        });
+    }
 }

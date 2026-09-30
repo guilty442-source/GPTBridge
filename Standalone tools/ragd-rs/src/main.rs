@@ -22,6 +22,8 @@ mod vectord;
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{sync_channel, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -39,6 +41,7 @@ pub(crate) struct App {
     pub dsn: Option<String>,
     pub pg: Mutex<Option<pg::Authority>>,
     pub cache: Mutex<cag::CagCacheStore>,
+    pub conn: ConnStats,
     started: Instant,
 }
 
@@ -73,6 +76,125 @@ fn is_loopback_bind(bind: &str) -> bool {
         .map(|(h, _)| h.trim().to_ascii_lowercase())
         .unwrap_or_else(|| bind.trim().to_ascii_lowercase());
     matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]")
+}
+
+// bounded-concurrency/v1: fixed worker pool + bounded pending queue,
+// mirroring vectord's envelope (MIN/MAX workers, 64 pending, 2 s
+// expiry). A connection still queued past the deadline is dropped
+// instead of served stale; a full queue rejects with HTTP 503 — never
+// a thread per connection (PERF-04/PERF-05).
+const MIN_CONN_WORKERS: usize = 2;
+const MAX_CONN_WORKERS: usize = 16;
+const PENDING_CONN_CAPACITY: usize = 64;
+const PENDING_CONN_DEADLINE: Duration = Duration::from_millis(2000);
+
+pub(crate) struct ConnStats {
+    submitted: AtomicUsize,
+    completed: AtomicUsize,
+    rejected: AtomicUsize,
+    expired: AtomicUsize,
+}
+
+impl ConnStats {
+    fn new() -> Self {
+        Self {
+            submitted: AtomicUsize::new(0),
+            completed: AtomicUsize::new(0),
+            rejected: AtomicUsize::new(0),
+            expired: AtomicUsize::new(0),
+        }
+    }
+
+    fn snapshot(&self) -> Value {
+        let submitted = self.submitted.load(Ordering::Relaxed);
+        let completed = self.completed.load(Ordering::Relaxed);
+        let rejected = self.rejected.load(Ordering::Relaxed);
+        let expired = self.expired.load(Ordering::Relaxed);
+        json!({
+            "workers_min": MIN_CONN_WORKERS,
+            "workers_max": MAX_CONN_WORKERS,
+            "pending_cap": PENDING_CONN_CAPACITY,
+            "submitted": submitted,
+            "completed": completed,
+            "rejected": rejected,
+            "expired": expired,
+            "pending_approx": submitted
+                .saturating_sub(completed)
+                .saturating_sub(rejected)
+                .saturating_sub(expired),
+        })
+    }
+}
+
+struct PendingConn {
+    stream: TcpStream,
+    enqueued: Instant,
+}
+
+/// concurrency-budget/v1 read side: extract `classes.rag.quota` from
+/// the resource-governor state file. Returns None when the file is
+/// missing, unparsable, the governor is disabled, or the section is
+/// absent — callers fall back to the static envelope (fail-open).
+/// Same contract as vectord's governor_class_quota.
+fn governor_class_quota(state_path: &std::path::Path, work_class: &str) -> Option<usize> {
+    let text = std::fs::read_to_string(state_path).ok()?;
+    let state: Value = serde_json::from_str(&text).ok()?;
+    if state.get("disabled").and_then(Value::as_bool) == Some(true) {
+        return None;
+    }
+    let budget = state.get("concurrency_budget")?;
+    if budget.get("contract").and_then(Value::as_str) != Some("concurrency-budget/v1") {
+        return None;
+    }
+    let quota = budget
+        .get("classes")?
+        .get(work_class)?
+        .get("quota")?
+        .as_u64()?;
+    Some(quota as usize)
+}
+
+fn resolve_conn_workers(governor_state: Option<&std::path::Path>) -> usize {
+    let quota = governor_state
+        .and_then(|p| governor_class_quota(p, "rag"))
+        .filter(|q| *q > 0);
+    let fallback = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(MAX_CONN_WORKERS);
+    quota
+        .unwrap_or(fallback)
+        .clamp(MIN_CONN_WORKERS, MAX_CONN_WORKERS)
+}
+
+/// Walk up from the current directory for the governor state file
+/// (`main-system/runtime/state/resource-governor.json`). Returns None
+/// when not found — the caller fails open to the static envelope.
+fn default_governor_state() -> Option<std::path::PathBuf> {
+    if let Ok(path) = std::env::var("GPTBRIDGE_GOVERNOR_STATE") {
+        let candidate = std::path::PathBuf::from(path);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+    let mut dir = std::env::current_dir().ok()?;
+    for _ in 0..8 {
+        let candidate = dir
+            .join("main-system")
+            .join("runtime")
+            .join("state")
+            .join("resource-governor.json");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    None
+}
+
+fn reject_over_capacity(mut stream: TcpStream) {
+    send_response(&mut stream, "503 Service Unavailable", &err("CAPACITY_EXHAUSTED"));
 }
 
 fn send_response(stream: &mut TcpStream, status: &str, body: &Value) {
@@ -288,6 +410,7 @@ fn route(app: &Arc<App>, method: &str, path: &str, body: &[u8]) -> Value {
             "dsn_configured": app.dsn.is_some(),
             "uptime_s": app.started.elapsed().as_secs(),
             "cag": app.cache.lock().map(|c| c.stats()).unwrap_or_default(),
+            "conn": app.conn.snapshot(),
         })),
         ("POST", "/v1/rag/query") => handle_query(app, body),
         ("POST", "/v1/retrieve") => retrieve::handle_retrieve(app, body),
@@ -349,6 +472,7 @@ fn main() {
         dsn,
         pg: Mutex::new(None),
         cache: Mutex::new(cag::CagCacheStore::new()),
+        conn: ConnStats::new(),
         started: Instant::now(),
     });
     let listener = match TcpListener::bind(&bind) {
@@ -358,11 +482,55 @@ fn main() {
             std::process::exit(1);
         }
     };
-    eprintln!("ragd: listening on {} ({})", bind, CONTRACT);
+    // Bounded admission: connections wait in a bounded pending queue
+    // drained by a fixed worker pool (rag-class quota). A full queue
+    // rejects with HTTP 503; a stale queued connection is dropped.
+    let workers = resolve_conn_workers(default_governor_state().as_deref());
+    let (tx, rx) = sync_channel::<PendingConn>(PENDING_CONN_CAPACITY);
+    let rx = Arc::new(Mutex::new(rx));
+    for _ in 0..workers {
+        let rx = Arc::clone(&rx);
+        let app_ref = Arc::clone(&app);
+        std::thread::spawn(move || loop {
+            let conn = match rx
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .recv()
+            {
+                Ok(conn) => conn,
+                Err(_) => break,
+            };
+            if conn.enqueued.elapsed() > PENDING_CONN_DEADLINE {
+                app_ref.conn.expired.fetch_add(1, Ordering::Relaxed);
+                continue;
+            }
+            handle_connection(conn.stream, &app_ref);
+            app_ref.conn.completed.fetch_add(1, Ordering::Relaxed);
+        });
+    }
+    eprintln!(
+        "ragd: listening on {} ({} conn_workers={} pending_cap={})",
+        bind, CONTRACT, workers, PENDING_CONN_CAPACITY
+    );
     for stream in listener.incoming() {
-        if let Ok(stream) = stream {
-            let app_ref = Arc::clone(&app);
-            std::thread::spawn(move || handle_connection(stream, &app_ref));
+        match stream {
+            Ok(stream) => {
+                let pending = PendingConn {
+                    stream,
+                    enqueued: Instant::now(),
+                };
+                match tx.try_send(pending) {
+                    Ok(()) => {
+                        app.conn.submitted.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(TrySendError::Full(returned))
+                    | Err(TrySendError::Disconnected(returned)) => {
+                        app.conn.rejected.fetch_add(1, Ordering::Relaxed);
+                        reject_over_capacity(returned.stream);
+                    }
+                }
+            }
+            Err(e) => eprintln!("ragd: accept failed: {}", e),
         }
     }
 }
