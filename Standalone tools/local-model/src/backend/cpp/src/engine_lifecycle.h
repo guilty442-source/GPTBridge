@@ -827,6 +827,25 @@ std::vector<double> NativeInferenceEngine::logits(const std::vector<int64_t>& in
     return forward_last_logits(input_ids, 0, false);
 }
 
+// §49 decision-head binding accessors — an unloaded engine exposes no
+// identity, so every accessor fails closed instead of returning "".
+const std::string& NativeInferenceEngine::model_sha256() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return bundle_->weights_sha256();
+}
+const std::string& NativeInferenceEngine::generation() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return bundle_->architecture_generation();
+}
+const std::string& NativeInferenceEngine::tokenizer_sha256() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return tokenizer_sha256_;
+}
+int64_t NativeInferenceEngine::hidden_size() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return bundle_->config().hidden_size;
+}
+
 std::pair<double, int64_t> NativeInferenceEngine::sequence_nll(
     const std::vector<int64_t>& input_ids) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");

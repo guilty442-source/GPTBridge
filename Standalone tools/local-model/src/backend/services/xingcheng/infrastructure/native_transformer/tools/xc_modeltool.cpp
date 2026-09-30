@@ -3365,6 +3365,9 @@ int mode_serve(const Args& a) {
 // NativeScaleEfficiencyPlane: scale metrics, mapped expert store,
 // prefetch, delta-state precision, low-resource + candidate sims.
 #include "xcm_scale.h"
+// Laya/MiMo capability plane native lanes: System-1 decision head +
+// MTP drafter benchmarks (contract plane lives in C#).
+#include "xcm_system1.h"
 
 }  // namespace
 
@@ -3430,6 +3433,12 @@ int main(int argc, char** argv) {
         if (mode == "scale-status") return mode_scale_status(a);
         if (mode == "future-scale-probe")
             return mode_future_scale_probe(a);
+        // Laya/MiMo capability plane — native fast path.
+        if (mode == "system1-head") return mode_system1_head(a);
+        if (mode == "mtp-runtime") return mode_mtp_runtime(a);
+        if (mode == "mtp-speedup") return mode_mtp_speedup(a);
+        if (mode == "mtp-precision-parity")
+            return mode_mtp_precision_parity(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

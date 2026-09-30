@@ -382,6 +382,16 @@ public:
     int64_t invalidate_prefix_scope(const std::string& scope_id);
     const std::string& prefix_scope() const { return prefix_scope_; }
 
+    // Decision-head binding (§49 star-system1-head/v1): the identity
+    // tuple a bundle-side head artifact must match before it may drive
+    // a typed decision over the prefill hidden state. All four throw
+    // ENGINE_NOT_LOADED when no bundle is bound — a head can never
+    // bind to nothing.
+    const std::string& model_sha256() const;
+    const std::string& generation() const;
+    const std::string& tokenizer_sha256() const;
+    int64_t hidden_size() const;
+
     // §16 two-level MoE trace: opt-in per-layer router evidence captured
     // during the last forward — router_type (sigmoid_topk|softmax_topk),
     // the deterministic top-k selection and the normalized mixing
