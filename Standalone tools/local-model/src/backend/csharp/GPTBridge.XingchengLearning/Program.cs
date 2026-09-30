@@ -252,6 +252,28 @@ internal static class Program
                         ? pg : "",
                     opts.TryGetValue("architecture", out string? pa)
                         ? pa : "xc-fused-1"));
+            if (flags.Contains("recovery-dataset-build"))
+                return Emit(InstructionRecovery.BuildDataset(
+                    opts.TryGetValue("out", out string? rdo)
+                        ? rdo : "",
+                    opts.TryGetValue("count", out string? rc) &&
+                        int.TryParse(rc, out int rcv) ? rcv : 2800,
+                    opts.TryGetValue("seed", out string? rsd) &&
+                        int.TryParse(rsd, out int rsv) ? rsv : 42));
+            if (flags.Contains("recovery-eval"))
+                return Emit(InstructionRecovery.EvalBundle(
+                    toolRoot,
+                    opts.TryGetValue("bundle", out string? reb)
+                        ? reb : "",
+                    opts.TryGetValue("suite", out string? res)
+                        ? res : "",
+                    opts.TryGetValue("out", out string? reo)
+                        ? reo : null));
+            if (flags.Contains("recovery-run"))
+                return Emit(InstructionRecovery.Run(
+                    toolRoot,
+                    opts.TryGetValue("plan", out string? rpp)
+                        ? rpp : ""));
             if (flags.Contains("provenance-compute"))
                 return Emit(BundleProvenance.Compute(
                     opts.TryGetValue("bundle", out string? cb)
@@ -322,7 +344,10 @@ internal static class Program
             "--task-resume|--task-step --task <id> [...] | " +
             "--provenance-verify --bundle <dir> --provenance <file.json> " +
             "[--generation <gen>] [--architecture <arch>] | " +
-            "--provenance-compute --bundle <dir> [...])");
+            "--provenance-compute --bundle <dir> [...] | " +
+            "--recovery-dataset-build --out <dir> [--count N] [--seed N] | " +
+            "--recovery-eval --bundle <dir> --suite <file> [--out <file>] | " +
+            "--recovery-run --plan <plan.json>)");
         return 2;
     }
 
