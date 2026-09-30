@@ -22,6 +22,7 @@ std::vector<std::vector<double>> NativeInferenceEngine::forward_batch_last_logit
     std::vector<double> logits = matmul(
         last_rows.data(), static_cast<int64_t>(spans.size()),
         hidden_size, lm_head_t_.data(), cfg.vocab_size);
+    logit_softcap(logits, cfg.final_logit_softcapping);
     std::vector<std::vector<double>> out(spans.size());
     for (size_t i = 0; i < spans.size(); ++i) {
         const double* row = logits.data() + i * cfg.vocab_size;
@@ -138,7 +139,11 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // P3d prefix reuse: restore the longest cached prompt prefix so only the
     // suffix is recomputed. The snapshot stores per-layer K/V slices; values
     // are deterministic, so a restored cache is bit-identical to recompute.
-    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
+    // The per-head slice stride matches the KV pool element stride — Gemma4
+    // hybrid layers keep a uniform max_head_dim row width.
+    const int64_t kv_head_dim =
+        cfg.is_gemma4() ? cfg.max_head_dim() : cfg.head_dim;
+    const int64_t kv_dim = cfg.num_key_value_heads * kv_head_dim;
     int64_t prefix_len = 0;
     size_t hit_index = prefix_cache_.size();
     for (size_t i = 0; i < prefix_cache_.size(); ++i) {
@@ -163,11 +168,11 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                     kv_write(
                         0, true, layer, position, h,
                         hit.k.data() + (layer * prefix_len + position) * kv_dim +
-                            h * cfg.head_dim);
+                            h * kv_head_dim);
                     kv_write(
                         0, false, layer, position, h,
                         hit.v.data() + (layer * prefix_len + position) * kv_dim +
-                            h * cfg.head_dim);
+                            h * kv_head_dim);
                 }
             }
         }
@@ -242,7 +247,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                         for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                             const int64_t base_idx =
                                 (layer * store_len + position) * kv_dim +
-                                h * cfg.head_dim;
+                                h * kv_head_dim;
                             kv_read_head(
                                 0, true, layer, position, h,
                                 entry.k.data() + base_idx);

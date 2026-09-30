@@ -82,10 +82,70 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         : embedding_;
     lm_head_t_ = transpose_matrix(lm_head_);
 
+    // Gemma4 "sqrt_hidden_size" embedding scale resolves at load.
+    if (cfg.embedding_scale < 0.0) {
+        const_cast<ModelConfig&>(cfg).embedding_scale =
+            std::sqrt(static_cast<double>(cfg.hidden_size));
+    }
+
     layers_.assign(static_cast<size_t>(cfg.num_hidden_layers), LayerWeights{});
     for (int64_t i = 0; i < cfg.num_hidden_layers; ++i) {
         LayerWeights& layer = layers_[static_cast<size_t>(i)];
         const std::string prefix = "model.layers." + std::to_string(i) + ".";
+        if (cfg.is_gemma4()) {
+            const int64_t hd = cfg.layer_head_dim(i);
+            layer.g4_head_dim = hd;
+            layer.g4_q_dim = cfg.num_attention_heads * hd;
+            layer.g4_kv_dim = cfg.num_key_value_heads * hd;
+            layer.kv_shared = cfg.layer_kv_shared(i);
+            layer.kv_anchor_layer =
+                layer.kv_shared ? cfg.kv_anchor(i) : -1;
+            layer.input_norm = bundle_->tensor(prefix + "input_norm.weight");
+            layer.q_proj = bundle_->tensor(prefix + "attention.q_proj.weight");
+            layer.q_norm = bundle_->tensor(prefix + "attention.q_norm.weight");
+            if (!layer.kv_shared) {
+                layer.k_proj = bundle_->tensor(prefix + "attention.k_proj.weight");
+                layer.v_proj = bundle_->tensor(prefix + "attention.v_proj.weight");
+                layer.k_norm = bundle_->tensor(prefix + "attention.k_norm.weight");
+            }
+            layer.o_proj = bundle_->tensor(prefix + "attention.o_proj.weight");
+            layer.post_attn_norm =
+                bundle_->tensor(prefix + "post_attention_norm.weight");
+            layer.pre_ffn_norm =
+                bundle_->tensor(prefix + "pre_feedforward_norm.weight");
+            layer.post_ffn_norm =
+                bundle_->tensor(prefix + "post_feedforward_norm.weight");
+            layer.gate_proj = bundle_->tensor(prefix + "mlp.gate_proj.weight");
+            layer.up_proj = bundle_->tensor(prefix + "mlp.up_proj.weight");
+            layer.down_proj = bundle_->tensor(prefix + "mlp.down_proj.weight");
+            const int64_t inter =
+                cfg.intermediate_size *
+                (cfg.use_double_wide_mlp && layer.kv_shared ? 2 : 1);
+            const std::vector<double> gate_t =
+                transpose_matrix(layer.gate_proj);
+            const std::vector<double> up_t =
+                transpose_matrix(layer.up_proj);
+            layer.gate_up_t = hcat_weights(
+                {{&gate_t, inter}, {&up_t, inter}}, cfg.hidden_size);
+            layer.down_proj_t = transpose_matrix(layer.down_proj);
+            layer.q_proj_t = transpose_matrix(layer.q_proj);
+            layer.o_proj_t = transpose_matrix(layer.o_proj);
+            if (!layer.kv_shared) {
+                layer.k_proj_t = transpose_matrix(layer.k_proj);
+                layer.v_proj_t = transpose_matrix(layer.v_proj);
+            }
+            if (cfg.hidden_size_per_layer_input > 0) {
+                layer.ple_gate =
+                    bundle_->tensor(prefix + "per_layer_input_gate.weight");
+                layer.ple_proj =
+                    bundle_->tensor(prefix + "per_layer_projection.weight");
+                layer.ple_post_norm = bundle_->tensor(
+                    prefix + "post_per_layer_input_norm.weight");
+                layer.ple_gate_t = transpose_matrix(layer.ple_gate);
+                layer.ple_proj_t = transpose_matrix(layer.ple_proj);
+            }
+            continue;
+        }
         layer.input_norm = bundle_->tensor(prefix + "input_norm.weight");
         layer.q_proj = bundle_->tensor(prefix + "attention.q_proj.weight");
         layer.k_proj = bundle_->tensor(prefix + "attention.k_proj.weight");
@@ -179,13 +239,31 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         layer.o_proj_t = transpose_matrix(layer.o_proj);
     }
 
-    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
+    // Gemma4 model-level PLE tensors.
+    if (cfg.is_gemma4()) {
+        if (cfg.hidden_size_per_layer_input > 0) {
+            embed_per_layer_ =
+                bundle_->tensor("model.embed_tokens_per_layer.weight");
+            ple_model_projection_ = bundle_->tensor(
+                "model.per_layer_model_projection.weight");
+            ple_projection_norm_ = bundle_->tensor(
+                "model.per_layer_projection_norm.weight");
+            ple_model_projection_t_ =
+                transpose_matrix(ple_model_projection_);
+        }
+    }
+
+    // Gemma4 layers carry per-type head dims; the pool keeps a
+    // uniform per-head stride sized to the largest head_dim.
+    const int64_t kv_head_dim =
+        cfg.is_gemma4() ? cfg.max_head_dim() : cfg.head_dim;
+    const int64_t kv_dim = cfg.num_key_value_heads * kv_head_dim;
     // KV INT8 (opt-in): per-token/per-head symmetric quantization shrinks
     // the packed element stride ~8x; the governed layer owns the env flag.
     kv_int8_ = env_flag("XINGCHENG_CPP_KV_INT8");
     kv_elem_stride_bytes_ = kv_int8_
-        ? ((cfg.head_dim + 7) & ~int64_t{7}) + 8
-        : cfg.head_dim * static_cast<int64_t>(sizeof(double));
+        ? ((kv_head_dim + 7) & ~int64_t{7}) + 8
+        : kv_head_dim * static_cast<int64_t>(sizeof(double));
     const int64_t kv_bytes = kv_int8_
         ? cfg.num_hidden_layers * cfg.max_position_embeddings *
               cfg.num_key_value_heads * kv_elem_stride_bytes_ * 2
@@ -217,6 +295,11 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
 #if defined(XINGCHENG_CUDA)
     if (g_cuda_kv_requested.load()) {
         if (kv_int8_) throw InferenceError("CUDA_KV_UNSUPPORTED_CONFIG");
+        // The device path assumes a uniform per-layer head_dim;
+        // the hybrid Gemma4 profile stays host-side fail-closed.
+        if (cfg.is_gemma4()) {
+            throw InferenceError("CUDA_KV_UNSUPPORTED_CONFIG");
+        }
         if (xcuda_kv_alloc(
                 cfg.num_hidden_layers, cfg.num_key_value_heads,
                 cfg.head_dim, cfg.max_position_embeddings) != 0) {
@@ -276,6 +359,7 @@ void NativeInferenceEngine::unload() {
     kv_int8_ = false;
     kv_elem_stride_bytes_ = 0;
     lm_head_t_.clear();
+    ple_model_projection_t_.clear();
     sequence_.clear();
 }
 
@@ -294,6 +378,64 @@ void NativeInferenceEngine::validate_supported() const {
         throw InferenceError("QUANTIZED_INFERENCE_UNSUPPORTED");
     }
     if (cfg.norm_type != "rmsnorm") throw InferenceError("NORM_TYPE_UNSUPPORTED");
+    if (cfg.is_gemma4()) {
+        // Gemma4 profile bounds: uniform fields are validated below;
+        // here only the hybrid-attention invariants. Head dims are
+        // per layer type — hidden_size is intentionally NOT required
+        // to equal heads*head_dim.
+        if (static_cast<int64_t>(cfg.layer_types.size()) !=
+            cfg.num_hidden_layers) {
+            throw InferenceError("LAYER_TYPES_LENGTH_MISMATCH");
+        }
+        bool any_sliding = false;
+        for (const std::string& t : cfg.layer_types) {
+            if (t != "sliding_attention" && t != "full_attention") {
+                throw InferenceError("LAYER_TYPE_UNSUPPORTED:" + t);
+            }
+            if (t == "sliding_attention") any_sliding = true;
+        }
+        if (any_sliding && cfg.sliding_window <= 0) {
+            throw InferenceError("SLIDING_WINDOW_MISSING");
+        }
+        if (cfg.head_dim <= 0 || cfg.global_head_dim <= 0 ||
+            (cfg.head_dim % 2) != 0 || (cfg.global_head_dim % 2) != 0) {
+            throw InferenceError("G4_HEAD_DIM_UNSUPPORTED");
+        }
+        if (cfg.num_kv_shared_layers < 0 ||
+            cfg.num_kv_shared_layers >= cfg.num_hidden_layers) {
+            throw InferenceError("KV_SHARED_BOUNDS_INVALID");
+        }
+        for (int64_t i = cfg.first_kv_shared_layer();
+             i < cfg.num_hidden_layers; ++i) {
+            if (cfg.num_kv_shared_layers > 0 && cfg.kv_anchor(i) < 0) {
+                throw InferenceError("KV_SHARED_ANCHOR_MISSING");
+            }
+        }
+        if (cfg.hidden_size_per_layer_input < 0 ||
+            cfg.vocab_size_per_layer_input < 0 ||
+            (cfg.hidden_size_per_layer_input > 0 &&
+             cfg.vocab_size_per_layer_input <= 0)) {
+            throw InferenceError("PLE_CONFIG_UNSUPPORTED");
+        }
+        // E4B scope is the dense family; the Gemma4 MoE block
+        // (26B-A4B) is a separate profile, refused fail-closed.
+        if (cfg.use_moe) {
+            throw InferenceError("MOE_GEMMA4_UNSUPPORTED");
+        }
+        if (cfg.hidden_act != "gelu_pytorch_tanh" &&
+            cfg.hidden_act != "silu") {
+            throw InferenceError("MLP_TYPE_UNSUPPORTED");
+        }
+        if (cfg.position_embedding_type != "rope") {
+            throw InferenceError("POSITION_EMBEDDING_UNSUPPORTED");
+        }
+        if (cfg.num_attention_heads <= 0 || cfg.num_key_value_heads <= 0 ||
+            cfg.num_attention_heads % cfg.num_key_value_heads != 0 ||
+            cfg.hidden_size <= 0) {
+            throw InferenceError("MODEL_SHAPE_UNSUPPORTED");
+        }
+        return;
+    }
     if (!cfg.use_swiglu || cfg.hidden_act != "silu") {
         throw InferenceError("MLP_TYPE_UNSUPPORTED");
     }
@@ -396,7 +538,9 @@ char* NativeInferenceEngine::kv_slot_bytes(
 void NativeInferenceEngine::kv_write(
     int64_t slot, bool key_cache, int64_t layer, int64_t position,
     int64_t head, const double* src) {
-    const int64_t n = bundle_->config().head_dim;
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t n = cfg.is_gemma4()
+        ? cfg.layer_head_dim(layer) : cfg.head_dim;
     char* dst = kv_slot_bytes(slot, key_cache, layer, position, head);
 #if defined(XINGCHENG_CUDA)
     // Write-through to the device-resident mirror (slot 0 only); the host
@@ -436,8 +580,10 @@ NativeInferenceEngine::KvSrc NativeInferenceEngine::kv_src(
     int64_t slot, bool key_cache, int64_t layer, int64_t position, int64_t head) {
     char* p = kv_slot_bytes(slot, key_cache, layer, position, head);
     KvSrc src;
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t n = cfg.is_gemma4()
+        ? cfg.layer_head_dim(layer) : cfg.head_dim;
     if (kv_int8_) {
-        const int64_t n = bundle_->config().head_dim;
         src.q8 = reinterpret_cast<const int8_t*>(p);
         src.scale = *reinterpret_cast<const double*>(p + ((n + 7) & ~int64_t{7}));
     } else {
@@ -450,7 +596,9 @@ void NativeInferenceEngine::kv_read_head(
     int64_t slot, bool key_cache, int64_t layer, int64_t position,
     int64_t head, double* out) {
     const KvSrc src = kv_src(slot, key_cache, layer, position, head);
-    const int64_t n = bundle_->config().head_dim;
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t n = cfg.is_gemma4()
+        ? cfg.layer_head_dim(layer) : cfg.head_dim;
     if (src.q8 != nullptr) {
         for (int64_t i = 0; i < n; ++i) {
             out[i] = static_cast<double>(src.q8[i]) * src.scale;
@@ -491,9 +639,10 @@ std::pair<double, int64_t> NativeInferenceEngine::sequence_nll(
     for (int64_t i = 0; i < rows; ++i) {
         const int64_t target = input_ids[static_cast<size_t>(i + 1)];
         if (target < 0 || target >= v) continue;
-        const std::vector<double> row = matmul(
+        std::vector<double> row = matmul(
             hidden.data() + static_cast<size_t>(i) * h, 1, h,
             lm_head_t_.data(), v);
+        logit_softcap(row, cfg.final_logit_softcapping);
         const double mx =
             *std::max_element(row.begin(), row.end());
         double se = 0.0;
@@ -512,7 +661,10 @@ std::vector<double> NativeInferenceEngine::forward_last_logits(
     const ModelConfig& cfg = bundle_->config();
     const int64_t rows = static_cast<int64_t>(input_ids.size());
     const double* last = hidden.data() + static_cast<size_t>((rows - 1) * cfg.hidden_size);
-    return matmul(last, 1, cfg.hidden_size, lm_head_t_.data(), cfg.vocab_size);
+    std::vector<double> logits =
+        matmul(last, 1, cfg.hidden_size, lm_head_t_.data(), cfg.vocab_size);
+    logit_softcap(logits, cfg.final_logit_softcapping);
+    return logits;
 }
 
 static double hidden_rms(

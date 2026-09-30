@@ -8,6 +8,10 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     std::vector<double>* module_rms) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
     if (spans.empty()) throw InferenceError("INPUT_EMPTY");
+    // Gemma4 profile: hybrid per-layer-type attention plane.
+    if (bundle_->config().is_gemma4()) {
+        return forward_batch_hidden_gemma4(spans, layer_rms, module_rms);
+    }
     const ModelConfig& cfg = bundle_->config();
     const int64_t hidden_size = cfg.hidden_size;
     std::vector<int64_t> starts(spans.size());

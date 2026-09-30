@@ -33,6 +33,14 @@ static std::vector<int> j_ids(const JsonValue* o, const char* k) {
     for (const auto& e : v->array) out.push_back((int)e.number);
     return out;
 }
+static std::vector<std::string> j_strs(const JsonValue* o, const char* k) {
+    std::vector<std::string> out;
+    const JsonValue* v = o ? o->get(k) : nullptr;
+    if (!v || v->type != JsonValue::Type::Array) return out;
+    for (const auto& e : v->array)
+        if (e.type == JsonValue::Type::String) out.push_back(e.string);
+    return out;
+}
 
 // ----------------------------------------------------------------- config --
 
@@ -62,6 +70,60 @@ struct ModelConfig {
     int shared_inter() const {
         return moe_shared_inter > 0 ? moe_shared_inter : expert_inter();
     }
+    // ---- gemma4 hybrid-attention profile (dense E-family replica) ----
+    std::string model_type;              // "gemma4_text" | "gemma4"
+    std::string hidden_act;              // "" (silu) | "gelu_pytorch_tanh"
+    std::vector<std::string> layer_types;// "sliding_attention"|"full_attention"
+    int head_dim = 0;                    // 0 -> hidden/heads
+    int global_head_dim = 0;             // full-attention head dim
+    int sliding_window = 0;
+    float rope_theta_full = 0.0f;        // full-attention rope theta
+    float rope_partial_full = 1.0f;      // partial_rotary_factor (full)
+    int num_kv_shared_layers = 0;        // tail layers reuse the anchor KV
+    int ple_hidden = 0;                  // hidden_size_per_layer_input
+    int ple_vocab = 0;                   // vocab_size_per_layer_input
+    float final_logit_softcapping = 0.0f;
+    float attention_scale = 0.0f;        // 0 -> 1/sqrt(head_dim)
+    bool use_double_wide_mlp = false;    // shared layers use 2x inter
+    bool tie_embed = false;              // lm_head aliases embed
+    bool is_gemma4() const {
+        return model_type == "gemma4_text" || model_type == "gemma4";
+    }
+    int hd() const { return head_dim > 0 ? head_dim : hidden / heads; }
+    const std::string& layer_type(int l) const {
+        static const std::string sw = "sliding_attention";
+        return (!layer_types.empty() && l < (int)layer_types.size())
+            ? layer_types[l] : sw;
+    }
+    bool sliding_at(int l) const { return layer_type(l) != "full_attention"; }
+    int hd_at(int l) const {
+        return !is_gemma4() || sliding_at(l) ? hd()
+            : (global_head_dim > 0 ? global_head_dim : hd());
+    }
+    float theta_at(int l) const {
+        return !is_gemma4() || sliding_at(l) ? rope_theta
+            : (rope_theta_full > 0.0f ? rope_theta_full : rope_theta);
+    }
+    int rotary_at(int l) const {         // rotated dims (even, pair layout)
+        const int d = hd_at(l);
+        if (!is_gemma4() || sliding_at(l)) return d & ~1;
+        int n = (int)(rope_partial_full * (float)d);
+        return std::min(d, n) & ~1;
+    }
+    // shared tail layers consume the last same-type non-shared layer's
+    // K/V (HF shared_kv_states[layer_type]); returns the producing owner.
+    int kv_owner(int l) const {
+        if (!is_gemma4() || num_kv_shared_layers <= 0 ||
+            l < layers - num_kv_shared_layers) return l;
+        const std::string& want = layer_type(l);
+        for (int j = layers - num_kv_shared_layers - 1; j >= 0; --j)
+            if (layer_type(j) == want) return j;
+        return l;
+    }
+    bool kv_shared(int l) const { return kv_owner(l) != l; }
+    int inter_at(int l) const {
+        return use_double_wide_mlp && kv_shared(l) ? 2 * inter : inter;
+    }
 };
 
 static ModelConfig parse_model(const JsonValue* o) {
@@ -82,8 +144,60 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.moe_expert_inter = j_int(o, "moe_expert_intermediate_size", c.moe_expert_inter);
     c.moe_shared_experts = j_int(o, "moe_num_shared_experts", c.moe_shared_experts);
     c.moe_shared_inter = j_int(o, "moe_shared_intermediate_size", c.moe_shared_inter);
+    // ---- gemma4 fields ----
+    c.model_type = j_str(o, "model_type", j_str(o, "model_family", ""));
+    c.hidden_act = j_str(o, "hidden_activation", j_str(o, "hidden_act", ""));
+    c.head_dim = j_int(o, "head_dim", c.head_dim);
+    c.global_head_dim = j_int(o, "global_head_dim", c.head_dim);
+    c.sliding_window = j_int(o, "sliding_window", c.sliding_window);
+    c.num_kv_shared_layers =
+        j_int(o, "num_kv_shared_layers", c.num_kv_shared_layers);
+    c.ple_hidden = j_int(o, "hidden_size_per_layer_input", 0);
+    c.ple_vocab = j_int(o, "vocab_size_per_layer_input", 0);
+    c.final_logit_softcapping =
+        (float)j_num(o, "final_logit_softcapping", 0.0);
+    c.use_double_wide_mlp = j_bool(o, "use_double_wide_mlp", false);
+    c.tie_embed = j_bool(o, "tie_word_embeddings", false);
+    const JsonValue* rp = o ? o->get("rope_parameters") : nullptr;
+    const JsonValue* rpf = rp ? rp->get("full_attention") : nullptr;
+    c.rope_theta_full = (float)j_num(
+        rpf, "rope_theta", j_num(o, "rope_theta_full", 0.0));
+    c.rope_partial_full = (float)j_num(
+        rpf, "partial_rotary_factor",
+        j_num(o, "rope_partial_rotary_factor", 1.0));
+    const double qpas = j_num(o, "query_pre_attn_scalar", 0.0);
+    c.attention_scale = (float)j_num(
+        o, "attention_scale",
+        j_num(o, "attn_scale", qpas > 0.0 ? std::pow(qpas, -0.5) : 0.0));
+    c.layer_types = j_strs(o, "layer_types");
     if (c.kv_heads <= 0) c.kv_heads = c.heads;
-    if (c.heads <= 0 || c.hidden % c.heads) throw "model: bad head geometry";
+    if (c.heads <= 0) throw "model: bad head geometry";
+    if (c.is_gemma4()) {
+        if (c.moe_experts > 0 || j_bool(o, "enable_moe_block", false))
+            throw "model: gemma4 MoE unsupported (dense lane)";
+        if (c.head_dim <= 0) throw "model: gemma4 requires head_dim";
+        if (c.global_head_dim <= 0) c.global_head_dim = c.head_dim;
+        if (c.sliding_window <= 0)
+            throw "model: gemma4 requires sliding_window";
+        if (c.layer_types.empty())
+            c.layer_types.assign((size_t)c.layers, "sliding_attention");
+        if ((int)c.layer_types.size() != c.layers)
+            throw "model: layer_types count != num_hidden_layers";
+        for (const auto& t : c.layer_types)
+            if (t != "sliding_attention" && t != "full_attention")
+                throw "model: unknown layer_type";
+        if (c.layer_types.back() != "full_attention")
+            throw "model: gemma4 last layer must be full_attention";
+        if (c.num_kv_shared_layers < 0 ||
+            c.num_kv_shared_layers >= c.layers)
+            throw "model: bad num_kv_shared_layers";
+        if (c.rope_theta_full <= 0.0f) c.rope_theta_full = c.rope_theta;
+        if (c.rope_partial_full <= 0.0f || c.rope_partial_full > 1.0f)
+            throw "model: bad partial_rotary_factor";
+        if (c.ple_vocab <= 0) c.ple_vocab = c.vocab;
+    } else if (c.hidden % c.heads) {
+        throw "model: bad head geometry";
+    }
     return c;
 }
 
@@ -130,10 +244,62 @@ static std::string ln(int l, const char* s) {
     return "layers." + std::to_string(l) + "." + s;
 }
 
+// Gemma4 dense profile (HF modeling_gemma4 tensor roles):
+//   norm1=input_layernorm, q_norm/k_norm=QK norms, norm_attn=post_attn,
+//   norm2=pre_ffn, norm_ffn=post_ffn; shared (kv-owner != self) layers
+//   carry no wk/wv/k_norm; PLE adds embed_ple + ple_model_proj +
+//   ple_proj_norm + per-layer ple_gate/ple_proj/ple_post.
+static void init_params_g4(Params& p, const ModelConfig& c,
+                           std::mt19937& rng,
+                           std::normal_distribution<float>& nd) {
+    auto fill = [&](Tensor& t) { for (auto& x : t.d) x = nd(rng); };
+    auto ones = [&](const std::string& n, int64_t d) {
+        Tensor& t = p.add(n, {d});
+        std::fill(t.d.begin(), t.d.end(), 1.0f);
+    };
+    fill(p.add("embed", {c.vocab, c.hidden}));
+    if (!c.tie_embed) fill(p.add("lm_head", {c.vocab, c.hidden}));
+    if (c.ple_hidden > 0) {
+        fill(p.add("embed_ple",
+                   {c.ple_vocab, (int64_t)c.layers * c.ple_hidden}));
+        fill(p.add("ple_model_proj",
+                   {(int64_t)c.layers * c.ple_hidden, c.hidden}));
+        ones("ple_proj_norm", c.ple_hidden);
+    }
+    for (int l = 0; l < c.layers; ++l) {
+        const int hd = c.hd_at(l);
+        const bool shared = c.kv_shared(l);
+        ones(ln(l, "norm1"), c.hidden);
+        fill(p.add(ln(l, "wq"), {(int64_t)c.heads * hd, c.hidden}));
+        if (!shared) {
+            fill(p.add(ln(l, "wk"), {(int64_t)c.kv_heads * hd, c.hidden}));
+            fill(p.add(ln(l, "wv"), {(int64_t)c.kv_heads * hd, c.hidden}));
+            ones(ln(l, "k_norm"), hd);
+        }
+        fill(p.add(ln(l, "wo"), {c.hidden, (int64_t)c.heads * hd}));
+        ones(ln(l, "q_norm"), hd);
+        ones(ln(l, "norm_attn"), c.hidden);
+        ones(ln(l, "norm2"), c.hidden);
+        const int inter = c.inter_at(l);
+        fill(p.add(ln(l, "w1"), {inter, c.hidden}));
+        fill(p.add(ln(l, "w3"), {inter, c.hidden}));
+        fill(p.add(ln(l, "w2"), {c.hidden, inter}));
+        ones(ln(l, "norm_ffn"), c.hidden);
+        if (c.ple_hidden > 0) {
+            fill(p.add(ln(l, "ple_gate"), {c.ple_hidden, c.hidden}));
+            fill(p.add(ln(l, "ple_proj"), {c.hidden, c.ple_hidden}));
+            ones(ln(l, "ple_post"), c.hidden);
+        }
+    }
+    ones("norm_f", c.hidden);
+    p.alloc_adam();
+}
+
 static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
     std::mt19937 rng((uint32_t)seed);
     std::normal_distribution<float> nd(0.0f, 0.02f);
     auto fill = [&](Tensor& t) { for (auto& x : t.d) x = nd(rng); };
+    if (c.is_gemma4()) { init_params_g4(p, c, rng, nd); return; }
     int hd = c.hidden / c.heads;
     fill(p.add("embed", {c.vocab, c.hidden}));
     fill(p.add("lm_head", {c.vocab, c.hidden}));

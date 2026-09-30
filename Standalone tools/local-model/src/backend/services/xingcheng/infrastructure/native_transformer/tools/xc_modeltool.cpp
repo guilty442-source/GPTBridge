@@ -663,11 +663,18 @@ int mode_tokenize(const Args& a) {
 
 // ----------------------------------------------------- name translation ---
 
-std::string bundle_to_xct(const std::string& b) {
+// `g4` selects the Gemma4 tensor contract: post_attention_norm is the
+// post-attention norm (xct `norm_attn`) and the pre-FFN norm lives at
+// pre_feedforward_norm (`norm2`); generic bundles keep the legacy
+// two-norm reading where post_attention_norm feeds the FFN (`norm2`).
+std::string bundle_to_xct(const std::string& b, bool g4 = false) {
     static const std::unordered_map<std::string, std::string> fixed = {
         {"model.embeddings.word_embeddings.weight", "embed"},
         {"lm_head.weight", "lm_head"},
         {"model.final_norm.weight", "norm_f"},
+        {"model.embed_tokens_per_layer.weight", "embed_ple"},
+        {"model.per_layer_model_projection.weight", "ple_model_proj"},
+        {"model.per_layer_projection_norm.weight", "ple_proj_norm"},
     };
     auto it = fixed.find(b);
     if (it != fixed.end()) return it->second;
@@ -677,9 +684,32 @@ std::string bundle_to_xct(const std::string& b) {
     if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.input_norm\.weight$)")))
         return base + m[1].str() + ".norm1";
+    if (g4) {
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.attention\.(q|k)_norm\.weight$)")))
+            return base + m[1].str() + "." + m[2].str() + "_norm";
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.post_attention_norm\.weight$)")))
+            return base + m[1].str() + ".norm_attn";
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.pre_feedforward_norm\.weight$)")))
+            return base + m[1].str() + ".norm2";
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.post_feedforward_norm\.weight$)")))
+            return base + m[1].str() + ".norm_ffn";
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.per_layer_input_gate\.weight$)")))
+            return base + m[1].str() + ".ple_gate";
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.per_layer_projection\.weight$)")))
+            return base + m[1].str() + ".ple_proj";
+        if (std::regex_match(b, m,
+                std::regex(R"(^model\.layers\.(\d+)\.post_per_layer_input_norm\.weight$)")))
+            return base + m[1].str() + ".ple_post";
+    }
     if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.post_attention_norm\.weight$)")))
-        return base + m[1].str() + ".norm2";
+        return base + m[1].str() + (g4 ? ".norm_attn" : ".norm2");
     if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.attention\.(q|k|v|o)_proj\.weight$)"))) {
         char w = m[2].str()[0];
@@ -709,11 +739,14 @@ std::string bundle_to_xct(const std::string& b) {
     return "";
 }
 
-std::string xct_to_bundle(const std::string& n) {
+std::string xct_to_bundle(const std::string& n, bool g4 = false) {
     static const std::unordered_map<std::string, std::string> fixed = {
         {"embed", "model.embeddings.word_embeddings.weight"},
         {"lm_head", "lm_head.weight"},
         {"norm_f", "model.final_norm.weight"},
+        {"embed_ple", "model.embed_tokens_per_layer.weight"},
+        {"ple_model_proj", "model.per_layer_model_projection.weight"},
+        {"ple_proj_norm", "model.per_layer_projection_norm.weight"},
     };
     auto it = fixed.find(n);
     if (it != fixed.end()) return it->second;
@@ -721,8 +754,34 @@ std::string xct_to_bundle(const std::string& n) {
     std::string base = "model.layers.";
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.norm1$)")))
         return base + m[1].str() + ".input_norm.weight";
+    if (g4) {
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.(q|k)_norm$)")))
+            return base + m[1].str() + ".attention." + m[2].str() +
+                   "_norm.weight";
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.norm_attn$)")))
+            return base + m[1].str() + ".post_attention_norm.weight";
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.norm2$)")))
+            return base + m[1].str() + ".pre_feedforward_norm.weight";
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.norm_ffn$)")))
+            return base + m[1].str() + ".post_feedforward_norm.weight";
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.ple_gate$)")))
+            return base + m[1].str() + ".per_layer_input_gate.weight";
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.ple_proj$)")))
+            return base + m[1].str() + ".per_layer_projection.weight";
+        if (std::regex_match(n, m,
+                std::regex(R"(^layers\.(\d+)\.ple_post$)")))
+            return base + m[1].str() +
+                   ".post_per_layer_input_norm.weight";
+    }
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.norm2$)")))
-        return base + m[1].str() + ".post_attention_norm.weight";
+        return base + m[1].str() + (g4 ? ".pre_feedforward_norm.weight"
+                                       : ".post_attention_norm.weight");
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.w([qkvo])$)"))) {
         char w = m[2].str()[0];
         return base + m[1].str() + ".attention." + w + "_proj.weight";
@@ -754,35 +813,24 @@ std::string xct_to_bundle(const std::string& n) {
 // ------------------------------------------------------- import-bundle ----
 
 xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
+    // Shared parser (job.json + manifest config + distill student config)
+    // — also validates the Gemma4 profile fail-closed.
     xct::ModelConfig c;
-    c.vocab = (int)xct::j_num(&cfg, "vocab_size", c.vocab);
-    c.hidden = (int)xct::j_num(&cfg, "hidden_size", c.hidden);
-    c.inter = (int)xct::j_num(&cfg, "intermediate_size", c.inter);
-    c.layers = (int)xct::j_num(&cfg, "num_hidden_layers", c.layers);
-    c.heads = (int)xct::j_num(&cfg, "num_attention_heads", c.heads);
-    c.kv_heads = (int)xct::j_num(&cfg, "num_key_value_heads", c.heads);
-    c.max_pos = (int)xct::j_num(&cfg, "max_position_embeddings", c.max_pos);
-    c.rope_theta = (float)xct::j_num(&cfg, "rope_theta", c.rope_theta);
-    c.rms_eps = (float)xct::j_num(&cfg, "rms_norm_eps", c.rms_eps);
-    c.moe_aux_w = (float)xct::j_num(&cfg, "moe_aux_loss_weight", c.moe_aux_w);
-    bool use_moe = false;
-    const JsonValue* um = cfg.get("use_moe");
-    if (um && um->type == JsonValue::Type::Bool) use_moe = um->boolean;
-    if (use_moe) {
-        c.moe_experts = (int)xct::j_num(&cfg, "moe_num_experts", 0);
-        c.moe_top_k = (int)xct::j_num(&cfg, "moe_top_k", c.moe_top_k);
-        c.moe_layer_interval =
-            (int)xct::j_num(&cfg, "moe_layer_interval", c.moe_layer_interval);
-        c.moe_expert_inter =
-            (int)xct::j_num(&cfg, "moe_expert_intermediate_size", 0);
-        c.moe_shared_experts =
-            (int)xct::j_num(&cfg, "moe_num_shared_experts", 0);
-        c.moe_shared_inter =
-            (int)xct::j_num(&cfg, "moe_shared_intermediate_size", 0);
-    } else {
+    try {
+        c = xct::parse_model(&cfg);
+    } catch (const char* e) {
+        fail(std::string("CONFIG_INVALID:") + e);
+    }
+    const bool use_moe = xct::j_bool(&cfg, "use_moe", false);
+    if (!use_moe) {
         c.moe_experts = 0;
         c.moe_shared_experts = 0;
+        c.moe_expert_inter = 0;
+        c.moe_shared_inter = 0;
     }
+    if (c.is_gemma4() &&
+        (use_moe || xct::j_bool(&cfg, "enable_moe_block", false)))
+        fail("CONFIG_GEMMA4_MOE_UNSUPPORTED");
     return c;
 }
 
@@ -801,9 +849,9 @@ int64_t numel_of(const JsonValue& shape) {
 
 // Loads a bundle directory into xct Params (fp32). Fails closed on any
 // dtype/shape/contract violation — shared by import-bundle and
-// distill-init.
-void load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
-                        xct::Params& p) {
+// distill-init. Returns the number of filled tensors.
+size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
+                          xct::Params& p) {
     JsonValue manifest = parse_json_file((bundle / "manifest.json").string());
     const JsonValue* cfg = manifest.get("config");
     const JsonValue* tensors = manifest.get("tensors");
@@ -817,7 +865,7 @@ void load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
     std::unordered_set<std::string> filled;
     std::vector<std::string> unmapped;
     for (const auto& [name, info] : tensors->object) {
-        std::string xname = bundle_to_xct(name);
+        std::string xname = bundle_to_xct(name, c.is_gemma4());
         if (xname.empty()) { unmapped.push_back(name); continue; }
         auto wIt = p.w.find(xname);
         if (wIt == p.w.end()) fail("IMPORT_CONFIG_SHAPE_MISMATCH:" + xname);
@@ -844,6 +892,7 @@ void load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
     }
     for (const auto& n : p.order)
         if (!filled.count(n)) fail("IMPORT_MISSING_TENSOR:" + n);
+    return filled.size();
 }
 
 int mode_import_bundle(const Args& a) {
@@ -852,13 +901,13 @@ int mode_import_bundle(const Args& a) {
     if (bundle.empty() || out.empty()) fail("IMPORT_ARGS_MISSING");
     xct::ModelConfig c;
     xct::Params p;
-    load_bundle_params(bundle, c, p);
+    const size_t filled = load_bundle_params(bundle, c, p);
     if (!xct::ckpt_save(p, c, out, /*overwrite=*/false))
         fail("IMPORT_CKPT_WRITE_FAILED:" + out);
     std::printf("{\"ok\":true,\"mode\":\"import-bundle\",\"out\":\"%s\","
                 "\"ckpt_sha256\":\"%s\",\"tensors\":%zu}\n",
                 gptbridge::jsonlite::json_escape(out).c_str(),
-                sha256_file(out).c_str(), filled.size());
+                sha256_file(out).c_str(), filled);
     return 0;
 }
 
@@ -930,6 +979,9 @@ int mode_distill_init(const Args& a) {
     copy("embed", "embed");
     copy("lm_head", "lm_head");
     copy("norm_f", "norm_f");
+    copy("embed_ple", "embed_ple");
+    copy("ple_model_proj", "ple_model_proj");
+    copy("ple_proj_norm", "ple_proj_norm");
 
     // Teacher dense-MLP pool (layers carrying layers.N.w1).
     std::vector<int> dense_layers;
@@ -944,8 +996,12 @@ int mode_distill_init(const Args& a) {
                      ? (int)std::lround((double)l * (tc.layers - 1) /
                                         (sc.layers - 1))
                      : 0;
+        // G4 extras are copied only when both sides carry them (the
+        // shape check already fails closed on generic/G4 mixing).
         for (const char* t :
-             {"norm1", "wq", "wk", "wv", "wo", "norm2"})
+             {"norm1", "wq", "wk", "wv", "wo", "norm2", "q_norm",
+              "k_norm", "norm_attn", "norm_ffn", "ple_gate", "ple_proj",
+              "ple_post"})
             copy(xct::ln(l, t), xct::ln(tl, t));
         int ml = tl;
         if (!tp.w.count(xct::ln(tl, "w1"))) {
@@ -1016,7 +1072,7 @@ int mode_export_bundle(const Args& a) {
     std::vector<std::pair<std::string, std::string>> pairs;
     pairs.reserve(p.order.size());
     for (const auto& n : p.order) {
-        std::string b = xct_to_bundle(n);
+        std::string b = xct_to_bundle(n, c.is_gemma4());
         if (b.empty()) fail("EXPORT_UNMAPPED_TENSOR:" + n);
         pairs.emplace_back(b, n);
     }

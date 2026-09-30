@@ -279,6 +279,51 @@ static int smoke() {
               std::isfinite(l1) && l1 < l0;
     std::printf("smoke: loss_first=%.4f loss_last=%.4f finite=%d -> %s\n",
                 l0, l1, (int)r.get("params_finite")->boolean, ok ? "PASS" : "FAIL");
+
+    // Gemma4-mini leg: hybrid layers (sliding/full), 1 shared tail layer
+    // (kv-owner = layer 1), PLE, dual rope, gelu-tanh, softcap, tied emb.
+    std::string job4 = R"({
+        "task":"sft",
+        "model":{"model_type":"gemma4_text","vocab_size":64,"hidden_size":32,
+                 "intermediate_size":64,"num_hidden_layers":4,
+                 "num_attention_heads":4,"num_key_value_heads":2,
+                 "head_dim":8,"global_head_dim":16,"sliding_window":4,
+                 "num_kv_shared_layers":1,"hidden_size_per_layer_input":8,
+                 "rope_theta":10000.0,
+                 "rope_parameters":{"full_attention":{"rope_theta":1000000.0,
+                                    "partial_rotary_factor":0.25}},
+                 "final_logit_softcapping":30.0,
+                 "hidden_activation":"gelu_pytorch_tanh",
+                 "tie_word_embeddings":true,
+                 "layer_types":["sliding_attention","full_attention",
+                                "sliding_attention","full_attention"],
+                 "max_position_embeddings":32},
+        "train":{"lr":0.05,"max_steps":30,"grad_clip":1.0,"warmup_steps":0,
+                 "lr_decay":"constant","seed":7,"log_every":5},
+        "data":{"path":"","format":"sft","max_rows":8,"max_len":12}
+    })";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        std::mt19937 rng(7);
+        std::uniform_int_distribution<int> tok(3, 63);
+        for (int i = 0; i < 8; ++i) {
+            f << "{\"input_ids\":[";
+            for (int t = 0; t < 12; ++t) f << (t ? "," : "") << tok(rng);
+            f << "]}\n";
+        }
+    }
+    std::string::size_type p4 = job4.find("\"path\":\"\"");
+    job4.replace(p4, 9, "\"path\":\"" + tmp + "\"");
+    JsonValue j4 = JsonParser(job4).parse();
+    JsonValue r4 = run_job(j4);
+    std::remove(tmp.c_str());
+    double g0 = r4.get("loss_first")->number, g1 = r4.get("loss_last")->number;
+    bool ok4 = r4.get("params_finite")->boolean && std::isfinite(g0) &&
+               std::isfinite(g1) && g1 < g0;
+    std::printf("smoke-gemma4: loss_first=%.4f loss_last=%.4f finite=%d -> %s\n",
+                g0, g1, (int)r4.get("params_finite")->boolean,
+                ok4 ? "PASS" : "FAIL");
+    ok = ok && ok4;
     std::fputs(gptbridge::jsonlite::json_serialize(r).c_str(), stdout);
     std::fputc('\n', stdout);
     return ok ? 0 : 1;

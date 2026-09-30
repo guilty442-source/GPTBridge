@@ -6,6 +6,11 @@
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale) {
+    if (c.is_gemma4()) {
+        (void)aux_scale;
+        bwd_g4(p, c, ids, o, dlogits);
+        return;
+    }
     const int T = (int)ids.size();
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;

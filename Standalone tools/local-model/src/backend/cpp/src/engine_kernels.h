@@ -301,6 +301,16 @@ std::string json_escape(const std::string& text) {
     return out;
 }
 
+// final_logit_softcapping: logits = cap * tanh(logits / cap); the cap
+// is a config field (Gemma4 uses 30.0) so a non-positive value is a
+// no-op rather than a hard gate.
+void logit_softcap(std::vector<double>& logits, double cap) {
+    if (cap <= 0.0) return;
+    for (double& value : logits) {
+        value = cap * std::tanh(value / cap);
+    }
+}
+
 }  // namespace
 
 // ── Weight blob memory mapping (P3b) ──────────────────────────────────

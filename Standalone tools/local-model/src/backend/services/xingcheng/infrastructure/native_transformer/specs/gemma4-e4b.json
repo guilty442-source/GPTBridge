@@ -1,0 +1,73 @@
+{
+    "schema": "star-native-model-spec/v1",
+    "name": "gemma4-e4b",
+    "provenance": {
+        "source": "https://huggingface.co/google/gemma-4-E4B-it/raw/main/config.json",
+        "note": "text_config subset; vision/audio towers are out of scope for this lane"
+    },
+    "config": {
+        "model_type": "gemma4_text",
+        "vocab_size": 262144,
+        "hidden_size": 2560,
+        "intermediate_size": 10240,
+        "num_hidden_layers": 42,
+        "num_attention_heads": 8,
+        "num_key_value_heads": 2,
+        "head_dim": 256,
+        "global_head_dim": 512,
+        "max_position_embeddings": 131072,
+        "sliding_window": 512,
+        "num_kv_shared_layers": 18,
+        "hidden_size_per_layer_input": 256,
+        "vocab_size_per_layer_input": 262144,
+        "hidden_activation": "gelu_pytorch_tanh",
+        "final_logit_softcapping": 30.0,
+        "rope_theta": 10000.0,
+        "rope_parameters": {
+            "full_attention": {
+                "rope_theta": 1000000.0,
+                "partial_rotary_factor": 0.25
+            }
+        },
+        "rms_norm_eps": 1e-06,
+        "tie_word_embeddings": true,
+        "layer_types": [
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention",
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention",
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention",
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention",
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention",
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention",
+            "sliding_attention", "sliding_attention", "sliding_attention",
+            "sliding_attention", "sliding_attention", "full_attention"
+        ]
+    },
+    "derived_invariants": {
+        "full_attention_layers": [5, 11, 17, 23, 29, 35, 41],
+        "kv_shared_tail_layers": [24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+                                  34, 35, 36, 37, 38, 39, 40, 41],
+        "kv_anchor": {
+            "sliding_attention": 22,
+            "full_attention": 23
+        },
+        "embedding_scale": "sqrt(hidden_size) = 50.59644256269407",
+        "attention_scale": "1.0 (query_pre_attn_scalar disables head-dim scaling)",
+        "full_attention_rotary_dims": 256,
+        "q_dim_sliding": 2048,
+        "q_dim_full": 4096,
+        "kv_dim_sliding": 512,
+        "kv_dim_full": 1024
+    },
+    "unsupported": {
+        "enable_moe_block": "dense E-family lane only; MoE fails closed",
+        "vision_config": "not implemented on this lane",
+        "audio_config": "not implemented on this lane",
+        "use_double_wide_mlp": "E4B ships standard-width MLPs; flag is parsed for M-family parity"
+    }
+}

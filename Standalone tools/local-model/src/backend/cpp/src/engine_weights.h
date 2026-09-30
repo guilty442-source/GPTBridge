@@ -105,7 +105,24 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
     cfg.use_swiglu = json_bool(config_json, "use_swiglu");
     cfg.tie_word_embeddings = json_bool(config_json, "tie_word_embeddings");
     cfg.norm_type = json_string(config_json, "norm_type");
-    cfg.hidden_act = json_string(config_json, "hidden_act");
+    cfg.hidden_act.clear();
+    if (const JsonValue* v = json_optional(config_json, "hidden_act")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError("JSON_STRING_EXPECTED:hidden_act");
+        cfg.hidden_act = v->string;
+    }
+    if (cfg.hidden_act.empty()) {
+        // HF config name for the same field.
+        if (const JsonValue* v =
+                json_optional(config_json, "hidden_activation")) {
+            if (v->type != JsonValue::Type::String)
+                throw InferenceError("JSON_STRING_EXPECTED:hidden_activation");
+            cfg.hidden_act = v->string;
+        }
+    }
+    if (cfg.hidden_act.empty()) {
+        throw InferenceError("JSON_FIELD_MISSING:hidden_act");
+    }
     cfg.position_embedding_type = json_string(config_json, "position_embedding_type");
     cfg.use_moe = json_bool(config_json, "use_moe");
     // MoE shape fields are optional in the manifest: bundles exported
@@ -143,6 +160,116 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
         cfg.moe_shared_intermediate_size = static_cast<int64_t>(v->number);
     }
     cfg.quantization = json_string(config_json, "quantization");
+    // Gemma4 profile — every field optional; the profile activates
+    // when layer_types is present (per-layer-type attention) or the
+    // manifest declares the gemma4 family (layer_types then required
+    // by validation, fail-closed when absent).
+    if (const JsonValue* v = json_optional(config_json, "model_type")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError("JSON_STRING_EXPECTED:model_type");
+        cfg.model_family = v->string;
+    }
+    if (cfg.model_family.empty()) {
+        if (const JsonValue* v =
+                json_optional(config_json, "model_family")) {
+            if (v->type != JsonValue::Type::String)
+                throw InferenceError("JSON_STRING_EXPECTED:model_family");
+            cfg.model_family = v->string;
+        }
+    }
+    if (const JsonValue* v = json_optional(config_json, "layer_types")) {
+        if (v->type != JsonValue::Type::Array)
+            throw InferenceError("JSON_ARRAY_EXPECTED:layer_types");
+        for (const JsonValue& item : v->array) {
+            if (item.type != JsonValue::Type::String)
+                throw InferenceError("JSON_STRING_EXPECTED:layer_types");
+            cfg.layer_types.push_back(item.string);
+        }
+    }
+    if (const JsonValue* v = json_optional(config_json, "sliding_window")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:sliding_window");
+        cfg.sliding_window = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "global_head_dim")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:global_head_dim");
+        cfg.global_head_dim = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "rope_parameters")) {
+        if (v->type != JsonValue::Type::Object)
+            throw InferenceError("JSON_OBJECT_EXPECTED:rope_parameters");
+        if (const JsonValue* full = json_optional(*v, "full_attention")) {
+            if (full->type == JsonValue::Type::Object) {
+                if (const JsonValue* t = json_optional(*full, "rope_theta"))
+                    cfg.rope_theta_full = t->number;
+                if (const JsonValue* f = json_optional(*full, "partial_rotary_factor"))
+                    cfg.rope_partial_factor_full = f->number;
+            }
+        }
+        // sliding_attention.rope_theta overrides the top-level
+        // rope_theta for sliding layers when present.
+        if (const JsonValue* sw = json_optional(*v, "sliding_attention")) {
+            if (sw->type == JsonValue::Type::Object) {
+                if (const JsonValue* t = json_optional(*sw, "rope_theta"))
+                    cfg.rope_theta = t->number;
+            }
+        }
+    }
+    if (const JsonValue* v = json_optional(config_json, "num_kv_shared_layers")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:num_kv_shared_layers");
+        cfg.num_kv_shared_layers = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "hidden_size_per_layer_input")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:hidden_size_per_layer_input");
+        cfg.hidden_size_per_layer_input = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "vocab_size_per_layer_input")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:vocab_size_per_layer_input");
+        cfg.vocab_size_per_layer_input = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "final_logit_softcapping")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUMBER_EXPECTED:final_logit_softcapping");
+        cfg.final_logit_softcapping = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json, "embedding_scale")) {
+        if (v->type == JsonValue::Type::Number) {
+            cfg.embedding_scale = v->number;
+        } else if (v->type == JsonValue::Type::String &&
+                   v->string == "sqrt_hidden_size") {
+            cfg.embedding_scale = -1.0;   // resolved in load()
+        } else {
+            throw InferenceError("JSON_NUMBER_EXPECTED:embedding_scale");
+        }
+    }
+    if (const JsonValue* v = json_optional(config_json, "attention_scale")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUMBER_EXPECTED:attention_scale");
+        cfg.attention_scale = v->number;
+    }
+    if (const JsonValue* v =
+            json_optional(config_json, "query_pre_attn_scalar")) {
+        // HF name: attention scale = query_pre_attn_scalar ** -0.5.
+        if (v->type != JsonValue::Type::Number || v->number <= 0.0)
+            throw InferenceError("JSON_NUMBER_EXPECTED:query_pre_attn_scalar");
+        if (cfg.attention_scale == 0.0) {
+            cfg.attention_scale = std::pow(v->number, -0.5);
+        }
+    }
+    if (const JsonValue* v = json_optional(config_json, "attention_k_eq_v")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:attention_k_eq_v");
+        cfg.attention_k_eq_v = v->boolean;
+    }
+    if (const JsonValue* v = json_optional(config_json, "use_double_wide_mlp")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:use_double_wide_mlp");
+        cfg.use_double_wide_mlp = v->boolean;
+    }
 
     const std::string weights_name = json_string(manifest, "weights_file");
     bundle.weights_sha256_ = json_string(manifest, "weights_sha256");

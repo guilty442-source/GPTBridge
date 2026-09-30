@@ -62,11 +62,15 @@ static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
     }
 }
 
-static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
+// rotary pairs layout (i,i+1); `rotary` bounds the rotated dims —
+// pairs at i >= rotary pass through (partial-RoPE NoPE tail).
+static void rope_ex(float* v, int T, int nh, int hd, float theta,
+                    int rotary, bool inverse) {
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
-            for (int i = 0; i + 1 < hd; i += 2) {
+            const int lim = std::min(hd, rotary);
+            for (int i = 0; i + 1 < lim; i += 2) {
                 float fr = std::pow(theta, -(float)i / hd);
                 float c = std::cos(t * fr), s = std::sin(t * fr);
                 if (inverse) s = -s;
@@ -77,7 +81,34 @@ static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
         }
 }
 
+static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
+    rope_ex(v, T, nh, hd, theta, hd, inverse);
+}
+
 static inline float silu_f(float x) { return x / (1.0f + std::exp(-x)); }
+
+// gelu_pytorch_tanh (HF ACT2FN name used by Gemma4 hidden_activation).
+static inline float gelu_tanh_f(float x) {
+    constexpr float c = 0.7978845608028654f;   // sqrt(2/pi)
+    const float u = c * (x + 0.044715f * x * x * x);
+    return 0.5f * x * (1.0f + std::tanh(u));
+}
+static inline float gelu_tanh_d(float x) {
+    constexpr float c = 0.7978845608028654f;
+    const float u = c * (x + 0.044715f * x * x * x);
+    const float t = std::tanh(u);
+    const float du = c * (1.0f + 3.0f * 0.044715f * x * x);
+    return 0.5f * (1.0f + t) + 0.5f * x * (1.0f - t * t) * du;
+}
+// act dispatch: gelu_pytorch_tanh when configured, silu otherwise.
+static inline float act_f(const ModelConfig& c, float x) {
+    return c.hidden_act == "gelu_pytorch_tanh" ? gelu_tanh_f(x) : silu_f(x);
+}
+static inline float act_d(const ModelConfig& c, float x) {
+    if (c.hidden_act == "gelu_pytorch_tanh") return gelu_tanh_d(x);
+    const float s = silu_f(x);
+    return s * (1.0f + x * (1.0f - s) / (s == 0.0f ? 1.0f : s));
+}
 
 // --------------------------------------------------------------- forward --
 
@@ -94,17 +125,41 @@ struct LayerCache {
     std::vector<std::vector<float>> sfa, sfb, sfh; // [shared][T*shared_inter]
 };
 
+// Gemma4 per-layer forward cache (post-norm/post-rope states are what
+// attention consumes; pre-norm projections + rms stats serve backward).
+struct G4Layer {
+    std::vector<float> x_in, n1, rms1;
+    std::vector<float> q_proj, rms_q, q;          // q: post q_norm+rope
+    std::vector<float> k_proj, rms_k, k;          // owner only; post rope
+    std::vector<float> v_proj, rms_v, v;          // owner only; post norm
+    std::vector<float> probs, attn_out;
+    std::vector<float> o_pre, rms_attn, x_mid;    // post-attn residual
+    std::vector<float> n2, rms2, fa, fb, fh;
+    std::vector<float> ffn_pre, rms_ffn, x_ple;   // post-ffn residual
+    std::vector<float> ple_g, ple_ga;             // pre/post gelu*ple_in
+    std::vector<float> ple_p, rms_ple;
+};
+
 struct Fwd {
-    std::vector<float> logits;   // [T,V]
+    std::vector<float> logits;   // [T,V] post-softcap
+    std::vector<float> logits_pre;   // [T,V] pre-softcap (bwd jacobian)
     std::vector<float> hidden;   // post final norm [T,H]
     std::vector<float> x_fin;    // pre final norm [T,H]
     std::vector<float> rmsf;     // [T]
     std::vector<LayerCache> layers;
+    std::vector<G4Layer> g4l;
+    // PLE pipeline caches (model level): x0 = scaled embed output,
+    // ple_in[T,L,ple] inputs, ctx_norm input + rms for the proj-norm bwd.
+    std::vector<float> g4_x0, g4_ple_in, g4_ctx_in, g4_ctx_rms;
     float moe_aux = 0.0f;
 };
 
+static void fwd_g4(const Params& p, const ModelConfig& c,
+                   const std::vector<int>& ids, Fwd& o);
+
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o) {
+    if (c.is_gemma4()) { fwd_g4(p, c, ids, o); return; }
     const int T = (int)ids.size();
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;
