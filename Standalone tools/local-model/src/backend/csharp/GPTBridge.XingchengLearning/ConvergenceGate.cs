@@ -333,6 +333,65 @@ internal static class ConvergenceGate
                     : Fail("MTP_DRAFT_PROBE_UNTYPED",
                            tail[..clip(200)]);
             })),
+            new("mixed-precision-contract", true, () => NeedBundle(() =>
+            {
+                // P4 MixedPrecisionExecution: BF16 production lanes,
+                // FP32 router/norm accumulate, INT8 KV, FP64 oracle
+                // only, FP8/FP4 DISABLED_BY_HARDWARE — never claimed.
+                var pol = MemoryCudaPlane.PrecisionPolicy;
+                foreach (var kv in new (string Key, string Want)[]
+                         { ("router", "FP32"),
+                           ("norm_accumulate", "FP32"),
+                           ("kv", "INT8"),
+                           ("fp64_role", "ORACLE_ONLY"),
+                           ("fp8", "DISABLED_BY_HARDWARE"),
+                           ("fp4", "DISABLED_BY_HARDWARE") })
+                    if (!pol.TryGetValue(kv.Key, out string? got) ||
+                        got != kv.Want)
+                        return Fail("PRECISION_POLICY_DRIFT",
+                            $"{kv.Key}={got ?? "<missing>"} " +
+                            $"(want {kv.Want})");
+                string log = Path.Combine(toolRoot,
+                    ReportRel.Replace('/', Path.DirectorySeparatorChar),
+                    "gate-stderr.log");
+                int Clip(string s, int n) =>
+                    Math.Min(n, s.Length);
+                // 1) BF16 GEMM certification vs the FP64 oracle
+                //    (cuBLAS-fp64 reference + NVRTC bf16 lane).
+                var r = NativeTools.Run(toolExe,
+                    new[] { "bf16-cert" }, toolRoot, log, 300);
+                string tail = r.StdoutTail.Trim();
+                if (r.ExitCode != 0)
+                    return Fail("BF16_CERT_FAILED",
+                        tail[..Clip(tail, 200)]);
+                if (!tail.Contains("BF16_GEMM_CERTIFIED",
+                        StringComparison.Ordinal))
+                    return Fail("BF16_CERT_UNCERTIFIED",
+                        tail[..Clip(tail, 200)]);
+                // 2) blockwise quant cert on the shipped bundle under
+                //    the governed per-class policy.
+                r = NativeTools.Run(toolExe,
+                    new[] { "quant-cert", "--bundle", bundle! },
+                    toolRoot, log, 600);
+                tail = r.StdoutTail.Trim();
+                if (r.ExitCode != 0)
+                    return Fail("QUANT_CERT_FAILED",
+                        tail[..Clip(tail, 200)]);
+                // 3) fail-closed evidence: demoting the router to int8
+                //    must be rejected, never silently admitted.
+                r = NativeTools.Run(toolExe,
+                    new[] { "quant-cert", "--bundle", bundle!,
+                            "--router", "int8" },
+                    toolRoot, log, 600);
+                tail = r.StdoutTail.Trim();
+                if (r.ExitCode == 0 ||
+                    !tail.Contains("ROUTER_PRECISION_VIOLATION",
+                        StringComparison.Ordinal))
+                    return Fail("QUANT_POLICY_NOT_FAIL_CLOSED",
+                        tail[..Clip(tail, 200)]);
+                return Pass(
+                    "bf16-cert + quant-cert + policy floor verified");
+            })),
             // ---------- hardware / provenance / audit ----------
             new("cuda-probe", false, () =>
                 Native(toolRoot, toolExe, "probe-cuda")),
