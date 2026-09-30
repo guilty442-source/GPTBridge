@@ -618,6 +618,20 @@ internal static class Program
         var reloaded = ModelLifecycle.Load(lcDir);
         if (reloaded.ActiveWeightsVersion != 2)
             throw new InvalidOperationException("lifecycle reload mismatch");
+        // 世代繼任契約：v2 啟用時自動攜入 v1 完整記錄 —— 刪除前代後其
+        // 資料仍保留在新代 metadata.succeeded_from 內。
+        bool successionRecorded = false;
+        if (reloaded.Artifacts.TryGetValue("weights", out var wg) &&
+            wg.TryGetValue("versions", out object? wv) &&
+            wv is List<object?> wlist)
+            foreach (object? item in wlist)
+                if (item is Dictionary<string, object?> e &&
+                    Convert.ToInt32(e["version"]) == 2 &&
+                    e["metadata"] is Dictionary<string, object?> em &&
+                    em["succeeded_from"] is Dictionary<string, object?> sf &&
+                    Convert.ToInt32(sf["version"]) == 1 &&
+                    sf["sha256"] is string sfs && sfs.Length > 0)
+                    successionRecorded = true;
         reloaded.GovernedRollbackWeights(
             1, "selftest-fp", excludeVersions: new[] { 2 });
         if (reloaded.ActiveWeightsVersion != 1)
@@ -628,6 +642,9 @@ internal static class Program
             reloaded.GovernedRollbackWeights(2, "wrong-fp");
         }
         catch (ArgumentException) { denied = true; }
+        // Fail-closed: the active generation is never retired by the
+        // supersession path even when a successor nominates it.
+        bool retireActiveDenied = reloaded.RetireWeightVersion(1, 2) == null;
         var retired = reloaded.RetireWeights(keepLatest: 1);
         reloaded.Save(lcDir);
         steps.Add(new Dictionary<string, object?>
@@ -635,12 +652,15 @@ internal static class Program
             ["step"] = "lifecycle",
             ["active_version"] = reloaded.ActiveWeightsVersion,
             ["rollback_denied_on_bad_fingerprint"] = denied,
+            ["succession_recorded"] = successionRecorded,
+            ["retire_active_denied"] = retireActiveDenied,
             ["retired_versions"] = retired
                 .Select(e => (object?)e["version"]).ToList(),
         });
         return new Dictionary<string, object?>
         {
-            ["ok"] = denied && reloaded.ActiveWeightsVersion == 1 &&
+            ["ok"] = denied && successionRecorded && retireActiveDenied &&
+                     reloaded.ActiveWeightsVersion == 1 &&
                      TransformerTrainingRepository.Truthy(
                          eval.GetValueOrDefault("ok")),
             ["steps"] = steps,

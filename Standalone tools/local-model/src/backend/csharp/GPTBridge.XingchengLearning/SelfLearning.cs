@@ -107,6 +107,41 @@ internal static class SelfLearning
         }
     }
 
+    // 世代繼任刪除（能力/架構升級後刪除前代）：前代 bundle 只在新代
+    // 記錄已攜帶其血統（metadata.succeeded_from，啟用時由
+    // ModelLifecycle 自動寫入）且 lifecycle 已先持久化後才實體刪除——
+    // 前代資料保留在新代，缺繼任記錄時 fail-closed 保留前代。刪除成功後
+    // 把前代條目由 versions 移入 retired 並標記 deleted_at /
+    // data_carried_to，活版本表不留死路徑、retired 保留完整資料。
+    private static bool PruneSupersededGeneration(
+        ModelLifecycle lifecycle, string lifecycleDir, string toolRoot,
+        string previous, string keep,
+        Dictionary<string, object?>? newEntry)
+    {
+        if (newEntry == null ||
+            !newEntry.TryGetValue("metadata", out object? m) ||
+            m is not Dictionary<string, object?> meta ||
+            meta["succeeded_from"] is not Dictionary<string, object?> sf)
+            return false;   // 前代資料尚未攜入新代 → 禁止刪除
+        int prevVersion = -1;
+        if (sf.TryGetValue("version", out object? sv) && sv != null)
+            prevVersion = Convert.ToInt32(sv);
+        lifecycle.Save(lifecycleDir);   // 資料先落地，刪除在後
+        if (!RetirePreviousArtifact(previous, keep, toolRoot))
+            return false;
+        if (prevVersion > 0)
+        {
+            var moved = lifecycle.RetireWeightVersion(
+                prevVersion, Convert.ToInt32(newEntry["version"]));
+            if (moved != null)
+            {
+                moved["deleted_at"] = IsoNow();
+                lifecycle.Save(lifecycleDir);
+            }
+        }
+        return true;
+    }
+
     /// <summary>Canonical config fingerprint of a weights artifact —
     /// bundle manifest ``config`` or the .xcn header. Null when
     /// unresolvable (rollback eligibility is deny-by-default).</summary>
@@ -1399,6 +1434,7 @@ internal static class SelfLearning
                     {
                         ["job_id"] = jobId,
                         ["adapter_id"] = adapterId,
+                        ["dataset_id"] = dataset["dataset_id"],
                         ["origin"] = "self-learning",
                         ["new_examples"] = newExamples,
                         ["config_sha256"] =
@@ -1460,7 +1496,9 @@ internal static class SelfLearning
                           TransformerTrainingRepository.Truthy(
                               rbm.GetValueOrDefault("rolled_back"));
         if (action == "upgraded" && recheckOk && !rolledBack)
-            pruned = RetirePreviousArtifact(activePath, artifact, tool);
+            pruned = PruneSupersededGeneration(
+                lifecycle, lifecycleDir, tool, activePath, artifact,
+                newEntry);
         summary["previous_weights_pruned"] = pruned;
 
         var finalState = new Dictionary<string, object?>(state)
