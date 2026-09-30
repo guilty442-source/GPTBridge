@@ -239,6 +239,19 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("JSON_NUM_EXPECTED:yarn_attention_factor");
         cfg.yarn_attention_factor = v->number;
     }
+    if (const JsonValue* v =
+            json_optional(config_json, "num_nextn_predict_layers")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError(
+                "JSON_INT_EXPECTED:num_nextn_predict_layers");
+        cfg.num_nextn_predict_layers = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v =
+            json_optional(config_json, "mtp_stack_depth")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:mtp_stack_depth");
+        cfg.mtp_stack_depth = static_cast<int64_t>(v->number);
+    }
     for (const auto& field : {
              "linear_num_key_heads", "linear_key_head_dim",
              "linear_num_value_heads", "linear_value_head_dim",
