@@ -38,23 +38,29 @@ internal static class InstructionRecovery
     {
         "context_tracking" => "star-context-eval-result/v1",
         "multi_turn" => "star-multiturn-eval-result/v1",
+        "structured_output" => "star-structured-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
     {
         "context_tracking" => "star-context-recovery-dataset/v1",
         "multi_turn" => "star-multiturn-recovery-dataset/v1",
+        "structured_output" =>
+            "star-structured-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
     {
         "context_tracking" => "star-context-recovery-eval-20261001",
         "multi_turn" => "star-multiturn-recovery-eval-20261001",
+        "structured_output" =>
+            "star-structured-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
-        { "instruction_following", "context_tracking", "multi_turn" };
+        { "instruction_following", "context_tracking", "multi_turn",
+          "structured_output" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -87,11 +93,24 @@ internal static class InstructionRecovery
         ("role_consistency", 0.10),
         ("multi_step_state", 0.10),
     };
+    // §9 maturation spec order: validity and schema dominate; enum /
+    // nested / array conformance are real but secondary surfaces.
+    private static readonly (string metric, double w)[]
+        StructuredMetricWeights =
+    {
+        ("json_valid", 0.25),
+        ("schema_conformant", 0.20),
+        ("typed_fields", 0.20),
+        ("enum_membership", 0.15),
+        ("nested_objects", 0.10),
+        ("arrays", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
             "context_tracking" => ContextMetricWeights,
             "multi_turn" => MultiTurnMetricWeights,
+            "structured_output" => StructuredMetricWeights,
             _ => InstructionMetricWeights,
         };
 
@@ -1412,6 +1431,201 @@ internal static class InstructionRecovery
                 Completion = $"{tasks[0]}和{tasks[1]}",
                 Category = "F",
                 Rule = $"exact:{tasks[0]}和{tasks[1]}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        return rows;
+    }
+
+    // ------------------------------------------------- structured_out --
+
+    // Training pools — eval values are deliberately outside these.
+    private static readonly string[] SoNames =
+        { "明華", "淑芬", "志豪", "雅婷", "建宏", "美玲", "宗翰",
+          "怡君", "家豪", "佳穎" };
+    private static readonly string[] SoTitles =
+        { "夜航西飛", "山海經", "紅樓夢", "鄉土劇場", "島嶼日記",
+          "巷口食記" };
+    private static readonly string[] SoAuthors =
+        { "三毛", "曹雪芹", "吳明益", "陳冠中", "駱以軍" };
+    private static readonly string[] SoLevels =
+        { "high", "medium", "low" };
+    private static readonly string[] SoStates =
+        { "已完成", "進行中", "待處理" };
+
+    // Structured-output recovery — the capability is emitting exactly
+    // one JSON payload and nothing else: correct fields, correct value
+    // TYPES (unquoted numbers / literal booleans), enum membership and
+    // nesting. Every row's completion is one raw JSON object — a
+    // prose-wrapped answer is a negative sample even when the JSON
+    // inside parses (§9 invalid output is never positive).
+    private static IEnumerable<Row> GenerateStructuredOutput(
+        int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        bool Hard() => r.Next(4) == 0;
+        string Name() => Take(r, SoNames);
+
+        // -- A. json_valid (~25%) — bare object, nothing else. --------
+        for (int i = 0; i < count / 4; i++)
+        {
+            var t = Take(r, ZhTopics);
+            string item = Take(r, t.items);
+            int k = 1 + r.Next(9);
+            Add(new Row
+            {
+                Prompt = $"只輸出 JSON 物件，不要任何其他文字："
+                       + $"{{\"name\": \"{item}\", \"count\": {k}}}",
+                Completion = $"{{\"name\":\"{item}\",\"count\":{k}}}",
+                Category = "A",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        // ok-echo rows — the degenerate valid-object instruction.
+        foreach (bool b in new[] { true, false })
+            for (int i = 0; i < 8; i++)
+                Add(new Row
+                {
+                    Prompt = $"只輸出 JSON：{{\"ok\": "
+                             + (b ? "true" : "false") + "}。"
+                             + "不要其他文字。",
+                    Completion = $"{{\"ok\":{(b ? "true" : "false")}}}",
+                    Category = "A",
+                    Rule = "json_obj",
+                });
+
+        // -- B. schema_conformant (~20%) — exact keys, declared order. --
+        for (int i = 0; i < count / 10; i++)
+        {
+            string title = Take(r, SoTitles);
+            string author = Take(r, SoAuthors);
+            int year = 1950 + r.Next(74);
+            Add(new Row
+            {
+                Prompt = $"回傳 JSON，欄位只能是 title、author、year"
+                       + $"（照此順序）。title={title},author={author},"
+                       + $"year={year}。只輸出 JSON。",
+                Completion = $"{{\"title\":\"{title}\","
+                           + $"\"author\":\"{author}\","
+                           + $"\"year\":{year}}}",
+                Category = "B",
+                Rule = "json_obj;field_order:title,author,year",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        // compact two-field schema.
+        for (int i = 0; i < count / 16; i++)
+        {
+            string id = $"T-{100 + r.Next(900)}";
+            string st = Take(r, SoStates);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON，恰好兩個欄位 id 與 state。"
+                       + $"id={id},state={st}。",
+                Completion = $"{{\"id\":\"{id}\",\"state\":\"{st}\"}}",
+                Category = "B",
+                Rule = "json_obj;field_order:id,state",
+            });
+        }
+
+        // -- C. typed_fields (~20%) — numbers unquoted, booleans
+        //    literal; a quoted number is a type error.
+        for (int i = 0; i < count / 10; i++)
+        {
+            int k = 2 + r.Next(48);
+            string label = Take(r, SoTitles);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：count 為整數（不要加引號），"
+                       + $"label 為字串。count={k},label={label}。"
+                       + "只輸出 JSON。",
+                Completion = $"{{\"count\":{k},\"label\":\"{label}\"}}",
+                Category = "C",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        for (int i = 0; i < count / 16; i++)
+        {
+            bool ok = r.Next(2) == 0;
+            int score = 40 + r.Next(60);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"score\": <數字>, "
+                       + $"\"pass\": <布林>}}。score={score},"
+                       + $"pass={(ok ? "true" : "false")}。",
+                Completion = $"{{\"score\":{score},"
+                           + $"\"pass\":{(ok ? "true" : "false")}}}",
+                Category = "C",
+                Rule = "json_obj",
+            });
+        }
+
+        // -- D. enum_membership (~15%) — value drawn from a closed set.
+        for (int i = 0; i < count / 8; i++)
+        {
+            string lv = Take(r, SoLevels);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"priority\": <值>}}，"
+                       + "值只能是 high、medium、low 其中之一。"
+                       + $"選 {lv}。",
+                Completion = $"{{\"priority\":\"{lv}\"}}",
+                Category = "D",
+                Rule = $"json_obj;exact_json:{lv}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        foreach (string st in SoStates)
+            for (int i = 0; i < 6; i++)
+                Add(new Row
+                {
+                    Prompt = "只輸出 JSON：{\"狀態\": <值>}，值只能是"
+                           + "「已完成」「進行中」「待處理」之一。"
+                           + $"選「{st}」。",
+                    Completion = $"{{\"狀態\":\"{st}\"}}",
+                    Category = "D",
+                    Rule = $"json_obj;exact_json:{st}",
+                });
+
+        // -- E. nested_objects (~10%) — an object inside the object.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string n = Name();
+            int age = 18 + r.Next(50);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"user\": {{\"name\": <字串>, "
+                       + $"\"age\": <數字>}}}}。name={n},age={age}。"
+                       + "只輸出 JSON。",
+                Completion = $"{{\"user\":{{\"name\":\"{n}\","
+                           + $"\"age\":{age}}}}}",
+                Category = "E",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- F. arrays (~10%) — array fields with correct element
+        //    types and a matching count.
+        for (int i = 0; i < count / 10; i++)
+        {
+            var t = Take(r, ZhTopics);
+            var items = SampleItems(r, t.items, 2 + r.Next(2));
+            string arr = string.Join(
+                ",", items.Select(x => $"\"{x}\""));
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"items\": [<字串陣列>], "
+                       + $"\"total\": <數字>}}。items="
+                       + $"{string.Join("、", items)}。",
+                Completion = $"{{\"items\":[{arr}],"
+                           + $"\"total\":{items.Length}}}",
+                Category = "F",
+                Rule = "json_obj",
                 Source = Hard() ? "failure-pool" : "synthetic",
             });
         }
