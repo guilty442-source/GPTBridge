@@ -201,6 +201,10 @@ int mode_system1_head(const Args& a) {
     }
     if (threshold <= 0.0) threshold = head.abstain_threshold;
 
+    if (a.has("debug-bind-only")) {
+        std::printf("{\"ok\":true,\"bound\":true,\"debug\":\"bind\"}\n");
+        return 0;
+    }
     auto ids = e.encode(text);
     auto t0 = std::chrono::steady_clock::now();
     std::vector<double> hidden = e.prefill_hidden(ids);
