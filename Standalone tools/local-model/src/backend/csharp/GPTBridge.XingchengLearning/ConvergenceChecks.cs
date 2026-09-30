@@ -809,6 +809,79 @@ new("repo-mtp-head-contract", () =>
                        st["entries"] is int n && n >= 0 &&
                        (int)st["bounded"]! == FailurePool.MaxEntries;
             }),
+            new("repo-rl-frozen-boundary", () =>
+            {
+                // P10: RL stays frozen — only trajectory / failure-pool /
+                // SFT-candidate lanes may produce evidence. Exercise the
+                // GuardJob matrix directly: every weight-mutating kind
+                // (rl included, even under SINGLE_CAPABILITY_RECOVERY)
+                // must deny with the canonical typed code, the single
+                // declared-capability SFT lane is the only opening, and
+                // correction records may only target sft/dpo — never rl.
+                static bool Denied(string code, Action act)
+                {
+                    try { act(); return false; }
+                    catch (ExecutorError ee)
+                    { return ee.ErrorCode == code; }
+                }
+                // Plain freeze: every non-allowlisted lane denies.
+                foreach (var op in new[]
+                         { "rl", "dpo", "pretrain", "distill",
+                           "model_merge", "trainer_full_run",
+                           "weight_update" })
+                    if (!Denied("CAPABILITY_TRAINING_FROZEN",
+                                () => CapabilityFreeze.Guard(op)))
+                        return false;
+                // Allowlisted evidence lanes pass the plain guard.
+                foreach (var op in new[]
+                         { "benchmark", "evaluation",
+                           "runtime_conversion" })
+                    try { CapabilityFreeze.Guard(op); }
+                    catch { return false; }
+                // Recovery lane: SFT on the declared capability only —
+                // rl/dpo deny even when the lane is open.
+                var pol = new SelfLearningPolicy
+                {
+                    CapabilityTrainingMode = "SINGLE_CAPABILITY_RECOVERY",
+                    ActiveCapability = "instruction_following",
+                };
+                if (!Denied("CAPABILITY_TRAINING_FROZEN",
+                            () => CapabilityFreeze.GuardJob(
+                                "rl", "instruction_following", pol)))
+                    return false;
+                if (!Denied("CAPABILITY_TRAINING_FROZEN",
+                            () => CapabilityFreeze.GuardJob(
+                                "dpo", "instruction_following", pol)))
+                    return false;
+                if (!Denied("MULTI_CAPABILITY_TRAINING_DENIED",
+                            () => CapabilityFreeze.GuardJob(
+                                "sft", "math", pol)))
+                    return false;
+                try
+                {
+                    CapabilityFreeze.GuardJob(
+                        "sft", "instruction_following", pol);
+                }
+                catch { return false; }
+                // Unconfigured lane fails closed.
+                pol.ActiveCapability = "";
+                if (!Denied("CAPABILITY_RECOVERY_UNCONFIGURED",
+                            () => CapabilityFreeze.GuardJob(
+                                "sft", "instruction_following", pol)))
+                    return false;
+                // Self-correction records feed SFT/DPO candidates only —
+                // never an RL lane.
+                using var doc = JsonDocument.Parse(
+                    "{\"format\":\"star-self-correction/v1\"," +
+                    "\"task_id\":\"t\",\"failed_trajectory_ref\":\"r\"," +
+                    "\"verifier_explanation\":\"e\"," +
+                    "\"corrected_action\":\"a\"}");
+                var ok = AgentLearning.ValidateCorrection(
+                    doc.RootElement);
+                return ok["ready_for"] is List<object?> rf &&
+                       rf.Contains("sft") && rf.Contains("dpo") &&
+                       !rf.Contains("rl");
+            }),
         };
 
         var results = new List<object?>();
