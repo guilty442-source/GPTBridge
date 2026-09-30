@@ -94,7 +94,9 @@ namespace xct {
 #include "xct_util.h"
 #include "xct_tpu.h"
 #include "xct_math.h"
+#include "xct_gemma4.h"
 #include "xct_backward.h"
+#include "xct_mtp.h"
 #include "xct_ckpt.h"
 }  // namespace xct
 
@@ -135,7 +137,8 @@ Args parse_args(int argc, char** argv) {
 }
 
 [[noreturn]] void fail(const std::string& code) {
-    std::printf("{\"ok\":false,\"error\":\"%s\"}\n", code.c_str());
+    std::printf("{\"ok\":false,\"error\":\"%s\"}\n",
+                gptbridge::jsonlite::json_escape(code).c_str());
     std::exit(1);
 }
 
