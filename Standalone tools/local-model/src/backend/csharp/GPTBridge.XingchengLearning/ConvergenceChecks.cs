@@ -591,6 +591,125 @@ internal static class ConvergenceChecks
                 }
                 return true;
             }),
+            // ==================== 300M maturation (§65) =================
+            // §65 promotion gate leg 1: the trainer probe suite — the
+            // governed subprocess lane, same as the modeltool probes.
+            new("maturation-trainer-probes", () =>
+            {
+                var run = NativeTools.Run(
+                    NativeTools.TrainerExe(toolRoot),
+                    new List<string> { "--probe-all" }, toolRoot,
+                    Path.Combine(toolRoot, "runtime", "logs",
+                                 "converge-stderr.log"),
+                    timeoutS: 600);
+                if (run.ExitCode != 0 ||
+                    !run.StdoutTail.Contains("\"ok\":true"))
+                    return false;
+                // §65 requires >=16/16 — parse the probe report and
+                // enforce the floor explicitly rather than trusting the
+                // process flag alone.
+                int i = run.StdoutTail.IndexOf(
+                    "\"format\":\"star-trainer-probe-report/v1\"",
+                    StringComparison.Ordinal);
+                if (i < 0) return false;
+                try
+                {
+                    using var doc = JsonDocument.Parse(
+                        run.StdoutTail.Substring(i));
+                    var r = doc.RootElement;
+                    return r.TryGetProperty("passed", out var p) &&
+                           r.TryGetProperty("total", out var t) &&
+                           p.GetInt32() == t.GetInt32() &&
+                           t.GetInt32() >= 16;
+                }
+                catch (JsonException) { return false; }
+            }),
+            // §65 leg 2: the maturation plane itself — sequence order,
+            // freeze bookkeeping, ladder math and the §3 baseline
+            // contract, exercised on a scratch state (never the live
+            // one).
+            new("maturation-plane-smoke", () =>
+            {
+                // Head of a fresh state must be instruction_following.
+                var fresh = new Dictionary<string, object?>
+                {
+                    ["capabilities"] = Maturation300M.Sequence
+                        .ToDictionary(
+                            s => s.Id,
+                            s => (object?)new Dictionary<string, object?>
+                            { ["status"] = "pending" }),
+                };
+                if (Maturation300M.Head(fresh)?.Id
+                        != "instruction_following")
+                    return false;
+                // Freeze the head -> head advances.
+                var caps =
+                    (Dictionary<string, object?>)fresh["capabilities"]!;
+                caps["instruction_following"] =
+                    new Dictionary<string, object?>
+                    { ["status"] = "frozen" };
+                if (Maturation300M.Head(fresh)?.Id != "context_tracking")
+                    return false;
+                // Freeze all -> head is null; scale stays locked until
+                // L6 evidence exists.
+                foreach (var s in Maturation300M.Sequence)
+                    caps[s.Id] = new Dictionary<string, object?>
+                    { ["status"] = "frozen" };
+                if (Maturation300M.Head(fresh) != null) return false;
+                var l5 = new Dictionary<int, bool?>
+                {
+                    [0] = true, [1] = true, [2] = true, [3] = true,
+                    [4] = true, [5] = true,
+                };
+                if (Maturation300M.ScaleUnlocked(l5, fresh))
+                    return false;
+                l5[6] = true;
+                if (!Maturation300M.ScaleUnlocked(l5, fresh))
+                    return false;
+                // First skipped level caps certification.
+                var broken = new Dictionary<int, bool?>
+                { [0] = true, [1] = true, [2] = null, [3] = true };
+                if (Maturation300M.CertifiedLevel(broken) != 1)
+                    return false;
+                // §64: mixed change classes are denied.
+                if (!ExpectThrow(() => Maturation300M
+                        .GuardCandidateClasses(
+                            new[] { "CAPABILITY_CHANGE",
+                                    "RUNTIME_CHANGE" })))
+                    return false;
+                Maturation300M.GuardCandidateClasses(
+                    new[] { "DATA_CHANGE" });
+                // §3: metric conflation across baseline sections fails.
+                return ExpectThrow(() => Maturation300M.WriteBaseline(
+                    Path.Combine(Path.GetTempPath(),
+                                 "xc-maturation-scratch"),
+                    "w", "h",
+                    new Dictionary<string, object?> { ["acc"] = 0.9 },
+                    new Dictionary<string, object?> { ["acc"] = 0.9 },
+                    new Dictionary<string, object?>()));
+            }),
+            // §65 leg 3: the §5 instruction-maturity suite file exists
+            // and carries all nine dimensions — the P0 gate artifact.
+            new("maturation-instruction-suite", () =>
+            {
+                string p = Path.Combine(
+                    toolRoot, "xingcheng", "eval",
+                    "star-capability-suite-instruction-300m.json");
+                if (!File.Exists(p)) return false;
+                using var doc = JsonDocument.Parse(File.ReadAllText(p));
+                var r = doc.RootElement;
+                if (!r.TryGetProperty("items", out var items) ||
+                    items.ValueKind != JsonValueKind.Array)
+                    return false;
+                var dims = new HashSet<string>();
+                foreach (var it in items.EnumerateArray())
+                    if (it.TryGetProperty("category", out var c))
+                        dims.Add(c.GetString() ?? "");
+                foreach (var d in Maturation300M.Sequence[0].Metrics)
+                    if (!dims.Contains("instruction_" + d))
+                        return false;
+                return true;
+            }),
         };
 
         var results = new List<object?>();

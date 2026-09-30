@@ -3775,9 +3775,6 @@ int mode_hw_baseline(const Args& a) {
     int ccmaj = 0, ccmin = 0;
     const bool cuda = xcuda_probe(&vb0, &vt0, &ccmaj, &ccmin) == 0;
 
-    FILETIME c0{}, e0{}, k0{}, u0{};
-    GetProcessTimes(GetCurrentProcess(), &c0, &e0, &k0, &u0);
-
     NativeInferenceEngine engine;
     auto tl0 = std::chrono::steady_clock::now();
     engine.load(bundle);
@@ -3795,6 +3792,10 @@ int mode_hw_baseline(const Args& a) {
     SamplingConfig sc;
     sc.temperature = 0.0;
 
+    // CPU% is measured over the bench window only — the FILETIME pair
+    // must align with t0/t2 or the engine load inflates the numerator.
+    FILETIME c0{}, e0{}, k0{}, u0{};
+    GetProcessTimes(GetCurrentProcess(), &c0, &e0, &k0, &u0);
     auto t0 = std::chrono::steady_clock::now();
     (void)engine.logits(ids);                    // prefill
     auto t1 = std::chrono::steady_clock::now();
