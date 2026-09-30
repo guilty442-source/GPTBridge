@@ -609,7 +609,7 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.gate_probs.resize((size_t)T * E);
             L.moe_idx.resize((size_t)T * K); L.moe_w.resize((size_t)T * K);
             L.mfa.resize((size_t)T * K); L.mfb.resize((size_t)T * K); L.mfh.resize((size_t)T * K);
-            float aux = 0.0f;
+            std::vector<float> moe_cnt((size_t)E, 0.0f);  // top-k assignments per expert
             for (int t = 0; t < T; ++t) {
                 const float* gl = L.gate_logits.data() + (size_t)t * E;
                 float mx = *std::max_element(gl, gl + E), sum = 0.0f;
@@ -645,8 +645,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     std::vector<float> eo(H);
                     linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
                     for (int i = 0; i < H; ++i) proj[(size_t)t * H + i] += wgt * eo[i];
+                    ++moe_cnt[(size_t)e];
                 }
-                for (int s = 0; s < K; ++s) aux += (gp[idx[s]] / wsum) * (1.0f / K);
             }
             // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
             // the engine's `output + shared(x)` residual contribution.
@@ -685,7 +685,22 @@ static void fwd(const Params& p, const ModelConfig& c,
                             proj[(size_t)t * H + i] += g * so[(size_t)t * H + i];
                     }
             }
-            o.moe_aux += c.moe_aux_w * c.moe_experts * aux / std::max(1, T);
+            // Auxiliary load-balancing loss (Switch-Transformer form):
+            //   L_lb = E · Σ_i f_i·P_i
+            //   f_i = assignments to expert i / (T·K)   — Σ_i f_i = 1
+            //   P_i = (1/T)·Σ_t gate_probs[t,i]         — Σ_i P_i = 1
+            // Minimum 1.0 at perfect balance; approaches E under full
+            // collapse. f_i is a routing statistic (piecewise-constant in
+            // the weights); the gradient flows through P_i only — see bwd.
+            float lb_dot = 0.0f;
+            for (int e = 0; e < E; ++e) {
+                float p_i = 0.0f;
+                for (int t = 0; t < T; ++t)
+                    p_i += L.gate_probs[(size_t)t * E + e];
+                p_i /= (float)T;
+                lb_dot += (moe_cnt[(size_t)e] / (float)(T * K)) * p_i;
+            }
+            o.moe_aux += c.moe_aux_w * (float)E * lb_dot;
         }
         for (size_t i = 0; i < (size_t)T * H; ++i) x[i] = L.x_res[i] + proj[i];
     }
