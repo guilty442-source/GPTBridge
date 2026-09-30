@@ -212,3 +212,84 @@ static int canoncheck() {
                 failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }
+
+// ------------------------------------------------------ probe driver --
+// Unified trainer probe runner (--probe-all -> star-trainer-probe-
+// report/v1): the single aggregation entry the ConvergenceGate calls.
+// Ported verbatim from the devin lane — order is fixed, any failure
+// fails the whole run.
+
+static uint64_t probe_fnv(const std::string& s) {
+    uint64_t h = 1469598103934665603ull;
+    for (unsigned char b : s) { h ^= b; h *= 1099511628211ull; }
+    return h;
+}
+
+/// Run every registered probe once with per-probe stdout capture; the
+/// report is the only thing written to real stdout. artifact_hash is
+/// FNV-1a over the probe's own captured output — it fingerprints the
+/// evidence, not just the name.
+static int probe_all() {
+    struct P { const char* name; int (*fn)(); };
+    static const P probes[] = {
+        {"smoke", smoke},           {"gradcheck", gradcheck},
+        {"maskcheck", maskcheck},   {"headcheck", headcheck},
+        {"rulecheck", rulecheck},   {"depthcheck", depthcheck},
+        {"poscheck", poscheck},     {"inputcheck", inputcheck},
+        {"gemmacheck", gemmacheck}, {"mixcheck", mixcheck},
+        {"routecheck", routecheck}, {"dsvcheck", dsvcheck},
+        {"yarncheck", yarncheck},   {"csacheck", csacheck},
+        {"mtpcheck", mtpcheck},     {"canoncheck", canoncheck},
+    };
+
+    std::fflush(stdout);
+    int saved = _dup(_fileno(stdout));
+    std::ostringstream report;
+    report << "{\"format\":\"star-trainer-probe-report/v1\","
+              "\"probes\":[";
+    int passed = 0, total = 0;
+    for (const P& pr : probes) {
+        ++total;
+        char tmpname[L_tmpnam];
+        std::tmpnam(tmpname);
+        FILE* cap = std::freopen(tmpname, "w", stdout);
+        auto t0 = std::chrono::steady_clock::now();
+        int rc = -1;
+        if (cap) {
+            try { rc = pr.fn(); } catch (...) { rc = -1; }
+            std::fflush(stdout);
+        }
+        double ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t0).count();
+        std::fflush(stdout);
+        _dup2(saved, _fileno(stdout));
+        std::string evidence;
+        if (cap) {
+            std::ifstream f(tmpname, std::ios::binary);
+            std::ostringstream ss; ss << f.rdbuf();
+            evidence = ss.str();
+            std::remove(tmpname);
+        }
+        bool pass = rc == 0;
+        if (pass) ++passed;
+        if (total > 1) report << ',';
+        char hbuf[24];
+        std::snprintf(hbuf, sizeof(hbuf), "%016llx",
+                      (unsigned long long)probe_fnv(
+                          pr.name + std::string(":") + evidence));
+        report << "{\"probe\":\"" << pr.name << "\""
+               << ",\"status\":\"" << (pass ? "PASS" : "FAIL") << "\""
+               << ",\"duration_ms\":" << (long long)(ms + 0.5)
+               << ",\"failure_code\":"
+               << (pass ? "null"
+                        : (rc < 0 ? "\"PROBE_EXCEPTION\""
+                                  : "\"PROBE_FAILED\""))
+               << ",\"artifact_hash\":\"" << hbuf << "\"}";
+    }
+    _close(saved);
+    report << "],\"passed\":" << passed << ",\"total\":" << total
+           << ",\"ok\":" << (passed == total ? "true" : "false")
+           << "}\n";
+    std::fputs(report.str().c_str(), stdout);
+    return passed == total ? 0 : 1;
+}

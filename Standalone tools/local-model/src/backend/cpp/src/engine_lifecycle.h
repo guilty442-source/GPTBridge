@@ -845,6 +845,18 @@ int64_t NativeInferenceEngine::hidden_size() const {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
     return bundle_->config().hidden_size;
 }
+std::vector<double> NativeInferenceEngine::prefill_hidden(
+    const std::vector<int64_t>& input_ids) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    if (input_ids.empty()) throw InferenceError("PREFILL_EMPTY_INPUT");
+    // Pure feedforward — a decision writes no KV/DeltaNet state
+    // (append_cache needs an active decode slot, which the no-decode
+    // path never allocates). Prefix-cache reuse applies when the
+    // decision rides on a generative prefill that populated the cache
+    // (§14); the standalone fast path simply never pays for state it
+    // will not use.
+    return forward_hidden(input_ids, 0, false);
+}
 
 std::pair<double, int64_t> NativeInferenceEngine::sequence_nll(
     const std::vector<int64_t>& input_ids) {

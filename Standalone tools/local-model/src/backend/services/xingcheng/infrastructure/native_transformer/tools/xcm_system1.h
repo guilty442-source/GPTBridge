@@ -203,7 +203,7 @@ int mode_system1_head(const Args& a) {
 
     auto ids = e.encode(text);
     auto t0 = std::chrono::steady_clock::now();
-    std::vector<double> hidden = e.forward_hidden(ids, 0, true);
+    std::vector<double> hidden = e.prefill_hidden(ids);
     double prefill_ms = 1e3 * std::chrono::duration<double>(
         std::chrono::steady_clock::now() - t0).count();
     t0 = std::chrono::steady_clock::now();

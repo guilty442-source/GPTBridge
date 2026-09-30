@@ -391,6 +391,12 @@ public:
     const std::string& generation() const;
     const std::string& tokenizer_sha256() const;
     int64_t hidden_size() const;
+    // §3/§14 System-1 fast path: tokenize-ready ids -> final hidden
+    // state of the last position via pure feedforward (no KV/DeltaNet
+    // writes — a typed decision never decodes, §7). Same weights, same
+    // tokenizer, same core.
+    std::vector<double> prefill_hidden(
+        const std::vector<int64_t>& input_ids);
 
     // §16 two-level MoE trace: opt-in per-layer router evidence captured
     // during the last forward — router_type (sigmoid_topk|softmax_topk),

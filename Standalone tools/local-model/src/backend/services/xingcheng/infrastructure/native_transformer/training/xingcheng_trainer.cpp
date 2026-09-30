@@ -132,6 +132,8 @@
 #if defined(_M_X64) || defined(__x86_64__)
 #include <immintrin.h>
 #include <intrin.h>
+#include <io.h>
+#include <sstream>
 #endif
 
 #include "jsonlite.h"
@@ -182,6 +184,7 @@ int main(int argc, char** argv) {
         else if (a == "--csacheck") return xct::csacheck();
         else if (a == "--mtpcheck") return xct::mtpcheck();
         else if (a == "--canoncheck") return xct::canoncheck();
+        else if (a == "--probe-all") return xct::probe_all();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
