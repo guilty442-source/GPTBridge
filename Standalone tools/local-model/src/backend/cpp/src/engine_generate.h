@@ -343,7 +343,16 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // reply is unchanged).
     std::string turn_tail;
     turn_tail.reserve(64);
+    const bool dbg = std::getenv("XC_DBG") != nullptr;
     for (int64_t step = 0; step < max_new_tokens; ++step) {
+        if (dbg) {
+            double s = 0.0;
+            for (double x : next_logits) s += x;
+            std::fprintf(stderr,
+                "[dbg] step=%lld len=%lld lsum=%.9g l0=%.9g\n",
+                (long long)step, (long long)kv_lens_[0], s,
+                next_logits.empty() ? 0.0 : next_logits[0]);
+        }
         const int64_t token = sample_next(next_logits, sequence_, sampling, rng_state);
         generated.push_back(token);
         sequence_.push_back(token);
