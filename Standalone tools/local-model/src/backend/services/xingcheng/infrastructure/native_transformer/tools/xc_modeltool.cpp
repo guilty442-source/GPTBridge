@@ -4136,7 +4136,7 @@ int mode_hw_baseline(const Args& a) {
     // Device VRAM before load — baseline is the delta the model+KV adds.
     long long vb0 = -1, vt0 = -1, vb1 = -1, vt1 = -1;
     int ccmaj = 0, ccmin = 0;
-    const bool cuda = xcuda_probe(&vb0, &vt0, &ccmaj, &ccmin) == 0;
+    const bool cuda = xcuda_probe(&vb0, &vt0, &ccmaj, &ccmin) != 0;
 
     NativeInferenceEngine engine;
     auto tl0 = std::chrono::steady_clock::now();

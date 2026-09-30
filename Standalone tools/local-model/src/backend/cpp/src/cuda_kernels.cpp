@@ -1001,6 +1001,61 @@ int xcuda_probe(long long* free_bytes, long long* total_bytes,
     return 1;
 }
 
+// NVML instantaneous sensors for the §66 hardware baseline — same
+// run-time binding rule as every other CUDA dependency: nvml.dll ships
+// with the driver, nothing is import-linked, and any missing symbol or
+// device simply leaves that field unmeasured (callers emit null, never
+// a fabricated value). Returns a bitmask: bit0 = utilization read,
+// bit1 = power read (milliwatts).
+int xcuda_gpu_stats(unsigned* gpu_util_pct, unsigned* power_mw) {
+    struct NvmlLib {
+        HMODULE dll;
+        int (*init)();
+        int (*shutdown)();
+        int (*handle_by_index)(unsigned, void**);
+        int (*utilization)(void*, void*);
+        int (*power_usage)(void*, unsigned*);
+        NvmlLib() : dll(nullptr), init(nullptr), shutdown(nullptr),
+                    handle_by_index(nullptr), utilization(nullptr),
+                    power_usage(nullptr) {
+            dll = LoadLibraryA("nvml.dll");
+            if (dll == nullptr) return;
+            init = (int(*)())GetProcAddress(dll, "nvmlInit_v2");
+            shutdown = (int(*)())GetProcAddress(dll, "nvmlShutdown");
+            handle_by_index = (int(*)(unsigned, void**))GetProcAddress(
+                dll, "nvmlDeviceGetHandleByIndex_v2");
+            utilization = (int(*)(void*, void*))GetProcAddress(
+                dll, "nvmlDeviceGetUtilizationRates");
+            power_usage = (int(*)(void*, unsigned*))GetProcAddress(
+                dll, "nvmlDeviceGetPowerUsage");
+        }
+    };
+    static NvmlLib lib;
+    if (lib.dll == nullptr || lib.init == nullptr ||
+        lib.handle_by_index == nullptr) return 0;
+    static bool nvml_up = lib.init() == 0;
+    if (!nvml_up) return 0;
+    void* dev = nullptr;
+    if (lib.handle_by_index(0, &dev) != 0 || dev == nullptr) return 0;
+    int mask = 0;
+    if (lib.utilization != nullptr && gpu_util_pct != nullptr) {
+        // nvmlUtilization_t { unsigned gpu; unsigned memory; }
+        unsigned rates[2] = {0, 0};
+        if (lib.utilization(dev, rates) == 0) {
+            *gpu_util_pct = rates[0];
+            mask |= 1;
+        }
+    }
+    if (lib.power_usage != nullptr && power_mw != nullptr) {
+        unsigned mw = 0;
+        if (lib.power_usage(dev, &mw) == 0) {
+            *power_mw = mw;
+            mask |= 2;
+        }
+    }
+    return mask;
+}
+
 int xcuda_bf16_release_weights() {
     std::lock_guard<std::mutex> lk(g_bf16_mu);
     for (auto& kv : g_bf16_weights) dev_free(kv.second);
