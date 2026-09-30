@@ -1711,7 +1711,7 @@ int mode_precision(const Args& a) {
         "\"nll_diff\":%.6f,\"gen_identical\":%s,"
         "\"load_ms_ref\":%lld,\"load_ms_cand\":%lld,"
         "\"memory_bytes_ref\":%lld,\"memory_bytes_cand\":%lld,"
-        "\"tps_approx\":%.2f,\"tol\":%.6f}\n",
+        "\"tps_approx\":%.2f,\"tol\":%.6f%s}\n",
         ok ? "true" : "false",
         gptbridge::jsonlite::json_escape(ref_path).c_str(),
         gptbridge::jsonlite::json_escape(cand_path).c_str(),
@@ -1723,7 +1723,8 @@ int mode_precision(const Args& a) {
         gen_identical ? "true" : "false",
         (long long)(t_load1 - t_load0), (long long)(t_load2 - t_load1),
         (long long)ref.memory_bytes(), (long long)cand.memory_bytes(),
-        tps, tol);
+        tps, tol,
+        ok ? "" : ",\"error_code\":\"PRECISION_PARITY_FAILED\"");
     return ok ? 0 : 1;
 }
 
@@ -1972,6 +1973,11 @@ int mode_export_bundle(const Args& a) {
     {
         const JsonValue* g = cfg->get("generation");
         if (g && g->type == JsonValue::Type::String) arch_gen = g->string;
+        if (arch_gen.empty()) {
+            const JsonValue* g2 = src_manifest.get("architecture_generation");
+            if (g2 && g2->type == JsonValue::Type::String)
+                arch_gen = g2->string;
+        }
     }
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
                       std::chrono::system_clock::now().time_since_epoch())

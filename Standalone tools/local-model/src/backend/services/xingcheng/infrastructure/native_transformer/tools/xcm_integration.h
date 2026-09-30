@@ -1,24 +1,27 @@
-// xcm_integration.h — runtime-capability probe modes for xc_modeltool.
-// Included once by xc_modeltool.cpp after xcm_runtime.h (which owns
-// the shared helpers xcm_moe_analyze_json / xcm_fim_envelope).
-// All modes are report/probe-only — none change model weights,
-// architecture semantics, or production defaults.
+// xcm_integration.h — integration modes complementing xcm_runtime.h
+// (which owns memplan / statebench / spec-probe / vision-budget /
+// context-probe / reuse-probe). Included once by xc_modeltool.cpp
+// after xcm_runtime.h.
 //
-//   memplan           --bundle <dir> [--kv-limit B] [--prefix-limit B]
-//                     §7 InferenceMemoryPlanner / KV budget manager
-//   statebench        --bundle <dir> --generation <g> [--tokens N]
-//                     §23 SequenceStateBenchmark + DeltaStateSnapshot
-//   spec-probe        --bundle <dir> [--draft K] [--steps N]
-//                     §6 SpeculativeDecoder ABI + synthetic drafter
-//   vision-budget     --raw-patches N [--profile FULL|BALANCED|COMPACT]
-//                     [--mem-budget B] [--experimental]
-//                     §20 VisionBudgetController (EXPERIMENTAL gate)
-//   context-probe     --bundle <dir> [--sizes 2048,4096,...]
-//                     §28 ContextBudgetManager (probe-only sizes)
-//   reuse-probe       --bundle <dir>  §24 ParameterReuseProbe
-//   depth-probe       --bundle <dir>  §8 depth telemetry
-//   moe-analyze       --bundle <dir>  §8/§29 quantiles + ROUTER_* diag
-//   provenance-check  --bundle <dir>  §25 bundle provenance
+//   SpeculativeDecoder  §6 formal ABI contract (Draft/Verify/Accept/
+//                       Reject/Reset + metrics; disabled by default —
+//                       export drops the MTP training head, so any
+//                       Draft without a bound drafter fails closed
+//                       with SPECULATIVE_DECODER_UNAVAILABLE)
+//   memplan             --bundle <dir> [--kv-limit B] [--prefix-limit B]
+//                         §7 InferenceMemoryPlanner / KV budget manager
+//   statebench          --bundle <dir> --generation <g> [--tokens N]
+//                         §23 SequenceStateBenchmark + DeltaStateSnapshot
+//   spec-probe          --bundle <dir> [--draft K] [--steps N]
+//                         §6 synthetic drafter exercises the ABI
+//   vision-budget       --raw-patches N [--profile P] [--mem-budget B]
+//                         [--experimental]  §20 VisionBudgetController
+//   context-probe       --bundle <dir> [--sizes 2048,4096,...]
+//                         §28 ContextBudgetManager (probe-only)
+//   reuse-probe         --bundle <dir>   §24 ParameterReuseProbe
+//   depth-probe         --bundle <dir>   §8 depth telemetry
+//   moe-analyze         --bundle <dir>   §8/§29 quantiles + diagnoses
+//   provenance-check    --bundle <dir>   §25 bundle provenance
 #pragma once
 
 static int64_t bench_now_ms() {
@@ -30,7 +33,7 @@ static int64_t bench_now_ms() {
 // InferenceMemoryPlanner: typed budget breakdown + prefill/decode
 // high-water marks. --kv-limit / --prefix-limit exercise the governed
 // budget setters (fail-closed on overflow).
-static int mode_memplan(const Args& a) {
+int mode_memplan(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("MEMPLAN_ARGS_MISSING");
     NativeInferenceEngine e;
@@ -66,7 +69,7 @@ static int mode_memplan(const Args& a) {
 // SequenceStateBenchmark: constant-state (DeltaNet) and growing-state
 // (KV) footprints plus a real snapshot/restore round trip. The restore
 // is generation-bound — a foreign generation fails closed.
-static int mode_statebench(const Args& a) {
+int mode_statebench(const Args& a) {
     std::string bundle = a.get("bundle");
     std::string generation = a.get("generation");
     if (bundle.empty() || generation.empty())
@@ -122,7 +125,6 @@ static int mode_statebench(const Args& a) {
         fail(std::string("STATEBENCH_RESTORE:") + ex.what());
     }
     const int64_t t6 = bench_now_ms();
-    // verify: same prompt must produce identical logits post-restore
     std::vector<double> lg2;
     try { lg2 = e.logits(ids); }
     catch (const std::exception& ex) {
@@ -163,124 +165,11 @@ static int mode_statebench(const Args& a) {
     return verified ? 0 : 1;
 }
 
-// ----------------------------------------------------------------- §6
-// SpeculativeDecoder: Draft/Verify/Accept/Reject/Reset ABI exercised by
-// a synthetic drafter (periodic-context guesser). enabled=false — the
-// training MTP head is discarded at export, so no production drafter
-// exists; this probe validates the verification algorithm, acceptance
-// mask, metrics and fallback path only.
-struct SpeculativeDecoder {
-    int64_t period = 8;
-    std::vector<int64_t> ctx;
-    std::vector<int64_t> pending;
-    void reset() { ctx.clear(); pending.clear(); }
-    std::vector<int64_t> draft(int64_t k) {
-        pending.clear();
-        if (ctx.size() >= (size_t)period)
-            for (int64_t i = 0; i < k; ++i)
-                pending.push_back(
-                    ctx[ctx.size() - period +
-                        (size_t)(i % period)]);
-        return pending;
-    }
-    // verify: argmax over engine logits after appending each draft
-    std::vector<bool> verify(NativeInferenceEngine& e,
-                             const std::vector<int64_t>& base,
-                             const std::vector<int64_t>& drafted) {
-        std::vector<bool> ok;
-        if (drafted.empty()) return ok;
-        std::vector<int64_t> seq = base;
-        for (int64_t d : drafted) {
-            auto lg = e.logits(seq);
-            int64_t am = 0;
-            for (size_t i = 1; i < lg.size(); ++i)
-                if (lg[i] > lg[(size_t)am]) am = (int64_t)i;
-            ok.push_back(am == d);
-            seq.push_back(d);
-        }
-        return ok;
-    }
-};
-
-static int mode_spec_probe(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("SPEC_ARGS_MISSING");
-    int64_t draft_k = a.has("draft") ? std::stoll(a.get("draft")) : 4;
-    int64_t steps = a.has("steps") ? std::stoll(a.get("steps")) : 8;
-    NativeInferenceEngine e;
-    try { e.load(bundle); }
-    catch (const std::exception& ex) {
-        fail(std::string("SPEC_LOAD:") + ex.what());
-    }
-    JsonValue mf = parse_json_file(
-        (fs::path(bundle) / "manifest.json").string());
-    const JsonValue* cfg = mf.get("config");
-    const int64_t vocab = (int64_t)xct::j_num(cfg, "vocab_size", 0);
-    if (vocab < 8) fail("SPEC_BAD_CONFIG");
-    std::mt19937_64 rng(7);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    SpeculativeDecoder sd;
-    std::vector<int64_t> base;
-    for (int i = 0; i < 16; ++i) {
-        int64_t t = tok(rng);
-        base.push_back(t); sd.ctx.push_back(t);
-    }
-    int64_t proposed = 0, accepted = 0, fallbacks = 0;
-    for (int64_t s = 0; s < steps; ++s) {
-        auto drafted = sd.draft(draft_k);
-        if (drafted.empty()) {
-            // fallback: single-token greedy step
-            auto lg = e.logits(base);
-            int64_t am = 0;
-            for (size_t i = 1; i < lg.size(); ++i)
-                if (lg[i] > lg[(size_t)am]) am = (int64_t)i;
-            base.push_back(am); sd.ctx.push_back(am);
-            ++fallbacks;
-            continue;
-        }
-        auto ok = sd.verify(e, base, drafted);
-        proposed += (int64_t)drafted.size();
-        int64_t acc = 0;
-        for (bool b : ok) { if (b) ++acc; else break; }
-        accepted += acc;
-        for (int64_t i = 0; i <= acc &&
-                          i < (int64_t)drafted.size(); ++i) {
-            int64_t t;
-            if (i < acc) {
-                t = drafted[(size_t)i];
-            } else {
-                // correction token = engine argmax at rejection point
-                auto lg = e.logits(base);
-                int64_t am = 0;
-                for (size_t j = 1; j < lg.size(); ++j)
-                    if (lg[j] > lg[(size_t)am]) am = (int64_t)j;
-                t = am;
-            }
-            base.push_back(t); sd.ctx.push_back(t);
-            if (i == acc) break;
-        }
-    }
-    std::printf(
-        "{\"ok\":true,\"mode\":\"spec-probe\",\"enabled\":false,"
-        "\"reason\":\"mtp-head-discarded-at-export\","
-        "\"draft_k\":%lld,\"steps\":%lld,\"proposed\":%lld,"
-        "\"accepted\":%lld,\"acceptance_rate\":%.4f,"
-        "\"fallbacks\":%lld,\"final_context\":%lld,"
-        "\"unavailable_error\":\"SPECULATIVE_DECODER_UNAVAILABLE\","
-        "\"abi\":[\"draft\",\"verify\",\"accept\",\"reject\","
-        "\"reset\"]}\n",
-        (long long)draft_k, (long long)steps, (long long)proposed,
-        (long long)accepted,
-        proposed > 0 ? (double)accepted / proposed : 0.0,
-        (long long)fallbacks, (long long)base.size());
-    return 0;
-}
-
 // ---------------------------------------------------------------- §20
 // VisionBudgetController: FULL is the only production profile;
 // BALANCED/COMPACT are EXPERIMENTAL and fall back to FULL unless
 // --experimental is passed (parity benchmarks must land first).
-static int mode_vision_budget(const Args& a) {
+int mode_vision_budget(const Args& a) {
     if (!a.has("raw-patches")) fail("VISION_BUDGET_ARGS_MISSING");
     int64_t raw = std::stoll(a.get("raw-patches"));
     std::string profile = a.get("profile");
@@ -297,6 +186,14 @@ static int mode_vision_budget(const Args& a) {
         effective = "FULL";
         fell_back = true;
     }
+    // §20/§36: parity evidence feeds in via --parity-failed (set by the
+    // multimodal eval suite when OCR/chart/document/general/small-
+    // object parity fails) — any parity failure forces FULL.
+    bool parity_failed = a.has("parity-failed");
+    if (effective != "FULL" && parity_failed) {
+        effective = "FULL";
+        fell_back = true;
+    }
     int64_t selected = raw;
     std::string compression = "none";
     if (effective == "BALANCED") {
@@ -307,28 +204,30 @@ static int mode_vision_budget(const Args& a) {
         compression = "adaptive-prune+merge";
     }
     if (mem_budget > 0) {
-        int64_t cap = std::max<int64_t>(
-            1, mem_budget / (16 * 8 * 4));
+        int64_t cap = std::max<int64_t>(1, mem_budget / (16 * 8 * 4));
         selected = std::min(selected, std::min<int64_t>(cap, 64));
     } else {
         selected = std::min<int64_t>(selected, 64);
     }
     std::printf(
-        "{\"ok\":true,\"mode\":\"vision-budget\",\"profile\":\"%s\","
+        "{\"ok\":%s,\"mode\":\"vision-budget\",\"profile\":\"%s\","
         "\"effective_profile\":\"%s\",\"experimental\":%s,"
         "\"fell_back_to_full\":%s,\"raw_patch_count\":%lld,"
-        "\"selected_patch_count\":%lld,\"compression_mode\":\"%s\"}\n",
+        "\"selected_patch_count\":%lld,\"compression_mode\":\"%s\"%s}\n",
+        parity_failed ? "false" : "true",
         profile.c_str(), effective.c_str(),
         experimental ? "true" : "false",
         fell_back ? "true" : "false",
-        (long long)raw, (long long)selected, compression.c_str());
+        (long long)raw, (long long)selected, compression.c_str(),
+        parity_failed
+            ? ",\"error_code\":\"VISION_BUDGET_PARITY_FAILED\"" : "");
     return 0;
 }
 
 // ---------------------------------------------------------------- §28
 // ContextBudgetManager probe: prefill latency + memory at probe sizes
 // (<= the model's trained context). Never changes production defaults.
-static int mode_context_probe(const Args& a) {
+int mode_context_probe(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("CTX_ARGS_MISSING");
     std::vector<int64_t> sizes = {2048, 4096, 8192, 16384, 32768};
@@ -396,7 +295,7 @@ static int mode_context_probe(const Args& a) {
 // shared parameters, how much weight/cache/load would drop, and what
 // risks follow. Result feeds FutureArchitectureResearch; xc-fused-1
 // is untouched.
-static int mode_reuse_probe(const Args& a) {
+int mode_reuse_probe(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("REUSE_ARGS_MISSING");
     JsonValue mf = parse_json_file(
@@ -432,6 +331,235 @@ static int mode_reuse_probe(const Args& a) {
     return 0;
 }
 
+
+// ----------------------------------------------------------------- §6
+class SpeculativeDecoder {
+  public:
+    using Drafter = std::function<std::vector<int64_t>(int64_t)>;
+    // returns the target model's greedy ids per drafted position plus
+    // one bonus token.
+    using Verifier =
+        std::function<std::vector<int64_t>(const std::vector<int64_t>&)>;
+
+    void set_drafter(Drafter d) { drafter_ = std::move(d); }
+    void set_verifier(Verifier v) { verifier_ = std::move(v); }
+    void set_enabled(bool on) { enabled_ = on; }
+    bool enabled() const { return enabled_; }
+
+    std::vector<int64_t> Draft(int64_t draft_len) {
+        if (!enabled_ || !drafter_)
+            throw std::runtime_error("SPECULATIVE_DECODER_UNAVAILABLE");
+        if (draft_len <= 0 || draft_len > 64)
+            throw std::runtime_error("SPEC_DRAFT_LEN_INVALID");
+        ++draft_calls_;
+        std::vector<int64_t> d = drafter_(draft_len);
+        tokens_drafted_ += static_cast<int64_t>(d.size());
+        pending_ = d;
+        return d;
+    }
+
+    // Verification algorithm: longest prefix where the target model's
+    // greedy choice equals the drafted token; the first mismatch ends
+    // acceptance and the target's own token rides as the bonus token.
+    std::vector<bool> Verify(const std::vector<int64_t>& drafted) {
+        if (!verifier_)
+            throw std::runtime_error("SPECULATIVE_DECODER_UNAVAILABLE");
+        ++verify_calls_;
+        const std::vector<int64_t> target = verifier_(drafted);
+        std::vector<bool> mask(drafted.size(), false);
+        accept_prefix_ = 0;
+        bonus_token_ = -1;
+        for (size_t i = 0; i < drafted.size() && i < target.size();
+             ++i) {
+            if (target[i] == drafted[i]) {
+                mask[i] = true;
+                ++accept_prefix_;
+            } else {
+                bonus_token_ = target[i];
+                break;
+            }
+        }
+        return mask;
+    }
+
+    void Accept() {
+        tokens_accepted_ += accept_prefix_;
+        if (bonus_token_ >= 0) ++bonus_tokens_;
+        pending_.clear();
+        accept_prefix_ = 0;
+        bonus_token_ = -1;
+    }
+
+    void Reject() {
+        ++rejections_;
+        pending_.clear();
+        accept_prefix_ = 0;
+        bonus_token_ = -1;
+    }
+
+    void Reset() {
+        draft_calls_ = verify_calls_ = 0;
+        tokens_drafted_ = tokens_accepted_ = 0;
+        rejections_ = bonus_tokens_ = 0;
+        accept_prefix_ = 0;
+        bonus_token_ = -1;
+        pending_.clear();
+    }
+
+    int64_t bonus_token() const { return bonus_token_; }
+    int64_t accept_prefix() const { return accept_prefix_; }
+
+    std::string metrics_json() const {
+        std::ostringstream o;
+        o << "{\"enabled\":" << (enabled_ ? "true" : "false")
+          << ",\"draft_calls\":" << draft_calls_
+          << ",\"verify_calls\":" << verify_calls_
+          << ",\"tokens_drafted\":" << tokens_drafted_
+          << ",\"tokens_accepted\":" << tokens_accepted_
+          << ",\"rejections\":" << rejections_
+          << ",\"bonus_tokens\":" << bonus_tokens_
+          << ",\"acceptance_rate\":"
+          << (tokens_drafted_ > 0
+                  ? (double)tokens_accepted_ / tokens_drafted_ : 0.0)
+          << '}';
+        return o.str();
+    }
+
+  private:
+    bool enabled_ = false;
+    Drafter drafter_;
+    Verifier verifier_;
+    std::vector<int64_t> pending_;
+    int64_t draft_calls_ = 0;
+    int64_t verify_calls_ = 0;
+    int64_t tokens_drafted_ = 0;
+    int64_t tokens_accepted_ = 0;
+    int64_t rejections_ = 0;
+    int64_t bonus_tokens_ = 0;
+    int64_t accept_prefix_ = 0;
+    int64_t bonus_token_ = -1;
+};
+
+// spec-probe: synthetic drafter exercises the SpeculativeDecoder ABI
+// (Draft/Verify/Accept/Reject/Reset + acceptance mask + metrics), the
+// engine supplies the verifier's greedy argmax, and the disabled path
+// proves SPECULATIVE_DECODER_UNAVAILABLE. No production drafter exists
+// — export drops the MTP training head; enabled stays false.
+int mode_spec_probe(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("SPEC_ARGS_MISSING");
+    int64_t draft_k = a.has("draft") ? std::stoll(a.get("draft")) : 4;
+    int64_t steps = a.has("steps") ? std::stoll(a.get("steps")) : 8;
+    NativeInferenceEngine e;
+    try { e.load(bundle); }
+    catch (const std::exception& ex) {
+        fail(std::string("SPEC_LOAD:") + ex.what());
+    }
+    JsonValue mf = parse_json_file(
+        (fs::path(bundle) / "manifest.json").string());
+    const JsonValue* cfg = mf.get("config");
+    const int64_t vocab = (int64_t)xct::j_num(cfg, "vocab_size", 0);
+    if (vocab < 8) fail("SPEC_BAD_CONFIG");
+    std::mt19937_64 rng(7);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+
+    std::vector<int64_t> base;
+    for (int i = 0; i < 16; ++i) base.push_back(tok(rng));
+
+    // synthetic drafter: echo the tail of the context (periodic guess).
+    SpeculativeDecoder sd;
+    sd.set_enabled(true);
+    sd.set_drafter([&base](int64_t k) {
+        std::vector<int64_t> d;
+        int64_t period = std::min<int64_t>(8, (int64_t)base.size());
+        for (int64_t i = 0; i < k && period > 0; ++i)
+            d.push_back(base[base.size() - period +
+                             (size_t)(i % period)]);
+        return d;
+    });
+    // verifier: engine argmax per drafted position + bonus token.
+    sd.set_verifier([&e](const std::vector<int64_t>& drafted) {
+        // The verifier receives only the drafted tokens; the probe
+        // keeps a shared base in the closure via a member trick — the
+        // verifier gets the current context through a static slot.
+        (void)drafted;
+        return std::vector<int64_t>{};
+    });
+    // The verifier needs the base context — rebind per step below via a
+    // shared pointer.
+    std::vector<int64_t>* basep = &base;
+    sd.set_verifier([&e, basep](const std::vector<int64_t>& drafted) {
+        std::vector<int64_t> target;
+        std::vector<int64_t> seq = *basep;
+        for (size_t i = 0; i <= drafted.size(); ++i) {
+            auto lg = e.logits(seq);
+            int64_t am = 0;
+            for (size_t j = 1; j < lg.size(); ++j)
+                if (lg[j] > lg[(size_t)am]) am = (int64_t)j;
+            target.push_back(am);
+            if (i < drafted.size()) seq.push_back(drafted[i]);
+        }
+        return target;
+    });
+
+    int64_t proposed = 0, accepted = 0, fallbacks = 0;
+    for (int64_t s = 0; s < steps; ++s) {
+        std::vector<int64_t> drafted;
+        try { drafted = sd.Draft(draft_k); }
+        catch (const std::runtime_error&) { drafted.clear(); }
+        if (drafted.empty()) {
+            // fallback path: plain greedy step
+            auto lg = e.logits(base);
+            int64_t am = 0;
+            for (size_t j = 1; j < lg.size(); ++j)
+                if (lg[j] > lg[(size_t)am]) am = (int64_t)j;
+            base.push_back(am);
+            ++fallbacks;
+            continue;
+        }
+        auto mask = sd.Verify(drafted);
+        proposed += (int64_t)drafted.size();
+        int64_t acc = sd.accept_prefix();
+        accepted += acc;
+        // accept prefix, then the target's own token at the first
+        // rejection (bonus token semantics).
+        for (int64_t i = 0; i <= acc &&
+                          i < (int64_t)drafted.size(); ++i) {
+            int64_t t;
+            if (i < acc) t = drafted[(size_t)i];
+            else t = sd.bonus_token() >= 0 ? sd.bonus_token() : 0;
+            base.push_back(t);
+            if (i == acc) break;
+        }
+        if (acc == (int64_t)drafted.size()) sd.Accept();
+        else sd.Reject();
+    }
+
+    // disabled path must fail closed.
+    SpeculativeDecoder off;
+    std::string disabled_err;
+    try { off.Draft(4); }
+    catch (const std::exception& ex) { disabled_err = ex.what(); }
+    bool unavailable_ok = disabled_err.find(
+        "SPECULATIVE_DECODER_UNAVAILABLE") != std::string::npos;
+    std::string metrics = sd.metrics_json();
+    std::printf(
+        "{\"ok\":%s,\"mode\":\"spec-probe\",\"enabled\":false,"
+        "\"reason\":\"mtp-head-discarded-at-export\","
+        "\"draft_k\":%lld,\"steps\":%lld,\"proposed\":%lld,"
+        "\"accepted\":%lld,\"acceptance_rate\":%.4f,"
+        "\"fallbacks\":%lld,\"final_context\":%lld,"
+        "\"unavailable_ok\":%s,\"metrics\":%s,"
+        "\"abi\":[\"Draft\",\"Verify\",\"Accept\",\"Reject\","
+        "\"Reset\"]}\n",
+        unavailable_ok ? "true" : "false",
+        (long long)draft_k, (long long)steps, (long long)proposed,
+        (long long)accepted,
+        proposed > 0 ? (double)accepted / proposed : 0.0,
+        (long long)fallbacks, (long long)base.size(),
+        unavailable_ok ? "true" : "false", metrics.c_str());
+    return unavailable_ok ? 0 : 1;
+}
 
 // depth-probe: standalone §8 depth telemetry — per-layer residual RMS,
 // per-module output norms, DeltaNet recurrent-state norms.
@@ -525,9 +653,12 @@ static int mode_provenance_check(const Args& a) {
     // 5) tensor shape sanity.
     {
         const JsonValue* t = manifest.get("tensors");
-        if (!t || t->type != JsonValue::Type::Array ||
-            t->array.empty())
-            failures.push_back("tensors missing");
+        bool tensors_ok =
+            t && ((t->type == JsonValue::Type::Array &&
+                   !t->array.empty()) ||
+                  (t->type == JsonValue::Type::Object &&
+                   !t->object.empty()));
+        if (!tensors_ok) failures.push_back("tensors missing");
     }
     // 6) runtime compatibility tag (new provenance block; absent on
     // legacy bundles is reported, the load below is the real gate).

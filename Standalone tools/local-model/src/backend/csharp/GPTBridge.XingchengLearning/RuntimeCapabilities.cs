@@ -247,18 +247,18 @@ internal static class RuntimeCapabilities
         catch (JsonException e)
         {
             throw new ExecutorError(
-                "RUNTIME_CAPS_INVALID",
+                "RUNTIME_CAPABILITY_INVALID",
                 $"{source}: invalid json: {e.Message}");
         }
         if (root.ValueKind != JsonValueKind.Object)
             throw new ExecutorError(
-                "RUNTIME_CAPS_INVALID", $"{source}: not object");
+                "RUNTIME_CAPABILITY_INVALID", $"{source}: not object");
         var p = new Profile();
         string fmt = root.TryGetProperty("format", out var f)
             ? f.GetString() ?? "" : "";
         if (fmt != Format)
             throw new ExecutorError(
-                "RUNTIME_CAPS_INVALID",
+                "RUNTIME_CAPABILITY_INVALID",
                 $"{source}: expected {Format}");
 
         // fail-closed field allowlist ??unknown knobs would silently
@@ -273,7 +273,7 @@ internal static class RuntimeCapabilities
         foreach (var prop in root.EnumerateObject())
             if (!known.Contains(prop.Name))
                 throw new ExecutorError(
-                    "RUNTIME_CAPS_INVALID",
+                    "RUNTIME_CAPABILITY_INVALID",
                     $"{source}: unknown field {prop.Name}");
 
         if (root.TryGetProperty("reasoning", out var rs) &&
@@ -364,7 +364,7 @@ internal static class RuntimeCapabilities
         {
             if (!allowed.Contains(v))
                 throw new ExecutorError(
-                    "RUNTIME_CAPS_INVALID",
+                    "RUNTIME_CAPABILITY_INVALID",
                     $"{source}: {name}={v} not in " +
                     string.Join("/", allowed));
         }
@@ -377,11 +377,11 @@ internal static class RuntimeCapabilities
              DeploymentProfiles);
         if (p.Device is not ("cpu" or "cuda"))
             throw new ExecutorError(
-                "RUNTIME_CAPS_INVALID",
+                "RUNTIME_CAPABILITY_INVALID",
                 $"{source}: deployment.device={p.Device}");
         if (p.ContextBudgetTokens > 32768)
             throw new ExecutorError(
-                "RUNTIME_CAPS_INVALID",
+                "RUNTIME_CAPABILITY_INVALID",
                 $"{source}: context_budget exceeds probe ceiling 32768 " +
                 "(production default stays the trained context)");
         if (p.VisionProfile != "FULL")
@@ -435,7 +435,7 @@ internal static class RuntimeCapabilities
     {
         if (string.IsNullOrEmpty(file) || !File.Exists(file))
             throw new ExecutorError(
-                "RUNTIME_CAPS_INVALID", "profile file missing");
+                "RUNTIME_CAPABILITY_INVALID", "profile file missing");
         var p = Parse(File.ReadAllText(file), file);
         return new Dictionary<string, object?>
         {

@@ -152,7 +152,7 @@ internal static class ToolContracts
         {
             RecordMetric(toolRoot, "budget_blocked");
             throw new ExecutorError(
-                "TOOL_BUDGET_EXCEEDED",
+                "TOOL_BUDGET_EXHAUSTED",
                 $"tool budget {budget} exhausted");
         }
         // 4) confirmation — high-risk calls must be explicitly confirmed

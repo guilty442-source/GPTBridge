@@ -192,24 +192,24 @@ internal static class FeatureCatalog
     {
         if (string.IsNullOrEmpty(file) || !File.Exists(file))
             throw new ExecutorError(
-                "FEATURE_CATALOG_INVALID", "catalog file missing");
+                "FEATURE_REGISTRY_INVALID", "catalog file missing");
         JsonElement root;
         try { root = JsonDocument.Parse(File.ReadAllText(file))
                                      .RootElement; }
         catch (JsonException)
         {
             throw new ExecutorError(
-                "FEATURE_CATALOG_INVALID", "catalog not valid json");
+                "FEATURE_REGISTRY_INVALID", "catalog not valid json");
         }
         if (root.ValueKind != JsonValueKind.Object ||
             !root.TryGetProperty("format", out var f) ||
             f.GetString() != Format)
             throw new ExecutorError(
-                "FEATURE_CATALOG_INVALID", "bad catalog format");
+                "FEATURE_REGISTRY_INVALID", "bad catalog format");
         if (!root.TryGetProperty("features", out var feats) ||
             feats.ValueKind != JsonValueKind.Array)
             throw new ExecutorError(
-                "FEATURE_CATALOG_INVALID", "features missing");
+                "FEATURE_REGISTRY_INVALID", "features missing");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var failures = new List<object?>();
         var required = new[]
