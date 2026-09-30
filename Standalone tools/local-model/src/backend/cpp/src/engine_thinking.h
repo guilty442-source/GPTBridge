@@ -56,6 +56,10 @@ void NativeInferenceEngine::kv_copy_slot(
     for (int64_t pos = 0; pos < count; ++pos) {
         kv_ensure_position(dst, pos);
         for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
+            // Hybrid xc-fused-1: only full-attention layers own KV —
+            // DeltaNet recurrent layers have kv_layer_ord_ < 0 and
+            // their state is copied separately (lin_states_ fork).
+            if (kv_layer_ord_[static_cast<size_t>(layer)] < 0) continue;
             for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                 kv_read_head(src, true, layer, pos, h, row.data());
                 kv_write(dst, true, layer, pos, h, row.data());
@@ -133,6 +137,13 @@ NativeInferenceEngine::generate_thinking(
             const int64_t slot = kv_alloc_slot();
             slots[static_cast<size_t>(b)] = slot;
             kv_copy_slot(slot, 0, kv_lens_[0]);
+            // Recurrent-state fork: each branch replays the prompt's
+            // DeltaNet state so its private decode starts from the same
+            // recurrence, not a zeroed image.
+            if (!lin_states_.empty()
+                && static_cast<size_t>(slot) < lin_states_.size()) {
+                lin_states_[static_cast<size_t>(slot)] = lin_states_[0];
+            }
 
             std::vector<int64_t> previous = prompt_ids;
             uint64_t rng_b = rng_state +
