@@ -904,10 +904,15 @@ private:
         const std::vector<double>& logits);
     void restore_prefix_state(const PrefixEntry& entry);
     // Decode loop shared by generate() and generate_from_artifact().
+    // last_hidden carries the post-final-norm hidden of the last
+    // committed position when known (empty vector when it is not — e.g.
+    // the prefill-artifact path, where the drafter joins after the first
+    // forward).
     std::vector<int64_t> decode_continue(
         std::vector<double> next_logits, int64_t max_new_tokens,
         const SamplingConfig& sampling, uint64_t rng_state,
-        std::vector<int64_t>& generated);
+        std::vector<int64_t>& generated,
+        std::vector<double> last_hidden = {});
     void kv_ensure_position(int64_t slot, int64_t position);
     char* kv_slot_bytes(
         int64_t slot, bool key_cache,
