@@ -31,6 +31,24 @@ std::vector<std::vector<double>> NativeInferenceEngine::forward_batch_last_logit
     return out;
 }
 
+std::vector<double> NativeInferenceEngine::forward_vision_logits(
+    const std::vector<int64_t>& input_ids,
+    const std::vector<double>& patches,
+    int64_t num_patches) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    BatchSpan span;
+    span.slot = 0;
+    span.ids = &input_ids;
+    span.position_offset = 0;
+    span.append_cache = false;
+    span.vision_patches = &patches;
+    span.vision_num_patches = num_patches;
+    const std::vector<BatchSpan> spans{span};
+    std::vector<std::vector<double>> out = forward_batch_last_logits(spans);
+    if (out.empty()) throw InferenceError("VISION_NO_OUTPUT");
+    return out[0];
+}
+
 int64_t NativeInferenceEngine::sample_next(
     const std::vector<double>& logits,
     const std::vector<int64_t>& previous,

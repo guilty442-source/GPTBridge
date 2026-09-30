@@ -15,6 +15,7 @@
 //                 [--corpus-manifest <manifest.json>] [--chat]
 //                 [--baseline-report <file>]
 //   serve         --bundle <dir>   (stdin/stdout JSON-lines worker)
+//   vision-smoke  --bundle <vision-bundle-dir> [--patches N] [--seed N]
 //
 // Tokenize row shapes (star SFT/DPO/pretrain contracts):
 //   {"prompt","completion"}      -> {"input_ids","labels"}  (masked prompt)
@@ -997,6 +998,110 @@ int mode_distill_init(const Args& a) {
         (long long)copied_tensors, (long long)copied_params,
         (long long)(total - copied_params), layer_map.str().c_str());
     return 0;
+}
+
+// ----------------------------------------------- vision-smoke (v1) ----
+
+// vision-smoke --bundle <vision-bundle-dir> [--patches N] [--seed N]
+// End-to-end proof that the native vision early-fusion path is live:
+// text-only vs vision-prefixed last-logits on the same engine, determinism
+// across runs, and fail-closed shape/count gates. Single JSON on stdout.
+int mode_vision_smoke(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("VISION_SMOKE_ARGS_MISSING");
+    int64_t want_patches = 3;
+    if (a.has("patches")) {
+        try { want_patches = std::stoll(a.get("patches")); }
+        catch (...) { fail("VISION_SMOKE_BAD_PATCHES"); }
+    }
+    uint64_t seed = 11;
+    if (a.has("seed")) {
+        try { seed = (uint64_t)std::stoull(a.get("seed")); }
+        catch (...) { fail("VISION_SMOKE_BAD_SEED"); }
+    }
+    NativeInferenceEngine engine;
+    try {
+        engine.load(bundle);
+    } catch (const std::exception& e) {
+        fail(std::string("VISION_SMOKE_LOAD_FAILED:") + e.what());
+    }
+    JsonValue manifest = parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    if (!mcfg) fail("VISION_SMOKE_MANIFEST_INVALID");
+    bool use_vision = false;
+    if (const JsonValue* uv = mcfg->get("use_vision"))
+        if (uv->type == JsonValue::Type::Bool) use_vision = uv->boolean;
+    if (!use_vision) fail("VISION_SMOKE_NOT_VISION_BUNDLE");
+    int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
+    int64_t pdim = (int64_t)xct::j_num(mcfg, "vision_patch_dim", 0);
+    int64_t pmax = (int64_t)xct::j_num(mcfg, "vision_max_patches", 0);
+    if (vocab < 16 || pdim <= 0 || pmax <= 0) fail("VISION_SMOKE_BAD_CONFIG");
+    int64_t P = std::min<int64_t>(want_patches <= 0 ? 1 : want_patches, pmax);
+    std::vector<int64_t> ids;
+    for (int64_t i = 0; i < 8; ++i) ids.push_back(3 + (i * 7) % (vocab - 4));
+    std::vector<double> patches((size_t)P * (size_t)pdim);
+    {
+        std::mt19937_64 rng(seed);
+        std::uniform_real_distribution<double> ud(-0.5, 0.5);
+        for (auto& x : patches) x = ud(rng);
+    }
+    auto finite = [](const std::vector<double>& v) {
+        for (double x : v) if (!std::isfinite(x)) return false;
+        return !v.empty();
+    };
+    std::vector<double> base, v1, v2;
+    try {
+        base = engine.logits(ids);
+        v1 = engine.forward_vision_logits(ids, patches, P);
+        v2 = engine.forward_vision_logits(ids, patches, P);
+    } catch (const std::exception& e) {
+        fail(std::string("VISION_SMOKE_FORWARD_FAILED:") + e.what());
+    }
+    bool text_finite = finite(base);
+    bool vision_finite = finite(v1) && finite(v2);
+    bool deterministic = v1.size() == v2.size() &&
+        std::equal(v1.begin(), v1.end(), v2.begin());
+    double fusion_diff = 0.0;
+    if (base.size() == v1.size())
+        for (size_t i = 0; i < base.size(); ++i)
+            fusion_diff = std::max(fusion_diff, std::fabs(v1[i] - base[i]));
+    bool fusion_live = fusion_diff > 1e-9;
+    // Fail-closed gates: ragged patch data and over-count must throw.
+    bool fc_shape = false, fc_count = false;
+    {
+        std::vector<double> bad((size_t)P * (size_t)pdim + 1, 0.0);
+        try {
+            engine.forward_vision_logits(ids, bad, P);
+        } catch (const std::exception& e) {
+            fc_shape = std::string(e.what()).find("VISION_SHAPE_MISMATCH") !=
+                       std::string::npos;
+        }
+    }
+    {
+        std::vector<double> many((size_t)(pmax + 1) * (size_t)pdim, 0.0);
+        try {
+            engine.forward_vision_logits(ids, many, pmax + 1);
+        } catch (const std::exception& e) {
+            fc_count = std::string(e.what()).find("VISION_TOO_MANY_PATCHES") !=
+                       std::string::npos;
+        }
+    }
+    bool ok = text_finite && vision_finite && deterministic && fusion_live &&
+              fc_shape && fc_count;
+    std::printf(
+        "{\"ok\":%s,\"mode\":\"vision-smoke\",\"bundle\":\"%s\","
+        "\"patches\":%lld,\"patch_dim\":%lld,\"vocab\":%lld,"
+        "\"text_finite\":%s,\"vision_finite\":%s,\"deterministic\":%s,"
+        "\"fusion_max_abs_diff\":%.6g,\"fusion_live\":%s,"
+        "\"fail_closed_shape\":%s,\"fail_closed_count\":%s}\n",
+        ok ? "true" : "false",
+        gptbridge::jsonlite::json_escape(bundle).c_str(), (long long)P,
+        (long long)pdim, (long long)vocab, text_finite ? "true" : "false",
+        vision_finite ? "true" : "false",
+        deterministic ? "true" : "false", fusion_diff,
+        fusion_live ? "true" : "false", fc_shape ? "true" : "false",
+        fc_count ? "true" : "false");
+    return ok ? 0 : 1;
 }
 
 // ------------------------------------------------------- export-bundle ----
@@ -2049,7 +2154,7 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
             "xc_modeltool <tokenize|import-bundle|distill-init|export-bundle|eval|"
-            "capability|serve> [args]\n");
+            "capability|vision-smoke|serve> [args]\n");
         return 2;
     }
     std::string mode = argv[1];
@@ -2061,6 +2166,7 @@ int main(int argc, char** argv) {
         if (mode == "export-bundle") return mode_export_bundle(a);
         if (mode == "eval") return mode_eval(a);
         if (mode == "capability") return mode_capability(a);
+        if (mode == "vision-smoke") return mode_vision_smoke(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {
