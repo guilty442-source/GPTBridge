@@ -2810,17 +2810,80 @@ int mode_serve(const Args& a) {
                 }
                 if (!engine.loaded()) engine.load(bundle);
                 SamplingConfig sc;
-                sc.do_sample = serve_bool(req, "do_sample", false);
-                sc.temperature = serve_num(req, "temperature", 1.0);
+                // §34 sampling profile presets (creative mode surface):
+                // a named profile seeds the knobs; explicit fields
+                // always win. Profiles are style-only — safety/tool/
+                // data authority never rides on them.
+                std::string profile = jget_str(req, "sampling_profile");
+                double p_temp = 1.0, p_topp = 1.0, p_rep = 1.0;
+                if (profile == "precise") {
+                    p_temp = 0.2; p_topp = 0.9; p_rep = 1.05;
+                } else if (profile == "balanced") {
+                    p_temp = 0.7; p_topp = 0.95; p_rep = 1.1;
+                } else if (profile == "creative") {
+                    p_temp = 0.9; p_topp = 0.95; p_rep = 1.1;
+                } else if (profile == "roleplay") {
+                    p_temp = 0.85; p_topp = 0.95; p_rep = 1.1;
+                } else if (profile == "story") {
+                    p_temp = 0.9; p_topp = 0.95; p_rep = 1.15;
+                } else if (profile == "brainstorm") {
+                    p_temp = 1.0; p_topp = 0.99; p_rep = 1.1;
+                } else if (!profile.empty() && profile != "neutral") {
+                    err_obj("SAMPLING_PROFILE_INVALID");
+                    continue;
+                }
+                sc.do_sample = serve_bool(req, "do_sample",
+                                          !profile.empty());
+                sc.temperature = serve_num(req, "temperature", p_temp);
                 sc.top_k = (int64_t)serve_num(req, "top_k", 0);
-                sc.top_p = serve_num(req, "top_p", 1.0);
+                sc.top_p = serve_num(req, "top_p", p_topp);
                 sc.repetition_penalty =
-                    serve_num(req, "repetition_penalty", 1.0);
+                    serve_num(req, "repetition_penalty", p_rep);
                 sc.seed = (uint64_t)serve_num(req, "seed", 0);
                 int64_t max_new = (int64_t)serve_num(
                     req, "max_new_tokens", 192);
                 if (max_new <= 0) max_new = 1;
                 if (max_new > 2048) max_new = 2048;
+
+                // §34 persona/context envelope: bounded structured
+                // state (persona fields + narrative facts + factuality
+                // marker) materialised once as prompt prefix — never a
+                // raw transcript replay. FICTIONAL mode tags the
+                // context so generated content can be tracked as
+                // fictional by the C# claim/memory layer.
+                {
+                    std::string persona = jget_str(req, "persona");
+                    std::string narrative = jget_str(req, "narrative");
+                    std::string factuality =
+                        jget_str(req, "factuality");
+                    if (!persona.empty() || !narrative.empty() ||
+                        !factuality.empty()) {
+                        if (!factuality.empty() &&
+                            factuality != "FACTUAL_STRICT" &&
+                            factuality != "GROUNDED" &&
+                            factuality != "GENERAL" &&
+                            factuality != "FICTIONAL") {
+                            err_obj("FACTUALITY_MODE_INVALID");
+                            continue;
+                        }
+                        std::string env =
+                            "<|context_envelope|>{\"factuality\":\"" +
+                            (factuality.empty() ? "GENERAL" : factuality)
+                            + "\"";
+                        if (factuality == "FICTIONAL")
+                            env += ",\"fictional_context\":true";
+                        if (!persona.empty())
+                            env += ",\"persona\":" +
+                                   gptbridge::jsonlite::json_escape(
+                                       persona);
+                        if (!narrative.empty())
+                            env += ",\"narrative_state\":" +
+                                   gptbridge::jsonlite::json_escape(
+                                       narrative);
+                        env += "}<|end_context_envelope|>\n";
+                        prompt = env + prompt;
+                    }
+                }
 
                 std::vector<int64_t> pids = engine.encode(prompt, true, false);
                 // §16 opt-in two-level MoE trace: per-request router
@@ -2912,6 +2975,42 @@ int mode_serve(const Args& a) {
                     }
                     o << ']';
                     engine.set_router_trace(false);
+                }
+                // §34 claim-boundary metadata: opt-in sentence spans
+                // the C# claim-extraction layer consumes verbatim —
+                // the engine marks boundaries, it never judges truth.
+                if (serve_bool(req, "mark_claims", false)) {
+                    o << ",\"claim_spans\":[";
+                    bool first_span = true;
+                    size_t begin = 0;
+                    for (size_t i = 0; i < text.size(); ++i) {
+                        unsigned char ch = (unsigned char)text[i];
+                        bool boundary =
+                            ch == '.' || ch == '!' || ch == '?' ||
+                            ch == ';' || ch == '\n' ||
+                            (ch == 0xE3 && i + 2 < text.size() &&
+                             (unsigned char)text[i + 1] == 0x80 &&
+                             (unsigned char)text[i + 2] == 0x82) ||  // 。
+                            (ch == 0xEF && i + 2 < text.size() &&
+                             (unsigned char)text[i + 1] == 0xBC &&
+                             ((unsigned char)text[i + 2] == 0x81 ||
+                              (unsigned char)text[i + 2] == 0x9F ||
+                              (unsigned char)text[i + 2] == 0x9B)); // ！？；
+                        bool last = i + 1 == text.size();
+                        if (!boundary && !last) continue;
+                        size_t end = i + 1;
+                        if (boundary && (ch == 0xE3 || ch == 0xEF))
+                            end = i + 3;  // include the 3-byte punct
+                        if (end > begin + 1) {
+                            if (!first_span) o << ',';
+                            first_span = false;
+                            o << "{\"begin\":" << begin
+                              << ",\"end\":" << end << '}';
+                        }
+                        begin = end;
+                        if (ch == 0xE3 || ch == 0xEF) i += 2;
+                    }
+                    o << ']';
                 }
                 o << ",\"generated_tokens\":" << (int64_t)out.size()
                   << ",\"latency_ms\":" << elapsed * 1000.0

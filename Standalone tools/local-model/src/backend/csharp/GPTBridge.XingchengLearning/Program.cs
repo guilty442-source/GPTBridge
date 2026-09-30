@@ -667,6 +667,10 @@ internal static class Program
                 ["error"] = exc.Message.Length > 500
                     ? exc.Message[..500] : exc.Message,
                 ["error_type"] = exc.GetType().Name,
+                // §36 fail-closed taxonomy — the code is contract
+                // surface, never swallowed into free text.
+                ["error_code"] = exc is ExecutorError ee
+                    ? ee.ErrorCode : "INTERNAL",
             });
         }
     }

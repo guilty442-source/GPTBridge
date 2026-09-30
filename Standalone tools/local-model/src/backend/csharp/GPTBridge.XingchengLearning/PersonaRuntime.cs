@@ -236,15 +236,18 @@ internal static class PersonaRuntime
             throw new ExecutorError("INSTRUCTION_CONFLICT_INVALID",
                 "conflict needs >=2 instructions");
         JsonElement best = c[0];
-        int bestRank = -1;
+        int bestRank = int.MaxValue;
         var rejected = new List<object?>();
         foreach (var item in c.EnumerateArray())
         {
             string layer =
                 item.TryGetProperty("layer", out var l)
                     ? l.GetString() ?? "" : "";
+            // InstructionRanks is highest->lowest; the smallest index
+            // wins (governance=0 outranks persona=4).
             int rank = Array.IndexOf(InstructionRanks, layer);
-            if (rank > bestRank) { bestRank = rank; best = item; }
+            if (rank >= 0 && rank < bestRank)
+            { bestRank = rank; best = item; }
         }
         foreach (var item in c.EnumerateArray())
         {

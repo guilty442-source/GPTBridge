@@ -183,10 +183,10 @@ internal static class GroundedRag
         // SUPERSEDES: newer wins; the target is CURRENT, source is
         // SUPERSEDED (§29).
         var supersededIds = new HashSet<string>();
-        foreach (Dictionary<string, object?> e in edges)
+        foreach (var e in edges.OfType<Dictionary<string, object?>>())
             if ((string)e["edge_type"]! == "SUPERSEDES")
                 supersededIds.Add((string)e["from"]!);
-        foreach (Dictionary<string, object?> e in edges)
+        foreach (var e in edges.OfType<Dictionary<string, object?>>())
         {
             string from = (string)e["from"]!, to = (string)e["to"]!;
             if (from != subject && to != subject) continue;

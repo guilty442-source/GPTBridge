@@ -342,7 +342,8 @@ internal static class CreativeRuntime
             ["at"] = XcPaths.IsoNow(),
         });
         timeline.Clear();
-        s["compact_count"] = (int)(s["compact_count"] ?? 0) + 1;
+        s["compact_count"] =
+            Convert.ToInt32(s["compact_count"] ?? 0) + 1;
         SaveSession(toolRoot, s);
         return new Dictionary<string, object?>
         {
