@@ -64,6 +64,13 @@ struct TrainCfg {
     double deadline_s = 0.0;                   // 0 = unbounded (bounded by steps)
     std::string init_ckpt, emit_ckpt, decay = "cosine";
     bool overwrite = false;
+    // Native Thinking RL (grpo): on-policy group rollouts, verifiable
+    // reward, group-normalized advantage, KL-to-reference penalty.
+    int group_size = 4;                        // parallel hypotheses/prompt
+    int max_new = 8;                           // rollout completion length
+    float temperature = 1.0f;                  // rollout sampling temp
+    float kl_coef = 0.02f;                     // KL(policy||ref) weight
+    std::string reward = "exact";              // exact|prefix
 };
 
 static double now_s() {
@@ -97,6 +104,19 @@ static JsonValue run_job(const JsonValue& job) {
     tc.seed = (uint64_t)j_num(tj, "seed", tc.seed);
     tc.deadline_s = j_num(tj, "deadline_s", 0);
     tc.decay = j_str(tj, "lr_decay", tc.decay);
+    tc.group_size = j_int(tj, "group_size", tc.group_size);
+    tc.max_new = j_int(tj, "max_new_tokens", tc.max_new);
+    tc.temperature = (float)j_num(tj, "temperature", tc.temperature);
+    tc.kl_coef = (float)j_num(tj, "kl_coef", tc.kl_coef);
+    tc.reward = j_str(tj, "reward", tc.reward);
+    if (task == "grpo") {
+        if (tc.group_size < 2 || tc.group_size > 8)
+            throw "train: group_size must be in [2,8]";
+        if (tc.max_new < 1 || tc.max_new > 64)
+            throw "train: max_new_tokens must be in [1,64]";
+        if (tc.reward != "exact" && tc.reward != "prefix")
+            throw "train: unsupported grpo reward";
+    }
     tc.init_ckpt = j_str(tj, "init_checkpoint", "");
     tc.emit_ckpt = j_str(tj, "emit_checkpoint", "");
     tc.overwrite = j_bool(tj, "overwrite", false);
@@ -110,9 +130,9 @@ static JsonValue run_job(const JsonValue& job) {
         if (!ckpt_load(p, file_cfg, tc.init_ckpt))
             throw "init_checkpoint: unreadable or shape mismatch";
     }
-    // DPO reference: frozen copy of the initial weights
+    // DPO/GRPO reference: frozen copy of the initial weights
     Params ref;
-    if (task == "dpo") { ref = p; }
+    if (task == "dpo" || task == "grpo") { ref = p; }
 
     std::vector<Example> data = load_data(dj, j_str(dj, "format", task), max_rows, max_len);
     if (data.empty()) throw "data: no usable rows";
