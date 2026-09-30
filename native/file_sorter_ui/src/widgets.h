@@ -26,6 +26,11 @@ void register_classes(HINSTANCE inst);
 /* hover-state subclass for owner-drawn buttons/checks */
 void install_hover(HWND h);
 
+/* hot-item tracking for owner-drawn listboxes — stores the hovered
+ * row index (1-based prop) so WM_DRAWITEM can highlight it. */
+void install_list_hover(HWND h);
+int list_hot_item(HWND h); /* -1 when none */
+
 /* FsuiScroll API (direct calls, not messages) */
 void scroll_set(HWND scroll, int max, int page);
 void scroll_set_pos(HWND scroll, int pos);

@@ -38,6 +38,45 @@ LRESULT CALLBACK hover_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
     return DefSubclassProc(h, msg, wp, lp);
 }
 
+/* ---------------- listbox hot-item hover ---------------- */
+
+LRESULT CALLBACK list_hover_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
+                                 UINT_PTR, DWORD_PTR) {
+    switch (msg) {
+        case WM_MOUSEMOVE: {
+            LRESULT r = SendMessageW(h, LB_ITEMFROMPOINT, 0, lp);
+            int idx = HIWORD(r) ? -1 : (int)LOWORD(r);
+            int cur = (int)(INT_PTR)GetPropW(h, L"fsui.hotitem") - 1;
+            if (idx != cur) {
+                SetPropW(h, L"fsui.hotitem", (HANDLE)(INT_PTR)(idx + 1));
+                InvalidateRect(h, nullptr, FALSE);
+            }
+            if (!GetPropW(h, theme::kPropHot)) {
+                SetPropW(h, theme::kPropHot, (HANDLE)1);
+                TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, h, 0};
+                TrackMouseEvent(&tme);
+            }
+            break;
+        }
+        case WM_MOUSELEAVE:
+            if (GetPropW(h, L"fsui.hotitem")) {
+                RemovePropW(h, L"fsui.hotitem");
+                InvalidateRect(h, nullptr, FALSE);
+            }
+            RemovePropW(h, theme::kPropHot);
+            break;
+        case WM_VSCROLL:
+        case WM_MOUSEWHEEL:
+            RemovePropW(h, L"fsui.hotitem");
+            InvalidateRect(h, nullptr, FALSE);
+            break;
+        case WM_NCDESTROY:
+            RemovePropW(h, L"fsui.hotitem");
+            break;
+    }
+    return DefSubclassProc(h, msg, wp, lp);
+}
+
 /* ---------------- FsuiSlider ---------------- */
 
 struct SliderState {
@@ -343,6 +382,14 @@ void register_classes(HINSTANCE inst) {
 
 void install_hover(HWND h) {
     SetWindowSubclass(h, hover_proc, 1, 0);
+}
+
+void install_list_hover(HWND h) {
+    SetWindowSubclass(h, list_hover_proc, 2, 0);
+}
+
+int list_hot_item(HWND h) {
+    return (int)(INT_PTR)GetPropW(h, L"fsui.hotitem") - 1;
 }
 
 void scroll_set(HWND scroll, int max, int page) {

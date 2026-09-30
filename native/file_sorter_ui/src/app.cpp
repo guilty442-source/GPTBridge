@@ -83,9 +83,22 @@ void browse_target_folder() {
     dlg->Release();
 }
 
+/* repaint the accent underline zone under an edit on focus change */
+void invalidate_focus_line(int id) {
+    HWND c = find_ctrl(id);
+    if (!c) return;
+    RECT r;
+    GetWindowRect(c, &r);
+    MapWindowPoints(nullptr, g_app.content, (POINT*)&r, 2);
+    r.bottom += 4;
+    InvalidateRect(g_app.content, &r, FALSE);
+}
+
 void handle_command(int id, int code) {
     AppState& s = g_app.st;
     Ui& u = g_app.ui;
+    if (code == EN_SETFOCUS || code == EN_KILLFOCUS)
+        invalidate_focus_line(id);
     switch (id) {
         case IDC_TARGET_EDIT:
             if (code == EN_KILLFOCUS) {
@@ -346,8 +359,10 @@ void draw_check(const DRAWITEMSTRUCT* dis) {
 void draw_list_item(const DRAWITEMSTRUCT* dis) {
     if (dis->itemID == (UINT)-1) return;
     bool sel = (dis->itemState & ODS_SELECTED) != 0;
+    bool hot = widgets::list_hot_item(dis->hwndItem) == (int)dis->itemID;
     theme::fill_round(dis->hDC, dis->rcItem,
-                      sel ? theme::kSelBg : theme::kField, 4);
+                      sel ? theme::kSelBg
+                          : hot ? theme::kSecHot : theme::kField, 4);
     wchar_t buf[512];
     buf[0] = 0;
     SendMessageW(dis->hwndItem, LB_GETTEXT, dis->itemID, (LPARAM)buf);
@@ -425,22 +440,51 @@ LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC dc = BeginPaint(hwnd, &ps);
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            const int cw = cr.right;
             /* header band: gradient + accent underline (HUD strip) */
-            RECT band{0, 0, ps.rcPaint.right, 118};
+            RECT band{0, 0, cw, 118};
             theme::vgrad(dc, band, theme::kHeaderHi, theme::kBg);
             /* diagonal tech hatch on the right half of the band */
-            RECT hatch{ps.rcPaint.right - 220, 0, ps.rcPaint.right, 104};
+            RECT hatch{cw - 220, 0, cw, 104};
             theme::diag_hatch(dc, hatch, 12, 26, theme::kAccentDim);
             /* travelling scan sliver on the accent rule */
-            int scan_w = ps.rcPaint.right + 160;
+            int scan_w = cw + 160;
             int sx = (g_scan_phase % scan_w) - 160;
             theme::accent_rule(dc, 18, 108, 200);
             theme::accent_rule(dc, 218, 108, 60, theme::kAccentDim);
             theme::accent_rule(dc, sx, 108, 120, theme::kAccentDim);
             theme::accent_rule(dc, sx + 110, 108, 10, theme::kAccentHot);
             /* hex unit emblem inside the hatch zone */
-            theme::hex_badge(dc, ps.rcPaint.right - 42, 34, 12,
+            theme::hex_badge(dc, cw - 42, 34, 12,
                              theme::kAccentDim, theme::kAccent);
+            /* connection badge chip */
+            {
+                auto st = g_app.st.backend.state();
+                const char* label =
+                    st == WsClient::State::Connected ? "LINK"
+                    : st == WsClient::State::Disconnected ? "OFFLINE"
+                                                        : "SYNC";
+                COLORREF cc = conn_color();
+                RECT chip{cw - 148, 68, cw - 58, 92};
+                theme::fill_chamfer(dc, chip, 8, theme::kCard, cc);
+                theme::text(dc, label, chip, cc, g_app.font_tech,
+                            DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+            /* accent underline under the focused edit field */
+            if (HWND f = GetFocus(); f && GetParent(f) == hwnd) {
+                wchar_t cls[16]{};
+                GetClassNameW(f, cls, 16);
+                if (wcscmp(cls, L"Edit") == 0) {
+                    RECT er;
+                    GetWindowRect(f, &er);
+                    MapWindowPoints(nullptr, hwnd, (POINT*)&er, 2);
+                    theme::accent_rule(dc, er.left + 2, er.bottom,
+                                       er.right - er.left - 4,
+                                       theme::kAccent, 2);
+                }
+            }
             int sec = 1;
             for (const RECT& c : g_app.cards) {
                 theme::card(dc, c);
@@ -550,9 +594,28 @@ LRESULT CALLBACK main_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_TIMER:
             if (wp == TIMER_TICK) on_tick();
             return 0;
-        case WM_SIZE:
+        case WM_SIZE: {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            if (g_app.content && rc.right > 0 &&
+                rc.right != g_app.content_w) {
+                /* responsive relayout: rebuild controls at new width */
+                g_app.content_w = rc.right;
+                SetWindowPos(g_app.content, nullptr, 0, -g_app.scroll_y,
+                             rc.right, g_app.content_h, SWP_NOZORDER);
+                EnumChildWindows(g_app.content,
+                                 [](HWND c, LPARAM) -> BOOL {
+                                     DestroyWindow(c);
+                                     return TRUE;
+                                 },
+                                 0);
+                g_app.cards.clear();
+                build_layout(g_app.content);
+            }
             update_scrollbar();
+            sync_ui();
             return 0;
+        }
         case WM_VSCROLL: {
             int code = LOWORD(wp);
             if (code == SB_LINEUP) scroll_content(-40);

@@ -19,7 +19,7 @@ struct Lay {
     HWND parent;
     int y = 14;
     static constexpr int x = 16;
-    static constexpr int w = 896;
+    int w = 896; /* set from the content client width — responsive */
     bool on_card = false;
 
     HWND mk(const wchar_t* cls, int id, DWORD style, int cx, int cy,
@@ -98,6 +98,7 @@ struct Lay {
                         WS_VSCROLL | WS_TABSTOP,
                     cx, cy, cw, ch);
         theme::dark_chrome(h);
+        widgets::install_list_hover(h);
         return h;
     }
     /* card: begin at current y; close with end_card() */
@@ -114,6 +115,42 @@ struct Lay {
         on_card = false;
         y = y1 + 14;
     }
+
+    /* restore text/check state into fresh controls after a relayout */
+    void seed(const AppState& s, const Ui& u) {
+        set_text(u.target_edit, s.target_dir);
+        set_text(u.kw_edit, s.keyword_input);
+        set_text(u.kw_cur, s.current_keyword);
+        set_text(u.kw_new, s.updated_keyword);
+        set_text(u.ctx_edit, std::to_string(s.model_context_window));
+        set_text(u.tok_edit, std::to_string(s.model_max_tokens));
+        SendMessageW(u.chk_img, BM_SETCHECK,
+                   s.cleanup_image_issues ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(u.chk_simimg, BM_SETCHECK,
+                   s.cleanup_similar_images ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(u.chk_vid, BM_SETCHECK,
+                   s.cleanup_video_issues ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(u.chk_simvid, BM_SETCHECK,
+                   s.cleanup_similar_videos ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(u.chk_parallel, BM_SETCHECK,
+                   s.cleanup_parallel ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(u.tb_threshold, TBM_SETPOS, TRUE,
+                   (LPARAM)(int)s.cleanup_threshold);
+        SendMessageW(u.tb_speed, TBM_SETPOS, TRUE,
+                   (LPARAM)(int)s.cleanup_speed);
+        SendMessageW(u.tb_temp, TBM_SETPOS, TRUE,
+                   (LPARAM)(int)(s.model_temperature * 100));
+        SendMessageW(u.tb_topp, TBM_SETPOS, TRUE,
+                   (LPARAM)(int)(s.model_top_p * 100));
+        set_text(u.lbl_threshold,
+                 std::to_string((int)s.cleanup_threshold));
+        set_text(u.lbl_speed, std::to_string((int)s.cleanup_speed));
+        char b[16];
+        std::snprintf(b, sizeof(b), "%.2f", s.model_temperature);
+        set_text(u.lbl_temp, b);
+        std::snprintf(b, sizeof(b), "%.2f", s.model_top_p);
+        set_text(u.lbl_topp, b);
+    }
 };
 
 } // namespace
@@ -121,8 +158,12 @@ struct Lay {
 void build_layout(HWND content) {
     Lay L{content};
     Ui& u = g_app.ui;
+    RECT crc;
+    GetClientRect(content, &crc);
+    L.w = crc.right - 32;              /* content tracks window width */
+    if (L.w < 560) L.w = 560;
     const int ix = Lay::x + 18;        /* inner x inside cards */
-    const int iw = Lay::w - 36;        /* inner width */
+    const int iw = L.w - 36;           /* inner width */
     int y0;
 
     /* ---- header (on bg, no card) ---- */
@@ -131,12 +172,12 @@ void build_layout(HWND content) {
     theme::mark_cyan(kicker);
     L.y += 18;
     L.label(tr::kTitle, Lay::x + 2, L.y, 460, 32, g_app.font_heading);
-    u.conn_dot = L.label("\xE2\x97\x8F", 720, L.y + 6, 20, 22); /* ● dot */
-    u.conn_text = L.label(tr::kConnecting, 744, L.y + 8, 150, 20);
+    u.conn_dot = L.label("\xE2\x97\x8F", L.w - 180, L.y + 6, 20, 22); /* ● dot */
+    u.conn_text = L.label(tr::kConnecting, L.w - 156, L.y + 8, 130, 20);
     L.y += 42;
     L.label(tr::kWorkspaceLbl, Lay::x + 2, L.y, 90, 18, g_app.font_small, true);
     u.ws_path = L.mk(L"STATIC", IDC_WS_PATH, SS_LEFTNOWORDWRAP, 110, L.y,
-                     700, 18, g_app.font_mono);
+                     L.w - 300, 18, g_app.font_mono);
     L.y += 30;
 
     /* ---- workspace + auto-organize ---- */
@@ -267,6 +308,7 @@ void build_layout(HWND content) {
     L.end_card(y0);
 
     g_app.content_h = L.y;
+    L.seed(g_app.st, u); /* repopulate after a rebuild-on-resize */
 }
 
 } // namespace fsui

@@ -55,6 +55,7 @@ struct App {
     HWND content = nullptr;
     HWND scroll = nullptr;
     int content_h = 0;
+    int content_w = 0; /* last laid-out content width — resize relayout */
     int scroll_y = 0;
     HFONT font = nullptr;
     HFONT font_bold = nullptr;
