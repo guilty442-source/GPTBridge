@@ -210,7 +210,7 @@ func (m *BrowserManager) ensureSession(id, owner, url string,
 			ok, status := navCompletionStatus(args)
 			s.loading = false
 			select {
-			case s.navWait <- true:
+			case s.navWait <- ok:
 			default:
 			}
 			if ok {
@@ -292,7 +292,11 @@ func (m *BrowserManager) activate(id string) {
 func (m *BrowserManager) applyBounds(s *session, b bounds) {
 	s.bounds = b
 	if b.valid {
-		m.post(func() { moveWindow(s.hwnd, b.X, b.Y, b.W, b.H) })
+		m.post(func() {
+			moveWindow(s.hwnd, scaleCoord(m.parent, b.X),
+				scaleCoord(m.parent, b.Y), scaleCoord(m.parent, b.W),
+				scaleCoord(m.parent, b.H))
+		})
 	}
 }
 
@@ -373,18 +377,50 @@ func (m *BrowserManager) Invoke(channel string, p map[string]any) map[string]any
 	switch channel {
 	case "embedded-browser:create":
 		url, _ := p["url"].(string)
-		s, err := m.ensureSession(id, url, toBounds(p))
+		owner, _ := p["ownerModule"].(string)
+		s, err := m.ensureSession(id, owner, url, toBounds(p))
 		if err != nil {
 			return map[string]any{"ok": false, "message": err.Error()}
 		}
 		return map[string]any{"ok": true, "id": s.id}
 	case "embedded-browser:state":
 		if s := m.lookup(id); s != nil {
-			return map[string]any{"ok": true, "url": s.url,
-				"loading":   s.loading,
-				"canGoBack": true, "canGoForward": false}
+			return m.sessionState(s)
 		}
 		return map[string]any{"ok": false}
+	case "embedded-browser:execute":
+		script, _ := p["script"].(string)
+		if s := m.lookup(id); s != nil && script != "" {
+			res := m.opExec(s, script)
+			if ok, _ := res["ok"].(bool); !ok {
+				return map[string]any{"ok": false,
+					"message": res["message"]}
+			}
+			return map[string]any{"ok": true, "result": res["result"]}
+		}
+		return map[string]any{"ok": false, "message": "SESSION_NOT_FOUND"}
+	case "embedded-browser:list":
+		m.mu.Lock()
+		ids := make([]string, 0, len(m.sessions))
+		for k := range m.sessions {
+			ids = append(ids, k)
+		}
+		m.mu.Unlock()
+		return map[string]any{"ok": true, "sessions": ids}
+	case "embedded-browser:close-module":
+		owner, _ := p["ownerModule"].(string)
+		m.mu.Lock()
+		var ids []string
+		for k, s := range m.sessions {
+			if s.owner == owner {
+				ids = append(ids, k)
+			}
+		}
+		m.mu.Unlock()
+		for _, sid := range ids {
+			m.closeSession(sid)
+		}
+		return map[string]any{"ok": true, "closed": len(ids)}
 	case "embedded-browser:navigate":
 		url, _ := p["url"].(string)
 		if s := m.lookup(id); s != nil && url != "" {
@@ -441,11 +477,37 @@ func (m *BrowserManager) Invoke(channel string, p map[string]any) map[string]any
 		return map[string]any{"ok": false}
 	case "embedded-browser:url":
 		if s := m.lookup(id); s != nil {
+			res := m.opEvalValue(s, "location.href")
+			if v, _ := res["result"].(string); v != "" {
+				return map[string]any{"ok": true, "url": v}
+			}
 			return map[string]any{"ok": true, "url": s.url}
 		}
 		return map[string]any{"ok": false}
 	}
 	return map[string]any{"ok": false, "message": "unknown channel: " + channel}
+}
+
+// sessionState returns live url/history flags straight from the page —
+// the eval pipeline doubles as a liveness probe for crashed sessions.
+func (m *BrowserManager) sessionState(s *session) map[string]any {
+	res := m.opEvalValue(s,
+		`JSON.stringify({u:location.href,b:!!(navigation&&navigation.canGoBack),f:!!(navigation&&navigation.canGoForward)})`)
+	out := map[string]any{"ok": true, "url": s.url, "loading": s.loading,
+		"canGoBack": false, "canGoForward": false}
+	if raw, _ := res["result"].(string); raw != "" {
+		var live struct {
+			U string `json:"u"`
+			B bool   `json:"b"`
+			F bool   `json:"f"`
+		}
+		if json.Unmarshal([]byte(raw), &live) == nil {
+			out["url"] = live.U
+			out["canGoBack"] = live.B
+			out["canGoForward"] = live.F
+		}
+	}
+	return out
 }
 
 // --------------- backend ai_collab_browser_op surface ---------------
@@ -478,7 +540,7 @@ func (m *BrowserManager) DOMOp(p map[string]any) map[string]any {
 			}
 		}
 		m.mu.Unlock()
-		s, err := m.ensureSession(sid, url, b)
+		s, err := m.ensureSession(sid, toolID, url, b)
 		if err != nil {
 			return failOp("SESSION_CREATE_FAILED", err.Error())
 		}
@@ -519,7 +581,10 @@ func (m *BrowserManager) opNavigate(s *session, url string) map[string]any {
 	})
 	m.activate(s.id)
 	select {
-	case <-wait:
+	case ok := <-wait:
+		if !ok {
+			return failOp("NAVIGATE_FAILED", "page load failed")
+		}
 		return map[string]any{"ok": true, "url": s.url}
 	case <-time.After(opReplyTimeout):
 		return failOp("NAVIGATE_TIMEOUT", "page load timed out")
@@ -527,6 +592,18 @@ func (m *BrowserManager) opNavigate(s *session, url string) map[string]any {
 }
 
 func (m *BrowserManager) opExec(s *session, script string) map[string]any {
+	return m.execScript(s, script, true)
+}
+
+// opEvalValue evaluates a snippet without activating the session —
+// used by the periodic state refresh on hidden sessions.
+func (m *BrowserManager) opEvalValue(s *session,
+	script string) map[string]any {
+	return m.execScript(s, script, false)
+}
+
+func (m *BrowserManager) execScript(s *session, script string,
+	activate bool) map[string]any {
 	s.opMu.Lock()
 	defer s.opMu.Unlock()
 	seq := atomic.AddUint64(&s.execSeq, 1)
@@ -538,7 +615,9 @@ func (m *BrowserManager) opExec(s *session, script string) map[string]any {
 	wrapped := fmt.Sprintf(`(function(){try{var __r=eval(%s);var __f=function(v){try{var __s=JSON.stringify({__aicollab_exec:%d,ok:true,result:(v===undefined?null:v)});chrome.webview.postMessage(__s)}catch(e){chrome.webview.postMessage(JSON.stringify({__aicollab_exec:%d,ok:false,error:String(e)}))}};if(__r&&typeof __r.then==="function"){__r.then(__f,function(e){chrome.webview.postMessage(JSON.stringify({__aicollab_exec:%d,ok:false,error:String(e)}))})}else{__f(__r)}}catch(e){chrome.webview.postMessage(JSON.stringify({__aicollab_exec:%d,ok:false,error:String(e)}))}})()`,
 		string(encoded), seq, seq, seq, seq)
 	m.post(func() { s.chromium.Eval(wrapped) })
-	m.activate(s.id)
+	if activate {
+		m.activate(s.id)
+	}
 	select {
 	case res := <-ch:
 		if !res.ok {

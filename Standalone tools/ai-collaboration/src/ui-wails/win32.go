@@ -35,6 +35,7 @@ var (
 	procGetCurrentThreadId       = kernel32.NewProc("GetCurrentThreadId")
 	procCoInitializeEx           = ole32.NewProc("CoInitializeEx")
 	procCoUninitialize           = ole32.NewProc("CoUninitialize")
+	procGetDpiForWindow          = user32.NewProc("GetDpiForWindow")
 )
 
 const (
@@ -159,6 +160,20 @@ func createChildWindow(parent uintptr, x, y, w, h int32) (uintptr, error) {
 		return 0, e
 	}
 	return r, nil
+}
+
+// scaleCoord converts renderer CSS-pixel coordinates into physical
+// window coordinates — the process is system-DPI-aware (wails calls
+// SetProcessDPIAware), so CSS px map 1:1 onto device px × DPI/96.
+func scaleCoord(hwnd uintptr, css int32) int32 {
+	if hwnd == 0 {
+		return css
+	}
+	dpi, _, _ := procGetDpiForWindow.Call(hwnd)
+	if dpi <= 96 {
+		return css
+	}
+	return int32((int64(css)*int64(dpi) + 48) / 96)
 }
 
 func moveWindow(hwnd uintptr, x, y, w, h int32) {

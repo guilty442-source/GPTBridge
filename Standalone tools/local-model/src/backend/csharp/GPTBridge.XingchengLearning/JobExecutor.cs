@@ -560,9 +560,20 @@ internal sealed class TrainingJobExecutor
         string bundleDir = Path.Combine(outputDir, "bundle");
         string configFrom = bundleManifestForExport
             ?? WriteScratchManifest(outputDir, modelCfg);
-        var export = RunModelToolJson(toolRoot, stderrLog,
+        string weightQuant = (
+                TransformerTrainingRepository.Str(
+                    configuration, "weight_quant") ?? "none").Trim();
+        if (weightQuant != "none" && weightQuant != "int8" &&
+            weightQuant != "int4_packed")
+            throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
+                $"unsupported weight_quant: {weightQuant}");
+        var exportArgs = new List<string>
+        {
             "export-bundle", "--ckpt", emitCkpt, "--out", bundleDir,
-            "--config-from", configFrom, "--tokenizer", tokenizerPath);
+            "--config-from", configFrom, "--tokenizer", tokenizerPath,
+        };
+        if (weightQuant != "none") exportArgs.AddRange(new[] { "--quant", weightQuant });
+        var export = RunModelToolJson(toolRoot, stderrLog, exportArgs.ToArray());
 
         var summary = new Dictionary<string, object?>(report)
         {
