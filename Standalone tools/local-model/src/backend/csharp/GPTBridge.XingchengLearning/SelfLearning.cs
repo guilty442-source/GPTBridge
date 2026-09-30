@@ -160,7 +160,7 @@ internal static class SelfLearning
                 magic[2] != 'N' || magic[3] != '1')
                 return null;
             uint ver = r.ReadUInt32();
-            if (ver != 1 && ver != 2) return null;
+            if (ver < 1 || ver > 4) return null;
             var cfg = new Dictionary<string, object?>
             {
                 ["vocab_size"] = (long)r.ReadUInt32(),
@@ -182,6 +182,26 @@ internal static class SelfLearning
                 cfg["moe_expert_intermediate_size"] = (long)r.ReadUInt32();
                 cfg["moe_num_shared_experts"] = (long)r.ReadUInt32();
                 cfg["moe_shared_intermediate_size"] = (long)r.ReadUInt32();
+            }
+            if (ver >= 3)
+            {
+                cfg["full_attention_interval"] = (long)r.ReadUInt32();
+                uint flags = r.ReadUInt32();
+                cfg["attn_output_gate"] = (flags & 1u) != 0;
+                cfg["qk_norm"] = (flags & 2u) != 0;
+                cfg["shared_expert_gate"] = (flags & 4u) != 0;
+                cfg["partial_rotary_factor"] = (double)r.ReadSingle();
+                cfg["linear_num_key_heads"] = (long)r.ReadUInt32();
+                cfg["linear_key_head_dim"] = (long)r.ReadUInt32();
+                cfg["linear_num_value_heads"] = (long)r.ReadUInt32();
+                cfg["linear_value_head_dim"] = (long)r.ReadUInt32();
+                cfg["linear_conv_kernel_dim"] = (long)r.ReadUInt32();
+            }
+            if (ver >= 4)
+            {
+                cfg["use_vision"] = r.ReadUInt32() != 0u;
+                cfg["vision_patch_dim"] = (long)r.ReadUInt32();
+                cfg["vision_max_patches"] = (long)r.ReadUInt32();
             }
             return cfg;
         }

@@ -299,7 +299,10 @@ internal sealed class TrainingJobExecutor
         return map;
     }
 
-    /// <summary>Read the XCN1 header into a trainer ``model`` config dict.</summary>
+    /// <summary>Read the XCN1..XCN4 header into a trainer ``model``
+    /// config dict (XCN2 MoE widths, XCN3 hybrid-attention geometry,
+    /// XCN4 vision early-fusion block — field names match
+    /// ``xct_util.parse_model``).</summary>
     private static Dictionary<string, object?> XcnConfig(string ckptPath)
     {
         using var f = new FileStream(ckptPath, FileMode.Open, FileAccess.Read);
@@ -309,7 +312,7 @@ internal sealed class TrainingJobExecutor
             magic[0] != 'X' || magic[1] != 'C' || magic[2] != 'N' || magic[3] != '1')
             throw new ExecutorError("EXECUTOR_CKPT_BAD_MAGIC", ckptPath);
         uint ver = r.ReadUInt32();
-        if (ver != 1 && ver != 2)
+        if (ver < 1 || ver > 4)
             throw new ExecutorError("EXECUTOR_CKPT_VERSION", $"v{ver}");
         uint vocab = r.ReadUInt32();
         uint hidden = r.ReadUInt32();
@@ -345,6 +348,26 @@ internal sealed class TrainingJobExecutor
             cfg["moe_expert_intermediate_size"] = (long)r.ReadUInt32();
             cfg["moe_num_shared_experts"] = (long)r.ReadUInt32();
             cfg["moe_shared_intermediate_size"] = (long)r.ReadUInt32();
+        }
+        if (ver >= 3)
+        {
+            cfg["full_attention_interval"] = (long)r.ReadUInt32();
+            uint flags = r.ReadUInt32();
+            cfg["attn_output_gate"] = (flags & 1u) != 0;
+            cfg["qk_norm"] = (flags & 2u) != 0;
+            cfg["shared_expert_gate"] = (flags & 4u) != 0;
+            cfg["partial_rotary_factor"] = (double)r.ReadSingle();
+            cfg["linear_num_key_heads"] = (long)r.ReadUInt32();
+            cfg["linear_key_head_dim"] = (long)r.ReadUInt32();
+            cfg["linear_num_value_heads"] = (long)r.ReadUInt32();
+            cfg["linear_value_head_dim"] = (long)r.ReadUInt32();
+            cfg["linear_conv_kernel_dim"] = (long)r.ReadUInt32();
+        }
+        if (ver >= 4)
+        {
+            cfg["use_vision"] = r.ReadUInt32() != 0u;
+            cfg["vision_patch_dim"] = (long)r.ReadUInt32();
+            cfg["vision_max_patches"] = (long)r.ReadUInt32();
         }
         return cfg;
     }
