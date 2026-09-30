@@ -9,7 +9,14 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck
+//
+// Masked self-attention (causal contract): position t may only read tokens
+//   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
+//   zero), the deltanet scan carries state forward only, the depthwise conv
+//   reads x[t-j], and pretrain labels are shifted so logits[t] predicts
+//   token t+1 (labels <0 are ignored). --maskcheck proves it: perturbing a
+//   token leaves all earlier-position logits bitwise identical.
 //
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
@@ -82,10 +89,11 @@ int main(int argc, char** argv) {
         else if (a == "--report" && i + 1 < argc) report_path = argv[++i];
         else if (a == "--smoke") do_smoke = true;
         else if (a == "--gradcheck") return xct::gradcheck();
+        else if (a == "--maskcheck") return xct::maskcheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck\n");
         return 2;
     }
     try {

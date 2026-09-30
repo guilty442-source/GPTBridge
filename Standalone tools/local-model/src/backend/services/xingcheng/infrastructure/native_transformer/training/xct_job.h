@@ -453,3 +453,60 @@ static int smoke() {
     std::fputc('\n', stdout);
     return ok ? 0 : 1;
 }
+
+// -------------------------------------------------------------- maskcheck --
+
+// Masked self-attention causality probe: corrupting the token at position j
+// must leave logits[0..j) bitwise identical — a decoder may never read the
+// future — while logits[j..] must move (non-vacuous perturbation). Identity
+// is bitwise because every mixing op is causal-bounded: full attention
+// scores rows s<=t only, the deltanet scan accumulates state strictly
+// forward, and the depthwise conv reads x[t-j]. Sweeps the layer matrix
+// all-attention / hybrid / all-linear so both mixers are exercised.
+static int maskcheck() {
+    int failures = 0;
+    for (int interval : {0, 2, 100}) {
+        ModelConfig c;
+        c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+        c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+        c.full_attention_interval = interval;
+        c.attn_output_gate = true;
+        c.qk_norm = true;
+        c.partial_rotary = 0.5f;
+        c.lin_key_heads = 1; c.lin_key_dim = 32;
+        c.lin_value_heads = 2; c.lin_value_dim = 32;
+        c.lin_conv_kernel = 4;
+        c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 1;
+        c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+        c.moe_shared_inter = 24; c.shared_expert_gate = true;
+        Params p;
+        init_params(p, c, 13);
+        std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+        const int T = (int)ids.size();
+        Fwd fw0;
+        fwd(p, c, ids, fw0);
+        for (int j : {T - 1, T / 2}) {
+            std::vector<int> ids2 = ids;
+            ids2[j] = (ids2[j] + 13) % c.vocab;
+            if (ids2[j] == ids[j]) ids2[j] = (ids2[j] + 1) % c.vocab;
+            Fwd fw1;
+            fwd(p, c, ids2, fw1);
+            const size_t past = (size_t)j * c.vocab;
+            bool sealed = std::memcmp(fw0.logits.data(), fw1.logits.data(),
+                                      past * sizeof(float)) == 0;
+            bool moved = std::memcmp(fw0.logits.data() + past,
+                                     fw1.logits.data() + past,
+                                     ((size_t)T * c.vocab - past) *
+                                         sizeof(float)) != 0;
+            if (!sealed || !moved) {
+                ++failures;
+                std::printf("  FAIL interval=%d j=%d sealed=%d moved=%d\n",
+                            interval, j, (int)sealed, (int)moved);
+            }
+        }
+    }
+    bool ok = failures == 0;
+    std::printf("maskcheck: causal-probe failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
