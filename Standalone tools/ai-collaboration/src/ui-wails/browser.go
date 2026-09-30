@@ -18,7 +18,9 @@ import (
 	goruntime "runtime"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/wailsapp/go-webview2/pkg/edge"
 )
@@ -41,6 +43,7 @@ type execResult struct {
 
 type session struct {
 	id       string
+	owner    string
 	hwnd     uintptr
 	chromium *edge.Chromium
 	bounds   bounds
@@ -143,9 +146,35 @@ func (m *BrowserManager) lookup(id string) *session {
 	return m.sessions[id]
 }
 
+// navCompletionStatus reads IsSuccess/WebErrorStatus out of the
+// COM event args (go-webview2 does not export the getters — the vtbl
+// layout is stable COM ABI).
+func navCompletionStatus(
+	args *edge.ICoreWebView2NavigationCompletedEventArgs) (bool, int32) {
+	type vtbl struct {
+		_            [3]uintptr // IUnknown: QueryInterface, AddRef, Release
+		getIsSuccess uintptr
+		getStatus    uintptr
+	}
+	obj := (*struct{ vtbl *vtbl })(unsafe.Pointer(args))
+	if obj == nil || obj.vtbl == nil {
+		return false, 0
+	}
+	var ok int32
+	_, _, _ = syscall.Syscall(obj.vtbl.getIsSuccess, 2,
+		uintptr(unsafe.Pointer(args)),
+		uintptr(unsafe.Pointer(&ok)), 0)
+	var status int32
+	_, _, _ = syscall.Syscall(obj.vtbl.getStatus, 2,
+		uintptr(unsafe.Pointer(args)),
+		uintptr(unsafe.Pointer(&status)), 0)
+	return ok != 0, status
+}
+
 // ensureSession creates the session webview on the pump thread when
 // absent, waits for the controller, and navigates to url when given.
-func (m *BrowserManager) ensureSession(id, url string, b bounds) (*session, error) {
+func (m *BrowserManager) ensureSession(id, owner, url string,
+	b bounds) (*session, error) {
 	if s := m.lookup(id); s != nil {
 		if url != "" {
 			m.post(func() { m.navigateNow(s, url) })
@@ -160,7 +189,9 @@ func (m *BrowserManager) ensureSession(id, url string, b bounds) (*session, erro
 			err = perr
 			return
 		}
-		hw, herr := createChildWindow(parent, b.X, b.Y, b.W, b.H)
+		hw, herr := createChildWindow(parent,
+			scaleCoord(parent, b.X), scaleCoord(parent, b.Y),
+			scaleCoord(parent, b.W), scaleCoord(parent, b.H))
 		if herr != nil {
 			err = herr
 			return
@@ -168,21 +199,29 @@ func (m *BrowserManager) ensureSession(id, url string, b bounds) (*session, erro
 		cr := edge.NewChromium()
 		_ = os.MkdirAll(m.dataDir, 0o755)
 		cr.DataPath = m.dataDir
-		s = &session{id: id, hwnd: hw, chromium: cr, bounds: b,
+		s = &session{id: id, owner: owner, hwnd: hw, chromium: cr, bounds: b,
 			navWait:  make(chan bool, 1),
 			execWait: map[uint64]chan execResult{}}
 		cr.MessageCallback = func(message string) {
 			m.onWebMessage(s, message)
 		}
-		cr.NavigationCompletedCallback = func(*edge.ICoreWebView2,
-			*edge.ICoreWebView2NavigationCompletedEventArgs) {
+		cr.NavigationCompletedCallback = func(_ *edge.ICoreWebView2,
+			args *edge.ICoreWebView2NavigationCompletedEventArgs) {
+			ok, status := navCompletionStatus(args)
 			s.loading = false
 			select {
 			case s.navWait <- true:
 			default:
 			}
-			m.emitEvent(id, "loading-stop", nil)
-			m.emitEvent(id, "navigate", map[string]any{"url": s.url})
+			if ok {
+				m.emitEvent(id, "loading-stop", nil)
+				m.emitEvent(id, "navigate", map[string]any{"url": s.url})
+			} else {
+				m.emitEvent(id, "load-failed", map[string]any{
+					"error":     "navigation failed",
+					"errorCode": status,
+				})
+			}
 		}
 		cr.SetErrorCallback(func(error) {})
 		if !cr.Embed(hw) {
