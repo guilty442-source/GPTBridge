@@ -351,6 +351,32 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? ep)
                             ? ep : "", "RUNTIME_CAPS_INVALID")));
+            // ---- NativeScaleEfficiencyPlane (scale directive)
+            if (flags.Contains("scale-profile-validate"))
+                return Emit(ScaleHardwareGate.ValidateProfile(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? spv)
+                            ? spv : "", "SCALE_PROFILE_INVALID")));
+            if (flags.Contains("scale-precision-map"))
+                return Emit(ScaleHardwareGate.ValidatePrecisionMap(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? spm)
+                            ? spm : "", "PRECISION_MAP_INVALID")));
+            if (flags.Contains("scale-hardware-gate"))
+                return Emit(ScaleHardwareGate.Evaluate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? shg)
+                            ? shg : "", "SCALE_HARDWARE_INSUFFICIENT")));
+            if (flags.Contains("scale-resource-cert"))
+                return Emit(ScaleHardwareGate.ResourceCert(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? src)
+                            ? src : "", "RESOURCE_CERT_INVALID")));
+            if (flags.Contains("scale-promotion-gate"))
+                return Emit(ScaleHardwareGate.PromotionGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? spg)
+                            ? spg : "", "SCALE_PROMOTION_INVALID")));
             // ---- persona / style / steerability (Hermes lessons)
             if (flags.Contains("persona-validate"))
                 return Emit(PersonaRuntime.ValidatePersona(
@@ -713,6 +739,81 @@ internal static class Program
             // §42 acceptance battery
             if (flags.Contains("axis-checks"))
                 return Emit(AxisChecks.Run(toolRoot));
+            // ---- Laya + MiMo-V2.6 capability plane (contract level)
+            if (flags.Contains("typed-decision-validate"))
+                return Emit(SystemOne.ValidateDecision(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? td)
+                            ? td : "", "SYSTEM1_SCHEMA_INVALID")));
+            if (flags.Contains("decision-calibrate"))
+                return Emit(SystemOne.Calibrate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("probs", out string? pb)
+                            ? pb : "", "SYSTEM1_UNCALIBRATED")
+                        .EnumerateArray()
+                        .Select(p => p.GetDouble()).ToArray(),
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("profile", out string? pf)
+                            ? pf : "", "SYSTEM1_UNCALIBRATED")));
+            if (flags.Contains("decision-metrics"))
+                return Emit(SystemOne.CalibrationMetrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dm)
+                            ? dm : "", "SYSTEM1_UNCALIBRATED")));
+            if (flags.Contains("cognition-route"))
+                return Emit(SystemOne.Route(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cr)
+                            ? cr : "", "SYSTEM1_SCHEMA_INVALID")));
+            if (flags.Contains("decision-trace"))
+                return Emit(SystemOne.RecordTrace(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dtf)
+                            ? dtf : "", "SYSTEM1_SCHEMA_INVALID")));
+            if (flags.Contains("router-stability"))
+            {
+                var sp = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? rs)
+                        ? rs : "", "ROUTER_STABILITY_INVALID");
+                if (sp.TryGetProperty("stage", out var st) &&
+                    st.ValueKind == JsonValueKind.String)
+                    return Emit(RouterStability.Policy(
+                        st.GetString()!));
+                return Emit(RouterStability.Gate(sp));
+            }
+            if (flags.Contains("trajectory-validate"))
+                return Emit(AgentLearning.ValidateTrajectory(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tv)
+                            ? tv : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("harness-register"))
+                return Emit(AgentLearning.HarnessRegister(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hr)
+                            ? hr : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("harness-outcome"))
+                return Emit(AgentLearning.HarnessOutcome(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ho)
+                            ? ho : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("groupwise-eval"))
+                return Emit(AgentLearning.GroupwiseEval(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gw)
+                            ? gw : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("reward-gate"))
+                return Emit(AgentLearning.RewardGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rg)
+                            ? rg : "", "REWARD_SUSPECT")));
+            if (flags.Contains("correction-validate"))
+                return Emit(AgentLearning.ValidateCorrection(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cv)
+                            ? cv : "", "TRAJECTORY_INVALID")));
+            // §44 acceptance battery
+            if (flags.Contains("system1-checks"))
+                return Emit(LayaMiMoChecks.Run(toolRoot));
             return Usage();
         }
         catch (Exception exc)
@@ -768,7 +869,20 @@ internal static class Program
             "[--layers N] [--hidden N] [--heads N] [--kv-heads N] | " +
             "--drift-gate --job-hash <h> --checkpoint-hash <h> " +
             "--bundle-hash <h> --runtime-hash <h> | " +
-            "--version-dimensions | --axis-checks)");
+            "--version-dimensions | --axis-checks | " +
+            "--typed-decision-validate --file <f.json> | " +
+            "--decision-calibrate --probs <a.json> --profile <p.json> | " +
+            "--decision-metrics --file <f.json> | " +
+            "--cognition-route --file <f.json> | " +
+            "--decision-trace --file <f.json> | " +
+            "--router-stability --file <f.json> | " +
+            "--trajectory-validate --file <f.json> | " +
+            "--harness-register --file <f.json> | " +
+            "--harness-outcome --file <f.json> | " +
+            "--groupwise-eval --file <f.json> | " +
+            "--reward-gate --file <f.json> | " +
+            "--correction-validate --file <f.json> | " +
+            "--system1-checks)");
         return 2;
     }
 

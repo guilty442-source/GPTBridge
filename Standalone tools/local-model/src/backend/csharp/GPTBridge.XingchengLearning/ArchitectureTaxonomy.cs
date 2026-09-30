@@ -133,7 +133,11 @@ internal static class ArchitectureTaxonomy
         ("precision",       C("PRECISION_AXIS", rt: true)),
         ("fp64",            C("PRECISION_AXIS", rt: true)),
         ("bf16",            C("PRECISION_AXIS", rt: true)),
+        ("fp16",            C("PRECISION_AXIS", rt: true)),
+        ("fp8",             C("PRECISION_AXIS", rt: true)),
+        ("fp4",             C("PRECISION_AXIS", rt: true)),
         ("int8",            C("PRECISION_AXIS", rt: true)),
+        ("int4",            C("PRECISION_AXIS", rt: true)),
         // CAPABILITY_AXIS.
         ("rag",             C("CAPABILITY_AXIS",
                               new[] { "grounding" }, cap: true)),
@@ -179,6 +183,26 @@ internal static class ArchitectureTaxonomy
                               new[] { "grounding" }, cap: true)),
         ("modulesensitivity", C("TRAINING_AXIS", tr: true)),
         ("merge",           C("GOVERNANCE_AXIS")),
+        // Laya/MiMo absorption (§47) — decision/capability plane and
+        // agent-learning governance; never architecture.
+        ("nativesystemonehead", C("CAPABILITY_AXIS",
+                              new[] { "runtime_augmentation" },
+                              rt: true, cap: true)),
+        ("systemone",       C("CAPABILITY_AXIS", rt: true,
+                              cap: true)),
+        ("system1",         C("CAPABILITY_AXIS", rt: true,
+                              cap: true)),
+        ("typeddecision",   C("CAPABILITY_AXIS", rt: true,
+                              cap: true)),
+        ("decisioncalibration", C("CAPABILITY_AXIS", rt: true)),
+        ("mtpdrafter",      C("RUNTIME_OPTIMIZATION_AXIS",
+                              rt: true)),
+        ("routerstability", C("GOVERNANCE_AXIS",
+                              new[] { "expert_axis" })),
+        ("rewardintegrity", C("GOVERNANCE_AXIS")),
+        ("groupwise",       C("TRAINING_AXIS", tr: true)),
+        ("harness",         C("TRAINING_AXIS", tr: true)),
+        ("agenttrajectory", C("GOVERNANCE_AXIS")),
     };
 
     /// <summary>Classify a component string to exactly one primary
