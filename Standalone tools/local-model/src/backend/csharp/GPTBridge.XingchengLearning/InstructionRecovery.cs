@@ -4469,6 +4469,15 @@ internal static class InstructionRecovery
         // trigger the no-train short-circuit.
         bool alreadyParity = scoreBeforeParity >= baseline100m &&
                              baseline100m > 0.0;
+        // plan.target_score (optional): when the governed plan declares a
+        // capability-suite target beyond predecessor parity, parity
+        // already-met becomes a held constraint instead of a stop — the
+        // lane trains until the suite score reaches the target, or a
+        // plateau/regression/parity loss stops it. Unset → the original
+        // parity-only contract is unchanged.
+        double targetScore =
+            TransformerTrainingRepository.Num(plan, "target_score");
+        bool parityOnly = targetScore <= 0.0;
 
         // source regression reference report for --baseline-report.
         string srcRegPath = Path.Combine(outDir, "regression-before.json");
@@ -4545,7 +4554,7 @@ internal static class InstructionRecovery
         double? peakRss = null;
         bool trained = false;
 
-        if (alreadyParity)
+        if (alreadyParity && parityOnly)
         {
             decision = "PASS_PARITY";
             stopReason = "already_at_parity";
@@ -4556,7 +4565,7 @@ internal static class InstructionRecovery
             Led("already_at_parity");
         }
 
-        while (!alreadyParity && step < maxSteps)
+        while (!(alreadyParity && parityOnly) && step < maxSteps)
         {
             int target = Math.Min(step + stageSteps, maxSteps);
             int runSteps = target - step;
@@ -4796,10 +4805,37 @@ internal static class InstructionRecovery
                               ref bestRegOk, emitCkpt, stageBundle,
                               stageDir, score, lossLast, regOk, outDir);
                 bestParityScore = stageParityScore;
-                decision = "PASS_PARITY";
-                stopReason = "parity_reached";
-                Led("parity", new Dictionary<string, object?>
-                { ["step"] = step, ["score"] = score,
+                if (parityOnly)
+                {
+                    decision = "PASS_PARITY";
+                    stopReason = "parity_reached";
+                    Led("parity", new Dictionary<string, object?>
+                    { ["step"] = step, ["score"] = score,
+                      ["baseline"] = baseline100m });
+                    break;
+                }
+                if (score >= targetScore)
+                {
+                    decision = "TARGET_REACHED";
+                    stopReason = "target_reached";
+                    Led("target", new Dictionary<string, object?>
+                    { ["step"] = step, ["score"] = score,
+                      ["target"] = targetScore });
+                    break;
+                }
+                // Parity held, target not reached — keep training; the
+                // plateau/regression branches below stay authoritative.
+            }
+            else if (!parityOnly)
+            {
+                // Target mode never trades the recovered parity floor
+                // for capability score — a stage below baseline is a
+                // regression, not a detour.
+                decision = "REGRESSION_REJECTED";
+                stopReason = "parity_lost";
+                Led("parity_rejected", new Dictionary<string, object?>
+                { ["step"] = step,
+                  ["parity_score"] = stageParityScore,
                   ["baseline"] = baseline100m });
                 break;
             }
@@ -4838,7 +4874,11 @@ internal static class InstructionRecovery
         if (decision == "NO_IMPROVEMENT" &&
             bestScore > scoreBefore + 0.005)
             decision = "IMPROVED_NOT_PARITY";
-        if (bestParityScore >= baseline100m && trained &&
+        if (!parityOnly && trained && bestScore >= targetScore &&
+            bestParityScore >= baseline100m &&
+            decision != "REGRESSION_REJECTED")
+            decision = "TARGET_REACHED";
+        else if (bestParityScore >= baseline100m && trained &&
             decision != "REGRESSION_REJECTED")
             decision = "PASS_PARITY";
 
@@ -4987,6 +5027,8 @@ internal static class InstructionRecovery
             ["gates"] = gates,
             ["stop_reason"] = stopReason,
             ["decision"] = decision,
+            ["target_score"] = parityOnly
+                ? null : (object?)targetScore,
             ["stage_history"] = stageHistory,
             ["ledger"] = ledger,
             ["policy"] = new Dictionary<string, object?>
