@@ -1387,10 +1387,11 @@ int mode_cache_smoke(const Args& a) {
     if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
-    // v27 fused hybrid: prefix cache stores K/V only and cannot restore
-    // DeltaNet recurrent state, so the engine bypasses it for hybrid
-    // bundles. The contract inverts: hits must stay absent while the
-    // recomputed path still yields identical greedy output.
+    // v27+ fused hybrid: the engine's hybrid prefix path restores
+    // attention KV *and* DeltaNet recurrent state (see
+    // hybrid-prefix-smoke / delta-prefix-restore), so prefix hits are
+    // now REQUIRED on hybrid bundles too — greedy output must stay
+    // bit-identical either way.
     const bool hybrid =
         xct::j_num(mcfg, "full_attention_interval", 0) > 0 &&
         xct::j_num(mcfg, "linear_num_key_heads", 0) > 0;
@@ -1406,9 +1407,7 @@ int mode_cache_smoke(const Args& a) {
     } catch (const std::exception& e) {
         fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
     }
-    const bool prefix_ok =
-        hybrid ? (!fp.prefix_hit && !fp.partial_prefix_hit)
-               : (fp.prefix_hit && fp.partial_prefix_hit);
+    const bool prefix_ok = fp.prefix_hit && fp.partial_prefix_hit;
     bool ok = fp.logits_finite && fp.logits_deterministic && prefix_ok &&
               fp.gen_nonempty && fp.gen_identical;
     // kv-int8: logits() never touches the KV pool, so the meaningful
@@ -1435,8 +1434,7 @@ int mode_cache_smoke(const Args& a) {
             int8_nonempty = q8.gen_nonempty;
             int8_vs_fp64 = vec_eq(q8.ref_logits, fp.ref_logits);
             int8_ok = int8_finite && int8_gen_id &&
-                      (hybrid ? (!int8_hit && !int8_partial)
-                              : (int8_hit && int8_partial));
+                      int8_hit && int8_partial;
         } catch (...) {
             int8_ok = false;
         }
@@ -3371,6 +3369,10 @@ int mode_serve(const Args& a) {
 // NativeMemoryCudaPlane: unified CUDA memory manager, pools, arenas,
 // pressure ladder, telemetry.
 #include "xcm_memplane.h"
+// NativeSiliconEfficiencyPlane: runtime owner, artifact dedup, CPU
+// topology/profile probes, silicon routing, expert granularity,
+// parameter efficiency, NPU probe-first discovery.
+#include "xcm_silicon.h"
 
 }  // namespace
 

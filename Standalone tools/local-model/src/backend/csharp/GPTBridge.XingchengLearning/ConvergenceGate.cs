@@ -677,6 +677,22 @@ internal static class ConvergenceGate
                             "gate-invariant-example"),
                     ["source_revision"] = 1,
                     ["quality_score"] = 0.9,
+                    ["owner_model_id"] = "gate-invariant",
+                    ["source_example_id"] = "gate-ex-1",
+                    ["source_type"] = "convergence-gate",
+                },
+                new Dictionary<string, object?>
+                {
+                    ["split"] = "validation",
+                    ["database_scope"] = "main",
+                    ["content_sha256"] =
+                        TransformerTrainingRepository.Sha256Text(
+                            "gate-invariant-example-val"),
+                    ["source_revision"] = 1,
+                    ["quality_score"] = 0.9,
+                    ["owner_model_id"] = "gate-invariant",
+                    ["source_example_id"] = "gate-ex-2",
+                    ["source_type"] = "convergence-gate",
                 },
             };
             var manifest = new Dictionary<string, object?>
@@ -787,7 +803,13 @@ internal static class ConvergenceGate
             // invariant is untestable, never silently green.
             return Fail("DATASET_REGISTRY_UNAVAILABLE",
                         ex.GetType().Name + ": " +
-                        ex.Message[..Math.Min(200, ex.Message.Length)]);
+                        ex.Message[..Math.Min(200, ex.Message.Length)]
+                        + " @" + (ex.StackTrace ?? "")
+                            .Split('\n').FirstOrDefault("?")
+                            .Trim()[..Math.Min(180,
+                                (ex.StackTrace ?? "")
+                                    .Split('\n').FirstOrDefault("?")
+                                    .Trim().Length)]);
         }
         finally
         {

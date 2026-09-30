@@ -29,6 +29,12 @@
 #include <string>
 #include <unordered_map>
 
+// NativeMemoryCudaPlane §3: every device allocation routes through the
+// single UnifiedCudaMemoryManager — no naked cudaMalloc/cudaFree here.
+#include "cuda_memplane.h"
+
+namespace mp = xcm_memplane;
+
 namespace {
 
 // cuBLAS via dynamic binding — cublas64_12.dll ships with the toolkit,
@@ -90,14 +96,15 @@ bool cublas_ready() {
 // Weight pointers are stable for the engine lifetime (bundle storage /
 // owned dequantized tensors) and never mutate after load, so a cached
 // device copy stays valid. Released via xcuda_release_weights() on
-// engine unload.
+// engine unload. Allocations route through the unified memory manager
+// (§3) — PINNED_PERMANENT tier.
 std::mutex g_mu;
-std::unordered_map<const void*, void*> g_dev_weights;
+std::unordered_map<const void*, std::pair<void*, size_t>> g_dev_weights;
 cublasHandle_t g_handle = nullptr;
 
-// Transient activation buffers, pooled engine-lifetime-wide. cudaMalloc/
-// cudaFree per GEMM call was the dominant per-token overhead (cudaFree also
-// implies a device sync); grow-on-demand keeps allocation off the hot path.
+// Transient activation buffers, pooled engine-lifetime-wide through the
+// manager (LAYER_TEMP tier). Grow-on-demand keeps allocation off the hot
+// path; growth is a load-time event, not a per-token one.
 struct DevBuf {
     void* ptr = nullptr;
     size_t cap = 0;
@@ -106,9 +113,11 @@ DevBuf g_dev_a, g_dev_c;
 
 void* dev_get(DevBuf& buf, size_t bytes) {
     if (buf.cap >= bytes) return buf.ptr;
-    void* next = nullptr;
-    if (cudaMalloc(&next, bytes) != cudaSuccess) return nullptr;
-    if (buf.ptr) cudaFree(buf.ptr);
+    void* next = mp::mgr().alloc(
+        mp::Tier::LAYER_TEMP, (int64_t)bytes,
+        mp::StreamLane::PREFILL_NORMAL);
+    if (next == nullptr) return nullptr;
+    if (buf.ptr) mp::mgr().free(buf.ptr, mp::StreamLane::PREFILL_NORMAL);
     buf.ptr = next;
     buf.cap = bytes;
     return buf.ptr;
@@ -149,14 +158,23 @@ cublasHandle_t get_handle() {
 
 void* device_weight(const double* host, size_t bytes) {
     auto it = g_dev_weights.find(host);
-    if (it != g_dev_weights.end()) return it->second;
-    void* dev = nullptr;
-    if (cudaMalloc(&dev, bytes) != cudaSuccess) return nullptr;
-    if (cudaMemcpy(dev, host, bytes, cudaMemcpyHostToDevice) != cudaSuccess) {
-        cudaFree(dev);
+    if (it != g_dev_weights.end()) return it->second.first;
+    // §3/§7 PINNED_PERMANENT + §15 async H2D on the transfer lane;
+    // the stream-scoped sync keeps first-use semantics without a
+    // device-wide barrier (§16).
+    void* dev = mp::mgr().alloc(
+        mp::Tier::PINNED_PERMANENT, (int64_t)bytes,
+        mp::StreamLane::H2D);
+    if (dev == nullptr) return nullptr;
+    cudaStream_t s = mp::mgr().stream(mp::StreamLane::H2D);
+    if (cudaMemcpyAsync(dev, host, bytes, cudaMemcpyHostToDevice, s)
+            != cudaSuccess ||
+        cudaStreamSynchronize(s) != cudaSuccess) {
+        mp::mgr().free(dev, mp::StreamLane::H2D);
         return nullptr;
     }
-    g_dev_weights.emplace(host, dev);
+    mp::mgr().h2d_bytes += (int64_t)bytes;
+    g_dev_weights.emplace(host, std::make_pair(dev, bytes));
     return dev;
 }
 
