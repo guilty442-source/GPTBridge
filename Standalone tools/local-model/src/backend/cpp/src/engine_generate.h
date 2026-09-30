@@ -327,7 +327,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     }
     return decode_continue(
         std::move(next_logits), max_new_tokens, sampling, rng_state,
-        generated);
+        generated, std::move(last_hidden));
 }
 
 NativeInferenceEngine::PrefixEntry
