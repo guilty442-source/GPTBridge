@@ -9,6 +9,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -60,24 +61,24 @@ var mimeTypes = map[string]string{
 }
 
 func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := filepath.ToSlash(filepath.Clean("/" + r.URL.Path))
-	trace("http " + r.URL.Path + " -> " + path)
+	urlPath := path.Clean("/" + r.URL.Path)
+	trace("http " + r.URL.Path + " -> " + urlPath)
 	switch {
-	case path == "/" || path == "/index.html":
+	case urlPath == "/" || urlPath == "/index.html":
 		h.serveIndex(w)
 		return
-	case path == "/wails-bridge.js":
+	case urlPath == "/wails-bridge.js":
 		w.Header().Set("Content-Type", mimeTypes[".js"])
 		_, _ = w.Write([]byte(bridgeJS))
 		return
 	}
 	// /shared-layer/... → workspace shared-layer tree (toolWindow only).
-	if rest, ok := strings.CutPrefix(path, "/shared-layer/src/ui/toolWindow/"); ok {
+	if rest, ok := strings.CutPrefix(urlPath, "/shared-layer/src/ui/toolWindow/"); ok {
 		h.serveFile(w, r, h.sharedDir, rest)
 		return
 	}
 	// Everything else resolves inside src/ui (flat module paths).
-	h.serveFile(w, r, h.uiDir, strings.TrimPrefix(path, "/"))
+	h.serveFile(w, r, h.uiDir, strings.TrimPrefix(urlPath, "/"))
 }
 
 func (h *assetHandler) serveIndex(w http.ResponseWriter) {

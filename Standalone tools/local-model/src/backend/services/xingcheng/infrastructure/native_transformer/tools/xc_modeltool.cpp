@@ -858,7 +858,7 @@ int mode_import_bundle(const Args& a) {
     std::printf("{\"ok\":true,\"mode\":\"import-bundle\",\"out\":\"%s\","
                 "\"ckpt_sha256\":\"%s\",\"tensors\":%zu}\n",
                 gptbridge::jsonlite::json_escape(out).c_str(),
-                sha256_file(out).c_str(), filled.size());
+                sha256_file(out).c_str(), p.order.size());
     return 0;
 }
 
