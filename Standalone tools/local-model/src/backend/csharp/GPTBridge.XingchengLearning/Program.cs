@@ -969,7 +969,14 @@ internal static class Program
             "--system1-checks | --precision-policy | " +
             "--prefill-chunk --file <f.json> | " +
             "--memplane-telemetry-validate --file <f.json> | " +
-            "--cuda-plane-checks)");
+            "--cuda-plane-checks | " +
+            "--runtime-host-acquire [--owner <name>] | " +
+            "--artifact-register --file <f.json> | " +
+            "--silicon-route --file <f.json> | " +
+            "--cpu-plan --file <f.json> | " +
+            "--freeze-map-validate --file <f.json> | " +
+            "--param-efficiency --file <f.json> | " +
+            "--lifetime-plan --file <f.json> | --silicon-checks)");
         return 2;
     }
 

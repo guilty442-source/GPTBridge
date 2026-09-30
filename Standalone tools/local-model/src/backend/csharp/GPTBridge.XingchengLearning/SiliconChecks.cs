@@ -105,9 +105,10 @@ internal static class SiliconChecks
                                "system-reuse-probe",
                                "--bundle", bundle,
                                "--consumers", "3");
+                // Native prints %.4f; 1/3 consumers -> ~0.3333.
                 return OkTrue(d) && d!.Value.TryGetProperty(
                     "system_reuse_ratio", out var r) &&
-                    Math.Abs(r.GetDouble() - 1.0 / 3.0) < 1e-6;
+                    Math.Abs(r.GetDouble() - 1.0 / 3.0) < 1e-3;
             }));
 
             checks.Add(Check("artifact-dedup", () =>

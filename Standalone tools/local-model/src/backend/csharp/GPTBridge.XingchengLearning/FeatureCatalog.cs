@@ -360,7 +360,7 @@ internal static class FeatureCatalog
             Array.Empty<string>()),
         new("f-runtime-host", "silicon directive",
             "XingchengRuntimeHost single-owner + "
-            "SystemArtifactRegistry",
+            + "SystemArtifactRegistry",
             "INTEGRATED_RUNTIME", false, true, false,
             "csharp-runtime",
             new[] { "single-runtime-owner", "artifact-dedup" }),
