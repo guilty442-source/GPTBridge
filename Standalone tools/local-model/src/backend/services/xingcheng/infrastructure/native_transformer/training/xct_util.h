@@ -107,6 +107,16 @@ struct ModelConfig {
     int lin_value_dim = 0;              // deltanet: value head dim
     int lin_conv_kernel = 4;            // depthwise causal conv width
     bool shared_expert_gate = false;    // sigmoid gate on shared expert out
+    // v29 Qwen3.8-Max signatures (default-off; fused lane only, the gemma4
+    // replica keeps its own dense contract):
+    float moe_zloss_w = 0.0f;           // router z-loss weight (B133)
+    // MTP head (Qwen3-Next/Max multi-token prediction): depth-d module fuses
+    // rms(hidden[t]) ‖ rms(embed[ids[t+d+1]]) → proj(2H→H) → causal decoder
+    // block → norm → shared lm_head, predicting ids[t+d+2]. The aux loss
+    // densifies per-token supervision and the head doubles as the
+    // speculative-decoding draft substrate.
+    int mtp_depth = 0;
+    float mtp_loss_w = 0.1f;
     // Gemma 4 26B A4B signatures (all default-off; zero/false keeps the
     // Qwen-style fused behaviour bit-identical):
     int global_attn_interval = 0;  // >0: non-linear layers with
@@ -338,6 +348,11 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.lin_value_dim = j_int(o, "linear_value_head_dim", c.lin_value_dim);
     c.lin_conv_kernel = j_int(o, "linear_conv_kernel_dim", c.lin_conv_kernel);
     c.shared_expert_gate = j_bool(o, "shared_expert_gate", c.shared_expert_gate);
+    // v29 Qwen3.8-Max: router z-loss + multi-token prediction head
+    c.moe_zloss_w = (float)j_num(o, "moe_z_loss_weight", c.moe_zloss_w);
+    c.mtp_depth = j_int(o, "num_nextn_predict_layers",
+                    j_int(o, "mtp_depth", c.mtp_depth));
+    c.mtp_loss_w = (float)j_num(o, "mtp_loss_weight", c.mtp_loss_w);
     // Gemma 4 A4B fields (gm.nn.Gemma4_26B_A4B naming where applicable)
     c.global_attn_interval = j_int(o, "global_attention_interval",
                                    c.global_attn_interval);
@@ -417,8 +432,12 @@ static ModelConfig parse_model(const JsonValue* o) {
          c.lin_value_heads <= 0 || c.lin_value_dim <= 0 ||
          c.lin_value_heads % c.lin_key_heads != 0))
         throw "model: bad linear-attention geometry";
-    // Gemma-axis validation (fail-closed, same style as above).
-    if (c.sliding_window > 0 && c.global_attn_interval <= 0)
+    // Gemma-axis validation (fail-closed, same style as above). The
+    // shared sliding_window field is exempt for the gemma4 profile: there
+    // the window applies via layer_types/sliding_at, not the A4B
+    // global/local interval axis.
+    if (c.sliding_window > 0 && c.global_attn_interval <= 0 &&
+        !c.is_gemma4())
         throw "model: sliding_window_size needs global_attention_interval";
     if (c.num_global_kv_heads < 0 ||
         (c.num_global_kv_heads > 0 &&
@@ -638,6 +657,27 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
             auto& pn = p.add(ln(l, "norm_ffw_out"), {c.hidden});
             std::fill(pn.d.begin(), pn.d.end(), 1.0f);
         }
+    }
+    // v29 MTP modules (Qwen3.8-Max multi-token prediction): eh/et fusion
+    // norms + 2H→H projection + one causal decoder block + out norm; the
+    // lm_head and embed tables are shared with the trunk.
+    for (int d = 0; d < c.mtp_depth; ++d) {
+        const std::string b = "mtp." + std::to_string(d) + ".";
+        auto one = [&](const char* n) {
+            Tensor& t = p.add(b + n, {c.hidden});
+            std::fill(t.d.begin(), t.d.end(), 1.0f);
+        };
+        one("eh"); one("et"); one("norm1"); one("norm2"); one("norm_o");
+        fill(p.add(b + "proj", {c.hidden, 2 * c.hidden}));
+        const int64_t qq = (int64_t)c.heads * hd;
+        const int64_t kk = (int64_t)c.kv_heads * hd;
+        fill(p.add(b + "wq", {qq, c.hidden}));
+        fill(p.add(b + "wk", {kk, c.hidden}));
+        fill(p.add(b + "wv", {kk, c.hidden}));
+        fill(p.add(b + "wo", {c.hidden, qq}));
+        fill(p.add(b + "w1", {c.inter, c.hidden}));
+        fill(p.add(b + "w3", {c.inter, c.hidden}));
+        fill(p.add(b + "w2", {c.hidden, c.inter}));
     }
     auto& nf = p.add("norm_f", {c.hidden});
     std::fill(nf.d.begin(), nf.d.end(), 1.0f);

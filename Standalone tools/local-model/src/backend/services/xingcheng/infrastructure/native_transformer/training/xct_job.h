@@ -210,7 +210,7 @@ static JsonValue run_job(const JsonValue& job) {
             float loss = 0.0f;
             if (task == "dpo") {
                 // policy chosen
-                fw.layers.clear(); fw.moe_aux = 0.0f;
+                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
                 fwd(p, c, ex.ids, fw);
                 float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
                 Fwd fc; fwd(ref, c, ex.ids, fc);
@@ -262,7 +262,7 @@ static JsonValue run_job(const JsonValue& job) {
                 for (auto& r : ro) {
                     std::vector<int> seq = ex.ids;
                     for (int m = 0; m < M; ++m) {
-                        fw.layers.clear(); fw.moe_aux = 0.0f;
+                        fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
                         fwd(p, c, seq, fw);
                         const float* lr = fw.logits.data() +
                             ((size_t)seq.size() - 1) * c.vocab;
@@ -304,7 +304,7 @@ static JsonValue run_job(const JsonValue& job) {
                     for (int t = P - 1; t < T - 1; ++t) {
                         lab[(size_t)t] = full[(size_t)t + 1];
                     }
-                    fw.layers.clear(); fw.moe_aux = 0.0f;
+                    fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
                     fwd(p, c, std::vector<int>(full.begin(), full.end() - 1),
                         fw);
                     Fwd rf;
@@ -341,7 +341,7 @@ static JsonValue run_job(const JsonValue& job) {
                 std::vector<int> lab = ex.labels;
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
                     shift_labels(lab);
-                fw.layers.clear(); fw.moe_aux = 0.0f;
+                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f;
                 if (!ex.vision.empty()) {
                     // Vision early-fusion: prefix rows carry -100 labels
                     // (ce_loss skips them; loss normalizes over text only).

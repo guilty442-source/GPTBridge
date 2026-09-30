@@ -4,9 +4,16 @@
 
 // -------------------------------------------------------------- backward --
 
+// defined in xct_mtp.h (included after this header)
+static void mtp_bwd(Params& p, const ModelConfig& c,
+                    const std::vector<int>& ids, Fwd& o,
+                    const std::vector<std::vector<float>>& dmtp,
+                    float* dh_main);
+
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale,
-                const std::vector<float>* vision = nullptr) {
+                const std::vector<float>* vision = nullptr,
+                const std::vector<std::vector<float>>* dmtp = nullptr) {
     if (c.is_gemma4()) {
         (void)aux_scale;
         (void)vision;
@@ -41,6 +48,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     std::vector<float> dh((size_t)T * H, 0.0f);
     linear_bwd(dlp, o.hidden.data(), p.w.at("lm_head"),
                dh.data(), p.g["lm_head"].d.data(), T, H, c.vocab);
+    // v29 MTP stack: folds its dh contribution onto the trunk hidden rows
+    // (post-final-norm input) before the norm_f backward, and accumulates
+    // the shared embed/lm_head + mtp.* parameter grads.
+    if (dmtp != nullptr && !dmtp->empty() && c.mtp_depth > 0)
+        mtp_bwd(p, c, ids, o, *dmtp, dh.data());
     std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx_fin.data(), p.g["norm_f"].d.data(), T, H);
@@ -156,6 +168,23 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float dotp = 0.0f;
                     for (int e = 0; e < E; ++e) dotp += dglr[e] * gpl[e];
                     for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
+                }
+                // Router z-loss (B133): z = aux_scale·w·mean_t lse_t² —
+                // dz/dlogit_e = 2·w·lse_t·softmax_e/T lands post-Jacobian on
+                // the raw gate logits.
+                if (aux_scale != 0.0f && c.moe_zloss_w != 0.0f) {
+                    const float* glr = L.gate_logits.data() + (size_t)t * E;
+                    float mx = *std::max_element(glr, glr + E), zs = 0.0f;
+                    for (int e = 0; e < E; ++e) zs += std::exp(glr[e] - mx);
+                    float lse = mx + std::log(zs);
+                    float cz = aux_scale * c.moe_zloss_w * 2.0f * lse /
+                               (float)std::max(1, T);
+                    for (int e = 0; e < E; ++e) {
+                        float pm = c.moe_router_sigmoid
+                                       ? std::exp(glr[e] - mx) / zs
+                                       : gpl[e];
+                        din[e] += cz * pm;
+                    }
                 }
                 linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
                            dxr, p.g[ln(l, "gate")].d.data(), 1, H, E);
