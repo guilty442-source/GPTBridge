@@ -79,6 +79,14 @@ internal static class Program
             if (flags.Contains("teacher-collect"))
                 return Emit(TeacherCollect.Collect(
                     toolRoot, dryRun: flags.Contains("dry-run")));
+            if (flags.Contains("evaluate"))
+                return Emit(Evaluate(
+                    toolRoot,
+                    opts.TryGetValue("job", out string? ej) ? ej : "",
+                    opts.TryGetValue("bundle", out string? eb) ? eb : "",
+                    opts.TryGetValue("suite", out string? es) ? es : "",
+                    opts.TryGetValue("baseline", out string? bl) ? bl : null,
+                    flags.Contains("chat")));
             if (flags.Contains("queue-job"))
                 return Emit(QueueJob(
                     toolRoot,
