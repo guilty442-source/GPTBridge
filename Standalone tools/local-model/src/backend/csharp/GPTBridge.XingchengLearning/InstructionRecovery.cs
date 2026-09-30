@@ -2371,6 +2371,393 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // -------------------------------------------------- reading_ground --
+
+    // Reading/grounding training passages — every fact/value below is
+    // deliberately disjoint from BOTH the generated recovery suite and
+    // the canonical star-capability-suite-reading-300m items. The
+    // capability being trained is *answer-from-text, not memory*: the
+    // passage carries the answer and the completion must reproduce it.
+    private static readonly (string passage, string question,
+                             string answer)[]
+        RdQa =
+    {
+        ("「台北捷運於 1996 年通車，是台灣第一條捷運系統。」",
+         "台北捷運哪一年通車？", "1996"),
+        ("「日月潭海拔約 748 公尺，是台灣最大的湖泊。」",
+         "日月潭的海拔約多少公尺？", "748"),
+        ("「台積電成立於 1987 年，首創專業晶圓代工模式。」",
+         "台積電成立於哪一年？", "1987"),
+        ("「墾丁國家公園成立於 1984 年，位於屏東縣。」",
+         "墾丁國家公園位於哪個縣？", "屏東"),
+        ("「合歡山主峰標高 3417 公尺，是台灣百岳之一。」",
+         "合歡山主峰標高多少？", "3417"),
+        ("「滷肉飯是台灣代表性小吃，以五花肉切丁滷製。」",
+         "滷肉飯主要使用什麼部位？", "五花肉"),
+        ("Passage: \"The museum opens at 10 AM and closes at 5 PM, "
+         + "except Mondays when it is closed.\"",
+         "Question: when is the museum closed?", "Mondays"),
+        ("Passage: \"The ferry to Green Island departs at 8 AM and "
+         + "takes about 50 minutes.\"",
+         "Question: how long is the ferry ride?", "50"),
+        ("Passage: \"The coastal railway in Hualien was electrified "
+         + "in 2014, cutting the trip to under two hours.\"",
+         "Question: when was the Hualien railway electrified?", "2014"),
+        ("Passage: \"The night market employs about 120 vendors and "
+         + "operates until 1 AM on weekends.\"",
+         "Question: how many vendors work at the night market?",
+         "120"),
+        ("「安平古堡建於 1624 年，是台灣最古老的城堡之一。」",
+         "安平古堡建於哪一年？", "1624"),
+        ("「曾文水庫是台灣最大的水庫，於 1973 年完工。」",
+         "曾文水庫於哪一年完工？", "1973"),
+        ("「台東熱氣球嘉年華自 2011 年開始舉辦，每年夏季舉行。」",
+         "台東熱氣球嘉年華從哪一年開始？", "2011"),
+        ("「蘭嶼距離台東約 90 公里，以飛魚文化聞名。」",
+         "蘭嶼距離台東約幾公里？", "90"),
+        ("「竹塹城是今天新竹市的舊稱，建城於 1827 年。」",
+         "竹塹城建城於哪一年？", "1827"),
+        ("「萬華龍山寺始建於 1738 年，主祀觀世音菩薩。」",
+         "萬華龍山寺始建於哪一年？", "1738"),
+    };
+    private static readonly string[] RdQaFrames =
+        { "文章：{0}問題：{1}（答案在文內）",
+          "根據文章回答：{0}問題：{1}",
+          "閱讀下列段落並作答：{0}問：{1}" };
+    private static readonly string[] RdCities =
+        { "台東", "嘉義", "宜蘭", "彰化", "雲林", "苗栗" };
+    private static readonly string[] RdProducts =
+        { "地瓜", "茶葉", "米", "芒果", "文旦", "蓮霧" };
+    private static readonly string[] RdEvents =
+        { "產品發表會", "校慶運動會", "社區義診", "讀書會", "義賣市集" };
+
+    private static IEnumerable<Row> GenerateReading(
+        int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        bool Hard() => r.Next(4) == 0;
+
+        // -- A. document_qa (~18%) — single passage, answer in text;
+        //    three framings per fact keep the surface varied.
+        foreach (var (p, q, a) in RdQa)
+            for (int i = 0; i < count / 40; i++)
+            {
+                bool zh = ZhRatio(p) > 0.3;
+                string prompt = zh
+                    ? string.Format(
+                        Take(r, RdQaFrames), p, q)
+                    : $"{p} {q} (answer is in the text)";
+                Add(new Row
+                {
+                    Prompt = prompt,
+                    Completion = a,
+                    Category = "A",
+                    Rule = $"exact:{a}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+
+        // -- B. multi_passage (~15%) — two sources, synthesize both.
+        for (int i = 0; i < count / 6; i++)
+        {
+            string ev = Take(r, RdEvents);
+            string c1 = Take(r, RdCities);
+            string c2 = Take(r, RdCities.Where(x => x != c1).ToArray());
+            int m1 = 1 + r.Next(6), m2 = 7 + r.Next(5);
+            string ans = $"第一階段在{c1}（{m1}月），第二階段在{c2}"
+                       + $"（{m2}月）。";
+            Add(new Row
+            {
+                Prompt = $"文件一：「{ev}第一階段{m1}月在{c1}舉行。」"
+                       + $"文件二：「第二階段{m2}月移師{c2}。」綜合兩份"
+                       + "文件：兩階段分別在哪裡、哪個月？",
+                Completion = ans,
+                Category = "B", Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- C. conflicting_evidence (~12%) — report both claims,
+        //    never pick a side.
+        for (int i = 0; i < count / 8; i++)
+        {
+            string prod = Take(r, RdProducts);
+            int y1 = 1980 + r.Next(30), y2 = y1 + 1 + r.Next(15);
+            string ans = $"來源一說 {y1} 年，來源二說 {y2} 年；兩個來源"
+                       + "互相矛盾，無法確定正確年份。";
+            Add(new Row
+            {
+                Prompt = $"來源一：「{prod}於{y1}年開始量產。」來源二："
+                       + $"「{prod}於{y2}年開始量產。」兩來源矛盾，請"
+                       + "分別指出各說了哪年，不要自行選邊。",
+                Completion = ans,
+                Category = "C", Rule = $"exact:{ans}",
+            });
+        }
+
+        // -- D. insufficient_evidence (~12%) — the field is absent;
+        //    the honest completion says so.
+        for (int i = 0; i < count / 8; i++)
+        {
+            string city = Take(r, RdCities);
+            string prod = Take(r, RdProducts);
+            string field = Take(r, new[]
+                { "出口量", "平均價格", "種植面積", "產值" });
+            string ans = $"文章沒有提到{field}，無法從文中判斷。";
+            Add(new Row
+            {
+                Prompt = $"文章：「{city}的{prod}產量去年創新高，主要"
+                       + $"供應國內市場。」問題：該產品的{field}是多少？"
+                       + "文中沒有答案，請明說無法判斷。",
+                Completion = ans,
+                Category = "D",
+                Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- E. citation_alignment (~10%) — answer names the source.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string city = Take(r, RdCities);
+            string prod = Take(r, RdProducts);
+            int yr = 1990 + r.Next(30);
+            string ans = $"依來源甲，{city}的{prod}於{yr}年獲得認證。"
+                       + "（來源甲）";
+            Add(new Row
+            {
+                Prompt = $"[來源甲]「{city}的{prod}在{yr}年獲得地理標誌"
+                       + "認證。」[來源乙]「該認證帶動產值成長。」問題："
+                       + $"{prod}哪年獲得認證？請引用來源回答。",
+                Completion = ans,
+                Category = "E", Rule = $"exact:{ans}",
+            });
+        }
+
+        // -- F. summarization (~10%) — bounded one-sentence summaries.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string ev = Take(r, RdEvents);
+            string city = Take(r, RdCities);
+            int att = 200 + r.Next(800);
+            string ans = $"{ev}在{city}舉行，吸引約 {att} 人參加。";
+            Add(new Row
+            {
+                Prompt = $"請用恰好一句話摘要：「上週六，{city}市公所"
+                       + $"舉辦了{ev}，現場湧入約 {att} 位民眾，活動於"
+                       + "傍晚順利落幕。」",
+                Completion = ans,
+                Category = "F",
+                Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- G. fact_extraction (~12%) — text → typed JSON object.
+        for (int i = 0; i < count / 8; i++)
+        {
+            string city = Take(r, RdCities);
+            int yr = 1995 + r.Next(30);
+            Add(new Row
+            {
+                Prompt = $"從句子抽取 JSON {{\"city\": <字串>, \"year\":"
+                       + $" <數字>}}：「{city}美術館於{yr}年開幕。」"
+                       + "只輸出 JSON。",
+                Completion = $"{{\"city\":\"{city}\",\"year\":{yr}}}",
+                Category = "G", Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- H. retrieval_failure_isolated (~10%) — empty retrieval:
+        //    state no source, never answer from memory.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string q = Take(r, new[]
+                { "冰島的人口是多少？", "火星的直徑多大？",
+                  "尼羅河全長幾公里？", "貓的平均壽命？",
+                  "喜馬拉雅山有多少座八千公尺峰？", "袋鼠原產於哪裡？",
+                  "光速是多少？", "鯨魚的心跳每分鐘幾下？",
+                  "世界上最深的湖泊是哪個？", "企鵝分佈在哪些大洲？" });
+            bool zh = r.Next(2) == 0;
+            string ans = zh ? "沒有提供來源文件，無法根據資料回答。"
+                            : "No source documents were provided; I "
+                              + "cannot answer from the retrieved "
+                              + "material.";
+            Add(new Row
+            {
+                Prompt = zh
+                    ? $"檢索結果為空——沒有任何文件。使用者問：「{q}"
+                      + "」不得憑記憶回答，請說明沒有來源。"
+                    : $"Retrieval returned zero documents. The user "
+                      + $"asks: \"{q}\" You must not answer from "
+                      + "memory — state that no source was provided.",
+                Completion = ans,
+                Category = "H",
+                Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- I. comprehension_failure_isolated (~10%) — the answer IS
+        //    in the passage; the failure mode is not finding it.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string ev = Take(r, RdEvents);
+            string from = Take(r, new[] { "週六", "週日", "週三" });
+            string to = Take(r, new[] { "週日", "下週六", "週五" });
+            bool askTo = r.Next(2) == 0;
+            string ans = askTo ? to : from;
+            Add(new Row
+            {
+                Prompt = $"文章：「{ev}原定{from}舉行，因場地因素改至"
+                       + $"{to}。」問題（答案在文內）：{ev}"
+                       + (askTo ? "改到哪一天？" : "原本定在哪一天？"),
+                Completion = ans,
+                Category = "I", Rule = $"exact:{ans}",
+            });
+        }
+        return rows;
+    }
+
+    private static List<Dictionary<string, object?>>
+        BuildReadingSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+
+        // document_qa — passages/values disjoint from canonical suite
+        // (no 高鐵/日月潭/衣索比亞) and from the training pool.
+        It("rd-qa-1", "document_qa", "contains",
+           "文章：「阿里山森林鐵路於 1912 年通車，海拔最高點為 2451 "
+           + "公尺。」問題：阿里山森林鐵路最高點海拔多少公尺？",
+           "WRONG_ANSWER", ("expected", "2451"),
+           ("max_new_tokens", 24));
+        It("rd-qa-2", "document_qa", "contains",
+           "Passage: \"The night market operates Friday through "
+           + "Sunday, from 6 PM to midnight.\" Question: on which "
+           + "days does the night market operate?",
+           "WRONG_ANSWER", ("expected", "Friday"),
+           ("max_new_tokens", 32));
+
+        // multi_passage — synthesize facts from both docs.
+        It("rd-mp-1", "multi_passage", "regex_all",
+           "Doc A: \"The lighthouse was built in 1883.\" Doc B: \"It "
+           + "was automated in 1978.\" State both years in your answer.",
+           "INCOMPLETE",
+           ("patterns", new List<object?> { "1883", "1978" }),
+           ("max_new_tokens", 48));
+        It("rd-mp-2", "multi_passage", "contains",
+           "段落一：「珍珠奶茶起源於台中。」段落二：「1980 年代後期"
+           + "開始風行全美。」綜合兩段：珍珠奶茶起源於哪個城市？",
+           "WRONG_ANSWER", ("expected", "台中"),
+           ("max_new_tokens", 24));
+
+        // conflicting_evidence — report both, pick no side.
+        It("rd-cf-1", "conflicting_evidence", "regex_all",
+           "Source 1: \"The bridge cost 2 billion.\" Source 2: \"The "
+           + "bridge cost 3.4 billion.\" Report both figures and note "
+           + "the discrepancy.",
+           "OVERCLAIM",
+           ("patterns", new List<object?> { "2", "3.4" }),
+           ("max_new_tokens", 48));
+        It("rd-cf-2", "conflicting_evidence", "not_contains",
+           "來源甲：「該廟建於 1750 年。」來源乙：「該廟建於 1783 年。」"
+           + "兩來源矛盾。請指出各說了哪年，不要自行選邊。",
+           "OVERCLAIM",
+           ("expected", "確定是1750"),
+           ("forbidden", new List<object?>
+            { "確定建於1750", "確定建於1783" }),
+           ("max_new_tokens", 64));
+
+        // insufficient_evidence — the honest answer is "not stated".
+        It("rd-is-1", "insufficient_evidence", "regex",
+           "文章只提到「該校今年錄取率上升」。問題：明年的錄取率預測"
+           + "是多少？文中沒有答案，請明說無法從文章判斷。",
+           "FABRICATED",
+           ("pattern", "無法|沒有|不能|insufficient|cannot|"
+                       + "not.*(mention|state|given)"),
+           ("max_new_tokens", 48));
+        It("rd-is-2", "insufficient_evidence", "not_contains",
+           "Passage: \"The ship departed on Wednesday.\" Question: "
+           + "what cargo did it carry? The passage does not say — do "
+           + "not invent a cargo.",
+           "FABRICATED",
+           ("expected", "rice"),
+           ("forbidden", new List<object?>
+            { "carried rice", "the cargo was" }),
+           ("max_new_tokens", 48));
+
+        // citation_alignment — the named source must appear.
+        It("rd-ci-1", "citation_alignment", "regex_all",
+           "[Source A] \"Typhoons form over warm ocean water.\" "
+           + "[Source B] \"Typhoon season peaks in September.\" Answer "
+           + "with citation: when does typhoon season peak? Cite the "
+           + "relevant source.",
+           "NO_CITATION",
+           ("patterns", new List<object?>
+            { "Source B|來源 B|\\[B\\]|September|九月" }),
+           ("max_new_tokens", 64));
+
+        // summarization — exactly N lines.
+        It("rd-sm-1", "summarization", "count_lines",
+           "Summarize in exactly one sentence: \"Flooding closed the "
+           + "coastal highway on Tuesday. Repair crews reopened one "
+           + "lane on Wednesday and full traffic resumed Thursday "
+           + "morning.\"",
+           "FORMAT_ERROR",
+           ("expected", 1), ("total_lines", 1),
+           ("max_new_tokens", 64));
+
+        // fact_extraction — typed JSON out of prose.
+        It("rd-fe-1", "fact_extraction", "json_valid",
+           "Extract as JSON {\"city\": ..., \"year\": ...}: \"The "
+           + "university in Hsinchu was founded in 1958.\" Only JSON.",
+           "FORMAT_ERROR",
+           ("required_fields", new List<object?> { "city", "year" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["city"] = "string", ["year"] = "number" }),
+           ("max_new_tokens", 40));
+
+        // retrieval_failure_isolated — no docs → no memory answer.
+        It("rd-rf-1", "retrieval_failure_isolated", "not_contains",
+           "Retrieved documents are empty — no passages were provided. "
+           + "User asks: what is the tallest mountain in Peru? You "
+           + "must NOT answer from memory as if a document said it. "
+           + "State that no source was provided.",
+           "MEMORY_LEAKAGE",
+           ("expected", "Huascarán"),
+           ("forbidden", new List<object?>
+            { "Huascarán", "6,768", "approximately" }),
+           ("max_new_tokens", 48));
+
+        // comprehension_failure_isolated — answer IS in the text.
+        It("rd-cx-1", "comprehension_failure_isolated", "contains",
+           "文章：「演唱會原定週五舉行，因颱風延期至下週二。」問題"
+           + "（文內必有答案）：演唱會改到哪一天？",
+           "WRONG_ANSWER", ("expected", "週二"),
+           ("max_new_tokens", 24));
+        It("rd-cx-2", "comprehension_failure_isolated", "contains",
+           "Passage: \"The exam moved from Monday to Thursday due to "
+           + "the holiday.\" Question (answer is in the text): what "
+           + "day is the exam now?",
+           "WRONG_ANSWER", ("expected", "Thursday"),
+           ("max_new_tokens", 24));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -2387,6 +2774,7 @@ internal static class InstructionRecovery
             "multi_turn" => GenerateMultiTurn(seed, count),
             "structured_output" => GenerateStructuredOutput(seed, count),
             "tool_calling" => GenerateToolCalling(seed, count),
+            "reading_grounding" => GenerateReading(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -2434,6 +2822,7 @@ internal static class InstructionRecovery
             "multi_turn" => BuildMultiTurnSuiteItems(),
             "structured_output" => BuildStructuredSuiteItems(),
             "tool_calling" => BuildToolCallingSuiteItems(),
+            "reading_grounding" => BuildReadingSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
