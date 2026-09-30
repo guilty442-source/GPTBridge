@@ -153,6 +153,7 @@ namespace xct {
 #include "xct_mix.h"
 #include "xct_route.h"
 #include "xct_yarn.h"
+#include "xct_csa.h"
 
 } // namespace xct
 
@@ -176,10 +177,11 @@ int main(int argc, char** argv) {
         else if (a == "--routecheck") return xct::routecheck();
         else if (a == "--dsvcheck") return xct::dsvcheck();
         else if (a == "--yarncheck") return xct::yarncheck();
+        else if (a == "--csacheck") return xct::csacheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --routecheck | --gemmacheck | --dsvcheck | --yarncheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --routecheck | --gemmacheck | --dsvcheck | --yarncheck | --csacheck\n");
         return 2;
     }
     try {

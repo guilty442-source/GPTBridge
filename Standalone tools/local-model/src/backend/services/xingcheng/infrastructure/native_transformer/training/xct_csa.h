@@ -180,10 +180,10 @@ static int csacheck() {
             for (float x : g.d) if (x != 0.0f) return true;
             return false;
         };
-        if (!nz("0.wiq")) fail("wiq grad", 0, 0);
-        if (!nz("0.wik")) fail("wik grad", 0, 0);
-        if (!nz("0.wck")) fail("wck grad", 0, 0);
-        if (!nz("0.wcv")) fail("wcv grad", 0, 0);
+        if (!nz("layers.0.wiq")) fail("wiq grad", 0, 0);
+        if (!nz("layers.0.wik")) fail("wik grad", 0, 0);
+        if (!nz("layers.0.wck")) fail("wck grad", 0, 0);
+        if (!nz("layers.0.wcv")) fail("wcv grad", 0, 0);
     }
 
     const bool ok = failures == 0;

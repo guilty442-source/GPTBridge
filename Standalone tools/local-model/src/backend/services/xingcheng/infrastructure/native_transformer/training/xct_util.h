@@ -450,6 +450,10 @@ static ModelConfig parse_model(const JsonValue* o) {
         if (c.csa_group < 0) throw "model: bad csa_share_group";
         if (c.csa_indexer_w < 0.0f)
             throw "model: bad csa_indexer_loss_weight";
+        // CSA reads per-kv-head K/V rows; MLA replaces them with a shared
+        // latent — the two KV paths are mutually exclusive (fail-closed).
+        if (c.kv_lora_rank > 0)
+            throw "model: csa and kv_lora_rank are mutually exclusive";
     }
     if (c.kv_heads <= 0) c.kv_heads = c.heads;
     if (c.heads <= 0) throw "model: bad head geometry";

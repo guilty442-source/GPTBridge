@@ -516,6 +516,21 @@ static int gradcheck() {
         c.attn_output_gate = false; c.qk_norm = false;
         c.partial_rotary = 1.0f;
     }
+    // XCT_GC_CSA=1: enable the CSA2 lane on the full-attention layer
+    // (r=2, K=2, window 4). XCT_GC_CSA_GROUP=2 additionally turns the
+    // probe model all-attention so layer 0 produces the shared compressed
+    // stream and layer 1 exercises the Reuse path + cross-layer grads.
+    if (const char* e = std::getenv("XCT_GC_CSA")) {
+        if (std::atoi(e) != 0) {
+            c.global_attn_interval = 1;   // every attn layer is global
+            c.csa_ratio = 2; c.csa_topk = 2; c.csa_window = 4;
+            c.csa_rope_theta = 40000.0f;
+            if (const char* g = std::getenv("XCT_GC_CSA_GROUP")) {
+                c.full_attention_interval = 0;
+                c.csa_group = std::atoi(g);
+            }
+        }
+    }
     Params p;
     // Vision leg: the same numeric sweep also covers vision.patch_proj
     // and the prefix path (deterministic synthetic patches; prefix labels
