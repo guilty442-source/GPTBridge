@@ -2585,6 +2585,16 @@ int mode_capability(const Args& a) {
             track(cat, d.str());
             continue;
         }
+        // Fail-closed modality gate: this engine serves text only, so a
+        // suite item declaring a non-text modality is skipped (never
+        // scored) — a text replay of an image prompt would be fake
+        // evidence.
+        std::string modality = jget_str(item, "modality");
+        if (!modality.empty() && modality != "text") {
+            d << ",\"passed\":false,\"skipped\":\"modality-unavailable\"}";
+            track(cat, d.str());
+            continue;
+        }
         try {
             if (kind == "router_health") {
                 // The C++ engine exposes no router-metrics surface ??
