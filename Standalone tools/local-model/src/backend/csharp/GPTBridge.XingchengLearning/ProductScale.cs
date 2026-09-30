@@ -140,6 +140,158 @@ internal static class ProductScale
         => ((List<object?>)Tiers()["tiers"]!)
             .Select(t => (Dictionary<string, object?>)t).ToList();
 
+    // ------------------------------------------- profile records --
+
+    /// <summary>Where the canonical scale-profile contracts live —
+    /// one JSON per tier plus an index.</summary>
+    public const string ProfileRelDir =
+        "xingcheng/runtime/scale-profiles";
+
+    /// <summary>§63: the framework exists before the parameters. Every
+    /// shape dimension stays PENDING until HardwareAwareScaleSearch /
+    /// ExpertGranularityPlanner resolve it; the profile still carries
+    /// its budget, residency, precision and training contracts so a
+    /// resolved candidate has something to be validated against.</summary>
+    public static Dictionary<string, object?> ProfileRecord(
+        Dictionary<string, object?> tier)
+    {
+        string scale = (string)tier["scale_profile"]!;
+        bool is20b = scale == "xc-20b-extreme-sparse";
+        bool is1b = scale == "xc-1b-standard";
+        var record = new Dictionary<string, object?>
+        {
+            ["format"] = "star-scale-profile/v1",
+            // PENDING is a first-class state: the file is the contract
+            // framework; a gate that needs numbers must fail closed,
+            // not read nulls.
+            ["parameter_state"] = "PENDING",
+            ["scale_profile"] = scale,
+            ["architecture_profile"] = "xc-fused-1",
+            ["role"] = tier["role"],
+            ["budgets"] = new Dictionary<string, object?>
+            {
+                ["total_params"] = tier["total_params_target"],
+                ["active_params"] = tier["active_params_target"],
+                ["active_ratio"] = tier["active_ratio_target"],
+                ["common_core"] = tier["common_core_budget"],
+                ["shared_expert"] = tier["shared_expert_budget"],
+            },
+            ["parameters_pending"] = new[]
+            {
+                "hidden", "layers", "heads", "kv_heads",
+                "expert_intermediate", "expert_count",
+                "shared_intermediate", "context_target", "precision",
+            },
+            ["parameter_resolution"] =
+                "HardwareAwareScaleSearch -> ExpertGranularityPlanner " +
+                "-> ActiveComputeGate -> ScalePromotionGate (§63)",
+            ["shape"] = null,
+            ["weight_version"] = null,
+            ["runtime_version"] = null,
+            ["bundle_hash"] = null,
+            ["topology"] = new Dictionary<string, object?>
+            {
+                ["top_k"] = tier["top_k"],
+                ["shared_experts"] = tier["shared_experts"],
+                ["routed_expert_candidates"] =
+                    tier["routed_expert_candidates"],
+                ["routed_expert_primary"] =
+                    tier["routed_expert_primary"],
+                ["schedule"] = "delta3:full1 canonical period",
+            },
+        };
+        // §33 precision policy — contract skeleton per component.
+        record["precision_policy"] = new Dictionary<string, object?>
+        {
+            ["common_core"] = "BF16",
+            ["shared_expert"] = "BF16",
+            ["router"] = "FP32",
+            ["hot_routed"] = "BF16/INT8 execution candidate",
+            ["warm_routed"] = is20b ? "INT8 storage" : null,
+            ["cold_routed"] = is20b ? "INT4 preferred storage" : null,
+            ["kv"] = "INT8",
+            ["delta_state"] = "BF16 candidate",
+        };
+        // §28-§32 residency policy skeleton.
+        record["residency_policy"] = is20b
+            ? new Dictionary<string, object?>
+            {
+                ["common_core"] = "GPU", ["shared_expert"] = "GPU",
+                ["hot_routed"] = "GPU", ["warm_routed"] = "RAM",
+                ["cold_routed"] = "NVME_COLD",
+                ["gpu_resident_target"] = "~0.8B-2B equivalent",
+                ["ram_resident_target"] = "~2B-5B equivalent",
+                ["preload_cold"] = "forbidden (§32)",
+            }
+            : is1b
+            ? new Dictionary<string, object?>
+            {
+                ["preferred"] = "all weights GPU-resident when " +
+                                "hardware allows (§28)",
+                ["force_offload"] = "forbidden",
+            }
+            : new Dictionary<string, object?>
+            {
+                ["preferred"] = "GPU-resident dev model",
+            };
+        // §34-§38 training policy skeleton.
+        record["training_policy"] = is20b
+            ? new Dictionary<string, object?>
+            {
+                ["trainable_params_target"] =
+                    "100M-500M (preferred <=300M)",
+                ["frozen_optimizer_state"] = false,
+                ["dormant_expert_backward"] = false,
+                ["full_parameter_rounds"] = "forbidden (§35)",
+            }
+            : new Dictionary<string, object?>
+            {
+                ["modes"] = new[]
+                {
+                    "sft", "parameter_efficient_sft",
+                    "capability_training",
+                },
+                ["constraint"] = "ONE CAPABILITY AT A TIME (§34)",
+            };
+        return record;
+    }
+
+    /// <summary>Write the three canonical profile contracts plus an
+    /// index under <paramref name="toolRoot"/>. Pure file emission —
+    /// no weights, no state mutation.</summary>
+    public static Dictionary<string, object?> SeedProfiles(
+        string toolRoot)
+    {
+        string dir = Path.Combine(
+            toolRoot,
+            ProfileRelDir.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(dir);
+        var written = new List<object?>();
+        foreach (var tier in TierDicts())
+        {
+            string scale = (string)tier["scale_profile"]!;
+            var rec = ProfileRecord(tier);
+            string file = Path.Combine(dir, scale + ".json");
+            File.WriteAllText(file, CanonicalJson.PrettyDict(rec));
+            written.Add(scale);
+        }
+        var index = new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-scale-profile-index/v1",
+            ["profiles"] = written,
+            ["parameter_state"] = "PENDING",
+            ["one_core_rule"] = "xc-fused-1 everywhere; scale is a " +
+                                "profile, never a second core (§1)",
+        };
+        File.WriteAllText(Path.Combine(dir, "index.json"),
+            TransformerTrainingRepository.EmitJson(index));
+        index["dir"] = ProfileRelDir;
+        index["files"] = written
+            .Select(s => (object?)(s + ".json")).ToList();
+        return index;
+    }
+
     // ---------------------------------------------------- identity --
 
     /// <summary>§2 model identity: five fields, all required; arch must

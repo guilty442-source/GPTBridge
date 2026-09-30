@@ -102,10 +102,16 @@ internal static class ConvergenceGate
         if (!p.WaitForExit(timeoutS * 1000))
         {
             try { p.Kill(true); } catch { }
+            // Grandchildren (MSBuild node servers, toolchains) may
+            // keep holding the redirected pipe handles after the
+            // parent dies — bound the drain or the gate hangs.
+            try { p.WaitForExit(30_000); } catch { }
             return Fail("GATE_STEP_TIMEOUT",
                         $"{exe} exceeded {timeoutS}s");
         }
-        p.WaitForExit(); // drain async readers
+        p.WaitForExit(30_000); // drain async readers (bounded — see
+                               // timeout path: grandchildren can hold
+                               // the pipes open indefinitely)
         string detail = (stderr + "\n" + stdout).Trim();
         if (p.ExitCode != 0)
             return Fail("GATE_STEP_FAILED",
@@ -409,9 +415,10 @@ internal static class ConvergenceGate
         if (!p.WaitForExit(300_000))
         {
             try { p.Kill(true); } catch { }
+            try { p.WaitForExit(30_000); } catch { }
             return Fail("GATE_STEP_TIMEOUT", "self-test exceeded 300s");
         }
-        p.WaitForExit();
+        p.WaitForExit(30_000);
         string tail = stdout.ToString().Trim();
         try
         {
