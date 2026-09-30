@@ -710,6 +710,49 @@ internal static class ConvergenceChecks
                         return false;
                 return true;
             }),
+            // §65 leg 4: every capability in the maturation sequence has
+            // its eval suite on disk — suite files are the P0-P12 gate
+            // artifacts; each item must carry a check the native
+            // capability mode actually implements (unknown-check items
+            // would silently fail closed at eval time).
+            new("maturation-capability-suites", () =>
+            {
+                var known = new HashSet<string>(StringComparer.Ordinal)
+                {
+                    "contains", "choice", "first_int", "last_int",
+                    "regex", "regex_all", "not_contains", "count_lines",
+                    "json_valid", "tool_call", "ppl_max", "router_health",
+                };
+                foreach (var spec in Maturation300M.Sequence)
+                {
+                    string p = Path.Combine(
+                        toolRoot, "xingcheng", "eval",
+                        $"star-capability-suite-{spec.WeightTag}-300m.json");
+                    if (!File.Exists(p)) return false;
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(p)); }
+                    catch { return false; }
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        if (!r.TryGetProperty("items", out var items) ||
+                            items.ValueKind != JsonValueKind.Array ||
+                            items.GetArrayLength() < 8)
+                            return false;
+                        foreach (var it in items.EnumerateArray())
+                        {
+                            if (!it.TryGetProperty("check", out var ck) ||
+                                !known.Contains(ck.GetString() ?? "") ||
+                                !it.TryGetProperty("category", out var cat) ||
+                                string.IsNullOrEmpty(cat.GetString()) ||
+                                !it.TryGetProperty("prompt", out var pr) ||
+                                string.IsNullOrEmpty(pr.GetString()))
+                                return false;
+                        }
+                    }
+                }
+                return true;
+            }),
         };
 
         var results = new List<object?>();
