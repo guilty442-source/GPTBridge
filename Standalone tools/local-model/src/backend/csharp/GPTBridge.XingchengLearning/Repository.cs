@@ -501,9 +501,6 @@ internal sealed class TransformerTrainingRepository
             throw new ArgumentException("transformer training snapshot SHA-256 mismatch");
         var normalized = NormalizeDatasetExamples(examples);
         var (trainCount, validationCount) = DatasetExampleCounts(normalized);
-        // Mutable: the supersede path below may re-key the successor row
-        // by the new snapshot digest (immutable trigger forbids rewriting
-        // the stale row's dataset identity).
         string datasetId = $"star-transformer-dataset-{contentDigest[..24]}";
         string manifestJson = CanonicalJson.CanonicalDict(sourceManifest);
         string createdAt = Now();
@@ -512,13 +509,12 @@ internal sealed class TransformerTrainingRepository
         {
             var existing = db.QueryOne(
                 $"SELECT {DatasetColumns} FROM transformer_training_dataset " +
-                "WHERE content_sha256 = $1 AND state = 'prepared' " +
-                "ORDER BY created_at DESC LIMIT 1", contentDigest);
+                "WHERE content_sha256 = $1", contentDigest);
             if (existing != null)
             {
-                // Dataset snapshot columns are immutable
-                // (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a pruned or
-                // drifted file can only be repaired by restoring identical
+                // content_sha256 is UNIQUE and the snapshot columns are
+                // immutable (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a
+                // pruned file can only be repaired by restoring identical
                 // bytes at the stored path.
                 string storedPath = (string?)existing["snapshot_path"] ?? "";
                 string storedSha = (string?)existing["snapshot_sha256"] ?? "";
@@ -527,63 +523,39 @@ internal sealed class TransformerTrainingRepository
                               Sha256File(storedPath) == storedSha;
                 if (!usable)
                 {
-                    if (snapshotDigest == storedSha)
-                    {
-                        string restored = Path.IsPathRooted(storedPath)
-                            ? storedPath
-                            : Path.Combine(ToolRoot, storedPath);
-                        restored = Path.GetFullPath(restored);
-                        if (!restored.StartsWith(
-                                ToolRoot + Path.DirectorySeparatorChar,
-                                StringComparison.Ordinal))
-                            throw new UnauthorizedAccessException(
-                                "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
-                        string? parentDir = Path.GetDirectoryName(restored);
-                        if (parentDir != null && !Directory.Exists(parentDir))
-                            Directory.CreateDirectory(parentDir);
-                        File.Copy(snapshotFile, restored, overwrite: true);
-                        if (Sha256File(restored) != storedSha)
-                            throw new InvalidOperationException(
-                                "transformer training snapshot restore failed");
-                        AppendAudit(db,
-                            eventType: "dataset-snapshot-restored",
-                            entityType: "training-dataset",
-                            entityId: (string)existing["dataset_id"]!,
-                            payload: new Dictionary<string, object?>
-                            {
-                                ["content_sha256"] = contentDigest,
-                                ["snapshot_sha256"] = storedSha,
-                                ["snapshot_path"] = restored,
-                            });
-                        return (existing, false);
-                    }
-                    // The stored snapshot is unrecoverable and the freshly
-                    // exported bytes carry a different digest (e.g. a new
-                    // generation stamp): supersede the stale row — `state`
-                    // is outside the immutable trigger column set — and fall
-                    // through to register a successor row keyed by the new
-                    // snapshot digest so identical re-exports still dedup.
-                    string staleId = (string)existing["dataset_id"]!;
-                    db.Execute(
-                        "UPDATE transformer_training_dataset " +
-                        "SET state = 'superseded' WHERE dataset_id = $1",
-                        staleId);
+                    if (snapshotDigest != storedSha)
+                        throw new ArgumentException(
+                            "transformer training snapshot lost and " +
+                            "re-export digest differs — the registered " +
+                            "dataset is unrecoverable");
+                    string restored = Path.IsPathRooted(storedPath)
+                        ? storedPath
+                        : Path.Combine(ToolRoot, storedPath);
+                    restored = Path.GetFullPath(restored);
+                    if (!restored.StartsWith(
+                            ToolRoot + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal))
+                        throw new UnauthorizedAccessException(
+                            "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
+                    string? parentDir = Path.GetDirectoryName(restored);
+                    if (parentDir != null && !Directory.Exists(parentDir))
+                        Directory.CreateDirectory(parentDir);
+                    File.Copy(snapshotFile, restored, overwrite: true);
+                    if (Sha256File(restored) != storedSha)
+                        throw new InvalidOperationException(
+                            "transformer training snapshot restore failed");
                     AppendAudit(db,
-                        eventType: "dataset-superseded",
+                        eventType: "dataset-snapshot-restored",
                         entityType: "training-dataset",
-                        entityId: staleId,
+                        entityId: (string)existing["dataset_id"]!,
                         payload: new Dictionary<string, object?>
                         {
                             ["content_sha256"] = contentDigest,
-                            ["reason"] = "snapshot-unrecoverable",
+                            ["snapshot_sha256"] = storedSha,
+                            ["snapshot_path"] = restored,
                         });
-                    datasetId = $"star-transformer-dataset-" +
-                        Sha256Text(contentDigest + ":" + snapshotDigest)[..24];
                 }
-                else
-                {
-                    return (existing, false);
-                }
+                return (existing, false);
             }
             db.Execute(
                 """
@@ -638,6 +610,16 @@ internal sealed class TransformerTrainingRepository
             throw new InvalidOperationException("transformer training dataset was not created");
         row["inserted"] = inserted;
         return row;
+    }
+
+    /// <summary>Every registered dataset's snapshot_path — the rows are
+    /// immutable, so retention must never prune a referenced file.</summary>
+    public List<string> DatasetSnapshotPaths()
+    {
+        using var db = Pg.Connect(Schema);
+        return db.Query(
+                "SELECT snapshot_path FROM transformer_training_dataset")
+            .Select(r => (string)r["snapshot_path"]!).ToList();
     }
 
     public Dictionary<string, object?>? DatasetById(string datasetId)

@@ -122,6 +122,33 @@ internal static class Retention
                 }
             }
         }
+        // Registered datasets are immutable rows whose snapshot_path file
+        // is part of the row's identity — pruning one makes the dataset
+        // permanently unexecutable, so every registered snapshot is
+        // protected. If the registry is unreadable, fail closed by
+        // protecting every snapshot file in the directory.
+        try
+        {
+            var repo = new TransformerTrainingRepository(toolRoot);
+            foreach (string sp in repo.DatasetSnapshotPaths())
+            {
+                if (sp.Length == 0) continue;
+                string p = Path.IsPathRooted(sp)
+                    ? sp : Path.Combine(toolRoot, sp);
+                try { protected_.Add(Path.GetFullPath(p)); }
+                catch { /* unresolvable -> kept fail-closed elsewhere */ }
+            }
+        }
+        catch
+        {
+            string snapDir = Path.Combine(
+                toolRoot, XcPaths.SelfLearningSnapshotRel);
+            if (Directory.Exists(snapDir))
+                foreach (string f in Directory.EnumerateFiles(
+                             snapDir, "*.jsonl"))
+                    try { protected_.Add(Path.GetFullPath(f)); }
+                    catch { /* keep */ }
+        }
         return protected_;
     }
 
@@ -234,7 +261,8 @@ internal static class Retention
     }
 
     private static List<string> PlanSnapshots(
-        string toolRoot, RetentionPolicy policy)
+        string toolRoot, RetentionPolicy policy,
+        HashSet<string> protected_)
     {
         string snapDir = Path.Combine(toolRoot, XcPaths.SelfLearningSnapshotRel);
         if (!Directory.Exists(snapDir)) return new List<string>();
@@ -243,7 +271,9 @@ internal static class Retention
             .OrderByDescending(f => f.LastWriteTimeUtc)
             .Select(f => f.FullName)
             .ToList();
-        return snaps.Skip(Math.Max(0, policy.KeepSnapshots)).ToList();
+        return snaps.Skip(Math.Max(0, policy.KeepSnapshots))
+                    .Where(f => !IsProtected(f, protected_))
+                    .ToList();
     }
 
     private static HashSet<string> PinnedCheckpoint(string toolRoot)
@@ -370,7 +400,7 @@ internal static class Retention
         {
             ["job_dirs"] = PlanJobDirs(root, resolved, protected_),
             ["logs"] = PlanLogs(root, resolved),
-            ["snapshots"] = PlanSnapshots(root, resolved),
+            ["snapshots"] = PlanSnapshots(root, resolved, protected_),
             ["retired_weights"] = PlanRetiredWeights(root, protected_),
         };
         string boundary = Path.GetFullPath(
