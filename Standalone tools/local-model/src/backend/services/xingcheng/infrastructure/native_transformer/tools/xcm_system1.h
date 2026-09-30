@@ -221,6 +221,26 @@ int mode_system1_head(const Args& a) {
         hnorm += v * v;
         hmax = std::max(hmax, std::fabs(v));
     }
+    // forward_hidden returns every position's state [seq x hidden];
+    // the decision consumes the last (post-prefill) position.
+    const int64_t hsize = e.hidden_size();
+    if ((int64_t)hidden.size() != hsize * (int64_t)ids.size()) {
+        std::printf("{\"ok\":true,\"format\":\"star-system1-head/v1\","
+                    "\"head_present\":true,\"bound\":true,"
+                    "\"hidden_shape\":\"unexpected\",\"fallback\":"
+                    "\"SYSTEM_2\",\"reason\":\"PREFILL_STATE_INVALID\"}\n");
+        return 0;
+    }
+    std::vector<double> last_hidden(
+        hidden.end() - hsize, hidden.end());
+    if (a.has("debug-prefill")) {
+        std::printf("{\"ok\":true,\"bound\":true,\"debug\":\"prefill\","
+                    "\"hidden\":%lld,\"finite\":%s,\"norm\":%.4f,"
+                    "\"absmax\":%.4f}\n",
+                    (long long)last_hidden.size(),
+                    finite ? "true" : "false", std::sqrt(hnorm), hmax);
+        return 0;
+    }
     if (!finite) {
         std::printf("{\"ok\":true,\"format\":\"star-system1-head/v1\","
                     "\"head_present\":true,\"bound\":true,"
@@ -230,7 +250,7 @@ int mode_system1_head(const Args& a) {
     }
 
     t0 = std::chrono::steady_clock::now();
-    auto probs = head.probabilities(hidden);
+    auto probs = head.probabilities(last_hidden);
     double head_ms = 1e3 * std::chrono::duration<double>(
         std::chrono::steady_clock::now() - t0).count();
 
