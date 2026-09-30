@@ -1977,10 +1977,16 @@ internal static class InstructionRecovery
     private static readonly string[] TcStableFacts =
         { "水在標準大氣壓下的沸點是幾度？", "一年有幾個月？",
           "光的真空速度約是多少？", "中文「謝謝」的英文怎麼說？",
-          "地球繞太陽一圈約多久？", "一加一等於多少？" };
+          "地球繞太陽一圈約多久？", "一加一等於多少？",
+          "一週有幾天？", "一小時有幾分鐘？", "彩虹有幾種顏色？",
+          "水的化學式是什麼？", "三角形有幾個內角？", "十月有幾天？",
+          "人體正常體溫約幾度？", "一斤等於幾兩？", "法國的首都是哪裡？",
+          "日本的首都是哪裡？", "一星期有幾個小時？",
+          "「大」的反義詞是什麼？" };
     private static readonly string[] TcStableAnswers =
         { "100°C", "12個月", "每秒約30萬公里", "Thank you",
-          "約365天", "2" };
+          "約365天", "2", "7天", "60分鐘", "7種", "H2O", "3個",
+          "31天", "約37°C", "16兩", "巴黎", "東京", "168小時", "小" };
 
     // Tool-calling recovery — five surfaces: pick the right tool, emit
     // typed arguments, decline when no tool is needed, fold a result
@@ -2146,11 +2152,21 @@ internal static class InstructionRecovery
         for (int i = 0; i < count / 5; i++)
         {
             int q = r.Next(TcStableFacts.Length);
+            int variant = r.Next(3);
+            string prompt = variant switch
+            {
+                0 => $"可用工具：{ToolList()}。使用者問：「"
+                   + $"{TcStableFacts[q]}」不需要工具——直接回答，"
+                   + "不要輸出 <tool_call>。",
+                1 => $"Tools: {ToolList()}. The user asks a stable "
+                   + $"fact: {TcStableFacts[q]} No tool is needed — "
+                   + "answer directly WITHOUT emitting <tool_call>.",
+                _ => $"可用工具：{ToolList()}。這是常識問題：「"
+                   + $"{TcStableFacts[q]}」直接回答即可，無需呼叫工具。",
+            };
             Add(new Row
             {
-                Prompt = $"可用工具：{ToolList()}。使用者問：「"
-                       + $"{TcStableFacts[q]}」不需要工具——直接回答，"
-                       + "不要輸出 <tool_call>。",
+                Prompt = prompt,
                 Completion = TcStableAnswers[q],
                 Category = "C", Rule = "no_sub:<tool_call>",
                 Source = Hard() ? "failure-pool" : "synthetic",
@@ -2194,27 +2210,37 @@ internal static class InstructionRecovery
 
         // -- E. failure_recovery (~15%) — tool errors: state the
         //    failure, never fabricate the value the tool did not
-        //    return.
+        //    return. Prompts carry a scenario so the surface varies.
+        var errScenarios = new[]
+        {
+            ("原本想查股價", "股價", "the stock price"),
+            ("原本想查百科", "百科條目", "the wiki entry"),
+            ("原本想訂票", "車票", "the ticket booking"),
+            ("原本想查匯率", "匯率", "the exchange rate"),
+        };
         for (int i = 0; i < count / 7; i++)
         {
-            string tool = Take(r, new[] { "get_stock", "wiki_lookup",
-                                          "book_ticket" });
+            var (scZh, whatZh, whatEn) = Take(r, errScenarios);
             string err = Take(r, new[] { "timeout", "rate_limited",
-                                         "not_found" });
+                                         "not_found",
+                                         "service_unavailable" });
             bool zh = r.Next(2) == 0;
+            int retry = 1 + r.Next(9);
             Add(new Row
             {
                 Prompt = zh
-                    ? $"工具 {tool} 回傳 {{\"error\":\"{err}\"}}。"
-                      + "向使用者說明操作失敗、建議稍後再試——不要"
-                      + "假造工具沒有回傳的資料。"
-                    : $"Tool {tool} returned {{\"error\":\"{err}\"}}. "
-                      + "Tell the user the operation failed and suggest "
-                      + "retrying later — do NOT fabricate a result.",
+                    ? $"使用者{scZh}，但工具回傳 "
+                      + $"{{\"error\":\"{err}\"}}。向使用者說明查詢失敗"
+                      + $"並建議 {retry} 分鐘後再試——不要假造{whatZh}"
+                      + "的資料。"
+                    : $"The user wanted {whatEn}, but the tool returned "
+                      + $"{{\"error\":\"{err}\"}}. Tell the user the "
+                      + $"lookup failed and suggest retrying in {retry} "
+                      + "minutes — do NOT fabricate a result.",
                 Completion = zh
-                    ? $"抱歉，{tool} 查詢失敗（{err}）。請稍後再試。"
-                    : $"Sorry, the {tool} request failed ({err}). "
-                      + "Please try again later.",
+                    ? $"抱歉，查詢失敗（{err}）。建議 {retry} 分鐘後再試。"
+                    : $"Sorry, the lookup failed ({err}). Please try "
+                      + $"again in {retry} minutes.",
                 Category = "E", Rule = "no_sub:<tool_call>",
                 Source = Hard() ? "failure-pool" : "synthetic",
             });
@@ -2592,6 +2618,33 @@ internal static class InstructionRecovery
     /// <summary>Execute the full recovery lane under a plan file. All
     /// heavy artifacts live under out_dir; only the best/final candidate
     /// is kept per the checkpoint policy.</summary>
+    /// <summary>§41-§45 ParameterFreezeMap from the recovery plan:
+    /// "freeze" is a bounded JSON array of wildcard pattern strings
+    /// (≤64, each ≤256 chars); anything else is a typed rejection —
+    /// never a silent drop.</summary>
+    private static List<object?>? PlanFreeze(
+        Dictionary<string, object?> plan)
+    {
+        if (!plan.TryGetValue("freeze", out object? raw) || raw is null)
+            return null;
+        if (raw is not System.Collections.IEnumerable list ||
+            raw is string)
+            throw new ExecutorError("RECOVERY_PLAN_MISSING",
+                "freeze must be an array of pattern strings");
+        var patterns = new List<object?>();
+        foreach (object? item in list)
+        {
+            if (item is not string s || s.Length == 0 || s.Length > 256)
+                throw new ExecutorError("RECOVERY_PLAN_MISSING",
+                    "freeze pattern must be a non-empty string ≤256 chars");
+            patterns.Add(s);
+            if (patterns.Count > 64)
+                throw new ExecutorError("RECOVERY_PLAN_MISSING",
+                    "freeze pattern count exceeds 64");
+        }
+        return patterns;
+    }
+
     public static Dictionary<string, object?> Run(
         string toolRoot, string planPath)
     {
@@ -2644,6 +2697,7 @@ internal static class InstructionRecovery
                 "RECOVERY_PLAN_MISSING", "baseline_bundle");
         string outDir = Req("out_dir");
         Directory.CreateDirectory(outDir);
+        PlanFreeze(plan);   // validate early — fail before any work
         string stderrLog = Path.Combine(outDir, "recovery-stderr.log");
 
         int maxSteps = Math.Clamp(
