@@ -521,10 +521,23 @@ internal static class ConvergenceChecks
                 using var doc = JsonDocument.Parse(File.ReadAllText(sp));
                 // §3/§28: while the frozen flag is set, no scheduler may
                 // emit a weight-changing job — the flag itself is the
-                // contract; verify it is still latched.
-                return doc.RootElement.TryGetProperty(
-                           "capability_training_frozen", out var f) &&
-                       f.ValueKind == JsonValueKind.True;
+                // contract; verify it is still latched. The governed
+                // SINGLE_CAPABILITY_RECOVERY lane is itself bounded
+                // (one active capability, SFT only) and counts as a
+                // latched state — it cannot emit a free-form job.
+                var root = doc.RootElement;
+                if (root.TryGetProperty(
+                        "capability_training_frozen", out var f) &&
+                    f.ValueKind == JsonValueKind.True)
+                    return true;
+                return root.TryGetProperty(
+                           "capability_training_mode", out var m) &&
+                       m.ValueKind == JsonValueKind.String &&
+                       m.GetString() == "SINGLE_CAPABILITY_RECOVERY" &&
+                       root.TryGetProperty(
+                           "active_capability", out var ac) &&
+                       ac.ValueKind == JsonValueKind.String &&
+                       !string.IsNullOrEmpty(ac.GetString());
             }),
             new("repo-xcn-writer-v10", () =>
             {

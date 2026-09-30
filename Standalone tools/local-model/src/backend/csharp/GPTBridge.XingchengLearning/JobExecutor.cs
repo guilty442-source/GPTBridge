@@ -818,8 +818,7 @@ internal sealed class TrainingJobExecutor
             // dataset is a multi-capability job and is denied.
             {
                 var pol = SelfLearningPolicy.Load(_toolRoot);
-                if (pol.CapabilityTrainingFrozen &&
-                    string.Equals(pol.CapabilityTrainingMode,
+                if (string.Equals(pol.CapabilityTrainingMode,
                                   "SINGLE_CAPABILITY_RECOVERY",
                                   StringComparison.OrdinalIgnoreCase))
                 {

@@ -27,13 +27,28 @@ namespace GPTBridge.XingchengLearning;
 internal static class InstructionRecovery
 {
     public const string ReportFormat = "star-single-capability-recovery/v1";
-    public const string EvalFormat = "star-instruction-eval-result/v1";
-    public const string DatasetFormat = "star-instruction-recovery-dataset/v1";
     public const string SuiteFormat = "star-capability-suite/v1";
-    public const string Capability = "instruction_following";
 
-    // §20 sub-metrics -> score weights.
-    private static readonly (string metric, double w)[] MetricWeights =
+    // Active recovery capability — set from the plan at Run() start (or
+    // via --capability on --recovery-dataset-build); the freeze guard
+    // still requires it to equal policy.ActiveCapability.
+    public static string Capability = "instruction_following";
+
+    public static string EvalFormat => Capability == "context_tracking"
+        ? "star-context-eval-result/v1" : "star-instruction-eval-result/v1";
+    public static string DatasetFormat => Capability == "context_tracking"
+        ? "star-context-recovery-dataset/v1"
+        : "star-instruction-recovery-dataset/v1";
+    private static string SuiteId => Capability == "context_tracking"
+        ? "star-context-recovery-eval-20261001"
+        : "star-instruction-recovery-eval-20261001";
+
+    private static readonly string[] SupportedCapabilities =
+        { "instruction_following", "context_tracking" };
+
+    // §20 sub-metrics -> score weights, per capability.
+    private static readonly (string metric, double w)[]
+        InstructionMetricWeights =
     {
         ("instruction_completion", 0.25),
         ("format_accuracy", 0.20),
@@ -42,6 +57,19 @@ internal static class InstructionRecovery
         ("language_accuracy", 0.10),
         ("extra_content", 0.10),
     };
+    private static readonly (string metric, double w)[]
+        ContextMetricWeights =
+    {
+        ("recall_accuracy", 0.30),
+        ("entity_binding", 0.25),
+        ("update_tracking", 0.15),
+        ("count_tracking", 0.10),
+        ("order_tracking", 0.10),
+        ("distractor_rejection", 0.10),
+    };
+    private static (string metric, double w)[] MetricWeights =>
+        Capability == "context_tracking"
+            ? ContextMetricWeights : InstructionMetricWeights;
 
     // ------------------------------------------------------------ pools --
 
@@ -113,6 +141,42 @@ internal static class InstructionRecovery
         ["sports"] = new[] { "tennis", "swimming", "cycling", "boxing" },
         ["tools"] = new[] { "hammer", "wrench", "drill", "chisel" },
         ["vehicles"] = new[] { "bus", "train", "ferry", "scooter" },
+    };
+
+    // ----------------------------------------------- context pools ----
+    // Reserved eval values (BuildContextSuiteItems) must stay disjoint
+    // from every training pool below so suite items cannot collide with
+    // training prompts.
+    private static readonly string[] CtxCodes =
+    {
+        "QZ-88", "KX-31", "MN-07", "RT-64", "BV-29", "HP-53", "LX-12",
+        "DW-76", "FJ-90", "CY-45", "GT-21", "NK-58", "PQ-33", "SW-69",
+        "VM-14", "ZB-82", "TR-55", "EH-04", "UL-97", "OA-26",
+    };
+    private static readonly string[] CtxDigits =
+        { "5827", "4196", "8352", "2679", "9403", "1784", "6538", "2915" };
+    private static readonly string[] CtxNames =
+    {
+        "阿明", "小華", "美玲", "志豪", "淑芬", "建宏", "雅婷", "家豪",
+        "怡君", "冠廷", "小琳", "柏翰", "欣怡", "俊傑", "詩涵", "威廷",
+    };
+    private static readonly string[] CtxColors =
+        { "紅色", "藍色", "綠色", "黃色", "紫色", "黑色", "白色", "橘色" };
+    private static readonly string[] CtxPlaces =
+    {
+        "台北", "台中", "高雄", "台南", "花蓮", "宜蘭", "屏東", "嘉義",
+        "新竹", "苗栗",
+    };
+    private static readonly string[] CtxObjects =
+        { "鑰匙", "雨傘", "手錶", "錢包", "眼鏡", "水杯", "筆記本", "耳機" };
+    private static readonly string[] CtxContainers =
+        { "盒子", "抽屜", "背包", "口袋", "櫃子", "箱子" };
+    private static readonly string[] CtxAcks =
+        { "好的。", "好的，記住了。", "了解了。", "沒問題。", "收到。" };
+    private static readonly string[] CtxDistractors =
+    {
+        "順便說，今天天氣不錯。", "對了，我晚點要去買東西。",
+        "這個先放著，我想到再說。", "昨天的會議開得有點久。",
     };
 
     // ------------------------------------------------------------- rows --
@@ -380,6 +444,274 @@ internal static class InstructionRecovery
                 Category = "D", Rule = "line_count:2",
             });
         }
+        return rows;
+    }
+
+    // Context-tracking row generator. Rows embed earlier turns inside the
+    // prompt via the canonical <|eot|>/<|assistant|>/<|user|> markup — the
+    // --chat wrap then produces a faithful multi-turn transcript. Ack
+    // turns never repeat the tracked value, so recall must come from the
+    // user's own statement (matching the recorded multiturn_memory probe
+    // semantics). Categories: A code/digit recall, B entity binding,
+    // C update tracking, D list count/index, E multi-binding,
+    // F order + distractor rejection.
+    private static string Ctx(string state, string ack, string q) =>
+        $"{state}\n<|eot|>\n<|assistant|>\n{ack}\n<|eot|>\n<|user|>\n{q}";
+    private static string Ctx3(string s1, string a1, string s2,
+                               string a2, string q) =>
+        $"{s1}\n<|eot|>\n<|assistant|>\n{a1}\n<|eot|>\n<|user|>\n" +
+        $"{s2}\n<|eot|>\n<|assistant|>\n{a2}\n<|eot|>\n<|user|>\n{q}";
+
+    private static IEnumerable<Row> GenerateContext(int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        string Ack() => Take(r, CtxAcks);
+        bool Hard() => r.Next(4) == 0; // ~25% tagged failure-pool weighting
+
+        // -- A. code / digit-string recall ------------------------------
+        var codeAsk = new[]
+        {
+            "我剛才給你的代號是什麼？", "代號是什麼？",
+            "請告訴我剛才的代號。", "剛才那組代號是？",
+        };
+        foreach (var code in CtxCodes)
+            for (int i = 0; i < 6; i++)
+            {
+                string state = i % 2 == 0
+                    ? $"請記住這個代號：{code}"
+                    : $"記住代號 {code}。";
+                Add(new Row
+                {
+                    Prompt = Ctx(state, Ack(), Take(r, codeAsk)),
+                    Completion = code, Category = "A",
+                    Rule = $"exact:{code}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+        foreach (var d in CtxDigits)
+            for (int i = 0; i < 4; i++)
+                Add(new Row
+                {
+                    Prompt = Ctx($"記住這個號碼：{d}", Ack(),
+                                 Take(r, new[] { "號碼是什麼？",
+                                                 "剛才的號碼是多少？" })),
+                    Completion = d, Category = "A",
+                    Rule = $"exact:{d}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+        for (int i = 0; i < count / 20; i++)
+        {
+            // two-turn depth: state, ack, distractor turn, recall.
+            string code = Take(r, CtxCodes);
+            Add(new Row
+            {
+                Prompt = Ctx3($"請記住這個代號：{code}", Ack(),
+                              Take(r, CtxDistractors), Ack(),
+                              Take(r, codeAsk)),
+                Completion = code, Category = "A",
+                Rule = $"exact:{code}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- B. entity / attribute binding ------------------------------
+        var nameAsk = new[]
+            { "我叫什麼名字？", "請問我的名字是？", "你記得我的名字嗎？" };
+        foreach (var n in CtxNames)
+            for (int i = 0; i < 3; i++)
+                Add(new Row
+                {
+                    Prompt = Ctx($"我叫{n}。", Ack(), Take(r, nameAsk)),
+                    Completion = n, Category = "B",
+                    Rule = $"exact:{n}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+        for (int i = 0; i < count / 14; i++)
+        {
+            string obj = Take(r, CtxObjects);
+            string col = Take(r, CtxColors);
+            string con = Take(r, CtxContainers);
+            string loc = $"{col}{con}";
+            Add(new Row
+            {
+                Prompt = Ctx($"我把{obj}放在{loc}裡。", Ack(),
+                             Take(r, new[] { $"{obj}在哪裡？",
+                                             $"我的{obj}放在哪裡？" })),
+                Completion = $"{loc}裡", Category = "B",
+                Rule = $"exact:{loc}裡",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        for (int i = 0; i < count / 16; i++)
+        {
+            string n = Take(r, CtxNames);
+            string p = Take(r, CtxPlaces);
+            Add(new Row
+            {
+                Prompt = Ctx($"{n}住在{p}。", Ack(), $"{n}住在哪裡？"),
+                Completion = p, Category = "B", Rule = $"exact:{p}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        for (int i = 0; i < count / 18; i++)
+        {
+            var t = Take(r, ZhTopics);
+            string it = Take(r, t.items);
+            Add(new Row
+            {
+                Prompt = Ctx($"我最喜歡的{t.topic}是{it}。", Ack(),
+                             $"我最喜歡的{t.topic}是什麼？"),
+                Completion = it, Category = "B", Rule = $"exact:{it}",
+            });
+        }
+
+        // -- C. update tracking — latest value wins ---------------------
+        for (int i = 0; i < count / 8; i++)
+        {
+            string oldC = Take(r, CtxCodes), newC = Take(r, CtxCodes);
+            if (oldC == newC) continue;
+            int kind = r.Next(3);
+            if (kind == 0)
+                Add(new Row
+                {
+                    Prompt = Ctx($"代號本來是{oldC}。等一下，改成{newC}。",
+                                 Ack(),
+                                 Take(r, codeAsk)),
+                    Completion = newC, Category = "C",
+                    Rule = $"exact:{newC};no_sub:{oldC}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            else if (kind == 1)
+                Add(new Row
+                {
+                    Prompt = Ctx3($"請記住這個代號：{oldC}", Ack(),
+                                  $"更正一下，代號改成{newC}。", Ack(),
+                                  Take(r, codeAsk)),
+                    Completion = newC, Category = "C",
+                    Rule = $"exact:{newC};no_sub:{oldC}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            else
+            {
+                string n1 = Take(r, CtxNames), n2 = Take(r, CtxNames);
+                if (n1 == n2) continue;
+                Add(new Row
+                {
+                    Prompt = Ctx($"負責人是{n1}。後來換成{n2}。", Ack(),
+                                 "現在的負責人是誰？"),
+                    Completion = n2, Category = "C",
+                    Rule = $"exact:{n2};no_sub:{n1}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+        }
+
+        // -- D. list membership / count ----------------------------------
+        var ordinal = new[] { "第一", "第二", "第三", "第四", "第五",
+                              "第六" };
+        for (int i = 0; i < count / 10; i++)
+        {
+            var t = Take(r, ZhTopics);
+            int n = 3 + r.Next(4);
+            var items = SampleItems(r, t.items, n);
+            string list = $"清單上有：{string.Join("、", items)}。";
+            if (r.Next(2) == 0)
+                Add(new Row
+                {
+                    Prompt = Ctx(list, Ack(),
+                                 Take(r, new[] { "清單有幾項？",
+                                                 "一共有幾樣東西？" })),
+                    Completion = $"{n}", Category = "D",
+                    Rule = $"exact:{n}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            else
+            {
+                int k = r.Next(n);
+                Add(new Row
+                {
+                    Prompt = Ctx(list, Ack(),
+                                 $"{ordinal[k]}項是什麼？"),
+                    Completion = items[k], Category = "D",
+                    Rule = $"exact:{items[k]}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+        }
+
+        // -- E. multi-entity binding -------------------------------------
+        for (int i = 0; i < count / 9; i++)
+        {
+            string n1 = Take(r, CtxNames), n2 = Take(r, CtxNames);
+            string p1 = Take(r, CtxPlaces), p2 = Take(r, CtxPlaces);
+            if (n1 == n2 || p1 == p2) continue;
+            bool flip = r.Next(2) == 0;
+            var (qn, qa) = flip ? (n2, p2) : (n1, p1);
+            Add(new Row
+            {
+                Prompt = Ctx($"{n1}住在{p1}，{n2}住在{p2}。", Ack(),
+                             $"{qn}住在哪裡？"),
+                Completion = qa, Category = "E", Rule = $"exact:{qa}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        for (int i = 0; i < count / 14; i++)
+        {
+            string n1 = Take(r, CtxNames), n2 = Take(r, CtxNames);
+            var t = Take(r, ZhTopics);
+            var its = SampleItems(r, t.items, 2);
+            if (n1 == n2) continue;
+            bool flip = r.Next(2) == 0;
+            var (qn, qa) = flip ? (n2, its[1]) : (n1, its[0]);
+            Add(new Row
+            {
+                Prompt = Ctx($"{n1}喜歡{its[0]}，{n2}喜歡{its[1]}。", Ack(),
+                             $"{qn}喜歡什麼？"),
+                Completion = qa, Category = "E", Rule = $"exact:{qa}",
+            });
+        }
+
+        // -- F. order / distractor rejection ------------------------------
+        for (int i = 0; i < count / 12; i++)
+        {
+            var t = Take(r, ZhTopics);
+            var items = SampleItems(r, t.items, 3);
+            bool first = r.Next(2) == 0;
+            string ans = first ? items[0] : items[2];
+            Add(new Row
+            {
+                Prompt = Ctx($"順序是：先{items[0]}，再{items[1]}，" +
+                             $"最後{items[2]}。", Ack(),
+                             first ? "第一個是什麼？" : "最後一個是什麼？"),
+                Completion = ans, Category = "F", Rule = $"exact:{ans}",
+            });
+        }
+        for (int i = 0; i < count / 14; i++)
+        {
+            string n = Take(r, CtxNames);
+            Add(new Row
+            {
+                Prompt = Ctx3($"我叫{n}。", Ack(),
+                              Take(r, CtxDistractors), Ack(),
+                              Take(r, nameAsk)),
+                Completion = n, Category = "F", Rule = $"exact:{n}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- English subset (~6%) ----------------------------------------
+        foreach (var code in CtxCodes.Take(8))
+            for (int i = 0; i < 2; i++)
+                Add(new Row
+                {
+                    Prompt = $"Remember this code: {code}\n<|eot|>\n" +
+                             "<|assistant|>\nGot it.\n<|eot|>\n<|user|>\n" +
+                             "What was the code?",
+                    Completion = code, Category = "A",
+                    Rule = $"exact:{code}",
+                });
         return rows;
     }
 
@@ -703,6 +1035,147 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // Context-tracking eval suite — `category` = sub-metric so the
+    // native report's per-category pass_rate feeds ContextMetricWeights;
+    // every value (codes, names, colors, places, objects) is deliberately
+    // disjoint from the Ctx* training pools. fail_code carries the
+    // context taxonomy: CONTEXT_FORGOTTEN / ENTITY_SUBSTITUTION /
+    // STALE_VALUE / WRONG_COUNT / ORDER_CONFUSED / DISTRACTED.
+    private static List<Dictionary<string, object?>> BuildContextSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+        string T2(string s, string ack, string q) =>
+            $"{s}\n<|eot|>\n<|assistant|>\n{ack}\n<|eot|>\n<|user|>\n{q}";
+        string T3(string s1, string a1, string s2, string a2, string q) =>
+            $"{s1}\n<|eot|>\n<|assistant|>\n{a1}\n<|eot|>\n<|user|>\n" +
+            $"{s2}\n<|eot|>\n<|assistant|>\n{a2}\n<|eot|>\n<|user|>\n{q}";
+
+        // recall_accuracy — stated code/digit carried across turns.
+        It("rc-code-1", "recall_accuracy", "contains",
+           T2("請記住這個代號：JX-17", "好的。",
+              "我剛才給你的代號是什麼？"),
+           "CONTEXT_FORGOTTEN",
+           ("expected", "JX-17"), ("max_new_tokens", 16));
+        It("rc-code-2", "recall_accuracy", "contains",
+           T2("記住代號 AZ-63。", "了解了。", "代號是什麼？"),
+           "CONTEXT_FORGOTTEN",
+           ("expected", "AZ-63"), ("max_new_tokens", 16));
+        It("rc-digit-1", "recall_accuracy", "contains",
+           T2("記住這個號碼：7308", "好的。", "號碼是什麼？"),
+           "CONTEXT_FORGOTTEN",
+           ("expected", "7308"), ("max_new_tokens", 16));
+        It("rc-digit-2", "recall_accuracy", "contains",
+           T2("幫我記住數字 5164。", "記住了。", "剛才的數字是多少？"),
+           "CONTEXT_FORGOTTEN",
+           ("expected", "5164"), ("max_new_tokens", 16));
+        It("rc-code-deep", "recall_accuracy", "contains",
+           T3("請記住這個代號：QF-09", "好的。",
+              "順便說，今天天氣不錯。", "收到。", "剛才那組代號是？"),
+           "CONTEXT_FORGOTTEN",
+           ("expected", "QF-09"), ("max_new_tokens", 16));
+
+        // entity_binding — who/what/where stated once, recalled later.
+        It("eb-name-1", "entity_binding", "contains",
+           T2("我叫宗翰。", "你好。", "我叫什麼名字？"),
+           "ENTITY_SUBSTITUTION",
+           ("expected", "宗翰"), ("max_new_tokens", 16));
+        It("eb-name-2", "entity_binding", "contains",
+           T2("我叫宛儒。", "你好宛儒。", "你記得我的名字嗎？"),
+           "ENTITY_SUBSTITUTION",
+           ("expected", "宛儒"), ("max_new_tokens", 16));
+        It("eb-loc-1", "entity_binding", "contains",
+           T2("我把護照放在灰色鐵盒裡。", "好的。", "護照在哪裡？"),
+           "ENTITY_SUBSTITUTION",
+           ("expected", "灰色"), ("max_new_tokens", 24));
+        It("eb-city-1", "entity_binding", "contains",
+           T2("彥君住在南投。", "了解了。", "彥君住在哪裡？"),
+           "ENTITY_SUBSTITUTION",
+           ("expected", "南投"), ("max_new_tokens", 16));
+        It("eb-fav-1", "entity_binding", "contains",
+           T2("我最喜歡的顏色是粉紅色。", "知道了。",
+              "我最喜歡的顏色是什麼？"),
+           "ENTITY_SUBSTITUTION",
+           ("expected", "粉紅"), ("max_new_tokens", 16));
+
+        // update_tracking — the LATEST value wins, never the stale one.
+        It("ut-code-1", "update_tracking", "regex_all",
+           T3("請記住這個代號：WK-30", "好的。",
+              "更正一下，代號改成 SD-72。", "好的，已更新。",
+              "代號是什麼？"),
+           "STALE_VALUE",
+           ("patterns", new List<object?>
+            { "SD-72", "^(?!.*WK-30)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+        It("ut-time-1", "update_tracking", "regex_all",
+           T2("會議時間本來是下午三點。改成上午十點。", "好的。",
+              "會議現在幾點？"),
+           "STALE_VALUE",
+           ("patterns", new List<object?>
+            { "十點", "^(?!.*三點)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+        It("ut-owner-1", "update_tracking", "regex_all",
+           T2("負責人是宗翰。後來換成彥君。", "了解了。",
+              "現在的負責人是誰？"),
+           "STALE_VALUE",
+           ("patterns", new List<object?>
+            { "彥君", "^(?!.*宗翰)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+
+        // count_tracking — cardinality / position inside a stated list.
+        It("ct-count-1", "count_tracking", "regex",
+           T2("購物清單有：毛巾、牙刷、肥皂、梳子。", "好的。",
+              "清單有幾項？"),
+           "WRONG_COUNT",
+           ("pattern", "[4四]"), ("max_new_tokens", 12));
+        It("ct-index-1", "count_tracking", "contains",
+           T2("名單依序是：佩珊、俊良、郁雯。", "好的。",
+              "第二個人是誰？"),
+           "WRONG_COUNT",
+           ("expected", "俊良"), ("max_new_tokens", 16));
+
+        // order_tracking — first/last inside a stated sequence.
+        It("ot-first-1", "order_tracking", "contains",
+           T2("我先去郵局，再去銀行，最後去藥局。", "了解了。",
+              "我最先去哪裡？"),
+           "ORDER_CONFUSED",
+           ("expected", "郵局"), ("max_new_tokens", 16));
+        It("ot-last-1", "order_tracking", "contains",
+           T2("步驟順序是：加熱、攪拌、冷卻。", "好的。",
+              "最後一個步驟是什麼？"),
+           "ORDER_CONFUSED",
+           ("expected", "冷卻"), ("max_new_tokens", 16));
+
+        // distractor_rejection — an unrelated turn must not displace the
+        // tracked fact.
+        It("dr-code-1", "distractor_rejection", "contains",
+           T3("請記住這個代號：VG-41", "好的。",
+              "昨天的會議開得有點久。", "辛苦了。", "代號是什麼？"),
+           "DISTRACTED",
+           ("expected", "VG-41"), ("max_new_tokens", 16));
+        It("dr-name-1", "distractor_rejection", "contains",
+           T3("我叫庭萱。", "你好。", "對了，我晚點要去買東西。", "好的。",
+              "我叫什麼名字？"),
+           "DISTRACTED",
+           ("expected", "庭萱"), ("max_new_tokens", 16));
+        It("dr-loc-1", "distractor_rejection", "contains",
+           T3("我把遙控器放在粉紅色鞋櫃裡。", "知道了。",
+              "這個先放著，我想到再說。", "好的。", "遙控器在哪裡？"),
+           "DISTRACTED",
+           ("expected", "粉紅"), ("max_new_tokens", 24));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -713,7 +1186,9 @@ internal static class InstructionRecovery
         string outDir, int count, int seed)
     {
         Directory.CreateDirectory(outDir);
-        var all = Generate(seed, count);
+        var all = Capability == "context_tracking"
+            ? GenerateContext(seed, count)
+            : Generate(seed, count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var rows = new List<Row>();
         int dropped = 0;
@@ -753,7 +1228,8 @@ internal static class InstructionRecovery
         WriteRows(valPath, val);
 
         // Eval suite — disjoint phrasing; assert zero prompt overlap.
-        var suiteItems = BuildSuiteItems();
+        var suiteItems = Capability == "context_tracking"
+            ? BuildContextSuiteItems() : BuildSuiteItems();
         var corpusPrompts = rows
             .Select(x => x.Prompt.Trim())
             .ToHashSet(StringComparer.Ordinal);
@@ -765,11 +1241,12 @@ internal static class InstructionRecovery
         var suite = new Dictionary<string, object?>
         {
             ["format_version"] = SuiteFormat,
-            ["suite_id"] = "star-instruction-recovery-eval-20261001",
+            ["suite_id"] = SuiteId,
             ["seed"] = seed,
-            ["notes"] = "instruction_following recovery eval; category = " +
+            ["capability"] = Capability,
+            ["notes"] = $"{Capability} recovery eval; category = " +
                         "metric so the native report's per-category " +
-                        "pass_rate is the §20 sub-metric.",
+                        "pass_rate is the sub-metric.",
             ["items"] = suiteItems.Cast<object?>().ToList(),
         };
         string suitePath = Path.Combine(outDir, "eval-suite.json");
@@ -932,6 +1409,7 @@ internal static class InstructionRecovery
             ["bundle"] = bundle,
             ["suite_sha256"] =
                 TransformerTrainingRepository.Sha256File(suitePath),
+            ["capability_score"] = Math.Round(score, 6),
             ["instruction_score"] = Math.Round(score, 6),
             ["metrics"] = metrics,
             ["failure_taxonomy"] = taxonomy,
@@ -946,7 +1424,8 @@ internal static class InstructionRecovery
     }
 
     private static double ScoreOf(Dictionary<string, object?> eval)
-        => eval.TryGetValue("instruction_score", out var v) && v != null
+        => (eval.TryGetValue("capability_score", out var v) ||
+            eval.TryGetValue("instruction_score", out v)) && v != null
            ? Convert.ToDouble(v) : 0.0;
 
     // -------------------------------------------------------------- run --
@@ -962,14 +1441,16 @@ internal static class InstructionRecovery
 
         // ── governance gate ───────────────────────────────────────────
         var policy = SelfLearningPolicy.Load(toolRoot);
-        CapabilityFreeze.GuardJob("sft", Capability, policy);
-        // plan must not smuggle in another capability or task kind.
+        // The plan declares which single capability this lane opens; the
+        // freeze guard requires it to equal policy.ActiveCapability.
         string cap = TransformerTrainingRepository.Str(plan, "capability")
-                     ?? Capability;
-        if (!string.Equals(cap, Capability,
-                           StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("MULTI_CAPABILITY_TRAINING_DENIED",
-                $"plan capability '{cap}' is not '{Capability}'");
+                     ?? throw new ExecutorError(
+                         "RECOVERY_PLAN_MISSING", "capability");
+        if (!SupportedCapabilities.Contains(cap))
+            throw new ExecutorError("RECOVERY_PLAN_MISSING",
+                $"unsupported recovery capability '{cap}'");
+        Capability = cap;
+        CapabilityFreeze.GuardJob("sft", cap, policy);
         string kind = TransformerTrainingRepository.Str(plan, "kind") ?? "sft";
         if (kind != "sft")
             throw new ExecutorError("CAPABILITY_TRAINING_FROZEN",

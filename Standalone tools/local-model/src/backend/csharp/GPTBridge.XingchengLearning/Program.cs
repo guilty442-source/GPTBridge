@@ -255,6 +255,10 @@ internal static class Program
                     opts.TryGetValue("architecture", out string? pa)
                         ? pa : "xc-fused-1"));
             if (flags.Contains("recovery-dataset-build"))
+            {
+                if (opts.TryGetValue("capability", out string? rcp) &&
+                    rcp.Length > 0)
+                    InstructionRecovery.Capability = rcp;
                 return Emit(InstructionRecovery.BuildDataset(
                     opts.TryGetValue("out", out string? rdo)
                         ? rdo : "",
@@ -262,6 +266,7 @@ internal static class Program
                         int.TryParse(rc, out int rcv) ? rcv : 2800,
                     opts.TryGetValue("seed", out string? rsd) &&
                         int.TryParse(rsd, out int rsv) ? rsv : 42));
+            }
             if (flags.Contains("recovery-eval"))
                 return Emit(InstructionRecovery.EvalBundle(
                     toolRoot,
@@ -741,6 +746,18 @@ internal static class Program
             ["dataset_id"] = dataset["dataset_id"],
             ["inserted"] = dataset.GetValueOrDefault("inserted"),
         });
+
+        // Dedup reuse: a previously registered dataset keeps its
+        // original snapshot_path, which retention may have cleaned.
+        // Content is deterministic, so restore the file to the
+        // recorded path — the registered sha256 still verifies.
+        if (dataset["inserted"] is bool ins && !ins &&
+            dataset["snapshot_path"] is string recPath &&
+            recPath.Length > 0 && !File.Exists(recPath))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(recPath)!);
+            File.Copy(snapshotPath, recPath, overwrite: true);
+        }
 
         // Tiny scratch model — the point is the governed chain, not
         // capacity. No init_checkpoint => trainer inits from ``model``.
