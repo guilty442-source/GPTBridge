@@ -8,6 +8,10 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     std::vector<double>* module_rms) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
     if (spans.empty()) throw InferenceError("INPUT_EMPTY");
+    // Gemma4 profile: hybrid per-layer-type attention plane.
+    if (bundle_->config().is_gemma4()) {
+        return forward_batch_hidden_gemma4(spans, layer_rms, module_rms);
+    }
     const ModelConfig& cfg = bundle_->config();
     const int64_t hidden_size = cfg.hidden_size;
     std::vector<int64_t> starts(spans.size());
@@ -19,6 +23,11 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             throw InferenceError("INPUT_EMPTY");
         }
         const int64_t seq = static_cast<int64_t>(span.ids->size());
+        if (span.embed_override != nullptr &&
+            static_cast<int64_t>(span.embed_override->size()) !=
+                seq * hidden_size) {
+            throw InferenceError("EMBED_OVERRIDE_DIM_MISMATCH");
+        }
         // Vision early-fusion prefix length (0 for text-only spans).
         const int64_t patches = span.vision_num_patches;
         if (patches < 0) throw InferenceError("VISION_SHAPE_MISMATCH");
@@ -73,14 +82,22 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 hidden.data() + static_cast<size_t>(base * hidden_size));
         }
         for (int64_t s = 0; s < seq; ++s) {
+            double* dst = hidden.data() +
+                static_cast<size_t>((base + patches + s) * hidden_size);
+            if (span.embed_override != nullptr) {
+                std::copy_n(
+                    span.embed_override->data() +
+                        static_cast<size_t>(s * hidden_size),
+                    hidden_size, dst);
+                continue;
+            }
             const int64_t token = (*span.ids)[static_cast<size_t>(s)];
             if (token < 0 || token >= cfg.vocab_size) {
                 throw InferenceError("TOKEN_ID_OUT_OF_RANGE");
             }
             std::copy_n(
                 embedding_.data + token * hidden_size,
-                hidden_size,
-                hidden.data() + static_cast<size_t>((base + patches + s) * hidden_size));
+                hidden_size, dst);
             if (cfg.position_embedding_type == "learned") {
                 const TensorView& pos = bundle_->tensor("model.embeddings.position_embeddings.weight");
                 const int64_t position = span.position_offset + patches + s;
@@ -1038,10 +1055,13 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         }
     }
 
-    for (const BatchSpan& span : spans) {
+    for (size_t i = 0; i < spans.size(); ++i) {
+        const BatchSpan& span = spans[i];
         if (span.append_cache) {
+            // Advance by the fused length (vision prefix + text) — the next
+            // position_offset must continue after the patch rows too.
             kv_lens_[static_cast<size_t>(span.slot)] =
-                span.position_offset + static_cast<int64_t>(span.ids->size());
+                span.position_offset + vlens[i];
         }
     }
     std::vector<double> normed = rmsnorm(

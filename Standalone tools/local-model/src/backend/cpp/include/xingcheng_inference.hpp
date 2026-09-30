@@ -126,6 +126,63 @@ struct ModelConfig {
                qk_norm || partial_rotary_factor < 1.0;
     }
     std::string quantization = "none";
+    // Gemma4 profile (architecture="gemma4"): hybrid sliding/full
+    // attention with per-layer-type head_dim and RoPE, QK-norm,
+    // post-norms, KV-sharing (Q-only tail layers), Per-Layer
+    // Embeddings, sqrt(hidden) embedding scale, attention scaling 1.0
+    // and final logit softcapping. layer_types empty -> legacy uniform
+    // path. Values mirror the Gemma4 text_config field names.
+    std::string model_family;               // "gemma4_text" (HF model_type)
+    std::vector<std::string> layer_types;   // "sliding_attention"|"full_attention"
+    int64_t sliding_window = 0;
+    int64_t global_head_dim = 0;            // head_dim of full layers
+    double rope_theta_full = 1000000.0;
+    double rope_partial_factor_full = 1.0;  // proportional RoPE fraction
+    int64_t num_kv_shared_layers = 0;
+    int64_t hidden_size_per_layer_input = 0;
+    int64_t vocab_size_per_layer_input = 0;
+    double final_logit_softcapping = 0.0;   // 0 = disabled
+    double embedding_scale = 0.0;           // 0 = 1.0 (no scale)
+    double attention_scale = 0.0;           // 0 = 1/sqrt(head_dim)
+    bool attention_k_eq_v = false;
+    bool use_double_wide_mlp = false;
+
+    bool is_gemma4() const {
+        return !layer_types.empty() || model_family == "gemma4_text" ||
+               model_family == "gemma4";
+    }
+    bool layer_sliding(int64_t i) const {
+        return layer_types[static_cast<size_t>(i)] == "sliding_attention";
+    }
+    int64_t layer_head_dim(int64_t i) const {
+        return layer_sliding(i) ? head_dim : global_head_dim;
+    }
+    // Head dim a layer's K/V rows carry: shared layers reuse their
+    // type anchor's geometry, which equals their own type's head_dim.
+    int64_t layer_kv_dim(int64_t i) const {
+        return num_key_value_heads * layer_head_dim(i);
+    }
+    int64_t first_kv_shared_layer() const {
+        return num_hidden_layers - num_kv_shared_layers;
+    }
+    bool layer_kv_shared(int64_t i) const {
+        return num_kv_shared_layers > 0 &&
+               i >= first_kv_shared_layer();
+    }
+    // Anchor layer that produces the shared full-length KV for a
+    // type: the last non-shared layer of the same layer_type
+    // (HF Gemma4 `store_full_length_kv` semantics). -1 = none.
+    int64_t kv_anchor(int64_t i) const {
+        const std::string& type = layer_types[static_cast<size_t>(i)];
+        for (int64_t j = first_kv_shared_layer() - 1; j >= 0; --j) {
+            if (layer_types[static_cast<size_t>(j)] == type) return j;
+        }
+        return -1;
+    }
+    // Max head_dim across layers (KV block element stride).
+    int64_t max_head_dim() const {
+        return global_head_dim > head_dim ? global_head_dim : head_dim;
+    }
 };
 
 struct SamplingConfig {
@@ -267,6 +324,27 @@ public:
         int64_t max_new_tokens,
         const SamplingConfig& sampling);
 
+    // Native thinking (latent-space reasoning): after the prompt prefill the
+    // engine runs `think_steps` continuous-thought iterations — each feeds
+    // the last hidden state back as the next input embedding — then
+    // decodes `branches` parallel hypothesis continuations on private KV
+    // slots, self-verifies them by mean token logprob (model confidence,
+    // the latent Chain-of-Verification signal), and returns the winning
+    // branch's tokens. Bounded: think_steps<=32, branches<=8.
+    struct ThinkingResult {
+        std::vector<int64_t> answer_ids;
+        int64_t chosen_branch = -1;
+        int64_t think_steps = 0;
+        std::vector<double> branch_scores;
+        std::vector<std::vector<int64_t>> branch_ids;
+    };
+    ThinkingResult generate_thinking(
+        const std::vector<int64_t>& prompt_ids,
+        int64_t think_steps,
+        int64_t branches,
+        int64_t max_new_tokens,
+        const SamplingConfig& sampling);
+
     int64_t memory_bytes() const;
     int64_t kv_memory_bytes() const;
     std::string describe() const;
@@ -328,12 +406,36 @@ private:
         std::vector<double> lin_fused_t;
         std::vector<double> lin_out_proj_t;
         // Full-attention extras (v27): per-head q/k RMSNorm weights.
+        // Shared with the Gemma4 wiring below (same [head_dim] scales).
         TensorView q_norm;            // [head_dim]
         TensorView k_norm;            // [head_dim]
         // v27 shared-expert sigmoid gate [1, hidden]; empty unless the
         // MoE layer opts in via shared_expert_gate.
         TensorView shared_expert_gate;
         std::vector<double> shared_expert_gate_t;
+        // Gemma4 layer wiring (unused on the legacy path): per-head
+        // QK RMSNorm scales (q_norm/k_norm above), the post-attention
+        // norm applied to the o_proj output before the residual add,
+        // the pre/post FFN norms, and the PLE correction branch
+        // (gate Linear -> gelu -> *per_layer_input -> projection ->
+        // norm -> residual). kv_shared layers carry no k/v projections
+        // or k/v norms.
+        bool kv_shared = false;
+        int64_t g4_head_dim = 0;
+        int64_t g4_q_dim = 0;
+        int64_t g4_kv_dim = 0;
+        int64_t kv_anchor_layer = -1;
+        TensorView post_attn_norm;
+        TensorView pre_ffn_norm;
+        TensorView post_ffn_norm;
+        TensorView ple_gate;
+        TensorView ple_proj;
+        TensorView ple_post_norm;
+        std::vector<double> q_proj_t;
+        std::vector<double> k_proj_t;
+        std::vector<double> v_proj_t;
+        std::vector<double> ple_gate_t;
+        std::vector<double> ple_proj_t;
     };
 
     // Per-slot DeltaNet recurrence state (linear layers only): the
@@ -376,6 +478,12 @@ private:
         const std::vector<int64_t>* ids = nullptr;
         int64_t position_offset = 0;
         bool append_cache = false;
+        // Latent-thinking input (COCONUT-style continuous thought): when
+        // non-null it must hold seq*hidden_size doubles that replace the
+        // token-embedding rows verbatim — a previous hidden state is fed
+        // straight back into hidden space without detokenizing. ids still
+        // bound the span length; the token ids themselves are ignored.
+        const std::vector<double>* embed_override = nullptr;
         const std::vector<double>* vision_patches = nullptr;
         int64_t vision_num_patches = 0;
     };
@@ -394,6 +502,11 @@ private:
     TensorView final_norm_;
     TensorView lm_head_;
     std::vector<double> lm_head_t_;
+    // Gemma4 model-level PLE tensors (empty views when disabled).
+    TensorView embed_per_layer_;
+    TensorView ple_model_projection_;
+    TensorView ple_projection_norm_;
+    std::vector<double> ple_model_projection_t_;
     // Vision early-fusion: raw [hidden x patch_dim] view plus transposed
     // [patch_dim x hidden] GEMM operand. Empty unless use_vision.
     TensorView vision_patch_proj_;
@@ -545,6 +658,15 @@ private:
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
         bool append_cache);
+    // Slot-addressed variants used by the thinking/branching lane (slot 0
+    // is the single-sequence namespace; branch slots are private).
+    std::vector<double> forward_hidden_span(
+        const BatchSpan& span);
+    std::vector<double> forward_last_logits_span(
+        const BatchSpan& span);
+    // Deep-copy `count` positions of KV rows between slots (branch
+    // forking): every layer/head row, fp64 path only.
+    void kv_copy_slot(int64_t dst, int64_t src, int64_t count);
     std::vector<double> forward_batch_hidden(
         const std::vector<BatchSpan>& spans,
         std::vector<double>* layer_rms = nullptr,
@@ -555,6 +677,10 @@ private:
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
         bool append_cache,
+        std::vector<double>* layer_rms = nullptr,
+        std::vector<double>* module_rms = nullptr);
+    std::vector<double> forward_batch_hidden_gemma4(
+        const std::vector<BatchSpan>& spans,
         std::vector<double>* layer_rms = nullptr,
         std::vector<double>* module_rms = nullptr);
     int64_t sample_next(

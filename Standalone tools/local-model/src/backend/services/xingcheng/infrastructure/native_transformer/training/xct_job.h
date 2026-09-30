@@ -37,6 +37,16 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             e.rej_ids = j_ids(rj, "input_ids");
             e.rej_labels = j_ids(rj, "labels");
             if (e.rej_labels.empty()) e.rej_labels = e.rej_ids;
+        } else if (fmt == "grpo") {
+            // {"prompt_ids": [...], "completion_ids": [...]} — the
+            // completion is the verifiable target the sampled rollouts
+            // are rewarded against.
+            e.ids = j_ids(&row, "prompt_ids");
+            e.labels = j_ids(&row, "completion_ids");
+            if (!e.ids.empty() && !e.labels.empty()) {
+                out.push_back(std::move(e));
+            }
+            continue;
         } else {
             e.ids = j_ids(&row, "input_ids");
             if (fmt == "sft") {
@@ -66,6 +76,13 @@ struct TrainCfg {
     double deadline_s = 0.0;                   // 0 = unbounded (bounded by steps)
     std::string init_ckpt, emit_ckpt, decay = "cosine";
     bool overwrite = false;
+    // Native Thinking RL (grpo): on-policy group rollouts, verifiable
+    // reward, group-normalized advantage, KL-to-reference penalty.
+    int group_size = 4;                        // parallel hypotheses/prompt
+    int max_new = 8;                           // rollout completion length
+    float temperature = 1.0f;                  // rollout sampling temp
+    float kl_coef = 0.02f;                     // KL(policy||ref) weight
+    std::string reward = "exact";              // exact|prefix
     // TPU-cluster lanes: threads 0 = auto (min(8, hw), cap 16), 1 = serial;
     // simd toggles the runtime AVX2/FMA dispatch (scalar fallback).
     int threads = 0;
@@ -157,6 +174,19 @@ static JsonValue run_job(const JsonValue& job) {
     tc.seed = (uint64_t)j_num(tj, "seed", tc.seed);
     tc.deadline_s = j_num(tj, "deadline_s", 0);
     tc.decay = j_str(tj, "lr_decay", tc.decay);
+    tc.group_size = j_int(tj, "group_size", tc.group_size);
+    tc.max_new = j_int(tj, "max_new_tokens", tc.max_new);
+    tc.temperature = (float)j_num(tj, "temperature", tc.temperature);
+    tc.kl_coef = (float)j_num(tj, "kl_coef", tc.kl_coef);
+    tc.reward = j_str(tj, "reward", tc.reward);
+    if (task == "grpo") {
+        if (tc.group_size < 2 || tc.group_size > 8)
+            throw "train: group_size must be in [2,8]";
+        if (tc.max_new < 1 || tc.max_new > 64)
+            throw "train: max_new_tokens must be in [1,64]";
+        if (tc.reward != "exact" && tc.reward != "prefix")
+            throw "train: unsupported grpo reward";
+    }
     tc.init_ckpt = j_str(tj, "init_checkpoint", "");
     tc.emit_ckpt = j_str(tj, "emit_checkpoint", "");
     tc.overwrite = j_bool(tj, "overwrite", false);
@@ -182,9 +212,9 @@ static JsonValue run_job(const JsonValue& job) {
             file_cfg.vision_patch_dim != c.vision_patch_dim)
             throw "init_checkpoint: vision config mismatch";
     }
-    // DPO reference: frozen copy of the initial weights
+    // DPO/GRPO reference: frozen copy of the initial weights
     Params ref;
-    if (task == "dpo") { ref = p; }
+    if (task == "dpo" || task == "grpo") { ref = p; }
 
     std::vector<Example> data = load_data(dj, j_str(dj, "format", task), max_rows, max_len);
     if (data.empty()) throw "data: no usable rows";
@@ -199,6 +229,10 @@ static JsonValue run_job(const JsonValue& job) {
     bool deadline_hit = false;
     Fwd fw;
     std::vector<float> dlogits;
+    float mtp_last = 0.0f;
+    float mtp_stack_last = 0.0f;
+    int64_t grpo_rollouts = 0;
+    double grpo_reward_sum = 0.0, grpo_kl_sum = 0.0;
 
     while (step < tc.max_steps) {
         for (auto& ex : data) {
@@ -210,7 +244,7 @@ static JsonValue run_job(const JsonValue& job) {
             float loss = 0.0f;
             if (task == "dpo") {
                 // policy chosen
-                fw.layers.clear(); fw.moe_aux = 0.0f;
+                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 fwd(p, c, ex.ids, fw);
                 lb_bias_step(p, c, fw);
                 float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
@@ -247,11 +281,102 @@ static JsonValue run_job(const JsonValue& job) {
                 bwd(p, c, ex.ids, fw, dl_c, 0.0f);
                 Fwd fr2 = std::move(fr);        // reuse caches for rej backward
                 bwd(p, c, ex.rej_ids, fr2, dl_r, 0.0f);
+            } else if (task == "grpo") {
+                // Native Thinking RL: sample G parallel rollouts from the
+                // current policy, score them with a verifiable reward,
+                // group-normalize into advantages, then take one policy-
+                // gradient step with a KL pull toward the reference.
+                const int G = tc.group_size, M = tc.max_new;
+                const int P = (int)ex.ids.size();
+                struct Rollout {
+                    std::vector<int> toks;
+                    float reward = 0.0f, adv = 0.0f;
+                };
+                std::vector<Rollout> ro((size_t)G);
+                float rsum = 0.0f;
+                for (auto& r : ro) {
+                    std::vector<int> seq = ex.ids;
+                    for (int m = 0; m < M; ++m) {
+                        fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
+                        fwd(p, c, seq, fw);
+                        const float* lr = fw.logits.data() +
+                            ((size_t)seq.size() - 1) * c.vocab;
+                        seq.push_back(
+                            sample_cat(lr, c.vocab, tc.temperature, rng));
+                    }
+                    r.toks.assign(seq.begin() + P, seq.end());
+                    // Verifiable reward against the gold completion.
+                    if (tc.reward == "exact") {
+                        r.reward = r.toks == ex.labels ? 1.0f : 0.0f;
+                    } else {  // prefix: matched-prefix fraction
+                        int m = 0;
+                        while (m < (int)r.toks.size() &&
+                               m < (int)ex.labels.size() &&
+                               r.toks[(size_t)m] == ex.labels[(size_t)m]) ++m;
+                        r.reward = ex.labels.empty()
+                            ? 0.0f : (float)m / (float)ex.labels.size();
+                    }
+                    rsum += r.reward;
+                    ++grpo_rollouts;
+                }
+                const float mean = rsum / (float)G;
+                float var = 0.0f;
+                for (auto& r : ro) var += (r.reward - mean) * (r.reward - mean);
+                const float std_dev = std::sqrt(var / (float)G);
+                for (auto& r : ro) {
+                    r.adv = std_dev > 1e-4f ? (r.reward - mean) / std_dev : 0.0f;
+                }
+                grpo_reward_sum += rsum;
+                float step_loss = 0.0f;
+                for (auto& r : ro) {
+                    if (r.adv == 0.0f && tc.kl_coef <= 0.0f) continue;
+                    std::vector<int> full = ex.ids;
+                    full.insert(full.end(), r.toks.begin(), r.toks.end());
+                    const int T = (int)full.size();
+                    // Completion labels: logits[t] predicts full[t+1] over
+                    // positions P-1..T-2; prompt positions stay -100.
+                    std::vector<int> lab((size_t)T - 1, -100);
+                    for (int t = P - 1; t < T - 1; ++t) {
+                        lab[(size_t)t] = full[(size_t)t + 1];
+                    }
+                    fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
+                    fwd(p, c, std::vector<int>(full.begin(), full.end() - 1),
+                        fw);
+                    Fwd rf;
+                    fwd(ref, c, std::vector<int>(full.begin(), full.end() - 1),
+                        rf);
+                    const float lp_p = seq_logprob(
+                        fw.logits, lab, T - 1, c.vocab);
+                    const float lp_r = seq_logprob(
+                        rf.logits, lab, T - 1, c.vocab);
+                    const int ntok = T - P;  // completion positions scored
+                    const float kl = (lp_p - lp_r) / (float)ntok;
+                    step_loss +=
+                        (-r.adv * lp_p + tc.kl_coef * (lp_p - lp_r)) /
+                            (float)ntok;
+                    grpo_kl_sum += kl;
+                    // dL/dz = (A - kl_c)/ntok * (softmax - 1[y]) over the
+                    // completion positions only.
+                    std::vector<float> dl(fw.logits.size(), 0.0f);
+                    const float scale = (r.adv - tc.kl_coef) / (float)ntok;
+                    for (int t = P - 1; t < T - 1; ++t) {
+                        const int y = full[(size_t)t + 1];
+                        if (y < 0 || y >= c.vocab) continue;
+                        soft_grad_row(
+                            fw.logits.data() + (size_t)t * c.vocab,
+                            c.vocab, y, scale,
+                            dl.data() + (size_t)t * c.vocab);
+                    }
+                    bwd(p, c,
+                        std::vector<int>(full.begin(), full.end() - 1),
+                        fw, dl, 0.0f);
+                }
+                loss = step_loss / (float)G;
             } else {
                 std::vector<int> lab = ex.labels;
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
                     shift_labels(lab);
-                fw.layers.clear(); fw.moe_aux = 0.0f;
+                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 if (!ex.vision.empty()) {
                     // Vision early-fusion: prefix rows carry -100 labels
                     // (ce_loss skips them; loss normalizes over text only).
@@ -267,14 +392,24 @@ static JsonValue run_job(const JsonValue& job) {
                     fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
                     lb_bias_step(p, c, fw);
                     loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
-                           + fw.moe_aux + fw.mtp.loss;
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
+                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx
+                           + fw.mtp.loss;
+                    mtp_last = fw.mtp.loss;
+                    std::vector<std::vector<float>> dmtp;
+                    loss += mtp_stack_last =
+                        mtp_stack_aux_loss(c, ex.ids, fw, dmtp);
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision, &dmtp);
                 } else {
                     fwd(p, c, ex.ids, fw);
                     lb_bias_step(p, c, fw);
                     loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                           + fw.moe_aux + fw.mtp.loss;
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx
+                           + fw.mtp.loss;
+                    mtp_last = fw.mtp.loss;
+                    std::vector<std::vector<float>> dmtp;
+                    loss += mtp_stack_last =
+                        mtp_stack_aux_loss(c, ex.ids, fw, dmtp);
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
             }
             // grad clip (global norm)
@@ -336,6 +471,26 @@ static JsonValue run_job(const JsonValue& job) {
         for (size_t i = st; i < losses.size(); ++i) tail.array.push_back(num(losses[i]));
         put("loss_tail", tail);
     }
+    // Router-health observation (B139): last forward's accumulated
+    // load-balancing aux — ≈moe_aux_w×layers at perfect balance.
+    if (c.moe_experts > 0) {
+        put("moe_aux_last", num(fw.moe_aux));
+        put("moe_zlast", num(fw.moe_zloss));
+    }
+    // CSA2 indexer health: last forward's alignment CE (~0 once index
+    // scores track the main attention mass).
+    if (c.csa_ratio >= 2 && c.csa_indexer)
+        put("csa_idx_last", num(fw.csa_idx));
+    // DeepSeek MTP observability: weighted aux CE of the last example.
+    if (c.mtp_num_layers > 0) put("mtp_loss_last", num(mtp_last));
+    // v29 MTP stack observability: weighted aux CE of the last example.
+    if (c.mtp_depth > 0) put("mtp_stack_loss_last", num(mtp_stack_last));
+    if (task == "grpo") {
+        put("rollouts", num((double)grpo_rollouts));
+        const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;
+        put("reward_mean", num(grpo_reward_sum / seen));
+        put("kl_mean", num(grpo_kl_sum / seen));
+    }
     put("elapsed_s", num(now_s() - t0));
     return r;
 }
@@ -370,6 +525,21 @@ static int gradcheck() {
         c.attn_output_gate = false; c.qk_norm = false;
         c.partial_rotary = 1.0f;
     }
+    // XCT_GC_CSA=1: enable the CSA2 lane on the full-attention layer
+    // (r=2, K=2, window 4). XCT_GC_CSA_GROUP=2 additionally turns the
+    // probe model all-attention so layer 0 produces the shared compressed
+    // stream and layer 1 exercises the Reuse path + cross-layer grads.
+    if (const char* e = std::getenv("XCT_GC_CSA")) {
+        if (std::atoi(e) != 0) {
+            c.global_attn_interval = 1;   // every attn layer is global
+            c.csa_ratio = 2; c.csa_topk = 2; c.csa_window = 4;
+            c.csa_rope_theta = 40000.0f;
+            if (const char* g = std::getenv("XCT_GC_CSA_GROUP")) {
+                c.full_attention_interval = 0;
+                c.csa_group = std::atoi(g);
+            }
+        }
+    }
     Params p;
     // Vision leg: the same numeric sweep also covers vision.patch_proj
     // and the prefix path (deterministic synthetic patches; prefix labels
@@ -393,14 +563,14 @@ static int gradcheck() {
         fwd(p, c, ids, fw, &vpatches, VP);
         std::vector<float> dl;
         return (double)ce_loss(fw.logits, vlabels, VT, c.vocab,
-                               dl) + fw.moe_aux;
+                               dl) + fw.moe_aux + fw.csa_idx;
     };
     p.zero_grad();
     Fwd fw;
     fwd(p, c, ids, fw, &vpatches, VP);
     std::vector<float> dl;
     double loss0 = ce_loss(fw.logits, vlabels, VT, c.vocab, dl)
-                   + fw.moe_aux;
+                   + fw.moe_aux + fw.csa_idx;
     bwd(p, c, ids, fw, dl, 1.0f, &vpatches);
     const double eps = 4e-3;   // lift true signal above fp32 ulp noise in loss
     double worst_rel = 0.0, worst_abs = 0.0;
@@ -494,6 +664,94 @@ static int smoke() {
               std::isfinite(l1) && l1 < l0;
     std::printf("smoke: loss_first=%.4f loss_last=%.4f finite=%d -> %s\n",
                 l0, l1, (int)r.get("params_finite")->boolean, ok ? "PASS" : "FAIL");
+
+    // Gemma4-mini leg: hybrid layers (sliding/full), 1 shared tail layer
+    // (kv-owner = layer 1), PLE, dual rope, gelu-tanh, softcap, tied emb.
+    std::string job4 = R"({
+        "task":"sft",
+        "model":{"model_type":"gemma4_text","vocab_size":64,"hidden_size":32,
+                 "intermediate_size":64,"num_hidden_layers":4,
+                 "num_attention_heads":4,"num_key_value_heads":2,
+                 "head_dim":8,"global_head_dim":16,"sliding_window":4,
+                 "num_kv_shared_layers":1,"hidden_size_per_layer_input":8,
+                 "rope_theta":10000.0,
+                 "rope_parameters":{"full_attention":{"rope_theta":1000000.0,
+                                    "partial_rotary_factor":0.25}},
+                 "final_logit_softcapping":30.0,
+                 "hidden_activation":"gelu_pytorch_tanh",
+                 "tie_word_embeddings":true,
+                 "layer_types":["sliding_attention","full_attention",
+                                "sliding_attention","full_attention"],
+                 "max_position_embeddings":32},
+        "train":{"lr":0.05,"max_steps":30,"grad_clip":1.0,"warmup_steps":0,
+                 "lr_decay":"constant","seed":7,"log_every":5},
+        "data":{"path":"","format":"sft","max_rows":8,"max_len":12}
+    })";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        std::mt19937 rng(7);
+        std::uniform_int_distribution<int> tok(3, 63);
+        for (int i = 0; i < 8; ++i) {
+            f << "{\"input_ids\":[";
+            for (int t = 0; t < 12; ++t) f << (t ? "," : "") << tok(rng);
+            f << "]}\n";
+        }
+    }
+    std::string::size_type p4 = job4.find("\"path\":\"\"");
+    job4.replace(p4, 9, "\"path\":\"" + tmp + "\"");
+    JsonValue j4 = JsonParser(job4).parse();
+    JsonValue r4 = run_job(j4);
+    std::remove(tmp.c_str());
+    double g0 = r4.get("loss_first")->number, g1 = r4.get("loss_last")->number;
+    bool ok4 = r4.get("params_finite")->boolean && std::isfinite(g0) &&
+               std::isfinite(g1) && g1 < g0;
+    std::printf("smoke-gemma4: loss_first=%.4f loss_last=%.4f finite=%d -> %s\n",
+                g0, g1, (int)r4.get("params_finite")->boolean,
+                ok4 ? "PASS" : "FAIL");
+    ok = ok && ok4;
+
+    // GRPO leg (Native Thinking RL): 4 prompts with gold completions,
+    // group_size=4 on-policy rollouts, prefix reward, KL-to-ref step.
+    // Asserts the lane runs end-to-end with finite params/loss and a
+    // recorded reward signal.
+    std::string jobg = R"({
+        "task":"grpo",
+        "model":{"vocab_size":64,"hidden_size":32,"intermediate_size":64,
+                 "num_hidden_layers":2,"num_attention_heads":4,
+                 "num_key_value_heads":2,"max_position_embeddings":48},
+        "train":{"lr":0.01,"max_steps":6,"grad_clip":1.0,"seed":7,
+                 "lr_decay":"constant","group_size":4,"max_new_tokens":6,
+                 "temperature":1.2,"kl_coef":0.02,"reward":"prefix"},
+        "data":{"path":"","format":"grpo","max_rows":4,"max_len":16}
+    })";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        std::mt19937 rng(11);
+        std::uniform_int_distribution<int> tok(3, 63);
+        for (int i = 0; i < 4; ++i) {
+            f << "{\"prompt_ids\":[";
+            for (int t = 0; t < 4; ++t) f << (t ? "," : "") << tok(rng);
+            f << "],\"completion_ids\":[";
+            for (int t = 0; t < 6; ++t) f << (t ? "," : "") << tok(rng);
+            f << "]}\n";
+        }
+    }
+    std::string::size_type pg = jobg.find("\"path\":\"\"");
+    jobg.replace(pg, 9, "\"path\":\"" + tmp + "\"");
+    JsonValue jg = JsonParser(jobg).parse();
+    JsonValue rg = run_job(jg);
+    std::remove(tmp.c_str());
+    const bool okg = rg.get("params_finite")->boolean &&
+        rg.get("rollouts")->number > 0 &&
+        std::isfinite(rg.get("reward_mean")->number) &&
+        std::isfinite(rg.get("loss_last")->number);
+    std::printf("smoke-grpo: rollouts=%.0f reward_mean=%.4f loss_last=%.4f "
+                "finite=%d -> %s\n",
+                rg.get("rollouts")->number,
+                rg.get("reward_mean")->number,
+                rg.get("loss_last")->number,
+                (int)rg.get("params_finite")->boolean, okg ? "PASS" : "FAIL");
+    ok = ok && okg;
     std::fputs(gptbridge::jsonlite::json_serialize(r).c_str(), stdout);
     std::fputc('\n', stdout);
     return ok ? 0 : 1;
@@ -898,7 +1156,7 @@ static int rulecheck() {
             Fwd f;
             fwd(p, c, ids, f);
             std::vector<float> dl;
-            float l = ce_loss(f.logits, lab, T, c.vocab, dl) + f.moe_aux;
+            float l = ce_loss(f.logits, lab, T, c.vocab, dl) + f.moe_aux + f.csa_idx;
             if (s == 0) first = l;
             last = l;
             bwd(p, c, ids, f, dl, 1.0f);
@@ -1237,7 +1495,7 @@ static int gemmacheck() {
             fwd(p, c, ids, f);
             std::vector<float> dl;
             return (double)ce_loss(f.logits, lab, T, c.vocab, dl) +
-                   f.moe_aux;
+                   f.moe_aux + f.csa_idx;
         };
         p.zero_grad();
         Fwd f0;

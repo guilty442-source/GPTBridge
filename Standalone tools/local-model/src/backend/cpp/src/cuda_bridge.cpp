@@ -23,6 +23,7 @@
 
 #include <cuda_runtime.h>
 
+#include <climits>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -338,6 +339,98 @@ int xcuda_matmul_f64(
         rc = 0;
     }
     return rc;
+}
+
+// R5 grouped fp64 GEMM: one H2D upload of the concatenated activation
+// block and one D2H download of the concatenated output, with a per-group
+// cuBLAS Dgemm over device-resident weights in between — identical math
+// to calling xcuda_matmul_f64 per group, minus the per-group
+// transfer/sync overhead (MoE expert dispatch hot path). a holds the
+// groups' row-blocks concatenated ([sum(group_rows) x k]); b_list[g] is
+// group g's [k x n] weight; out receives the concatenated [sum x n] rows
+// in the same order.
+int xcuda_matmul_f64_grouped(
+    const double* a, const long long* group_rows, long long groups,
+    const double* const* b_list, long long k, long long n,
+    double* out) {
+    if (a == nullptr || group_rows == nullptr || b_list == nullptr ||
+        out == nullptr || groups <= 0 || k <= 0 || n <= 0) {
+        return 2;
+    }
+    long long total = 0;
+    for (long long g = 0; g < groups; ++g) {
+        if (group_rows[g] < 0 || b_list[g] == nullptr ||
+            group_rows[g] > LLONG_MAX - total) {
+            return 2;
+        }
+        total += group_rows[g];
+    }
+    if (total <= 0) return 0;
+
+    const size_t a_elems =
+        static_cast<size_t>(total) * static_cast<size_t>(k);
+    const size_t c_elems =
+        static_cast<size_t>(total) * static_cast<size_t>(n);
+    const size_t a_bytes = a_elems * sizeof(double);
+    const size_t c_bytes = c_elems * sizeof(double);
+    const size_t b_bytes =
+        static_cast<size_t>(k) * static_cast<size_t>(n) * sizeof(double);
+
+    std::lock_guard<std::mutex> lk(g_mu);
+    cublasHandle_t handle = get_handle();
+    double* da = static_cast<double*>(dev_get(g_dev_a, a_bytes));
+    double* dc = static_cast<double*>(dev_get(g_dev_c, c_bytes));
+    if (handle == nullptr || da == nullptr || dc == nullptr) return 3;
+    double* ha = host_get(g_pin_a, a_elems);
+    double* hc = host_get(g_pin_c, c_elems);
+    if (ha != nullptr) {
+        std::memcpy(ha, a, a_bytes);
+        if (cudaMemcpy(da, ha, a_bytes, cudaMemcpyHostToDevice) !=
+            cudaSuccess) {
+            return 3;
+        }
+    } else if (
+        cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) !=
+        cudaSuccess) {
+        return 3;
+    }
+    {
+        const double alpha = 1.0;
+        const double beta = 0.0;
+        long long off = 0;
+        for (long long g = 0; g < groups; ++g) {
+            const long long m_g = group_rows[g];
+            if (m_g == 0) continue;
+            double* db = static_cast<double*>(
+                device_weight(b_list[g], b_bytes));
+            if (db == nullptr) return 3;
+            // Column-major view: A^T is [k x total] (lda=k), C^T is
+            // [n x total] (ldc=n); group g owns the column range starting
+            // at off in both.
+            if (g_cublas.dgemm(
+                    handle, kCublasOpN, kCublasOpN,
+                    static_cast<int>(n), static_cast<int>(m_g),
+                    static_cast<int>(k),
+                    &alpha, db, static_cast<int>(n),
+                    da + off * k, static_cast<int>(k), &beta,
+                    dc + off * n, static_cast<int>(n)) != kCublasSuccess) {
+                return 3;
+            }
+            off += m_g;
+        }
+    }
+    if (hc != nullptr) {
+        if (cudaMemcpy(hc, dc, c_bytes, cudaMemcpyDeviceToHost) !=
+            cudaSuccess) {
+            return 3;
+        }
+        std::memcpy(out, hc, c_bytes);
+    } else if (
+        cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
+        cudaSuccess) {
+        return 3;
+    }
+    return 0;
 }
 
 }  // extern "C"

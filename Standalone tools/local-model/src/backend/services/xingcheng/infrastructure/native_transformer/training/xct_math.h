@@ -114,13 +114,18 @@ static const RopeCs& rope_cs(int T, int dim, float theta,
     return tab;
 }
 
-static void rope(float* v, int T, int nh, int hd, float theta, bool inverse,
-                 const ModelConfig* mc = nullptr) {
+// rotary pairs layout (i,i+1); `rotary` bounds the rotated dims —
+// pairs at i >= rotary pass through (partial-RoPE NoPE tail). `mc`
+// selects the YaRN-blended cos/sin table when configured.
+static void rope_ex(float* v, int T, int nh, int hd, float theta,
+                    int rotary, bool inverse,
+                    const ModelConfig* mc = nullptr) {
     const RopeCs& cs = rope_cs(T, hd, theta, mc);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
-            for (int i = 0; i + 1 < hd; i += 2) {
+            const int lim = std::min(hd, rotary);
+            for (int i = 0; i + 1 < lim; i += 2) {
                 float c = cs.c[(size_t)t * (hd / 2) + i / 2];
                 float s = cs.s[(size_t)t * (hd / 2) + i / 2];
                 if (inverse) s = -s;
@@ -129,6 +134,11 @@ static void rope(float* v, int T, int nh, int hd, float theta, bool inverse,
                 r[i + 1] = a * s + b * c;
             }
         }
+}
+
+static void rope(float* v, int T, int nh, int hd, float theta, bool inverse,
+                 const ModelConfig* mc = nullptr) {
+    rope_ex(v, T, nh, hd, theta, hd, inverse, mc);
 }
 
 static inline float silu_f(float x) { return x / (1.0f + std::exp(-x)); }
@@ -241,6 +251,72 @@ static void l2norm_bwd(const float* dy, const float* x_normed,
     }
 }
 
+// --------------------------------------------------------- RL sampling ----
+// Categorical sample over a softmax(logits/temp) row — temperature <= 0
+// falls back to argmax (greedy).
+static int sample_cat(const float* logits, int V, float temp,
+                      std::mt19937& rng) {
+    const float mx = *std::max_element(logits, logits + V);
+    if (temp <= 0.0f) {
+        return (int)(std::max_element(logits, logits + V) - logits);
+    }
+    std::vector<float> pr((size_t)V);
+    float sum = 0.0f;
+    for (int i = 0; i < V; ++i) {
+        pr[(size_t)i] = std::exp((logits[i] - mx) / temp);
+        sum += pr[(size_t)i];
+    }
+    std::uniform_real_distribution<float> dist(0.0f, sum);
+    float u = dist(rng);
+    for (int i = 0; i < V; ++i) {
+        u -= pr[(size_t)i];
+        if (u <= 0.0f) return i;
+    }
+    return V - 1;
+}
+
+// log p(y | logits row) — numerically stable log-softmax element.
+static float tok_logprob_row(const float* lr, int V, int y) {
+    const float mx = *std::max_element(lr, lr + V);
+    float sum = 0.0f;
+    for (int i = 0; i < V; ++i) sum += std::exp(lr[i] - mx);
+    return (lr[y] - mx) - std::log(sum);
+}
+
+// d(-lp)/dz row: (softmax - onehot[y]) * scale — identical to the DPO
+// soft_grad convention so policy-gradient losses reuse bwd unchanged.
+static void soft_grad_row(const float* lr, int V, int y, float scale,
+                          float* dl) {
+    const float mx = *std::max_element(lr, lr + V);
+    float sum = 0.0f;
+    for (int i = 0; i < V; ++i) {
+        dl[i] = std::exp(lr[i] - mx);
+        sum += dl[i];
+    }
+    const float inv = scale / sum;
+    for (int i = 0; i < V; ++i) dl[i] *= inv;
+    dl[y] -= scale;
+}
+
+// gelu_pytorch_tanh (HF ACT2FN name used by Gemma4 hidden_activation).
+// gelu_tanh_f itself is defined once above (shared with gate_act_f).
+static inline float gelu_tanh_d(float x) {
+    constexpr float c = 0.7978845608028654f;
+    const float u = c * (x + 0.044715f * x * x * x);
+    const float t = std::tanh(u);
+    const float du = c * (1.0f + 3.0f * 0.044715f * x * x);
+    return 0.5f * (1.0f + t) + 0.5f * x * (1.0f - t * t) * du;
+}
+// act dispatch: gelu_pytorch_tanh when configured, silu otherwise.
+static inline float act_f(const ModelConfig& c, float x) {
+    return c.hidden_act == "gelu_pytorch_tanh" ? gelu_tanh_f(x) : silu_f(x);
+}
+static inline float act_d(const ModelConfig& c, float x) {
+    if (c.hidden_act == "gelu_pytorch_tanh") return gelu_tanh_d(x);
+    const float s = silu_f(x);
+    return s * (1.0f + x * (1.0f - s) / (s == 0.0f ? 1.0f : s));
+}
+
 // --------------------------------------------------------------- forward --
 
 struct LayerCache {
@@ -282,6 +358,26 @@ struct LayerCache {
     std::vector<float> lin_o;                // pre-norm scan output [T*vh*vd]
     std::vector<float> lin_S;                // [(T+1)*vh*kd*vd] state snapshots
     std::vector<float> lin_decay;            // [T*vh] exp(g_t) per step
+    // CSA2 compressed sparse attention (V4.1-Flash) — global layers only.
+    // nc = floor(T/r) full chunks; one latent per (chunk, kv-head).
+    std::vector<float> csa_kpre;     // [T*Hkvl] pre-rope keys (compressor in)
+    std::vector<float> csa_ckr;      // [nc*kvh*hd] compressed K, pre-rope
+    std::vector<float> csa_ck, csa_cv; // [nc*kvh*hd] roped compressed K/V
+    std::vector<float> csa_ik;       // [nc*hd] index keys = wik·mean_g(ckr)
+    std::vector<float> csa_iq;       // [T*hd] index queries (Full/Reindex)
+    std::vector<int>   csa_sel;      // [T*topk] shared top-K chunk ids (-1)
+    std::vector<int>   csa_nsel;     // [T] valid selection count
+    std::vector<float> csa_cp;       // [T*heads*topk] compressed probs
+    std::vector<float> csa_msc;      // [T*heads*ncand_max] detached main
+                                     // scores over candidates (CE target)
+    std::vector<float> csa_isc;      // [T*ncand_max] index scores
+    std::vector<int>   csa_ncand;    // [T] candidate count
+    int csa_src = -1;                // producer layer for Reuse/Reindex
+    int csa_role = 0;                // 0 Full / 1 Reuse / 2 Reindex
+    int csa_nc = 0, csa_win = 0;
+    // bwd scratch: consumers accumulate compressed-KV/index-key grads on
+    // the producer layer (processed when bwd reaches it).
+    std::vector<float> csa_dck, csa_dcv, csa_dik;
     std::vector<float> n2, rms2;             // ffn block
     std::vector<float> shared_gate_sig;      // [T] sigmoid(shared_gate@n2)
     // dense ffn caches (single buffer) or MoE per-slot caches
@@ -291,6 +387,21 @@ struct LayerCache {
     std::vector<std::vector<float>> mfa, mfb, mfh; // [T*K][expert_inter]
     std::vector<float> gate_logits, gate_probs;    // [T,E]
     std::vector<std::vector<float>> sfa, sfb, sfh; // [shared][T*shared_inter]
+};
+
+// Gemma4 per-layer forward cache (post-norm/post-rope states are what
+// attention consumes; pre-norm projections + rms stats serve backward).
+struct G4Layer {
+    std::vector<float> x_in, n1, rms1;
+    std::vector<float> q_proj, rms_q, q;          // q: post q_norm+rope
+    std::vector<float> k_proj, rms_k, k;          // owner only; post rope
+    std::vector<float> v_proj, rms_v, v;          // owner only; post norm
+    std::vector<float> probs, attn_out;
+    std::vector<float> o_pre, rms_attn, x_mid;    // post-attn residual
+    std::vector<float> n2, rms2, fa, fb, fh;
+    std::vector<float> ffn_pre, rms_ffn, x_ple;   // post-ffn residual
+    std::vector<float> ple_g, ple_ga;             // pre/post gelu*ple_in
+    std::vector<float> ple_p, rms_ple;
 };
 
 // DeepSeek MTP (depth-1): second-token-ahead prediction through one
@@ -314,27 +425,76 @@ struct MtpCache {
     float loss = 0.0f;               // lambda-weighted CE contribution
 };
 
+// v29 MTP stack caches (Qwen3.8-Max multi-token prediction). Depth-d
+// module reads prev-hidden rows at text positions t and embeds of
+// ids[t+d+1], predicts ids[t+d+2]; rows = PT-2-d (text positions only —
+// vision prefix rows never reach the MTP stack). Independent of the
+// DeepSeek depth-1 module above; gated by ModelConfig::mtp_depth.
+struct MtpStackCache {
+    int rows = 0;
+    std::vector<float> eh_in, ee_in;   // [R,H] pre-norm fusion inputs
+    std::vector<float> eh_rms, ee_rms; // [R]
+    std::vector<float> cat;            // [R,2H] normed concat (proj input)
+    std::vector<float> u;              // [R,H] fusion proj output
+    std::vector<float> n1, rms1;       // block norm1
+    std::vector<float> q, k, v;        // [R,Hq],[R,Hkv],[R,Hkv] post-rope
+    std::vector<float> probs;          // [heads*R*R]
+    std::vector<float> attn_out;       // [R,Hq]
+    std::vector<float> x1;             // [R,H] post-attn residual
+    std::vector<float> n2, rms2, fa, fb, fh;  // block norm2 + SwiGLU
+    std::vector<float> x2;             // [R,H] block output (next-depth in)
+    std::vector<float> hn, hrms;       // norm_o(x2)
+    std::vector<float> logits;         // [R,V] shared lm_head
+};
+
 struct Fwd {
-    std::vector<float> logits;   // [T,V]
+    std::vector<float> logits;   // [T,V] post-softcap
+    std::vector<float> logits_pre;   // [T,V] pre-softcap (bwd jacobian)
     std::vector<float> hidden;   // post final norm [T,H]
     std::vector<float> x_fin;    // pre final norm [T,H]
     std::vector<float> rmsf;     // [T]
     std::vector<LayerCache> layers;
+    std::vector<G4Layer> g4l;
+    // PLE pipeline caches (model level): x0 = scaled embed output,
+    // ple_in[T,L,ple] inputs, ctx_norm input + rms for the proj-norm bwd.
+    std::vector<float> g4_x0, g4_ple_in, g4_ctx_in, g4_ctx_rms;
     float moe_aux = 0.0f;
+    float moe_zloss = 0.0f;      // v29 router z-loss (B133)
+    float csa_idx = 0.0f;        // CSA2 indexer alignment CE (aux)
     MtpCache mtp;                    // DeepSeek MTP module caches
+    std::vector<MtpStackCache> mtp_stack;   // v29 MTP stack head caches
     // Vision early-fusion: raw prefix patches + count. T (all row counts
     // above) includes these P rows when present; labels carry -100 there.
     std::vector<float> vision_in;  // [P*D]
     int vision_patches = 0;
 };
 
+static void fwd_g4(const Params& p, const ModelConfig& c,
+                   const std::vector<int>& ids, Fwd& o);
 static void mtp_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o);
+// v29 MTP stack lives in xct_mtp.h (included last); xct_job.h and
+// xct_backward.h call the aux-loss/backward entry points, so they need
+// forward declarations here.
+static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
+                          const std::vector<int>& ids, Fwd& o);
+static float mtp_stack_aux_loss(const ModelConfig& c,
+                                const std::vector<int>& ids, const Fwd& fw,
+                                std::vector<std::vector<float>>& dmtp);
+static void mtp_stack_bwd(Params& p, const ModelConfig& c,
+                          const std::vector<int>& ids, Fwd& o,
+                          const std::vector<std::vector<float>>& dm,
+                          float* dh_main);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,
                 const std::vector<float>* vision = nullptr,
                 int vision_count = 0) {
+    if (c.is_gemma4()) {
+        if (vision != nullptr) throw "vision: gemma4 has no vision path";
+        fwd_g4(p, c, ids, o);
+        return;
+    }
     const int PT = (int)ids.size();
     int P = 0;
     if (vision != nullptr) {
@@ -679,6 +839,10 @@ static void fwd(const Params& p, const ModelConfig& c,
                     }
                 }
             }
+            // CSA2: the compressor consumes normalized PRE-rope keys —
+            // positional rotation belongs to the attention slots, not to
+            // the compressed content.
+            if (c.use_csa(l)) L.csa_kpre = L.k;
             // per-layer-type rotary: local full-rope / global p-RoPE,
             // independent base frequencies.
             const int rd = c.rotary_dim_at(l);
@@ -693,7 +857,161 @@ static void fwd(const Params& p, const ModelConfig& c,
                 rope(L.k.data(), T, kvh, hd, th, false, &c);
             }
             int group = c.heads / kvh;
-            const int win = loc ? c.sliding_window : 0;
+            // ---- CSA2 (V4.1-Flash compressed sparse attention) ----
+            // A CSA layer's raw span is a sliding window; the far past is
+            // reached through top-K compressed latents (one per r tokens
+            // per kv-head) picked by a lightweight indexer — or, in
+            // Reuse/Reindex groups, shared across layers.
+            int csa_src = -1;
+            const int crole = c.use_csa(l) ? c.csa_role(l, &csa_src) : -1;
+            L.csa_src = csa_src;
+            L.csa_role = std::max(0, crole);
+            const int csa_r = c.csa_ratio, csa_K = c.csa_topk;
+            const int nc = crole >= 0 ? T / csa_r : 0;
+            L.csa_nc = nc;
+            const int win = crole >= 0 ? c.csa_win()
+                                       : (loc ? c.sliding_window : 0);
+            L.csa_win = win;
+            LayerCache* csa_prod = nullptr;   // producer of shared stream
+            if (crole >= 0 && nc > 0) {
+                const int prod = crole == 0 ? l : csa_src;
+                csa_prod = &o.layers[prod];
+                if (crole == 0) {
+                    // Full mode: fold every chunk's r pre-rope keys/values
+                    // into one latent per kv-head (wck/wcv), rotate the
+                    // compressed keys at chunk positions under the
+                    // compressed-stream rope base, then build index keys
+                    // from the mean latent (shared indexer K).
+                    L.csa_ckr.assign((size_t)nc * kvh * hd, 0.0f);
+                    L.csa_cv.assign((size_t)nc * kvh * hd, 0.0f);
+                    std::vector<float> cvec((size_t)csa_r * hd);
+                    for (int cc = 0; cc < nc; ++cc)
+                        for (int g = 0; g < kvh; ++g) {
+                            for (int j = 0; j < csa_r; ++j)
+                                std::copy(L.csa_kpre.data() +
+                                              ((size_t)(cc * csa_r + j) *
+                                                   kvh + g) * hd,
+                                          L.csa_kpre.data() +
+                                              ((size_t)(cc * csa_r + j) *
+                                                   kvh + g) * hd + hd,
+                                          cvec.data() + (size_t)j * hd);
+                            linear_fwd(cvec.data(), p.w.at(ln(l, "wck")),
+                                       L.csa_ckr.data() +
+                                           ((size_t)cc * kvh + g) * hd,
+                                       1, csa_r * hd, hd);
+                            for (int j = 0; j < csa_r; ++j)
+                                std::copy(L.v.data() +
+                                              ((size_t)(cc * csa_r + j) *
+                                                   kvh + g) * hd,
+                                          L.v.data() +
+                                              ((size_t)(cc * csa_r + j) *
+                                                   kvh + g) * hd + hd,
+                                          cvec.data() + (size_t)j * hd);
+                            linear_fwd(cvec.data(), p.w.at(ln(l, "wcv")),
+                                       L.csa_cv.data() +
+                                           ((size_t)cc * kvh + g) * hd,
+                                       1, csa_r * hd, hd);
+                        }
+                    const float thc = c.csa_rope_theta > 0.0f
+                                          ? c.csa_rope_theta : c.rope_theta;
+                    L.csa_ck = L.csa_ckr;
+                    if (rd < hd)
+                        rope_hf_partial(L.csa_ck.data(), nc, kvh, hd, rd,
+                                        thc, false);
+                    else
+                        rope(L.csa_ck.data(), nc, kvh, hd, thc, false);
+                    if (c.csa_indexer) {
+                        L.csa_ik.assign((size_t)nc * hd, 0.0f);
+                        std::vector<float> mk((size_t)hd);
+                        for (int cc = 0; cc < nc; ++cc) {
+                            std::fill(mk.begin(), mk.end(), 0.0f);
+                            for (int g = 0; g < kvh; ++g)
+                                tpu_axpy(mk.data(), 1.0f / (float)kvh,
+                                         L.csa_ckr.data() +
+                                             ((size_t)cc * kvh + g) * hd,
+                                         hd);
+                            linear_fwd(mk.data(), p.w.at(ln(l, "wik")),
+                                       L.csa_ik.data() + (size_t)cc * hd,
+                                       1, hd, hd);
+                        }
+                    }
+                    // producer bwd scratch (consumers accumulate here)
+                    L.csa_dck.assign((size_t)nc * kvh * hd, 0.0f);
+                    L.csa_dcv.assign((size_t)nc * kvh * hd, 0.0f);
+                    L.csa_dik.assign((size_t)nc * hd, 0.0f);
+                }
+                if (crole != 1 && c.csa_indexer) {
+                    // index queries from the normed stream (own wiq for
+                    // Full and Reindex; Reuse has no indexer of its own)
+                    L.csa_iq.resize((size_t)T * hd);
+                    linear_fwd(L.n1.data(), p.w.at(ln(l, "wiq")),
+                               L.csa_iq.data(), T, H, hd);
+                }
+                L.csa_sel.assign((size_t)T * csa_K, -1);
+                L.csa_nsel.assign((size_t)T, 0);
+                if (crole == 1) {
+                    // Reuse mode: verbatim top-K indices of the group head
+                    L.csa_sel = csa_prod->csa_sel;
+                    L.csa_nsel = csa_prod->csa_nsel;
+                } else {
+                    if (c.csa_indexer)
+                        L.csa_isc.assign((size_t)T * nc, 0.0f);
+                    if (c.csa_indexer && c.csa_indexer_w > 0.0f)
+                        L.csa_msc.assign((size_t)T * c.heads * nc, 0.0f);
+                    L.csa_ncand.assign((size_t)T, 0);
+                    for (int t = 0; t < T; ++t) {
+                        // candidates: chunks fully inside the causal past
+                        // whose start lies before the raw window start —
+                        // no coverage gap except a bounded (r-1)-token
+                        // seam, no double coverage above the window edge.
+                        const int s0 = std::max(0, t - win + 1);
+                        int cn = 0;
+                        for (int cc = 0; cc < nc; ++cc)
+                            if (cc * csa_r < s0 &&
+                                (cc + 1) * csa_r <= t + 1)
+                                ++cn;
+                        L.csa_ncand[(size_t)t] = cn;
+                        if (cn <= 0) continue;
+                        if (!c.csa_indexer) {
+                            // recency top-K: the last min(K,cn) candidates
+                            int n = 0;
+                            for (int cc = cn - 1; cc >= 0 && n < csa_K;
+                                 --cc, ++n)
+                                L.csa_sel[(size_t)t * csa_K + n] = cc;
+                            L.csa_nsel[(size_t)t] = n;
+                        } else {
+                            const float* iqr =
+                                L.csa_iq.data() + (size_t)t * hd;
+                            float* isc = L.csa_isc.data() + (size_t)t * nc;
+                            const float* ikp = csa_prod->csa_ik.data();
+                            for (int cc = 0; cc < cn; ++cc)
+                                isc[cc] = tpu_dot(iqr,
+                                                  ikp + (size_t)cc * hd,
+                                                  hd);
+                            // top-K over candidates (selection sort; nc
+                            // is small at trainer scale)
+                            const int n = std::min(csa_K, cn);
+                            std::vector<int> idx((size_t)cn);
+                            for (int i = 0; i < cn; ++i)
+                                idx[(size_t)i] = i;
+                            for (int i = 0; i < n; ++i) {
+                                int bj = i;
+                                for (int j = i + 1; j < cn; ++j)
+                                    if (isc[(size_t)idx[(size_t)j]] >
+                                        isc[(size_t)idx[(size_t)bj]])
+                                        bj = j;
+                                std::swap(idx[(size_t)i],
+                                          idx[(size_t)bj]);
+                            }
+                            for (int i = 0; i < n; ++i)
+                                L.csa_sel[(size_t)t * csa_K + i] =
+                                    idx[(size_t)i];
+                            L.csa_nsel[(size_t)t] = n;
+                        }
+                    }
+                }
+                L.csa_cp.assign((size_t)T * c.heads * csa_K, 0.0f);
+            }
             float scale = 1.0f / std::sqrt((float)hd);
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * Hq, 0.0f);
@@ -705,7 +1023,10 @@ static void fwd(const Params& p, const ModelConfig& c,
                 for (int t = 0; t < T; ++t) {
                     float* pr = L.probs.data() + ((size_t)h * T + t) * T;
                     // local layers: causal + last-W window; global: causal.
+                    // CSA layers: window raw + selected compressed union.
                     const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
+                    const int nsel =
+                        crole >= 0 && nc > 0 ? L.csa_nsel[(size_t)t] : 0;
                     float mx = -1e30f;
                     const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
                     for (int s = s0; s <= t; ++s) {
@@ -713,14 +1034,71 @@ static void fwd(const Params& p, const ModelConfig& c,
                         pr[s] = tpu_dot(qr, kr, hd) * scale;
                         mx = std::max(mx, pr[s]);
                     }
+                    float* cp = crole >= 0 && nc > 0
+                        ? L.csa_cp.data() +
+                              ((size_t)t * c.heads + h) * csa_K
+                        : nullptr;
+                    for (int j = 0; j < nsel; ++j) {
+                        const int cc = L.csa_sel[(size_t)t * csa_K + j];
+                        const float* ckr = csa_prod->csa_ck.data() +
+                            ((size_t)cc * kvh + kh2) * hd;
+                        cp[j] = tpu_dot(qr, ckr, hd) * scale;
+                        mx = std::max(mx, cp[j]);
+                    }
                     float sum = 0.0f;
                     for (int s = s0; s <= t; ++s) { pr[s] = std::exp(pr[s] - mx); sum += pr[s]; }
+                    for (int j = 0; j < nsel; ++j) { cp[j] = std::exp(cp[j] - mx); sum += cp[j]; }
                     float inv = 1.0f / sum;
                     float* ao = L.attn_out.data() + ((size_t)t * c.heads + h) * hd;
                     for (int s = s0; s <= t; ++s) {
                         pr[s] *= inv;
                         const float* vr = L.v.data() + ((size_t)s * kvh + kh2) * hd;
                         tpu_axpy(ao, pr[s], vr, hd);
+                    }
+                    for (int j = 0; j < nsel; ++j) {
+                        cp[j] *= inv;
+                        const int cc = L.csa_sel[(size_t)t * csa_K + j];
+                        const float* cvr = csa_prod->csa_cv.data() +
+                            ((size_t)cc * kvh + kh2) * hd;
+                        tpu_axpy(ao, cp[j], cvr, hd);
+                    }
+                    // indexer auxiliary CE: detach the main-score target,
+                    // align index logits to where attention mass went.
+                    if (crole != 1 && crole >= 0 && nc > 0 &&
+                        c.csa_indexer && c.csa_indexer_w > 0.0f &&
+                        L.csa_ncand[(size_t)t] > 0) {
+                        const int cn = L.csa_ncand[(size_t)t];
+                        float* ms = L.csa_msc.data() +
+                            ((size_t)t * c.heads + h) * nc;
+                        float mmx = -1e30f;
+                        for (int cc = 0; cc < cn; ++cc) {
+                            const float* ckr = csa_prod->csa_ck.data() +
+                                ((size_t)cc * kvh + kh2) * hd;
+                            ms[cc] = tpu_dot(qr, ckr, hd) * scale;
+                            mmx = std::max(mmx, ms[cc]);
+                        }
+                        float msum = 0.0f;
+                        for (int cc = 0; cc < cn; ++cc) {
+                            ms[cc] = std::exp(ms[cc] - mmx);
+                            msum += ms[cc];
+                        }
+                        float minv = 1.0f / msum;
+                        const float* isc =
+                            L.csa_isc.data() + (size_t)t * nc;
+                        float imx = -1e30f;
+                        for (int cc = 0; cc < cn; ++cc)
+                            imx = std::max(imx, isc[cc]);
+                        float isum = 0.0f;
+                        for (int cc = 0; cc < cn; ++cc)
+                            isum += std::exp(isc[cc] - imx);
+                        float logisum = imx + std::log(isum);
+                        float ce = 0.0f;
+                        for (int cc = 0; cc < cn; ++cc) {
+                            ms[cc] *= minv;      // target prob (detached)
+                            ce -= ms[cc] * (isc[cc] - logisum);
+                        }
+                        o.csa_idx += c.csa_indexer_w * ce /
+                                     (std::max(1, T) * (float)c.heads);
                     }
                 }
                 }
@@ -772,7 +1150,7 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.gate_probs.resize((size_t)T * E);
             L.moe_idx.resize((size_t)T * K); L.moe_w.resize((size_t)T * K);
             L.mfa.resize((size_t)T * K); L.mfb.resize((size_t)T * K); L.mfh.resize((size_t)T * K);
-            float aux = 0.0f;
+            std::vector<float> moe_cnt((size_t)E, 0.0f);  // top-k assignments per expert
             for (int t = 0; t < T; ++t) {
                 const float* gl = L.gate_logits.data() + (size_t)t * E;
                 float* gp = L.gate_probs.data() + (size_t)t * E;
@@ -823,8 +1201,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     std::vector<float> eo(H);
                     linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
                     for (int i = 0; i < H; ++i) proj[(size_t)t * H + i] += wgt * eo[i];
+                    ++moe_cnt[(size_t)e];
                 }
-                for (int s = 0; s < K; ++s) aux += (gp[idx[s]] / wsum) * (1.0f / K);
             }
             // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
             // the engine's `output + shared(x)` residual contribution.
@@ -866,10 +1244,42 @@ static void fwd(const Params& p, const ModelConfig& c,
                             proj[(size_t)t * H + i] += g * so[(size_t)t * H + i];
                     }
             }
-            // DeepSeek axis: aux-free balancing replaces the aux loss —
-            // no gradient is added on the router for load shaping.
-            if (!c.moe_auxfree_balance)
-                o.moe_aux += c.moe_aux_w * c.moe_experts * aux / std::max(1, T);
+            // Auxiliary load-balancing loss (Switch-Transformer form):
+            //   L_lb = E · Σ_i f_i·P_i
+            //   f_i = assignments to expert i / (T·K)   — Σ_i f_i = 1
+            //   P_i = (1/T)·Σ_t gate_probs[t,i]         — Σ_i P_i = 1
+            // Minimum 1.0 at perfect balance; approaches E under full
+            // collapse. f_i is a routing statistic (piecewise-constant in
+            // the weights); the gradient flows through P_i only — see bwd.
+            // DeepSeek aux-free mode skips it: load shaping comes from the
+            // lb_bias ranking offset, not a loss term.
+            if (!c.moe_auxfree_balance) {
+                float lb_dot = 0.0f;
+                for (int e = 0; e < E; ++e) {
+                    float p_i = 0.0f;
+                    for (int t = 0; t < T; ++t)
+                        p_i += L.gate_probs[(size_t)t * E + e];
+                    p_i /= (float)T;
+                    lb_dot += (moe_cnt[(size_t)e] / (float)(T * K)) * p_i;
+                }
+                o.moe_aux += c.moe_aux_w * (float)E * lb_dot;
+            }
+            // Router z-loss (B133): w·mean_t lse(gate_logits_t)² — penalizes
+            // router logit magnitude; orthogonal to load-balancing, kept in
+            // aux-free mode too. The gradient is injected post-Jacobian in
+            // bwd: dz/dlogit_e = 2·w·lse_t·softmax_e/T (softmax over the raw
+            // logits regardless of the v28 sigmoid scoring mode).
+            if (c.moe_zloss_w > 0.0f) {
+                float zsum = 0.0f;
+                for (int t = 0; t < T; ++t) {
+                    const float* gl = L.gate_logits.data() + (size_t)t * E;
+                    float mx = *std::max_element(gl, gl + E), s = 0.0f;
+                    for (int e = 0; e < E; ++e) s += std::exp(gl[e] - mx);
+                    float lse = mx + std::log(s);
+                    zsum += lse * lse;
+                }
+                o.moe_zloss += c.moe_zloss_w * zsum / (float)std::max(1, T);
+            }
         }
         if (c.post_ffw_norm) {
             // Gemma sandwich norm: residual adds rmsnorm(ffn_out).
@@ -900,6 +1310,8 @@ static void fwd(const Params& p, const ModelConfig& c,
         });
     }
     if (c.mtp_num_layers > 0) mtp_fwd(p, c, ids, o);
+    // v29 MTP stack: consumes the trunk hidden rows (post final norm).
+    mtp_stack_fwd(p, c, ids, o);
 }
 
 // ------------------------------------------------------ DeepSeek MTP -----

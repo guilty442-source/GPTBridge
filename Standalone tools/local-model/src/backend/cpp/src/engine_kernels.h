@@ -117,8 +117,9 @@ void linear_into(
 // R5 grouped GEMM: a holds the groups' row-blocks concatenated
 // ([sum(group_rows) x k]); b_list[g] is group g's [k x n] weight; the
 // concatenated [sum x n] outputs come back in group order. One C dispatch
-// for the whole group loop; under a requested-CUDA build there is no
-// grouped device entry, so the group loop dispatches per group instead.
+// for the whole group loop; under CUDA the bf16/fp8 lanes dispatch per
+// group (NVRTC entry points take a single weight), while the fp64 lane
+// uses xcuda_matmul_f64_grouped — one H2D + per-group Dgemm + one D2H.
 std::vector<double> matmul_grouped(
     const std::vector<double>& a,
     const std::vector<int64_t>& group_rows,
@@ -130,6 +131,16 @@ std::vector<double> matmul_grouped(
     std::vector<double> out(static_cast<size_t>(total_rows * n));
     if (g_cuda_requested.load()) {
 #if defined(XINGCHENG_CUDA)
+        if (!g_cuda_bf16_requested.load() &&
+            !g_cuda_fp8_requested.load()) {
+            if (xcuda_matmul_f64_grouped(
+                    a.data(), group_rows.data(),
+                    static_cast<long long>(group_rows.size()),
+                    b_list.data(), k, n, out.data()) != 0) {
+                throw InferenceError("CUDA_MATMUL_FAILED");
+            }
+            return out;
+        }
         int64_t a_off = 0;
         int64_t c_off = 0;
         for (size_t g = 0; g < group_rows.size(); ++g) {
@@ -139,11 +150,7 @@ std::vector<double> matmul_grouped(
                 ? xcuda_matmul_bf16(
                       a.data() + a_off, m_g, k, b_list[g], n,
                       out.data() + c_off)
-                : g_cuda_fp8_requested.load()
-                ? xcuda_matmul_fp8(
-                      a.data() + a_off, m_g, k, b_list[g], n,
-                      out.data() + c_off)
-                : xcuda_matmul_f64(
+                : xcuda_matmul_fp8(
                       a.data() + a_off, m_g, k, b_list[g], n,
                       out.data() + c_off);
             if (rc != 0) {
@@ -166,8 +173,9 @@ std::vector<double> matmul_grouped(
     return out;
 }
 
-// Caller-buffered grouped GEMM — same dispatch (CUDA per-group fallback
-// included), writing into reusable scratch instead of a fresh vector.
+// Caller-buffered grouped GEMM — same dispatch (grouped fp64 entry /
+// per-group bf16+fp8 fallback), writing into reusable scratch instead of
+// a fresh vector.
 void matmul_grouped_into(
     const std::vector<double>& a,
     const std::vector<int64_t>& group_rows,
@@ -180,6 +188,16 @@ void matmul_grouped_into(
     out.resize(static_cast<size_t>(total_rows * n));
     if (g_cuda_requested.load()) {
 #if defined(XINGCHENG_CUDA)
+        if (!g_cuda_bf16_requested.load() &&
+            !g_cuda_fp8_requested.load()) {
+            if (xcuda_matmul_f64_grouped(
+                    a.data(), group_rows.data(),
+                    static_cast<long long>(group_rows.size()),
+                    b_list.data(), k, n, out.data()) != 0) {
+                throw InferenceError("CUDA_MATMUL_FAILED");
+            }
+            return;
+        }
         int64_t a_off = 0;
         int64_t c_off = 0;
         for (size_t g = 0; g < group_rows.size(); ++g) {
@@ -189,11 +207,7 @@ void matmul_grouped_into(
                 ? xcuda_matmul_bf16(
                       a.data() + a_off, m_g, k, b_list[g], n,
                       out.data() + c_off)
-                : g_cuda_fp8_requested.load()
-                ? xcuda_matmul_fp8(
-                      a.data() + a_off, m_g, k, b_list[g], n,
-                      out.data() + c_off)
-                : xcuda_matmul_f64(
+                : xcuda_matmul_fp8(
                       a.data() + a_off, m_g, k, b_list[g], n,
                       out.data() + c_off);
             if (rc != 0) {
@@ -560,6 +574,16 @@ std::string json_escape(const std::string& text) {
         }
     }
     return out;
+}
+
+// final_logit_softcapping: logits = cap * tanh(logits / cap); the cap
+// is a config field (Gemma4 uses 30.0) so a non-positive value is a
+// no-op rather than a hard gate.
+void logit_softcap(std::vector<double>& logits, double cap) {
+    if (cap <= 0.0) return;
+    for (double& value : logits) {
+        value = cap * std::tanh(value / cap);
+    }
 }
 
 }  // namespace

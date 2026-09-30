@@ -23,6 +23,7 @@ std::vector<std::vector<double>> NativeInferenceEngine::forward_batch_last_logit
     std::vector<double> logits = matmul(
         last_rows.data(), static_cast<int64_t>(spans.size()),
         hidden_size, lm_head_t_.data(), cfg.vocab_size);
+    logit_softcap(logits, cfg.final_logit_softcapping);
     std::vector<std::vector<double>> out(spans.size());
     for (size_t i = 0; i < spans.size(); ++i) {
         const double* row = logits.data() + i * cfg.vocab_size;
@@ -184,6 +185,8 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // P3d prefix reuse: restore the longest cached prompt prefix so only the
     // suffix is recomputed. The snapshot stores per-layer K/V slices; values
     // are deterministic, so a restored cache is bit-identical to recompute.
+    // The per-head slice stride matches the KV pool element stride — Gemma4
+    // hybrid layers keep a uniform max_head_dim row width.
     // v27 fused hybrid: linear-attention layers fold context into the
     // per-slot DeltaNet state (S + conv tail) that a KV-only snapshot
     // cannot reconstruct — a hit would silently serve wrong-context

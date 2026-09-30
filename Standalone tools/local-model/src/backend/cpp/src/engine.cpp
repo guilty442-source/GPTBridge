@@ -55,6 +55,8 @@ namespace xingcheng::inference {
 #include "engine_tokenizer.h"
 #include "engine_lifecycle.h"
 #include "engine_forward.h"
+#include "engine_gemma4.h"
 #include "engine_generate.h"
+#include "engine_thinking.h"
 
 }  // namespace xingcheng::inference

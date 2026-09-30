@@ -307,6 +307,47 @@ extern "C" __global__ void xc_gemm_bf16(
     if (row < m && col < n) c[(long long)row * n + col] = acc;
 }
 
+// Skinny-m bf16 GEMV: one thread per output column with all m rows fused,
+// so each b element is read once and feeds every accumulator — decode
+// (m=1) becomes bandwidth-bound instead of tile-bound. Per-element
+// accumulation order is the same sequential k-order as xc_gemm_bf16.
+#define XC_GEMV_MAX_M 16
+
+extern "C" __global__ void xc_gemv_bf16_part(
+    const __nv_bfloat16* a, const __nv_bfloat16* b, float* part,
+    int m, int k, int n, int ksplit, int kchunk) {
+    const long long col =
+        (long long)blockIdx.x * blockDim.x + threadIdx.x;
+    if (col >= n) return;
+    const int i0 = blockIdx.y * kchunk;
+    const int i1 = min(k, i0 + kchunk);
+    float acc[XC_GEMV_MAX_M];
+    for (int r = 0; r < XC_GEMV_MAX_M; ++r) acc[r] = 0.0f;
+    for (int i = i0; i < i1; ++i) {
+        const float bv = __bfloat162float(b[(long long)i * n + col]);
+        for (int r = 0; r < m; ++r) {
+            acc[r] += __bfloat162float(a[(long long)r * k + i]) * bv;
+        }
+    }
+    for (int r = 0; r < m; ++r)
+        part[((long long)blockIdx.y * m + r) * n + col] = acc[r];
+}
+
+// Split-k reduce (shared by the bf16 and fp8 GEMV lanes): c[r][col] =
+// sum over slices in fixed order — deterministic across runs.
+extern "C" __global__ void xc_gemv_reduce(
+    const float* part, float* c, int m, int n, int ksplit) {
+    const long long col =
+        (long long)blockIdx.x * blockDim.x + threadIdx.x;
+    if (col >= n) return;
+    for (int r = 0; r < m; ++r) {
+        float acc = 0.0f;
+        for (int s = 0; s < ksplit; ++s)
+            acc += part[((long long)s * m + r) * n + col];
+        c[(long long)r * n + col] = acc;
+    }
+}
+
 extern "C" __global__ void xc_f64_to_fp32(
     const double* in, float* out, long long n) {
     const long long i =
@@ -345,6 +386,28 @@ extern "C" __global__ void xc_gemm_fp8(
         __syncthreads();
     }
     if (row < m && col < n) c[(long long)row * n + col] = acc;
+}
+
+// Skinny-m split-k fp8 GEMV (pass 1) — same fused-row pattern as
+// xc_gemv_bf16_part, with the shared xc_gemv_reduce as pass 2.
+extern "C" __global__ void xc_gemv_fp8_part(
+    const float* a, const __nv_fp8_e4m3* b, float* part,
+    int m, int k, int n, int ksplit, int kchunk) {
+    const long long col =
+        (long long)blockIdx.x * blockDim.x + threadIdx.x;
+    if (col >= n) return;
+    const int i0 = blockIdx.y * kchunk;
+    const int i1 = min(k, i0 + kchunk);
+    float acc[XC_GEMV_MAX_M];
+    for (int r = 0; r < XC_GEMV_MAX_M; ++r) acc[r] = 0.0f;
+    for (int i = i0; i < i1; ++i) {
+        const float bv = (float)(b[(long long)i * n + col]);
+        for (int r = 0; r < m; ++r) {
+            acc[r] += a[(long long)r * k + i] * bv;
+        }
+    }
+    for (int r = 0; r < m; ++r)
+        part[((long long)blockIdx.y * m + r) * n + col] = acc[r];
 }
 
 // Online-softmax attention over the device-resident KV cache — fp64,
@@ -457,9 +520,12 @@ extern "C" __global__ void xc_kv_attention(
 CUmodule_t g_module = nullptr;
 CUfunction_t g_f_conv_bf16 = nullptr;
 CUfunction_t g_f_gemm_bf16 = nullptr;
+CUfunction_t g_f_gemv_bf16 = nullptr;
+CUfunction_t g_f_gemv_reduce = nullptr;
 CUfunction_t g_f_conv_fp32 = nullptr;
 CUfunction_t g_f_conv_fp8 = nullptr;
 CUfunction_t g_f_gemm_fp8 = nullptr;
+CUfunction_t g_f_gemv_fp8 = nullptr;
 CUfunction_t g_f_kv_attn = nullptr;
 std::mutex g_module_mu;
 bool g_module_tried = false;
@@ -528,9 +594,12 @@ bool ensure_module() {
     bool ok = true;
     ok &= get_func(&g_f_conv_bf16, "xc_f64_to_bf16");
     ok &= get_func(&g_f_gemm_bf16, "xc_gemm_bf16");
+    ok &= get_func(&g_f_gemv_bf16, "xc_gemv_bf16_part");
+    ok &= get_func(&g_f_gemv_reduce, "xc_gemv_reduce");
     ok &= get_func(&g_f_conv_fp32, "xc_f64_to_fp32");
     ok &= get_func(&g_f_conv_fp8, "xc_f64_to_fp8");
     ok &= get_func(&g_f_gemm_fp8, "xc_gemm_fp8");
+    ok &= get_func(&g_f_gemv_fp8, "xc_gemv_fp8_part");
     ok &= get_func(&g_f_kv_attn, "xc_kv_attention");
     if (!ok) {
         XCK_DBG("get_func fail");
@@ -609,6 +678,41 @@ CUdevptr_t device_weight_bf16(const double* host, long long elems) {
     return dev;
 }
 
+// Pooled per-call buffers for the bf16/fp8 lanes (grow-on-demand):
+// cuMemAlloc/cuMemFree/malloc per GEMM put driver syncs and heap churn on
+// the decode hot path. Released by the matching *_release_weights.
+struct DevPool {
+    CUdevptr_t p = 0;
+    size_t cap = 0;
+};
+
+CUdevptr_t dev_get_pooled(DevPool& pool, size_t bytes) {
+    if (pool.cap >= bytes) return pool.p;
+    CUdevptr_t next = dev_alloc(bytes);
+    if (next == 0) return 0;
+    if (pool.p != 0) dev_free(pool.p);
+    pool.p = next;
+    pool.cap = bytes;
+    return pool.p;
+}
+
+void dev_pool_release(DevPool& pool) {
+    if (pool.p != 0) dev_free(pool.p);
+    pool = DevPool{};
+}
+
+DevPool g_bf16_a_stage, g_bf16_da, g_bf16_dc, g_bf16_part;
+std::vector<float> g_bf16_c_host;
+DevPool g_fp8_a_stage, g_fp8_da, g_fp8_dc, g_fp8_part;
+std::vector<float> g_fp8_c_host;
+
+// Skinny-m threshold mirroring XC_GEMV_MAX_M in the device source.
+constexpr long long kGemvMaxM = 16;
+constexpr long long kGemvThreads = 256;
+// Split-k factor: widens the launch so decode-size shapes still cover
+// enough SMs to hide memory latency (fixed → deterministic reduce order).
+constexpr long long kGemvKSplit = 8;
+
 // Shared GEMM body: a (host f64) x db (device bf16) → out (host f64).
 int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
              long long n, double* out) {
@@ -616,17 +720,15 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
     const long long c_elems = m * n;
     int rc = 3;
 
-    CUdevptr_t a_stage = 0, da = 0, dc = 0;
-    float* c_host = nullptr;
-    a_stage = dev_alloc(static_cast<size_t>(a_elems) * sizeof(double));
-    if (a_stage == 0) goto done;
-    da = dev_alloc(static_cast<size_t>(a_elems) * 2);
-    if (da == 0) goto done;
-    dc = dev_alloc(static_cast<size_t>(c_elems) * sizeof(float));
-    if (dc == 0) goto done;
-    c_host = static_cast<float*>(
-        malloc(static_cast<size_t>(c_elems) * sizeof(float)));
-    if (c_host == nullptr) goto done;
+    CUdevptr_t a_stage =
+        dev_get_pooled(g_bf16_a_stage,
+                       static_cast<size_t>(a_elems) * sizeof(double));
+    CUdevptr_t da =
+        dev_get_pooled(g_bf16_da, static_cast<size_t>(a_elems) * 2);
+    CUdevptr_t dc =
+        dev_get_pooled(g_bf16_dc, static_cast<size_t>(c_elems) * sizeof(float));
+    if (a_stage == 0 || da == 0 || dc == 0) goto done;
+    g_bf16_c_host.resize(static_cast<size_t>(c_elems));
     if (g_drv.memcpy_htod(a_stage, a,
                           static_cast<size_t>(a_elems) * sizeof(double)) !=
         kCudaSuccess) {
@@ -646,28 +748,55 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
     {
         int mi = static_cast<int>(m), ki = static_cast<int>(k),
             ni = static_cast<int>(n);
-        void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
-        if (!launch(g_f_gemm_bf16,
-                    static_cast<unsigned int>((n + 15) / 16),
-                    static_cast<unsigned int>((m + 15) / 16), 16, 16, 0,
-                    params)) {
-            goto done;
+        if (m <= kGemvMaxM) {
+            // Decode/skinny-m: split-k GEMV — part partials then a
+            // fixed-order reduce; bandwidth-bound and deterministic.
+            CUdevptr_t part = dev_get_pooled(
+                g_bf16_part,
+                static_cast<size_t>(kGemvKSplit * m * n) * sizeof(float));
+            if (part == 0) goto done;
+            int ksi = static_cast<int>(kGemvKSplit);
+            int kci =
+                static_cast<int>((k + kGemvKSplit - 1) / kGemvKSplit);
+            void* pparams[] = {&da, &db, &part, &mi, &ki, &ni, &ksi, &kci};
+            if (!launch(g_f_gemv_bf16,
+                        static_cast<unsigned int>(
+                            (n + kGemvThreads - 1) / kGemvThreads),
+                        static_cast<unsigned int>(ksi),
+                        static_cast<unsigned int>(kGemvThreads), 1, 0,
+                        pparams)) {
+                goto done;
+            }
+            void* rparams[] = {&part, &dc, &mi, &ni, &ksi};
+            if (!launch(g_f_gemv_reduce,
+                        static_cast<unsigned int>(
+                            (n + kGemvThreads - 1) / kGemvThreads),
+                        1, static_cast<unsigned int>(kGemvThreads), 1, 0,
+                        rparams)) {
+                goto done;
+            }
+        } else {
+            void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
+            if (!launch(g_f_gemm_bf16,
+                        static_cast<unsigned int>((n + 15) / 16),
+                        static_cast<unsigned int>((m + 15) / 16),
+                        16, 16, 0, params)) {
+                goto done;
+            }
         }
     }
-    if (g_drv.ctx_sync() != kCudaSuccess) goto done;
-    if (g_drv.memcpy_dtoh(c_host, dc,
+    // The synchronous D2H is stream-ordered after the queued kernels, so
+    // it drains the pipeline and surfaces kernel errors on its own — the
+    // extra device-wide cuCtxSynchronize on the hot path is redundant.
+    if (g_drv.memcpy_dtoh(g_bf16_c_host.data(), dc,
                           static_cast<size_t>(c_elems) * sizeof(float)) !=
         kCudaSuccess) {
         goto done;
     }
     for (long long i = 0; i < c_elems; ++i)
-        out[i] = static_cast<double>(c_host[i]);
+        out[i] = static_cast<double>(g_bf16_c_host[static_cast<size_t>(i)]);
     rc = 0;
 done:
-    dev_free(a_stage);
-    dev_free(da);
-    dev_free(dc);
-    free(c_host);
     return rc;
 }
 
@@ -719,17 +848,15 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
     const long long c_elems = m * n;
     int rc = 3;
 
-    CUdevptr_t a_stage = 0, da = 0, dc = 0;
-    float* c_host = nullptr;
-    a_stage = dev_alloc(static_cast<size_t>(a_elems) * sizeof(double));
-    if (a_stage == 0) goto done;
-    da = dev_alloc(static_cast<size_t>(a_elems) * sizeof(float));
-    if (da == 0) goto done;
-    dc = dev_alloc(static_cast<size_t>(c_elems) * sizeof(float));
-    if (dc == 0) goto done;
-    c_host = static_cast<float*>(
-        malloc(static_cast<size_t>(c_elems) * sizeof(float)));
-    if (c_host == nullptr) goto done;
+    CUdevptr_t a_stage =
+        dev_get_pooled(g_fp8_a_stage,
+                       static_cast<size_t>(a_elems) * sizeof(double));
+    CUdevptr_t da =
+        dev_get_pooled(g_fp8_da, static_cast<size_t>(a_elems) * sizeof(float));
+    CUdevptr_t dc =
+        dev_get_pooled(g_fp8_dc, static_cast<size_t>(c_elems) * sizeof(float));
+    if (a_stage == 0 || da == 0 || dc == 0) goto done;
+    g_fp8_c_host.resize(static_cast<size_t>(c_elems));
     if (g_drv.memcpy_htod(a_stage, a,
                           static_cast<size_t>(a_elems) * sizeof(double)) !=
         kCudaSuccess) {
@@ -749,28 +876,51 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
     {
         int mi = static_cast<int>(m), ki = static_cast<int>(k),
             ni = static_cast<int>(n);
-        void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
-        if (!launch(g_f_gemm_fp8,
-                    static_cast<unsigned int>((n + 15) / 16),
-                    static_cast<unsigned int>((m + 15) / 16), 16, 16, 0,
-                    params)) {
-            goto done;
+        if (m <= kGemvMaxM) {
+            CUdevptr_t part = dev_get_pooled(
+                g_fp8_part,
+                static_cast<size_t>(kGemvKSplit * m * n) * sizeof(float));
+            if (part == 0) goto done;
+            int ksi = static_cast<int>(kGemvKSplit);
+            int kci =
+                static_cast<int>((k + kGemvKSplit - 1) / kGemvKSplit);
+            void* pparams[] = {&da, &db, &part, &mi, &ki, &ni, &ksi, &kci};
+            if (!launch(g_f_gemv_fp8,
+                        static_cast<unsigned int>(
+                            (n + kGemvThreads - 1) / kGemvThreads),
+                        static_cast<unsigned int>(ksi),
+                        static_cast<unsigned int>(kGemvThreads), 1, 0,
+                        pparams)) {
+                goto done;
+            }
+            void* rparams[] = {&part, &dc, &mi, &ni, &ksi};
+            if (!launch(g_f_gemv_reduce,
+                        static_cast<unsigned int>(
+                            (n + kGemvThreads - 1) / kGemvThreads),
+                        1, static_cast<unsigned int>(kGemvThreads), 1, 0,
+                        rparams)) {
+                goto done;
+            }
+        } else {
+            void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
+            if (!launch(g_f_gemm_fp8,
+                        static_cast<unsigned int>((n + 15) / 16),
+                        static_cast<unsigned int>((m + 15) / 16),
+                        16, 16, 0, params)) {
+                goto done;
+            }
         }
     }
-    if (g_drv.ctx_sync() != kCudaSuccess) goto done;
-    if (g_drv.memcpy_dtoh(c_host, dc,
+    // Same reasoning as run_bf16: the synchronous D2H drains the stream.
+    if (g_drv.memcpy_dtoh(g_fp8_c_host.data(), dc,
                           static_cast<size_t>(c_elems) * sizeof(float)) !=
         kCudaSuccess) {
         goto done;
     }
     for (long long i = 0; i < c_elems; ++i)
-        out[i] = static_cast<double>(c_host[i]);
+        out[i] = static_cast<double>(g_fp8_c_host[static_cast<size_t>(i)]);
     rc = 0;
 done:
-    dev_free(a_stage);
-    dev_free(da);
-    dev_free(dc);
-    free(c_host);
     return rc;
 }
 
@@ -855,6 +1005,12 @@ int xcuda_bf16_release_weights() {
     std::lock_guard<std::mutex> lk(g_bf16_mu);
     for (auto& kv : g_bf16_weights) dev_free(kv.second);
     g_bf16_weights.clear();
+    dev_pool_release(g_bf16_a_stage);
+    dev_pool_release(g_bf16_da);
+    dev_pool_release(g_bf16_dc);
+    dev_pool_release(g_bf16_part);
+    g_bf16_c_host.clear();
+    g_bf16_c_host.shrink_to_fit();
     return 0;
 }
 
@@ -862,6 +1018,12 @@ int xcuda_fp8_release_weights() {
     std::lock_guard<std::mutex> lk(g_fp8_mu);
     for (auto& kv : g_fp8_weights) dev_free(kv.second);
     g_fp8_weights.clear();
+    dev_pool_release(g_fp8_a_stage);
+    dev_pool_release(g_fp8_da);
+    dev_pool_release(g_fp8_dc);
+    dev_pool_release(g_fp8_part);
+    g_fp8_c_host.clear();
+    g_fp8_c_host.shrink_to_fit();
     return 0;
 }
 

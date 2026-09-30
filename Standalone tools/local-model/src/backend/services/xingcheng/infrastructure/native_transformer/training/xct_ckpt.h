@@ -35,9 +35,16 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // bias rate, MTP depth + loss weight.
     // XCN8 = XCN7 + Qwen3-Coder YaRN block: extension factor, original
     // context length, beta_fast/beta_slow band bounds, attention factor.
-    // v1..v7 checkpoints still load: absent fields default to the
+    // XCN9 = XCN8 + Gemma4 header block (marker u32, dims, rope/softcap
+    // floats, layer_types + hidden_act strings) — gemma4 only.
+    // XCN10 = XCN9 + v29 MTP-stack block: mtp_depth (u32) + mtp_loss_w
+    // (float). At ver >= 9 the gemma4 marker u32 is always present
+    // (1 = g4 fields follow, 0 = non-gemma4 at ver 10+).
+    // v1..v8 checkpoints still load: absent fields default to the
     // Qwen-style fused behaviour.
-    f.write("XCN1", 4); u32(f, 8);
+    const uint32_t ver =
+        c.mtp_depth > 0 ? 10 : (c.is_gemma4() ? 9 : 8);
+    f.write("XCN1", 4); u32(f, ver);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
     u32(f, (uint32_t)c.heads); u32(f, (uint32_t)c.kv_heads);
@@ -58,6 +65,7 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     u32(f, c.use_vision ? 1u : 0u);
     u32(f, (uint32_t)c.vision_patch_dim);
     u32(f, (uint32_t)c.vision_max_patches);
+    // XCN5 A4B block — written unconditionally (defaults are zeros).
     u32(f, (uint32_t)c.global_attn_interval);
     u32(f, (uint32_t)c.sliding_window);
     u32(f, (uint32_t)c.num_global_kv_heads);
@@ -81,6 +89,37 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     f.write((char*)&c.yarn_beta_fast, 4);
     f.write((char*)&c.yarn_beta_slow, 4);
     f.write((char*)&c.yarn_attn_factor, 4);
+    // XCN9 Gemma4 block — marker is always written at ver >= 9 so a
+    // non-gemma4 XCN10 file stays unambiguous (marker 0, no g4 fields).
+    if (ver >= 9) {
+        u32(f, c.is_gemma4() ? 1u : 0u);             // gemma4 marker
+    }
+    if (c.is_gemma4()) {
+        u32(f, (uint32_t)c.head_dim);
+        u32(f, (uint32_t)c.global_head_dim);
+        u32(f, (uint32_t)c.sliding_window);
+        u32(f, (uint32_t)c.num_kv_shared_layers);
+        u32(f, (uint32_t)c.ple_hidden);
+        u32(f, (uint32_t)c.ple_vocab);
+        u32(f, (c.use_double_wide_mlp ? 1u : 0u) |
+               (c.tie_embed ? 2u : 0u));
+        f.write((char*)&c.rope_theta_full, 4);
+        f.write((char*)&c.rope_partial_full, 4);
+        f.write((char*)&c.final_logit_softcapping, 4);
+        f.write((char*)&c.attention_scale, 4);
+        u32(f, (uint32_t)c.layer_types.size());
+        for (const auto& t : c.layer_types) {
+            u32(f, (uint32_t)t.size());
+            f.write(t.data(), (std::streamsize)t.size());
+        }
+        u32(f, (uint32_t)c.hidden_act.size());
+        f.write(c.hidden_act.data(), (std::streamsize)c.hidden_act.size());
+    }
+    // XCN10 v29 MTP-stack block.
+    if (ver >= 10) {
+        u32(f, (uint32_t)c.mtp_depth);
+        f.write((char*)&c.mtp_loss_w, 4);
+    }
     u32(f, (uint32_t)p.order.size());
     for (auto& n : p.order) {
         const Tensor& t = p.w.at(n);
@@ -96,13 +135,44 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     return std::rename(tmp.c_str(), path.c_str()) == 0;
 }
 
+// Reads the gemma4 field block; the marker u32 was already consumed by
+// the caller (== 1).
+static bool ckpt_read_g4(std::ifstream& f, ModelConfig& c) {
+    c.model_type = "gemma4_text";
+    c.head_dim = (int)r32(f);
+    c.global_head_dim = (int)r32(f);
+    c.sliding_window = (int)r32(f);
+    c.num_kv_shared_layers = (int)r32(f);
+    c.ple_hidden = (int)r32(f);
+    c.ple_vocab = (int)r32(f);
+    const uint32_t flags = r32(f);
+    c.use_double_wide_mlp = (flags & 1u) != 0;
+    c.tie_embed = (flags & 2u) != 0;
+    f.read((char*)&c.rope_theta_full, 4);
+    f.read((char*)&c.rope_partial_full, 4);
+    f.read((char*)&c.final_logit_softcapping, 4);
+    f.read((char*)&c.attention_scale, 4);
+    const uint32_t nt = r32(f);
+    c.layer_types.clear();
+    for (uint32_t i = 0; i < nt; ++i) {
+        const uint32_t nl = r32(f);
+        std::string s(nl, '\0');
+        f.read(s.data(), nl);
+        c.layer_types.push_back(std::move(s));
+    }
+    const uint32_t al = r32(f);
+    c.hidden_act.assign(al, '\0');
+    f.read(c.hidden_act.data(), al);
+    return (bool)f;
+}
+
 static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return false;
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 8) return false;
+    if (ver < 1 || ver > 10) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -161,6 +231,16 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
         f.read((char*)&c.yarn_beta_fast, 4);
         f.read((char*)&c.yarn_beta_slow, 4);
         f.read((char*)&c.yarn_attn_factor, 4);
+    }
+    if (ver >= 9) {
+        const uint32_t g4m = r32(f);
+        if (g4m == 1) {
+            if (!ckpt_read_g4(f, c)) return false;
+        } else if (g4m != 0) return false;
+    }
+    if (ver >= 10) {
+        c.mtp_depth = (int)r32(f);
+        f.read((char*)&c.mtp_loss_w, 4);
     }
     return (bool)f;
 }
@@ -171,7 +251,7 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 8) return false;
+    if (ver < 1 || ver > 10) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -230,6 +310,16 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
         f.read((char*)&c.yarn_beta_fast, 4);
         f.read((char*)&c.yarn_beta_slow, 4);
         f.read((char*)&c.yarn_attn_factor, 4);
+    }
+    if (ver >= 9) {
+        const uint32_t g4m = r32(f);
+        if (g4m == 1) {
+            if (!ckpt_read_g4(f, c)) return false;
+        } else if (g4m != 0) return false;
+    }
+    if (ver >= 10) {
+        c.mtp_depth = (int)r32(f);
+        f.read((char*)&c.mtp_loss_w, 4);
     }
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {

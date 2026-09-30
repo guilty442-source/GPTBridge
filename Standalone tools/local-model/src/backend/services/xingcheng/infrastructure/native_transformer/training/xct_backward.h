@@ -7,10 +7,22 @@
 static void mtp_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o, float aux_scale,
                     std::vector<float>& dh);
+// v29 MTP stack — defined in xct_mtp.h (included after this header)
+static void mtp_stack_bwd(Params& p, const ModelConfig& c,
+                        const std::vector<int>& ids, Fwd& o,
+                        const std::vector<std::vector<float>>& dmtp,
+                        float* dh_main);
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale,
-                const std::vector<float>* vision = nullptr) {
+                const std::vector<float>* vision = nullptr,
+                const std::vector<std::vector<float>>* dmtp = nullptr) {
+    if (c.is_gemma4()) {
+        (void)aux_scale;
+        (void)vision;
+        bwd_g4(p, c, ids, o, dlogits);
+        return;
+    }
     const int PT = (int)ids.size();
     // Vision prefix rows (P) were prepended by fwd; caches/logits carry T.
     const int P = o.vision_patches;
@@ -43,6 +55,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     // embed and the trunk hidden states (dh rows over text positions).
     // aux_scale==0 (DPO) keeps MTP out of the preference gradient.
     mtp_bwd(p, c, ids, o, aux_scale, dh);
+    // v29 MTP stack: folds its dh contribution onto the trunk hidden rows
+    // (post-final-norm input) before the norm_f backward, and accumulates
+    // the shared embed/lm_head + mtp.* parameter grads.
+    if (dmtp != nullptr && !dmtp->empty() && c.mtp_depth > 0)
+        mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data());
     std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx_fin.data(), p.g["norm_f"].d.data(), T, H);
@@ -84,6 +101,21 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const int EI = c.expert_inter();
             const int SI = c.shared_inter();
             std::vector<float> dgl((size_t)T * E, 0.0f);
+            // Load-balance aux gradient (Switch Transformer): the layer
+            // contributes aux_scale·moe_aux_w·E·Σ_i f_i·P_i where
+            // P_i = mean_t gp[t,i] and f_i (assignment share) is a
+            // piecewise-constant routing statistic — so
+            // ∂L/∂gp[t,i] += aux_scale·moe_aux_w·E·f_i/T, added to dgl
+            // before the softmax backward below.
+            std::vector<float> moe_f((size_t)E, 0.0f);
+            if (aux_scale != 0.0f && c.moe_aux_w != 0.0f &&
+                !c.moe_auxfree_balance) {
+                for (size_t a = 0; a < L.moe_idx.size(); ++a)
+                    moe_f[(size_t)L.moe_idx[a]] += 1.0f;
+                for (int e = 0; e < E; ++e) moe_f[e] /= (float)(T * K);
+            }
+            const float lb_step = aux_scale * c.moe_aux_w * (float)E /
+                                  (float)std::max(1, T);
             for (int t = 0; t < T; ++t) {
                 const float* xr = L.n2.data() + (size_t)t * H;
                 float* dxr = dn2.data() + (size_t)t * H;
@@ -127,6 +159,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float dlogit = dot / wsum;            // contribution via this slot
                     dgl[(size_t)t * E + e] += dlogit;
                 }
+                if (!c.moe_auxfree_balance)
+                    for (int e = 0; e < E; ++e)
+                        dgl[(size_t)t * E + e] += lb_step * moe_f[(size_t)e];
                 // Router backward (aux + weighted path share the logit
                 // grads approximated by direct slot contribution):
                 // softmax mode uses the full Jacobian p⊙(din−⟨p,din⟩);
@@ -142,6 +177,23 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float dotp = 0.0f;
                     for (int e = 0; e < E; ++e) dotp += dglr[e] * gpl[e];
                     for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
+                }
+                // Router z-loss (B133): z = aux_scale·w·mean_t lse_t² —
+                // dz/dlogit_e = 2·w·lse_t·softmax_e/T lands post-Jacobian on
+                // the raw gate logits.
+                if (aux_scale != 0.0f && c.moe_zloss_w != 0.0f) {
+                    const float* glr = L.gate_logits.data() + (size_t)t * E;
+                    float mx = *std::max_element(glr, glr + E), zs = 0.0f;
+                    for (int e = 0; e < E; ++e) zs += std::exp(glr[e] - mx);
+                    float lse = mx + std::log(zs);
+                    float cz = aux_scale * c.moe_zloss_w * 2.0f * lse /
+                               (float)std::max(1, T);
+                    for (int e = 0; e < E; ++e) {
+                        float pm = c.moe_router_sigmoid
+                                       ? std::exp(glr[e] - mx) / zs
+                                       : gpl[e];
+                        din[e] += cz * pm;
+                    }
                 }
                 linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
                            dxr, p.g[ln(l, "gate")].d.data(), 1, H, E);
@@ -588,32 +640,65 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // bounds, per-type rope, and K==V unified gradient merge.
             const int kvh = c.kv_heads_at(l);
             const int Hkvl = kvh * hd;
-            const int win = c.is_local_attn(l) ? c.sliding_window : 0;
+            // CSA2 (V4.1-Flash): CSA layers bound raw coverage to their
+            // window and add a selected compressed-KV union term.
+            const int crole = c.use_csa(l) ? L.csa_role : -1;
+            const int csa_nc = c.use_csa(l) ? L.csa_nc : 0;
+            const int win = c.use_csa(l) ? L.csa_win
+                                         : (c.is_local_attn(l)
+                                                ? c.sliding_window : 0);
+            LayerCache* csa_prod = nullptr;
+            if (crole >= 0 && csa_nc > 0) {
+                const int prod = crole == 0 ? l : L.csa_src;
+                csa_prod = &o.layers[prod];
+            }
             int group = c.heads / kvh;
             float scale = 1.0f / std::sqrt((float)hd);
             std::vector<float> dq((size_t)T * Hq, 0.0f), dk((size_t)T * Hkvl, 0.0f),
                                 dvv((size_t)T * Hkvl, 0.0f);
             // TPU lanes: one lane per kv-head group — the q-heads of a GQA
             // group share its k/v slices, so grouping keeps dk/dv writes
-            // disjoint across lanes; per-element order is unchanged.
+            // disjoint across lanes; per-element order is unchanged. CSA:
+            // the compressed-KV grad accumulators are also sliced by kv
+            // head, so the same grouping keeps them lane-disjoint.
             parallel_for(kvh, [&](int64_t gb, int64_t ge) {
             for (int64_t g = gb; g < ge; ++g)
             for (int h = (int)g * group;
                  h < std::min((int)(g + 1) * group, c.heads); ++h) {
                 int kh2 = h / group;
                 std::vector<float> dscore;
+                const int csa_K = c.csa_topk;
                 for (int t = 0; t < T; ++t) {
                     const float* pr = L.probs.data() + ((size_t)h * T + t) * T;
                     const float* dao_r = dao.data() + ((size_t)t * c.heads + h) * hd;
                     const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
-                    dscore.assign((size_t)(t - s0) + 1, 0.0f);
+                    const int nsel = csa_nc > 0 ? L.csa_nsel[(size_t)t] : 0;
+                    const float* cp = csa_nc > 0
+                        ? L.csa_cp.data() +
+                              ((size_t)t * c.heads + h) * csa_K
+                        : nullptr;
+                    dscore.assign((size_t)(t - s0) + 1 + (size_t)nsel, 0.0f);
                     for (int s = s0; s <= t; ++s) {
                         const float* vr = L.v.data() + ((size_t)s * kvh + kh2) * hd;
                         dscore[(size_t)s - s0] = tpu_dot(dao_r, vr, hd);
                     }
+                    for (int j = 0; j < nsel; ++j) {
+                        const int cc = L.csa_sel[(size_t)t * csa_K + j];
+                        const float* cvr = csa_prod->csa_cv.data() +
+                            ((size_t)cc * kvh + kh2) * hd;
+                        dscore[(size_t)(t - s0 + 1) + (size_t)j] =
+                            tpu_dot(dao_r, cvr, hd);
+                    }
                     float dsum = 0.0f;
                     for (int s = s0; s <= t; ++s) dsum += dscore[(size_t)s - s0] * pr[s];
+                    for (int j = 0; j < nsel; ++j)
+                        dsum += dscore[(size_t)(t - s0 + 1) + (size_t)j] *
+                                cp[j];
                     for (int s = s0; s <= t; ++s) dscore[(size_t)s - s0] = pr[s] * (dscore[(size_t)s - s0] - dsum) * scale;
+                    for (int j = 0; j < nsel; ++j)
+                        dscore[(size_t)(t - s0 + 1) + (size_t)j] =
+                            cp[j] * (dscore[(size_t)(t - s0 + 1) + (size_t)j] -
+                                     dsum) * scale;
                     const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
                     float* dqr = dq.data() + ((size_t)t * c.heads + h) * hd;
                     for (int s = s0; s <= t; ++s) {
@@ -624,9 +709,175 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                         float* dvr = dvv.data() + ((size_t)s * kvh + kh2) * hd;
                         tpu_axpy(dvr, pr[s], dao_r, hd);
                     }
+                    for (int j = 0; j < nsel; ++j) {
+                        const int cc = L.csa_sel[(size_t)t * csa_K + j];
+                        const float ds =
+                            dscore[(size_t)(t - s0 + 1) + (size_t)j];
+                        const float* ckr = csa_prod->csa_ck.data() +
+                            ((size_t)cc * kvh + kh2) * hd;
+                        // compressed-KV grads live in the producer's
+                        // roped-latent space; the producer unropes the sum
+                        // once during its own finalize.
+                        float* dckr = csa_prod->csa_dck.data() +
+                            ((size_t)cc * kvh + kh2) * hd;
+                        float* dcvr = csa_prod->csa_dcv.data() +
+                            ((size_t)cc * kvh + kh2) * hd;
+                        tpu_axpy(dqr, ds, ckr, hd);
+                        tpu_axpy(dckr, ds, qr, hd);
+                        tpu_axpy(dcvr, cp[j], dao_r, hd);
+                    }
                 }
             }
             });
+            // CSA indexer auxiliary CE backward: d(CE)/d(isc_c) =
+            // aux·w·(σ(isc_c) − mean_h p̃_h,c)/(T·heads). Gradients reach
+            // the layer's own wiq and the producer's shared index keys.
+            if (crole >= 0 && crole != 1 && csa_nc > 0 && c.csa_indexer &&
+                c.csa_indexer_w > 0.0f && aux_scale != 0.0f) {
+                const int csa_K = c.csa_topk;
+                const float w = aux_scale * c.csa_indexer_w /
+                                (std::max(1, T) * (float)c.heads);
+                std::vector<float> diq((size_t)T * hd, 0.0f);
+                for (int t = 0; t < T; ++t) {
+                    const int cn = L.csa_ncand[(size_t)t];
+                    if (cn <= 0) continue;
+                    const float* isc =
+                        L.csa_isc.data() + (size_t)t * csa_nc;
+                    float imx = -1e30f;
+                    for (int cc = 0; cc < cn; ++cc)
+                        imx = std::max(imx, isc[cc]);
+                    float isum = 0.0f;
+                    for (int cc = 0; cc < cn; ++cc)
+                        isum += std::exp(isc[cc] - imx);
+                    float iinv = 1.0f / isum;
+                    const float* iqr = L.csa_iq.data() + (size_t)t * hd;
+                    float* diqr = diq.data() + (size_t)t * hd;
+                    for (int cc = 0; cc < cn; ++cc) {
+                        float sig = std::exp(isc[cc] - imx) * iinv;
+                        float tgt = 0.0f;
+                        for (int h = 0; h < c.heads; ++h)
+                            tgt += L.csa_msc[((size_t)t * c.heads + h) *
+                                             csa_nc + cc];
+                        float ds = w * (sig - tgt / (float)c.heads);
+                        if (ds == 0.0f) continue;
+                        const float* ikr = csa_prod->csa_ik.data() +
+                            (size_t)cc * hd;
+                        tpu_axpy(diqr, ds, ikr, hd);
+                        tpu_axpy(csa_prod->csa_dik.data() + (size_t)cc * hd,
+                                 ds, iqr, hd);
+                    }
+                }
+                linear_bwd(diq.data(), L.n1.data(), p.w.at(ln(l, "wiq")),
+                           dn1.data(), p.g[ln(l, "wiq")].d.data(), T, H, hd);
+            }
+            // CSA producer finalize: unrope the accumulated compressed-K
+            // grads into raw-latent space, fold the shared index-key chain
+            // (ik = wik·mean_g ckr), then scatter the compressor grads to
+            // member tokens in PRE-rope key space (merged after the raw
+            // unrope below).
+            std::vector<float> dk_csa, dv_csa;
+            if (crole == 0 && csa_nc > 0) {
+                const float thc = c.csa_rope_theta > 0.0f
+                                      ? c.csa_rope_theta : c.rope_theta;
+                const int rd2 = c.rotary_dim_at(l);
+                if (rd2 < hd)
+                    rope_hf_partial(L.csa_dck.data(), csa_nc, kvh, hd, rd2,
+                                    thc, true);
+                else
+                    rope(L.csa_dck.data(), csa_nc, kvh, hd, thc, true);
+                if (c.csa_indexer && !L.csa_dik.empty()) {
+                    const float* wik = p.w.at(ln(l, "wik")).d.data();
+                    float* gwik = p.g[ln(l, "wik")].d.data();
+                    for (int cc = 0; cc < csa_nc; ++cc) {
+                        const float* dik = L.csa_dik.data() + (size_t)cc * hd;
+                        std::vector<float> mkr((size_t)hd, 0.0f);
+                        for (int gg = 0; gg < kvh; ++gg)
+                            tpu_axpy(mkr.data(), 1.0f / (float)kvh,
+                                     L.csa_ckr.data() +
+                                         ((size_t)cc * kvh + gg) * hd,
+                                     hd);
+                        // dwik += dik ⊗ mk ; dmk = wikᵀ·dik
+                        for (int oi = 0; oi < hd; ++oi)
+                            for (int ii = 0; ii < hd; ++ii)
+                                gwik[(size_t)oi * hd + ii] +=
+                                    dik[oi] * mkr[ii];
+                        for (int gg = 0; gg < kvh; ++gg) {
+                            float* dck = L.csa_dck.data() +
+                                ((size_t)cc * kvh + gg) * hd;
+                            for (int ii = 0; ii < hd; ++ii) {
+                                float s = 0.0f;
+                                for (int oi = 0; oi < hd; ++oi)
+                                    s += wik[(size_t)oi * hd + ii] * dik[oi];
+                                dck[ii] += s / (float)kvh;
+                            }
+                        }
+                    }
+                }
+                // compressor scatter: dck_raw/dcv per (chunk, kv-head) →
+                // member-token grads in pre-rope space + wck/wcv grads.
+                const int rr = c.csa_ratio;
+                dk_csa.assign((size_t)T * Hkvl, 0.0f);
+                dv_csa.assign((size_t)T * Hkvl, 0.0f);
+                const float* wck = p.w.at(ln(l, "wck")).d.data();
+                const float* wcv = p.w.at(ln(l, "wcv")).d.data();
+                float* gwck = p.g[ln(l, "wck")].d.data();
+                float* gwcv = p.g[ln(l, "wcv")].d.data();
+                std::vector<float> cvec((size_t)rr * hd);
+                for (int cc = 0; cc < csa_nc; ++cc)
+                    for (int gg = 0; gg < kvh; ++gg) {
+                        const float* dck =
+                            L.csa_dck.data() + ((size_t)cc * kvh + gg) * hd;
+                        const float* dcv =
+                            L.csa_dcv.data() + ((size_t)cc * kvh + gg) * hd;
+                        for (int j = 0; j < rr; ++j) {
+                            const size_t mrow =
+                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
+                            std::copy(L.csa_kpre.data() + mrow,
+                                      L.csa_kpre.data() + mrow + hd,
+                                      cvec.data() + (size_t)j * hd);
+                        }
+                        // dwck += dck ⊗ cvec ; dvec = wckᵀ dck
+                        for (int oi = 0; oi < hd; ++oi)
+                            for (int ii = 0; ii < rr * hd; ++ii)
+                                gwck[(size_t)oi * (size_t)(rr * hd) + ii] +=
+                                    dck[oi] * cvec[ii];
+                        for (int j = 0; j < rr; ++j) {
+                            float* dm =
+                                dk_csa.data() +
+                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
+                            for (int ii = 0; ii < hd; ++ii) {
+                                float s = 0.0f;
+                                for (int oi = 0; oi < hd; ++oi)
+                                    s += wck[(size_t)oi * (size_t)(rr * hd) +
+                                             (size_t)j * hd + ii] * dck[oi];
+                                dm[ii] += s;
+                            }
+                        }
+                        for (int j = 0; j < rr; ++j) {
+                            const size_t mrow =
+                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
+                            std::copy(L.v.data() + mrow,
+                                      L.v.data() + mrow + hd,
+                                      cvec.data() + (size_t)j * hd);
+                        }
+                        for (int oi = 0; oi < hd; ++oi)
+                            for (int ii = 0; ii < rr * hd; ++ii)
+                                gwcv[(size_t)oi * (size_t)(rr * hd) + ii] +=
+                                    dcv[oi] * cvec[ii];
+                        for (int j = 0; j < rr; ++j) {
+                            float* dm =
+                                dv_csa.data() +
+                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
+                            for (int ii = 0; ii < hd; ++ii) {
+                                float s = 0.0f;
+                                for (int oi = 0; oi < hd; ++oi)
+                                    s += wcv[(size_t)oi * (size_t)(rr * hd) +
+                                             (size_t)j * hd + ii] * dcv[oi];
+                                dm[ii] += s;
+                            }
+                        }
+                    }
+            }
             const int rd = c.rotary_dim_at(l);
             const float th = c.rope_theta_at(l);
             if (rd < hd) {
@@ -637,6 +888,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             } else {
                 rope(dq.data(), T, c.heads, hd, th, true, &c);
                 rope(dk.data(), T, kvh, hd, th, true, &c);
+            }
+            // CSA producer: merge compressor member grads — they live in
+            // pre-rope key space, so they join dk only after the unrope.
+            if (!dk_csa.empty()) {
+                for (size_t i = 0; i < dk.size(); ++i) dk[i] += dk_csa[i];
+                for (size_t i = 0; i < dvv.size(); ++i) dvv[i] += dv_csa[i];
             }
             if (c.qk_norm) {
                 std::vector<float> dq_raw((size_t)T * Hq, 0.0f),

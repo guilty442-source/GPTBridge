@@ -168,6 +168,11 @@ extern "C" int xcuda_available();
 extern "C" int xcuda_matmul_f64(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
+// Grouped variant: one H2D/D2H round trip for the whole expert batch.
+extern "C" int xcuda_matmul_f64_grouped(
+    const double* a, const long long* group_rows, long long groups,
+    const double* const* b_list, long long k, long long n,
+    double* out);
 extern "C" int xcuda_release_weights();
 extern "C" int xcuda_bf16_available();
 extern "C" int xcuda_matmul_bf16(
