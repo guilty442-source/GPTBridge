@@ -121,6 +121,17 @@ static int routecheck() {
             if (x != 0.0f) { any = true; break; }
         if (!any) fail("grads: zero router grad", sig);
 
+        // ---- ckpt: the flag survives the XCN6 header round-trip -------
+        {
+            const char* tmp = "xct_routecheck_ckpt.tmp";
+            if (!ckpt_save(p, c, tmp, true)) fail("ckpt: save", sig);
+            ModelConfig c2;
+            if (!ckpt_peek_config(tmp, c2) ||
+                c2.moe_router_sigmoid != c.moe_router_sigmoid)
+                fail("ckpt: router flag", sig);
+            std::remove(tmp);
+        }
+
         if (sig) {
             // ---- reach: boosting a cold expert's gate column reroutes --
             Params p2 = base;
