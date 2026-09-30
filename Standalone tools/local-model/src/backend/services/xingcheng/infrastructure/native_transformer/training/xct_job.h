@@ -267,6 +267,12 @@ static int gradcheck() {
     if (const char* k = std::getenv("XCT_GC_K")) c.moe_top_k = std::atoi(k);
     if (const char* s = std::getenv("XCT_GC_SHARED"))
         c.moe_shared_experts = std::atoi(s);
+    if (const char* i = std::getenv("XCT_GC_INT"))
+        c.full_attention_interval = std::atoi(i);
+    if (const char* z = std::getenv("XCT_GC_PLAIN")) {
+        c.attn_output_gate = false; c.qk_norm = false;
+        c.partial_rotary = 1.0f;
+    }
     Params p;
     init_params(p, c, 7);
     std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
@@ -302,22 +308,21 @@ static int gradcheck() {
             w.d[i] = orig;
             double num = (lp - lm) / (2.0 * eps);
             double ana = g.d[i];
-            if (std::string(n).find("experts.0.w1") != std::string::npos ||
-                std::string(n).find("shared.0.w1") != std::string::npos) {
-                // second probe at larger step to separate ulp noise from
-                // systematic gradient error
-                double eps2 = 4.0 * eps;
-                w.d[i] = orig + (float)eps2; double lp2 = loss_of();
-                w.d[i] = orig - (float)eps2; double lm2 = loss_of();
-                w.d[i] = orig;
-                double num2 = (lp2 - lm2) / (2.0 * eps2);
-                if (i == 384 || i == 480)
-                    std::printf("  probe %s[%zu]: ana=%.6f num(4e-3)=%.6f "
-                                "num(1.6e-2)=%.6f lp=%.6f lm=%.6f\n",
-                                n.c_str(), i, ana, num, num2, lp, lm);
-            }
             double abs_err = std::fabs(num - ana);
             double rel = abs_err / std::max(1e-4, std::fabs(num));
+            // multi-step probe on suspicious elements + first sample per
+            // tensor: slope stable across step sizes => real gradient
+            // mismatch, jittery => fp32 noise floor
+            if ((rel > 0.05 && abs_err > 1e-3) || (i / stride) < 1) {
+                std::printf("  probe %s[%zu]: ana=%.6f |", n.c_str(), i, ana);
+                for (double e2 : {1e-3, 4e-3, 1.6e-2, 6.4e-2}) {
+                    w.d[i] = orig + (float)e2; double lp2 = loss_of();
+                    w.d[i] = orig - (float)e2; double lm2 = loss_of();
+                    w.d[i] = orig;
+                    std::printf(" e=%.3f:%.6f", e2, (lp2 - lm2) / (2.0 * e2));
+                }
+                std::printf("\n");
+            }
             ++checked;
             if (rel > 0.10 && abs_err > 3e-3) {
                 ++failed;

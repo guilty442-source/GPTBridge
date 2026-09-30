@@ -323,7 +323,7 @@ pub fn health_payload(level: &str) -> Value {
 /// 星澄 model runs inside the governed local-model tool runtime, so
 /// liveness follows the tool registry and availability follows the
 /// launchable native entry.
-fn native_model_status() -> Value {
+pub(crate) fn native_model_status() -> Value {
     let running = crate::tools::governed_tool_running("local-model");
     let available =
         running || crate::tools::governed_tool_launchable("local-model");

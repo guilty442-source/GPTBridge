@@ -30,9 +30,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             std::vector<float> dfa((size_t)T * c.inter, 0.0f), dfb((size_t)T * c.inter, 0.0f);
             for (size_t i = 0; i < L.fh.size(); ++i) {
                 float a = L.fa[i], b = L.fb[i], d = dfh[i];
-                float sig = silu_f(a);
+                float sig = sigmoid_f(a);
                 dfa[i] += d * b * sig * (1.0f + a * (1.0f - sig));
-                dfb[i] += d * sig;
+                dfb[i] += d * a * sig;
             }
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
                        dn2.data(), p.g[ln(l, "w1")].d.data(), T, H, c.inter);
@@ -66,9 +66,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     std::vector<float> dfa((size_t)EI, 0.0f), dfb((size_t)EI, 0.0f);
                     for (int i = 0; i < EI; ++i) {
                         float a = fa[i], bb = fb[i], d = dfh[i];
-                        float sig = silu_f(a);
+                        float sig = sigmoid_f(a);
                         dfa[i] += d * bb * sig * (1.0f + a * (1.0f - sig));
-                        dfb[i] += d * sig;
+                        dfb[i] += d * a * sig;
                     }
                     linear_bwd(dfa.data(), xr, p.w.at(b + "w1"),
                                dxr, p.g[b + "w1"].d.data(), 1, H, EI);
@@ -132,9 +132,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 std::vector<float> dsb((size_t)T * SI, 0.0f);
                 for (size_t i = 0; i < sfh.size(); ++i) {
                     float a = sfa[i], bb = sfb[i], d = dsh[i];
-                    float sig = silu_f(a);
+                    float sig = sigmoid_f(a);
                     dsa[i] += d * bb * sig * (1.0f + a * (1.0f - sig));
-                    dsb[i] += d * sig;
+                    dsb[i] += d * a * sig;
                 }
                 linear_bwd(dsa.data(), L.n2.data(), p.w.at(b + "w1"),
                            dn2.data(), p.g[b + "w1"].d.data(), T, H, SI);

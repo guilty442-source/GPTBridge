@@ -125,6 +125,50 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
             saga::handle(command, payload)
         }
         "app:get-fault-analysis" => fault::handle(payload),
+        // Retired contract (xingcheng_handler._handle_native_model_enabled):
+        // apply the transition, verify the resulting state, and report the
+        // status fields.  The first-party model lives inside the governed
+        // local-model runtime, so enable = governed start / disable = stop.
+        "xingcheng-set-native-model-enabled" => {
+            match payload["enabled"].as_bool() {
+                None => json!({
+                    "ok": false,
+                    "error_code": "MISSING_ENABLED_STATE",
+                    "message": "enabled (boolean) is required",
+                }),
+                Some(enabled) => {
+                    let already =
+                        tools::governed_tool_running("local-model") == enabled;
+                    let transition = if already {
+                        json!({ "ok": true })
+                    } else if enabled {
+                        tools::start_tool("local-model")
+                    } else {
+                        tools::stop_tool("local-model")
+                    };
+                    let mut result = health::native_model_status();
+                    if transition["ok"].as_bool() != Some(true) {
+                        result["ok"] = json!(false);
+                        result["error_code"] =
+                            json!(transition["error_code"].as_str().unwrap_or("NATIVE_MODEL_TRANSITION_FAILED"));
+                        result["message"] =
+                            json!(transition["message"].as_str().unwrap_or(""));
+                    } else {
+                        let verified =
+                            result["running"].as_bool() == Some(enabled);
+                        result["ok"] = json!(verified);
+                        result["error_code"] =
+                            json!(if verified { "" } else { "NATIVE_MODEL_STATE_MISMATCH" });
+                        result["message"] = json!(if verified {
+                            ""
+                        } else {
+                            "native model state verification failed"
+                        });
+                    }
+                    result
+                }
+            }
+        }
         _ => json!({
             "ok": false,
             "error": format!("COMMAND_UNKNOWN:{command}"),

@@ -110,7 +110,7 @@ bool resolve(HMODULE dll, T* out, const char* v2, const char* v1) {
 }
 
 // Try each candidate module name; returns the first that loads.
-HMODULE load_module(std::initializer_list<std::string> names) {
+HMODULE load_module(const std::vector<std::string>& names) {
     for (const std::string& n : names) {
         HMODULE m = LoadLibraryA(n.c_str());
         if (m != nullptr) return m;
@@ -147,9 +147,15 @@ std::string nvrtc_include_dir() {
 bool api_init() {
     if (g_api_tried) return g_api_ok;
     g_api_tried = true;
+#define XCK_DBG(x) do { fprintf(stderr, "[xck] %s\n", x); } while (0)
 
-    g_drv.dll = LoadLibraryA("cuda.dll");
-    if (g_drv.dll == nullptr) return false;
+    // The Driver API ships in the driver package as nvcuda.dll; cuda.dll
+    // is an optional alias that is not present on every install.
+    g_drv.dll = load_module({"nvcuda.dll", "cuda.dll"});
+    if (g_drv.dll == nullptr) {
+        XCK_DBG("driver dll load fail");
+        return false;
+    }
     bool ok = true;
     ok &= resolve(g_drv.dll, &g_drv.init, "cuInit", nullptr);
     ok &= resolve(g_drv.dll, &g_drv.device_get_count, "cuDeviceGetCount",
@@ -177,7 +183,7 @@ bool api_init() {
                   "cuModuleGetFunction", nullptr);
     ok &= resolve(g_drv.dll, &g_drv.launch_kernel, "cuLaunchKernel",
                   nullptr);
-    if (!ok) return false;
+    if (!ok) { XCK_DBG("driver resolve fail"); return false; }
 
     const char* cp = getenv("CUDA_PATH");
     std::vector<std::string> nvrtc_names = {"nvrtc64_120_0.dll"};
@@ -188,9 +194,8 @@ bool api_init() {
     nvrtc_names.push_back(
         "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0\\"
         "bin\\nvrtc64_120_0.dll");
-    g_rtc.dll = load_module(
-        {nvrtc_names.begin(), nvrtc_names.end()});
-    if (g_rtc.dll == nullptr) return false;
+    g_rtc.dll = load_module(nvrtc_names);
+    if (g_rtc.dll == nullptr) { XCK_DBG("nvrtc dll load fail"); return false; }
     ok = true;
     ok &= resolve(g_rtc.dll, &g_rtc.create_program, "nvrtcCreateProgram",
                   nullptr);
@@ -204,7 +209,7 @@ bool api_init() {
     ok &= resolve(g_rtc.dll, &g_rtc.get_log_size, "nvrtcGetProgramLogSize",
                   nullptr);
     ok &= resolve(g_rtc.dll, &g_rtc.get_log, "nvrtcGetProgramLog", nullptr);
-    if (!ok) return false;
+    if (!ok) { XCK_DBG("nvrtc resolve fail"); return false; }
 
     g_api_ok = true;
     return true;
@@ -223,23 +228,23 @@ bool g_dev_ok = false;
 bool device_ready() {
     if (g_dev_tried) return g_dev_ok;
     g_dev_tried = true;
-    if (!api_init()) return false;
-    if (g_drv.init(0) != kCudaSuccess) return false;
+    if (!api_init()) { XCK_DBG("api_init fail"); return false; }
+    if (g_drv.init(0) != kCudaSuccess) { XCK_DBG("cuInit fail"); return false; }
     int count = 0;
     if (g_drv.device_get_count(&count) != kCudaSuccess || count <= 0) {
-        return false;
+        XCK_DBG("device count fail"); return false;
     }
     CUdevice_t dev = 0;
-    if (g_drv.device_get(&dev, 0) != kCudaSuccess) return false;
+    if (g_drv.device_get(&dev, 0) != kCudaSuccess) { XCK_DBG("device_get fail"); return false; }
     if (g_drv.device_get_attribute(
             &g_cc_major, kCudaDevAttrCCMajor, dev) != kCudaSuccess ||
         g_drv.device_get_attribute(
             &g_cc_minor, kCudaDevAttrCCMinor, dev) != kCudaSuccess) {
-        return false;
+        XCK_DBG("cc attr fail"); return false;
     }
     if (g_drv.primary_ctx_retain(&g_ctx, dev) != kCudaSuccess ||
         g_ctx == nullptr) {
-        return false;
+        XCK_DBG("ctx retain fail"); return false;
     }
     g_dev_ok = true;
     return true;
@@ -468,12 +473,13 @@ bool ensure_module() {
     std::lock_guard<std::mutex> lk(g_module_mu);
     if (g_module_tried) return g_module != nullptr;
     g_module_tried = true;
-    if (!use_ctx()) return false;
+    if (!use_ctx()) { XCK_DBG("use_ctx fail"); return false; }
 
     nvrtcProgram_t prog = nullptr;
     if (g_rtc.create_program(&prog, kKernelSource, "xc_kernels.cu", 0,
                              nullptr, nullptr) != kNvrtcSuccess ||
         prog == nullptr) {
+        XCK_DBG("create_program fail");
         return false;
     }
     char arch[48];
@@ -513,6 +519,7 @@ bool ensure_module() {
     g_rtc.destroy_program(&prog);
 
     if (g_drv.module_load_data(&g_module, ptx.data()) != kCudaSuccess) {
+        XCK_DBG("module_load fail");
         return false;
     }
     bool ok = true;
@@ -523,6 +530,7 @@ bool ensure_module() {
     ok &= get_func(&g_f_gemm_fp8, "xc_gemm_fp8");
     ok &= get_func(&g_f_kv_attn, "xc_kv_attention");
     if (!ok) {
+        XCK_DBG("get_func fail");
         g_drv.module_unload(g_module);
         g_module = nullptr;
         return false;
