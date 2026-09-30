@@ -535,6 +535,112 @@ internal static class ConvergenceGate
             new("resource-cert", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "scale-status",
                        "--bundle", bundle!))),
+            new("scale-envelope", true, () => NeedBundle(() =>
+            {
+                // P9: expert-residency plane + hardware scale envelope.
+                // Contract-level assertions only — residency verdicts are
+                // hardware-dependent (a bigger host legitimately flips
+                // OFFLOAD verdicts), so the step requires each mode's
+                // typed report and invariant fields, never a specific
+                // residency outcome.
+                string log = Path.Combine(toolRoot,
+                    ReportRel.Replace('/', Path.DirectorySeparatorChar),
+                    "gate-stderr.log");
+                int Clip(string s, int n) => Math.Min(n, s.Length);
+                StepResult Run(string[] args, string[] reqs,
+                               string code, int timeout = 600)
+                {
+                    var r = NativeTools.Run(toolExe, args,
+                                            toolRoot, log, timeout);
+                    string tail = r.StdoutTail.Trim();
+                    if (r.ExitCode != 0)
+                        return Fail(code, tail[..Clip(tail, 160)]);
+                    foreach (var req in reqs)
+                        if (!tail.Contains(req,
+                                StringComparison.Ordinal))
+                            return Fail(code,
+                                $"missing '{req}' in "
+                                + tail[..Clip(tail, 160)]);
+                    return Pass("ok");
+                }
+                // Residency manager: AUTO decision on this host.
+                var st = Run(
+                    new[] { "expert-residency", "--bundle", bundle!,
+                            "--auto" },
+                    new[] { "expert-residency", "\"decision\"" },
+                    "EXPERT_RESIDENCY_FAILED");
+                if (st.Status != "PASS") return st;
+                // Constrained residency: real router trace must produce
+                // HOT/OFFLOADED tiering evidence with a hit rate.
+                st = Run(
+                    new[] { "expert-residency", "--bundle", bundle!,
+                            "--gpu-budget", "1200000000",
+                            "--max-resident", "40",
+                            "--prefetch-depth", "2" },
+                    new[] { "star-expert-residency/v1",
+                            "\"hit_rate\"", "\"resident_experts\"" },
+                    "EXPERT_RESIDENCY_FAILED", 900);
+                if (st.Status != "PASS") return st;
+                // Offload cost model: measured transfer + verdict.
+                st = Run(
+                    new[] { "expert-offload-bench", "--bundle", bundle! },
+                    new[] { "star-expert-offload-bench/v1",
+                            "\"verdict\"",
+                            "\"transfer_ms_int8\"" },
+                    "EXPERT_OFFLOAD_FAILED", 900);
+                if (st.Status != "PASS") return st;
+                // Three-tier forced residency sim under budgets.
+                st = Run(
+                    new[] { "low-resource-sim", "--bundle", bundle!,
+                            "--gpu-budget", "2000000000",
+                            "--ram-budget", "8000000000",
+                            "--nvme-budget", "40000000000",
+                            "--tokens", "32" },
+                    new[] { "star-low-resource-sim/v1",
+                            "\"cpu_ok\":true",
+                            "\"hot_hits\"" },
+                    "LOWRES_SIM_FAILED", 900);
+                if (st.Status != "PASS") return st;
+                // Mapped expert bank: build int8 bank to scratch, then
+                // read one expert back with checksum verification.
+                string xeb = Path.Combine(toolRoot, "xingcheng",
+                    "runtime", "scratch", "gate-xeb");
+                if (Directory.Exists(xeb))
+                    Directory.Delete(xeb, true);
+                st = Run(
+                    new[] { "expert-store-build", "--bundle", bundle!,
+                            "--out", xeb, "--quant", "int8" },
+                    new[] { "star-mapped-expert-store/v1",
+                            "\"entries\"", "\"bank_bytes\"" },
+                    "EXPERT_STORE_FAILED", 900);
+                if (st.Status != "PASS") return st;
+                st = Run(
+                    new[] { "expert-store-read",
+                            "--bank", Path.Combine(xeb, "experts.xeb"),
+                            "--layer", "0", "--expert", "0" },
+                    new[] { "\"checksum_verified\":true" },
+                    "EXPERT_STORE_READ_FAILED", 300);
+                if (st.Status != "PASS") return st;
+                // Hardware scale envelope: governed 300m/1b/2b/4b-sparse
+                // candidates through scale-sim — every candidate must
+                // carry a verdict field; pass/fail is hardware- and
+                // budget-dependent, so only the contract is asserted.
+                string envFile = Path.Combine(toolRoot, "xingcheng",
+                    "runtime", "scale-profiles",
+                    "hardware-envelope.json");
+                if (!File.Exists(envFile))
+                    return Fail("SCALE_ENVELOPE_MISSING", envFile);
+                st = Run(
+                    new[] { "scale-sim", "--file", envFile },
+                    new[] { "star-scale-sim/v1",
+                            "\"scale_profile\":\"xc-1b-standard\"",
+                            "\"scale_profile\":\"xc-2b-sparse\"",
+                            "\"scale_profile\":\"xc-4b-sparse\"",
+                            "\"pass\"" },
+                    "SCALE_SIM_FAILED", 300);
+                if (st.Status != "PASS") return st;
+                return Pass("residency plane + scale envelope green");
+            })),
             // ---------- release invariants ----------
             new("dataset-retention-invariants", true, () =>
                 DatasetRetentionInvariants(toolRoot)),
