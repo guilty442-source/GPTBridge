@@ -303,6 +303,8 @@ static int gradcheck() {
             ++checked;
             if (rel > 0.05 && abs_err > 1e-3) {
                 ++failed;
+                std::printf("  FAIL %s[%zu]: ana=%.6f num=%.6f rel=%.3f abs=%.6f\n",
+                            n.c_str(), i, ana, num, rel, abs_err);
                 if (rel > worst_rel) {
                     worst_rel = rel; worst_abs = abs_err;
                     worst_name = n + "[" + std::to_string(i) + "]";
