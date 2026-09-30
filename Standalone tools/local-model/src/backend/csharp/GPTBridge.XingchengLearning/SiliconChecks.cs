@@ -327,6 +327,104 @@ internal static class SiliconChecks
                     (double)r["capability_gain_per_million_params"]! -
                     0.6) < 1e-9;
             }));
+
+            // ------------- deferred-lane completion -------------------
+            // §10/§11 EP enum: real vendor-runtime discovery; host
+            // layers alone do not claim an NPU.
+            checks.Add(Check("npu-ep-enum", () =>
+            {
+                var d = Native(toolRoot, stderrLog, "npu-ep-enum");
+                return OkTrue(d) && d!.Value.TryGetProperty(
+                    "providers", out var p) &&
+                    p.ValueKind == JsonValueKind.Array;
+            }));
+
+            // §16: the planner must price a second resident weights
+            // copy before any NPU promotion.
+            checks.Add(Check("npu-duplicate-cost", () =>
+            {
+                if (bundle == null) return true;
+                var d = Native(toolRoot, stderrLog,
+                               "npu-duplicate-cost", "--bundle", bundle);
+                return OkTrue(d) && d!.Value.TryGetProperty(
+                    "full_npu_residency_duplicate", out var x) &&
+                    x.GetInt64() > 0;
+            }));
+
+            // §65/§66: static buckets + driver-change invalidation.
+            checks.Add(Check("npu-graph-cache", () =>
+            {
+                if (StaticShapeBuckets.BucketFor(200) != 256 ||
+                    StaticShapeBuckets.BucketFor(2048) != -1)
+                    return false;
+                string key = NpuCompiledGraphCache.Key(
+                    "m", "s", "bf16", 256, "npu0", "drv1");
+                var hit = NpuCompiledGraphCache.Lookup(
+                    key, "drv1", "drv1");
+                bool stale = ExpectError("NPU_GRAPH_INCOMPATIBLE",
+                    () => NpuCompiledGraphCache.Lookup(
+                        key, "drv1", "drv2"));
+                return (bool)hit["cache_hit"]! && stale;
+            }));
+
+            // §15: promote only when TTFT improves and transfer is
+            // acceptable; out-of-range shape falls back.
+            checks.Add(Check("npu-prefill-probe", () =>
+            {
+                var a = NpuPrefillProbe.Evaluate(
+                    200, gpuPrefillMs: 10.0, npuPrefillMs: 6.0,
+                    transferMs: 1.0, npuAvailable: true);
+                var b = NpuPrefillProbe.Evaluate(
+                    200, gpuPrefillMs: 10.0, npuPrefillMs: 9.0,
+                    transferMs: 5.0, npuAvailable: true);
+                var c = NpuPrefillProbe.Evaluate(
+                    2048, 10.0, 1.0, 0.1, npuAvailable: true);
+                var d = NpuPrefillProbe.Evaluate(
+                    200, 10.0, 0.0, 0.0, npuAvailable: false);
+                return (string)a["verdict"]! == "NPU_PREFILL" &&
+                       (string)b["verdict"]! == "UNIFIED" &&
+                       (string)c["verdict"]! == "GPU_FALLBACK_SHAPE" &&
+                       (string)d["verdict"]! == "UNIFIED" &&
+                       d["skipped"] is bool s && s;
+            }));
+
+            // §10/§14/§61: decoder is never NPU-eligible; an off-list
+            // op or absent NPU fails closed.
+            checks.Add(Check("npu-eligibility-gate", () =>
+            {
+                bool decoderDenied = ExpectError(
+                    "NPU_GRAPH_INCOMPATIBLE", () =>
+                        NpuBackend.RequireEligible(
+                            "hybrid_decoder", true));
+                bool absentDenied = ExpectError(
+                    "NPU_BACKEND_UNAVAILABLE", () =>
+                        NpuBackend.RequireEligible("system1", false));
+                bool ok = false;
+                try
+                { NpuBackend.RequireEligible("system1", true);
+                  ok = true; }
+                catch { }
+                return decoderDenied && absentDenied && ok;
+            }));
+
+            // §48/§49: freeze map derived from measured routing only.
+            checks.Add(Check("expert-targeted-training-probe", () =>
+            {
+                var counts = new Dictionary<int, long>
+                    { [0] = 100, [1] = 400, [2] = 50, [3] = 900 };
+                var p = ExpertTargetedTrainingProbe.Plan(
+                    counts, expertParams: 40000, totalParams: 1300000,
+                    sharedParams: 3000, topExperts: 2);
+                var sel = (List<object?>)p["selected_experts"]!;
+                bool evidence = sel.Count == 2 &&
+                    (int)sel[0]! == 1 && (int)sel[1]! == 3;
+                bool noEvidence = ExpectError(
+                    "PARAMETER_FREEZE_VIOLATION", () =>
+                        ExpertTargetedTrainingProbe.Plan(
+                            new Dictionary<int, long>(), 1, 1, 1, 1));
+                return evidence && noEvidence &&
+                       (long)p["trainable_params"]! == 83000L;
+            }));
         }
         finally
         {

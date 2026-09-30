@@ -386,6 +386,104 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? spg)
                             ? spg : "", "SCALE_PROMOTION_INVALID")));
+            // ---- model-efficiency directive contract layer
+            //      (Liquid/Solar/OLMo/Arctic/Arctic-Embed absorption)
+            if (flags.Contains("hardware-scale-search"))
+                return Emit(ScaleSearch.Search(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hss)
+                            ? hss : "", "SCALE_SHAPE_INEFFICIENT")));
+            if (flags.Contains("scale-scorecard"))
+                return Emit(ScaleSearch.ScoreCandidate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ssc)
+                            ? ssc : "", "SCALE_SHAPE_INEFFICIENT")));
+            if (flags.Contains("depth-plan"))
+                return Emit(DepthScale.Plan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dp)
+                            ? dp : "", "DEPTH_INHERITANCE_INVALID")));
+            if (flags.Contains("depth-inheritance-validate"))
+                return Emit(DepthScale.ValidateInheritance(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? div)
+                            ? div : "", "DEPTH_INHERITANCE_INVALID")));
+            if (flags.Contains("depth-scale-probe"))
+                return Emit(DepthScale.ProbeVerdict(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dsp)
+                            ? dsp : "", "DEPTH_SCALE_REGRESSION")));
+            if (flags.Contains("depth-efficiency"))
+                return Emit(DepthScale.Efficiency(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? de)
+                            ? de : "", "DEPTH_INHERITANCE_INVALID")));
+            if (flags.Contains("curriculum-stage-policy"))
+                return Emit(Curriculum.StagePolicy(
+                    opts.TryGetValue("stage", out string? cst)
+                        ? cst : ""));
+            if (flags.Contains("curriculum-stage-check"))
+                return Emit(Curriculum.ValidateStage(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? csc)
+                            ? csc : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("training-mixture"))
+                return Emit(Curriculum.Mixture(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tm)
+                            ? tm : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("training-repro"))
+                return Emit(Curriculum.ReproRecord(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? trp)
+                            ? trp : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("data-order-probe"))
+                return Emit(Curriculum.DataOrderProbe(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dop)
+                            ? dop : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("expert-scale-validate"))
+                return Emit(ExpertPolicy.ValidateScale(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? esv)
+                            ? esv : "", "EXPERT_GRANULARITY_INEFFICIENT")));
+            if (flags.Contains("expert-granularity-compare"))
+                return Emit(ExpertPolicy.CompareGranularity(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? egc)
+                            ? egc : "", "EXPERT_GRANULARITY_INEFFICIENT")));
+            if (flags.Contains("expert-specialization"))
+                return Emit(ExpertPolicy.Specialization(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? esp)
+                            ? esp : "", "EXPERT_SPECIALIZATION_COLLAPSE")));
+            if (flags.Contains("expert-residency-plan"))
+                return Emit(ExpertPolicy.ResidencyPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? erp)
+                            ? erp : "", "EXPERT_GRANULARITY_INEFFICIENT")));
+            if (flags.Contains("adaptive-embedding"))
+                return Emit(AdaptiveRetrieval.Embedding(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ae)
+                            ? ae : "", "EMBEDDING_COMPRESSION_REGRESSION")));
+            if (flags.Contains("vector-tier-policy"))
+                return Emit(AdaptiveRetrieval.TierPolicy());
+            if (flags.Contains("two-stage-retrieval"))
+                return Emit(AdaptiveRetrieval.TwoStage(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tsr)
+                            ? tsr : "", "RETRIEVAL_RECALL_REGRESSION")));
+            if (flags.Contains("retrieval-compression-gate"))
+                return Emit(AdaptiveRetrieval.Gate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rcg)
+                            ? rcg : "", "RETRIEVAL_RECALL_REGRESSION")));
+            if (flags.Contains("retrieval-efficiency"))
+                return Emit(AdaptiveRetrieval.Metrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rem)
+                            ? rem : "", "RETRIEVAL_RECALL_REGRESSION")));
             // ---- persona / style / steerability (Hermes lessons)
             if (flags.Contains("persona-validate"))
                 return Emit(PersonaRuntime.ValidatePersona(

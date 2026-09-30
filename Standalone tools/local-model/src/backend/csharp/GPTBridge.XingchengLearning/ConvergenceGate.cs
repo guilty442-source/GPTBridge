@@ -472,17 +472,36 @@ internal static class ConvergenceGate
         return "unversioned";
     }
 
-    /// <summary>Architecture drift: the bundle manifest must declare
-    /// xc-fused-1 and carry no quarantined axes (CSA / MLA /
-    /// aux-free lb_bias) under the canonical label.</summary>
+    /// <summary>Architecture drift: the bundle must claim xc-fused-1
+    /// and carry no quarantined axes (CSA / MLA / aux-free lb_bias)
+    /// under the canonical label. provenance.json is the signed
+    /// evidence block and its architecture_profile is authoritative;
+    /// the manifest's architecture_generation is a legacy export-time
+    /// tag consulted only when no provenance exists — a pre-rename
+    /// tag like "current-compatible-profile" can only certify
+    /// xc-fused-1 through provenance, never on its own.</summary>
     private static StepResult ArchitectureDrift(string bundle)
     {
         try
         {
+            string arch = "";
+            string archSrc = "";
+            string provPath = Path.Combine(bundle, "provenance.json");
+            if (File.Exists(provPath))
+            {
+                using var pdoc = JsonDocument.Parse(
+                    File.ReadAllText(provPath));
+                if (pdoc.RootElement.TryGetProperty(
+                        "architecture_profile", out var ap) &&
+                    ap.ValueKind == JsonValueKind.String &&
+                    (ap.GetString() ?? "").Length > 0)
+                { arch = ap.GetString()!; archSrc = "provenance"; }
+            }
             using var doc = JsonDocument.Parse(File.ReadAllText(
                 Path.Combine(bundle, "manifest.json")));
             var root = doc.RootElement;
-            string arch = "";
+            if (arch.Length == 0)
+            {
             JsonElement cfg = root;
             if (root.TryGetProperty("config", out var c) &&
                 c.ValueKind == JsonValueKind.Object)
@@ -712,7 +731,7 @@ internal static class ConvergenceGate
                     e.Keys.Where(k =>
                         string.IsNullOrEmpty(
                             e[k]?.ToString()))));
-            string diag = string.Join(";", missing);
+            diag = string.Join(";", missing);
             var r1 = repo.CreateDataset(sha, snapA, shaA, ex, manifest,
                 createdBy: "convergence-gate");
             var r2 = repo.CreateDataset(sha, snapA, shaA, ex, manifest,

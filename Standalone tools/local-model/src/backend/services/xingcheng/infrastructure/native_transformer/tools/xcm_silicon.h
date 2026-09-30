@@ -528,48 +528,43 @@ int mode_silicon_routing_bench(const Args& a) {
 /// zero vendor runtimes is still npu_present:false.
 int mode_npu_ep_enum(const Args& a) {
     (void)a;
-    struct Ep { const wchar_t* dll; const char* name; };
+    struct Ep { const wchar_t* dll; const char* name; bool npu; };
     static const Ep eps[] = {
-        {L"onnxruntime.dll", "onnxruntime"},
-        {L"QnnHtp.dll", "qnn_htp"},
-        {L"QnnCpu.dll", "qnn_cpu"},
-        {L"openvino.dll", "openvino"},
-        {L"onnxruntime_providers_openvino.dll", "openvino_ep"},
-        {L"migraphx.dll", "migraphx"},
-        {L"winml.dll", "windows_ml"},
-        {L"DirectML.dll", "directml"},
+        {L"onnxruntime.dll", "onnxruntime", false},
+        {L"QnnHtp.dll", "qnn_htp", true},
+        {L"QnnCpu.dll", "qnn_cpu", false},
+        {L"openvino.dll", "openvino", false},
+        {L"onnxruntime_providers_openvino.dll", "openvino_ep", true},
+        {L"migraphx.dll", "migraphx", true},
+        {L"winml.dll", "windows_ml", false},
+        {L"DirectML.dll", "directml", false},
     };
     std::ostringstream o;
     o << "{\"ok\":true,\"mode\":\"npu-ep-enum\","
          "\"format\":\"star-silicon-profile/v1\","
          "\"providers\":[";
     bool first = true;
-    int found = 0;
+    int npu_eps = 0;
 #if defined(_WIN32)
     for (const auto& ep : eps) {
         HMODULE h = LoadLibraryW(ep.dll);
         bool present = h != nullptr;
-        if (h) { FreeLibrary(h); ++found; }
+        if (h) FreeLibrary(h);
+        if (present && ep.npu) ++npu_eps;
         if (!first) o << ',';
         first = false;
         o << "{\"name\":\"" << ep.name << "\",\"dll\":\"";
         // narrow the dll name for JSON
         for (const wchar_t* c = ep.dll; *c; ++c)
             o << (char)*c;
-        o << "\",\"present\":" << (present ? "true" : "false") << "}";
+        o << "\",\"npu_ep\":" << (ep.npu ? "true" : "false")
+          << ",\"present\":" << (present ? "true" : "false") << "}";
     }
-#else
-    o << "]";
 #endif
-    o << "],\"npu_eps_found\":" << found
-      << ",\"npu_present\":" << (found > 2 ? "true" : "false")
+    o << "],\"npu_eps_found\":" << npu_eps
+      << ",\"npu_present\":" << (npu_eps > 0 ? "true" : "false")
       << ",\"note\":\"host layers alone (winml/directml) do not imply "
          "an NPU device or EP\"}\n";
-#if !defined(_WIN32)
-    o.clear(); o.str("");
-    o << "{\"ok\":true,\"mode\":\"npu-ep-enum\",\"providers\":[],"
-         "\"npu_eps_found\":0,\"npu_present\":false}\n";
-#endif
     std::fputs(o.str().c_str(), stdout);
     return 0;
 }

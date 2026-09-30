@@ -34,6 +34,9 @@ internal static class FeatureCatalog
         // path claimed; DEFERRED = contract recorded, intentionally
         // not built this phase.
         "PROBE_ONLY", "DEFERRED",
+        // Scale directive (§64): topology-touching experiment and
+        // training-pipeline futures, distinct from runtime experiments.
+        "EXPERIMENTAL_ARCHITECTURE", "FUTURE_TRAINING",
     };
 
     public sealed record Feature(
@@ -390,6 +393,44 @@ internal static class FeatureCatalog
             "INTEGRATED_RUNTIME", false, true, false,
             "csharp-runtime",
             new[] { "parameter-efficiency-report" }),
+        // ---- model-efficiency/scale directive (Liquid/Solar/OLMo/
+        //      Arctic/Arctic-Embed absorption, §64) ----
+        new("f-hardware-aware-scale", "scale directive",
+            "HardwareAwareScaleSearch — hardware-in-the-loop shape " +
+            "search (never hand-picked sizes)",
+            "INTEGRATED_RUNTIME", false, true, false,
+            "csharp-runtime",
+            new[] { "hardware-scale-search" }),
+        new("f-depth-scale", "scale directive",
+            "DepthScalePlanner — depth before width, canonical " +
+            "3:1 schedule preserved",
+            "EXPERIMENTAL_TRAINING", false, true, false,
+            "csharp-runtime",
+            new[] { "depth-scale-probe" }),
+        new("f-depth-inheritance", "scale directive",
+            "star-depth-inheritance/v1 layer lineage",
+            "EXPERIMENTAL_TRAINING", false, true, false,
+            "csharp-runtime",
+            new[] { "depth-inheritance-probe" }),
+        new("f-fine-grained-expert-scale", "scale directive",
+            "FineGrainedExpertScalingPolicy — count grows, top_k " +
+            "fixed, shared/routed separated",
+            "EXPERIMENTAL_ARCHITECTURE", false, true, false,
+            "csharp-runtime",
+            new[] { "expert-granularity-probe",
+                    "expert-specialization" }),
+        new("f-adaptive-retrieval-representation", "scale directive",
+            "AdaptiveRetrievalRepresentation — FULL/MEDIUM/COMPACT " +
+            "dims + tiered precision + two-stage retrieval",
+            "EXPERIMENTAL_RUNTIME", false, true, false,
+            "csharp-runtime",
+            new[] { "adaptive-embedding-probe",
+                    "retrieval-compression-bench" }),
+        new("f-matryoshka-embedding", "scale directive",
+            "head-dim truncation for self-trained embeddings",
+            "FUTURE_TRAINING", false, true, false,
+            "training",
+            new[] { "adaptive-embedding-probe" }),
     };
 
     private static string Path_(string toolRoot)

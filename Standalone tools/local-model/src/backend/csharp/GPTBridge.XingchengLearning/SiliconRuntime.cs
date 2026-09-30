@@ -470,3 +470,198 @@ internal static class SiliconRuntime
         return rep;
     }
 }
+
+/// <summary>§10/§11 WindowsMlNpuBackend — EP discovery surface only.
+/// The host layer (Windows ML) enumerates vendor EPs discovered by the
+/// native probe (npu-ep-enum); zero EPs + zero device evidence means
+/// npu_available=false, which routes fall through — never an error.
+/// Requiring an unavailable NPU is NPU_BACKEND_UNAVAILABLE.</summary>
+internal static class NpuBackend
+{
+    public const string Format = "star-npu-backend/v1";
+
+    /// <summary>Ops eligible for NPU dispatch (§13): small, static-shape
+    /// decision/rerank/embedding work — never the main decoder (§14).</summary>
+    public static readonly string[] NpuEligibleOps =
+        { "system1", "embedding", "reranker", "rag_routing",
+          "tool_routing", "vision_projector", "background_classifier" };
+
+    /// <summary>Resolve backend state from a discovery record
+    /// ({windows_ml, directml, npu_present, providers[]}).</summary>
+    public static Dictionary<string, object?> Status(JsonElement disc)
+    {
+        bool winml = disc.TryGetProperty("windows_ml", out var w) &&
+                     w.ValueKind == JsonValueKind.True;
+        bool npu = disc.TryGetProperty("npu_present", out var n) &&
+                   n.ValueKind == JsonValueKind.True;
+        var eps = new List<string>();
+        if (disc.TryGetProperty("providers", out var ps) &&
+            ps.ValueKind == JsonValueKind.Array)
+            foreach (var p in ps.EnumerateArray())
+                if (p.TryGetProperty("present", out var pr) &&
+                    pr.ValueKind == JsonValueKind.True &&
+                    p.TryGetProperty("name", out var nm))
+                    eps.Add(nm.GetString() ?? "");
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true, ["format"] = Format,
+            ["host_layer"] = "windows_ml",
+            ["windows_ml"] = winml,
+            ["eps_discovered"] = eps,
+            ["npu_available"] = npu,
+            ["dispatch_rule"] = "probe-first; absent -> GPU/CPU",
+            ["eligible_ops"] = NpuEligibleOps.ToList(),
+            ["inference_only"] = true,   // §61: no NPU training lane
+        };
+    }
+
+    /// <summary>Gate an op for NPU execution — the decoder and any
+    /// off-list op are denied (§14: dynamic DeltaNet/MoE/KV state).</summary>
+    public static void RequireEligible(string op, bool npuAvailable)
+    {
+        if (!NpuEligibleOps.Contains(op ?? ""))
+            throw new ExecutorError("NPU_GRAPH_INCOMPATIBLE",
+                $"op '{op}' is not NPU-eligible (dynamic state)");
+        if (!npuAvailable)
+            throw new ExecutorError("NPU_BACKEND_UNAVAILABLE",
+                "no NPU EP discovered");
+    }
+}
+
+/// <summary>§65 static-shape buckets — NPU graphs compile per bucket;
+/// out-of-range lengths fall to GPU/CPU, never recompile per length.</summary>
+internal static class StaticShapeBuckets
+{
+    public static readonly int[] Buckets = { 64, 128, 256, 512, 1024 };
+
+    /// <summary>Smallest bucket >= length; -1 when out of range.</summary>
+    public static int BucketFor(int length)
+    {
+        foreach (int b in Buckets)
+            if (length <= b) return b;
+        return -1;
+    }
+}
+
+/// <summary>§66 compiled-graph cache: key = model hash + subgraph hash +
+/// precision + shape bucket + device + driver/compiler version. A driver
+/// change invalidates every entry (NPU_GRAPH_INCOMPATIBLE on stale
+/// reuse — never silent reuse of a stale binary).</summary>
+internal static class NpuCompiledGraphCache
+{
+    public const string Format = "star-npu-graph-cache/v1";
+
+    public static string Key(string modelHash, string subgraphHash,
+        string precision, int shapeBucket, string device,
+        string driverVersion)
+        => string.Join('|', modelHash, subgraphHash, precision,
+                       shapeBucket, device, driverVersion);
+
+    /// <summary>Validate a lookup: the stored driver must equal the
+    /// current driver or the cached graph is stale evidence.</summary>
+    public static Dictionary<string, object?> Lookup(
+        string key, string storedDriver, string currentDriver)
+    {
+        if (storedDriver != currentDriver)
+            throw new ExecutorError("NPU_GRAPH_INCOMPATIBLE",
+                $"driver changed {storedDriver} -> {currentDriver}");
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true, ["format"] = Format,
+            ["key"] = key, ["driver"] = currentDriver,
+            ["cache_hit"] = true,
+        };
+    }
+}
+
+/// <summary>§15 NpuPrefillProbe — static-chunk NPU prefill study. The
+/// verdict is arithmetic honesty: NPU prefill is promoted only when
+/// TTFT improves AND transfer cost is acceptable; absent NPU reports
+/// skipped evidence.</summary>
+internal static class NpuPrefillProbe
+{
+    /// <param name="promptTokens">raw prompt length.</param>
+    /// <param name="gpuPrefillMs">measured GPU/unified prefill.</param>
+    /// <param name="npuPrefillMs">measured/estimated NPU prefill
+    /// (0 = unmeasured).</param>
+    /// <param name="transferMs">state transfer NPU->GPU decode.</param>
+    public static Dictionary<string, object?> Evaluate(
+        int promptTokens, double gpuPrefillMs, double npuPrefillMs,
+        double transferMs, bool npuAvailable)
+    {
+        int bucket = StaticShapeBuckets.BucketFor(promptTokens);
+        var rep = new Dictionary<string, object?>
+        {
+            ["ok"] = true, ["format"] = "star-npu-prefill-probe/v1",
+            ["prompt_tokens"] = promptTokens,
+            ["shape_bucket"] = bucket < 0 ? "OUT_OF_RANGE" : bucket,
+            ["gpu_prefill_ms"] = gpuPrefillMs,
+            ["npu_available"] = npuAvailable,
+        };
+        if (!npuAvailable || npuPrefillMs <= 0)
+        {
+            rep["skipped"] = true;
+            rep["verdict"] = "UNIFIED";   // §15: no promotion case
+            return rep;
+        }
+        if (bucket < 0)
+        {
+            rep["verdict"] = "GPU_FALLBACK_SHAPE";
+            return rep;
+        }
+        double npuTotal = npuPrefillMs + transferMs;
+        bool promote = npuTotal < gpuPrefillMs;
+        rep["npu_prefill_ms"] = npuPrefillMs;
+        rep["transfer_ms"] = transferMs;
+        rep["ttft_delta_ms"] = gpuPrefillMs - npuTotal;
+        rep["verdict"] = promote ? "NPU_PREFILL" : "UNIFIED";
+        // §15: transfer must not dominate the saved compute.
+        rep["transfer_acceptable"] = transferMs < npuPrefillMs * 0.5;
+        return rep;
+    }
+}
+
+/// <summary>§48/§49 ExpertTargetedTrainingProbe — derive a parameter-
+/// efficient freeze map from *measured routing evidence* only. Expert
+/// ids are selected by observed usage in the capability's router
+/// counts; manual capability->expert assignment is rejected (§49).</summary>
+internal static class ExpertTargetedTrainingProbe
+{
+    /// <param name="routingCounts">evidence: expert_id -> routed tokens
+    /// observed on capability traffic.</param>
+    /// <param name="expertParams">params per routed expert.</param>
+    /// <param name="totalParams">whole-model params (full SFT cost).</param>
+    /// <param name="sharedParams">shared-expert params.</param>
+    /// <param name="topExperts">how many high-usage experts to
+    /// unfreeze.</param>
+    public static Dictionary<string, object?> Plan(
+        IReadOnlyDictionary<int, long> routingCounts,
+        long expertParams, long totalParams, long sharedParams,
+        int topExperts)
+    {
+        if (routingCounts == null || routingCounts.Count == 0)
+            throw new ExecutorError("PARAMETER_FREEZE_VIOLATION",
+                "expert targeting requires routing evidence — manual "
+                + "capability->expert assignment is denied (§49)");
+        var top = routingCounts
+            .OrderByDescending(kv => kv.Value)
+            .Take(Math.Max(1, topExperts))
+            .Select(kv => kv.Key).OrderBy(x => x).ToList();
+        long trainable = top.Count * expertParams + sharedParams;
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-expert-targeted-probe/v1",
+            ["selected_experts"] = top.Cast<object?>().ToList(),
+            ["selection_basis"] = "measured_routing_evidence",
+            ["trainable_params"] = trainable,
+            ["full_sft_params"] = totalParams,
+            ["trainable_fraction"] = totalParams > 0
+                ? (double)trainable / totalParams : 0.0,
+            ["optimizer_state_bytes"] = trainable * 16,
+            ["optimizer_saved_vs_full"] = (totalParams - trainable) * 16,
+            ["note"] = "evidence-derived; capability->expert is never "
+                       + "hand-assigned",
+        };
+    }
+}

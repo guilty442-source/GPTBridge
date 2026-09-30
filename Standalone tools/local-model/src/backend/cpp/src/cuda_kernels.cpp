@@ -35,6 +35,15 @@
 #include <unordered_map>
 #include <vector>
 
+// §3 single allocator: this TU's device bytes — bf16/fp8 weight
+// copies, per-call scratch pools and the device KV cache — all flow
+// through the same UnifiedCudaMemoryManager as the cuBLAS bridge.
+// Driver kernels launch on stream 0 inside the primary context, which
+// the runtime-API pool pointers are also valid in, so no second
+// allocator or context is ever created.
+#include "cuda_memplane.h"
+namespace mp = xcm_memplane;
+
 namespace {
 
 // ---------------------------------------------------------------- types --
@@ -627,28 +636,57 @@ std::unordered_map<const void*, CUdevptr_t> g_bf16_weights;
 std::mutex g_fp8_mu;
 std::unordered_map<const void*, CUdevptr_t> g_fp8_weights;
 
-CUdevptr_t dev_alloc(size_t bytes) {
-    CUdevptr_t p = 0;
-    if (g_drv.mem_alloc(&p, bytes) != kCudaSuccess) return 0;
-    return p;
+// §3: every device byte comes from the unified manager — its budget,
+// ladder and telemetry all apply to the kernel lanes too. A pool miss
+// is a typed failure (0), never a driver-side fallback allocator.
+// Pool blocks are made visible to stream 0 by the manager's alloc-time
+// lane drain, so kernel launches need no extra dependency.
+CUdevptr_t dev_alloc(size_t bytes, mp::Tier tier) {
+    if (!mp::mgr().ensure()) return 0;
+    void* p = mp::mgr().alloc(tier, static_cast<int64_t>(bytes),
+                              mp::StreamLane::PREFILL_NORMAL);
+    return (p != nullptr && p != &mp::mgr()) ?
+               static_cast<CUdevptr_t>(
+                   reinterpret_cast<uintptr_t>(p)) :
+               0;
 }
 
 void dev_free(CUdevptr_t p) {
-    if (p != 0) g_drv.mem_free(p);
+    if (p == 0) return;
+    // Kernels ride driver stream 0; drain the context so a pooled
+    // block is never recycled under an in-flight launch. Frees are
+    // lifecycle/growth events — never per-token (§4).
+    if (g_drv.ctx_sync) g_drv.ctx_sync();
+    mp::mgr().free(reinterpret_cast<void*>(
+                       static_cast<uintptr_t>(p)),
+                   mp::StreamLane::PREFILL_NORMAL);
+}
+
+// Transfer wrappers so §53 copy accounting covers the kernel lanes.
+CUresult_t xmemcpy_htod(CUdevptr_t dst, const void* src, size_t n) {
+    CUresult_t rc = g_drv.memcpy_htod(dst, src, n);
+    if (rc == kCudaSuccess) mp::mgr().h2d_bytes += (int64_t)n;
+    return rc;
+}
+
+CUresult_t xmemcpy_dtoh(void* dst, CUdevptr_t src, size_t n) {
+    CUresult_t rc = g_drv.memcpy_dtoh(dst, src, n);
+    if (rc == kCudaSuccess) mp::mgr().d2h_bytes += (int64_t)n;
+    return rc;
 }
 
 // Quantize host f64 → fresh device bf16 buffer (caller frees).
 CUdevptr_t upload_bf16(const double* host, long long elems) {
     const size_t f64b = static_cast<size_t>(elems) * sizeof(double);
     const size_t bfb = static_cast<size_t>(elems) * 2;
-    CUdevptr_t staging = dev_alloc(f64b);
+    CUdevptr_t staging = dev_alloc(f64b, mp::Tier::KERNEL_SCRATCH);
     if (staging == 0) return 0;
-    CUdevptr_t dev = dev_alloc(bfb);
+    CUdevptr_t dev = dev_alloc(bfb, mp::Tier::PINNED_PERMANENT);
     if (dev == 0) {
         dev_free(staging);
         return 0;
     }
-    if (g_drv.memcpy_htod(staging, host, f64b) != kCudaSuccess) {
+    if (xmemcpy_htod(staging, host, f64b) != kCudaSuccess) {
         dev_free(staging);
         dev_free(dev);
         return 0;
@@ -688,7 +726,7 @@ struct DevPool {
 
 CUdevptr_t dev_get_pooled(DevPool& pool, size_t bytes) {
     if (pool.cap >= bytes) return pool.p;
-    CUdevptr_t next = dev_alloc(bytes);
+    CUdevptr_t next = dev_alloc(bytes, mp::Tier::KERNEL_SCRATCH);
     if (next == 0) return 0;
     if (pool.p != 0) dev_free(pool.p);
     pool.p = next;
@@ -729,7 +767,7 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
         dev_get_pooled(g_bf16_dc, static_cast<size_t>(c_elems) * sizeof(float));
     if (a_stage == 0 || da == 0 || dc == 0) goto done;
     g_bf16_c_host.resize(static_cast<size_t>(c_elems));
-    if (g_drv.memcpy_htod(a_stage, a,
+    if (xmemcpy_htod(a_stage, a,
                           static_cast<size_t>(a_elems) * sizeof(double)) !=
         kCudaSuccess) {
         goto done;
@@ -788,7 +826,7 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
     // The synchronous D2H is stream-ordered after the queued kernels, so
     // it drains the pipeline and surfaces kernel errors on its own — the
     // extra device-wide cuCtxSynchronize on the hot path is redundant.
-    if (g_drv.memcpy_dtoh(g_bf16_c_host.data(), dc,
+    if (xmemcpy_dtoh(g_bf16_c_host.data(), dc,
                           static_cast<size_t>(c_elems) * sizeof(float)) !=
         kCudaSuccess) {
         goto done;
@@ -804,14 +842,14 @@ done:
 CUdevptr_t upload_fp8(const double* host, long long elems) {
     const size_t f64b = static_cast<size_t>(elems) * sizeof(double);
     const size_t f8b = static_cast<size_t>(elems);
-    CUdevptr_t staging = dev_alloc(f64b);
+    CUdevptr_t staging = dev_alloc(f64b, mp::Tier::KERNEL_SCRATCH);
     if (staging == 0) return 0;
-    CUdevptr_t dev = dev_alloc(f8b);
+    CUdevptr_t dev = dev_alloc(f8b, mp::Tier::PINNED_PERMANENT);
     if (dev == 0) {
         dev_free(staging);
         return 0;
     }
-    if (g_drv.memcpy_htod(staging, host, f64b) != kCudaSuccess) {
+    if (xmemcpy_htod(staging, host, f64b) != kCudaSuccess) {
         dev_free(staging);
         dev_free(dev);
         return 0;
@@ -857,7 +895,7 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
         dev_get_pooled(g_fp8_dc, static_cast<size_t>(c_elems) * sizeof(float));
     if (a_stage == 0 || da == 0 || dc == 0) goto done;
     g_fp8_c_host.resize(static_cast<size_t>(c_elems));
-    if (g_drv.memcpy_htod(a_stage, a,
+    if (xmemcpy_htod(a_stage, a,
                           static_cast<size_t>(a_elems) * sizeof(double)) !=
         kCudaSuccess) {
         goto done;
@@ -912,7 +950,7 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
         }
     }
     // Same reasoning as run_bf16: the synchronous D2H drains the stream.
-    if (g_drv.memcpy_dtoh(g_fp8_c_host.data(), dc,
+    if (xmemcpy_dtoh(g_fp8_c_host.data(), dc,
                           static_cast<size_t>(c_elems) * sizeof(float)) !=
         kCudaSuccess) {
         goto done;
@@ -947,7 +985,8 @@ bool grow_scratch(CUdevptr_t* buf, size_t* cap, size_t need_elems) {
     dev_free(*buf);
     *buf = 0;
     *cap = 0;
-    *buf = dev_alloc(need_elems * sizeof(double));
+    *buf = dev_alloc(need_elems * sizeof(double),
+                     mp::Tier::KERNEL_SCRATCH);
     if (*buf == 0) return false;
     *cap = need_elems;
     return true;
@@ -1092,9 +1131,11 @@ int xcuda_kv_alloc(long long layers, long long kv_heads, long long head_dim,
                        static_cast<size_t>(kv_heads) *
                        static_cast<size_t>(max_len) *
                        static_cast<size_t>(head_dim);
-    g_k = dev_alloc(elems * sizeof(double));
+    g_k = dev_alloc(elems * sizeof(double),
+                    mp::Tier::SESSION_PERSISTENT);
     if (g_k == 0) return 2;
-    g_v = dev_alloc(elems * sizeof(double));
+    g_v = dev_alloc(elems * sizeof(double),
+                    mp::Tier::SESSION_PERSISTENT);
     if (g_v == 0) {
         dev_free(g_k);
         g_k = 0;
@@ -1126,7 +1167,7 @@ int xcuda_kv_write_rows(int is_k, long long layer, long long head,
         static_cast<CUdevptr_t>(
             (layer * g_kv_heads + head) * g_max_len + pos0) *
             static_cast<CUdevptr_t>(g_head_dim) * sizeof(double);
-    if (g_drv.memcpy_htod(
+    if (xmemcpy_htod(
             base, src,
             static_cast<size_t>(rows) * static_cast<size_t>(g_head_dim) *
                 sizeof(double)) != kCudaSuccess) {
@@ -1162,7 +1203,7 @@ int xcuda_kv_attention(long long layer, const double* q_host,
         !grow_scratch(&g_obuf, &g_ocap, o_elems)) {
         return 2;
     }
-    if (g_drv.memcpy_htod(g_qbuf, q_host, q_elems * sizeof(double)) !=
+    if (xmemcpy_htod(g_qbuf, q_host, q_elems * sizeof(double)) !=
         kCudaSuccess) {
         return 2;
     }
@@ -1194,7 +1235,7 @@ int xcuda_kv_attention(long long layer, const double* q_host,
         }
     }
     if (g_drv.ctx_sync() != kCudaSuccess) return 3;
-    if (g_drv.memcpy_dtoh(out_host, g_obuf, o_elems * sizeof(double)) !=
+    if (xmemcpy_dtoh(out_host, g_obuf, o_elems * sizeof(double)) !=
         kCudaSuccess) {
         return 3;
     }
