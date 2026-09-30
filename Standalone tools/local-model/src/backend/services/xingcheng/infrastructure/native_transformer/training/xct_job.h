@@ -878,3 +878,164 @@ static int rulecheck() {
                 failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }
+
+// ------------------------------------------------------------- inputcheck --
+
+// Input layer: token embedding (lookup table) + positional encoding.
+// The architecture gathers all token rows in parallel — there is no
+// RNN-style sequential input — so order information must be injected
+// afterwards: rotary position coding on full-attention q/k, and the
+// strictly forward recurrent state inside the deltanet/conv mixers.
+// Probes: layer-0 residual input rows are bitwise the embed lookup rows
+// (content only, no position); permuting ids permutes those rows; the
+// rope score field is translation-invariant (relative positions) but
+// non-degenerate across offsets; partial rotary leaves channels >= rd
+// untouched; and reordered inputs produce different logits.
+static int inputcheck() {
+    int failures = 0;
+    auto fail = [&](const char* what) {
+        ++failures;
+        std::printf("  FAIL %s\n", what);
+    };
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+    c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+    c.full_attention_interval = 2;
+    c.attn_output_gate = true;
+    c.qk_norm = true;
+    c.partial_rotary = 0.5f;
+    c.lin_key_heads = 1; c.lin_key_dim = 32;
+    c.lin_value_heads = 2; c.lin_value_dim = 32;
+    c.lin_conv_kernel = 4;
+    Params p;
+    init_params(p, c, 23);
+    std::vector<int> ids = {3, 7, 11, 5, 7, 19, 23, 7, 29, 31, 37, 7};
+    const int T = (int)ids.size();
+    const int H = c.hidden;
+    Fwd fw;
+    fwd(p, c, ids, fw);
+
+    // (1) token embedding is a lookup table: x_in[t] == embed[ids[t]]
+    const std::vector<float>& xin = fw.layers[0].x_in;
+    const float* emb = p.w.at("embed").d.data();
+    for (int t = 0; t < T; ++t)
+        if (std::memcmp(xin.data() + (size_t)t * H,
+                        emb + (size_t)ids[t] * H,
+                        (size_t)H * sizeof(float)) != 0)
+            fail("input: embed lookup");
+    // same token, different positions -> identical embedding rows
+    for (int a = 0; a < T; ++a)
+        for (int b = a + 1; b < T; ++b)
+            if (ids[a] == ids[b] &&
+                std::memcmp(xin.data() + (size_t)a * H,
+                            xin.data() + (size_t)b * H,
+                            (size_t)H * sizeof(float)) != 0)
+                fail("input: repeat-token rows");
+    // permuting ids permutes exactly those rows (content-only channel)
+    {
+        std::vector<int> sw = ids;
+        std::swap(sw[0], sw[1]);
+        Fwd fs;
+        fwd(p, c, sw, fs);
+        const std::vector<float>& xs = fs.layers[0].x_in;
+        for (int t = 0; t < T; ++t)
+            if (std::memcmp(xs.data() + (size_t)t * H,
+                            emb + (size_t)sw[t] * H,
+                            (size_t)H * sizeof(float)) != 0)
+                fail("input: permuted lookup");
+        if (std::memcmp(fw.logits.data(), fs.logits.data(),
+                        (size_t)T * c.vocab * sizeof(float)) == 0)
+            fail("input: order ignored (position not encoded)");
+    }
+
+    // (2) positional encoding: rotary carries relative order on q/k
+    {
+        const int TR = 16, hd = 16, nh = 1;
+        const float theta = c.rope_theta;
+        auto rot = [&](float* v) {
+            rope(v, TR, nh, hd, theta, false);
+        };
+        auto score = [&](const float* q, const float* k, int t, int s) {
+            return tpu_dot(q + (size_t)t * hd, k + (size_t)s * hd, hd);
+        };
+        // relative property: score(t,s) == score(t+d,s+d)
+        {
+            std::vector<float> q((size_t)TR * hd), k((size_t)TR * hd);
+            for (int t = 0; t < TR; ++t)
+                for (int i = 0; i < hd; ++i) {
+                    q[(size_t)t * hd + i] =
+                        std::sin(0.37f * i + 0.11f);
+                    k[(size_t)t * hd + i] =
+                        std::cos(0.29f * i + 0.23f);
+                }
+            rot(q.data()); rot(k.data());
+            for (int d = -4; d <= 4; ++d)
+                for (int t = 0; t < TR; ++t)
+                    for (int s = 0; s < TR; ++s) {
+                        int t2 = t + d, s2 = s + d;
+                        if (t2 < 0 || s2 < 0 || t2 >= TR || s2 >= TR)
+                            continue;
+                        float a = score(q.data(), k.data(), t, s);
+                        float b = score(q.data(), k.data(), t2, s2);
+                        if (std::fabs(a - b) > 2e-4f)
+                            fail("input: rope relativity");
+                    }
+            // non-degenerate: different offsets give different scores
+            float s1 = score(q.data(), k.data(), 5, 5);
+            float s2 = score(q.data(), k.data(), 5, 3);
+            if (std::fabs(s1 - s2) < 1e-6f)
+                fail("input: rope degenerate");
+            // inverse rotation restores the raw vectors
+            std::vector<float> qr((size_t)TR * hd);
+            for (int t = 0; t < TR; ++t)
+                for (int i = 0; i < hd; ++i)
+                    qr[(size_t)t * hd + i] = 0.31f * i - 0.02f * t;
+            std::vector<float> raw = qr;
+            rope(qr.data(), TR, nh, hd, theta, false);
+            rope(qr.data(), TR, nh, hd, theta, true);
+            for (size_t i = 0; i < qr.size(); ++i)
+                if (std::fabs(qr[i] - raw[i]) > 1e-5f)
+                    fail("input: rope inverse");
+        }
+        // partial rotary: channels >= rd are untouched by the encoding
+        {
+            const int rd = 8;
+            std::vector<float> v((size_t)TR * hd), raw;
+            for (int t = 0; t < TR; ++t)
+                for (int i = 0; i < hd; ++i)
+                    v[(size_t)t * hd + i] = 0.13f * i + 0.07f * t;
+            raw = v;
+            rope_hf_partial(v.data(), TR, nh, hd, rd, theta, false);
+            for (int t = 0; t < TR; ++t) {
+                const float* r = v.data() + (size_t)t * hd;
+                const float* w0 = raw.data() + (size_t)t * hd;
+                for (int i = rd; i < hd; ++i)
+                    if (r[i] != w0[i])
+                        fail("input: partial rope tail");
+                bool rotated = false;
+                for (int i = 0; i < rd; ++i)
+                    if (std::fabs(r[i] - w0[i]) > 1e-6f) rotated = true;
+                if (t > 0 && !rotated)
+                    fail("input: partial rope head");
+            }
+        }
+    }
+
+    // (3) parallel-input + position contract at model level: reversing
+    // the sequence changes the outputs — order reaches the model through
+    // the positional code, not through the embedding gather.
+    {
+        std::vector<int> rev = ids;
+        std::reverse(rev.begin(), rev.end());
+        Fwd fr;
+        fwd(p, c, rev, fr);
+        if (std::memcmp(fw.logits.data(), fr.logits.data(),
+                        (size_t)T * c.vocab * sizeof(float)) == 0)
+            fail("input: reversed order identical");
+    }
+
+    bool ok = failures == 0;
+    std::printf("inputcheck: embed+position failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}

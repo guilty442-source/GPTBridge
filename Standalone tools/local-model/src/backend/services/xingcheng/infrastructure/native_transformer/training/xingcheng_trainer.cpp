@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --inputcheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -34,6 +34,13 @@
 //   layer must move the residual stream, receive nonzero gradient at
 //   depth, and stay learnable. --depthcheck probes an 8-layer fused
 //   stack executably.
+//
+// Input layer (parallel gather + positional code): token ids are looked
+//   up in the embed table in one shot — no sequential input — and order
+//   reaches the mixers through rotary position coding (full attention)
+//   and the forward recurrent state (deltanet/conv). --inputcheck proves
+//   the lookup rows are bitwise, the rope score field is relative, and
+//   reordered inputs change the outputs.
 //
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
@@ -111,10 +118,11 @@ int main(int argc, char** argv) {
         else if (a == "--headcheck") return xct::headcheck();
         else if (a == "--rulecheck") return xct::rulecheck();
         else if (a == "--depthcheck") return xct::depthcheck();
+        else if (a == "--inputcheck") return xct::inputcheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --inputcheck\n");
         return 2;
     }
     try {
