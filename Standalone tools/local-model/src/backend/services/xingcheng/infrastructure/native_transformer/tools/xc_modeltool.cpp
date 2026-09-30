@@ -4848,6 +4848,18 @@ int mode_hw_baseline(const Args& a) {
     std::atomic<unsigned> util_max{0}, power_max{0};
     std::atomic<int> util_seen{0}, power_seen{0};
     std::thread sampler;
+    // RAII: a throw from the bench (e.g. SEQUENCE_EXCEEDS_MAX_POSITION_
+    // EMBEDDINGS) must still stop+join the sampler — a joinable thread
+    // destructing calls std::terminate and turns a governed error into
+    // a silent crash.
+    struct SamplerGuard {
+        std::atomic<bool>& run;
+        std::thread& t;
+        ~SamplerGuard() {
+            run.store(false);
+            if (t.joinable()) t.join();
+        }
+    } sampler_guard{sample_run, sampler};
     if (nvml_ready) {
         sampler = std::thread([&] {
             while (sample_run.load()) {
