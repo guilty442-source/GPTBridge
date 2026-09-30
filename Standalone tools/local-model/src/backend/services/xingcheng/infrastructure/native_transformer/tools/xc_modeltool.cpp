@@ -2790,6 +2790,11 @@ int mode_serve(const Args& a) {
                 if (max_new > 2048) max_new = 2048;
 
                 std::vector<int64_t> pids = engine.encode(prompt, true, false);
+                // §16 opt-in two-level MoE trace: per-request router
+                // evidence, record-and-analyse only.
+                const bool want_trace =
+                    serve_bool(req, "router_trace", false);
+                engine.set_router_trace(want_trace);
                 auto t0 = std::chrono::steady_clock::now();
                 std::vector<int64_t> out =
                     engine.generate(pids, max_new, sc);
@@ -2845,6 +2850,36 @@ int mode_serve(const Args& a) {
                     o << out[i];
                 }
                 o << ']';
+                if (want_trace) {
+                    // router_layers[] — the star-capability-trace/v1
+                    // inner layer: unique selected neural experts per
+                    // MoE layer plus shared-expert usage.
+                    o << ",\"router_layers\":[";
+                    bool first_l = true;
+                    for (const auto& tr : engine.router_trace()) {
+                        if (!first_l) o << ',';
+                        first_l = false;
+                        std::vector<int64_t> uniq(tr.expert_ids);
+                        std::sort(uniq.begin(), uniq.end());
+                        uniq.erase(
+                            std::unique(uniq.begin(), uniq.end()),
+                            uniq.end());
+                        o << "{\"layer_id\":" << tr.layer_id
+                          << ",\"router_type\":\"" << tr.router_type
+                          << "\",\"selected_neural_experts\":[";
+                        for (size_t ei = 0; ei < uniq.size(); ++ei)
+                            o << (ei ? "," : "") << uniq[ei];
+                        o << "],\"shared_expert_used\":"
+                          << (tr.shared_experts > 0 ? "true" : "false")
+                          << ",\"shared_expert_gated\":"
+                          << (tr.shared_expert_gated ? "true" : "false")
+                          << ",\"top_k\":" << tr.top_k
+                          << ",\"token_count\":" << tr.token_count
+                          << '}';
+                    }
+                    o << ']';
+                    engine.set_router_trace(false);
+                }
                 o << ",\"generated_tokens\":" << (int64_t)out.size()
                   << ",\"latency_ms\":" << elapsed * 1000.0
                   << ",\"model_id\":\"xingcheng-native-transformer\""

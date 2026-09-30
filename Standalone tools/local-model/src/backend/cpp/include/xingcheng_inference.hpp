@@ -351,6 +351,30 @@ public:
     void set_kv_memory_limit(int64_t bytes);
     void set_prefix_cache_limit(int64_t max_entries, int64_t max_bytes);
 
+    // §16 two-level MoE trace: opt-in per-layer router evidence captured
+    // during the last forward — router_type (sigmoid_topk|softmax_topk),
+    // the deterministic top-k selection and the normalized mixing
+    // weights per token, plus shared-expert usage. Disabled by default;
+    // costs nothing when off.
+    struct RouterLayerTrace {
+        int64_t layer_id = 0;
+        std::string router_type;
+        int64_t top_k = 0;
+        int64_t token_count = 0;
+        // flattened [token_count * top_k] parallel arrays.
+        std::vector<int64_t> expert_ids;
+        std::vector<double> weights;
+        int64_t shared_experts = 0;
+        bool shared_expert_gated = false;
+    };
+    void set_router_trace(bool on) {
+        if (on) router_trace_.clear();
+        router_trace_enabled_ = on;
+    }
+    const std::vector<RouterLayerTrace>& router_trace() const {
+        return router_trace_;
+    }
+
 private:
     struct LayerWeights {
         TensorView input_norm;
@@ -688,6 +712,8 @@ private:
         const std::vector<int64_t>& previous,
         const SamplingConfig& sampling,
         uint64_t& rng_state) const;
+    bool router_trace_enabled_ = false;
+    std::vector<RouterLayerTrace> router_trace_;
 };
 
 std::string parse_generated_output(const std::string& text, int64_t max_json_bytes);
