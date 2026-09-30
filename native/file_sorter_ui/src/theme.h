@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <uxtheme.h>
 
+#include <cmath>
 #include <string>
 
 #include "utf8.h"
@@ -102,7 +103,7 @@ inline void corner_tick(HDC dc, int x, int y, int dx, int dy, int L,
 }
 
 /* HUD-style card: chamfered panel + neon slash on the cut corner +
- * corner ticks at the two sharp corners. */
+ * corner ticks + specular top edge (catches the light). */
 inline void card(HDC dc, RECT rc) {
     fill_chamfer(dc, rc, 16, kCard, kCardEdge);
     HPEN pen = CreatePen(PS_SOLID, 2, kAccent);
@@ -111,8 +112,35 @@ inline void card(HDC dc, RECT rc) {
     LineTo(dc, rc.left + 22, rc.top + 2);
     SelectObject(dc, op);
     DeleteObject(pen);
+    /* specular highlight along the top edge — shallow glass feel */
+    pen = CreatePen(PS_SOLID, 1, kFieldEdge);
+    op = SelectObject(dc, pen);
+    MoveToEx(dc, rc.left + 26, rc.top + 1, nullptr);
+    LineTo(dc, rc.right - 1, rc.top + 1);
+    SelectObject(dc, op);
+    DeleteObject(pen);
     corner_tick(dc, rc.right - 10, rc.top + 10, -1, 1, 12, kTag);
     corner_tick(dc, rc.left + 10, rc.bottom - 10, 1, -1, 12, kTag);
+}
+
+/* hexagon badge outline — HUD unit emblem. */
+inline void hex_badge(HDC dc, int cx, int cy, int r, COLORREF edge,
+                      COLORREF core) {
+    POINT p[6];
+    for (int i = 0; i < 6; ++i) {
+        double a = 3.14159265 / 3.0 * i;
+        p[i] = {cx + (int)(r * cos(a)), cy + (int)(r * 0.85 * sin(a))};
+    }
+    HPEN pen = CreatePen(PS_SOLID, 2, edge);
+    HGDIOBJ ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
+    HGDIOBJ op = SelectObject(dc, pen);
+    Polygon(dc, p, 6);
+    SelectObject(dc, GetStockObject(NULL_PEN));
+    SelectObject(dc, brush(core));
+    Ellipse(dc, cx - 3, cy - 3, cx + 3, cy + 3);
+    SelectObject(dc, ob);
+    SelectObject(dc, op);
+    DeleteObject(pen);
 }
 
 /* staggered dot-grid backdrop (pattern brush — one tile repeated). */

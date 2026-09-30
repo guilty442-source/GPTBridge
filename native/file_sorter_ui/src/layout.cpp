@@ -127,7 +127,7 @@ void build_layout(HWND content) {
 
     /* ---- header (on bg, no card) ---- */
     HWND kicker = L.label(tr::kKicker, Lay::x + 2, L.y, 400, 14,
-                          g_app.font_mono);
+                          g_app.font_tech);
     theme::mark_cyan(kicker);
     L.y += 18;
     L.label(tr::kTitle, Lay::x + 2, L.y, 460, 32, g_app.font_heading);
@@ -215,20 +215,20 @@ void build_layout(HWND content) {
                                             ix + 74, L.y, 210, 50, 100, 96);
     SendMessageW(u.tb_threshold, WM_SETFONT, (WPARAM)g_app.font, TRUE);
     u.lbl_threshold = L.label("96", ix + 292, L.y + 6, 40, 18,
-                              g_app.font_small);
+                              g_app.font_tech);
     L.label(tr::kSpeedLbl, ix + 340, L.y + 6, 70, 18, g_app.font_small);
     u.tb_speed = widgets::create_slider(content, IDC_TB_SPEED,
                                         ix + 414, L.y, 210, 1, 100, 50);
-    u.lbl_speed = L.label("50", ix + 632, L.y + 6, 40, 18, g_app.font_small);
+    u.lbl_speed = L.label("50", ix + 632, L.y + 6, 40, 18, g_app.font_tech);
     L.y += 38;
     L.label(tr::kTempLbl, ix, L.y + 6, 50, 18, g_app.font_small);
     u.tb_temp = widgets::create_slider(content, IDC_TB_TEMP,
                                        ix + 54, L.y, 170, 0, 200, 0);
-    u.lbl_temp = L.label("0.00", ix + 232, L.y + 6, 50, 18, g_app.font_small);
+    u.lbl_temp = L.label("0.00", ix + 232, L.y + 6, 50, 18, g_app.font_tech);
     L.label(tr::kTopPLbl, ix + 290, L.y + 6, 50, 18, g_app.font_small);
     u.tb_topp = widgets::create_slider(content, IDC_TB_TOPP,
                                        ix + 344, L.y, 170, 0, 100, 90);
-    u.lbl_topp = L.label("0.90", ix + 522, L.y + 6, 50, 18, g_app.font_small);
+    u.lbl_topp = L.label("0.90", ix + 522, L.y + 6, 50, 18, g_app.font_tech);
     L.y += 38;
     L.label(tr::kCtxLbl, ix, L.y + 4, 70, 18, g_app.font_small);
     u.ctx_edit = L.edit(IDC_CTX_EDIT, ix + 74, L.y, 90, 24, ES_NUMBER);

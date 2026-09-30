@@ -61,6 +61,7 @@ struct App {
     HFONT font_mono = nullptr;
     HFONT font_heading = nullptr;
     HFONT font_small = nullptr;
+    HFONT font_tech = nullptr; /* Bahnschrift — Latin HUD labels */
     bool editing_target = false;
     /* card rects painted by the content window's WM_PAINT */
     std::vector<RECT> cards;

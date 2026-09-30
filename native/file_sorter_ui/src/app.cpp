@@ -288,7 +288,8 @@ void draw_button(const DRAWITEMSTRUCT* dis) {
                                          : theme::kSecondary);
     if (disabled) fill = theme::kDisabled;
     theme::fill_chamfer(dis->hDC, dis->rcItem, 8, fill,
-                        accent ? theme::kAccentDn : theme::kFieldEdge);
+                        accent ? theme::kAccentDn
+                               : hot ? theme::kAccent : theme::kFieldEdge);
     /* neon slash across the cut corner — reticle detail */
     if (accent && !disabled) {
         HPEN pen = CreatePen(PS_SOLID, 1, theme::kOnAccent);
@@ -325,15 +326,14 @@ void draw_check(const DRAWITEMSTRUCT* dis) {
                         checked ? theme::kAccent : theme::kField,
                         checked ? theme::kAccentHot : theme::kFieldEdge);
     if (checked) {
-        HPEN pen = CreatePen(PS_SOLID, 2, theme::kOnAccent);
-        HGDIOBJ op = SelectObject(dis->hDC, pen);
-        int bx = box.left;
-        int by = box.top;
-        MoveToEx(dis->hDC, bx + 4, by + 9, nullptr);
-        LineTo(dis->hDC, bx + 8, by + 13);
-        LineTo(dis->hDC, bx + 14, by + 5);
+        /* diamond pip — reticle-style confirm marker */
+        int cx = box.left + 9, cy = box.top + 9;
+        POINT d[4]{{cx, cy - 5}, {cx + 5, cy}, {cx, cy + 5}, {cx - 5, cy}};
+        HGDIOBJ ob = SelectObject(dis->hDC, theme::brush(theme::kOnAccent));
+        HGDIOBJ op = SelectObject(dis->hDC, GetStockObject(NULL_PEN));
+        Polygon(dis->hDC, d, 4);
+        SelectObject(dis->hDC, ob);
         SelectObject(dis->hDC, op);
-        DeleteObject(pen);
     }
     wchar_t buf[160];
     GetWindowTextW(dis->hwndItem, buf, 160);
@@ -438,13 +438,16 @@ LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             theme::accent_rule(dc, 218, 108, 60, theme::kAccentDim);
             theme::accent_rule(dc, sx, 108, 120, theme::kAccentDim);
             theme::accent_rule(dc, sx + 110, 108, 10, theme::kAccentHot);
+            /* hex unit emblem inside the hatch zone */
+            theme::hex_badge(dc, ps.rcPaint.right - 42, 34, 12,
+                             theme::kAccentDim, theme::kAccent);
             int sec = 1;
             for (const RECT& c : g_app.cards) {
                 theme::card(dc, c);
                 char tag[16];
                 std::snprintf(tag, sizeof(tag), "SEC.0%d", sec++);
                 RECT tr{c.right - 92, c.top + 8, c.right - 14, c.top + 24};
-                theme::text(dc, tag, tr, theme::kTag, g_app.font_mono,
+                theme::text(dc, tag, tr, theme::kTag, g_app.font_tech,
                             DT_RIGHT | DT_VCENTER | DT_SINGLELINE |
                                 DT_NOPREFIX);
             }
@@ -614,6 +617,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     g_app.font_mono = make_font(14, FW_NORMAL, L"Consolas");
     g_app.font_heading = make_font(20, FW_SEMIBOLD, L"Microsoft JhengHei UI");
     g_app.font_small = make_font(13, FW_NORMAL, L"Microsoft JhengHei UI");
+    g_app.font_tech = make_font(14, FW_SEMIBOLD, L"Bahnschrift SemiBold");
 
     widgets::register_classes(inst);
 
