@@ -2017,7 +2017,7 @@ int mode_export_bundle(const Args& a) {
        << ",\"manifest_core_sha256\":\"";
     // manifest_core_sha256 covers everything before the provenance
     // block — the hash is computed over the mf prefix already streamed.
-    std::string core_sha = xingcheng::inference::sha256_hex(
+    std::string core_sha = sha256_bytes(
         reinterpret_cast<const unsigned char*>(mf.str().data()),
         mf.str().size());
     mf << core_sha << "\"}}";
@@ -2673,12 +2673,9 @@ bool serve_bool(const JsonValue& o, const char* k, bool d) {
     return (v && v->type == JsonValue::Type::Bool) ? v->boolean : d;
 }
 
-// Runtime-capability integration fragment (moe-analyze / fim helpers
-// used by serve ops below; probe modes dispatched from main).
-#include "xcm_integration.h"
-
-// Runtime-capability integration headers: probe/analyzer helpers and
-// standalone modes used by both mode_serve ops and main() dispatch.
+// Runtime-capability integration headers: shared helpers first
+// (xcm_runtime.h), probe modes second (xcm_integration.h consumes
+// them) — both serve ops below and main() dispatch use these.
 #include "xcm_runtime.h"
 #include "xcm_integration.h"
 
