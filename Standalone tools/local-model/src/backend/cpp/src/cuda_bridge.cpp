@@ -123,10 +123,11 @@ void* dev_get(DevBuf& buf, size_t bytes) {
     return buf.ptr;
 }
 
-// Pinned host staging: pageable H2D/D2H copies are staged through a driver
-// bounce buffer; pinned memory makes both directions direct (still
-// synchronous — no behaviour change). Optional: a failed pinned alloc falls
-// back to the direct pageable copy below.
+// Pinned host staging through the manager's bounded pool (§13/§14):
+// pageable H2D/D2H copies stage through pinned memory so both
+// directions go direct on the transfer lanes. A failed pinned alloc
+// falls back to the direct pageable copy below — pageable is legal,
+// unmanaged pinning is not.
 struct HostBuf {
     double* ptr = nullptr;
     size_t cap = 0;  // elements
@@ -135,13 +136,9 @@ HostBuf g_pin_a, g_pin_c;
 
 double* host_get(HostBuf& buf, size_t elems) {
     if (buf.cap >= elems) return buf.ptr;
-    double* next = nullptr;
-    if (cudaHostAlloc(
-            reinterpret_cast<void**>(&next), elems * sizeof(double),
-            cudaHostAllocDefault) != cudaSuccess) {
-        return nullptr;
-    }
-    if (buf.ptr) cudaFreeHost(buf.ptr);
+    double* next = static_cast<double*>(mp::mgr().pinned_alloc(
+        (int64_t)(elems * sizeof(double))));
+    if (next == nullptr) return nullptr;
     buf.ptr = next;
     buf.cap = elems;
     return buf.ptr;
@@ -230,22 +227,25 @@ int xcuda_available() {
     int count = 0;
     if (cudaGetDeviceCount(&count) != cudaSuccess) return 0;
     // The base CUDA path is cuBLAS Dgemm — without the toolkit dll the
-    // capability is absent, not partially present.
-    return count > 0 && cublas_ready() ? 1 : 0;
+    // capability is absent, not partially present. The memory plane is
+    // initialised lazily here so pool/streams exist before first use.
+    return count > 0 && cublas_ready() &&
+           mp::mgr().ensure() ? 1 : 0;
 }
 
 // Free every cached device weight and the shared cuBLAS handle. Called by
 // the engine on unload so a stale pointer can never alias a new tensor.
+// Device bytes release through the memory plane (§3/§6 maintenance trim).
 int xcuda_release_weights() {
     std::lock_guard<std::mutex> lk(g_mu);
-    for (auto& kv : g_dev_weights) cudaFree(kv.second);
+    for (auto& kv : g_dev_weights)
+        mp::mgr().free(kv.second.first, mp::StreamLane::H2D);
     g_dev_weights.clear();
-    if (g_dev_a.ptr) cudaFree(g_dev_a.ptr);
-    if (g_dev_c.ptr) cudaFree(g_dev_c.ptr);
+    if (g_dev_a.ptr) mp::mgr().free(g_dev_a.ptr, mp::StreamLane::H2D);
+    if (g_dev_c.ptr) mp::mgr().free(g_dev_c.ptr, mp::StreamLane::H2D);
     g_dev_a = DevBuf{};
     g_dev_c = DevBuf{};
-    if (g_pin_a.ptr) cudaFreeHost(g_pin_a.ptr);
-    if (g_pin_c.ptr) cudaFreeHost(g_pin_c.ptr);
+    mp::mgr().pinned_release_all();
     g_pin_a = HostBuf{};
     g_pin_c = HostBuf{};
     if (g_handle != nullptr) {

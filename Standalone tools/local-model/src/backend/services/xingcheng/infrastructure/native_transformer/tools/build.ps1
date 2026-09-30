@@ -24,6 +24,6 @@ if ($env:CUDA_PATH) {
     throw 'CUDA_PATH not set — toolkit required for the XINGCHENG_CUDA lane'
 }
 if (!(Test-Path (Join-Path $root 'obj'))) { New-Item -ItemType Directory (Join-Path $root 'obj') | Out-Null }
-cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc $cudaDefs /I`"$incNat`" /I`"$incCpp`" /I`"$train`" $cudaInc `"$root\xc_modeltool.cpp`" `"$engine`" `"$cppSrc\cuda_bridge.cpp`" `"$cppSrc\cuda_kernels.cpp`" `"$nat\transformer.c`" `"$nat\kv_pool.c`" /Fe`"$exe`" /Fo`"$root\obj\\`" /link $cudaLib"
+cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc $cudaDefs /I`"$incNat`" /I`"$incCpp`" /I`"$cppSrc`" /I`"$train`" $cudaInc `"$root\xc_modeltool.cpp`" `"$engine`" `"$cppSrc\cuda_bridge.cpp`" `"$cppSrc\cuda_kernels.cpp`" `"$nat\transformer.c`" `"$nat\kv_pool.c`" /Fe`"$exe`" /Fo`"$root\obj\\`" /link $cudaLib"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Output "built: $exe"

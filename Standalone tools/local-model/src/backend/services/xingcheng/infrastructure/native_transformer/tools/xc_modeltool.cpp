@@ -3448,6 +3448,34 @@ int main(int argc, char** argv) {
         if (mode == "memplane-probe") return mode_memplane_probe(a);
         if (mode == "memplane-telemetry")
             return mode_memplane_telemetry(a);
+        // NativeSiliconEfficiencyPlane — measured surfaces.
+        if (mode == "npu-discovery") return mode_npu_discovery(a);
+        if (mode == "cpu-affinity-probe")
+            return mode_cpu_affinity_probe(a);
+        if (mode == "cpu-bf16-bench") return mode_cpu_bf16_bench(a);
+        if (mode == "system-reuse-probe")
+            return mode_system_reuse_probe(a);
+        if (mode == "single-runtime-owner")
+            return mode_single_runtime_owner(a);
+        if (mode == "artifact-dedup") return mode_artifact_dedup(a);
+        if (mode == "shared-routed-isolation")
+            return mode_shared_routed_isolation(a);
+        if (mode == "expert-granularity-probe")
+            return mode_expert_granularity_probe(a);
+        if (mode == "parameter-freeze-probe")
+            return mode_parameter_freeze_probe(a);
+        if (mode == "parameter-efficiency-report")
+            return mode_parameter_efficiency(a);
+        if (mode == "silicon-routing-bench")
+            return mode_silicon_routing_bench(a);
+        if (mode == "npu-system1-bench")
+            return mode_npu_bench("npu-system1-bench", a);
+        if (mode == "npu-embedding-bench")
+            return mode_npu_bench("npu-embedding-bench", a);
+        if (mode == "npu-prefill-bench")
+            return mode_npu_bench("npu-prefill-bench", a);
+        if (mode == "sparse-optimizer-probe")
+            return mode_parameter_freeze_probe(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

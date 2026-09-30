@@ -246,7 +246,36 @@ struct Manager {
 #endif
     }
 
-    void pinned_release() {
+    /// §3/§13: every pinned host allocation flows through the manager.
+    /// The bounded ring serves the frequent small transfers; a larger
+    /// request gets a managed cudaHostAlloc tracked for release — the
+    /// cap still binds the total.
+    void* pinned_alloc(int64_t bytes) {
+#if defined(XINGCHENG_CUDA)
+        if (!cuda_present) return nullptr;
+        if (pinned_host_bytes + bytes > pinned_host_cap &&
+            pinned_host_cap > 0)
+            return nullptr;   // §14: the cap binds
+        if (void* p = pinned_acquire(bytes)) return p;
+        void* p = nullptr;
+        if (cudaHostAlloc(&p, (size_t)bytes,
+                          cudaHostAllocDefault) != cudaSuccess)
+            return nullptr;
+        pinned_extra.push_back(p);
+        pinned_host_bytes += bytes;
+        return p;
+#else
+        return nullptr;
+#endif
+    }
+
+    std::vector<void*> pinned_extra;   // managed non-ring pinned bufs
+
+    void pinned_release_all() {
+#if defined(XINGCHENG_CUDA)
+        for (void* p : pinned_extra) cudaFreeHost(p);
+        pinned_extra.clear();
+#endif
         pinned_ring_off = 0;
         pinned_host_bytes = 0;
     }
@@ -330,6 +359,7 @@ struct Manager {
     void shutdown() {
 #if defined(XINGCHENG_CUDA)
         if (cuda_present) {
+            pinned_release_all();
             for (auto& s : streams) if (s) cudaStreamDestroy(s);
             if (pinned_dev) cudaFreeHost(pinned_dev);
             if (pool) cudaMemPoolDestroy(pool);
