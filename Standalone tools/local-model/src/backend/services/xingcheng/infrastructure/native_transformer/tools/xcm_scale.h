@@ -880,6 +880,8 @@ XcmShape xcm_shape_from_json(const JsonValue& j) {
     XcmShape s;
     s.name = jget_str(j, "scale_profile");
     s.layers = (int64_t)xct::j_num(&j, "layers", 0);
+    if (s.layers == 0)
+        s.layers = (int64_t)xct::j_num(&j, "num_hidden_layers", 0);
     s.hidden = (int64_t)xct::j_num(&j, "hidden_size", 0);
     s.inter = (int64_t)xct::j_num(&j, "intermediate_size", 0);
     s.heads = (int64_t)xct::j_num(&j, "num_attention_heads", 0);
@@ -898,9 +900,15 @@ XcmShape xcm_shape_from_json(const JsonValue& j) {
                             s.inter);
     s.lin_key_heads = (int64_t)xct::j_num(&j, "linear_num_key_heads", 0);
     s.lin_key_dim = (int64_t)xct::j_num(&j, "linear_key_dim", 0);
+    if (s.lin_key_dim == 0)
+        s.lin_key_dim =
+            (int64_t)xct::j_num(&j, "linear_key_head_dim", 0);
     s.lin_value_heads =
         (int64_t)xct::j_num(&j, "linear_num_value_heads", 0);
     s.lin_value_dim = (int64_t)xct::j_num(&j, "linear_value_dim", 0);
+    if (s.lin_value_dim == 0)
+        s.lin_value_dim =
+            (int64_t)xct::j_num(&j, "linear_value_head_dim", 0);
     s.full_attention_interval =
         (int64_t)xct::j_num(&j, "full_attention_interval", 4);
     s.use_vision = xct::j_num(&j, "use_vision", 0) > 0.5;
