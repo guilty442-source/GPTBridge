@@ -55,3 +55,26 @@ Per layer (`model.layers.N.`):
 w1, w3, w2, norm_ffn, ple_gate, ple_proj, ple_post}` —
 round-trips through `xc_modeltool` `import-bundle`/`export-bundle`
 and the XCN3 checkpoint header (ver=3, `XCN1` magic).
+
+## native-thinking.json
+
+Latent-space reasoning (Native Thinking) and reinforcement learning —
+`star-native-thinking/v1`. Hypotheses are formed and verified inside
+hidden state space; no textual chain-of-thought is produced.
+
+- **Inference** (`engine_thinking.h`, serve `op: "think"`):
+  prompt prefill → `think_steps` continuous-thought iterations that feed
+  the last hidden row back as the next input embedding
+  (`BatchSpan::embed_override`, legacy + gemma4 paths) → `branches`
+  parallel hypothesis decodes on private KV slots (`kv_copy_slot`) →
+  CoVe self-verification by mean token logprob → winning branch is the
+  answer. Bounds fail closed: `think_steps<=32`, `branches<=8`,
+  `max_new_tokens<=2048`, sequence fits `max_position_embeddings`.
+  Response adds a `thinking` block (`chosen_branch`, `branch_scores`,
+  `branch_lengths`, `verify:"confidence"`).
+- **Training** (`task: "grpo"`): G=group_size on-policy rollouts per
+  prompt, verifiable reward (`exact` | `prefix`), group-normalized
+  advantage, policy gradient with `kl_coef` KL-to-reference
+  regularization over completion positions only. Data:
+  `{"prompt_ids": [...], "completion_ids": [...]}` jsonl. Report adds
+  `rollouts`, `reward_mean`, `kl_mean`; smoke leg `smoke-grpo`.
