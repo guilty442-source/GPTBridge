@@ -97,11 +97,42 @@ static double now_s() {
 // AdamW update (learning rule): decoupled weight decay + bias-corrected
 // first/second moments. Depends on activities (via g), the supervised
 // target (via ce_loss dlogits -> g) and the current weights (wd term).
+
+// NativeCudaTrainingPlane §26: when XINGCHENG_TRAINER_CUDA_OPT is set
+// and the CUDA lane probes live, each tensor's update runs as one fused
+// device kernel with w/m/v resident — the host only ships the gradient
+// and reads back w (host forward still needs it this phase). Any miss
+// falls through to the scalar path per tensor — never a partial tensor.
+#if defined(XINGCHENG_CUDA)
+extern "C" int xcuda_adamw_probe();
+extern "C" int xcuda_adamw_bind(const float*, const float*, const float*,
+                              long long);
+extern "C" int xcuda_adamw_step_dev(const float*, const void*, float,
+                                    float, float, int);
+extern "C" int xcuda_adamw_sync(const void*, float*, float*, float*);
+#else
+static int xcuda_adamw_probe() { return 0; }
+static int xcuda_adamw_bind(const float*, const float*, const float*,
+                            long long) { return 3; }
+static int xcuda_adamw_step_dev(const float*, const void*, float, float,
+                                float, int) { return 3; }
+static int xcuda_adamw_sync(const void*, float*, float*, float*) {
+    return 3;
+}
+#endif
+
 static void adamw_step(Params& p, float gscale, float lr_t, float wd,
                        int step) {
     const float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
     float bc1 = 1.0f - std::pow(b1, step + 1),
           bc2 = 1.0f - std::pow(b2, step + 1);
+    // Env-gated per run: certification precedent is the harness's
+    // bit-parity check; the flag keeps production runs opt-in until the
+    // bf16-training-cert gate formally promotes the device optimizer.
+    static const bool cuda_opt =
+        std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
+    static const bool cuda_ok =
+        cuda_opt && xcuda_adamw_probe() != 0;
     for (auto& n : p.order) {
         // DeepSeek aux-free lb_bias is a routing-time buffer updated by
         // the sign rule (lb_bias_step), never by the optimizer — without
@@ -110,6 +141,24 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
+        if (cuda_ok) {
+            const int64_t cnt = static_cast<int64_t>(w.d.size());
+            if (xcuda_adamw_bind(w.d.data(), m.d.data(), v.d.data(),
+                                 cnt) == 0) {
+                if (xcuda_adamw_step_dev(g.d.data(), w.d.data(), gscale,
+                                         lr_t, wd, step) != 0 ||
+                    xcuda_adamw_sync(w.d.data(), w.d.data(), nullptr,
+                                     nullptr) != 0) {
+                    // Device holds the newest m/v — pull them back so
+                    // the scalar fallback resumes from the last good
+                    // optimizer state rather than stale host copies.
+                    xcuda_adamw_sync(w.d.data(), w.d.data(),
+                                     m.d.data(), v.d.data());
+                } else {
+                    continue;
+                }
+            }
+        }
         tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
             float gi = g.d[(size_t)i] * gscale;
             m.d[(size_t)i] = b1 * m.d[(size_t)i] + (1 - b1) * gi;

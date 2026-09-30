@@ -58,5 +58,6 @@ namespace xingcheng::inference {
 #include "engine_gemma4.h"
 #include "engine_generate.h"
 #include "engine_thinking.h"
+#include "engine_state.h"
 
 }  // namespace xingcheng::inference

@@ -285,6 +285,54 @@ internal static class ConvergenceGate
                     new[] { "mtp-runtime", "--bundle", bundle!,
                             "--tokens", "8" },
                     "final_output_parity", "True"))),
+            new("mtp-draft-contract", true, () => NeedBundle(() =>
+            {
+                // P3: the MTP draft probe is evidence-only. When the
+                // manifest declares an MTP head the probe must emit the
+                // star-mtp-draft-probe/v1 report (draft_length=1,
+                // verification-guaranteed output parity, speedup=null,
+                // SPECULATIVE_DECODER_DISABLED). When the bundle has no
+                // MTP contract the probe must reject with the canonical
+                // typed code — MTP_HEAD_MISSING / MTP_BUNDLE_MISMATCH —
+                // never a crash and never a silent pass.
+                string log = Path.Combine(toolRoot,
+                    ReportRel.Replace('/', Path.DirectorySeparatorChar),
+                    "gate-stderr.log");
+                var r = NativeTools.Run(toolExe,
+                    new[] { "mtp-draft-probe", "--bundle", bundle!,
+                            "--prompt", "星澄 native draft probe",
+                            "--max-new", "4" },
+                    toolRoot, log, 300);
+                string tail = r.StdoutTail.Trim();
+                int clip(int n) => Math.Min(n, tail.Length);
+                if (BundleDeclaresMtp(bundle!))
+                {
+                    if (r.ExitCode != 0)
+                        return Fail("MTP_DRAFT_PROBE_FAILED",
+                            tail[..clip(200)]);
+                    foreach (var req in new[]
+                             { "star-mtp-draft-probe/v1",
+                               "guaranteed_by_verification",
+                               "\"speedup\":null",
+                               "SPECULATIVE_DECODER_DISABLED" })
+                        if (!tail.Contains(req,
+                                StringComparison.Ordinal))
+                            return Fail("MTP_DRAFT_PROBE_CONTRACT",
+                                $"missing '{req}' in "
+                                + tail[..clip(200)]);
+                    return Pass("draft-probe v1 evidence");
+                }
+                if (r.ExitCode == 0)
+                    return Fail("MTP_DRAFT_PROBE_UNEXPECTED_PASS",
+                        tail[..clip(200)]);
+                return tail.Contains("MTP_HEAD_MISSING",
+                           StringComparison.Ordinal) ||
+                       tail.Contains("MTP_BUNDLE_MISMATCH",
+                           StringComparison.Ordinal)
+                    ? Pass("typed MTP rejection")
+                    : Fail("MTP_DRAFT_PROBE_UNTYPED",
+                           tail[..clip(200)]);
+            })),
             // ---------- hardware / provenance / audit ----------
             new("cuda-probe", false, () =>
                 Native(toolRoot, toolExe, "probe-cuda")),
@@ -483,6 +531,29 @@ internal static class ConvergenceGate
         }
         catch (Exception) { }
         return "unversioned";
+    }
+
+    /// <summary>True when the bundle manifest's config declares an MTP
+    /// head (mtp_num_layers or mtp_depth &gt; 0) — the probe is then
+    /// expected to produce the draft-probe evidence report.</summary>
+    private static bool BundleDeclaresMtp(string bundle)
+    {
+        string mp = Path.Combine(bundle, "manifest.json");
+        if (!File.Exists(mp)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(mp));
+            if (!doc.RootElement.TryGetProperty("config", out var c) ||
+                c.ValueKind != JsonValueKind.Object)
+                return false;
+            foreach (var k in new[] { "mtp_num_layers", "mtp_depth" })
+                if (c.TryGetProperty(k, out var v) &&
+                    v.ValueKind == JsonValueKind.Number &&
+                    v.GetInt64() > 0)
+                    return true;
+            return false;
+        }
+        catch (Exception) { return false; }
     }
 
     /// <summary>Architecture drift: the bundle must claim xc-fused-1

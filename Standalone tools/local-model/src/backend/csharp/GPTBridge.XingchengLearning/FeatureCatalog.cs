@@ -37,6 +37,9 @@ internal static class FeatureCatalog
         // Scale directive (§64): topology-touching experiment and
         // training-pipeline futures, distinct from runtime experiments.
         "EXPERIMENTAL_ARCHITECTURE", "FUTURE_TRAINING",
+        // Trinity/Step-3.7/Falcon2/Ling absorption (§69): governed
+        // training-curriculum integration for progressive context.
+        "INTEGRATED_TRAINING",
     };
 
     public sealed record Feature(
@@ -256,6 +259,39 @@ internal static class FeatureCatalog
             "EXPERIMENTAL_RUNTIME", false, true, false,
             "cpp-runtime",
             new[] { "mtp-runtime", "mtp-speedup" }),
+        // ---- Trinity/Step-3.7/Falcon2/Ling absorption (§69) ----
+        new("f-extreme-sparsity-stability", "Trinity-Large",
+            "ExtremeSparsityStabilityPlane (entropy/utilization/" +
+            "starvation/hotspot/flip-rate)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "extreme-sparsity-stability" }),
+        new("f-blockwise-expert-quant", "Ling-2.6",
+            "BlockwiseQuantizationContract (per-block scales, " +
+            "per-class precision policy)",
+            "EXPERIMENTAL_RUNTIME", false, true, false,
+            "cpp-runtime",
+            new[] { "quant-cert", "blockwise-quant-probe" }),
+        new("f-thinking-efficiency", "Ling-2.6/Step-3.7",
+            "ThinkingEfficiencyPolicy + reasoning redundancy metrics",
+            "EXPERIMENTAL_RUNTIME", false, true, false,
+            "csharp-runtime",
+            new[] { "thinking-efficiency", "reasoning-redundancy-probe" }),
+        new("f-progressive-context", "Falcon 2",
+            "Progressive context curriculum + per-level expansion gate",
+            "INTEGRATED_TRAINING", false, true, false,
+            "csharp-runtime",
+            new[] { "progressive-context-check" }),
+        new("f-attention-density-7to1", "Ling-2.6",
+            "AttentionDensityProbe 3:1 vs 7:1 (next generation only)",
+            "FUTURE_GENERATION", false, true, false,
+            "cpp-runtime",
+            new[] { "attention-density-probe" }),
+        new("f-dense-anchor", "Trinity-Large",
+            "DenseAnchorProbe (collapse-triggered stability anchor only)",
+            "EXPERIMENTAL_ARCHITECTURE", false, true, false,
+            "cpp-runtime",
+            new[] { "dense-anchor-probe" }),
         // ---- NativeScaleEfficiencyPlane (scale directive §50) ----
         new("f-scale-metrics", "scale directive",
             "star-scale-metrics/v1 seven-parameter accounting",
@@ -557,6 +593,66 @@ internal static class FeatureCatalog
             "INTEGRATED_GOVERNANCE", false, true, false,
             "csharp-runtime",
             new[] { "maturity-checks" }),
+        // ---- NativeTrainingAccelerationPlane (acceleration
+        //      directive §0-§74) ----
+        new("f-training-telemetry", "acceleration directive",
+            "star-training-telemetry/v1 — 17-field metric set + " +
+            "step breakdown coverage (§1/§65)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "training-telemetry-validate" }),
+        new("f-bottleneck-classifier", "acceleration directive",
+            "step-breakdown -> DATA/CPU/LAUNCH/MEMORY/COMPUTE/" +
+            "OPTIMIZER/EVAL/CHECKPOINT bound (§66)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "bottleneck-classify" }),
+        new("f-eval-tiering", "acceleration directive",
+            "FAST/REGRESSION/FULL eval cadence — per-step full " +
+            "eval denied (§37-§40)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "eval-tier-policy" }),
+        new("f-training-pilot", "acceleration directive",
+            "50/200/400/600-step ladder + <=3 LR pilot (§42-§43)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "training-pilot" }),
+        new("f-batch-planner", "acceleration directive",
+            "TrainingBatchPlanner — bucket + free VRAM -> " +
+            "microbatch/accum/workspace (§7-§10)",
+            "EXPERIMENTAL_TRAINING", false, true, false,
+            "training",
+            new[] { "training-batch-plan" }),
+        new("f-training-precision", "acceleration directive",
+            "BF16 compute / FP32 sensitive / FP64 oracle-only; " +
+            "FP8-FP4 not primary (§2-§3)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "training-precision-policy" }),
+        new("f-distill-artifact-cache", "acceleration directive",
+            "top-N logits + residual mass, shared across student " +
+            "candidates (§48-§51)",
+            "EXPERIMENTAL_TRAINING", false, true, false,
+            "training",
+            new[] { "distill-artifact-validate" }),
+        new("f-time-to-quality", "acceleration directive",
+            "TIME_TO_QUALIFIED_MODEL KPI + " +
+            "CapabilityGain/GPU-s (§0/§68-§69)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "time-to-quality" }),
+        new("f-speed-capability-gate", "acceleration directive",
+            "speed change with capability regression = FAIL (§67)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "speed-gate" }),
+        new("f-cuda-language-policy", "cuda directive",
+            "star-cuda-language/v1 — self-authored CUDA C++ via " +
+            "NVRTC, no external compute libraries",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "cuda-language-check" }),
     };
 
     private static string Path_(string toolRoot)

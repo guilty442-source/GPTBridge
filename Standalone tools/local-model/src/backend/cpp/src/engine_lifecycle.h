@@ -858,6 +858,12 @@ std::vector<double> NativeInferenceEngine::prefill_hidden(
     return forward_hidden(input_ids, 0, false);
 }
 
+std::vector<double> NativeInferenceEngine::forward_all_hidden(
+    const std::vector<int64_t>& input_ids) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return forward_hidden(input_ids, 0, false);
+}
+
 std::pair<double, int64_t> NativeInferenceEngine::sequence_nll(
     const std::vector<int64_t>& input_ids) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");

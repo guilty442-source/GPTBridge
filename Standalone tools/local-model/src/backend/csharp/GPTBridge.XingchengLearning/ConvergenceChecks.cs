@@ -327,6 +327,50 @@ internal static class ConvergenceChecks
                 }
                 return true;
             }),
+            new("repo-mtp-head-contract", () =>
+            {
+                // MTP bundle contract (XCN10): a manifest whose config
+                // declares an MTP head (mtp_num_layers/mtp_depth > 0)
+                // must carry the model.mtp.* tensor set — export no
+                // longer drops them — and a bundle carrying model.mtp.*
+                // while declaring no MTP head is a mismatch. Both fail
+                // closed; pre-XCN10 fixtures without MTP config are
+                // exempt (their tensors were never trained).
+                string rt = Path.Combine(toolRoot, "xingcheng", "runtime");
+                if (!Directory.Exists(rt)) return true;
+                foreach (string mf in Directory.GetFiles(
+                             rt, "manifest.json", SearchOption.AllDirectories))
+                {
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(mf)); }
+                    catch { continue; }
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        if (!r.TryGetProperty("config", out var cfg) ||
+                            cfg.ValueKind != JsonValueKind.Object)
+                            continue;
+                        bool declares = false;
+                        foreach (string k in new[]
+                                 { "mtp_num_layers", "mtp_depth" })
+                            if (cfg.TryGetProperty(k, out var v) &&
+                                v.ValueKind == JsonValueKind.Number &&
+                                v.GetInt64() > 0)
+                                declares = true;
+                        bool carries = false;
+                        if (r.TryGetProperty("tensors", out var t) &&
+                            t.ValueKind == JsonValueKind.Object)
+                            foreach (var prop in t.EnumerateObject())
+                                if (prop.Name.StartsWith(
+                                        "model.mtp.",
+                                        StringComparison.Ordinal))
+                                { carries = true; break; }
+                        if (declares != carries)
+                            return false;
+                    }
+                }
+                return true;
+            }),
             new("repo-failure-pool", () =>
             {
                 // The pool ledger must be readable and honour its

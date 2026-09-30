@@ -194,6 +194,38 @@ struct SamplingConfig {
     uint64_t seed = 0;
 };
 
+// Two-level MoE trace (architecture-convergence observability contract):
+// level 1 = router decision — per MoE layer the router type, top-k and a
+// bounded per-token selection sample; level 2 = expert dispatch —
+// per-expert routed-token counts plus shared-expert participation,
+// aggregated over every forward of one request. Bounded: at most
+// kMoeTraceSelectedCap token rows are kept per layer; expert_counts is
+// always complete (size = num_experts).
+struct MoeTraceLayer {
+    int64_t layer_id = 0;
+    std::string router_type;
+    int64_t top_k = 0;
+    int64_t tokens_routed = 0;
+    bool shared_expert_used = false;
+    std::vector<int64_t> expert_counts;
+    std::vector<std::vector<int64_t>> selected;
+    // §20 star-moe-trace/v1 extensions: normalized per-token top-k
+    // weights (same bound as `selected`), router score summary and
+    // entropy accumulators, and shared-expert gate weight.
+    std::vector<std::vector<double>> weights;
+    double score_min = std::numeric_limits<double>::infinity();
+    double score_max = -std::numeric_limits<double>::infinity();
+    double score_sum = 0.0;
+    int64_t score_n = 0;
+    double entropy_sum = 0.0;       // Σ per-token router entropy
+    double shared_weight_sum = 0.0; // Σ shared gate weight per token
+};
+struct MoeTrace {
+    std::vector<MoeTraceLayer> layers;
+    int64_t forwards = 0;
+};
+constexpr int64_t kMoeTraceSelectedCap = 64;
+
 class WeightBundle {
 public:
     struct Blob;
@@ -281,6 +313,7 @@ public:
     void load(const std::string& bundle_dir);
     void unload();
     bool loaded() const { return bundle_ != nullptr; }
+    const WeightBundle* bundle() const { return bundle_.get(); }
     bool cuda_active() const;
 
     std::vector<int64_t> encode(
@@ -303,6 +336,11 @@ public:
     // perplexity = exp(nll / count); deterministic, mirrors the Python
     // eval-suite metric (native_eval_suite.evaluate_checkpoint).
     std::pair<double, int64_t> sequence_nll(
+        const std::vector<int64_t>& input_ids);
+    // MTP drafter probe support: teacher-forced post-final-norm hidden
+    // states at every position — [seq * hidden]. No KV writes; the
+    // caller owns lm_head projection and draft/verify.
+    std::vector<double> forward_all_hidden(
         const std::vector<int64_t>& input_ids);
     // G41 layerwise parity probe: RMS of the hidden stream at each stage
     // (embedding, each transformer layer output, final norm). No KV writes.
@@ -421,6 +459,26 @@ public:
     const std::vector<RouterLayerTrace>& router_trace() const {
         return router_trace_;
     }
+
+    // Aggregated two-level MoE trace (star-moe-trace/v1): enable before
+    // the request's forwards; forward layers append router-level samples
+    // and expert-level dispatch counts into per-layer accumulators.
+    // Observability only — never feeds router-weight updates.
+    void set_moe_trace_enabled(bool on) {
+        moe_trace_enabled_ = on;
+        moe_trace_.layers.clear();
+        moe_trace_.forwards = 0;
+    }
+    bool moe_trace_enabled() const { return moe_trace_enabled_; }
+    const MoeTrace& moe_trace() const { return moe_trace_; }
+
+    // NativeStateManager surface (§23/§27): serialized per-slot DeltaNet
+    // state image (engine_state.h). Dense/attention-only bundles report
+    // has_delta_state() == false and the calls fail closed.
+    bool has_delta_state() const;
+    int64_t delta_state_bytes(int64_t slot) const;
+    bool delta_state_save(int64_t slot, std::vector<char>& out) const;
+    bool delta_state_restore(int64_t slot, const char* data, int64_t len);
 
     // Inference memory planner surface: typed budget breakdown plus
     // prefill/decode high-water marks. Report-only — budgets are set
@@ -831,6 +889,11 @@ private:
         uint64_t& rng_state) const;
     bool router_trace_enabled_ = false;
     std::vector<RouterLayerTrace> router_trace_;
+    // Aggregated MoE trace accumulators; cleared on
+    // set_moe_trace_enabled(true). Forward layers merge into per-layer
+    // entries keyed by layer_id; bounded by kMoeTraceSelectedCap.
+    bool moe_trace_enabled_ = false;
+    MoeTrace moe_trace_;
 };
 
 std::string parse_generated_output(const std::string& text, int64_t max_json_bytes);

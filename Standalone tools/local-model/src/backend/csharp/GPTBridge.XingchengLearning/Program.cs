@@ -663,6 +663,13 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? sg)
                             ? sg : "", "TRAINING_STAGE_INVALID")));
+            // ---- CUDA language policy: CUDA written in our own
+            //      C/C++ (embedded NVRTC source), no external compute
+            //      libraries.
+            if (flags.Contains("cuda-language-policy"))
+                return Emit(CudaLanguage.Policy());
+            if (flags.Contains("cuda-language-check"))
+                return Emit(CudaLanguage.Check(toolRoot));
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
             if (flags.Contains("maturity-checks"))
                 return Emit(MaturityChecks.Run(toolRoot));
