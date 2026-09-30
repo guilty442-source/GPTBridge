@@ -395,6 +395,9 @@ static JsonValue run_job(const JsonValue& job) {
         for (size_t i = st; i < losses.size(); ++i) tail.array.push_back(num(losses[i]));
         put("loss_tail", tail);
     }
+    // Router-health observation (B139): last forward's accumulated
+    // load-balancing aux — ≈moe_aux_w×layers at perfect balance.
+    if (c.moe_experts > 0) put("moe_aux_last", num(fw.moe_aux));
     if (task == "grpo") {
         put("rollouts", num((double)grpo_rollouts));
         const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;
