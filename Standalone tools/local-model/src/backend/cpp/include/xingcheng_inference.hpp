@@ -872,11 +872,10 @@ private:
         }
     };
     MtpDrafter mtp_;
-    // True while a drafted forward has committed KV/state rows that a
-    // rejection must roll back (delta snapshot taken pre-forward).
-    bool mtp_rollback_armed_ = false;
+    // Reject-path DeltaNet snapshot — taken before each {tok, draft}
+    // window forward; restored before the correction re-forward so the
+    // recurrent state only ever carries committed tokens.
     std::vector<LinLayerState> mtp_lin_snapshot_;
-    int64_t mtp_kv_len_before_ = 0;
 
     void bind_mtp_drafter();
     // One draft step over the drafter's own KV: z(h_last, e_next)

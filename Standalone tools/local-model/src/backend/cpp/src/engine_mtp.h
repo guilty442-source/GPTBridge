@@ -103,12 +103,14 @@ void NativeInferenceEngine::bind_mtp_drafter() {
     // Declaration/tensor parity both directions — a bundle that carries
     // MTP tensors without declaring them, or declares without carrying,
     // is a contract breach (mirrors the export/import parity checks).
-    bool tensors_present =
-        bundle_->has_tensor("model.mtp.norm_h.weight") ||
-        bundle_->has_tensor("model.mtp.0.eh.weight");
+    // The undeclared scan covers every model.mtp.* tensor, not just the
+    // 13 we bind — a partial head is still a breach.
     if (!cfg.declares_mtp()) {
-        if (tensors_present) {
-            throw InferenceError("MTP_BUNDLE_MISMATCH:undeclared-tensors");
+        for (const std::string& n : bundle_->tensor_names()) {
+            if (n.rfind("model.mtp.", 0) == 0) {
+                throw InferenceError(
+                    "MTP_BUNDLE_MISMATCH:undeclared-tensors:" + n);
+            }
         }
         return;
     }

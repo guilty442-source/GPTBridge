@@ -1140,8 +1140,9 @@ int mode_spec_verify(const Args&) {
     std::printf(
         "{\"ok\":%s,\"format\":\"star-speculative-decoder/v1\","
         "\"enabled\":false,\"production_enabled\":false,"
-        "\"reason\":\"MTP heads are dropped at export — no production "
-        "drafter exists; contract + verification + metrics only\","
+        "\"reason\":\"scaffold lane only — production dispatch is the "
+        "engine-side NativeMtpDrafter in decode_continue_spec "
+        "(mtp-draft-probe reports its measured evidence)\","
         "\"api\":[\"PrepareDraft\",\"DraftTokens\",\"VerifyTokens\","
         "\"AcceptPrefix\",\"RejectFrom\",\"CommitState\","
         "\"RollbackState\"],"

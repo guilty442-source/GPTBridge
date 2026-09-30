@@ -2915,10 +2915,12 @@ int mode_capability(const Args& a) {
 // lm_head. Greedy argmax verification: a draft is accepted iff it equals
 // the trunk argmax ??emitted tokens are identical to plain greedy by
 // construction, so `output_parity` is guaranteed, not claimed.
-// draft_length=1 evidence only: the engine-side NativeMtpDrafter
-// production dispatch is not bound; this mode reports measured
-// acceptance, never a speedup claim, and SPECULATIVE_DECODER_DISABLED
-// remains in effect for production.
+// draft_length=1. P8: the engine-side NativeMtpDrafter production
+// dispatch IS bound — generate() runs decode_continue_spec on the
+// greedy path when the bundle declares a complete MTP contract, and the
+// second half of this mode measures that dispatch end to end
+// (engine_proposed/accepted/spec_forwards + engine_output_parity vs a
+// teacher-forced replay). speedup stays null until measured.
 
 namespace {
 
@@ -3354,6 +3356,20 @@ int mode_mtp_draft_probe(const Args& a) {
         replay.push_back(g);
     }
     const bool production = eng_bound && eng_proposed > 0;
+    // Negative lane: sampling must never engage the drafter — a sampled
+    // pick may legitimately differ from the draft, so verification only
+    // has meaning under pure argmax.
+    engine.reset_mtp_stats();
+    {
+        SamplingConfig smp;
+        smp.do_sample = true;
+        smp.temperature = 0.8;
+        smp.seed = 7;
+        try { (void)engine.generate(prompt_ids, 3, smp); }
+        catch (...) { /* content itself is irrelevant */ }
+    }
+    const bool sampling_clean = engine.mtp_proposed() == 0;
+    engine.reset_mtp_stats();
     std::ostringstream spec_ids;
     spec_ids << '[';
     for (size_t i = 0; i < spec_out.size(); ++i) {
@@ -3402,6 +3418,7 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"engine_emitted\":%lld,"
         "\"engine_ids\":%s,\"evidence_ids\":%s,"
         "\"engine_output_parity\":%s,"
+        "\"sampling_path_uses_drafter\":%s,"
         "\"speculative_decoder\":\"%s\","
         "\"speedup\":null}\n",
         mtp.bound_family ? mtp.bound_family : "none",
@@ -3415,8 +3432,9 @@ int mode_mtp_draft_probe(const Args& a) {
         (long long)spec_out.size(), spec_ids.str().c_str(),
         ev_ids.str().c_str(),
         eng_parity ? "true" : "false",
+        sampling_clean ? "false" : "true",
         production ? "PRODUCTION_DISPATCH" : "DISPATCH_NOT_ENGAGED");
-    return eng_parity ? 0 : 3;
+    return (eng_parity && sampling_clean) ? 0 : 3;
 }
 
 // ------------------------------------------------------------------ serve --

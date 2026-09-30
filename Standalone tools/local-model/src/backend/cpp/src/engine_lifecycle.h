@@ -516,8 +516,6 @@ void NativeInferenceEngine::unload() {
     sequence_.clear();
     mtp_ = MtpDrafter{};
     mtp_lin_snapshot_.clear();
-    mtp_kv_len_before_ = 0;
-    mtp_rollback_armed_ = false;
 }
 
 void NativeInferenceEngine::validate_supported() const {
@@ -847,7 +845,6 @@ void NativeInferenceEngine::reset_cache() {
     // the trunk cache that produced them.
     mtp_.reset();
     mtp_lin_snapshot_.clear();
-    mtp_rollback_armed_ = false;
     mem_prefill_peak_ = 0;
     mem_decode_peak_ = 0;
 }
