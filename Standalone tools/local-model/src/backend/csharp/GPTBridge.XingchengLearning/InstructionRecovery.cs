@@ -1067,7 +1067,11 @@ internal static class InstructionRecovery
         Led("score_before", scoreBefore);
 
         // §32 stop condition: already at parity — do not train at all.
-        bool alreadyParity = scoreBefore >= baseline100m;
+        // Parity against a degenerate zero baseline proves nothing about
+        // instruction capability, so a measured-zero baseline does not
+        // trigger the no-train short-circuit.
+        bool alreadyParity = scoreBefore >= baseline100m &&
+                             baseline100m > 0.0;
 
         // source regression reference report for --baseline-report.
         string srcRegPath = Path.Combine(outDir, "regression-before.json");
@@ -1436,6 +1440,7 @@ internal static class InstructionRecovery
                 ["cpu_lane"] = "avx2+fma-native-trainer",
             },
             ["baseline_100m"] = baseline100m,
+            ["baseline_degenerate"] = baseline100m <= 0.0,
             ["score_before"] = scoreBefore,
             ["score_after"] = scoreAfter,
             ["delta"] = Math.Round(scoreAfter - scoreBefore, 6),
