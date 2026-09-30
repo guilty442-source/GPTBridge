@@ -480,7 +480,9 @@ inline double qtile(const std::vector<double>& s, double q) {
 }
 
 inline Quantiles quantiles_of(std::vector<int64_t> counts) {
-    std::vector<double> s(counts.begin(), counts.end());
+    std::vector<double> s;
+    s.reserve(counts.size());
+    for (int64_t v : counts) s.push_back(static_cast<double>(v));
     std::sort(s.begin(), s.end());
     Quantiles q;
     q.p01 = qtile(s, .01); q.p05 = qtile(s, .05); q.p25 = qtile(s, .25);
