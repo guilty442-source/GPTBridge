@@ -119,6 +119,19 @@ inline void card(HDC dc, RECT rc) {
     LineTo(dc, rc.right - 1, rc.top + 1);
     SelectObject(dc, op);
     DeleteObject(pen);
+    /* faint diagonal weave in the bottom-right corner */
+    pen = CreatePen(PS_SOLID, 1, kSecondary);
+    op = SelectObject(dc, pen);
+    int saved = SaveDC(dc);
+    IntersectClipRect(dc, rc.right - 130, rc.bottom - 40, rc.right - 8,
+                      rc.bottom - 8);
+    for (int x = rc.right - 130; x < rc.right; x += 9) {
+        MoveToEx(dc, x, rc.bottom - 8, nullptr);
+        LineTo(dc, x + 24, rc.bottom - 40);
+    }
+    RestoreDC(dc, saved);
+    SelectObject(dc, op);
+    DeleteObject(pen);
     corner_tick(dc, rc.right - 10, rc.top + 10, -1, 1, 12, kTag);
     corner_tick(dc, rc.left + 10, rc.bottom - 10, 1, -1, 12, kTag);
 }

@@ -725,6 +725,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         0, kContentClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
         0, 0, w, 1400, g_app.hwnd, nullptr, inst, nullptr);
     build_layout(g_app.content);
+    {
+        RECT cwr;
+        GetClientRect(g_app.content, &cwr);
+        g_app.content_w = cwr.right;
+    }
     g_app.scroll = widgets::create_scroll(g_app.hwnd, w - 10, 0, 10, h);
 
     g_app.st.ws_url = env("GPTBRIDGE_SOURCE_UI_WEBSOCKET_URL");
