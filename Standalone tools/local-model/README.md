@@ -24,7 +24,7 @@
 
 ## 生成核心
 
-- `StarNativeRuntime` 是唯一生成執行期：所有意圖、角色與管線階段都路由至 `xingcheng-native-transformer`（自訓 decoder-only Transformer），無 HTTP transport、無第三方基礎權重；checkpoint 不存在或功能開關關閉時 fail-closed。
+- `StarNativeRuntime` 是唯一生成執行期：所有意圖、角色與管線階段都路由至 `xingcheng-native-transformer`（自訓融合 Decoder-only Transformer——gated 線性注意力與週期性全注意力交錯的混合解碼器堆疊，GPT 路線而非 BERT Encoder），無 HTTP transport、無第三方基礎權重；checkpoint 不存在或功能開關關閉時 fail-closed。
 - 所有自動模型對話固定依序執行：理解命令、分配任務、依權責照順序分工、統合、執行、檢查、輸出結果；各階段皆由同一原生權重以不同任務角色提示執行。
 - 能力編成不提供模型對話 UI，也不使用外部 AI 或第三方模型投票；只由星澄原生模型內部建立規格，經平台驗證後寫入自己的主資料庫。
 - 每次 Transformer 解碼受模型 context 上限、最大輸出、`temperature`、`top_k`、`top_p`、固定種子及回覆大小限制。
