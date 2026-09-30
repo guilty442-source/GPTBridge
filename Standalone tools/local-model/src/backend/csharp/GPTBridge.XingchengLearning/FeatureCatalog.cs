@@ -38,6 +38,13 @@ internal sealed class FeatureEntry
     {
         "INTEGRATED", "ALREADY_NATIVE", "EXPERIMENTAL",
         "DEFERRED_TRAINING", "FUTURE_GENERATION", "REJECTED",
+        // Batch-2 refinements (§30): REJECT_DUPLICATE = idea already in
+        // xc-fused-1, no second implementation; PROBE_ONLY = runtime
+        // probe infrastructure, never a capability claim;
+        // HARDWARE_EXPERIMENTAL = needs hardware support to activate;
+        // CONTRACT_ONLY = interface contract exists, model lane absent.
+        "REJECT_DUPLICATE", "PROBE_ONLY",
+        "HARDWARE_EXPERIMENTAL", "CONTRACT_ONLY",
     };
 
     public Dictionary<string, object?> ToDict() => new()
@@ -249,6 +256,264 @@ internal static class FeatureCatalog
             Status = "EXPERIMENTAL",     // BF16 stays candidate
             Owner = "csharp:RuntimeCapabilities.cs+cpp:precision mode",
             Tests = new[] { "precision-parity" },
+        },
+        // --------------------------------------- batch-2 rows (§30) --
+        new FeatureEntry
+        {
+            FeatureId = "unified-reasoning-runtime",
+            SourceInspiration =
+                "gpt-oss effort + Nemotron budget + Hy3 fast/slow + MiMo deep",
+            XingchengComponent = "ReasoningRuntime",
+            Status = "INTEGRATED",
+            Owner = "csharp:ReasoningRuntime.cs",
+            Tests = new[] { "reasoning-runtime-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "dialogue-envelope-v2",
+            SourceInspiration = "gpt-oss harmony-class interaction format",
+            XingchengComponent = "star-dialogue-envelope/v2",
+            Status = "INTEGRATED",
+            Owner = "csharp:DialogueEnvelope.cs",
+            Tests = new[] { "dialogue-envelope-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "precision-fp4-lab",
+            SourceInspiration = "gpt-oss MXFP4 (abstracted to 4-bit)",
+            XingchengComponent =
+                "NativePrecisionLab.EXPERIMENTAL_FP4",
+            Status = "EXPERIMENTAL",
+            Owner = "csharp:PrecisionRuntime.cs",
+            Tests = new[] { "quant-cert-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "gptoss-local-dense-attention",
+            SourceInspiration = "gpt-oss local-banded/dense attention",
+            XingchengComponent = "none (xc-fused-1 hybrid stands)",
+            Status = "REJECT_DUPLICATE",
+            RuntimeRequired = false,
+            Owner = "governance",
+            Tests = Array.Empty<string>(),
+        },
+        new FeatureEntry
+        {
+            FeatureId = "unified-modality-envelope",
+            SourceInspiration = "MiMo omni-modal input",
+            XingchengComponent =
+                "ModalityInput + MultimodalRuntime/IModalityAdapter",
+            Status = "INTEGRATED",
+            Owner = "csharp:DialogueEnvelope.cs+ModalityRuntime.cs",
+            Tests = new[] { "multimodal-envelope-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "context-cache-v2",
+            SourceInspiration = "MiMo context cache",
+            XingchengComponent = "ContextCacheManager L0-L4",
+            Status = "INTEGRATED",
+            Owner = "csharp:ContextCache.cs",
+            Tests = new[] { "context-cache-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "ultra-low-latency-profile",
+            SourceInspiration = "MiMo UltraSpeed",
+            XingchengComponent =
+                "DeploymentProfile.ULTRA_LOW_LATENCY + fast-path fallback",
+            Status = "INTEGRATED",
+            Owner = "csharp:RuntimeCapabilities.cs+ReasoningRuntime.cs",
+            Tests = new[] { "capabilities-resolve" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "context-1m-claim",
+            SourceInspiration = "MiMo/MiniMax/Nemotron 1M context",
+            XingchengComponent = "LongContextRuntime probe ladder",
+            Status = "PROBE_ONLY",   // §20: runtime ladder, not model capability
+            Owner = "csharp:LongContextRuntime.cs",
+            Tests = new[] { "long-context-index-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "long-context-block-index",
+            SourceInspiration = "MiniMax-M3 KV block indexing",
+            XingchengComponent = "LongContextBlockIndex",
+            Status = "INTEGRATED",
+            Owner = "csharp:LongContextRuntime.cs",
+            Tests = new[] { "long-context-index-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "sparse-attention-probe",
+            SourceInspiration = "MiniMax-M3 MSA block sparsity",
+            XingchengComponent = "SparseAttentionProbe",
+            Status = "EXPERIMENTAL",   // never called by production model
+            Owner = "cpp:xc_modeltool sparse-probe",
+            Tests = new[] { "sparse-attention-probe" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "kv-outer-gather-q",
+            SourceInspiration = "MiniMax-M3 hardware-friendly KV gather",
+            XingchengComponent = "kv_outer_gather_q operator prototype",
+            Status = "EXPERIMENTAL",
+            Owner = "cpp:xc_modeltool kv-gather-probe",
+            Tests = new[] { "kv-outer-gather-probe" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "computer-agent-contract",
+            SourceInspiration = "MiniMax-M3 desktop workflow",
+            XingchengComponent = "star-computer-action/v1",
+            Status = "INTEGRATED",
+            Owner = "csharp:StarAgentRuntime.cs",
+            Tests = new[] { "agent-workgraph-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "minimax-msa-production",
+            SourceInspiration = "MiniMax-M3 MSA architecture",
+            XingchengComponent = "none (probe infrastructure only)",
+            Status = "FUTURE_GENERATION",
+            RuntimeRequired = false,
+            Owner = "governance",
+            Tests = Array.Empty<string>(),
+        },
+        new FeatureEntry
+        {
+            FeatureId = "mixed-precision-map",
+            SourceInspiration = "Nemotron-3 per-component recipe",
+            XingchengComponent =
+                "QuantizationPolicy/star-precision-map/v1",
+            Status = "INTEGRATED",
+            Owner = "csharp:PrecisionRuntime.cs",
+            Tests = new[] { "precision-map-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "hybrid-sequence-scheduler",
+            SourceInspiration = "Nemotron-3 hybrid sequence engine",
+            XingchengComponent = "SequenceLayerScheduler",
+            Status = "INTEGRATED",
+            Owner = "cpp:xc_modeltool sched-smoke",
+            Tests = new[] { "sched-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "recurrent-precision-probe",
+            SourceInspiration = "Nemotron-3 state precision discipline",
+            XingchengComponent = "RecurrentStatePrecisionProbe",
+            Status = "EXPERIMENTAL",
+            Owner = "cpp:xc_modeltool state-drift",
+            Tests = new[] { "recurrent-state-drift" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "nemotron-mtp-speculation",
+            SourceInspiration = "Nemotron-3 Super MTP speculative decode",
+            XingchengComponent = "SpeculativeDecoder runtime metrics",
+            Status = "EXPERIMENTAL",   // §13: runtime only, never production
+            Owner = "cpp:xc_modeltool spec-probe",
+            Tests = new[] { "spec-probe" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "nemotron-mamba",
+            SourceInspiration = "Nemotron-3 Mamba backbone",
+            XingchengComponent =
+                "none (DeltaNet hybrid already fills the slot)",
+            Status = "REJECT_DUPLICATE",
+            RuntimeRequired = false,
+            Owner = "governance",
+            Tests = Array.Empty<string>(),
+        },
+        new FeatureEntry
+        {
+            FeatureId = "nvfp4-format",
+            SourceInspiration = "Nemotron-3 NVFP4 weights",
+            XingchengComponent = "FP4 abstract slot in PrecisionRoadmap",
+            Status = "HARDWARE_EXPERIMENTAL",
+            Owner = "csharp:PrecisionRuntime.cs",
+            Tests = new[] { "quant-cert-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "fast-slow-reasoning",
+            SourceInspiration = "Hy3 unified fast/slow thinking",
+            XingchengComponent =
+                "ReasoningRuntime strategy FAST/BALANCED/DEEP",
+            Status = "INTEGRATED",
+            Owner = "csharp:ReasoningRuntime.cs",
+            Tests = new[] { "reasoning-runtime-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "practical-capability-suite",
+            SourceInspiration = "Hy3 real-world eval emphasis",
+            XingchengComponent =
+                "star-practical-capability-suite/v1 + EvaluationCoordinator",
+            Status = "INTEGRATED",
+            Owner = "csharp:PracticalEval.cs",
+            Tests = new[] { "practical-eval-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "post-training-first-priority",
+            SourceInspiration = "Hy3 post-training-first doctrine",
+            XingchengComponent = "PostTrainingPriority",
+            Status = "INTEGRATED",
+            Owner = "csharp:RuntimeContracts.cs",
+            Tests = Array.Empty<string>(),
+        },
+        new FeatureEntry
+        {
+            FeatureId = "hy3-moe-topology",
+            SourceInspiration = "Hy3 295B/21B MoE shape",
+            XingchengComponent = "none (xc-fused-1 MoE fixed)",
+            Status = "REJECT_DUPLICATE",
+            RuntimeRequired = false,
+            Owner = "governance",
+            Tests = Array.Empty<string>(),
+        },
+        new FeatureEntry
+        {
+            FeatureId = "task-resume-contract",
+            SourceInspiration = "MiMo long-horizon + MiniMax agent resume",
+            XingchengComponent =
+                "TaskResumeState/star-task-resume/v1",
+            Status = "INTEGRATED",
+            Owner = "csharp:RuntimeContracts.cs",
+            Tests = new[] { "task-resume-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "bundle-manifest-v2",
+            SourceInspiration = "batch-2 runtime contract packaging",
+            XingchengComponent = "star-bundle-manifest/v2",
+            Status = "INTEGRATED",
+            Owner = "csharp:BundleManifest.cs",
+            Tests = new[] { "bundle-manifest-v2-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "native-state-v2",
+            SourceInspiration =
+                "MiMo cache + Nemotron state discipline + RWKV constant-state",
+            XingchengComponent = "star-native-state/v2",
+            Status = "INTEGRATED",
+            Owner = "cpp:xc_modeltool state2-smoke",
+            Tests = new[] { "state2-smoke" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "unified-metrics",
+            SourceInspiration = "batch-2 observability convergence",
+            XingchengComponent = "UnifiedMetrics",
+            Status = "INTEGRATED",
+            Owner = "csharp:RuntimeContracts.cs",
+            Tests = new[] { "converge-check" },
         },
         // Recorded rejections — the boundary rows auditors look for.
         new FeatureEntry

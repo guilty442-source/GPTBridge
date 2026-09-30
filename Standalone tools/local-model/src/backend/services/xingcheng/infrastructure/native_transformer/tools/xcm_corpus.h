@@ -436,43 +436,9 @@ int mode_corpus(const Args& a) {
         for (auto& th : pool) th.join();
     }
 
-    // Stage 3: deterministic sequential merge — dedup and packing see
-    // the records in sorted relpath order, identical to a cold scan.
-    std::vector<CorpusDoc> docs;
-    std::unordered_set<std::string> seen_sha;
-    std::unordered_map<uint64_t, std::vector<int64_t>> bands;
-    int64_t exact_dup = 0, near_dup = 0, empty_docs = 0,
-            unreadable = 0, total_tokens = 0;
-    std::unordered_map<std::string, int64_t> lang_counts;
-    for (FileRec& fr : recs) {
-        if ((int64_t)docs.size() >= max_docs ||
-            total_tokens >= max_tokens)
-            break;
-        if (fr.status == 2) { ++unreadable; continue; }
-        if (fr.status != 0) { ++empty_docs; continue; }  // empty/binary
-        if (!seen_sha.insert(fr.doc.sha_nfc).second) {
-            ++exact_dup;
-            continue;
-        }
-        bool dup = false;
-        for (uint64_t key : fr.bands) {
-            if (bands.count(key)) { dup = true; break; }
-        }
-        if (dup) { ++near_dup; continue; }
-        for (uint64_t key : fr.bands)
-            bands[key].push_back((int64_t)docs.size());
-        total_tokens += (int64_t)fr.doc.ids.size();
-        uint64_t kh =
-            corpus_fnv(fr.doc.source_id + ":" + fr.doc.relpath);
-        fr.doc.split =
-            (kh % 1000 < (uint64_t)(val_pct * 10)) ? "valid" : "train";
-        lang_counts[fr.doc.language]++;
-        docs.push_back(std::move(fr.doc));
-    }
-
-    // Persist the refreshed scan-state (drops files that vanished, adds
-    // newly parsed ones). Auxiliary artifact — not part of the dataset
-    // integrity manifest.
+    // Persist the refreshed scan-state BEFORE stage 3 moves the docs out
+    // of `recs` (drops files that vanished, adds newly parsed ones).
+    // Auxiliary artifact — not part of the dataset integrity manifest.
     {
         std::ostringstream st;
         st << "{\"schema\":\"star-corpus-scan-state/v1\""
@@ -511,6 +477,40 @@ int mode_corpus(const Args& a) {
         fs::create_directories(out_dir);
         std::ofstream sfo(state_path, std::ios::binary | std::ios::trunc);
         sfo << st.str();
+    }
+
+    // Stage 3: deterministic sequential merge — dedup and packing see
+    // the records in sorted relpath order, identical to a cold scan.
+    std::vector<CorpusDoc> docs;
+    std::unordered_set<std::string> seen_sha;
+    std::unordered_map<uint64_t, std::vector<int64_t>> bands;
+    int64_t exact_dup = 0, near_dup = 0, empty_docs = 0,
+            unreadable = 0, total_tokens = 0;
+    std::unordered_map<std::string, int64_t> lang_counts;
+    for (FileRec& fr : recs) {
+        if ((int64_t)docs.size() >= max_docs ||
+            total_tokens >= max_tokens)
+            break;
+        if (fr.status == 2) { ++unreadable; continue; }
+        if (fr.status != 0) { ++empty_docs; continue; }  // empty/binary
+        if (!seen_sha.insert(fr.doc.sha_nfc).second) {
+            ++exact_dup;
+            continue;
+        }
+        bool dup = false;
+        for (uint64_t key : fr.bands) {
+            if (bands.count(key)) { dup = true; break; }
+        }
+        if (dup) { ++near_dup; continue; }
+        for (uint64_t key : fr.bands)
+            bands[key].push_back((int64_t)docs.size());
+        total_tokens += (int64_t)fr.doc.ids.size();
+        uint64_t kh =
+            corpus_fnv(fr.doc.source_id + ":" + fr.doc.relpath);
+        fr.doc.split =
+            (kh % 1000 < (uint64_t)(val_pct * 10)) ? "valid" : "train";
+        lang_counts[fr.doc.language]++;
+        docs.push_back(std::move(fr.doc));
     }
 
     // ---- emit (elements 2/8/9/11): packed ids + records + manifest ---

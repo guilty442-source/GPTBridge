@@ -343,6 +343,20 @@ internal sealed class RuntimeCapabilityRequest
         r.KvStateBudgetBytes = Num("kv_state_budget_bytes", 0);
         r.CodingMode = Str("coding_mode", r.CodingMode);
         r.Deployment = Str("deployment_profile", r.Deployment);
+        if (req.TryGetValue("task_assessment", out var ta) &&
+            ta is Dictionary<string, object?> td)
+        {
+            double Score(string k) =>
+                td.TryGetValue(k, out var v) && v is long or int or double
+                    ? Convert.ToDouble(v) : 0;
+            r.Assessment = new TaskAssessment
+            {
+                ComplexityScore = Score("complexity"),
+                RiskScore = Score("risk"),
+                ToolNeed = Score("tool_need"),
+                EvidenceNeed = Score("evidence_need"),
+            };
+        }
         return r;
     }
 }
@@ -361,6 +375,15 @@ internal static class RuntimeCapabilityLayer
         var req = RuntimeCapabilityRequest.Parse(request);
         var policy = ReasoningPolicy.For(req.Reasoning);
         var profile = DeploymentProfile.For(req.Deployment);
+        // §2.1/§19: every reasoning mode resolves through the ONE
+        // ReasoningRuntime — canonical names OFF/LOW/MEDIUM/HIGH map
+        // to the batch-1 internal enum (NONE->OFF, NORMAL->MEDIUM).
+        string rtMode = req.Reasoning.ToUpperInvariant() switch
+        {
+            "NONE" => "OFF", "NORMAL" => "MEDIUM",
+            var m => m,
+        };
+        var rt = ReasoningRuntime.Resolve(rtMode, req.Assessment);
 
         if (!PrecisionProfiles.IsKnown(req.PrecisionProfile))
             throw new ExecutorError(
@@ -395,6 +418,9 @@ internal static class RuntimeCapabilityLayer
             ["format"] = Format,
             ["resolved"] = true,
             ["reasoning"] = policy.ToDict(),
+            // §19 unified output — the resolved mode/strategy/budget
+            // plan; the only sanctioned reasoning-contract source.
+            ["reasoning_runtime"] = rt,
             ["tool_policy"] = new Dictionary<string, object?>
             {
                 ["mode"] = toolPolicy,

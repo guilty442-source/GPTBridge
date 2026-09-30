@@ -378,6 +378,17 @@ public:
     std::string describe() const;
     void set_kv_memory_limit(int64_t bytes);
     void set_prefix_cache_limit(int64_t max_entries, int64_t max_bytes);
+    // DeltaNet recurrent-state snapshot (architecture-convergence §23):
+    // a per-slot serialized image of lin_states_ (conv tails + delta-rule
+    // S matrices + token counts) for long-horizon task checkpointing.
+    // The blob is self-describing (magic/version/lengths); binding it to
+    // a model hash + generation is the caller's envelope job
+    // (star-delta-state-snapshot/v1). Dense models (no linear layers)
+    // report has_delta_state() == false and the calls fail closed.
+    bool has_delta_state() const;
+    int64_t delta_state_bytes(int64_t slot) const;
+    bool delta_state_save(int64_t slot, std::vector<char>& out) const;
+    bool delta_state_restore(int64_t slot, const char* data, int64_t len);
     // Two-level MoE trace: enable before generate(); the sink resets per
     // request and aggregates router decisions + expert dispatch counts.
     void set_moe_trace_enabled(bool on) {

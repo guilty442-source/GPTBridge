@@ -101,6 +101,8 @@ namespace xct {
 #include "xct_ckpt.h"
 }  // namespace xct
 
+#include "xcm_batch2.h"
+
 namespace {
 
 namespace fs = std::filesystem;
@@ -2524,6 +2526,195 @@ int mode_probe_cuda() {
         ok ? "true" : "false", fb / (1024 * 1024), tb / (1024 * 1024),
         ccm, ccn);
     return 0;
+}
+
+// ------------------------------------------------ batch-2 probes (§7/§10/§12/§13/§27/§29)
+
+// §7.1 sparse-attention-probe: synthetic KV block index + centroid
+// selector + gather plan; recall measured against full attention.
+int mode_sparse_probe(const Args& a) {
+    int64_t tokens = std::stoll(a.get("tokens", "8192"));
+    int dim = std::stoi(a.get("dim", "64"));
+    int64_t max_blocks = std::stoll(a.get("max-blocks", "16"));
+    int64_t block_tokens = std::stoll(a.get("block-tokens", "64"));
+    xcm2::KVBlockIndex idx;
+    idx.block_tokens = block_tokens;
+    idx.build(tokens, dim, 17);
+    std::vector<float> q((size_t)dim);
+    std::mt19937_64 rng(3);
+    std::normal_distribution<float> nd(0.f, 1.f);
+    for (auto& v : q) v = nd(rng);
+    auto r = xcm2::bench_sparse(idx, q, max_blocks);
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-sparse-attention-probe/v1\","
+        "\"selected_blocks\":%lld,\"coverage_ratio\":%.4f,"
+        "\"kv_bytes_read\":%lld,\"memory_coalescing\":%.4f,"
+        "\"recall_against_full_attention\":%.4f,"
+        "\"production_callable\":false}\n",
+        (long long)r.selected_blocks, r.coverage_ratio,
+        (long long)r.kv_bytes_read, r.memory_coalescing,
+        r.recall_against_full);
+    return 0;
+}
+
+// §7.2 kv-outer-gather-probe: operator prototype on synthetic tensors.
+int mode_kv_gather_probe(const Args& a) {
+    int64_t tokens = std::stoll(a.get("tokens", "4096"));
+    int dim = std::stoi(a.get("dim", "64"));
+    int64_t max_blocks = std::stoll(a.get("max-blocks", "8"));
+    xcm2::KVBlockIndex idx;
+    idx.build(tokens, dim, 23);
+    std::vector<float> q((size_t)dim);
+    std::mt19937_64 rng(5);
+    std::normal_distribution<float> nd(0.f, 1.f);
+    for (auto& v : q) v = nd(rng);
+    auto sel = xcm2::QueryBlockSelector::select(idx, q, max_blocks);
+    auto plan = xcm2::BlockGatherPlan::from(sel, idx.block_tokens, dim);
+    auto g = xcm2::kv_outer_gather_q(idx, q, plan.block_ids);
+    bool sane = g.block_max.size() == plan.block_ids.size() &&
+                std::all_of(g.block_argmax.begin(), g.block_argmax.end(),
+                            [&](int64_t t) { return t >= 0; });
+    std::printf(
+        "{\"ok\":%s,\"format\":\"star-kv-outer-gather-probe/v1\","
+        "\"blocks\":%zu,\"element_reads\":%lld,"
+        "\"production_dispatch\":false}\n",
+        sane ? "true" : "false", g.block_max.size(),
+        (long long)g.reads);
+    return sane ? 0 : 1;
+}
+
+// §10 sched-smoke: unified recurrent/attention state lifecycle —
+// prepare -> run -> commit advances state; rollback restores it.
+int mode_sched_smoke(const Args&) {
+    xcm2::SequenceLayerScheduler s;
+    std::vector<bool> recurrent = {true, false, true, false};
+    s.build(4, recurrent, 8);
+    bool ok = true;
+    for (int64_t l = 0; l < 4; ++l) {
+        s.PrepareLayer(l);
+        std::vector<double> upd(8, 1.0);
+        if (recurrent[(size_t)l]) s.RunRecurrent(l, upd);
+        else s.RunAttention(l, upd);
+        s.CommitState(l);
+        for (auto v : s.at(l).state) ok &= v == 1.0;
+    }
+    // Rollback path: dirty a layer, roll back, state must be restored.
+    s.PrepareLayer(0);
+    s.RunRecurrent(0, std::vector<double>(8, 5.0));
+    s.RollbackState(0);
+    for (auto v : s.at(0).state) ok &= v == 1.0;
+    std::printf("{\"ok\":%s,\"format\":\"star-sequence-scheduler/v1\","
+                "\"layers\":%zu,\"production_dispatch\":false}\n",
+                ok ? "true" : "false", s.slots.size());
+    return ok ? 0 : 1;
+}
+
+// §12 state-drift: FP64 reference vs BF16/FP16 recurrent state over the
+// 1K..16K token ladder; FP8 deliberately excluded.
+int mode_state_drift(const Args& a) {
+    int64_t max_tok = std::stoll(a.get("tokens", "16384"));
+    std::vector<int64_t> ladder = {1024, 2048, 4096, 8192, 16384};
+    ladder.erase(std::remove_if(ladder.begin(), ladder.end(),
+                                [&](int64_t t) { return t > max_tok; }),
+                 ladder.end());
+    std::ostringstream o;
+    o << "{\"ok\":true,\"format\":\"star-recurrent-drift/v1\","
+         "\"precisions\":{";
+    const char* precs[] = {"BF16", "FP16"};
+    bool first = true;
+    for (const char* p : precs) {
+        auto pts = xcm2::recurrent_drift(p, ladder);
+        if (!first) o << ',';
+        first = false;
+        o << '"' << p << "\":[";
+        for (size_t i = 0; i < pts.size(); ++i) {
+            if (i) o << ',';
+            o << "{\"tokens\":" << pts[i].tokens
+              << ",\"max_drift\":" << pts[i].max_drift << '}';
+        }
+        o << ']';
+    }
+    o << "}}\n";
+    std::printf("%s", o.str().c_str());
+    return 0;
+}
+
+// §13 spec-probe: speculative-decode runtime metrics schema — the
+// infrastructure exists, production speculation stays disabled.
+int mode_spec_probe(const Args&) {
+    xcm2::SpeculativeDecoder s;
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-speculative-decode/v1\","
+        "\"available\":%s,\"status\":\"INFRASTRUCTURE_ONLY\","
+        "\"metrics\":[\"draft_depth\",\"acceptance_length\","
+        "\"acceptance_rate\",\"verify_latency\",\"net_speedup\"],"
+        "\"production_enabled\":false}\n",
+        s.available() ? "true" : "false");
+    return 0;
+}
+
+// §27 hw-caps: hardware capability registry — detection only; a
+// precision profile is never enabled by env-var fiat (§27 last rule).
+int mode_hw_caps(const Args&) {
+    xcm2::HardwareCapabilityRegistry r;
+    r.detect_cpu();
+    r.detect_mem();
+    long long fb = 0, tb = 0; int ccm = 0, ccn = 0;
+    r.cuda_available = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
+    r.vram_free_mb = fb / (1024 * 1024);
+    r.vram_total_mb = tb / (1024 * 1024);
+    r.cuda_cc_major = ccm; r.cuda_cc_minor = ccn;
+    // CUDA arch hints for low-precision lanes — capability detection,
+    // not enablement (parity certification gates use, §27/§28).
+    if (r.cuda_available) {
+        r.fp8 = ccm >= 9 || (ccm == 8 && ccn >= 9);  // sm_89+/sm_90+
+        r.bf16 = r.bf16 || ccm >= 8;                  // sm_80+ bf16 hw
+    }
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-hw-capability/v1\","
+        "\"cpu\":{\"avx2\":%s,\"fma\":%s,\"avx512f\":%s,"
+        "\"bf16\":%s,\"fp16\":%s},"
+        "\"cuda\":{\"available\":%s,\"cc\":\"%d.%d\","
+        "\"vram_free_mb\":%lld,\"vram_total_mb\":%lld,"
+        "\"fp8_hw\":%s,\"fp4_hw\":%s},"
+        "\"system_ram_mb\":%lld,"
+        "\"note\":\"detection only — promotion needs quant-cert\"}\n",
+        r.avx2 ? "true" : "false", r.fma ? "true" : "false",
+        r.avx512f ? "true" : "false", r.bf16 ? "true" : "false",
+        r.fp16 ? "true" : "false",
+        r.cuda_available ? "true" : "false",
+        r.cuda_cc_major, r.cuda_cc_minor,
+        (long long)r.vram_free_mb, (long long)r.vram_total_mb,
+        r.fp8 ? "true" : "false", r.fp4 ? "true" : "false",
+        (long long)r.sys_ram_mb);
+    return 0;
+}
+
+// §29 state2-smoke: star-native-state/v2 seal/verify + generation
+// binding — a mismatched generation or corrupted state must fail.
+int mode_state2_smoke(const Args&) {
+    xcm2::NativeStateHeader h;
+    h.generation = "gen-2-consolidated";
+    h.bundle_hash = "b1";
+    h.architecture = "xc-fused-1";
+    h.tokenizer_hash = "tok";
+    h.state_type = "DELTA_RECURRENT";
+    h.precision = "FP64";
+    h.sequence_length = 8;
+    double state[8] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8};
+    h.seal(state, sizeof(state));
+    bool ok = h.verify(state, sizeof(state)) &&
+              h.binds_to("gen-2-consolidated", "b1") &&
+              !h.binds_to("gen-3", "b1") &&
+              !h.binds_to("gen-2-consolidated", "b2");
+    double bad[8]; std::memcpy(bad, state, sizeof(bad)); bad[0] = 9.9;
+    ok &= !h.verify(bad, sizeof(bad));
+    std::printf("{\"ok\":%s,\"format\":\"star-native-state/v2\","
+                "\"state_types\":[\"KV\",\"DELTA_RECURRENT\","
+                "\"VISION_PREFIX\",\"CONTEXT_INDEX\"],"
+                "\"model_hash_binding\":true}\n",
+                ok ? "true" : "false");
+    return ok ? 0 : 1;
 }
 
 double serve_num(const JsonValue& o, const char* k, double d) {
