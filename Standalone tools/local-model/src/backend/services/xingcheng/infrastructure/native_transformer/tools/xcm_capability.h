@@ -472,6 +472,14 @@ struct RouterDiagnosis {
     double top_share = 0;             // largest single-expert share
     int64_t starved = 0;              // experts with zero routed tokens
     double instability = 0;           // top-expert flip rate (tokens sample)
+    // §21 unified analyzer fields — observability only; frozen
+    // capability means these never feed router-weight updates.
+    double router_entropy = 0;        // mean per-token router entropy
+    double shared_expert_dependency = 0;  // mean shared gate weight/token
+    double expert_overlap = 0;        // mean Jaccard of consecutive
+                                      // token selection sets
+    double expert_affinity = 0;       // max pairwise co-selection rate
+    int64_t hotspot_expert = -1;      // modal expert id
 };
 
 // §8: quantile routing analysis — mean utilization alone hides
@@ -489,6 +497,17 @@ inline RouterDiagnosis analyze_router(
         ? 0 : *std::max_element(layer.expert_counts.begin(),
                                 layer.expert_counts.end());
     d.top_share = total > 0 ? static_cast<double>(mx) / total : 0.0;
+    if (!layer.expert_counts.empty())
+        d.hotspot_expert = static_cast<int64_t>(std::distance(
+            layer.expert_counts.begin(),
+            std::max_element(layer.expert_counts.begin(),
+                             layer.expert_counts.end())));
+    if (layer.tokens_routed > 0) {
+        d.router_entropy = layer.entropy_sum /
+            static_cast<double>(layer.tokens_routed);
+        d.shared_expert_dependency = layer.shared_weight_sum /
+            static_cast<double>(layer.tokens_routed);
+    }
     const double uniform = layer.expert_counts.empty()
         ? 0.0 : 1.0 / layer.expert_counts.size();
     for (int64_t c : layer.expert_counts) if (c == 0) ++d.starved;
@@ -514,6 +533,34 @@ inline RouterDiagnosis analyze_router(
         d.instability =
             static_cast<double>(flips) / layer.selected.size();
         if (d.instability > 0.5) d.flags.emplace_back("ROUTER_INSTABILITY");
+        // §21 overlap: mean Jaccard between consecutive token
+        // selection sets; affinity: the strongest expert-pair
+        // co-selection rate over the sampled window.
+        double jac_sum = 0.0;
+        int64_t jac_n = 0;
+        std::unordered_map<int64_t, int64_t> co;
+        for (size_t i = 0; i < layer.selected.size(); ++i) {
+            const auto& s = layer.selected[i];
+            for (size_t x = 0; x < s.size(); ++x)
+                for (size_t y = x + 1; y < s.size(); ++y) {
+                    int64_t lo = std::min(s[x], s[y]);
+                    int64_t hi = std::max(s[x], s[y]);
+                    ++co[lo * 65536 + hi];
+                }
+            if (i == 0) continue;
+            const auto& p = layer.selected[i - 1];
+            int64_t inter = 0;
+            for (int64_t e : s)
+                if (std::find(p.begin(), p.end(), e) != p.end()) ++inter;
+            const int64_t uni =
+                (int64_t)(s.size() + p.size()) - inter;
+            if (uni > 0) { jac_sum += (double)inter / uni; ++jac_n; }
+        }
+        d.expert_overlap = jac_n > 0 ? jac_sum / jac_n : 0.0;
+        int64_t best_co = 0;
+        for (const auto& kv : co) best_co = std::max(best_co, kv.second);
+        d.expert_affinity = layer.selected.empty()
+            ? 0.0 : (double)best_co / layer.selected.size();
     }
     return d;
 }

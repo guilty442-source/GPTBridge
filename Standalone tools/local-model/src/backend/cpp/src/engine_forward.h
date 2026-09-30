@@ -903,6 +903,27 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 for (int64_t e = 0; e < experts; ++e)
                     tl->expert_counts[static_cast<size_t>(e)] +=
                         group_count[static_cast<size_t>(e)];
+                // §20: router score summary + entropy accumulate over
+                // every routed token (unbounded aggregates, bounded
+                // per-token buffers stay at kMoeTraceSelectedCap).
+                for (int64_t s = 0; s < total_tokens; ++s) {
+                    const double* row = probs.data() +
+                        static_cast<size_t>(s * experts);
+                    double ent = 0.0;
+                    for (int64_t e = 0; e < experts; ++e)
+                        if (row[e] > 0.0)
+                            ent -= row[e] * std::log(row[e]);
+                    tl->entropy_sum += ent;
+                    for (int64_t k = 0; k < top_k; ++k) {
+                        const double sc = row[static_cast<size_t>(
+                            top_idx[static_cast<size_t>(
+                                s * top_k + k)])];
+                        tl->score_min = std::min(tl->score_min, sc);
+                        tl->score_max = std::max(tl->score_max, sc);
+                        tl->score_sum += sc;
+                        ++tl->score_n;
+                    }
+                }
                 int64_t room = kMoeTraceSelectedCap -
                     static_cast<int64_t>(tl->selected.size());
                 for (int64_t s = 0; s < total_tokens && room > 0;
@@ -911,6 +932,11 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                         top_idx.begin() +
                             static_cast<size_t>(s * top_k),
                         top_idx.begin() +
+                            static_cast<size_t>(s * top_k + top_k));
+                    tl->weights.emplace_back(
+                        top_w.begin() +
+                            static_cast<size_t>(s * top_k),
+                        top_w.begin() +
                             static_cast<size_t>(s * top_k + top_k));
                 }
             }
@@ -1048,6 +1074,20 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                         mlp_out.data(), 1.0, sd.data(),
                         static_cast<int64_t>(mlp_out.size()));
                 }
+            }
+            if (moe_trace_enabled_ && !layer.shared_gate.empty()) {
+                // §20 shared_expert_weight: Σ σ(gate·x) over the batch
+                // (ungated shared experts contribute weight 1.0) — the
+                // trace owns observability, never policy.
+                for (auto& tl : moe_trace_.layers)
+                    if (tl.layer_id == layer_idx) {
+                        if (shared_gated)
+                            for (double v : sg_sig)
+                                tl.shared_weight_sum += v;
+                        else
+                            tl.shared_weight_sum += total_tokens;
+                        break;
+                    }
             }
             if (module_rms != nullptr) {
                 module_rms->push_back(

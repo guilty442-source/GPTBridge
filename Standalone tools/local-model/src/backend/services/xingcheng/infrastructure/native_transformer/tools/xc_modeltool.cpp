@@ -3724,23 +3724,81 @@ int mode_router_analyze(const Args& a) {
     engine.set_moe_trace_enabled(true);
     (void)engine.generate(ids, 16, sc);
     const auto& tr = engine.moe_trace();
+    // §20/§21 unified emission — the single star-moe-trace/v1 record:
+    // per-layer trace (router type, score summary, bounded per-token
+    // selection+weight sample, dispatch histogram, shared gate weight)
+    // fused with the analyzer fields (utilization, affinity, overlap,
+    // hotspot, starvation, shared dependency, entropy, quantiles).
+    // Observability only — no router-weight updates while capability
+    // training is frozen.
     std::ostringstream o;
-    o << "{\"ok\":true,\"format\":\"star-routing-trace/v1\","
+    o << "{\"ok\":true,\"format\":\"star-moe-trace/v1\","
          "\"forwards\":" << tr.forwards << ",\"layers\":[";
     bool any_flag = false;
     for (size_t i = 0; i < tr.layers.size(); ++i) {
         const auto& tl = tr.layers[i];
         Quantiles q;
         RouterDiagnosis d = analyze_router(tl, q);
+        const double routed =
+            std::max<double>(tl.tokens_routed, 1);
         if (i) o << ',';
         o << "{\"layer_id\":" << tl.layer_id
-          << ",\"expert_load_quantiles\":{"
+          << ",\"router_type\":\"" << tl.router_type << "\""
+          << ",\"top_k\":" << tl.top_k
+          << ",\"tokens_routed\":" << tl.tokens_routed
+          << ",\"router_score_summary\":{\"min\":"
+          << (tl.score_n ? tl.score_min : 0.0)
+          << ",\"max\":" << (tl.score_n ? tl.score_max : 0.0)
+          << ",\"mean\":"
+          << (tl.score_n ? tl.score_sum / tl.score_n : 0.0) << "}"
+          << ",\"selected_experts\":[";
+        for (size_t s = 0; s < tl.selected.size(); ++s) {
+            if (s) o << ',';
+            o << '[';
+            for (size_t k = 0; k < tl.selected[s].size(); ++k) {
+                if (k) o << ',';
+                o << tl.selected[s][k];
+            }
+            o << ']';
+        }
+        o << "],\"normalized_weights\":[";
+        for (size_t s = 0; s < tl.weights.size(); ++s) {
+            if (s) o << ',';
+            o << '[';
+            for (size_t k = 0; k < tl.weights[s].size(); ++k) {
+                if (k) o << ',';
+                o << tl.weights[s][k];
+            }
+            o << ']';
+        }
+        o << "],\"shared_expert_weight\":"
+          << (tl.tokens_routed ? tl.shared_weight_sum / routed : 0.0)
+          << ",\"dispatch_histogram\":[";
+        for (size_t e = 0; e < tl.expert_counts.size(); ++e) {
+            if (e) o << ',';
+            o << tl.expert_counts[e];
+        }
+        o << "],\"expert_utilization\":[";
+        const double disp_total = std::max<double>(
+            std::accumulate(tl.expert_counts.begin(),
+                            tl.expert_counts.end(), int64_t{0}), 1);
+        for (size_t e = 0; e < tl.expert_counts.size(); ++e) {
+            if (e) o << ',';
+            o << tl.expert_counts[e] / disp_total;
+        }
+        o << "],\"router_entropy\":" << d.router_entropy
+          << ",\"router_quantiles\":{"
           << "\"p01\":" << q.p01 << ",\"p05\":" << q.p05
           << ",\"p25\":" << q.p25 << ",\"p50\":" << q.p50
           << ",\"p75\":" << q.p75 << ",\"p95\":" << q.p95
           << ",\"p99\":" << q.p99 << "}"
-          << ",\"top_share\":" << d.top_share
-          << ",\"starved_experts\":" << d.starved
+          << ",\"expert_affinity\":" << d.expert_affinity
+          << ",\"expert_overlap\":" << d.expert_overlap
+          << ",\"expert_hotspot\":{\"expert\":" << d.hotspot_expert
+          << ",\"share\":" << d.top_share << "}"
+          << ",\"expert_starvation\":" << d.starved
+          << ",\"shared_expert_dependency\":"
+          << d.shared_expert_dependency
           << ",\"instability\":" << d.instability
           << ",\"shared_expert_used\":"
           << (tl.shared_expert_used ? "true" : "false")
@@ -3753,7 +3811,7 @@ int mode_router_analyze(const Args& a) {
         o << "]}";
     }
     o << "],\"any_diagnostic\":" << (any_flag ? "true" : "false")
-      << "}\n";
+      << ",\"capability_training_frozen\":true}\n";
     std::fputs(o.str().c_str(), stdout);
     return 0;
 }

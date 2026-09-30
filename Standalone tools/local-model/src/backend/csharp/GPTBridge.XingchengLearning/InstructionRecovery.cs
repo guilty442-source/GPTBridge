@@ -971,8 +971,21 @@ internal static class InstructionRecovery
         string configFrom = Req("config_from");
         string tokenizer = Req("tokenizer");
         string sourceBundle = Req("source_bundle");
-        string baselineBundle = Req("baseline_bundle");
         string regressionSuite = Req("regression_suite");
+        // Parity gate: when the historical 100M baseline survives only as
+        // recorded probe results (retired .pt lineage cannot be evaluated
+        // natively), the plan carries baseline_recorded + parity_suite —
+        // the natively reconstructed same-suite probes — instead of a
+        // runnable baseline bundle.
+        string? paritySuite =
+            TransformerTrainingRepository.Str(plan, "parity_suite");
+        double baselineRecorded =
+            TransformerTrainingRepository.Num(plan, "baseline_recorded");
+        string? baselineBundle =
+            TransformerTrainingRepository.Str(plan, "baseline_bundle");
+        if (baselineBundle == null && baselineRecorded <= 0)
+            throw new ExecutorError(
+                "RECOVERY_PLAN_MISSING", "baseline_bundle");
         string outDir = Req("out_dir");
         Directory.CreateDirectory(outDir);
         string stderrLog = Path.Combine(outDir, "recovery-stderr.log");
@@ -1047,15 +1060,32 @@ internal static class InstructionRecovery
         });
 
         // ── baselines (RAW layer; cached per suite+bundle) ─────────────
-        string baselineEvalPath = Path.Combine(outDir, "eval-100m.json");
-        var baseEval = File.Exists(baselineEvalPath)
-            ? (Dictionary<string, object?>)ModelLifecycle.Decode(
-                JsonDocument.Parse(
-                    File.ReadAllText(baselineEvalPath)).RootElement)!
-            : EvalBundle(toolRoot, baselineBundle, suitePath,
-                         baselineEvalPath);
-        double baseline100m = ScoreOf(baseEval);
-        Led("baseline_100m", baseline100m);
+        double baseline100m;
+        if (baselineRecorded > 0)
+        {
+            baseline100m = baselineRecorded;
+            Led("baseline_100m_recorded", new Dictionary<string, object?>
+            {
+                ["score"] = baseline100m,
+                ["evidence"] =
+                    TransformerTrainingRepository.Str(
+                        plan, "baseline_evidence"),
+                ["parity_suite"] = paritySuite,
+            });
+        }
+        else
+        {
+            string baselineEvalPath =
+                Path.Combine(outDir, "eval-100m.json");
+            var baseEval = File.Exists(baselineEvalPath)
+                ? (Dictionary<string, object?>)ModelLifecycle.Decode(
+                    JsonDocument.Parse(File.ReadAllText(
+                        baselineEvalPath)).RootElement)!
+                : EvalBundle(toolRoot, baselineBundle!, suitePath,
+                             baselineEvalPath);
+            baseline100m = ScoreOf(baseEval);
+            Led("baseline_100m", baseline100m);
+        }
 
         string beforePath = Path.Combine(outDir, "eval-before.json");
         var beforeEval = File.Exists(beforePath)
@@ -1066,11 +1096,26 @@ internal static class InstructionRecovery
         double scoreBefore = ScoreOf(beforeEval);
         Led("score_before", scoreBefore);
 
+        // Parity-suite score of the source weights — the number that is
+        // actually comparable to the recorded 100M probe results.
+        double scoreBeforeParity = scoreBefore;
+        if (paritySuite != null)
+        {
+            string pbPath = Path.Combine(outDir, "eval-before-parity.json");
+            var pbEval = File.Exists(pbPath)
+                ? (Dictionary<string, object?>)ModelLifecycle.Decode(
+                    JsonDocument.Parse(
+                        File.ReadAllText(pbPath)).RootElement)!
+                : EvalBundle(toolRoot, sourceBundle, paritySuite, pbPath);
+            scoreBeforeParity = ScoreOf(pbEval);
+            Led("parity_score_before", scoreBeforeParity);
+        }
+
         // §32 stop condition: already at parity — do not train at all.
         // Parity against a degenerate zero baseline proves nothing about
         // instruction capability, so a measured-zero baseline does not
         // trigger the no-train short-circuit.
-        bool alreadyParity = scoreBefore >= baseline100m &&
+        bool alreadyParity = scoreBeforeParity >= baseline100m &&
                              baseline100m > 0.0;
 
         // source regression reference report for --baseline-report.
@@ -1094,6 +1139,7 @@ internal static class InstructionRecovery
         var stageHistory = new List<object?>();
         var noImprove = 0;
         double bestScore = scoreBefore;
+        double bestParityScore = scoreBeforeParity;
         string? bestCkpt = null, bestBundleDir = null;
         double bestValLoss = double.MaxValue;
         bool bestRegOk = true;
@@ -1236,6 +1282,14 @@ internal static class InstructionRecovery
             evTimer.Stop();
             evalS += evTimer.Elapsed.TotalSeconds;
             double score = ScoreOf(stageEval);
+            double stageParityScore = score;
+            if (paritySuite != null)
+            {
+                var pe = EvalBundle(
+                    toolRoot, stageBundle, paritySuite,
+                    Path.Combine(stageDir, "eval-parity.json"));
+                stageParityScore = ScoreOf(pe);
+            }
 
             // router health — collapse stops the lane.
             var router = ParseJsonStdout(
@@ -1287,12 +1341,14 @@ internal static class InstructionRecovery
                 Led("regression_rejected", regDetail);
                 break;
             }
-            if (score >= baseline100m && score > bestScore)
+            if (stageParityScore >= baseline100m)
             {
-                TrackBest(ref bestCkpt, ref bestBundleDir, ref bestScore,
-                          ref bestValLoss, ref bestRegOk,
-                          emitCkpt, stageBundle, stageDir, score,
-                          lossLast, regOk, outDir);
+                if (score > bestScore)
+                    TrackBest(ref bestCkpt, ref bestBundleDir,
+                              ref bestScore, ref bestValLoss,
+                              ref bestRegOk, emitCkpt, stageBundle,
+                              stageDir, score, lossLast, regOk, outDir);
+                bestParityScore = stageParityScore;
                 decision = "PASS_PARITY";
                 stopReason = "parity_reached";
                 Led("parity", new Dictionary<string, object?>
@@ -1308,6 +1364,8 @@ internal static class InstructionRecovery
                           ref bestValLoss, ref bestRegOk,
                           emitCkpt, stageBundle, stageDir, score,
                           lossLast, regOk, outDir);
+                bestParityScore = Math.Max(
+                    bestParityScore, stageParityScore);
                 noImprove = 0;
             }
             else if (++noImprove >= 3)
@@ -1323,6 +1381,8 @@ internal static class InstructionRecovery
                           ref bestValLoss, ref bestRegOk,
                           emitCkpt, stageBundle, stageDir, score,
                           lossLast, regOk, outDir);
+                bestParityScore = Math.Max(
+                    bestParityScore, stageParityScore);
             }
         }
         swAll.Stop();
@@ -1331,7 +1391,7 @@ internal static class InstructionRecovery
         if (decision == "NO_IMPROVEMENT" &&
             bestScore > scoreBefore + 0.005)
             decision = "IMPROVED_NOT_PARITY";
-        if (bestScore >= baseline100m && trained &&
+        if (bestParityScore >= baseline100m && trained &&
             decision != "REGRESSION_REJECTED")
             decision = "PASS_PARITY";
 
@@ -1440,7 +1500,13 @@ internal static class InstructionRecovery
                 ["cpu_lane"] = "avx2+fma-native-trainer",
             },
             ["baseline_100m"] = baseline100m,
+            ["baseline_evidence"] =
+                TransformerTrainingRepository.Str(
+                    plan, "baseline_evidence"),
             ["baseline_degenerate"] = baseline100m <= 0.0,
+            ["parity_suite"] = paritySuite,
+            ["parity_score_before"] = scoreBeforeParity,
+            ["parity_score_after"] = bestParityScore,
             ["score_before"] = scoreBefore,
             ["score_after"] = scoreAfter,
             ["delta"] = Math.Round(scoreAfter - scoreBefore, 6),

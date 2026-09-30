@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -209,6 +210,16 @@ struct MoeTraceLayer {
     bool shared_expert_used = false;
     std::vector<int64_t> expert_counts;
     std::vector<std::vector<int64_t>> selected;
+    // §20 star-moe-trace/v1 extensions: normalized per-token top-k
+    // weights (same bound as `selected`), router score summary and
+    // entropy accumulators, and shared-expert gate weight.
+    std::vector<std::vector<double>> weights;
+    double score_min = std::numeric_limits<double>::infinity();
+    double score_max = -std::numeric_limits<double>::infinity();
+    double score_sum = 0.0;
+    int64_t score_n = 0;
+    double entropy_sum = 0.0;       // Σ per-token router entropy
+    double shared_weight_sum = 0.0; // Σ shared gate weight per token
 };
 struct MoeTrace {
     std::vector<MoeTraceLayer> layers;
