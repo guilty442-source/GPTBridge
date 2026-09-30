@@ -1385,7 +1385,6 @@ int mode_cache_smoke(const Args& a) {
     if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
-    std::fprintf(stderr, "dbg: cfg read ok\n"); std::fflush(stderr);
     // v27 fused hybrid: prefix cache stores K/V only and cannot restore
     // DeltaNet recurrent state, so the engine bypasses it for hybrid
     // bundles. The contract inverts: hits must stay absent while the
@@ -1401,9 +1400,7 @@ int mode_cache_smoke(const Args& a) {
     }
     Run fp;
     try {
-        std::fprintf(stderr, "dbg: probe_run enter\n"); std::fflush(stderr);
         fp = probe_run(bundle, ids);
-        std::fprintf(stderr, "dbg: probe_run done\n"); std::fflush(stderr);
     } catch (const std::exception& e) {
         fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
     }
@@ -1528,7 +1525,9 @@ int mode_parity(const Args& a) {
     xct::Params p;
     xct::init_params(p, c, 0);
     if (!xct::ckpt_load(p, c, ckpt)) fail("PARITY_CKPT_LOAD_FAILED");
-    std::vector<int> tids(ids.begin(), ids.end());
+    std::vector<int> tids;
+    tids.reserve(ids.size());
+    for (int64_t id : ids) tids.push_back((int)id);
     xct::Fwd o;
     try {
         xct::fwd(p, c, tids, o);
