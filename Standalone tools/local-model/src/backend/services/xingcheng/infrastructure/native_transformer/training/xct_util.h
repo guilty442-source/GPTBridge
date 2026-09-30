@@ -34,6 +34,30 @@ static std::vector<int> j_ids(const JsonValue* o, const char* k) {
     return out;
 }
 
+// Vision patch grid: array of P rows, each an array of D numbers.
+// Returns false when absent (text-only row); throws VISION_DATA_* when
+// present but malformed (fail-closed, never silently partial).
+static bool j_patch_grid(const JsonValue* o, const char* k,
+                         std::vector<float>& out, int& patches, int& dim) {
+    const JsonValue* v = o ? o->get(k) : nullptr;
+    if (!v) return false;
+    if (v->type != JsonValue::Type::Array) throw "data: VISION_DATA_NOT_ARRAY";
+    patches = (int)v->array.size();
+    dim = -1;
+    for (const auto& pr : v->array) {
+        if (pr.type != JsonValue::Type::Array) throw "data: VISION_DATA_ROW";
+        if (dim < 0) dim = (int)pr.array.size();
+        if ((int)pr.array.size() != dim || dim <= 0)
+            throw "data: VISION_DATA_RAGGED";
+        for (const auto& x : pr.array) {
+            if (x.type != JsonValue::Type::Number) throw "data: VISION_DATA_NAN";
+            out.push_back((float)x.number);
+        }
+    }
+    if (patches <= 0 || dim <= 0) throw "data: VISION_DATA_EMPTY";
+    return true;
+}
+
 // ----------------------------------------------------------------- config --
 
 struct ModelConfig {

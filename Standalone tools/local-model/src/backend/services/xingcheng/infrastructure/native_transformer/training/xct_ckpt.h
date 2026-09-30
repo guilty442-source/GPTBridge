@@ -69,7 +69,7 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver != 1 && ver != 2 && ver != 3) return false;
+    if (ver != 1 && ver != 2 && ver != 3 && ver != 4) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -91,6 +91,11 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
         c.lin_key_heads = (int)r32(f); c.lin_key_dim = (int)r32(f);
         c.lin_value_heads = (int)r32(f); c.lin_value_dim = (int)r32(f);
         c.lin_conv_kernel = (int)r32(f);
+    }
+    if (ver >= 4) {
+        c.use_vision = r32(f) != 0;
+        c.vision_patch_dim = (int)r32(f);
+        c.vision_max_patches = (int)r32(f);
     }
     return (bool)f;
 }
@@ -101,7 +106,7 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver != 1 && ver != 2 && ver != 3) return false;
+    if (ver != 1 && ver != 2 && ver != 3 && ver != 4) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -123,6 +128,11 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
         c.lin_key_heads = (int)r32(f); c.lin_key_dim = (int)r32(f);
         c.lin_value_heads = (int)r32(f); c.lin_value_dim = (int)r32(f);
         c.lin_conv_kernel = (int)r32(f);
+    }
+    if (ver >= 4) {
+        c.use_vision = r32(f) != 0;
+        c.vision_patch_dim = (int)r32(f);
+        c.vision_max_patches = (int)r32(f);
     }
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {

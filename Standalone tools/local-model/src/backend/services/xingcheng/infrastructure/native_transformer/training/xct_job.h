@@ -7,6 +7,9 @@
 struct Example {
     std::vector<int> ids, labels;              // sft/pretrain
     std::vector<int> rej_ids, rej_labels;      // dpo
+    std::vector<float> vision;                 // early-fusion patches (flat P*D)
+    int vision_patches = 0;
+    int vision_dim = 0;
 };
 
 static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt,
@@ -25,6 +28,9 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             const JsonValue* ch = row.get("chosen");
             const JsonValue* rj = row.get("rejected");
             if (!ch || !rj) continue;
+            if (row.get("vision_patches") || ch->get("vision_patches") ||
+                rj->get("vision_patches"))
+                throw "data: vision unsupported for dpo";
             e.ids = j_ids(ch, "input_ids");
             e.labels = j_ids(ch, "labels");
             if (e.labels.empty()) e.labels = e.ids;
@@ -39,6 +45,12 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             } else {
                 e.labels = e.ids;              // pretrain: shifted CE
             }
+            // Optional early-fusion patches; malformed grids throw inside
+            // j_patch_grid (never silently partial).
+            if (j_patch_grid(&row, "vision_patches", e.vision,
+                             e.vision_patches, e.vision_dim) &&
+                (int)e.vision.size() != e.vision_patches * e.vision_dim)
+                throw "data: VISION_DATA_SIZE";
         }
         if ((int)e.ids.size() > max_len) { e.ids.resize(max_len); e.labels.resize(max_len); }
         if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
@@ -99,6 +111,9 @@ static JsonValue run_job(const JsonValue& job) {
     if (!tc.init_ckpt.empty()) {
         if (!ckpt_load(p, file_cfg, tc.init_ckpt))
             throw "init_checkpoint: unreadable or shape mismatch";
+        if (file_cfg.use_vision != c.use_vision ||
+            file_cfg.vision_patch_dim != c.vision_patch_dim)
+            throw "init_checkpoint: vision config mismatch";
     }
     // DPO reference: frozen copy of the initial weights
     Params ref;
@@ -169,10 +184,28 @@ static JsonValue run_job(const JsonValue& job) {
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
                     shift_labels(lab);
                 fw.layers.clear(); fw.moe_aux = 0.0f;
-                fwd(p, c, ex.ids, fw);
-                loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                       + fw.moe_aux;
-                bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                if (!ex.vision.empty()) {
+                    // Vision early-fusion: prefix rows carry -100 labels
+                    // (ce_loss skips them; loss normalizes over text only).
+                    if (!c.use_vision)
+                        throw "data: vision patches but model use_vision=false";
+                    if (ex.vision_dim != c.vision_patch_dim)
+                        throw "data: vision dim mismatch";
+                    if (ex.vision_patches > c.vision_max_patches)
+                        throw "data: too many vision patches";
+                    std::vector<int> vlab((size_t)ex.vision_patches, -100);
+                    vlab.insert(vlab.end(), lab.begin(), lab.end());
+                    const int T = ex.vision_patches + (int)ex.ids.size();
+                    fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
+                    loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
+                           + fw.moe_aux;
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
+                } else {
+                    fwd(p, c, ex.ids, fw);
+                    loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
+                           + fw.moe_aux;
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                }
             }
             // grad clip (global norm)
             double gnorm = 0.0f;
@@ -274,23 +307,37 @@ static int gradcheck() {
         c.partial_rotary = 1.0f;
     }
     Params p;
+    // Vision leg: the same numeric sweep also covers vision.patch_proj
+    // and the prefix path (deterministic synthetic patches; prefix labels
+    // masked). Text-only behaviour is pinned by --smoke instead.
+    c.use_vision = true; c.vision_patch_dim = 8; c.vision_max_patches = 4;
     init_params(p, c, 7);
     std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
     std::vector<int> labels = {-100, 5, 7, 11, 13, 17, 19, 23, 29, 31};
+    const int VP = 3, VD = 8;
+    std::vector<float> vpatches((size_t)VP * VD);
+    {
+        std::mt19937 vrng(11);
+        std::uniform_real_distribution<float> vd(-0.5f, 0.5f);
+        for (auto& x : vpatches) x = vd(vrng);
+    }
+    std::vector<int> vlabels((size_t)VP, -100);
+    vlabels.insert(vlabels.end(), labels.begin(), labels.end());
+    const int VT = VP + (int)ids.size();
     auto loss_of = [&]() {
         Fwd fw;
-        fwd(p, c, ids, fw);
+        fwd(p, c, ids, fw, &vpatches, VP);
         std::vector<float> dl;
-        return (double)ce_loss(fw.logits, labels, (int)ids.size(), c.vocab,
+        return (double)ce_loss(fw.logits, vlabels, VT, c.vocab,
                                dl) + fw.moe_aux;
     };
     p.zero_grad();
     Fwd fw;
-    fwd(p, c, ids, fw);
+    fwd(p, c, ids, fw, &vpatches, VP);
     std::vector<float> dl;
-    double loss0 = ce_loss(fw.logits, labels, (int)ids.size(), c.vocab, dl)
+    double loss0 = ce_loss(fw.logits, vlabels, VT, c.vocab, dl)
                    + fw.moe_aux;
-    bwd(p, c, ids, fw, dl, 1.0f);
+    bwd(p, c, ids, fw, dl, 1.0f, &vpatches);
     const double eps = 4e-3;   // lift true signal above fp32 ulp noise in loss
     double worst_rel = 0.0, worst_abs = 0.0;
     std::string worst_name;

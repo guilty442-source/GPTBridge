@@ -706,6 +706,7 @@ std::string bundle_to_xct(const std::string& b) {
                        : m[2].str() == "up" ? "w3" : "w2";
         return base + m[1].str() + "." + w;
     }
+    if (b == "vision.patch_proj.weight") return "vision.patch_proj";
     return "";
 }
 
@@ -748,6 +749,7 @@ std::string xct_to_bundle(const std::string& n) {
                        : m[2].str() == "2" ? "down" : "up";
         return base + m[1].str() + ".mlp." + w + "_proj.weight";
     }
+    if (n == "vision.patch_proj") return "vision.patch_proj.weight";
     return "";
 }
 
@@ -782,6 +784,16 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
     } else {
         c.moe_experts = 0;
         c.moe_shared_experts = 0;
+    }
+    bool use_vision = false;
+    const JsonValue* uv = cfg.get("use_vision");
+    if (uv && uv->type == JsonValue::Type::Bool) use_vision = uv->boolean;
+    if (use_vision) {
+        c.use_vision = true;
+        c.vision_patch_dim = (int)xct::j_num(&cfg, "vision_patch_dim", 0);
+        c.vision_max_patches = (int)xct::j_num(&cfg, "vision_max_patches", 0);
+        if (c.vision_patch_dim <= 0 || c.vision_max_patches <= 0)
+            fail("IMPORT_VISION_GEOMETRY");
     }
     return c;
 }
@@ -1013,6 +1025,16 @@ int mode_export_bundle(const Args& a) {
         (int)xct::j_num(cfg, "hidden_size", -1) != c.hidden ||
         (int)xct::j_num(cfg, "num_hidden_layers", -1) != c.layers)
         fail("EXPORT_CONFIG_MISMATCH");
+    {
+        bool cfg_vision = false;
+        const JsonValue* uv = cfg->get("use_vision");
+        if (uv && uv->type == JsonValue::Type::Bool) cfg_vision = uv->boolean;
+        if (cfg_vision != c.use_vision ||
+            (c.use_vision &&
+             ((int)xct::j_num(cfg, "vision_patch_dim", -1) != c.vision_patch_dim ||
+              (int)xct::j_num(cfg, "vision_max_patches", -1) != c.vision_max_patches)))
+            fail("EXPORT_VISION_MISMATCH");
+    }
 
     fs::create_directories(out_dir);
     // Deterministic tensor order: sorted bundle names.
