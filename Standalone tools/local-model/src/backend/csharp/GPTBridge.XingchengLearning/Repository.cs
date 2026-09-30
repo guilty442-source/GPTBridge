@@ -511,7 +511,52 @@ internal sealed class TransformerTrainingRepository
                 $"SELECT {DatasetColumns} FROM transformer_training_dataset " +
                 "WHERE content_sha256 = $1", contentDigest);
             if (existing != null)
+            {
+                // Dataset snapshot columns are immutable
+                // (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a pruned or
+                // drifted file can only be repaired by restoring identical
+                // bytes at the stored path — the dataset identity is
+                // content_sha256 and the row itself is never rewritten.
+                string storedPath = (string?)existing["snapshot_path"] ?? "";
+                string storedSha = (string?)existing["snapshot_sha256"] ?? "";
+                bool usable = storedPath.Length > 0 &&
+                              File.Exists(storedPath) &&
+                              Sha256File(storedPath) == storedSha;
+                if (!usable)
+                {
+                    if (snapshotDigest != storedSha)
+                        throw new ArgumentException(
+                            "transformer training snapshot file missing " +
+                            "and registered digest cannot be restored");
+                    string restored = Path.IsPathRooted(storedPath)
+                        ? storedPath
+                        : Path.Combine(ToolRoot, storedPath);
+                    restored = Path.GetFullPath(restored);
+                    if (!restored.StartsWith(
+                            ToolRoot + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal))
+                        throw new UnauthorizedAccessException(
+                            "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
+                    string? parentDir = Path.GetDirectoryName(restored);
+                    if (parentDir != null && !Directory.Exists(parentDir))
+                        Directory.CreateDirectory(parentDir);
+                    File.Copy(snapshotFile, restored, overwrite: true);
+                    if (Sha256File(restored) != storedSha)
+                        throw new InvalidOperationException(
+                            "transformer training snapshot restore failed");
+                    AppendAudit(db,
+                        eventType: "dataset-snapshot-restored",
+                        entityType: "training-dataset",
+                        entityId: (string)existing["dataset_id"]!,
+                        payload: new Dictionary<string, object?>
+                        {
+                            ["content_sha256"] = contentDigest,
+                            ["snapshot_sha256"] = storedSha,
+                            ["snapshot_path"] = restored,
+                        });
+                }
                 return (existing, false);
+            }
             db.Execute(
                 """
                 INSERT INTO transformer_training_dataset(
