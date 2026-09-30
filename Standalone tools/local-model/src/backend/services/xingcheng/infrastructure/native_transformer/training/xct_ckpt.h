@@ -29,11 +29,12 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // sliding_window, num_global_kv_heads, flag bits (k_eq_v_global |
     // post_attn_norm | post_ffw_norm | ffn_act), local/global rope
     // proportions and base frequencies, final_logit_softcap.
-    // XCN6 = XCN5 + Gemma4 header block (marker u32, dims, rope/softcap
+    // XCN6 = XCN5 + fused-router flag: moe_router_sigmoid (u32 bool).
+    // XCN7 = XCN6 + Gemma4 header block (marker u32, dims, rope/softcap
     // floats, layer_types + hidden_act strings) — gemma4 only.
-    // v1..v5 checkpoints still load: absent fields default to the
+    // v1..v6 checkpoints still load: absent fields default to the
     // Qwen-style fused behaviour.
-    const uint32_t ver = c.is_gemma4() ? 6 : 5;
+    const uint32_t ver = c.is_gemma4() ? 7 : 6;
     f.write("XCN1", 4); u32(f, ver);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
@@ -66,8 +67,9 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     f.write((char*)&c.rope_theta_local, 4);
     f.write((char*)&c.rope_theta_global, 4);
     f.write((char*)&c.final_logit_softcap, 4);
-    // XCN6 Gemma4 block — only for gemma4 configs.
-    if (ver >= 6) {
+    u32(f, c.moe_router_sigmoid ? 1u : 0u);
+    // XCN7 Gemma4 block — only for gemma4 configs.
+    if (ver >= 7) {
         u32(f, 1);                                   // gemma4 marker
         u32(f, (uint32_t)c.head_dim);
         u32(f, (uint32_t)c.global_head_dim);
@@ -141,7 +143,7 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 6) return false;
+    if (ver < 1 || ver > 7) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -184,7 +186,8 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
         f.read((char*)&c.rope_theta_global, 4);
         f.read((char*)&c.final_logit_softcap, 4);
     }
-    if (ver >= 6 && !ckpt_read_g4(f, c)) return false;
+    if (ver >= 6) c.moe_router_sigmoid = r32(f) != 0;
+    if (ver >= 7 && !ckpt_read_g4(f, c)) return false;
     return (bool)f;
 }
 
@@ -194,7 +197,7 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 6) return false;
+    if (ver < 1 || ver > 7) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -237,7 +240,8 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
         f.read((char*)&c.rope_theta_global, 4);
         f.read((char*)&c.final_logit_softcap, 4);
     }
-    if (ver >= 6 && !ckpt_read_g4(f, c)) return false;
+    if (ver >= 6) c.moe_router_sigmoid = r32(f) != 0;
+    if (ver >= 7 && !ckpt_read_g4(f, c)) return false;
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {
         uint32_t nl = r32(f);
