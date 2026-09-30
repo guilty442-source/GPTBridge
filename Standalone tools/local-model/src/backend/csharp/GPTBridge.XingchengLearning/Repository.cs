@@ -509,14 +509,14 @@ internal sealed class TransformerTrainingRepository
         {
             var existing = db.QueryOne(
                 $"SELECT {DatasetColumns} FROM transformer_training_dataset " +
-                "WHERE content_sha256 = $1", contentDigest);
+                "WHERE content_sha256 = $1 AND state = 'prepared' " +
+                "ORDER BY created_at DESC LIMIT 1", contentDigest);
             if (existing != null)
             {
                 // Dataset snapshot columns are immutable
                 // (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a pruned or
                 // drifted file can only be repaired by restoring identical
-                // bytes at the stored path — the dataset identity is
-                // content_sha256 and the row itself is never rewritten.
+                // bytes at the stored path.
                 string storedPath = (string?)existing["snapshot_path"] ?? "";
                 string storedSha = (string?)existing["snapshot_sha256"] ?? "";
                 bool usable = storedPath.Length > 0 &&
@@ -524,38 +524,63 @@ internal sealed class TransformerTrainingRepository
                               Sha256File(storedPath) == storedSha;
                 if (!usable)
                 {
-                    if (snapshotDigest != storedSha)
-                        throw new ArgumentException(
-                            "transformer training snapshot file missing " +
-                            "and registered digest cannot be restored");
-                    string restored = Path.IsPathRooted(storedPath)
-                        ? storedPath
-                        : Path.Combine(ToolRoot, storedPath);
-                    restored = Path.GetFullPath(restored);
-                    if (!restored.StartsWith(
-                            ToolRoot + Path.DirectorySeparatorChar,
-                            StringComparison.Ordinal))
-                        throw new UnauthorizedAccessException(
-                            "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
-                    string? parentDir = Path.GetDirectoryName(restored);
-                    if (parentDir != null && !Directory.Exists(parentDir))
-                        Directory.CreateDirectory(parentDir);
-                    File.Copy(snapshotFile, restored, overwrite: true);
-                    if (Sha256File(restored) != storedSha)
-                        throw new InvalidOperationException(
-                            "transformer training snapshot restore failed");
+                    if (snapshotDigest == storedSha)
+                    {
+                        string restored = Path.IsPathRooted(storedPath)
+                            ? storedPath
+                            : Path.Combine(ToolRoot, storedPath);
+                        restored = Path.GetFullPath(restored);
+                        if (!restored.StartsWith(
+                                ToolRoot + Path.DirectorySeparatorChar,
+                                StringComparison.Ordinal))
+                            throw new UnauthorizedAccessException(
+                                "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
+                        string? parentDir = Path.GetDirectoryName(restored);
+                        if (parentDir != null && !Directory.Exists(parentDir))
+                            Directory.CreateDirectory(parentDir);
+                        File.Copy(snapshotFile, restored, overwrite: true);
+                        if (Sha256File(restored) != storedSha)
+                            throw new InvalidOperationException(
+                                "transformer training snapshot restore failed");
+                        AppendAudit(db,
+                            eventType: "dataset-snapshot-restored",
+                            entityType: "training-dataset",
+                            entityId: (string)existing["dataset_id"]!,
+                            payload: new Dictionary<string, object?>
+                            {
+                                ["content_sha256"] = contentDigest,
+                                ["snapshot_sha256"] = storedSha,
+                                ["snapshot_path"] = restored,
+                            });
+                        return (existing, false);
+                    }
+                    // The stored snapshot is unrecoverable and the freshly
+                    // exported bytes carry a different digest (e.g. a new
+                    // generation stamp): supersede the stale row — `state`
+                    // is outside the immutable trigger column set — and fall
+                    // through to register a successor row keyed by the new
+                    // snapshot digest so identical re-exports still dedup.
+                    string staleId = (string)existing["dataset_id"]!;
+                    db.Execute(
+                        "UPDATE transformer_training_dataset " +
+                        "SET state = 'superseded' WHERE dataset_id = $1",
+                        staleId);
                     AppendAudit(db,
-                        eventType: "dataset-snapshot-restored",
+                        eventType: "dataset-superseded",
                         entityType: "training-dataset",
-                        entityId: (string)existing["dataset_id"]!,
+                        entityId: staleId,
                         payload: new Dictionary<string, object?>
                         {
                             ["content_sha256"] = contentDigest,
-                            ["snapshot_sha256"] = storedSha,
-                            ["snapshot_path"] = restored,
+                            ["reason"] = "snapshot-unrecoverable",
                         });
+                    datasetId = $"star-transformer-dataset-" +
+                        Sha256Text(contentDigest + ":" + snapshotDigest)[..24];
                 }
-                return (existing, false);
+                else
+                {
+                    return (existing, false);
+                }
             }
             db.Execute(
                 """
