@@ -2939,12 +2939,45 @@ struct MtpDraft {
         return names;
     }
 
+    // XCN10 stack naming (mtp_depth >= 1, xc-fused-1 canonical): the
+    // depth-0 module is the draft head; role names differ from the
+    // legacy nextn flat names only -- same tensors, same math.
+    static const char* const* stack_names(int d) {
+        static std::string buf[kHeadCount];
+        static const char* ptrs[kHeadCount];
+        static const char* role[kHeadCount] = {
+            "eh", "et", "proj", "norm1", "wq", "wk", "wv", "wo",
+            "norm2", "w1", "w3", "w2", "norm_o"};
+        for (int i = 0; i < kHeadCount; ++i) {
+            buf[i] = "model.mtp." + std::to_string(d) + "." +
+                     role[i] + ".weight";
+            ptrs[i] = buf[i].c_str();
+        }
+        return ptrs;
+    }
+
+    const char* bound_family = nullptr;  // "nextn" or "stack0"
+    const char* const* bound_names_ = nullptr;
+
     // Returns the first missing/empty head tensor name, or nullptr.
     const char* bind_fail() {
-        const char* const* names = head_names();
         const xingcheng::inference::TensorView** dst[] = {
             &norm_h, &norm_e, &w_proj, &norm1, &wq, &wk, &wv, &wo,
             &norm2, &w1, &w3, &w2, &norm_out};
+        // Prefer the legacy flat nextn set; fall back to the XCN10
+        // depth-0 stack module -- never mix families.
+        const char* const* names = head_names();
+        bool flat_all = true;
+        for (int i = 0; i < kHeadCount; ++i)
+            if (!b->has_tensor(names[i]) ||
+                b->tensor(names[i]).data == nullptr ||
+                b->tensor(names[i]).size() <= 0) {
+                flat_all = false;
+                break;
+            }
+        if (!flat_all) names = stack_names(0);
+        bound_names_ = names;
+        bound_family = flat_all ? "nextn" : "stack0";
         const char* missing = nullptr;
         for (int i = 0; i < kHeadCount; ++i) {
             if (!b->has_tensor(names[i])) {
@@ -2982,19 +3015,23 @@ struct MtpDraft {
         const int64_t nh = c->num_attention_heads,
                       kvh = c->num_key_value_heads;
         const int64_t I = c->intermediate_size, V = c->vocab_size;
-        if (norm_h->size() != H) return "model.mtp.norm_h.weight";
-        if (norm_e->size() != H) return "model.mtp.norm_e.weight";
-        if (norm1->size() != H) return "model.mtp.norm1.weight";
-        if (norm2->size() != H) return "model.mtp.norm2.weight";
-        if (norm_out->size() != H) return "model.mtp.norm_out.weight";
-        if (w_proj->size() != H * 2 * H) return "model.mtp.w_proj.weight";
-        if (wq->size() != nh * hd * H) return "model.mtp.wq.weight";
-        if (wk->size() != kvh * hd * H) return "model.mtp.wk.weight";
-        if (wv->size() != kvh * hd * H) return "model.mtp.wv.weight";
-        if (wo->size() != H * nh * hd) return "model.mtp.wo.weight";
-        if (w1->size() != I * H) return "model.mtp.w1.weight";
-        if (w3->size() != I * H) return "model.mtp.w3.weight";
-        if (w2->size() != H * I) return "model.mtp.w2.weight";
+        const char* const* N = bound_names_ ? bound_names_
+                                            : head_names();
+        // N order: 0 norm_h, 1 norm_e, 2 w_proj, 3 norm1, 4 wq, 5 wk,
+        // 6 wv, 7 wo, 8 norm2, 9 w1, 10 w3, 11 w2, 12 norm_out.
+        if (norm_h->size() != H) return N[0];
+        if (norm_e->size() != H) return N[1];
+        if (norm1->size() != H) return N[3];
+        if (norm2->size() != H) return N[8];
+        if (norm_out->size() != H) return N[12];
+        if (w_proj->size() != H * 2 * H) return N[2];
+        if (wq->size() != nh * hd * H) return N[4];
+        if (wk->size() != kvh * hd * H) return N[5];
+        if (wv->size() != kvh * hd * H) return N[6];
+        if (wo->size() != H * nh * hd) return N[7];
+        if (w1->size() != I * H) return N[9];
+        if (w3->size() != I * H) return N[10];
+        if (w2->size() != H * I) return N[11];
         if (lm_head->size() != V * H) return "lm_head.weight";
         if (embed->size() != V * H)
             return "model.embeddings.word_embeddings.weight";
@@ -3260,6 +3297,7 @@ int mode_mtp_draft_probe(const Args& a) {
     std::printf(
         "{\"ok\":true,\"mode\":\"mtp-draft-probe\","
         "\"format\":\"star-mtp-draft-probe/v1\","
+        "\"mtp_family\":\"%s\","
         "\"draft_length\":1,"
         "\"verify_rule\":\"greedy_argmax\","
         "\"output_parity\":\"guaranteed_by_verification\","
@@ -3273,6 +3311,7 @@ int mode_mtp_draft_probe(const Args& a) {
         "NativeMtpDrafter dispatch is not bound; SPECULATIVE_"
         "DECODER_DISABLED remains in effect for production\","
         "\"speedup\":null}\n",
+        mtp.bound_family ? mtp.bound_family : "none",
         (long long)proposed, (long long)accepted, rate,
         1.0 + rate, (long long)mtp.positions, (long long)emitted,
         log_arr.str().c_str());
