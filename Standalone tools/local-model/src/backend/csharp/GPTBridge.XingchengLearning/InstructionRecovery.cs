@@ -3585,11 +3585,26 @@ internal static class InstructionRecovery
             if (r.Next(2) == 0)
             {
                 var (fn, sig, spec, body) = Take(r, PyFuncs);
-                Add(Zh() ? $"寫一個 Python 函式 `{fn}({sig})` 回傳"
-                           + $"{spec}。只輸出函式。"
-                         : $"Write a Python function `{fn}({sig})` "
-                           + $"returning {spec}. Output the function "
-                           + "only.",
+                Add(Zh() ? Take(r, new[]
+                             {
+                                 $"寫一個 Python 函式 `{fn}({sig})` "
+                                 + $"回傳{spec}。只輸出函式。",
+                                 $"請寫 `{fn}({sig})` 的 Python 函式"
+                                 + $"定義，回傳{spec}。",
+                                 $"用 Python 定義 `{fn}({sig})`，"
+                                 + $"回傳{spec}。",
+                             })
+                         : Take(r, new[]
+                             {
+                                 $"Write a Python function "
+                                 + $"`{fn}({sig})` returning {spec}. "
+                                 + "Output the function only.",
+                                 $"Output a Python function "
+                                 + $"`{fn}({sig})` that returns "
+                                 + $"{spec}.",
+                                 $"Define `{fn}({sig})` in Python; it "
+                                 + $"returns {spec}.",
+                             }),
                     $"def {fn}({sig}):\n    {body}", "B");
             }
             else
@@ -3598,10 +3613,25 @@ internal static class InstructionRecovery
                 string sig = fn is "plus" or "minus" or "times"
                              or "bigger" or "smaller"
                     ? "int a, int b" : "int x";
-                Add(Zh() ? $"寫一個 C++ 函式 `int {fn}({sig})` 回傳"
-                           + $"{spec}。"
-                         : $"Write a C++ function `int {fn}({sig})` "
-                           + $"returning {spec}.",
+                Add(Zh() ? Take(r, new[]
+                             {
+                                 $"寫一個 C++ 函式 `int {fn}({sig})` "
+                                 + $"回傳{spec}。",
+                                 $"請寫 C++ 函式 `int {fn}({sig})`，"
+                                 + $"回傳{spec}。",
+                                 $"定義 `int {fn}({sig})`，回傳"
+                                 + $"{spec}。",
+                             })
+                         : Take(r, new[]
+                             {
+                                 $"Write a C++ function `int "
+                                 + $"{fn}({sig})` returning {spec}.",
+                                 $"Output a C++ function `int "
+                                 + $"{fn}({sig})` that returns "
+                                 + $"{spec}.",
+                                 $"Define `int {fn}({sig})` in C++; "
+                                 + $"it returns {spec}.",
+                             }),
                     $"int {fn}({sig}) {{ {body} }}", "B");
             }
         }
@@ -3651,16 +3681,33 @@ internal static class InstructionRecovery
         }
 
         // -- D. fim — output only the missing body line.
-        for (int i = 0; i < count / 6; i++)
+        for (int i = 0; i < count / 5; i++)
         {
-            var (fn, sig, spec, body) = Take(r, PyFuncs);
-            Add((Zh() ? "補上缺少的那一行。程式碼：\n"
-                      : "Fill in the missing line. Code:\n")
-                + $"```python\ndef {fn}({sig}):\n    <MISSING>\n```\n"
-                + (Zh() ? $"讓函式回傳{spec}。只輸出缺少的那一行。"
-                        : $"Complete so the function returns {spec}. "
-                          + "Output only the missing line."),
-                body, "D");
+            if (r.Next(2) == 0)
+            {
+                var (fn, sig, spec, body) = Take(r, PyFuncs);
+                Add((Zh() ? "補上缺少的那一行。程式碼：\n"
+                          : "Fill in the missing line. Code:\n")
+                    + $"```python\ndef {fn}({sig}):\n    <MISSING>\n```"
+                    + "\n"
+                    + (Zh() ? $"讓函式回傳{spec}。只輸出缺少的那一行。"
+                            : $"Complete so the function returns "
+                              + $"{spec}. Output only the missing "
+                              + "line."),
+                    body, "D");
+            }
+            else
+            {
+                var (fn, spec, body) = Take(r, CppFuncs);
+                bool two = fn is "plus" or "minus" or "times"
+                           or "bigger" or "smaller";
+                string sig = two ? "int a, int b" : "int x";
+                Add("Complete the missing line. Code:\n"
+                    + $"```cpp\nint {fn}({sig}) {{\n    <MISSING>\n}}"
+                    + $"\n```\nIt must return {spec}. Output only the"
+                    + " missing line.",
+                    body.TrimEnd(';').Insert(0, "    ") + ";", "D");
+            }
         }
 
         // -- E. bug_fix — buggy snippet -> fixed line/explanation.
@@ -3708,14 +3755,67 @@ internal static class InstructionRecovery
              "int + str raises TypeError. Fix it.",
              "改成 print(s + 1) 或 print(str(s) + \"1\")",
              "Change to print(s + 1) or print(str(s) + \"1\")"),
+            ("while True:\n    print(\"x\")",
+             "它永遠不會停。修正它，一行說明。",
+             "It loops forever. Fix it in one line.",
+             "加上 break（例如在印完後 break）",
+             "Add a break (e.g. break after printing)"),
+            ("lst = []\nlst.append(1, 2)",
+             "append 只能吃一個引數。修正它。",
+             "append takes one argument. Fix it.",
+             "改成 lst.append(1); lst.append(2) 或 lst.extend([1,2])",
+             "Use lst.append(1); lst.append(2) or "
+             + "lst.extend([1,2])"),
+            ("def g():\n    return x",
+             "x 沒有定義。修正它，一行說明。",
+             "x is not defined. Fix it in one line.",
+             "把 x 當參數傳入：def g(x):",
+             "Take x as a parameter: def g(x):"),
+            ("int t = 5;\nif (t = 0) printf(\"zero\");",
+             "C++ 這段判斷寫錯了。哪裡錯？一行說明。",
+             "This C++ condition is wrong. One line.",
+             "if (t = 0) 是指派不是比較 — 改成 if (t == 0)",
+             "if (t = 0) assigns; use if (t == 0)"),
+            ("for i in range(10)\n    print(i)",
+             "少了冒號。修正它。",
+             "A colon is missing. Fix it.",
+             "range(10) 後面加冒號：for i in range(10):",
+             "Add a colon: for i in range(10):"),
+            ("d = {}\nprint(d[\"k\"])",
+             "key 不存在會 KeyError。修正它，一行說明。",
+             "Missing key raises KeyError. One-line fix.",
+             "改用 d.get(\"k\")（或先檢查 \"k\" in d）",
+             "Use d.get(\"k\") (or check \"k\" in d first)"),
+            ("x = [1,2,3]\nprint(x[3])",
+             "索引超出範圍。修正它。",
+             "Index out of range. Fix it.",
+             "最後一個索引是 2 — 改成 x[2] 或 x[-1]",
+             "Last index is 2 — use x[2] or x[-1]"),
+            ("float f = 1 / 2;",
+             "C++ 這行得到的不是 0.5。哪裡錯？一行說明。",
+             "This C++ line does not give 0.5. One line.",
+             "整數除法 — 改成 1.0 / 2 或 (double)1 / 2",
+             "Integer division — use 1.0 / 2 or (double)1 / 2"),
         };
-        for (int i = 0; i < count / 6; i++)
+        for (int i = 0; i < count / 5; i++)
         {
             var (bad, askZh, askEn, fixZh, fixEn) =
                 bugs[r.Next(bugs.Length)];
             bool zh = Zh();
-            Add(zh ? $"Bug：`{bad}`\n{askZh}" : $"Bug: `{bad}`\n{askEn}",
-                zh ? fixZh : fixEn, "E");
+            string prompt = zh
+                ? Take(r, new[]
+                    {
+                        $"Bug：`{bad}`\n{askZh}",
+                        $"下面程式有問題：\n{bad}\n{askZh}",
+                        $"這段程式碼出錯：`{bad}` — {askZh}",
+                    })
+                : Take(r, new[]
+                    {
+                        $"Bug: `{bad}`\n{askEn}",
+                        $"Broken code:\n{bad}\n{askEn}",
+                        $"This snippet is buggy: `{bad}` — {askEn}",
+                    });
+            Add(prompt, zh ? fixZh : fixEn, "E");
         }
 
         // -- F. small_multi_file — write the matching second file.
@@ -3730,28 +3830,57 @@ internal static class InstructionRecovery
                 string full = two ? "int a, int b" : "int x";
                 string h = $"{fn}_lib.h";
                 string cpp = $"{fn}_lib.cpp";
-                Add($"Two files: `{h}` declares `int {fn}({sig});` "
-                    + $"— write the matching `{cpp}` implementation "
-                    + $"(include the header). The function returns "
-                    + $"{spec}. Output the cpp content.",
+                Add(Take(r, new[]
+                    {
+                        $"Two files: `{h}` declares `int {fn}({sig});`"
+                        + $" — write the matching `{cpp}` "
+                        + "implementation (include the header). The "
+                        + $"function returns {spec}. Output the cpp "
+                        + "content.",
+                        $"`{h}` declares `int {fn}({sig});`. Write "
+                        + $"`{cpp}` implementing it (#include the "
+                        + $"header); it returns {spec}.",
+                        $"Given header `{h}` with `int {fn}({sig});`,"
+                        + $" produce `{cpp}` — include the header and"
+                        + $" return {spec}.",
+                    }),
                     $"#include \"{h}\"\n"
                     + $"int {fn}({full}) {{ {body} }}", "F");
             }
             else
             {
                 var (fn, spec, body) = Take(r, UnitTasks);
-                Add($"helpers.py has `def {fn}` returning {spec}. "
-                    + $"app.py must import it and print {fn} called "
-                    + "on a sample argument. Write app.py.",
+                string f2 = Take(r, new[] { "app.py", "run2.py",
+                                            "main2.py", "use_it.py" });
+                Add(Take(r, new[]
+                    {
+                        $"helpers.py has `def {fn}` returning {spec}."
+                        + $" {f2} must import it and print {fn} called"
+                        + $" on a sample argument. Write {f2}.",
+                        $"Given helpers.py defining `{fn}` (returns "
+                        + $"{spec}), write {f2} that imports helpers "
+                        + $"and prints a {fn} call.",
+                        $"helpers.py defines `{fn}` returning {spec}. "
+                        + $"Produce {f2} importing it and printing "
+                        + $"{fn} on a sample argument.",
+                    }),
                     $"import helpers\n"
                     + $"print(helpers.{fn}("
                     + (fn is "is_vowel" ? "'e'"
                         : fn is "count_char" ? "'hello', 'e'"
                         : fn is "clamp" ? "7, 0, 5"
                         : fn is "repeat_str" ? "'ab', 2"
+                        : fn is "pad_s" ? "'ab', 4"
                         : fn is "last_or_default" ? "[1,2], 0"
+                        : fn is "nth_or_zero" ? "[1,2], 1"
                         : fn is "swap_pair" ? "(1,2)"
                         : fn is "count_positives" ? "[1,-2,3]"
+                        : fn is "count_even" ? "[1,2,4]"
+                        : fn is "has_dup" ? "[1,2,2]"
+                        : fn is "sum_digits" ? "123"
+                        : fn is "reverse_s" ? "'ab'"
+                        : fn is "abs_all" ? "[1,-2]"
+                        : fn is "count_word" ? "'a b a', 'a'"
                         : "['a','b']") + "))", "F");
             }
         }
@@ -3815,8 +3944,8 @@ internal static class InstructionRecovery
         It("cd2-bug-1", "bug_fix",
            "Bug: `while i < 5: print(i)` loops forever. Fix it and "
            + "state the fix in one line.",
-           new[] { "i ?[+]?= ?i? ?[+]? ?1|i\\s*\\+=\\s*1|"
-                   + "i = i \\+ 1|increment|遞增|加 ?1" },
+           new[] { "i\\s*\\+?=?\\s*(i\\s*\\+\\s*)?1|increment|遞增"
+                   + "|加 ?1" },
            48, "BUG_NOT_FIXED", "regex");
         It("cd2-bug-2", "bug_fix",
            "Bug: `def area(r):\n    pi = 3.14\n    pi * r * r` "
