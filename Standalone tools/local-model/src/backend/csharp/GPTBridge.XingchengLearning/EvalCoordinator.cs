@@ -26,11 +26,39 @@ internal static class EvalCoordinator
           "creative-writing", "roleplay", "story-continuation",
           "character-dialogue", "style-transfer", "brainstorm",
           "world-building", "long-form-continuity",
-          "refusal-quality", "zh-tw-naturalness" };
+          "refusal-quality", "zh-tw-naturalness",
+          // inference efficiency plane (§47) — measured evidence, no
+          // hardcoded gains.
+          "expert-residency", "expert-offload", "hybrid-prefix",
+          "rag-prefix", "prefill-artifact", "pd-pipeline",
+          "memory-tier" };
 
     private static readonly string[] ResultRequired =
         { "suite", "case", "generation", "bundle", "pass", "metric",
           "threshold", "failure", "timestamp", "artifact_hash" };
+
+    /// <summary>§37 evaluation_scope values — a result says WHAT layer
+    /// it measured, so a capability score can never masquerade as a
+    /// core/architecture statement.</summary>
+    public static readonly string[] Scopes =
+        { "CORE", "COMPONENT", "RUNTIME", "CAPABILITY", "SERVICE",
+          "GOVERNANCE" };
+
+    /// <summary>Default scope per suite (§37).</summary>
+    public static string ScopeFor(string suite) => suite switch
+    {
+        "runtime-parity" or "precision-parity" or "kv-cache" or
+        "recurrent-state" or "long-context" => "RUNTIME",
+        "moe-routing" or "vision" => "COMPONENT",
+        "citation" or "rag" or "agent" or "coding" or "fim" or
+        "tool-decision" or "structured-output" or
+        "creative-writing" or "roleplay" or "story-continuation" or
+        "character-dialogue" or "style-transfer" or "brainstorm" or
+        "world-building" or "long-form-continuity" or
+        "refusal-quality" or "zh-tw-naturalness" => "CAPABILITY",
+        "generation-migration" or "bundle-provenance" => "GOVERNANCE",
+        _ => "SERVICE",
+    };
 
     /// <summary>Validate a star-eval-result/v1 record.</summary>
     public static Dictionary<string, object?> ValidateResult(
@@ -53,10 +81,21 @@ internal static class EvalCoordinator
         if (!Suites.Contains(suite))
             throw new ExecutorError(
                 "EVAL_RESULT_INVALID", $"unknown suite {suite}");
+        // §37: evaluation_scope is optional input but always resolved
+        // in output; a supplied scope must be a legal value.
+        string scope =
+            el.TryGetProperty("evaluation_scope", out var es) &&
+            es.ValueKind == JsonValueKind.String &&
+            (es.GetString() ?? "").Length > 0
+                ? es.GetString()! : ScopeFor(suite);
+        if (!Scopes.Contains(scope))
+            throw new ExecutorError(
+                "EVAL_RESULT_INVALID", $"bad evaluation_scope {scope}");
         return new Dictionary<string, object?>
         {
             ["ok"] = true, ["format"] = ResultFormat,
             ["suite"] = suite,
+            ["evaluation_scope"] = scope,
             ["pass"] = el.GetProperty("pass").GetBoolean(),
         };
     }

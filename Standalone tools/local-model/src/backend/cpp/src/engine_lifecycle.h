@@ -435,6 +435,13 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     if (std::filesystem::exists(tokenizer_path)) {
         tokenizer_ = std::make_unique<ByteLevelBPETokenizer>(
             ByteLevelBPETokenizer::load(tokenizer_path.string()));
+        const std::string tok_bytes =
+            read_text(tokenizer_path, 64 * 1024 * 1024);
+        tokenizer_sha256_ = sha256_hex(
+            reinterpret_cast<const unsigned char*>(tok_bytes.data()),
+            tok_bytes.size());
+    } else {
+        tokenizer_sha256_.clear();
     }
     } catch (...) {
         // A refused load must leave zero partial state: bundle_/kv_pool_/
@@ -467,6 +474,9 @@ void NativeInferenceEngine::unload() {
     kv_device_active_ = false;
     layers_.clear();
     prefix_cache_.clear();
+    prefix_scope_ = "default";
+    prefix_ctx_sha256_.clear();
+    tokenizer_sha256_.clear();
     prefix_tick_ = 0;
     prefix_hits_ = 0;
     prefix_misses_ = 0;

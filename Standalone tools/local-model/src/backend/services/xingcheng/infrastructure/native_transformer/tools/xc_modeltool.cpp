@@ -2885,6 +2885,12 @@ int mode_serve(const Args& a) {
                     }
                 }
 
+                // §22 prefix scope isolation: callers pass a scope id
+                // (typically the RAG manifest hash); entries from other
+                // scopes are never served to this request.
+                std::string pscope = jget_str(req, "prefix_scope");
+                if (!pscope.empty()) engine.set_prefix_scope(pscope);
+
                 std::vector<int64_t> pids = engine.encode(prompt, true, false);
                 // §16 opt-in two-level MoE trace: per-request router
                 // evidence, record-and-analyse only.
@@ -3242,6 +3248,104 @@ int mode_serve(const Args& a) {
                 emit("{\"ok\":true,\"restored\":true}");
                 continue;
             }
+            // -------- inference efficiency plane ops ----------------
+            if (op == "prefix-scope") {
+                // §22: bind subsequent requests to an isolation scope.
+                engine.set_prefix_scope(jget_str(req, "scope"));
+                std::ostringstream o;
+                o << "{\"ok\":true,\"prefix_scope\":\""
+                  << gptbridge::jsonlite::json_escape(
+                         engine.prefix_scope())
+                  << "\"}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "prefix-invalidate") {
+                // §19: drop a scope's prefix entries (document revision
+                // / chunk hash / index revision changed).
+                int64_t removed = engine.invalidate_prefix_scope(
+                    jget_str(req, "scope"));
+                std::ostringstream o;
+                o << "{\"ok\":true,\"invalidated\":" << removed << "}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "prefill") {
+                // §25/§26 star-prefill-artifact/v1: run the PREFILL
+                // role and write the binary handoff artifact.
+                std::string prompt = jget_str(req, "prompt");
+                std::string out_path = jget_str(req, "out");
+                if (prompt.empty() || out_path.empty()) {
+                    err_obj("PREFILL_ARTIFACT_INVALID:args");
+                    continue;
+                }
+                if (!engine.loaded()) engine.load(bundle);
+                std::string pscope = jget_str(req, "prefix_scope");
+                if (!pscope.empty()) engine.set_prefix_scope(pscope);
+                std::vector<int64_t> pids =
+                    engine.encode(prompt, true, false);
+                auto t0 = std::chrono::steady_clock::now();
+                std::string artifact = engine.prefill_artifact(
+                    pids, jget_str(req, "request_id"));
+                double prefill_ms = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t0).count()
+                    * 1000.0;
+                std::ofstream f(out_path,
+                                std::ios::binary | std::ios::trunc);
+                if (!f) { err_obj("PREFILL_ARTIFACT_INVALID:out");
+                          continue; }
+                f.write(artifact.data(),
+                        (std::streamsize)artifact.size());
+                std::ostringstream o;
+                o << "{\"ok\":true,\"artifact\":\""
+                  << gptbridge::jsonlite::json_escape(out_path) << "\","
+                  << "\"format\":\"star-prefill-artifact/v1\","
+                  << "\"bytes\":" << (int64_t)artifact.size()
+                  << ",\"tokens\":" << (int64_t)pids.size()
+                  << ",\"prefill_ms\":" << prefill_ms << "}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "decode-artifact") {
+                // §27: DECODE role — verify bindings fail-closed,
+                // restore state, decode. Prefill never re-runs.
+                std::string path = jget_str(req, "artifact");
+                if (path.empty()) {
+                    err_obj("PREFILL_ARTIFACT_INVALID:args");
+                    continue;
+                }
+                if (!engine.loaded()) engine.load(bundle);
+                std::ifstream f(path, std::ios::binary | std::ios::ate);
+                if (!f) { err_obj("PREFILL_ARTIFACT_INVALID:open");
+                          continue; }
+                std::string artifact((size_t)f.tellg(), '\0');
+                f.seekg(0);
+                f.read(artifact.data(),
+                       (std::streamsize)artifact.size());
+                int64_t max_new = (int64_t)serve_num(
+                    req, "max_new_tokens", 192);
+                if (max_new <= 0) max_new = 1;
+                if (max_new > 2048) max_new = 2048;
+                SamplingConfig sc;
+                auto t0 = std::chrono::steady_clock::now();
+                std::vector<int64_t> out =
+                    engine.generate_from_artifact(
+                        artifact, max_new, sc);
+                double decode_s = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t0).count();
+                std::string text = engine.decode(out, true);
+                size_t eot = text.find("<|eot|>");
+                if (eot != std::string::npos) text.erase(eot);
+                std::ostringstream o;
+                o << "{\"ok\":true,\"text\":\""
+                  << gptbridge::jsonlite::json_escape(text) << "\","
+                  << "\"generated_tokens\":" << (int64_t)out.size()
+                  << ",\"decode_s\":" << decode_s
+                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true"
+                  << ",\"role\":\"decode\"}";
+                emit(o.str());
+                continue;
+            }
             err_obj("SERVE_UNKNOWN_OP");
         } catch (const std::exception& e) {
             std::string msg = e.what();
@@ -3255,6 +3359,7 @@ int mode_serve(const Args& a) {
 }
 
 #include "xcm_corpus.h"
+#include "xcm_efficiency.h"
 
 }  // namespace
 
@@ -3290,6 +3395,21 @@ int main(int argc, char** argv) {
         if (mode == "provenance-check") return mode_provenance_check(a);
         if (mode == "depth-probe") return mode_depth_probe(a);
         if (mode == "moe-analyze") return mode_moe_analyze(a);
+        // Native Inference Efficiency Plane
+        if (mode == "expert-residency") return mode_expert_residency(a);
+        if (mode == "expert-offload-bench")
+            return mode_expert_offload_bench(a);
+        if (mode == "hybrid-prefix-smoke")
+            return mode_hybrid_prefix_smoke(a);
+        if (mode == "prefix-invalidation")
+            return mode_prefix_invalidation(a);
+        if (mode == "rag-prefix-bench") return mode_rag_prefix_bench(a);
+        if (mode == "pd-pipeline-bench") return mode_pd_bench(a);
+        if (mode == "pd-transfer-smoke") return mode_pd_transfer_smoke(a);
+        if (mode == "delta-prefix-restore")
+            return mode_delta_prefix_restore(a);
+        if (mode == "expert-quant-parity")
+            return mode_expert_quant_parity(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

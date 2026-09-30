@@ -421,6 +421,14 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
         cfg.use_double_wide_mlp = v->boolean;
     }
 
+    if (const JsonValue* v =
+            json_optional(manifest, "architecture_generation")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError(
+                "JSON_STRING_EXPECTED:architecture_generation");
+        bundle.architecture_generation_ = v->string;
+    }
+
     const std::string weights_name = json_string(manifest, "weights_file");
     bundle.weights_sha256_ = json_string(manifest, "weights_sha256");
     const std::filesystem::path weights_path = manifest_file.parent_path() / weights_name;

@@ -104,8 +104,8 @@ struct ModelConfig {
                ((layer + 1) % full_attention_interval) != 0;
     }
     // Any layer carries DeltaNet weights → the model owns per-slot
-    // recurrent state and prefix cache entries (K/V only) cannot
-    // reconstruct it.
+    // recurrent state; prefix entries must carry the XSST delta
+    // snapshot alongside KV or the restored context would be wrong.
     bool has_linear_layers() const {
         return full_attention_interval > 0 && linear_num_key_heads > 0;
     }
@@ -213,6 +213,11 @@ public:
     std::vector<std::string> tensor_names() const;
     int64_t weights_bytes() const { return weights_bytes_; }
     const std::string& weights_sha256() const { return weights_sha256_; }
+    // Manifest-declared canonical generation tag ("" when absent —
+    // pre-convergence bundles carry no generation field).
+    const std::string& architecture_generation() const {
+        return architecture_generation_;
+    }
 
 private:
     struct TensorInfo {
@@ -230,6 +235,7 @@ private:
     std::unique_ptr<Blob> blob_;
     int64_t weights_bytes_ = 0;
     std::string weights_sha256_;
+    std::string architecture_generation_;
 };
 
 class ByteLevelBPETokenizer {
@@ -311,6 +317,22 @@ public:
         const std::vector<int64_t>& prompt_ids,
         int64_t max_new_tokens,
         const SamplingConfig& sampling);
+
+    // Prefill/Decode disaggregation (§24-§32): ONE engine core, two
+    // execution roles. prefill_artifact() runs the prompt forward and
+    // exports a star-prefill-artifact/v1 binary blob (token ids, raw
+    // pool-format KV bytes, DeltaStateSnapshot, boundary logits,
+    // sha256-bound to generation/model/tokenizer).
+    // generate_from_artifact() verifies every binding field fail-closed
+    // (PD_GENERATION_MISMATCH / PD_MODEL_MISMATCH /
+    // PREFILL_ARTIFACT_INVALID), restores the state — never re-running
+    // prefill — and decodes.
+    std::string prefill_artifact(
+        const std::vector<int64_t>& prompt_ids,
+        const std::string& request_id);
+    std::vector<int64_t> generate_from_artifact(
+        const std::string& artifact, int64_t max_new_tokens,
+        const SamplingConfig& sampling);
     // R9 batch>1: packed prefill over all prompts, then continuous decode —
     // every step packs the active sequences' tokens into one forward and
     // finished sequences drop out (EOS/max), releasing their KV blocks.
@@ -350,6 +372,15 @@ public:
     std::string describe() const;
     void set_kv_memory_limit(int64_t bytes);
     void set_prefix_cache_limit(int64_t max_entries, int64_t max_bytes);
+
+    // HybridPrefixCache v2 scope isolation: every prefix entry is bound
+    // to a scope id (tenant / RAG manifest hash). Entries from other
+    // scopes are never served; invalidate_prefix_scope drops a scope's
+    // entries (e.g. after a document revision changed) and returns the
+    // number removed.
+    void set_prefix_scope(const std::string& scope_id);
+    int64_t invalidate_prefix_scope(const std::string& scope_id);
+    const std::string& prefix_scope() const { return prefix_scope_; }
 
     // §16 two-level MoE trace: opt-in per-layer router evidence captured
     // during the last forward — router_type (sigmoid_topk|softmax_topk),
@@ -520,6 +551,20 @@ private:
         // which is not bit-identical to the fp64 forward that produced
         // the snapshot (and wastes a forward under fp64).
         std::vector<double> logits;
+        // HybridPrefixCache v2: the XSST DeltaStateSnapshot captured at
+        // the prefix boundary. Empty for pure-attention bundles; for
+        // hybrid (DeltaNet) bundles a hit must restore KV AND the
+        // recurrent state or the continued context would be wrong, so
+        // entries without it are never served on hybrid models.
+        std::string delta_state;
+        // Compatibility context hash (SHA-256 over model hash +
+        // tokenizer hash + generation + architecture profile +
+        // precision profile). A mismatch is a miss — never a
+        // best-effort reuse.
+        std::string ctx_sha256;
+        // Isolation scope (tenant / RAG manifest). Different scopes
+        // never share prefix state.
+        std::string scope_id;
         uint64_t tick = 0;
     };
 
@@ -548,6 +593,13 @@ private:
     std::unique_ptr<ByteLevelBPETokenizer> tokenizer_;
     std::vector<LayerWeights> layers_;
     std::vector<PrefixEntry> prefix_cache_;
+    std::string prefix_scope_ = "default";
+    std::string prefix_ctx_sha256_;
+    std::string tokenizer_sha256_;
+    // Canonical prefix context hash (§15/§16): sha256 over the
+    // model/tokenizer/generation/architecture/precision tuple — any
+    // change makes every cached entry a miss.
+    const std::string& prefix_ctx_hash();
     int64_t prefix_cache_max_entries_ = 8;
     int64_t prefix_cache_max_bytes_ = 256LL * 1024 * 1024;
     uint64_t prefix_tick_ = 0;
@@ -695,6 +747,18 @@ private:
     int32_t kv_alloc_block();
     int64_t kv_alloc_slot();
     void kv_free_slot(int64_t slot);
+    // HybridPrefixCache / PrefillArtifact shared state movers: capture
+    // and restore one slot's full boundary state (tokens + raw pool KV
+    // bytes + delta snapshot + boundary logits).
+    PrefixEntry capture_prefix_state(
+        const std::vector<int64_t>& tokens,
+        const std::vector<double>& logits);
+    void restore_prefix_state(const PrefixEntry& entry);
+    // Decode loop shared by generate() and generate_from_artifact().
+    std::vector<int64_t> decode_continue(
+        std::vector<double> next_logits, int64_t max_new_tokens,
+        const SamplingConfig& sampling, uint64_t rng_state,
+        std::vector<int64_t>& generated);
     void kv_ensure_position(int64_t slot, int64_t position);
     char* kv_slot_bytes(
         int64_t slot, bool key_cache,

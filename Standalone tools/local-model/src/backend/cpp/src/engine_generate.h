@@ -187,15 +187,23 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // are deterministic, so a restored cache is bit-identical to recompute.
     // The per-head slice stride matches the KV pool element stride — Gemma4
     // hybrid layers keep a uniform max_head_dim row width.
-    // v27 fused hybrid: linear-attention layers fold context into the
-    // per-slot DeltaNet state (S + conv tail) that a KV-only snapshot
-    // cannot reconstruct — a hit would silently serve wrong-context
-    // outputs, so the cache is bypassed for hybrid bundles entirely.
-    const bool prefix_ok = !cfg.has_linear_layers();
+    // HybridPrefixCache v2: a prefix entry is KV + DeltaStateSnapshot +
+    // boundary logits bound to a compatibility context hash and an
+    // isolation scope. A hybrid (DeltaNet) hit restores the recurrent
+    // state alongside the KV blocks; a pure-attention bundle carries no
+    // delta blob. Cross-scope or context-incompatible entries are never
+    // served (§15/§22 — a mismatch is a miss, not best-effort reuse).
+    const bool prefix_ok = true;
+    const bool hybrid = cfg.has_linear_layers();
+    const std::string& ctx_hash = prefix_ctx_hash();
     int64_t prefix_len = 0;
     size_t hit_index = prefix_cache_.size();
     for (size_t i = 0; prefix_ok && i < prefix_cache_.size(); ++i) {
         const PrefixEntry& entry = prefix_cache_[i];
+        if (entry.scope_id != prefix_scope_ ||
+            entry.ctx_sha256 != ctx_hash ||
+            (hybrid && entry.delta_state.empty()))
+            continue;
         const int64_t len = static_cast<int64_t>(entry.tokens.size());
         if (len > 0 && len <= static_cast<int64_t>(prompt_ids.size()) &&
             std::equal(
@@ -207,32 +215,9 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     }
     if (hit_index != prefix_cache_.size()) {
         PrefixEntry& hit = prefix_cache_[hit_index];
-        for (int64_t position = 0; position < prefix_len; ++position) {
-            kv_ensure_position(0, position);
-        }
-        // Raw-byte restore: the snapshot holds the on-pool element
-        // format, so the bytes land verbatim — under KV-INT8 this is the
-        // difference between a bit-identical restore and a requantized
-        // (ulp-drifted) prefix.
-        const int64_t head_bytes = kv_elem_stride_bytes_;
-        const int64_t row_bytes =
-            cfg.num_key_value_heads * head_bytes;
-        for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
-            for (int64_t position = 0; position < prefix_len; ++position) {
-                for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
-                    const int64_t off =
-                        (layer * prefix_len + position) * row_bytes +
-                        h * head_bytes;
-                    kv_restore_bytes(
-                        0, true, layer, position, h, hit.k.data() + off);
-                    kv_restore_bytes(
-                        0, false, layer, position, h, hit.v.data() + off);
-                }
-            }
-        }
+        restore_prefix_state(hit);
         hit.tick = ++prefix_tick_;
         ++prefix_hits_;
-        kv_lens_[0] = prefix_len;
     } else {
         ++prefix_misses_;
     }
@@ -263,18 +248,19 @@ std::vector<int64_t> NativeInferenceEngine::generate(
 
     // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
     if (prefix_ok && prefix_cache_max_entries_ > 0 && kv_lens_[0] > 0) {
-        const int64_t store_len = kv_lens_[0];
-        const int64_t head_bytes = kv_elem_stride_bytes_;
+        PrefixEntry entry = capture_prefix_state(prompt_ids, next_logits);
         const int64_t entry_bytes =
-            2 * cfg.num_hidden_layers * store_len *
-                cfg.num_key_value_heads * head_bytes +
-            static_cast<int64_t>(next_logits.size()) *
-                static_cast<int64_t>(sizeof(double));
+            static_cast<int64_t>(
+                entry.k.size() + entry.v.size() +
+                entry.delta_state.size() +
+                entry.logits.size() * sizeof(double));
         if (entry_bytes <= prefix_cache_max_bytes_) {
             auto existing = std::find_if(
                 prefix_cache_.begin(), prefix_cache_.end(),
                 [&](const PrefixEntry& entry) {
-                    return entry.tokens == prompt_ids;
+                    return entry.tokens == prompt_ids &&
+                           entry.scope_id == prefix_scope_ &&
+                           entry.ctx_sha256 == ctx_hash;
                 });
             if (existing != prefix_cache_.end()) {
                 existing->tick = ++prefix_tick_;
@@ -283,6 +269,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                 for (const PrefixEntry& entry : prefix_cache_) {
                     total_bytes += static_cast<int64_t>(
                         entry.k.size() + entry.v.size() +
+                        entry.delta_state.size() +
                         entry.logits.size() * sizeof(double));
                 }
                 while (
@@ -298,56 +285,122 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                         });
                     total_bytes -= static_cast<int64_t>(
                         oldest->k.size() + oldest->v.size() +
+                        oldest->delta_state.size() +
                         oldest->logits.size() * sizeof(double));
                     prefix_cache_.erase(oldest);
                 }
-                PrefixEntry entry;
-                entry.tokens = prompt_ids;
-                // Snapshot the raw pool bytes (one element per
-                // layer/position/head): fp64 vectors verbatim, or the
-                // packed int8 payload + scale under KV-INT8 — restoring
-                // the stored representation keeps hits bit-identical.
-                const int64_t row_bytes =
-                    cfg.num_key_value_heads * head_bytes;
-                entry.k.resize(
-                    static_cast<size_t>(
-                        cfg.num_hidden_layers * store_len * row_bytes));
-                entry.v.resize(
-                    static_cast<size_t>(
-                        cfg.num_hidden_layers * store_len * row_bytes));
-                for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
-                    for (int64_t position = 0; position < store_len; ++position) {
-                        for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
-                            const int64_t off =
-                                (layer * store_len + position) * row_bytes +
-                                h * head_bytes;
-                            std::memcpy(
-                                entry.k.data() + off,
-                                kv_slot_bytes(0, true, layer, position, h),
-                                static_cast<size_t>(head_bytes));
-                            std::memcpy(
-                                entry.v.data() + off,
-                                kv_slot_bytes(0, false, layer, position, h),
-                                static_cast<size_t>(head_bytes));
-                        }
-                    }
-                }
-                entry.logits = next_logits;
                 entry.tick = ++prefix_tick_;
                 prefix_cache_.push_back(std::move(entry));
             }
         }
     }
+    return decode_continue(
+        std::move(next_logits), max_new_tokens, sampling, rng_state,
+        generated);
+}
+
+NativeInferenceEngine::PrefixEntry
+NativeInferenceEngine::capture_prefix_state(
+    const std::vector<int64_t>& tokens,
+    const std::vector<double>& logits) {
+    // One boundary state = tokens + raw pool KV bytes + (hybrid) XSST
+    // delta snapshot + post-boundary logits + compat context + scope.
+    // Capturing the on-pool element format keeps a restored prefix
+    // bit-identical under every storage format (KV-INT8 included).
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t len = static_cast<int64_t>(tokens.size());
+    const int64_t head_bytes = kv_elem_stride_bytes_;
+    const int64_t row_bytes = cfg.num_key_value_heads * head_bytes;
+    PrefixEntry entry;
+    entry.tokens = tokens;
+    entry.k.resize(static_cast<size_t>(
+        cfg.num_hidden_layers * len * row_bytes));
+    entry.v.resize(static_cast<size_t>(
+        cfg.num_hidden_layers * len * row_bytes));
+    for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
+        // Linear (DeltaNet) layers own no KV — their context lives in
+        // the delta snapshot; the kv pool has no rows to read there.
+        if (cfg.is_linear_layer(layer)) continue;
+        for (int64_t position = 0; position < len; ++position) {
+            for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                const int64_t off =
+                    (layer * len + position) * row_bytes +
+                    h * head_bytes;
+                std::memcpy(
+                    entry.k.data() + off,
+                    kv_slot_bytes(0, true, layer, position, h),
+                    static_cast<size_t>(head_bytes));
+                std::memcpy(
+                    entry.v.data() + off,
+                    kv_slot_bytes(0, false, layer, position, h),
+                    static_cast<size_t>(head_bytes));
+            }
+        }
+    }
+    entry.logits = logits;
+    if (cfg.has_linear_layers()) {
+        entry.delta_state = snapshot_delta_state(
+            bundle_->architecture_generation());
+    }
+    entry.ctx_sha256 = prefix_ctx_hash();
+    entry.scope_id = prefix_scope_;
+    return entry;
+}
+
+void NativeInferenceEngine::restore_prefix_state(
+    const PrefixEntry& entry) {
+    const ModelConfig& cfg = bundle_->config();
+    const int64_t len = static_cast<int64_t>(entry.tokens.size());
+    const int64_t head_bytes = kv_elem_stride_bytes_;
+    const int64_t row_bytes = cfg.num_key_value_heads * head_bytes;
+    const int64_t expect =
+        cfg.num_hidden_layers * len * row_bytes;
+    if (static_cast<int64_t>(entry.k.size()) != expect ||
+        static_cast<int64_t>(entry.v.size()) != expect) {
+        throw InferenceError("PREFIX_STATE_INCOMPATIBLE:kv-bytes");
+    }
+    for (int64_t position = 0; position < len; ++position) {
+        kv_ensure_position(0, position);
+    }
+    for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
+        if (cfg.is_linear_layer(layer)) continue;
+        for (int64_t position = 0; position < len; ++position) {
+            for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                const int64_t off =
+                    (layer * len + position) * row_bytes +
+                    h * head_bytes;
+                kv_restore_bytes(
+                    0, true, layer, position, h, entry.k.data() + off);
+                kv_restore_bytes(
+                    0, false, layer, position, h, entry.v.data() + off);
+            }
+        }
+    }
+    if (cfg.has_linear_layers()) {
+        if (entry.delta_state.empty())
+            throw InferenceError("DELTA_PREFIX_STATE_INVALID:empty");
+        restore_delta_state(
+            entry.delta_state, bundle_->architecture_generation());
+    }
+    kv_lens_[0] = len;
+}
+
+std::vector<int64_t> NativeInferenceEngine::decode_continue(
+    std::vector<double> next_logits, int64_t max_new_tokens,
+    const SamplingConfig& sampling, uint64_t rng_state,
+    std::vector<int64_t>& generated) {
+    const ModelConfig& cfg = bundle_->config();
     // Byte-spelled turn end: SFT weights terminate turns by emitting the
-    // literal text "<|eot|>" (the bundle vocab carries no dedicated token),
-    // so the token-id EOS alone never fires. Governed callers truncate the
-    // visible reply at that marker — stopping here skips the ramble the
-    // model would generate past turn end (saves decode steps; the visible
-    // reply is unchanged).
+    // literal text "<|eot|>" (the bundle vocab carries no dedicated
+    // token), so the token-id EOS alone never fires. Governed callers
+    // truncate the visible reply at that marker — stopping here skips
+    // the ramble the model would generate past turn end (saves decode
+    // steps; the visible reply is unchanged).
     std::string turn_tail;
     turn_tail.reserve(64);
     for (int64_t step = 0; step < max_new_tokens; ++step) {
-        const int64_t token = sample_next(next_logits, sequence_, sampling, rng_state);
+        const int64_t token = sample_next(
+            next_logits, sequence_, sampling, rng_state);
         generated.push_back(token);
         sequence_.push_back(token);
         turn_tail += tokenizer_->decode({token}, false);
@@ -362,6 +415,180 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         next_logits = forward_last_logits({token}, kv_lens_[0], true);
     }
     return generated;
+}
+
+// --- star-prefill-artifact/v1 (Prefill/Decode disaggregation) ---------
+//
+// Layout (little-endian):
+//   "XPA1" u32 ver | u32 meta_len + meta JSON | u64 token_n + i64 ids |
+//   u64 kv_n + k bytes | u64 kv_n + v bytes | u64 delta_n + XSST blob |
+//   u64 logits_n + f64 logits | sha256(payload) hex 64B
+// Tensor state travels as raw pool bytes — never JSON (§32).
+
+std::string NativeInferenceEngine::prefill_artifact(
+    const std::vector<int64_t>& prompt_ids,
+    const std::string& request_id) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    if (prompt_ids.empty()) throw InferenceError("PROMPT_EMPTY");
+    const ModelConfig& cfg = bundle_->config();
+    if (static_cast<int64_t>(prompt_ids.size()) >
+        cfg.max_position_embeddings) {
+        throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+    }
+    reset_cache();
+    sequence_ = prompt_ids;
+    const std::vector<double> logits =
+        forward_last_logits(prompt_ids, 0, true);
+    PrefixEntry entry = capture_prefix_state(prompt_ids, logits);
+
+    std::ostringstream meta;
+    meta << "{\"format\":\"star-prefill-artifact/v1\","
+         << "\"request_id\":\"" << request_id << "\","
+         << "\"generation\":\""
+         << bundle_->architecture_generation() << "\","
+         << "\"model_hash\":\"" << bundle_->weights_sha256() << "\","
+         << "\"tokenizer_hash\":\"" << tokenizer_sha256_ << "\","
+         << "\"sequence_length\":" << prompt_ids.size() << ","
+         << "\"hybrid\":" << (cfg.has_linear_layers() ? 1 : 0) << ","
+         << "\"kv_precision\":\"" << (kv_int8_ ? "int8" : "fp64")
+         << "\"}";
+    const std::string meta_json = meta.str();
+
+    std::string out;
+    auto put_u32 = [&out](uint32_t v) {
+        out.append(reinterpret_cast<const char*>(&v), 4);
+    };
+    auto put_u64 = [&out](uint64_t v) {
+        out.append(reinterpret_cast<const char*>(&v), 8);
+    };
+    out.append("XPA1", 4);
+    put_u32(1);
+    put_u32(static_cast<uint32_t>(meta_json.size()));
+    out.append(meta_json);
+    put_u64(static_cast<uint64_t>(entry.tokens.size()));
+    for (int64_t t : entry.tokens) {
+        out.append(reinterpret_cast<const char*>(&t), 8);
+    }
+    put_u64(static_cast<uint64_t>(entry.k.size()));
+    if (!entry.k.empty())
+        out.append(entry.k.data(), entry.k.size());
+    put_u64(static_cast<uint64_t>(entry.v.size()));
+    if (!entry.v.empty())
+        out.append(entry.v.data(), entry.v.size());
+    put_u64(static_cast<uint64_t>(entry.delta_state.size()));
+    out.append(entry.delta_state);
+    put_u64(static_cast<uint64_t>(entry.logits.size()));
+    out.append(reinterpret_cast<const char*>(entry.logits.data()),
+               entry.logits.size() * sizeof(double));
+    out.append(sha256_hex(
+        reinterpret_cast<const unsigned char*>(out.data()),
+        out.size()));
+    return out;
+}
+
+std::vector<int64_t> NativeInferenceEngine::generate_from_artifact(
+    const std::string& artifact, int64_t max_new_tokens,
+    const SamplingConfig& sampling) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    if (max_new_tokens <= 0) return {};
+    const ModelConfig& cfg = bundle_->config();
+    if (artifact.size() < 4 + 4 + 64 ||
+        artifact.compare(0, 4, "XPA1") != 0)
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:magic");
+    const std::string sha = sha256_hex(
+        reinterpret_cast<const unsigned char*>(artifact.data()),
+        artifact.size() - 64);
+    if (artifact.compare(artifact.size() - 64, 64, sha) != 0)
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:hash");
+    size_t pos = 4;
+    auto rd_u32 = [&]() -> uint32_t {
+        uint32_t v;
+        std::memcpy(&v, artifact.data() + pos, 4);
+        pos += 4;
+        return v;
+    };
+    auto rd_u64 = [&]() -> uint64_t {
+        uint64_t v;
+        std::memcpy(&v, artifact.data() + pos, 8);
+        pos += 8;
+        return v;
+    };
+    const uint32_t version = rd_u32();
+    if (version != 1)
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:version");
+    const uint32_t meta_len = rd_u32();
+    const std::string meta_json = artifact.substr(pos, meta_len);
+    pos += meta_len;
+    const JsonValue meta = JsonParser(meta_json).parse();
+    auto jstr = [&](const char* key) -> std::string {
+        const JsonValue* v = json_optional(meta, key);
+        return v && v->type == JsonValue::Type::String
+                   ? v->string : std::string();
+    };
+    if (jstr("format") != "star-prefill-artifact/v1")
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:format");
+    if (jstr("generation") != bundle_->architecture_generation())
+        throw InferenceError("PD_GENERATION_MISMATCH");
+    if (jstr("model_hash") != bundle_->weights_sha256())
+        throw InferenceError("PD_MODEL_MISMATCH");
+    if (jstr("tokenizer_hash") != tokenizer_sha256_)
+        throw InferenceError("PD_MODEL_MISMATCH:tokenizer");
+    const bool meta_hybrid =
+        json_number(meta, "hybrid") != 0.0;
+    if (meta_hybrid != cfg.has_linear_layers())
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:arch");
+    const bool meta_kv_int8 =
+        jstr("kv_precision") == "int8";
+    if (meta_kv_int8 != kv_int8_)
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:kv-precision");
+
+    PrefixEntry entry;
+    const uint64_t token_n = rd_u64();
+    entry.tokens.resize(token_n);
+    for (uint64_t i = 0; i < token_n; ++i) {
+        int64_t t;
+        std::memcpy(&t, artifact.data() + pos, 8);
+        pos += 8;
+        entry.tokens[i] = t;
+    }
+    const uint64_t k_n = rd_u64();
+    entry.k.assign(artifact.data() + pos,
+                   artifact.data() + pos + k_n);
+    pos += k_n;
+    const uint64_t v_n = rd_u64();
+    entry.v.assign(artifact.data() + pos,
+                   artifact.data() + pos + v_n);
+    pos += v_n;
+    const uint64_t d_n = rd_u64();
+    entry.delta_state = artifact.substr(pos, d_n);
+    pos += d_n;
+    const uint64_t l_n = rd_u64();
+    entry.logits.resize(l_n);
+    if (l_n > 0) {
+        std::memcpy(entry.logits.data(), artifact.data() + pos,
+                    l_n * sizeof(double));
+        pos += l_n * sizeof(double);
+    }
+    if (pos + 64 != artifact.size())
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:trailing");
+    if (static_cast<int64_t>(entry.tokens.size()) +
+            max_new_tokens > cfg.max_position_embeddings)
+        throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+    if (entry.logits.empty())
+        throw InferenceError("PREFILL_ARTIFACT_INVALID:logits");
+
+    reset_cache();
+    sequence_ = entry.tokens;
+    restore_prefix_state(entry);
+    // Decode resumes from the artifact's boundary logits — prefill is
+    // never re-run (§27).
+    std::vector<int64_t> generated;
+    generated.reserve(static_cast<size_t>(max_new_tokens));
+    uint64_t rng_state =
+        sampling.seed ? sampling.seed : 0x9E3779B97F4A7C15ULL;
+    return decode_continue(
+        std::move(entry.logits), max_new_tokens, sampling, rng_state,
+        generated);
 }
 
 std::vector<std::vector<int64_t>> NativeInferenceEngine::generate_batch(
@@ -525,6 +752,56 @@ void NativeInferenceEngine::set_kv_memory_limit(int64_t bytes) {
         !gptbridge_kv_pool_set_limit(kv_pool_, kv_limit_bytes_)) {
         throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
     }
+}
+
+const std::string& NativeInferenceEngine::prefix_ctx_hash() {
+    // §15/§16 CanonicalPrefixHash context: model weights hash +
+    // tokenizer hash + manifest generation + KV precision profile.
+    // Computed once per load; any component change invalidates every
+    // cached entry (a ctx mismatch is always a miss, never a
+    // best-effort reuse).
+    if (prefix_ctx_sha256_.empty() && loaded()) {
+        const ModelConfig& cfg = bundle_->config();
+        std::string material = "star-prefix-ctx/v1";
+        material += "|model=" + bundle_->weights_sha256();
+        material += "|tok=" + tokenizer_sha256_;
+        material += "|gen=" + bundle_->architecture_generation();
+        material += "|arch=xc-fused-1";
+        material += cfg.has_linear_layers() ? "|hybrid=1" : "|hybrid=0";
+        material += kv_int8_ ? "|kv=int8" : "|kv=fp64";
+        prefix_ctx_sha256_ = sha256_hex(
+            reinterpret_cast<const unsigned char*>(material.data()),
+            material.size());
+    }
+    return prefix_ctx_sha256_;
+}
+
+void NativeInferenceEngine::set_prefix_scope(
+    const std::string& scope_id) {
+    if (scope_id.empty())
+        throw InferenceError("PREFIX_SCOPE_MISMATCH:empty-scope");
+    if (scope_id.size() > 256)
+        throw InferenceError("PREFIX_SCOPE_MISMATCH:scope-too-long");
+    prefix_scope_ = scope_id;
+}
+
+int64_t NativeInferenceEngine::invalidate_prefix_scope(
+    const std::string& scope_id) {
+    // §19 revision invalidation: a changed PDF revision / chunk hash /
+    // RAG index revision produces a new RagPrefixManifest hash, and the
+    // caller drops the stale scope's entries outright — the old KV /
+    // Delta state must never be served under an updated document set.
+    int64_t removed = 0;
+    auto it = prefix_cache_.begin();
+    while (it != prefix_cache_.end()) {
+        if (it->scope_id == scope_id) {
+            it = prefix_cache_.erase(it);
+            ++removed;
+        } else {
+            ++it;
+        }
+    }
+    return removed;
 }
 
 void NativeInferenceEngine::set_prefix_cache_limit(
