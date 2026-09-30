@@ -1,0 +1,179 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-instruction-300m",
+  "seed": 42,
+  "notes": "300M maturation P0: instruction-following maturity suite. Nine dimensions — multi_constraint, negative_constraint, format, priority, language, length, order, conditional, ambiguous. Category per item identifies the dimension; pass requires the named check on the generated reply.",
+  "items": [
+    {
+      "id": "ins-multi-1",
+      "category": "instruction_multi_constraint",
+      "check": "regex_all",
+      "prompt": "用繁體中文寫出三點儲存資料的安全建議，每點以「-」開頭，且每點不超過 15 字。",
+      "patterns": ["(^|\\n)-", "(^|\\n)-.*\\n-", "儲存|資料|安全"],
+      "max_new_tokens": 96
+    },
+    {
+      "id": "ins-multi-2",
+      "category": "instruction_multi_constraint",
+      "check": "regex_all",
+      "prompt": "List exactly two colors, each on its own line, prefixed with '1.' and '2.'.",
+      "patterns": ["1\\.", "2\\."],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ins-neg-1",
+      "category": "instruction_negative_constraint",
+      "check": "not_contains",
+      "prompt": "描述一隻貓，但不可以提到「毛」或「貓」這兩個字。",
+      "expected": "毛",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-neg-2",
+      "category": "instruction_negative_constraint",
+      "check": "not_contains",
+      "prompt": "Summarize what a database is without using the word 'data' or 'information'.",
+      "expected": "data",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-neg-3",
+      "category": "instruction_negative_constraint",
+      "check": "not_contains",
+      "prompt": "回答「什麼是快取？」但不准使用「速度」二字。",
+      "expected": "速度",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-fmt-1",
+      "category": "instruction_format",
+      "check": "json_valid",
+      "prompt": "只輸出 JSON 物件：{\"city\": \"<城市名>\", \"country\": \"<國家>\"}，城市填台北，國家填台灣。不要輸出其他文字。",
+      "required_fields": ["city", "country"],
+      "exact_fields": 1,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ins-fmt-2",
+      "category": "instruction_format",
+      "check": "regex",
+      "prompt": "用 Markdown 表格輸出兩列資料：欄位為「名稱」與「數量」。只輸出表格。",
+      "pattern": "\\|.*\\|",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-fmt-3",
+      "category": "instruction_format",
+      "check": "regex",
+      "prompt": "Answer with exactly one word: what color is the sky on a clear day?",
+      "pattern": "^\\s*\\w+\\s*$",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "ins-pri-1",
+      "category": "instruction_priority",
+      "check": "not_contains",
+      "prompt": "規則：最高優先順序的規則是不要輸出任何數字。現在請列出 1 到 5。",
+      "expected": "5",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ins-pri-2",
+      "category": "instruction_priority",
+      "check": "regex",
+      "prompt": "System rule overrides user style requests. User: please write a very long essay. System: answers must be one sentence. Reply describing a tree.",
+      "pattern": "^[^.。\\n]+[.。]?\\s*$",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-lang-1",
+      "category": "instruction_language",
+      "check": "not_contains",
+      "prompt": "請只用英文回答：台北是台灣的首都嗎？（不得使用任何中文字元）",
+      "expected": "台",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "ins-lang-2",
+      "category": "instruction_language",
+      "check": "regex",
+      "prompt": "Answer in Japanese only: what is 2+2? (回答は日本語のみ)",
+      "pattern": "[぀-ヿ一-鿿]",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "ins-len-1",
+      "category": "instruction_length",
+      "check": "count_lines",
+      "prompt": "用恰好兩行回答：天空是什麼顏色？第一行寫顏色，第二行寫原因。",
+      "expected": 2,
+      "total_lines": 2,
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-len-2",
+      "category": "instruction_length",
+      "check": "count_lines",
+      "prompt": "Write exactly three lines about rain. No more, no less.",
+      "expected": 3,
+      "total_lines": 3,
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-ord-1",
+      "category": "instruction_order",
+      "check": "regex",
+      "prompt": "依序執行：先寫「開始」，再寫一個水果名，最後寫「結束」。嚴格照順序。",
+      "pattern": "開始[\\s\\S]*結束",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ins-ord-2",
+      "category": "instruction_order",
+      "check": "regex",
+      "prompt": "First output the word ALPHA, then a number, then the word OMEGA, in that order.",
+      "pattern": "ALPHA[\\s\\S]*[0-9][\\s\\S]*OMEGA",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ins-cond-1",
+      "category": "instruction_conditional",
+      "check": "contains",
+      "prompt": "如果 5 大於 3，輸出「是」；否則輸出「否」。",
+      "expected": "是",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "ins-cond-2",
+      "category": "instruction_conditional",
+      "check": "contains",
+      "prompt": "If the number 10 is even, reply YES; otherwise reply NO.",
+      "expected": "YES",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "ins-cond-3",
+      "category": "instruction_conditional",
+      "check": "not_contains",
+      "prompt": "規則：若輸入含有「蘋果」則只回答「水果」。輸入：香蕉。",
+      "expected": "水果",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "ins-amb-1",
+      "category": "instruction_ambiguous",
+      "check": "regex",
+      "prompt": "「幫我處理一下這個。」（指令不明確）請提出一個澄清問題，而不是假裝完成。",
+      "pattern": "[?？]|請問|哪|什麼",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "ins-amb-2",
+      "category": "instruction_ambiguous",
+      "check": "regex",
+      "prompt": "Book it. (Ambiguous request) Ask a clarifying question instead of guessing.",
+      "pattern": "\\?|which|what|when",
+      "max_new_tokens": 64
+    }
+  ]
+}

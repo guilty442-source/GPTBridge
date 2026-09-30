@@ -911,8 +911,12 @@ internal static class SelfLearning
                 TransformerTrainingRepository.Int(state, "trained_pair_total");
             int dpoThreshold = force ? 1
                 : Math.Max(1, resolvedPolicy.DpoMinNewPairs);
-            if (newPairs >= dpoThreshold)
+            if (newPairs >= dpoThreshold &&
+                !resolvedPolicy.CapabilityTrainingFrozen)
                 return RunDpoCycle(tool, resolvedPolicy, state, pairs);
+            // Frozen: the pairs stay in the canonical pool; the cycle
+            // falls through to SFT collection and stops at the freeze
+            // gate below — preference data is gathered, never trained.
         }
 
         var examples = Collectors.CollectVerifiedExamples(tool);
@@ -992,6 +996,36 @@ internal static class SelfLearning
                 if (probe != null) result["degradation_probe"] = probe;
                 return result;
             }
+        }
+
+        // Capability-training freeze gate (architecture-convergence
+        // phase): collection, sanitize, dedup, pool stats and the
+        // degradation probe above all ran — only the weight-changing
+        // tail (snapshot -> job queue -> training -> activation) is
+        // sealed. The canonical dataset pool keeps every verified row.
+        if (resolvedPolicy.CapabilityTrainingFrozen)
+        {
+            var frozen = new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["action"] = "frozen",
+                ["reason"] = "capability-training-frozen",
+                ["total_examples"] = total,
+                ["new_examples"] = newExamples,
+                ["threshold"] = resolvedPolicy.MinNewExamples,
+                ["policy"] = policyDict,
+                ["checked_at"] = IsoNow(),
+            };
+            foreach (var kv in stats) frozen[kv.Key] = kv.Value;
+            if (degradationTrigger != null)
+                frozen["degradation_probe"] = degradationTrigger;
+            var frozenState = new Dictionary<string, object?>(state)
+            {
+                ["last_run_at"] = IsoNow(),
+                ["last_action"] = "frozen-collect",
+            };
+            SelfLearningState.Save(tool, frozenState);
+            return frozen;
         }
 
         var (curriculum, curriculumBlocked) = SelectCurriculum(resolvedPolicy, tool);

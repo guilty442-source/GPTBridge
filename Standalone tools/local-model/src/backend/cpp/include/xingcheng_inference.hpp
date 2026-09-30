@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -337,9 +338,9 @@ public:
     // eval-suite metric (native_eval_suite.evaluate_checkpoint).
     std::pair<double, int64_t> sequence_nll(
         const std::vector<int64_t>& input_ids);
-    // MTP drafter probe support: teacher-forced post-final-norm hidden
-    // states at every position — [seq * hidden]. No KV writes; the
-    // caller owns lm_head projection and draft/verify.
+    // MTP drafter probe support (300M §21-§23): teacher-forced
+    // post-final-norm hidden states at every position — [seq * hidden].
+    // No KV writes; the caller owns lm_head projection and draft/verify.
     std::vector<double> forward_all_hidden(
         const std::vector<int64_t>& input_ids);
     // G41 layerwise parity probe: RMS of the hidden stream at each stage
@@ -410,7 +411,6 @@ public:
     std::string describe() const;
     void set_kv_memory_limit(int64_t bytes);
     void set_prefix_cache_limit(int64_t max_entries, int64_t max_bytes);
-
     // HybridPrefixCache v2 scope isolation: every prefix entry is bound
     // to a scope id (tenant / RAG manifest hash). Entries from other
     // scopes are never served; invalidate_prefix_scope drops a scope's

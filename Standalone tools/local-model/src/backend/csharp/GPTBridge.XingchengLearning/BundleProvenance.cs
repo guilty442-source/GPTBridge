@@ -75,6 +75,67 @@ internal static class BundleProvenance
         return "sha256sig:" + Convert.ToHexString(h).ToLowerInvariant();
     }
 
+    /// <summary>Verify in the mandated order: hash -> signature ->
+    /// generation -> architecture -> checkpoint -> shape -> runtime.
+    /// Any mismatch is a typed failure.</summary>
+    public static Dictionary<string, object?> Verify(
+        string bundleDir, Dictionary<string, object?> provenance,
+        string expectedGeneration, string expectedArch)
+    {
+        foreach (string f in RequiredFields)
+            if (!provenance.ContainsKey(f) || provenance[f] is null)
+                throw new ExecutorError(
+                    ConvErr.BundleProvenanceInvalid,
+                    $"provenance missing: {f}");
+        // 1. hash
+        var recomputed = Compute(
+            bundleDir,
+            provenance["generation"]?.ToString() ?? "",
+            provenance["architecture_profile"]?.ToString() ?? "",
+            provenance["xcn_version"]?.ToString() ?? "",
+            provenance["build_id"]?.ToString() ?? "",
+            provenance["runtime_compatibility"]?.ToString() ?? "",
+            provenance["lineage_id"]?.ToString() ?? "");
+        foreach (string h in
+                 new[] { "manifest_hash", "weights_hash",
+                         "tokenizer_hash" })
+            if (!Equals(recomputed[h], provenance[h]))
+                throw new ExecutorError(
+                    ConvErr.BundleProvenanceInvalid,
+                    $"hash mismatch: {h}");
+        // 2. signature
+        string expectSig = Sign(recomputed);
+        if (provenance.TryGetValue("signature", out var sig) &&
+            sig is string s && s.Length > 0 &&
+            !string.Equals(s, expectSig, StringComparison.Ordinal))
+            throw new ExecutorError(
+                ConvErr.BundleProvenanceInvalid, "signature mismatch");
+        // 3-4. generation + architecture
+        if (expectedGeneration.Length > 0 &&
+            provenance["generation"]?.ToString() != expectedGeneration)
+            throw new ExecutorError(
+                ConvErr.BundleProvenanceInvalid,
+                "generation mismatch");
+        if (expectedArch.Length > 0 &&
+            provenance["architecture_profile"]?.ToString() !=
+                expectedArch)
+            throw new ExecutorError(
+                ConvErr.BundleProvenanceInvalid,
+                "architecture mismatch");
+        // 5-7 checkpoint/shape/runtime are verified by the native
+        // loader; this plane gates the envelope.
+        return new Dictionary<string, object?>
+        {
+            ["format"] = Format,
+            ["verified"] = true,
+            ["generation"] = provenance["generation"],
+            ["architecture_profile"] =
+                provenance["architecture_profile"],
+            ["signature_checked"] =
+                provenance.ContainsKey("signature"),
+        };
+    }
+
     public static Dictionary<string, object?> Check(
         string toolRoot, string bundleDir)
     {

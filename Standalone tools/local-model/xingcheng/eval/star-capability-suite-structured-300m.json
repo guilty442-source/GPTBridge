@@ -1,0 +1,111 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-structured-300m",
+  "seed": 45,
+  "notes": "300M maturation P2: structured-output suite — JSON validity, schema conformance, typed fields, enum membership, nested objects, arrays. Invalid output is never a positive sample (§9).",
+  "items": [
+    {
+      "id": "so-json-1",
+      "category": "structured_json_valid",
+      "check": "json_valid",
+      "prompt": "Output only a JSON object describing a book with fields title and author. No other text.",
+      "required_fields": ["title", "author"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "so-json-2",
+      "category": "structured_json_valid",
+      "check": "json_valid",
+      "prompt": "只輸出 JSON：{\"ok\": true}。不要其他文字。",
+      "required_fields": ["ok"],
+      "exact_fields": 1,
+      "max_new_tokens": 24
+    },
+    {
+      "id": "so-schema-1",
+      "category": "structured_schema_conformant",
+      "check": "json_valid",
+      "prompt": "Schema: {\"name\": string, \"age\": number, \"vip\": boolean}. Produce exactly one JSON object conforming to this schema for a 30-year-old non-vip user named Lin. Only JSON.",
+      "required_fields": ["name", "age", "vip"],
+      "exact_fields": 1,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "so-schema-2",
+      "category": "structured_schema_conformant",
+      "check": "json_valid",
+      "prompt": "Return a JSON object with EXACTLY the keys id, status, score — in that order. id is an integer, status a string, score a number. Only the object.",
+      "required_fields": ["id", "status", "score"],
+      "exact_fields": 1,
+      "field_order": ["id", "status", "score"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "so-typed-1",
+      "category": "structured_typed_fields",
+      "check": "json_valid",
+      "prompt": "Output JSON with fields count (integer, not string) and label (string). count=7, label=items. Only JSON.",
+      "required_fields": ["count", "label"],
+      "max_new_tokens": 32
+    },
+    {
+      "id": "so-enum-1",
+      "category": "structured_enum_membership",
+      "check": "json_valid",
+      "prompt": "Output JSON {\"color\": <value>} where value must be one of: red, green, blue. Choose green. Only JSON.",
+      "required_fields": ["color"],
+      "max_new_tokens": 24
+    },
+    {
+      "id": "so-enum-2",
+      "category": "structured_enum_membership",
+      "check": "json_valid",
+      "prompt": "只輸出 JSON：{\"priority\": <值>}，值只能是 high、medium、low 其中之一。任選 medium。",
+      "required_fields": ["priority"],
+      "max_new_tokens": 24
+    },
+    {
+      "id": "so-nested-1",
+      "category": "structured_nested_objects",
+      "check": "json_valid",
+      "prompt": "Output JSON: {\"user\": {\"name\": string}, \"tags\": []} — user.name = \"Ana\", tags empty array. Only the object.",
+      "required_fields": ["user", "tags"],
+      "exact_fields": 1,
+      "max_new_tokens": 48
+    },
+    {
+      "id": "so-nested-2",
+      "category": "structured_nested_objects",
+      "check": "json_valid",
+      "prompt": "Produce nested JSON: {\"order\": {\"id\": 1, \"items\": [{\"sku\": \"A1\"}]}}. Follow this shape exactly. Only JSON.",
+      "required_fields": ["order"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "so-array-1",
+      "category": "structured_arrays",
+      "check": "json_valid",
+      "prompt": "Output JSON {\"numbers\": [1,2,3]} exactly. Only the JSON object.",
+      "required_fields": ["numbers"],
+      "exact_fields": 1,
+      "max_new_tokens": 32
+    },
+    {
+      "id": "so-array-2",
+      "category": "structured_arrays",
+      "check": "json_valid",
+      "prompt": "只輸出 JSON：{\"fruits\": [<三種水果的字串陣列>]}，填入蘋果、香蕉、芒果。",
+      "required_fields": ["fruits"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "so-fixed-1",
+      "category": "structured_schema_conformant",
+      "check": "json_valid",
+      "prompt": "Emit the literal JSON {\"type\":\"result\",\"value\":42} verbatim — no extra keys, no text.",
+      "required_fields": ["type", "value"],
+      "exact_fields": 1,
+      "max_new_tokens": 32
+    }
+  ]
+}

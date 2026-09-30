@@ -1,0 +1,88 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-vision-300m",
+  "seed": 52,
+  "notes": "300M maturation P10: vision capability suite contract. Every item carries modality=vision + an image reference — the native eval skips them fail-closed (modality-unavailable) until the vision adapter serves real images; a text-only replay would be fake evidence. Vision smoke != vision capability (§17).",
+  "items": [
+    {
+      "id": "vi-ocr-1", "category": "vision_ocr", "modality": "vision",
+      "image": "assets/vision/ocr-sign-01.png",
+      "check": "contains",
+      "prompt": "What text appears on the sign in the image? Answer with the text only.",
+      "expected": "EXIT",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "vi-ocr-2", "category": "vision_ocr", "modality": "vision",
+      "image": "assets/vision/ocr-doc-01.png",
+      "check": "contains",
+      "prompt": "圖片中的標題文字是什麼？只回答文字。",
+      "expected": "公告",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "vi-doc-1", "category": "vision_document_screenshot", "modality": "vision",
+      "image": "assets/vision/doc-table-01.png",
+      "check": "contains",
+      "prompt": "The screenshot shows a table. How many rows does it have (excluding the header)? Number only.",
+      "expected": "4",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "vi-doc-2", "category": "vision_document_screenshot", "modality": "vision",
+      "image": "assets/vision/doc-form-01.png",
+      "check": "contains",
+      "prompt": "圖中表單的「日期」欄位填了什麼值？",
+      "expected": "2024",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "vi-chart-1", "category": "vision_simple_chart", "modality": "vision",
+      "image": "assets/vision/chart-bar-01.png",
+      "check": "contains",
+      "prompt": "The bar chart shows sales by quarter. Which quarter has the tallest bar? Answer Q1, Q2, Q3, or Q4.",
+      "expected": "Q3",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "vi-chart-2", "category": "vision_simple_chart", "modality": "vision",
+      "image": "assets/vision/chart-line-01.png",
+      "check": "contains",
+      "prompt": "圖中的折線整體是上升、下降還是持平？只回答趨勢。",
+      "expected": "上升",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "vi-rel-1", "category": "vision_object_relation", "modality": "vision",
+      "image": "assets/vision/scene-01.png",
+      "check": "contains",
+      "prompt": "In the image, is the cup to the left or right of the book? Answer left or right.",
+      "expected": "left",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "vi-rel-2", "category": "vision_object_relation", "modality": "vision",
+      "image": "assets/vision/scene-02.png",
+      "check": "contains",
+      "prompt": "圖片中貓在桌子的上面還是下面？只回答上面或下面。",
+      "expected": "上面",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "vi-qa-1", "category": "vision_basic_image_qa", "modality": "vision",
+      "image": "assets/vision/photo-01.png",
+      "check": "contains",
+      "prompt": "How many people are visible in the photo? Number only.",
+      "expected": "3",
+      "max_new_tokens": 12
+    },
+    {
+      "id": "vi-qa-2", "category": "vision_basic_image_qa", "modality": "vision",
+      "image": "assets/vision/photo-02.png",
+      "check": "contains",
+      "prompt": "What is the dominant color of the car in the image? One word.",
+      "expected": "red",
+      "max_new_tokens": 12
+    }
+  ]
+}

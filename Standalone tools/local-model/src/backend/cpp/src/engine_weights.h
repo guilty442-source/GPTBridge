@@ -431,6 +431,40 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
 
     const std::string weights_name = json_string(manifest, "weights_file");
     bundle.weights_sha256_ = json_string(manifest, "weights_sha256");
+    // Lifecycle label (architecture-convergence manifest field); absent on
+    // bundles exported before the contract — empty string, not an error.
+    if (const JsonValue* v = json_optional(manifest, "architecture_generation")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError("JSON_STRING_EXPECTED:architecture_generation");
+        bundle.architecture_generation_ = v->string;
+    }
+    // §22 canonical quarantine: a bundle claiming xc-fused-1 while its
+    // config enables a fenced axis (CSA / MLA / aux-free lb_bias /
+    // non-canonical attention families) is CANONICAL_CONTRACT_VIOLATION
+    // — defense in depth behind the exporter, which never stamps the
+    // label on such configs.
+    if (bundle.architecture_generation_ == "xc-fused-1") {
+        for (const auto& field : {
+                 "use_csa", "csa_enabled", "use_mla", "mla_enabled",
+                 "moe_auxfree_balance", "use_latent_moe", "use_rwkv",
+                 "use_mamba", "use_kda"}) {
+            if (const JsonValue* v = json_optional(config_json, field)) {
+                if ((v->type == JsonValue::Type::Bool && v->boolean) ||
+                    (v->type == JsonValue::Type::Number && v->number != 0.0))
+                    throw InferenceError(
+                        std::string("CANONICAL_CONTRACT_VIOLATION:") + field);
+            }
+        }
+        for (const auto& field : {
+                 "csa_ratio", "kv_lora_rank", "q_lora_rank",
+                 "moe_lb_bias_rate", "mla_rank"}) {
+            if (const JsonValue* v = json_optional(config_json, field)) {
+                if (v->type == JsonValue::Type::Number && v->number != 0.0)
+                    throw InferenceError(
+                        std::string("CANONICAL_CONTRACT_VIOLATION:") + field);
+            }
+        }
+    }
     const std::filesystem::path weights_path = manifest_file.parent_path() / weights_name;
     bundle.blob_ = map_readonly_file(weights_path, 16LL * 1024 * 1024 * 1024);
     bundle.weights_bytes_ = static_cast<int64_t>(bundle.blob_->size);

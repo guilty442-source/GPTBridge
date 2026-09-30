@@ -508,7 +508,9 @@ void NativeInferenceEngine::validate_supported() const {
         throw InferenceError("MOE_CONFIG_UNSUPPORTED");
     }
     // Accepted manifest quantizations: none / int8 / int4(_packed —
-    // the exporter's exact string) / bf16 (PRODUCTION_BF16 candidate).
+    // the exporter's exact string) / bf16 (PRODUCTION_BF16 candidate);
+    // bf16 and int8/int4 weights are dequantized to fp64 at load — the
+    // marker records storage, not a different math lane.
     if (cfg.quantization != "none" && cfg.quantization != "int8" &&
         cfg.quantization != "int4" && cfg.quantization != "int4_packed" &&
         cfg.quantization != "bf16") {
@@ -827,6 +829,12 @@ std::vector<double> NativeInferenceEngine::logits(const std::vector<int64_t>& in
     return forward_last_logits(input_ids, 0, false);
 }
 
+std::vector<double> NativeInferenceEngine::forward_all_hidden(
+    const std::vector<int64_t>& input_ids) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return forward_hidden(input_ids, 0, false);
+}
+
 // §49 decision-head binding accessors — an unloaded engine exposes no
 // identity, so every accessor fails closed instead of returning "".
 const std::string& NativeInferenceEngine::model_sha256() const {
@@ -855,12 +863,6 @@ std::vector<double> NativeInferenceEngine::prefill_hidden(
     // decision rides on a generative prefill that populated the cache
     // (§14); the standalone fast path simply never pays for state it
     // will not use.
-    return forward_hidden(input_ids, 0, false);
-}
-
-std::vector<double> NativeInferenceEngine::forward_all_hidden(
-    const std::vector<int64_t>& input_ids) {
-    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
     return forward_hidden(input_ids, 0, false);
 }
 

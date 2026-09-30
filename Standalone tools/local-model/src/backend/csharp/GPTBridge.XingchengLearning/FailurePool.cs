@@ -1,4 +1,4 @@
-// FailurePool.cs — ``star-capability-failure-pool/v1``.
+// FailurePool.cs — ``star-capability-failure-pool/v1`` (§29).
 //
 // Unified capability-failure store: every evaluation surface records
 // failures here with a fixed class vocabulary, so the future

@@ -1,0 +1,86 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-coding-300m",
+  "seed": 50,
+  "notes": "300M maturation P7: coding capability (staged — syntax, function, unit task, FIM, bug fix, small multi-file). Large repo autonomous-agent work is out of scope (§14). Checks are textual — code correctness is verified by contract markers, never executed.",
+  "items": [
+    {
+      "id": "cd-syn-1", "category": "coding_syntax", "check": "regex_all",
+      "prompt": "Write a one-line C++ statement that declares an int variable named total initialized to 0.",
+      "patterns": ["int", "total", "=", "0", ";"],
+      "max_new_tokens": 24
+    },
+    {
+      "id": "cd-syn-2", "category": "coding_syntax", "check": "regex_all",
+      "prompt": "寫一個 Python 的 for 迴圈印出 0 到 4。",
+      "patterns": ["for", "range"],
+      "max_new_tokens": 32
+    },
+    {
+      "id": "cd-func-1", "category": "coding_function", "check": "regex_all",
+      "prompt": "Write a Python function `add(a, b)` that returns their sum. Output the function only.",
+      "patterns": ["def add", "return"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "cd-func-2", "category": "coding_function", "check": "regex_all",
+      "prompt": "Write a C++ function `double avg(double a, double b)` returning the mean of a and b.",
+      "patterns": ["double avg", "return", "/"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "cd-unit-1", "category": "coding_unit_task", "check": "regex_all",
+      "prompt": "Write a Python function `is_even(n)` returning True when n is divisible by 2.",
+      "patterns": ["def is_even", "%", "==", "return"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "cd-unit-2", "category": "coding_unit_task", "check": "regex_all",
+      "prompt": "寫一個函式 `max3(a,b,c)`（任何語言）回傳三者最大值。",
+      "patterns": ["max3", "return"],
+      "max_new_tokens": 64
+    },
+    {
+      "id": "cd-fim-1", "category": "coding_fim", "check": "contains",
+      "prompt": "Fill in the missing line. Code:\n```python\ndef square(x):\n    <MISSING>\n```\nComplete so the function returns x squared. Output only the missing line.",
+      "expected": "return",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "cd-fim-2", "category": "coding_fim", "check": "regex",
+      "prompt": "Complete the middle of this function:\n```python\ndef greet(name):\n    <MISSING>\n```\nIt must return \"Hello, <name>!\". Output only the missing line.",
+      "pattern": "return.*Hello|f.?\"|f?'",
+      "max_new_tokens": 32
+    },
+    {
+      "id": "cd-bug-1", "category": "coding_bug_fix", "check": "regex",
+      "prompt": "Bug: `for i in range(len(items)+1): print(items[i])` raises IndexError. Fix it and state the fix in one line.",
+      "pattern": "range\\(len\\(items\\)\\)",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "cd-bug-2", "category": "coding_bug_fix", "check": "regex",
+      "prompt": "Bug in C++: `int* p = &x; delete p;` where x is a stack int. What's wrong? State the fix (do not delete stack memory).",
+      "pattern": "stack|stack memory|do not delete|不應|刪除|remove",
+      "max_new_tokens": 64
+    },
+    {
+      "id": "cd-multi-1", "category": "coding_small_multi_file", "check": "regex_all",
+      "prompt": "Two files: `math_utils.h` declares `int add(int,int);` — write the matching `math_utils.cpp` implementation (include the header). Output the cpp content.",
+      "patterns": ["#include", "math_utils.h", "int add", "return"],
+      "max_new_tokens": 96
+    },
+    {
+      "id": "cd-multi-2", "category": "coding_small_multi_file", "check": "regex_all",
+      "prompt": "utils.py has `def triple(x): return x*3`. main.py must import it and print triple(5). Write main.py.",
+      "patterns": ["import", "triple", "print"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "cd-edge-1", "category": "coding_unit_task", "check": "regex",
+      "prompt": "Write a Python function `first_or_none(lst)` returning the first element or None for an empty list.",
+      "pattern": "len|if|return",
+      "max_new_tokens": 64
+    }
+  ]
+}

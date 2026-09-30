@@ -139,7 +139,20 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         // this guard decoupled weight decay would pull it to zero.
         if (n.size() >= 7 && n.compare(n.size() - 7, 7, "lb_bias") == 0)
             continue;
+        // §41 ParameterFreezeMap: frozen params own no Adam moments
+        // (sparse optimizer) and are never updated.
+        if (p.frozen.count(n)) continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
+        // §44 gradient sparsity, scoped to routed experts: an expert no
+        // token selected this step (gradient exactly zero) gets no
+        // gradient update AND no optimizer update — decoupled weight
+        // decay would otherwise silently shrink dormant experts. Dense
+        // params keep standard AdamW semantics (wd applies at g=0).
+        if (n.find(".experts.") != std::string::npos) {
+            bool nz = false;
+            for (float x : g.d) if (x != 0.0f) { nz = true; break; }
+            if (!nz) continue;
+        }
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
         if (cuda_ok) {
             const int64_t cnt = static_cast<int64_t>(w.d.size());
@@ -252,6 +265,14 @@ static JsonValue run_job(const JsonValue& job) {
     int max_len = j_int(dj, "max_len", c.max_pos);
 
     Params p;
+    // §41 ParameterFreezeMap: train.freeze = ["layers.*.experts.",
+    // "embed", ...] — resolved at alloc_adam inside init_params, so
+    // frozen params never allocate Adam moments (§43 sparse optimizer).
+    if (const JsonValue* fj = tj ? tj->get("freeze") : nullptr)
+        if (fj->type == JsonValue::Type::Array)
+            for (const auto& v : fj->array)
+                if (v.type == JsonValue::Type::String)
+                    p.freeze_patterns.push_back(v.string);
     init_params(p, c, tc.seed);
     ModelConfig file_cfg = c;
     if (!tc.init_ckpt.empty()) {
@@ -461,10 +482,14 @@ static JsonValue run_job(const JsonValue& job) {
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
             }
-            // grad clip (global norm)
+            // grad clip (global norm over trainable params only —
+            // frozen grads would inflate the norm and shrink the
+            // effective scale for the params actually being updated)
             double gnorm = 0.0f;
-            for (auto& n : p.order)
+            for (auto& n : p.order) {
+                if (p.frozen.count(n)) continue;
                 for (float x : p.g[n].d) gnorm += (double)x * x;
+            }
             gnorm = std::sqrt(gnorm);
             float gscale = (tc.clip > 0 && gnorm > tc.clip) ? tc.clip / (float)gnorm : 1.0f;
             // adamw
@@ -538,6 +563,29 @@ static JsonValue run_job(const JsonValue& job) {
     if (c.mtp_num_layers > 0) put("mtp_loss_last", num(mtp_last));
     // v29 MTP stack observability: weighted aux CE of the last example.
     if (c.mtp_depth > 0) put("mtp_stack_loss_last", num(mtp_stack_last));
+    // §45 parameter-efficiency metrics: trainable vs frozen counts and
+    // gain-per-million — the capability loop's comparison currency.
+    {
+        const int64_t trainable = p.trainable_params();
+        put("trainable_params", num((double)trainable));
+        put("frozen_params", num((double)p.frozen_params()));
+        if (!p.freeze_patterns.empty()) {
+            JsonValue fp; fp.type = JsonValue::Type::Array;
+            for (auto& s : p.freeze_patterns)
+                fp.array.push_back(str(s.c_str()));
+            put("freeze_patterns", fp);
+        }
+        if (!losses.empty() && trainable > 0)
+            put("gain_per_million_trainable_params",
+                num((losses.front() - losses.back()) /
+                    (trainable / 1e6)));
+        double el = now_s() - t0;
+        int64_t toks = 0;
+        for (auto& ex : data) toks += (int64_t)ex.ids.size();
+        if (el > 0 && step > 0)
+            put("tokens_per_sec", num(toks * (double)step /
+                (double)data.size() / el));
+    }
     if (task == "grpo") {
         put("rollouts", num((double)grpo_rollouts));
         const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;
@@ -1874,6 +1922,152 @@ static int dsvcheck() {
 
     bool ok = failures == 0;
     std::printf("dsvcheck: deepseek-v4 failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+// ---------------------------------------------------------- freezecheck --
+//
+// ParameterFreezeMap probe (300M §41-§44): patterns resolve at
+// alloc_adam, frozen params get no Adam moments, adamw_step leaves them
+// byte-identical while trainable params move, dormant routed experts
+// (zero grad) are skipped, and the run_job report exposes the §45
+// parameter-efficiency fields.
+static int freezecheck() {
+    int failures = 0;
+    auto fail = [&](const char* what) {
+        ++failures;
+        std::printf("  FAIL %s\n", what);
+    };
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+    c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+    c.full_attention_interval = 2;
+    c.attn_output_gate = true; c.qk_norm = true; c.partial_rotary = 0.5f;
+    c.lin_key_heads = 1; c.lin_key_dim = 32;
+    c.lin_value_heads = 2; c.lin_value_dim = 32; c.lin_conv_kernel = 4;
+    c.moe_experts = 4; c.moe_top_k = 1; c.moe_layer_interval = 1;
+    c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+    c.moe_shared_inter = 24; c.shared_expert_gate = true;
+
+    // ---- 1. resolution + sparse optimizer allocation ---------------------
+    Params p;
+    p.freeze_patterns = {"embed", "*.experts.*"};
+    init_params(p, c, 31);
+    if (p.frozen.empty()) fail("freeze set empty");
+    if (!p.is_frozen("embed")) fail("exact name not frozen");
+    if (!p.is_frozen(ln(0, "experts.0.w1")))
+        fail("wildcard pattern not frozen");
+    if (p.is_frozen("lm_head")) fail("non-matching name frozen");
+    for (auto& n : p.order) {
+        bool frz = p.frozen.count(n) != 0;
+        if (frz != (p.m.count(n) == 0))
+            fail("frozen/moment mismatch");
+        if (frz && (p.m.count(n) || p.v.count(n)))
+            fail("frozen param allocated Adam state");
+        if (!frz && (!p.m.count(n) || !p.v.count(n)))
+            fail("trainable param missing Adam state");
+    }
+    const int64_t total = p.trainable_params() + p.frozen_params();
+    int64_t wsum = 0;
+    for (auto& n : p.order) wsum += p.w[n].numel();
+    if (total != wsum) fail("trainable+frozen != total");
+    if (p.frozen_params() <= 0 || p.trainable_params() <= 0)
+        fail("degenerate freeze split");
+
+    // ---- 2. frozen weights byte-identical after real optimizer steps -----
+    {
+        std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+        std::vector<int> lab = ids; shift_labels(lab);
+        std::unordered_map<std::string, std::vector<float>> snap;
+        for (auto& n : p.order)
+            if (p.frozen.count(n)) snap[n] = p.w[n].d;
+        std::vector<float> trainable_before = p.w["lm_head"].d;
+        for (int s = 0; s < 4; ++s) {
+            p.zero_grad();
+            Fwd f;
+            fwd(p, c, ids, f);
+            std::vector<float> dl;
+            ce_loss(f.logits, lab, (int)ids.size(), c.vocab, dl);
+            bwd(p, c, ids, f, dl, 1.0f);
+            adamw_step(p, 1.0f, 0.05f, 0.01f, s);
+        }
+        for (auto& n : p.order) {
+            if (!p.frozen.count(n)) continue;
+            const std::vector<float>& a = p.w[n].d;
+            const std::vector<float>& b = snap[n];
+            if (a.size() != b.size() ||
+                std::memcmp(a.data(), b.data(),
+                            a.size() * sizeof(float)) != 0)
+                fail("frozen weight changed");
+        }
+        bool moved = false;
+        for (size_t i = 0; i < trainable_before.size(); ++i)
+            if (p.w["lm_head"].d[i] != trainable_before[i]) moved = true;
+        if (!moved) fail("trainable weight did not move");
+    }
+
+    // ---- 3. §44 dormant routed expert skipped (dense wd still applies) --
+    {
+        Params p3;
+        init_params(p3, c, 37);
+        p3.zero_grad();
+        const std::string ex = ln(0, "experts.0.w1");
+        if (p3.frozen.count(ex)) fail("unexpected freeze in leg 3");
+        std::vector<float> exb = p3.w[ex].d;
+        std::vector<float> lmb = p3.w["lm_head"].d;
+        adamw_step(p3, 1.0f, 0.01f, 0.5f, 0);
+        if (std::memcmp(p3.w[ex].d.data(), exb.data(),
+                        exb.size() * sizeof(float)) != 0)
+            fail("dormant expert updated");
+        bool dec = false;
+        for (size_t i = 0; i < lmb.size(); ++i)
+            if (p3.w["lm_head"].d[i] != lmb[i]) dec = true;
+        if (!dec) fail("dense decoupled wd lost");
+    }
+
+    // ---- 4. job plumbing + §45 report fields ------------------------------
+    std::string tmp = "_xct_freeze_data.jsonl";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        std::mt19937 rng(11);
+        std::uniform_int_distribution<int> tok(3, 63);
+        for (int i = 0; i < 8; ++i) {
+            f << "{\"input_ids\":[";
+            for (int t = 0; t < 12; ++t) f << (t ? "," : "") << tok(rng);
+            f << "]}\n";
+        }
+    }
+    std::string job = std::string(R"({
+        "task":"sft",
+        "model":{"vocab_size":64,"hidden_size":32,"intermediate_size":64,
+                 "num_hidden_layers":2,"num_attention_heads":2,
+                 "num_key_value_heads":1,"max_position_embeddings":32,
+                 "moe_num_experts":4,"moe_top_k":1,
+                 "moe_expert_intermediate_size":24,
+                 "moe_num_shared_experts":1,
+                 "moe_shared_intermediate_size":24},
+        "train":{"lr":0.05,"max_steps":8,"grad_clip":1.0,"warmup_steps":0,
+                 "lr_decay":"constant","seed":7,
+                 "freeze":["embed","*.experts.*"]},
+        "data":{"path":")") + tmp + R"(","format":"sft","max_rows":8,"max_len":12}
+    })";
+    JsonValue r = run_job(JsonParser(job).parse());
+    std::remove(tmp.c_str());
+    if (!r.get("params_finite")->boolean) fail("job non-finite");
+    if (!r.get("trainable_params") || !r.get("frozen_params"))
+        fail("report missing efficiency fields");
+    else {
+        double tr = r.get("trainable_params")->number;
+        double fr = r.get("frozen_params")->number;
+        if (!(tr > 0.0) || !(fr > 0.0))
+            fail("report efficiency fields degenerate");
+    }
+    if (!r.get("freeze_patterns"))
+        fail("report missing freeze_patterns echo");
+
+    bool ok = failures == 0;
+    std::printf("freezecheck: ParameterFreezeMap failures=%d -> %s\n",
                 failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }

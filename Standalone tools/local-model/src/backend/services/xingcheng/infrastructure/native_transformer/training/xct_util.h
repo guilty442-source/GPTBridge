@@ -497,7 +497,10 @@ static ModelConfig parse_model(const JsonValue* o) {
         // expert. Aux-free balancing (lb_bias) is a valid job-level
         // option but outside this generation: the serving engine has no
         // lb_bias inference path, so it must never be silently dropped
-        // at export time.
+        // at export time. Routing geometry is canonical: top-2,
+        // interval 1, >=8 experts, >=1 shared expert, aux-loss 0.001 —
+        // conflicting job values are overridden to the contract, never
+        // silently kept.
         if (c.moe_experts < 8) c.moe_experts = 8;
         c.moe_top_k = 2;
         c.moe_layer_interval = 1;
@@ -507,15 +510,15 @@ static ModelConfig parse_model(const JsonValue* o) {
         c.moe_aux_w = 0.001f;
         if (c.moe_shared_experts <= 0) c.moe_shared_experts = 1;
         c.shared_expert_gate = true;
-        // MTP stack (XCN10): depth-1 fusion module.
-        if (c.mtp_depth <= 0) c.mtp_depth = 1;
-        if (c.mtp_loss_w <= 0.0f) c.mtp_loss_w = 0.1f;
-        // Vision early-fusion prefix.
+        // MTP stack (XCN10): depth >= 1, stack loss weight >= 0.1.
+        if (c.mtp_depth < 1) c.mtp_depth = 1;
+        if (c.mtp_loss_w < 0.1f) c.mtp_loss_w = 0.1f;
+        // Vision early-fusion prefix: patch >= 16, >= 64 patches.
         c.use_vision = true;
-        if (c.vision_patch_dim <= 0) c.vision_patch_dim = 16;
-        if (c.vision_max_patches <= 0) c.vision_max_patches = 64;
+        if (c.vision_patch_dim < 16) c.vision_patch_dim = 16;
+        if (c.vision_max_patches < 64) c.vision_max_patches = 64;
         // YaRN long-context extension over every rope path.
-        if (c.yarn_factor <= 1.0f) c.yarn_factor = 2.0f;
+        if (c.yarn_factor < 2.0f) c.yarn_factor = 2.0f;
         if (c.yarn_orig_pos <= 0) c.yarn_orig_pos = c.max_pos;
         if (c.yarn_beta_fast <= c.yarn_beta_slow) {
             c.yarn_beta_fast = 32.0f;
@@ -527,6 +530,7 @@ static ModelConfig parse_model(const JsonValue* o) {
         // (which XCN also would not serialize for non-gemma4 saves).
         c.csa_ratio = 0; c.csa_topk = 0; c.csa_window = 0;
         c.csa_rope_theta = 0.0f; c.csa_group = 0; c.csa_reindex = false;
+        c.csa_indexer = false; c.csa_indexer_w = 0.0f;
         c.num_kv_shared_layers = 0;
         c.use_double_wide_mlp = false;
         c.ple_hidden = 0; c.ple_vocab = 0;
@@ -646,9 +650,36 @@ static Tensor mk(std::initializer_list<int64_t> s) {
     return t;
 }
 
+// ParameterFreezeMap (300M §41-§43): a param whose name matches any
+// freeze pattern is training-frozen — it keeps its weight and gradient
+// slots (frozen params still participate in forward/backward so shared
+// compute is correct) but gets NO Adam moments (sparse optimizer: a
+// frozen parameter never allocates m/v) and is skipped by adamw_step.
+// Patterns support a trailing or leading '*' wildcard ("layers.0.",
+// "*.experts.", "embed"); exact names match too.
 struct Params {
     std::unordered_map<std::string, Tensor> w, g, m, v;
     std::vector<std::string> order;
+    std::vector<std::string> freeze_patterns;
+    std::unordered_set<std::string> frozen;   // resolved at alloc_adam
+
+    static bool pat_match(const std::string& pat,
+                          const std::string& n) {
+        if (pat.empty()) return false;
+        bool pre = pat.front() == '*', suf = pat.back() == '*';
+        std::string core = pat.substr(pre ? 1 : 0,
+            pat.size() - (pre ? 1 : 0) - (suf ? 1 : 0));
+        if (pre && suf) return n.find(core) != std::string::npos;
+        if (pre) return n.size() >= core.size() &&
+                  n.compare(n.size() - core.size(), core.size(), core) == 0;
+        if (suf) return n.compare(0, core.size(), core) == 0;
+        return n == pat;
+    }
+    bool is_frozen(const std::string& n) const {
+        for (const auto& pat : freeze_patterns)
+            if (pat_match(pat, n)) return true;
+        return false;
+    }
     Tensor& add(const std::string& n, std::initializer_list<int64_t> s) {
         w[n] = mk(s);
         g[n] = mk(s);
@@ -657,9 +688,20 @@ struct Params {
     }
     void alloc_adam() {
         for (auto& n : order) {
+            if (is_frozen(n)) { frozen.insert(n); continue; }
             m[n] = mk({}); m[n].shape = w[n].shape; m[n].d.assign(w[n].numel(), 0.0f);
             v[n] = m[n];
         }
+    }
+    int64_t trainable_params() const {
+        int64_t t = 0;
+        for (auto& n : order) if (!frozen.count(n)) t += w.at(n).numel();
+        return t;
+    }
+    int64_t frozen_params() const {
+        int64_t t = 0;
+        for (auto& n : order) if (frozen.count(n)) t += w.at(n).numel();
+        return t;
     }
     void zero_grad() {
         for (auto& n : order) std::fill(g[n].d.begin(), g[n].d.end(), 0.0f);

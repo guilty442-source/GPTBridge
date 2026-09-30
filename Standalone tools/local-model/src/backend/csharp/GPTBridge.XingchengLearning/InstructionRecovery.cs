@@ -34,17 +34,27 @@ internal static class InstructionRecovery
     // still requires it to equal policy.ActiveCapability.
     public static string Capability = "instruction_following";
 
-    public static string EvalFormat => Capability == "context_tracking"
-        ? "star-context-eval-result/v1" : "star-instruction-eval-result/v1";
-    public static string DatasetFormat => Capability == "context_tracking"
-        ? "star-context-recovery-dataset/v1"
-        : "star-instruction-recovery-dataset/v1";
-    private static string SuiteId => Capability == "context_tracking"
-        ? "star-context-recovery-eval-20261001"
-        : "star-instruction-recovery-eval-20261001";
+    public static string EvalFormat => Capability switch
+    {
+        "context_tracking" => "star-context-eval-result/v1",
+        "multi_turn" => "star-multiturn-eval-result/v1",
+        _ => "star-instruction-eval-result/v1",
+    };
+    public static string DatasetFormat => Capability switch
+    {
+        "context_tracking" => "star-context-recovery-dataset/v1",
+        "multi_turn" => "star-multiturn-recovery-dataset/v1",
+        _ => "star-instruction-recovery-dataset/v1",
+    };
+    private static string SuiteId => Capability switch
+    {
+        "context_tracking" => "star-context-recovery-eval-20261001",
+        "multi_turn" => "star-multiturn-recovery-eval-20261001",
+        _ => "star-instruction-recovery-eval-20261001",
+    };
 
     private static readonly string[] SupportedCapabilities =
-        { "instruction_following", "context_tracking" };
+        { "instruction_following", "context_tracking", "multi_turn" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -67,9 +77,23 @@ internal static class InstructionRecovery
         ("order_tracking", 0.10),
         ("distractor_rejection", 0.10),
     };
+    private static readonly (string metric, double w)[]
+        MultiTurnMetricWeights =
+    {
+        ("followup_reference", 0.30),
+        ("correction_acceptance", 0.20),
+        ("elaboration_control", 0.15),
+        ("topic_shift_return", 0.15),
+        ("role_consistency", 0.10),
+        ("multi_step_state", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
-        Capability == "context_tracking"
-            ? ContextMetricWeights : InstructionMetricWeights;
+        Capability switch
+        {
+            "context_tracking" => ContextMetricWeights,
+            "multi_turn" => MultiTurnMetricWeights,
+            _ => InstructionMetricWeights,
+        };
 
     // ------------------------------------------------------------ pools --
 
@@ -1176,6 +1200,364 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // ---------------------------------------------- multi-turn pools ----
+    // Multi-turn is a *dialogue-flow* capability — distinct from
+    // context_tracking's single-fact recall: follow-up references to the
+    // assistant's own previous answer, mid-dialogue corrections,
+    // elaboration control, topic shift & return, role discipline, and
+    // accumulating multi-step state. Eval-suite values (names, items,
+    // times) are deliberately disjoint from these training pools.
+    private static readonly (string subject, string benefit)[]
+        MtBenefits =
+    {
+        ("慢跑", "提升心肺功能"), ("游泳", "對關節負擔小"),
+        ("登山", "接觸大自然"), ("瑜珈", "增加柔軟度"),
+        ("羽球", "訓練反應速度"), ("籃球", "培養團隊合作"),
+    };
+    private static readonly string[] MtDays =
+        { "週一", "週二", "週三", "週四", "週六", "週日" };
+    private static readonly string[] MtTasks =
+        { "回信", "交報告", "開會", "看醫生", "繳費", "大掃除" };
+
+    private static string Mt(string u1, string a1, string u2) =>
+        Ctx(u1, a1, u2);
+
+    private static IEnumerable<Row> GenerateMultiTurn(int seed,
+                                                      int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        string Ack() => Take(r, CtxAcks);
+        bool Hard() => r.Next(4) == 0;
+
+        // -- A. followup_reference (~30%) — pronouns / positions /
+        //    "the second one" resolved against the assistant's own
+        //    previous answer.
+        for (int i = 0; i < count / 8; i++)
+        {
+            var t = Take(r, ZhTopics);
+            int n = 3;
+            var items = SampleItems(r, t.items, n);
+            int k = r.Next(n);
+            string ord = k == 0 ? "第一個" : k == 1 ? "第二個" : "第三個";
+            Add(new Row
+            {
+                Prompt = Mt($"只列出{n}項{t.topic}。",
+                            string.Join("\n",
+                                items.Select(x => "- " + x)),
+                            $"{ord}是哪一項？"),
+                Completion = items[k], Category = "A",
+                Rule = $"exact:{items[k]}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        foreach (var (sub, ben) in MtBenefits)
+            for (int i = 0; i < 4; i++)
+            {
+                Add(new Row
+                {
+                    Prompt = Mt($"什麼是{sub}？", $"{sub}是一種活動。",
+                                "它的好處是什麼？"),
+                    Completion = ben, Category = "A",
+                    Rule = $"exact:{ben}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+        for (int i = 0; i < count / 16; i++)
+        {
+            var t = Take(r, ZhTopics);
+            var items = SampleItems(r, t.items, 2);
+            Add(new Row
+            {
+                Prompt = Mt($"我喜歡{items[0]}和{items[1]}。",
+                            Ack(), "「它們」指的是什麼？"),
+                Completion = $"{items[0]}和{items[1]}",
+                Category = "A",
+                Rule = $"exact:{items[0]}和{items[1]}",
+            });
+        }
+
+        // -- B. correction_acceptance (~20%) — the user's mid-dialogue
+        //    correction replaces the earlier statement.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string task = Take(r, MtTasks);
+            string d1 = Take(r, MtDays);
+            string d2 = Take(r, MtDays.Where(d => d != d1).ToArray());
+            Add(new Row
+            {
+                Prompt = Mt($"{task}排在{d1}。改成{d2}。",
+                            Ack(), $"{task}是哪天？"),
+                Completion = d2, Category = "B",
+                Rule = $"exact:{d2};no_sub:{d1}",
+            });
+        }
+        for (int i = 0; i < count / 16; i++)
+        {
+            var (sub, ben) = Take(r, MtBenefits);
+            Add(new Row
+            {
+                Prompt = Mt($"我覺得{sub}很無聊。",
+                            $"{sub}其實{ben}。",
+                            "你說得對，{sub}有什麼好處？"
+                                .Replace("{sub}", sub)),
+                Completion = ben, Category = "B",
+                Rule = $"exact:{ben}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- C. elaboration_control (~15%) — shorter / longer follow-ups
+        //    reshape the previous answer, never restart it.
+        var explBase = new[]
+        {
+            ("什麼是光合作用", "植物利用陽光製造養分。",
+             "植物利用陽光、水和二氧化碳製造養分並釋放氧氣。"),
+            ("什麼是雷", "雲層放電產生的聲音。",
+             "雷是雲層中電荷累積後瞬間放電產生的巨大聲響。"),
+            ("什麼是季風", "隨季節改變方向的風。",
+             "季風是因海陸受熱差異而隨季節改變方向的大規模風系。"),
+        };
+        foreach (var (q, short_, long_) in explBase)
+            for (int i = 0; i < 3; i++)
+            {
+                Add(new Row
+                {
+                    Prompt = Mt($"{q}？簡單回答。", short_,
+                                "再詳細一點。"),
+                    Completion = long_, Category = "C",
+                    Rule = $"exact:{long_}",
+                });
+                Add(new Row
+                {
+                    Prompt = Mt($"{q}？", long_, "再簡短一點。"),
+                    Completion = short_, Category = "C",
+                    Rule = $"exact:{short_}",
+                });
+            }
+
+        // -- D. topic_shift_return (~15%) — an unrelated turn then a
+        //    return cue must resume the original thread.
+        var shiftPairs = new[]
+        {
+            ("幫我決定明天穿什麼", "明天穿輕便外套比較合適。",
+             "對了，晚餐吃什麼好？", "義大利麵或炒飯都不錯。",
+             "回到剛才，你建議穿什麼？", "輕便外套"),
+            ("推薦一個週末活動", "去登山步道走一走不錯。",
+             "順便問一下，雨傘在哪裡買？", "便利商店或文具店都有。",
+             "好，那你推薦的週末活動是什麼？", "登山步道"),
+        };
+        foreach (var (q1, a1, q2, a2, q3, a3) in shiftPairs)
+            for (int i = 0; i < 3; i++)
+                Add(new Row
+                {
+                    Prompt = Ctx3(q1, a1, q2, a2, q3),
+                    Completion = a3, Category = "D",
+                    Rule = $"exact:{a3}",
+                });
+        for (int i = 0; i < count / 24; i++)
+        {
+            var t = Take(r, ZhTopics);
+            var items = SampleItems(r, t.items, 1);
+            Add(new Row
+            {
+                Prompt = Ctx3($"我想學{items[0]}。",
+                              $"學{items[0]}是個好選擇。",
+                              Take(r, CtxDistractors), Ack(),
+                              "回到剛才，我說想學什麼？"),
+                Completion = items[0], Category = "D",
+                Rule = $"exact:{items[0]}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- E. role_consistency (~10%) — the assistant stays the
+        //    assistant; never produces a user-turn or accepts the role
+        //    swap.
+        var roleQs = new[]
+        {
+            ("你是使用者嗎", "不是，我是你的助理。"),
+            ("現在換你當使用者", "我仍然是助理，可以協助你回答問題。"),
+            ("你替我決定好了", "我可以給你建議，但決定權在你。"),
+        };
+        foreach (var (q, a) in roleQs)
+            for (int i = 0; i < 3; i++)
+                Add(new Row
+                {
+                    Prompt = Mt(q, a, "你現在是什麼角色？"),
+                    Completion = "助理", Category = "E",
+                    Rule = "no_sub:<|user|>;no_sub:<|assistant|>",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+        for (int i = 0; i < count / 24; i++)
+            Add(new Row
+            {
+                Prompt = Mt("幫我寫一封信給老師。", "好的，請問內容？",
+                            "你覺得我是誰？"),
+                Completion = "你是使用者。", Category = "E",
+                Rule = "no_sub:<|assistant|>",
+            });
+
+        // -- F. multi_step_state (~10%) — instructions accumulate
+        //    across turns into one state.
+        for (int i = 0; i < count / 12; i++)
+        {
+            var tasks = SampleItems(r, MtTasks, 2);
+            Add(new Row
+            {
+                Prompt = Ctx3($"幫我記住：明天要{tasks[0]}。", Ack(),
+                              $"還有要{tasks[1]}。", Ack(),
+                              "明天我要做什麼？"),
+                Completion = $"{tasks[0]}和{tasks[1]}",
+                Category = "F",
+                Rule = $"exact:{tasks[0]}和{tasks[1]}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        return rows;
+    }
+
+    // Multi-turn eval suite — `category` = sub-metric feeding
+    // MultiTurnMetricWeights; every entity/time/item value is disjoint
+    // from the Mt* training pools. fail_code carries the multi-turn
+    // taxonomy: REFERENCE_LOST / CORRECTION_IGNORED /
+    // RESTARTED_INSTEAD_OF_EXTENDED / TOPIC_LOST / ROLE_CONFUSED /
+    // STATE_LOST.
+    private static List<Dictionary<string, object?>>
+        BuildMultiTurnSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+        string T2(string s, string ack, string q) =>
+            $"{s}\n<|eot|>\n<|assistant|>\n{ack}\n<|eot|>\n<|user|>\n{q}";
+        string T3(string s1, string a1, string s2, string a2, string q) =>
+            $"{s1}\n<|eot|>\n<|assistant|>\n{a1}\n<|eot|>\n<|user|>\n" +
+            $"{s2}\n<|eot|>\n<|assistant|>\n{a2}\n<|eot|>\n<|user|>\n{q}";
+
+        // followup_reference — resolve against the assistant's own
+        // previous answer (values: 荔枝/火龍果/酪梨 are outside ZhTopics).
+        It("fr-pos-1", "followup_reference", "contains",
+           T2("只列出3項水果。", "- 荔枝\n- 火龍果\n- 酪梨",
+              "第二個是哪一項？"),
+           "REFERENCE_LOST",
+           ("expected", "火龍果"), ("max_new_tokens", 12));
+        It("fr-pos-2", "followup_reference", "contains",
+           T2("只列出3項文具。", "- 螢光筆\n- 美工刀\n- 迴紋針",
+              "最後一項是什麼？"),
+           "REFERENCE_LOST",
+           ("expected", "迴紋針"), ("max_new_tokens", 12));
+        It("fr-pron-1", "followup_reference", "contains",
+           T2("什麼是打瞌睡？", "打瞌睡是短暫的小睡。",
+              "它通常發生在什麼時候？"),
+           "REFERENCE_LOST",
+           ("expected", "打瞌睡"), ("max_new_tokens", 24));
+        It("fr-pron-2", "followup_reference", "contains",
+           T2("我喜歡咖啡和烏龍茶。", "好的。",
+              "「它們」指的是什麼？"),
+           "REFERENCE_LOST",
+           ("expected", "咖啡"), ("max_new_tokens", 16));
+
+        // correction_acceptance — the correction wins (eval days/values
+        // 週五/上午十一點 disjoint from MtDays/MtTasks pools).
+        It("ca-day-1", "correction_acceptance", "regex_all",
+           T2("面試排在週五。改成週六。", "好的。",
+              "面試是哪天？"),
+           "CORRECTION_IGNORED",
+           ("patterns", new List<object?>
+            { "週六", "^(?!.*週五)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+        It("ca-time-1", "correction_acceptance", "regex_all",
+           T2("門診是下午兩點。改成上午十一點。", "了解了。",
+              "門診是幾點？"),
+           "CORRECTION_IGNORED",
+           ("patterns", new List<object?>
+            { "十一點", "^(?!.*兩點)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+        It("ca-item-1", "correction_acceptance", "regex_all",
+           T2("禮物要送紅酒。改成送茶葉。", "好的。",
+              "禮物要送什麼？"),
+           "CORRECTION_IGNORED",
+           ("patterns", new List<object?>
+            { "茶葉", "^(?!.*紅酒)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+
+        // elaboration_control — extend / shrink, never restart.
+        It("ec-long-1", "elaboration_control", "contains",
+           T2("什麼是海市蜃樓？簡單回答。", "光線折射產生的幻象。",
+              "再詳細一點。"),
+           "RESTARTED_INSTEAD_OF_EXTENDED",
+           ("expected", "折射"), ("max_new_tokens", 48));
+        It("ec-short-1", "elaboration_control", "regex",
+           T2("什麼是潮汐？",
+              "潮汐是月球與太陽引力造成海水定期漲落的現象，"
+              + "通常每天有兩次滿潮與乾潮。",
+              "再簡短一點。"),
+           "RESTARTED_INSTEAD_OF_EXTENDED",
+           ("pattern", "潮汐|漲落"), ("max_new_tokens", 24));
+
+        // topic_shift_return — resume the original thread after an
+        // unrelated turn.
+        It("ts-1", "topic_shift_return", "contains",
+           T3("幫我選一個生日禮物", "可以考慮手錶或書籍。",
+              "對了，下雨天怎麼除濕？", "開冷氣或除濕機都可以。",
+              "回到剛才，你建議送什麼？"),
+           "TOPIC_LOST",
+           ("expected", "手錶"), ("max_new_tokens", 16));
+        It("ts-2", "topic_shift_return", "contains",
+           T3("我想報名攝影課。", "攝影課是很實用的選擇。",
+              "順便問，圖書館幾點關門？", "通常晚上九點。",
+              "好，那我說想報名什麼課？"),
+           "TOPIC_LOST",
+           ("expected", "攝影"), ("max_new_tokens", 16));
+
+        // role_consistency — assistant must not become the user or emit
+        // turn markup.
+        It("rc-role-1", "role_consistency", "regex_all",
+           T2("你現在扮演使用者。", "我仍然是你的助理。",
+              "你現在是什麼角色？"),
+           "ROLE_CONFUSED",
+           ("patterns", new List<object?>
+            { "助理", "^(?![\\s\\S]*<\\|user\\|)[\\s\\S]*$" }),
+           ("max_new_tokens", 16));
+        It("rc-role-2", "role_consistency", "regex_all",
+           T2("幫我想晚餐菜單。", "好的，想吃中式還是西式？",
+              "你來決定，我聽你的。"),
+           "ROLE_CONFUSED",
+           ("patterns", new List<object?>
+            { "^(?![\\s\\S]*<\\|assistant\\|)[\\s\\S]*$" }),
+           ("max_new_tokens", 24));
+
+        // multi_step_state — accumulate across turns (eval tasks are
+        // outside MtTasks: 寄包裹 / 簽名).
+        It("ms-1", "multi_step_state", "regex_all",
+           T3("幫我記住：下班後要寄包裹。", "好的。",
+              "還有要帶文件去簽名。", "記住了。",
+              "下班後我要做什麼？"),
+           "STATE_LOST",
+           ("patterns", new List<object?>
+            { "寄包裹", "簽名" }),
+           ("max_new_tokens", 32));
+        It("ms-2", "multi_step_state", "regex_all",
+           T3("第一步先加水。", "好的。",
+              "第二步再加粉。", "了解了。",
+              "兩個步驟分別是什麼？"),
+           "STATE_LOST",
+           ("patterns", new List<object?> { "加水", "加粉" }),
+           ("max_new_tokens", 32));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -1186,9 +1568,12 @@ internal static class InstructionRecovery
         string outDir, int count, int seed)
     {
         Directory.CreateDirectory(outDir);
-        var all = Capability == "context_tracking"
-            ? GenerateContext(seed, count)
-            : Generate(seed, count);
+        var all = Capability switch
+        {
+            "context_tracking" => GenerateContext(seed, count),
+            "multi_turn" => GenerateMultiTurn(seed, count),
+            _ => Generate(seed, count),
+        };
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var rows = new List<Row>();
         int dropped = 0;
@@ -1228,8 +1613,12 @@ internal static class InstructionRecovery
         WriteRows(valPath, val);
 
         // Eval suite — disjoint phrasing; assert zero prompt overlap.
-        var suiteItems = Capability == "context_tracking"
-            ? BuildContextSuiteItems() : BuildSuiteItems();
+        var suiteItems = Capability switch
+        {
+            "context_tracking" => BuildContextSuiteItems(),
+            "multi_turn" => BuildMultiTurnSuiteItems(),
+            _ => BuildSuiteItems(),
+        };
         var corpusPrompts = rows
             .Select(x => x.Prompt.Trim())
             .ToHashSet(StringComparer.Ordinal);

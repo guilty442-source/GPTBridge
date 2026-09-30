@@ -80,13 +80,15 @@ internal sealed class SelfLearningPolicy
     public bool DpoEnabled = false;
     public int DpoMinNewPairs = 8;
     public double DpoBeta = 0.1;
-    // Architecture-convergence phase (凍結能力訓練): when true the cycle
-    // still collects / sanitizes / deduplicates / registers datasets and
-    // audits, but never creates a trainer job or activates a candidate.
-    public bool CapabilityTrainingFrozen = false;
+    // Capability-training freeze (architecture-convergence phase): the
+    // cycle still collects / sanitizes / deduplicates / registers and
+    // runs evaluation gates, but the weight-changing stages (SFT/DPO/
+    // pretrain jobs and candidate activation) never fire. Defaults true
+    // — fail-closed; unfreezing requires an explicit policy edit.
     // SINGLE_CAPABILITY_RECOVERY lane (star-single-capability-recovery/v1):
     // "FROZEN" seals every weight-mutating job; "SINGLE_CAPABILITY_RECOVERY"
     // admits exactly one SFT lane whose capability == ActiveCapability.
+    public bool CapabilityTrainingFrozen = true;
     public string CapabilityTrainingMode = "FROZEN";
     public string ActiveCapability = "";
 

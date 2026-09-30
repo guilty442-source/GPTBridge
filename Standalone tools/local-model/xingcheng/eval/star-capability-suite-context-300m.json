@@ -1,0 +1,129 @@
+{
+  "format_version": "star-capability-suite/v1",
+  "suite_id": "star-capability-suite-context-300m",
+  "seed": 43,
+  "notes": "300M maturation P1: context-tracking suite (distinct from multi_turn). Dimensions: context_state_accuracy (recall of entities/facts stated earlier), context_update_accuracy (conditional updates, retractions, negation, time/state changes, user correction), stale_context_error_rate (must NOT answer with superseded state). All state is carried inside the prompt as earlier-turn text; the reply must track it.",
+  "items": [
+    {
+      "id": "ctx-state-1",
+      "category": "context_state_accuracy",
+      "check": "contains",
+      "prompt": "我方才說我的專案代號是「北極星」。請回答：我的專案代號是什麼？",
+      "expected": "北極星",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-state-2",
+      "category": "context_state_accuracy",
+      "check": "contains",
+      "prompt": "Earlier I told you my meeting is on Thursday and my colleague is named Mei. Question: what is my colleague's name?",
+      "expected": "Mei",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-state-3",
+      "category": "context_state_accuracy",
+      "check": "regex",
+      "prompt": "記住三個數字：17、42、88。現在告訴我中間那個數字。",
+      "pattern": "42",
+      "max_new_tokens": 16
+    },
+    {
+      "id": "ctx-upd-1",
+      "category": "context_update_accuracy",
+      "check": "contains",
+      "prompt": "原本我的收件城市是台北。現在更正：改為高雄。請問我的收件城市是哪裡？",
+      "expected": "高雄",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-upd-2",
+      "category": "context_update_accuracy",
+      "check": "contains",
+      "prompt": "The server runs on port 8080. Update: we migrated it to port 9090. Which port does the server use now?",
+      "expected": "9090",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-upd-3",
+      "category": "context_update_accuracy",
+      "check": "not_contains",
+      "prompt": "我先前說預算上限是 500 元。撤回這個限制：預算沒有上限。現在請問預算上限是多少？如果沒有上限請明說。",
+      "expected": "500",
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ctx-upd-4",
+      "category": "context_update_accuracy",
+      "check": "not_contains",
+      "prompt": "假設條件 A 成立時結果是紅色。更新：條件 A 已經不成立。請回答結果現在是什麼顏色，若無法確定請說無法確定。",
+      "expected": "紅色是確定",
+      "forbidden": ["一定是紅色", "結果是紅色"],
+      "max_new_tokens": 48
+    },
+    {
+      "id": "ctx-neg-1",
+      "category": "context_update_accuracy",
+      "check": "not_contains",
+      "prompt": "清單原本是：蘋果、香蕉、芒果。請把香蕉移除。現在清單裡還有哪些水果？",
+      "expected": "香蕉",
+      "max_new_tokens": 40
+    },
+    {
+      "id": "ctx-time-1",
+      "category": "context_update_accuracy",
+      "check": "contains",
+      "prompt": "星期一我排了看牙醫。星期三改成開會。請問星期三我現在要做什麼？",
+      "expected": "開會",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-corr-1",
+      "category": "context_update_accuracy",
+      "check": "contains",
+      "prompt": "Correction from earlier: I said the file count was 120 — I meant 210. What is the correct file count?",
+      "expected": "210",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-stale-1",
+      "category": "stale_context_error_rate",
+      "check": "not_contains",
+      "prompt": "原本的負責人是 Alice。後來交接給 Bob。請問現在的負責人是誰？",
+      "expected": "Alice",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-stale-2",
+      "category": "stale_context_error_rate",
+      "check": "not_contains",
+      "prompt": "The plan was to ship on Friday. The plan changed: we ship on Monday instead. What day do we ship?",
+      "expected": "Friday",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-stale-3",
+      "category": "stale_context_error_rate",
+      "check": "contains",
+      "prompt": "我住台中，後來搬到台南。請問我現在住哪裡？",
+      "expected": "台南",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-ref-1",
+      "category": "context_state_accuracy",
+      "check": "contains",
+      "prompt": "有兩個檔案：report.txt 和 notes.md。我說的「前者」是指 report.txt。請問「前者」是哪個檔案？",
+      "expected": "report.txt",
+      "max_new_tokens": 24
+    },
+    {
+      "id": "ctx-long-1",
+      "category": "context_state_accuracy",
+      "check": "contains",
+      "prompt": "對話紀錄：使用者養了一隻狗叫豆豆、一隻貓叫花花；使用者在高雄工作，週末喜歡爬山；使用者不吃香菜。問題：使用者的狗叫什麼名字？",
+      "expected": "豆豆",
+      "max_new_tokens": 24
+    }
+  ]
+}

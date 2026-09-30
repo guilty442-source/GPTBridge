@@ -141,6 +141,10 @@ internal static class GenerationMigration
         return new Dictionary<string, object?>
         {
             ["format"] = StateFormat,
+            // Unified generation-state fields (architecture-convergence
+            // contract): lineage, architecture profile, deployment and
+            // contract versions are separate keys — one generation string
+            // never carries them all.
             ["active_generation"] = "",
             // Unified identity fields (§3 active/canonical separation):
             // lineage generation, architecture profile, checkpoint
@@ -681,6 +685,43 @@ internal static class GenerationMigration
                 "not_evaluated (no --suite)"));
         }
 
+        // §33 runtime-contract gates: every new runtime contract joins
+        // the certification evidence — a generation can never promote
+        // without them (bundle targets only; .xcn candidates have no
+        // bundle envelope to prove).
+        if (IsBundleDir(target))
+        {
+            try
+            {
+                string Mf(string key, string dflt) =>
+                    m.TryGetValue(key, out var v) &&
+                    v is string s && s.Length > 0 ? s : dflt;
+                var provenance = BundleProvenance.Compute(
+                    target,
+                    Mf("target_generation", ""),
+                    Mf("architecture_profile", "xc-fused-1"),
+                    Mf("xcn_version", "XCN1 v10"),
+                    id,
+                    "xc-native-cpp23",
+                    Mf("source_generation", ""));
+                var gates = RuntimeCertGates.Evaluate(
+                    toolRoot, target, provenance);
+                checks.Add(Check("runtime_contract_gates",
+                    (bool)gates["pass"]!,
+                    CanonicalJson.PlainDict(
+                        (Dictionary<string, object?>)
+                        new Dictionary<string, object?>
+                        {
+                            ["gates"] = gates["gates"],
+                        })));
+            }
+            catch (Exception ex)
+            {
+                checks.Add(Check("runtime_contract_gates", false,
+                    ex.Message));
+            }
+        }
+
         // gate: every required data domain reached a completing status.
         var dv = (Dictionary<string, object?>)m["data_validation"]!;
         bool domainsOk = DomainsComplete(
@@ -792,6 +833,13 @@ internal static class GenerationMigration
         if (!TransformerTrainingRepository.Truthy(
                 cv.GetValueOrDefault("ok")))
             throw new ExecutorError("GEN_CERTIFY_NOT_PASSED", id);
+        // §5: when the convergence gate is enforced, promotion needs a
+        // passing star-release-gate/v1 report — fail closed otherwise.
+        if (ConvergenceGate.Enforced(toolRoot)
+            && ConvergenceGate.LatestVerdict(toolRoot)
+                != "PROMOTION_ALLOWED")
+            throw new ExecutorError("RELEASE_GATE_BLOCKED",
+                "release gate has not passed (enforce_release_gate=1)");
         var weights = (Dictionary<string, object?>)m["weights"]!;
         string target = Path.Combine(
             toolRoot,
@@ -900,7 +948,44 @@ internal static class GenerationMigration
         var state = LoadState(toolRoot);
         state["previous_generation"] = m["source_generation"];
         state["active_generation"] = m["target_generation"];
+        state["bundle_version"] = m["target_model_version"];
+        state["checkpoint_version"] = "XCN1 v10";
+        state["runtime_version"] = "xc-native-cpp23";
+        // The promoted bundle runs the architecture it was trained on —
+        // not the canonical contract. xc-fused-1 remains a candidate
+        // architecture until a trained generation carries it.
+        state["architecture_generation"] = "current-compatible-profile";
+        state["candidate_architecture"] = "xc-fused-1";
         SaveState(toolRoot, state);
+
+        // §30 post-promote verify: the pinned checkpoint must resolve to
+        // the promoted artifact byte-identically and the lifecycle's
+        // active weights must be the entry just registered. Any drift is
+        // fail-closed — the migration cannot report PROMOTED on a pin
+        // that does not resolve.
+        var verify = new List<string>();
+        string pinnedAbs = Path.Combine(
+            toolRoot, pinned.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(pinnedAbs) ||
+            HashOf(pinnedAbs) != (string)m["target_checkpoint_hash"]!)
+            verify.Add("PINNED_CHECKPOINT_MISMATCH");
+        var activeCheck = lifecycle.ActiveWeights();
+        if (activeCheck == null ||
+            !activeCheck.TryGetValue("path", out object? acp) ||
+            acp is not string acps ||
+            Rel(toolRoot, acps).Replace('\\', '/') != pinned)
+            verify.Add("LIFECYCLE_ACTIVE_MISMATCH");
+        if (verify.Count > 0)
+        {
+            m["status"] = "FAILED";
+            Event(m, "post_promote_verify_failed",
+                  ("failures", string.Join(",", verify)));
+            SaveManifest(toolRoot, m);
+            throw new ExecutorError(
+                "GEN_POST_PROMOTE_VERIFY_FAILED",
+                string.Join(",", verify));
+        }
+        Event(m, "post_promote_verify", ("pinned", pinned));
 
         m["status"] = "PROMOTED";
         m["activation_status"] = "promoted";
@@ -950,6 +1035,50 @@ internal static class GenerationMigration
             active.TryGetValue("path", out object? ap) && ap is string aps)
             keep.Add(Rel(toolRoot, aps).Replace('\\', '/'));
 
+        // §33 reference-safety: purge must refuse every artifact still
+        // referenced by active/candidate/lifecycle/evaluation/dataset/
+        // lineage records — never a best-effort delete. Collect every
+        // "path"-ish string the lifecycle owns across all artifact
+        // kinds, plus every sibling migration manifest's weight paths
+        // (lineage reference), before candidates are even considered.
+        void CollectPaths(object? node)
+        {
+            switch (node)
+            {
+                case Dictionary<string, object?> d:
+                    foreach (var kv in d)
+                    {
+                        if (kv.Value is string s && s.Length > 0 &&
+                            (kv.Key == "path" || kv.Key == "source_path" ||
+                             kv.Key == "target_path" ||
+                             kv.Key == "bundle_path" ||
+                             kv.Key == "checkpoint_path" ||
+                             kv.Key.EndsWith("_path",
+                                 StringComparison.Ordinal)))
+                            keep.Add(Rel(toolRoot, s).Replace('\\', '/'));
+                        else CollectPaths(kv.Value);
+                    }
+                    break;
+                case List<object?> l:
+                    foreach (var item in l) CollectPaths(item);
+                    break;
+            }
+        }
+        CollectPaths(lifecycle.Artifacts);
+        CollectPaths(lifecycle.History);
+        foreach (string sib in Directory.GetFiles(
+                     StateDir(toolRoot), "migration-*.json"))
+        {
+            if (sib == ManifestPath(toolRoot, id)) continue;
+            try { CollectPaths(LoadManifest(toolRoot,
+                Path.GetFileNameWithoutExtension(sib)
+                    ["migration-".Length..])); }
+            catch (ExecutorError) { /* unreadable manifest — its paths
+                stay unknown, so its artifacts stay protected via the
+                lifecycle scan; a broken manifest never widens the
+                delete set */ }
+        }
+
         var candidates = new List<string>();
         // previous-generation weight versions owned by the lifecycle
         foreach (var v in lifecycle.WeightVersionPaths())
@@ -985,7 +1114,9 @@ internal static class GenerationMigration
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
-                    ["path"] = rel, ["reason"] = "protected",
+                    ["path"] = rel,
+                    ["reason"] = "protected",
+                    ["code"] = "GENERATION_ARTIFACT_STILL_REFERENCED",
                 });
                 continue;
             }

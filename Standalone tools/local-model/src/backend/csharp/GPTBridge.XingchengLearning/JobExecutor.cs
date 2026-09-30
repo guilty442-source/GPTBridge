@@ -119,7 +119,7 @@ internal sealed class TrainingJobExecutor
             throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
                 $"unknown training_kind: {kind}");
         cfg["training_kind"] = kind;
-        // Capability-training freeze — a formal training kind is a
+        // §34 capability-training freeze — a formal training kind is a
         // frozen operation while the freeze holds; probes/benchmarks
         // never flow through this executor. SINGLE_CAPABILITY_RECOVERY
         // narrows the freeze to exactly one declared-capability SFT job.
@@ -127,6 +127,14 @@ internal sealed class TrainingJobExecutor
             TransformerTrainingRepository.Str(cfg, "capability") ?? "";
         CapabilityFreeze.GuardJob(kind, (string)cfg["capability"]!,
                                   SelfLearningPolicy.Load(_toolRoot));
+        // §4/§50 maturation order: even when the freeze lane admits the
+        // job, the declared capability must be the current sequence head
+        // (instruction_following first); out-of-order capabilities are
+        // denied before any weight work is scheduled.
+        if (kind == "sft")
+            Maturation300M.GuardSequence(_toolRoot,
+                                         (string)cfg["capability"]!);
+
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
         if (initRaw != null && initRaw.ToString() is { Length: > 0 } initStr)
@@ -816,7 +824,7 @@ internal sealed class TrainingJobExecutor
             configuration = NormalizeConfiguration(row);
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
-            // Recovery lane defense-in-depth: under
+            // §1 recovery lane defense-in-depth: under
             // SINGLE_CAPABILITY_RECOVERY every document carrying a
             // capability tag must name the active capability — a mixed
             // dataset is a multi-capability job and is denied.
