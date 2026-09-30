@@ -543,7 +543,6 @@ internal static class ConvergenceGate
             return Pass(arch.Length > 0
                 ? $"architecture={arch} ({archSrc})"
                 : "no architecture claim (legacy manifest)");
-            }
         }
         catch (Exception ex)
         {
