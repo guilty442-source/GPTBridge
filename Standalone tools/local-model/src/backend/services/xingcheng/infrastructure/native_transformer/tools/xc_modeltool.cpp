@@ -1,4 +1,4 @@
-// xc_modeltool.cpp — governed model-side utilities for the native lane.
+// xc_modeltool.cpp ??governed model-side utilities for the native lane.
 //
 // Modes (single JSON object on stdout; non-zero exit on failure):
 //   tokenize      --tokenizer <tokenizer.json|dir> --in rows.jsonl
@@ -27,14 +27,14 @@
 //   mtp-draft-probe --bundle <dir> --prompt <text> [--max-new N]
 //                 (draft-length-1 acceptance evidence vs the exported
 //                  MTP head; SPECULATIVE_DECODER_DISABLED stays in
-//                  effect — no production dispatch is bound)
+//                  effect ??no production dispatch is bound)
 //
 // Tokenize row shapes (star SFT/DPO/pretrain contracts):
 //   {"prompt","completion"}      -> {"input_ids","labels"}  (masked prompt)
 //   {"text"}                     -> {"input_ids"}           (pretrain; trainer
 //                                  shifts labels itself)
 //   {"prompt","chosen","rejected"} -> {"chosen","rejected"} (DPO)
-//   any sft/pretrain row may carry "vision_patches":[[..D..] x P] — the
+//   any sft/pretrain row may carry "vision_patches":[[..D..] x P] ??the
 //   early-fusion vision grid is passed through verbatim after structural
 //   validation (dpo+vision is unsupported and drops); optional
 //   --vision-patch-dim N / --vision-max-patches N pin the geometry.
@@ -112,7 +112,7 @@ namespace xct {
 #include "xct_ckpt.h"
 }  // namespace xct
 
-// batch-2 probe infrastructure (§7/§10/§12/§13/§27/§29): xcm2 namespace —
+// batch-2 probe infrastructure (蝳?/蝳?0/蝳?2/蝳?3/蝳?7/蝳?9): xcm2 namespace ??
 // research/probe surfaces only, never wired into production dispatch.
 #include "xcm_batch2.h"
 
@@ -170,7 +170,6 @@ Args parse_args(int argc, char** argv) {
     std::exit(1);
 }
 
-// One complete JSON line on stdout (probe/certification modes).
 void emit_line(const std::string& line) { std::printf("%s\n", line.c_str()); }
 
 // Minimal flat-object JSON writer for certification/probe reports.
@@ -209,6 +208,8 @@ struct JsonWriter {
     }
     std::string str() const { return o.str(); }
 };
+
+std::string slurp(const std::string& path) {
 
 std::string slurp(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
@@ -294,7 +295,7 @@ std::string sha256_text(const std::string& s) {
 
 // ------------------------------------------------- Python-parity canon ----
 // Canonical form used for suite_sha256 / payload hashes:
-// json.dumps(obj, ensure_ascii=False, sort_keys=True) — separators
+// json.dumps(obj, ensure_ascii=False, sort_keys=True) ??separators
 // (", ", ": "). Works on raw JSON text so integer vs float lexemes are
 // preserved (3000 -> "3000"; 3000.0 -> "3000.0"), matching Python digests
 // for the existing suite files byte-exactly.
@@ -513,7 +514,7 @@ void canon_value(RawCur& c, std::string& out) {
     canon_number(c, out);
 }
 
-// sha256 of json.dumps(obj, sort_keys=True) — default separators.
+// sha256 of json.dumps(obj, sort_keys=True) ??default separators.
 std::string suite_sha256(const std::string& raw_json) {
     RawCur c{raw_json.data(), raw_json.data() + raw_json.size()};
     std::string canon;
@@ -524,7 +525,7 @@ std::string suite_sha256(const std::string& raw_json) {
 }
 
 // ------------------------------------------------------------- NFC trim ----
-// Python unicodedata.normalize("NFC", text).strip() — used for overlap
+// Python unicodedata.normalize("NFC", text).strip() ??used for overlap
 // hashing. Windows NormalizeString handles NFC; trim strips ASCII/Unicode
 // whitespace sentinels at both ends.
 
@@ -668,7 +669,7 @@ void ids_json(std::string& out, const char* key,
 }
 
 // Truncate post-alignment to max_len; returns false when no supervised
-// (label >= 0) positions remain — those rows are dropped, not emitted.
+// (label >= 0) positions remain ??those rows are dropped, not emitted.
 bool clip_ids(Ids& e, int64_t max_len) {
     if (max_len <= 0 || (int64_t)e.ids.size() <= max_len) {
         return std::any_of(e.labels.begin(), e.labels.end(),
@@ -681,11 +682,11 @@ bool clip_ids(Ids& e, int64_t max_len) {
 }
 
 // Fusion tokenization (v1): a `vision_patches` field carries the patch
-// grid through to trainer-ready rows — for early-fusion the grid IS the
+// grid through to trainer-ready rows ??for early-fusion the grid IS the
 // vision token stream (prefix positions; the trainer masks them -100
 // and checks geometry against the model config). Structural validation
 // mirrors xct_util.h j_patch_grid: array of P numeric rows of uniform
-// width D. Returns 0 absent, 1 well-formed, -1 malformed — a malformed
+// width D. Returns 0 absent, 1 well-formed, -1 malformed ??a malformed
 // grid drops the whole row; never emit a text-only copy of a multimodal
 // sample.
 int vision_grid_state(const JsonValue* v, int64_t& patches, int64_t& dim) {
@@ -955,7 +956,7 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
             std::regex(R"(^layers\.(\d+)\.(q|k)_norm$)")))
         return base + m[1].str() + ".attention." + m[2].str() +
                "_norm.weight";
-    // v27 gated DeltaNet (linear attention) tensors — the bundle keeps
+    // v27 gated DeltaNet (linear attention) tensors ??the bundle keeps
     // the trainer's lin.* naming under linear_attn.* so the engine loads
     // the same projections verbatim.
     if (std::regex_match(n, m,
@@ -986,7 +987,7 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
                        : m[2].str() == "2" ? "down" : "up";
         return base + m[1].str() + ".mlp." + w + "_proj.weight";
     }
-    // MTP export: the speculative head is part of the XCN10 contract —
+    // MTP export: the speculative head is part of the XCN10 contract ??
     // mtp.* tensors ride the bundle verbatim under model.mtp.* so a
     // runtime drafter can bind them; silently dropping them orphans the
     // trained draft head.
@@ -1001,7 +1002,7 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
 
 xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
     // Shared parser (job.json + manifest config + distill student config)
-    // — also validates the Gemma4 profile fail-closed.
+    // ??also validates the Gemma4 profile fail-closed.
     xct::ModelConfig c;
     try {
         c = xct::parse_model(&cfg);
@@ -1029,7 +1030,7 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
             fail("IMPORT_VISION_GEOMETRY");
     }
     // v27 fused hybrid (XCN3 fields): same names/semantics as the job
-    // manifest model block — absent keys keep the dense defaults so
+    // manifest model block ??absent keys keep the dense defaults so
     // pre-v27 bundles import unchanged.
     c.full_attention_interval =
         (int)xct::j_num(&cfg, "full_attention_interval",
@@ -1063,7 +1064,7 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
 
 JsonValue parse_json_file(const std::string& path) {
     std::string raw = slurp(path);
-    JsonParser p(raw);  // JsonParser holds a pointer into `raw` — lvalue only.
+    JsonParser p(raw);  // JsonParser holds a pointer into `raw` ??lvalue only.
     return p.parse();
 }
 
@@ -1075,7 +1076,7 @@ int64_t numel_of(const JsonValue& shape) {
 }
 
 // Loads a bundle directory into xct Params (fp32). Fails closed on any
-// dtype/shape/contract violation — shared by import-bundle and
+// dtype/shape/contract violation ??shared by import-bundle and
 // distill-init. Returns the number of filled tensors.
 size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
                           xct::Params& p) {
@@ -1097,7 +1098,7 @@ size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
         auto wIt = p.w.find(xname);
         if (wIt == p.w.end()) {
             // Bundle carries an MTP head the manifest config does not
-            // declare — bundle/trunk contract mismatch, fail closed.
+            // declare ??bundle/trunk contract mismatch, fail closed.
             if (xname.compare(0, 4, "mtp.") == 0)
                 fail("MTP_BUNDLE_MISMATCH:" + name);
             fail("IMPORT_CONFIG_SHAPE_MISMATCH:" + xname);
@@ -1127,14 +1128,14 @@ size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
         fail("IMPORT_UNMAPPED_TENSORS:" + list);
     }
     for (const auto& n : p.order) {
-        // lb_bias is a train-time routing buffer that never exports —
+        // lb_bias is a train-time routing buffer that never exports ??
         // absence from a bundle is not a contract violation. mtp.* must
         // be present when the config declares an MTP head.
         if (n.size() >= 7 &&
             n.compare(n.size() - 7, 7, "lb_bias") == 0) continue;
         if (!filled.count(n)) {
             // The manifest config declares an MTP head but the bundle
-            // does not carry it — the bundle is mismatched against the
+            // does not carry it ??the bundle is mismatched against the
             // trunk contract, not merely short a tensor.
             if (n.compare(0, 4, "mtp.") == 0)
                 fail("MTP_BUNDLE_MISMATCH:bundle lacks " + n);
@@ -1397,14 +1398,14 @@ int mode_vision_smoke(const Args& a) {
 // --------------------------------------------------------- cache-smoke ----
 //
 // Long-context memory & cache probe for a native bundle (public engine
-// API only — no internal surface):
-//   paged KV   — generate() drives the append-cache decode path; a
+// API only ??no internal surface):
+//   paged KV   ??generate() drives the append-cache decode path; a
 //                repeated generate over the same prompt restores the
 //                cached prefix (prefix_cache_hits++) and must reproduce
-//                identical tokens — the "restored KV is bit-identical to
+//                identical tokens ??the "restored KV is bit-identical to
 //                recompute" contract made executable;
-//   determinism — uncached logits() calls are bitwise stable;
-//   kv-int8 (opt-in via --kv-int8) — a second engine loaded under
+//   determinism ??uncached logits() calls are bitwise stable;
+//   kv-int8 (opt-in via --kv-int8) ??a second engine loaded under
 //                XINGCHENG_CPP_KV_INT8 keeps the same prefix-cache
 //                behavior and deterministic generation on a ~8x smaller
 //                KV footprint; logit drift vs fp64 is reported and must
@@ -1447,10 +1448,10 @@ Run probe_run(const std::string& bundle,
     r.ref_logits = e.logits(ids);
     r.logits_finite = all_finite(r.ref_logits);
     r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
-    SamplingConfig sc;                    // do_sample=false → argmax
+    SamplingConfig sc;                    // do_sample=false ??argmax
     std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
     std::vector<int64_t> g1 =
-        e.generate(prompt, 6, sc);        // miss → stores prefix entry
+        e.generate(prompt, 6, sc);        // miss ??stores prefix entry
     const int64_t h1 = prefix_hits(e);
     std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
     const int64_t h2 = prefix_hits(e);
@@ -1488,7 +1489,7 @@ int mode_cache_smoke(const Args& a) {
     // v27+ fused hybrid: the engine's hybrid prefix path restores
     // attention KV *and* DeltaNet recurrent state (see
     // hybrid-prefix-smoke / delta-prefix-restore), so prefix hits are
-    // now REQUIRED on hybrid bundles too — greedy output must stay
+    // now REQUIRED on hybrid bundles too ??greedy output must stay
     // bit-identical either way.
     const bool hybrid =
         xct::j_num(mcfg, "full_attention_interval", 0) > 0 &&
@@ -1509,8 +1510,8 @@ int mode_cache_smoke(const Args& a) {
     bool ok = fp.logits_finite && fp.logits_deterministic && prefix_ok &&
               fp.gen_nonempty && fp.gen_identical;
     // kv-int8: logits() never touches the KV pool, so the meaningful
-    // evidence is the cached path — prefix hits still fire, the
-    // restore→requantize round-trip keeps greedy output identical, and
+    // evidence is the cached path ??prefix hits still fire, the
+    // restore??搪quantize round-trip keeps greedy output identical, and
     // generation stays non-degenerate. fp64-vs-int8 token equality is
     // reported but not gated (quantization may legitimately nudge
     // argmax).
@@ -1571,7 +1572,7 @@ int mode_cache_smoke(const Args& a) {
 // v27 fused-hybrid gate: numeric parity between the trainer checkpoint
 // (fp32 xct::fwd) and the exported bundle run through the C++ engine
 // (fp64) on identical token ids. Compares summed next-token NLL,
-// last-position logits and greedy argmax — this is the end-to-end check
+// last-position logits and greedy argmax ??this is the end-to-end check
 // that export + engine execution reproduce trained weights exactly,
 // including DeltaNet recurrence, causal-conv tails, q/k norm, gated
 // attention out and partial RoPE.
@@ -1708,9 +1709,9 @@ int mode_parity(const Args& a) {
     return ok ? 0 : 1;
 }
 
-// §15 precision-candidate validation: the same weights exported at two
+// 蝳?5 precision-candidate validation: the same weights exported at two
 // precisions (REFERENCE_FP64 vs PRODUCTION_BF16) are compared through
-// the real engine — last-position logit drift, argmax agreement,
+// the real engine ??last-position logit drift, argmax agreement,
 // sequence NLL, greedy continuation identity, load time and resident
 // memory. Reports evidence; promotion stays a lifecycle decision.
 int mode_precision(const Args& a) {
@@ -1898,7 +1899,7 @@ int mode_export_bundle(const Args& a) {
         // MTP declaration parity (XCN10): a trained head must be
         // declared verbatim in the shipped config, and a config that
         // declares a head the checkpoint does not carry mismatches the
-        // bundle contract — both fail closed with the canonical code.
+        // bundle contract ??both fail closed with the canonical code.
         for (const NumParity& np : {
                  NumParity{"num_nextn_predict_layers",
                            (int64_t)c.mtp_num_layers,
@@ -1937,7 +1938,7 @@ int mode_export_bundle(const Args& a) {
     int64_t mtp_exported = 0;
     for (const auto& n : p.order) {
         // MTP export: mtp.* tensors are part of the XCN10 contract and
-        // ride the bundle under model.mtp.* — the trained draft head is
+        // ride the bundle under model.mtp.* ??the trained draft head is
         // preserved for the runtime drafter.
         // aux-free lb_bias is a routing-time buffer updated by the sign
         // rule (never by the optimizer); the serving engine has no
@@ -1950,7 +1951,7 @@ int mode_export_bundle(const Args& a) {
         pairs.emplace_back(b, n);
     }
     // Fail-closed: a checkpoint whose config declares an MTP head but
-    // carries no mtp.* tensors cannot produce a canonical bundle — the
+    // carries no mtp.* tensors cannot produce a canonical bundle ??the
     // draft head would be silently lost.
     if ((c.mtp_num_layers > 0 || c.mtp_depth > 0) && mtp_exported == 0)
         fail("MTP_HEAD_MISSING:config declares mtp but no mtp.* tensors");
@@ -1958,7 +1959,7 @@ int mode_export_bundle(const Args& a) {
 
     // --quant none|int8|int4_packed|bf16: 2-D matrices are stored
     // compressed (per-tensor symmetric scale for int8/int4; bf16 keeps
-    // fp32's exponent with a truncated mantissa — PRODUCTION_BF16
+    // fp32's exponent with a truncated mantissa ??PRODUCTION_BF16
     // candidate). The engine widens to fp64 at load; 1-D tensors
     // (norms) stay fp64.
     std::string quant = a.get("quant");
@@ -2063,8 +2064,8 @@ int mode_export_bundle(const Args& a) {
     if (std::rename(bin_tmp.c_str(), bin_path.c_str()) != 0)
         fail("EXPORT_WEIGHTS_RENAME_FAILED");
 
-    // manifest.json — config copied verbatim from --config-from so every
-    // engine-side field (backend preference, rope, kv quant, …) survives.
+    // manifest.json ??config copied verbatim from --config-from so every
+    // engine-side field (backend preference, rope, kv quant, ?? survives.
     std::string cfg_canon;
     {
         // Serialize config through the JsonValue tree (engine only reads
@@ -2086,7 +2087,7 @@ int mode_export_bundle(const Args& a) {
     std::string ckpt_sha = sha256_file(ckpt);
     // Checkpoint contract version read straight from the XCN1 header so
     // the bundle manifest carries the same contract identity as the
-    // source artifact (unified §10 checkpoint/bundle contract).
+    // source artifact (unified 蝳?0 checkpoint/bundle contract).
     uint32_t ckpt_ver = 0;
     {
         std::ifstream ch(ckpt, std::ios::binary);
@@ -2110,7 +2111,7 @@ int mode_export_bundle(const Args& a) {
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
                       std::chrono::system_clock::now().time_since_epoch())
                       .count();
-    // §25 bundle provenance: resolve + hash the tokenizer up-front so the
+    // 蝳?5 bundle provenance: resolve + hash the tokenizer up-front so the
     // manifest can ship the full evidence block (hash -> signature ->
     // generation -> architecture -> checkpoint -> shape -> runtime
     // compatibility -> load; provenance-check enforces it fail-closed).
@@ -2150,7 +2151,7 @@ int mode_export_bundle(const Args& a) {
        << "\",\"xcn_version\":" << ckpt_ver
        << ",\"manifest_core_sha256\":\"";
     // manifest_core_sha256 covers everything before the provenance
-    // block — the hash is computed over the mf prefix already streamed.
+    // block ??the hash is computed over the mf prefix already streamed.
     std::string core_sha = sha256_bytes(
         reinterpret_cast<const unsigned char*>(mf.str().data()),
         mf.str().size());
@@ -2395,7 +2396,7 @@ double block_perplexity(NativeInferenceEngine& engine,
     int64_t block = std::min<int64_t>(64, (int64_t)ids.size() - 1);
     double total = 0.0;
     int64_t batches = 0;
-    // range(0, len(ids) - block, block) — non-overlapping windows.
+    // range(0, len(ids) - block, block) ??non-overlapping windows.
     for (size_t start = 0; start + (size_t)block < ids.size();
          start += (size_t)block) {
         std::vector<int64_t> w(ids.begin() + (ptrdiff_t)start,
@@ -2534,7 +2535,7 @@ int mode_capability(const Args& a) {
         }
         try {
             if (kind == "router_health") {
-                // The C++ engine exposes no router-metrics surface —
+                // The C++ engine exposes no router-metrics surface ??
                 // same outcome as the Python lane on a metrics-less
                 // checkpoint: skipped, excluded from pass_rate.
                 d << ",\"passed\":false,\"skipped\":\"no-moe-metrics-surface\"}";
@@ -2609,7 +2610,7 @@ int mode_capability(const Args& a) {
     }
     engine.unload();
 
-    // categories rollup — same shape as star-capability-eval/v1.
+    // categories rollup ??same shape as star-capability-eval/v1.
     std::ostringstream cats;
     cats << '{';
     bool first_cat = true;
@@ -2735,12 +2736,12 @@ int mode_capability(const Args& a) {
 
 // -------------------------------------------------------- mtp-draft-probe --
 // XCN10 MTP: real draft/verify against the exported MTP head. The
-// trainer's mtp_fwd is re-derived here in fp64 against bundle tensors —
+// trainer's mtp_fwd is re-derived here in fp64 against bundle tensors ??
 // cin = [rmsnorm(h_t;norm_h) | rmsnorm(e_{t+1};norm_e)] -> w_proj ->
 // norm1 -> full-rope(YaRN) causal attention over the MTP module's own
 // K/V -> wo -> +res -> norm2 -> gated FFN -> +res -> norm_out -> shared
 // lm_head. Greedy argmax verification: a draft is accepted iff it equals
-// the trunk argmax — emitted tokens are identical to plain greedy by
+// the trunk argmax ??emitted tokens are identical to plain greedy by
 // construction, so `output_parity` is guaranteed, not claimed.
 // draft_length=1 evidence only: the engine-side NativeMtpDrafter
 // production dispatch is not bound; this mode reports measured
@@ -2772,7 +2773,7 @@ struct MtpDraft {
     std::vector<double> kv_v;   // [pos][kvh*hd]
 
     static constexpr int kHeadCount = 13;
-    // Canonical MTP head tensor set — the full XCN10 contract a
+    // Canonical MTP head tensor set ??the full XCN10 contract a
     // production drafter would bind.
     static const char* const* head_names() {
         static const char* names[kHeadCount] = {
@@ -2821,7 +2822,7 @@ struct MtpDraft {
         return nullptr;
     }
 
-    // Shape validation against the trunk config — a bound head whose
+    // Shape validation against the trunk config ??a bound head whose
     // tensors disagree with the bundle's declared geometry is an
     // MTP_BUNDLE_MISMATCH, not a usable draft head.
     const char* mismatch() const {
@@ -2871,7 +2872,7 @@ struct MtpDraft {
         return 0.5 * x * (1.0 + std::tanh(u));
     }
     // Trainer rope convention for the MTP block: interleaved pairs
-    // (2p, 2p+1) over the FULL head_dim with the YaRN-blended table —
+    // (2p, 2p+1) over the FULL head_dim with the YaRN-blended table ??
     // deliberately not the trunk's rotate-half partial rope.
     void rope_pos(double* v, int64_t nh, int64_t pos) const {
         const int64_t hd = c->head_dim;
@@ -2912,7 +2913,7 @@ struct MtpDraft {
         }
     }
 
-    // z_t = w_proj [rmsnorm(h) | rmsnorm(e_next)] — the shared head of
+    // z_t = w_proj [rmsnorm(h) | rmsnorm(e_next)] ??the shared head of
     // every MTP position. Returns z; k/v appended separately.
     std::vector<double> z_of(const double* h_t, const double* e_next) const {
         const int64_t H = c->hidden_size;
@@ -3116,7 +3117,7 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"mtp_kv_positions\":%lld,"
         "\"emitted_tokens\":%lld,"
         "\"accept_log\":%s,"
-        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE — engine-side "
+        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE ??engine-side "
         "NativeMtpDrafter dispatch is not bound; SPECULATIVE_"
         "DECODER_DISABLED remains in effect for production\","
         "\"speedup\":null}\n",
@@ -3173,7 +3174,7 @@ std::string serve_render_chat(const JsonValue& messages) {
 
 // Governed GPU-admission probe: reports CUDA capability + free VRAM
 // without loading the engine. The stub (non-CUDA build) reports
-// available=0 — capability lives in the CUDA TU, the decision above.
+// available=0 ??capability lives in the CUDA TU, the decision above.
 extern "C" int xcuda_probe(long long* free_bytes, long long* total_bytes,
                            int* cc_major, int* cc_minor);
 
@@ -3202,7 +3203,7 @@ bool serve_bool(const JsonValue& o, const char* k, bool d) {
 
 // Runtime-capability integration headers: shared helpers first
 // (xcm_runtime.h), probe modes second (xcm_integration.h consumes
-// them) — both serve ops below and main() dispatch use these.
+// them) ??both serve ops below and main() dispatch use these.
 #include "xcm_runtime.h"
 #include "xcm_integration.h"
 
@@ -3234,7 +3235,7 @@ int mode_serve(const Args& a) {
     std::string line;
     line.reserve(4096);
     while (true) {
-        // Bounded line read — a peer writing past the cap is a protocol
+        // Bounded line read ??a peer writing past the cap is a protocol
         // violation, not a reason to grow memory without bound.
         line.clear();
         int ch;
@@ -3331,9 +3332,9 @@ int mode_serve(const Args& a) {
                 }
                 if (!engine.loaded()) engine.load(bundle);
                 SamplingConfig sc;
-                // §34 sampling profile presets (creative mode surface):
+                // 蝳?4 sampling profile presets (creative mode surface):
                 // a named profile seeds the knobs; explicit fields
-                // always win. Profiles are style-only — safety/tool/
+                // always win. Profiles are style-only ??safety/tool/
                 // data authority never rides on them.
                 std::string profile = jget_str(req, "sampling_profile");
                 double p_temp = 1.0, p_topp = 1.0, p_rep = 1.0;
@@ -3366,9 +3367,9 @@ int mode_serve(const Args& a) {
                 if (max_new <= 0) max_new = 1;
                 if (max_new > 2048) max_new = 2048;
 
-                // §34 persona/context envelope: bounded structured
+                // 蝳?4 persona/context envelope: bounded structured
                 // state (persona fields + narrative facts + factuality
-                // marker) materialised once as prompt prefix — never a
+                // marker) materialised once as prompt prefix ??never a
                 // raw transcript replay. FICTIONAL mode tags the
                 // context so generated content can be tracked as
                 // fictional by the C# claim/memory layer.
@@ -3406,14 +3407,14 @@ int mode_serve(const Args& a) {
                     }
                 }
 
-                // §22 prefix scope isolation: callers pass a scope id
+                // 蝳?2 prefix scope isolation: callers pass a scope id
                 // (typically the RAG manifest hash); entries from other
                 // scopes are never served to this request.
                 std::string pscope = jget_str(req, "prefix_scope");
                 if (!pscope.empty()) engine.set_prefix_scope(pscope);
 
                 std::vector<int64_t> pids = engine.encode(prompt, true, false);
-                // §16 opt-in two-level MoE trace: per-request router
+                // 蝳?6 opt-in two-level MoE trace: per-request router
                 // evidence, record-and-analyse only.
                 const bool want_trace =
                     serve_bool(req, "router_trace", false);
@@ -3434,7 +3435,7 @@ int mode_serve(const Args& a) {
 
                 // Surface the model-native tool call: a trained-in
                 // <tool_call>{json}</tool_call> block is split per
-                // star-inference-output/v1 — cleaned text stays in
+                // star-inference-output/v1 ??cleaned text stays in
                 // "text", the parsed call JSON rides in "tool_call".
                 // A malformed/unclosed call degrades to a
                 // tool_call_error field instead of failing the
@@ -3474,7 +3475,7 @@ int mode_serve(const Args& a) {
                 }
                 o << ']';
                 if (want_trace) {
-                    // router_layers[] — the star-capability-trace/v1
+                    // router_layers[] ??the star-capability-trace/v1
                     // inner layer: unique selected neural experts per
                     // MoE layer plus shared-expert usage.
                     o << ",\"router_layers\":[";
@@ -3503,8 +3504,8 @@ int mode_serve(const Args& a) {
                     o << ']';
                     engine.set_router_trace(false);
                 }
-                // §34 claim-boundary metadata: opt-in sentence spans
-                // the C# claim-extraction layer consumes verbatim —
+                // 蝳?4 claim-boundary metadata: opt-in sentence spans
+                // the C# claim-extraction layer consumes verbatim ??
                 // the engine marks boundaries, it never judges truth.
                 if (serve_bool(req, "mark_claims", false)) {
                     o << ",\"claim_spans\":[";
@@ -3517,12 +3518,12 @@ int mode_serve(const Args& a) {
                             ch == ';' || ch == '\n' ||
                             (ch == 0xE3 && i + 2 < text.size() &&
                              (unsigned char)text[i + 1] == 0x80 &&
-                             (unsigned char)text[i + 2] == 0x82) ||  // 。
+                             (unsigned char)text[i + 2] == 0x82) ||  // ??
                             (ch == 0xEF && i + 2 < text.size() &&
                              (unsigned char)text[i + 1] == 0xBC &&
                              ((unsigned char)text[i + 2] == 0x81 ||
                               (unsigned char)text[i + 2] == 0x9F ||
-                              (unsigned char)text[i + 2] == 0x9B)); // ！？；
+                              (unsigned char)text[i + 2] == 0x9B)); // ?????
                         bool last = i + 1 == text.size();
                         if (!boundary && !last) continue;
                         size_t end = i + 1;
@@ -3551,7 +3552,7 @@ int mode_serve(const Args& a) {
             if (op == "think") {
                 // Native Thinking: latent continuous-thought steps then
                 // parallel hypothesis branches ranked by model confidence
-                // (latent CoVe) — no textual chain-of-thought is produced.
+                // (latent CoVe) ??no textual chain-of-thought is produced.
                 std::string prompt = jget_str(req, "prompt");
                 const JsonValue* messages = req.get("messages");
                 if (prompt.empty() && messages &&
@@ -3694,7 +3695,7 @@ int mode_serve(const Args& a) {
                 continue;
             }
             if (op == "fim") {
-                // star-fim/v1 runtime envelope — control tokens are
+                // star-fim/v1 runtime envelope ??control tokens are
                 // literal text; tokenizer assets unchanged.
                 std::string prefix = jget_str(req, "prefix");
                 std::string suffix = jget_str(req, "suffix");
@@ -3771,7 +3772,7 @@ int mode_serve(const Args& a) {
             }
             // -------- inference efficiency plane ops ----------------
             if (op == "prefix-scope") {
-                // §22: bind subsequent requests to an isolation scope.
+                // 蝳?2: bind subsequent requests to an isolation scope.
                 engine.set_prefix_scope(jget_str(req, "scope"));
                 std::ostringstream o;
                 o << "{\"ok\":true,\"prefix_scope\":\""
@@ -3782,7 +3783,7 @@ int mode_serve(const Args& a) {
                 continue;
             }
             if (op == "prefix-invalidate") {
-                // §19: drop a scope's prefix entries (document revision
+                // 蝳?9: drop a scope's prefix entries (document revision
                 // / chunk hash / index revision changed).
                 int64_t removed = engine.invalidate_prefix_scope(
                     jget_str(req, "scope"));
@@ -3792,7 +3793,7 @@ int mode_serve(const Args& a) {
                 continue;
             }
             if (op == "prefill") {
-                // §25/§26 star-prefill-artifact/v1: run the PREFILL
+                // 蝳?5/蝳?6 star-prefill-artifact/v1: run the PREFILL
                 // role and write the binary handoff artifact.
                 std::string prompt = jget_str(req, "prompt");
                 std::string out_path = jget_str(req, "out");
@@ -3828,7 +3829,7 @@ int mode_serve(const Args& a) {
                 continue;
             }
             if (op == "decode-artifact") {
-                // §27: DECODE role — verify bindings fail-closed,
+                // 蝳?7: DECODE role ??verify bindings fail-closed,
                 // restore state, decode. Prefill never re-runs.
                 std::string path = jget_str(req, "artifact");
                 if (path.empty()) {
@@ -3894,12 +3895,12 @@ int mode_serve(const Args& a) {
 // topology/profile probes, silicon routing, expert granularity,
 // parameter efficiency, NPU probe-first discovery.
 #include "xcm_silicon.h"
-// §58 BF16 production certification: FP64 CPU oracle vs cuBLAS-fp64
+// 蝳?8 BF16 production certification: FP64 CPU oracle vs cuBLAS-fp64
 // and the NVRTC bf16 GEMM lane on deterministic shapes.
 #include "xcm_bf16cert.h"
-// §31-§35 blockwise quantization certification: per-class precision
+// 蝳?1-蝳?5 blockwise quantization certification: per-class precision
 // policy (router FP32 / shared BF16 floor / routed aggressive),
-// simulated-quant bundle vs fp64 oracle across the §35 battery.
+// simulated-quant bundle vs fp64 oracle across the 蝳?5 battery.
 #include "xcm_quantcert.h"
 // Capability contracts (P3-P7): InferenceMemoryPlanner, DeltaStateSnapshot,
 // NativeStateRef, VisionBudgetPlan, SpeculativeDrafter, MoERoutingAnalyzer,
@@ -3910,7 +3911,7 @@ int mode_serve(const Args& a) {
 
 }  // namespace
 
-// ModelToolModeRegistry — the governed dispatch table. Every mode
+// ModelToolModeRegistry ??the governed dispatch table. Every mode
 // belongs to exactly one category; unregistered names resolve to
 // MODE_NOT_REGISTERED rather than a free-form error. New capability
 // should prefer a subcommand/option on an existing mode over a new
@@ -3966,16 +3967,16 @@ static const ModeEntry kModeRegistry[] = {
     {"scale-sim",             "SCALE",      mode_scale_sim},
     {"scale-status",          "SCALE",      mode_scale_status},
     {"future-scale-probe",    "SCALE",      mode_future_scale_probe},
-    // Laya/MiMo capability plane — native fast path.
+    // Laya/MiMo capability plane ??native fast path.
     {"system1-head",          "EVAL",       mode_system1_head},
     {"mtp-runtime",           "MODEL",      mode_mtp_runtime},
     {"mtp-speedup",           "EVAL",       mode_mtp_speedup},
     {"mtp-precision-parity",  "PRECISION",  mode_mtp_precision_parity},
     {"mtp-draft-probe",       "EVAL",       mode_mtp_draft_probe},
-    // NativeMemoryCudaPlane — unified memory manager probes.
+    // NativeMemoryCudaPlane ??unified memory manager probes.
     {"memplane-probe",        "STATE",      mode_memplane_probe},
     {"memplane-telemetry",    "STATE",      mode_memplane_telemetry},
-    // NativeSiliconEfficiencyPlane — measured surfaces.
+    // NativeSiliconEfficiencyPlane ??measured surfaces.
     {"npu-discovery",         "SCALE",      mode_npu_discovery},
     {"cpu-affinity-probe",    "SCALE",      mode_cpu_affinity_probe},
     {"cpu-bf16-bench",        "PRECISION",  mode_cpu_bf16_bench},
@@ -3997,15 +3998,15 @@ static const ModeEntry kModeRegistry[] = {
     {"npu-ep-enum",           "SCALE",      mode_npu_ep_enum},
     {"npu-duplicate-cost",    "SCALE",      mode_npu_duplicate_cost},
     {"capacity-metrics",      "SCALE",      mode_capacity_metrics},
-    // §58 BF16 production certification (FP64 oracle comparison).
+    // 蝳?8 BF16 production certification (FP64 oracle comparison).
     {"bf16-cert",             "PRECISION",  mode_bf16_cert},
     {"bf16-drift",            "PRECISION",  mode_bf16_drift},
 {"decode-graph-parity",   "CUDA",       mode_graph_parity},
-    // §31-§35 blockwise quantization certification (§67 probe name is
+    // 蝳?1-蝳?5 blockwise quantization certification (蝳?7 probe name is
     // blockwise-quant-probe; both resolve to the same lane).
     {"quant-cert",            "PRECISION",  mode_quant_cert},
     {"blockwise-quant-probe", "PRECISION",  mode_quant_cert},
-    // ---- devin-lane runtime gates (xcm_rtgates.h) — canonical names.
+    // ---- devin-lane runtime gates (xcm_rtgates.h) ??canonical names.
     {"native-thinking-eval",  "EVAL",      mode_native_thinking_eval},
     {"precision-parity",      "PRECISION", mode_precision_parity},
     {"spec-verify",           "EVAL",      mode_spec_verify},
@@ -4047,7 +4048,7 @@ static int mode_registry_emit() {
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
-            "xc_modeltool <mode> [args] — 'mode-registry' lists the "
+            "xc_modeltool <mode> [args] ??'mode-registry' lists the "
             "governed mode table (star-mode-registry/v1)\n");
         return 2;
     }

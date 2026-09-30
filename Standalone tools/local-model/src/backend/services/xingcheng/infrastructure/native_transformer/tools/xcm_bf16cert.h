@@ -308,19 +308,30 @@ int mode_graph_parity(const Args& a) {
 
         xengine_cuda_lane(1, 1);          // bf16 lane, graph off
         xcuda_graph_enable(0);
+        const auto t0 = std::chrono::steady_clock::now();
         try { ln = e.logits(ids); gn = e.generate(ids, decode, sc); }
         catch (const std::exception& ex) { errn = ex.what(); }
+        const auto t1 = std::chrono::steady_clock::now();
 
         xcuda_graph_enable(1);            // same lane, graph replay
+        const auto t2 = std::chrono::steady_clock::now();
         try { lg = e.logits(ids); gg = e.generate(ids, decode, sc); }
         catch (const std::exception& ex) { errg = ex.what(); }
+        const auto t3 = std::chrono::steady_clock::now();
         xcuda_graph_enable(0);
         xengine_cuda_lane(0, 0);
 
         const int graphs = xcuda_graph_state();
+        const double us_plain =
+            std::chrono::duration<double, std::micro>(t1 - t0).count();
+        const double us_graph =
+            std::chrono::duration<double, std::micro>(t3 - t2).count();
         w.kv("plain_lane_ok", errn.empty())
          .kv("graph_lane_ok", errg.empty())
-         .kv("graphs_captured", graphs);
+         .kv("graphs_captured", graphs)
+         .kv("us_plain", us_plain).kv("us_graph", us_graph)
+         .kv("gen_tps_plain", us_plain > 0 ? decode * 1e6 / us_plain : 0.0)
+         .kv("gen_tps_graph", us_graph > 0 ? decode * 1e6 / us_graph : 0.0);
         if (!errn.empty()) w.kv("plain_error", errn);
         if (!errg.empty()) w.kv("graph_error", errg);
         if (errn.empty() && errg.empty() && ln.size() == lg.size()) {
