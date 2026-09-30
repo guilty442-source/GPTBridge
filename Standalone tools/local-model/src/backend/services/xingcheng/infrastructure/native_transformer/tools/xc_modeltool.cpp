@@ -4093,6 +4093,9 @@ int mode_serve(const Args& a) {
 // Laya/MiMo capability plane native lanes: System-1 decision head +
 // MTP drafter benchmarks (contract plane lives in C#).
 #include "xcm_system1.h"
+// P5 System-1 production benchmark: bound-head fit (frozen features,
+// supervised-calibration lane) + accuracy/ECE/Brier/TTFD report.
+#include "xcm_s1bench.h"
 // NativeMemoryCudaPlane: unified CUDA memory manager, pools, arenas,
 // pressure ladder, telemetry.
 #include "xcm_memplane.h"
@@ -4174,6 +4177,7 @@ static const ModeEntry kModeRegistry[] = {
     {"future-scale-probe",    "SCALE",      mode_future_scale_probe},
     // Laya/MiMo capability plane ??native fast path.
     {"system1-head",          "EVAL",       mode_system1_head},
+    {"system1-bench",         "EVAL",       mode_system1_bench},
     {"mtp-runtime",           "MODEL",      mode_mtp_runtime},
     {"mtp-speedup",           "EVAL",       mode_mtp_speedup},
     {"mtp-precision-parity",  "PRECISION",  mode_mtp_precision_parity},

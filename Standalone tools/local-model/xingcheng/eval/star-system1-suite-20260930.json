@@ -1,0 +1,79 @@
+{
+  "format": "star-system1-suite/v1",
+  "suite_version": "20260930-1",
+  "note": "System-1 production benchmark fixture: hand-labeled routing/decision prompts over certified domains only (YES_NO, TOOL_CLASS, TASK_PRIORITY, CONFIDENCE). Train rows fit the bound head; eval rows are held out for accuracy/ECE/Brier/TTFD.",
+  "types": {
+    "BOOLEAN": {
+      "domain": "YES_NO",
+      "labels": ["false", "true"],
+      "rows": [
+        {"prompt": "這個請求需要查詢外部文件才能回答嗎：『解釋什麼是遞迴』", "gold": "false", "split": "train"},
+        {"prompt": "這個請求需要查詢外部文件才能回答嗎：『我昨天上傳的那份合約第三條寫了什麼』", "gold": "true", "split": "train"},
+        {"prompt": "這是一句問題嗎：『幫我關掉燈』", "gold": "false", "split": "train"},
+        {"prompt": "這是一句問題嗎：『今天天氣如何』", "gold": "true", "split": "train"},
+        {"prompt": "Need external documents? 'What is a hash map'", "gold": "false", "split": "train"},
+        {"prompt": "Need external documents? 'Summarize the PDF I sent you'", "gold": "true", "split": "train"},
+        {"prompt": "Is this a question: 'Please stop.'", "gold": "false", "split": "train"},
+        {"prompt": "Is this a question: 'What time is it?'", "gold": "true", "split": "train"},
+        {"prompt": "這個請求需要外部文件嗎：『寫一個加法函式』", "gold": "false", "split": "eval"},
+        {"prompt": "這個請求需要外部文件嗎：『查一下我信箱裡最新的發票』", "gold": "true", "split": "eval"},
+        {"prompt": "Is this a question: 'Remember this code for later.'", "gold": "false", "split": "eval"},
+        {"prompt": "Is this a question: 'How do I reverse a list in Python?'", "gold": "true", "split": "eval"}
+      ]
+    },
+    "CHOICE": {
+      "domain": "TOOL_CLASS",
+      "labels": ["none", "search", "code", "file"],
+      "rows": [
+        {"prompt": "幫我在專案裡找出所有用到 malloc 的檔案", "gold": "file", "split": "train"},
+        {"prompt": "查一下最新的 Rust stable 版本號", "gold": "search", "split": "train"},
+        {"prompt": "幫我寫一個快速排序", "gold": "code", "split": "train"},
+        {"prompt": "你好，最近過得如何", "gold": "none", "split": "train"},
+        {"prompt": "open the settings.json I edited yesterday", "gold": "file", "split": "train"},
+        {"prompt": "look up the error code E_FAIL on the web", "gold": "search", "split": "train"},
+        {"prompt": "write a SQL query that dedupes rows", "gold": "code", "split": "train"},
+        {"prompt": "thanks, that helped a lot", "gold": "none", "split": "train"},
+        {"prompt": "把 D 槽的暫存檔清掉", "gold": "file", "split": "eval"},
+        {"prompt": "查一下這個 CVE 的細節", "gold": "search", "split": "eval"},
+        {"prompt": "implement a LRU cache in C++", "gold": "code", "split": "eval"},
+        {"prompt": "good morning", "gold": "none", "split": "eval"}
+      ]
+    },
+    "ORDINAL_SCORE": {
+      "domain": "TASK_PRIORITY",
+      "labels": ["low", "medium", "high"],
+      "rows": [
+        {"prompt": "有空幫我整理一下桌面圖示", "gold": "low", "split": "train"},
+        {"prompt": "明天之前把週報草稿整理出來", "gold": "medium", "split": "train"},
+        {"prompt": "生產環境資料庫剛掛了，馬上處理", "gold": "high", "split": "train"},
+        {"prompt": "週末有空再看這個部落格連結", "gold": "low", "split": "train"},
+        {"prompt": "這個月底前把部署文件補齊", "gold": "medium", "split": "train"},
+        {"prompt": "users can't log in right now, fix immediately", "gold": "high", "split": "train"},
+        {"prompt": "rename a variable someday if convenient", "gold": "low", "split": "train"},
+        {"prompt": "prepare the release notes by Friday", "gold": "medium", "split": "train"},
+        {"prompt": "security patch is actively exploited, deploy now", "gold": "high", "split": "eval"},
+        {"prompt": "有空把舊的分支清一下", "gold": "low", "split": "eval"},
+        {"prompt": "review the PR before end of week", "gold": "medium", "split": "eval"},
+        {"prompt": "伺服器被入侵了，立刻處理", "gold": "high", "split": "eval"}
+      ]
+    },
+    "CONFIDENCE": {
+      "domain": "INPUT_CLASSIFICATION",
+      "labels": ["wrong", "right"],
+      "rows": [
+        {"prompt": "這個說法正確嗎：『水的化學式是 H2O』", "gold": "right", "split": "train"},
+        {"prompt": "這個說法正確嗎：『地球是平的』", "gold": "wrong", "split": "train"},
+        {"prompt": "這個說法正確嗎：『TCP 是連線導向的協定』", "gold": "right", "split": "train"},
+        {"prompt": "這個說法正確嗎：『HTTP 是一種加密協定』", "gold": "wrong", "split": "train"},
+        {"prompt": "Correct? 'Python lists are immutable'", "gold": "wrong", "split": "train"},
+        {"prompt": "Correct? 'JSON objects are unordered'", "gold": "right", "split": "train"},
+        {"prompt": "Correct? 'SHA-256 is reversible'", "gold": "wrong", "split": "train"},
+        {"prompt": "Correct? 'UTF-8 is a character encoding'", "gold": "right", "split": "train"},
+        {"prompt": "這個說法正確嗎：『編譯器會執行程式碼』", "gold": "wrong", "split": "eval"},
+        {"prompt": "這個說法正確嗎：『紅綠燈的紅色代表停』", "gold": "right", "split": "eval"},
+        {"prompt": "Correct? 'A git commit is immutable'", "gold": "right", "split": "eval"},
+        {"prompt": "Correct? 'int8 can store values up to 1024'", "gold": "wrong", "split": "eval"}
+      ]
+    }
+  }
+}
