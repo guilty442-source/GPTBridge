@@ -250,8 +250,3 @@ internal sealed class StarAgentRuntime
                     CacheLevel.L3_CONTENT, CacheLevel.L4_ARTIFACT },
             key, activeGeneration);
 }
-
-/// <summary>Thin reference to the existing LongHorizonTaskCoordinator
-/// (AgentRuntime.cs) — batch-1 already implements long-horizon
-/// tracking; the agent runtime composes it rather than duplicating.</summary>
-internal sealed class LongHorizonTaskCoordinatorRef { }
