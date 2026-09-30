@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -17,6 +17,17 @@
 //   reads x[t-j], and pretrain labels are shifted so logits[t] predicts
 //   token t+1 (labels <0 are ignored). --maskcheck proves it: perturbing a
 //   token leaves all earlier-position logits bitwise identical.
+//
+// Multi-head attention (GQA contract): every q-head reads only its own q
+//   slice and its kv group's k/v — heads are isolated lanes, kv heads are
+//   shared by h/group. --headcheck proves it: per-head weight
+//   perturbations move exactly the expected heads' probs/attn_out.
+//
+// Network parts (canonical): structure = weight/activity topology,
+//   activation rule = short-timescale dynamics (sigmoid/silu/softplus,
+//   softmax, gates, norms), learning rule = long-timescale weight update
+//   (AdamW: depends on target, activities, current weights).
+//   --rulecheck probes all three executably.
 //
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
@@ -90,10 +101,12 @@ int main(int argc, char** argv) {
         else if (a == "--smoke") do_smoke = true;
         else if (a == "--gradcheck") return xct::gradcheck();
         else if (a == "--maskcheck") return xct::maskcheck();
+        else if (a == "--headcheck") return xct::headcheck();
+        else if (a == "--rulecheck") return xct::rulecheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck\n");
         return 2;
     }
     try {
