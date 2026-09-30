@@ -10,7 +10,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -173,11 +172,6 @@ func main() {
 
 	handler := newAssetHandler(toolRoot, workspaceRoot)
 	trace("before wails.Run")
-	if dbg := strings.TrimSpace(os.Getenv("AICOLLAB_DEBUG_HTTP")); dbg != "" {
-		go func() {
-			_ = http.ListenAndServe("127.0.0.1:"+dbg, handler)
-		}()
-	}
 	err := wails.Run(&options.App{
 		Title:       title,
 		Width:       envInt("GPTBRIDGE_SOURCE_UI_WIDTH", 1440),
@@ -191,8 +185,8 @@ func main() {
 		Bind:               []interface{}{app},
 		OnStartup:          app.Startup,
 		OnShutdown:         app.Shutdown,
-		LogLevel:           logger.DEBUG,
-		LogLevelProduction: logger.DEBUG,
+		LogLevel:           logger.WARNING,
+		LogLevelProduction: logger.WARNING,
 		Windows: &wailswindows.Options{
 			WebviewUserDataPath: filepath.Join(
 				cacheRoot, "source-ui-user-data"),

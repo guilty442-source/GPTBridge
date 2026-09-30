@@ -18,7 +18,7 @@
     },
     "ai-collaboration": {
       "binary": "Standalone tools/ai-collaboration/dist/ai-collab-ui.exe",
-      "surface": "ai-collab-qt"
+      "surface": "ai-collab-wails"
     }
   }
 }

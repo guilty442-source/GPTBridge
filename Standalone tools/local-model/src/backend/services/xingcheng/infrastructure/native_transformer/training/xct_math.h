@@ -78,6 +78,91 @@ static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
 }
 
 static inline float silu_f(float x) { return x / (1.0f + std::exp(-x)); }
+static inline float softplus_f(float x) {
+    return x > 20.0f ? x : std::log1p(std::exp(x));
+}
+static inline float sigmoid_f(float x) { return 1.0f / (1.0f + std::exp(-x)); }
+
+// HF rotate_half convention over the first `rd` channels only (partial
+// rotary). rd must be even; channels >= rd pass through. inverse runs the
+// transpose (backward / inverse rotation).
+static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
+                            float theta, bool inverse) {
+    const int half = rd / 2;
+    for (int t = 0; t < T; ++t)
+        for (int h = 0; h < nh; ++h) {
+            float* r = v + ((size_t)t * nh + h) * hd;
+            for (int i = 0; i < half; ++i) {
+                float fr = std::pow(theta, -(float)(2 * i) / (float)rd);
+                float c = std::cos(t * fr), s = std::sin(t * fr);
+                if (inverse) s = -s;
+                float a = r[i], b = r[i + half];
+                r[i] = a * c - b * s;
+                r[i + half] = a * s + b * c;
+            }
+        }
+}
+
+// Depthwise causal conv1d (kernel K, no bias) + SiLU over flat [T, D]
+// activations; out_pre keeps the pre-activation for backward.
+static void conv1d_causal_fwd(const float* x, const float* w, float* y,
+                              float* y_pre, int T, int D, int K) {
+    for (int t = 0; t < T; ++t)
+        for (int c = 0; c < D; ++c) {
+            float s = 0.0f;
+            for (int j = 0; j < K && t - j >= 0; ++j)
+                s += w[(size_t)c * K + j] * x[(size_t)(t - j) * D + c];
+            float v = silu_f(s);
+            if (y_pre) y_pre[(size_t)t * D + c] = s;
+            y[(size_t)t * D + c] = v;
+        }
+}
+
+static void conv1d_causal_bwd(const float* dy, const float* y_pre,
+                              const float* x, const float* w,
+                              float* dx, float* dw, int T, int D, int K) {
+    std::vector<float> dpre((size_t)T * D);
+    for (size_t i = 0; i < (size_t)T * D; ++i) {
+        float s = sigmoid_f(y_pre[i]);
+        dpre[i] = dy[i] * s * (1.0f + y_pre[i] * (1.0f - s));
+    }
+    for (int t = 0; t < T; ++t)
+        for (int c = 0; c < D; ++c) {
+            float d = dpre[(size_t)t * D + c];
+            for (int j = 0; j < K && t - j >= 0; ++j) {
+                dw[(size_t)c * K + j] += d * x[(size_t)(t - j) * D + c];
+                dx[(size_t)(t - j) * D + c] += d * w[(size_t)c * K + j];
+            }
+        }
+}
+
+static void l2norm_fwd(float* v, int rows, int dim, float eps,
+                       float* norms_out) {
+    for (int t = 0; t < rows; ++t) {
+        float* r = v + (size_t)t * dim;
+        float ss = 0.0f;
+        for (int i = 0; i < dim; ++i) ss += r[i] * r[i];
+        float n = std::sqrt(ss + eps);
+        if (norms_out) norms_out[t] = n;
+        float inv = 1.0f / n;
+        for (int i = 0; i < dim; ++i) r[i] *= inv;
+    }
+}
+
+// L2-norm backward: y = x/||x|| → dx = (dy − ŷ(ŷ·dy)) / ||x||.
+// norms holds the forward ||x|| per row.
+static void l2norm_bwd(const float* dy, const float* x_normed,
+                       const float* norms, float* dx, int rows, int dim) {
+    for (int t = 0; t < rows; ++t) {
+        const float* xr = x_normed + (size_t)t * dim;
+        const float* dr = dy + (size_t)t * dim;
+        float dot = 0.0f;
+        for (int i = 0; i < dim; ++i) dot += xr[i] * dr[i];
+        float inv = 1.0f / norms[t];
+        for (int i = 0; i < dim; ++i)
+            dx[(size_t)t * dim + i] = (dr[i] - xr[i] * dot) * inv;
+    }
+}
 
 // --------------------------------------------------------------- forward --
 

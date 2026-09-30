@@ -302,6 +302,60 @@ private:
         double scale = 1.0;
     };
 
+    // Forward-scratch arena: per-layer temporaries live in persistent
+    // buffers whose capacity survives across layers and decode steps —
+    // the layer loop performs zero per-layer heap allocation once warm
+    // (resize() keeps capacity).  Buffers are write-through temporaries:
+    // contents never carry meaning across forward calls, so reusing them
+    // is bit-identical.  The engine is single-threaded per call chain
+    // (kv state is mutable), so member scratch needs no isolation.
+    struct ForwardScratch {
+        std::vector<double> hidden;
+        std::vector<double> normed;
+        std::vector<double> qkv;
+        std::vector<double> q_flat;
+        std::vector<double> k_flat;
+        std::vector<double> v_flat;
+        std::vector<double> q_heads;
+        std::vector<double> k_heads;
+        std::vector<double> v_heads;
+        std::vector<double> q_rope;
+        std::vector<double> k_rope;
+        std::vector<double> attn_flat;
+        std::vector<double> attn_out;
+        std::vector<KvSrc> k_srcs;
+        std::vector<KvSrc> v_srcs;
+        std::vector<double> tile_scores;
+        std::vector<double> acc;
+        std::vector<double> gate_up;
+        std::vector<double> mlp_in;
+        std::vector<double> mlp_out;
+        // MoE-only lanes (dense models never touch these).
+        std::vector<double> moe_probs;
+        std::vector<int64_t> moe_order;
+        std::vector<int64_t> moe_top_idx;
+        std::vector<double> moe_top_w;
+        std::vector<int64_t> moe_group_count;
+        std::vector<int64_t> moe_group_offset;
+        std::vector<int64_t> moe_group_fill;
+        std::vector<double> moe_grouped_in;
+        std::vector<int64_t> moe_row_token;
+        std::vector<double> moe_row_weight;
+        std::vector<double> moe_gate_up;
+        std::vector<double> moe_act;
+        std::vector<double> moe_grouped_out;
+        std::vector<double> moe_mlp_out;
+        // Always-on shared experts.
+        std::vector<double> shared_sgu;
+        std::vector<double> shared_sg;
+        std::vector<double> shared_sd;
+    };
+    ForwardScratch fs_;
+    // RoPE frequency-base cache (dim/theta keyed): pow() once per model.
+    std::vector<double> rope_base_;
+    int64_t rope_base_dim_ = 0;
+    double rope_base_theta_ = 0.0;
+
     void validate_supported() const;
     void reset_cache();
     int32_t kv_alloc_block();

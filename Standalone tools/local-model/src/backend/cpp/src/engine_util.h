@@ -138,7 +138,9 @@ void split_columns(
     int64_t n_total = 0;
     for (const auto& part : parts) {
         n_total += part.first;
-        part.second->assign(static_cast<size_t>(rows * part.first), 0.0);
+        // resize (not zero-assign): the copy below overwrites every
+        // element, and persistent scratch keeps its capacity.
+        part.second->resize(static_cast<size_t>(rows * part.first));
     }
     for (int64_t r = 0; r < rows; ++r) {
         const double* src = fused.data() + static_cast<size_t>(r * n_total);

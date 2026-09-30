@@ -56,11 +56,35 @@ struct ModelConfig {
     int moe_expert_inter = 0;
     int moe_shared_experts = 0;
     int moe_shared_inter = 0;
+    // Qwen3.5-A3B hybrid fields (v27): gated-deltanet linear attention
+    // interleaved with gated full attention. full_attention_interval > 0
+    // means layer l is full attention iff (l+1) % interval == 0, matching
+    // HF layer_types = [linear*3, full]*n. 0 = every layer is full
+    // attention (legacy dense behaviour).
+    int full_attention_interval = 0;
+    bool attn_output_gate = false;      // full-attn q_proj emits [q|gate]
+    bool qk_norm = false;               // per-head RMSNorm on q/k pre-rope
+    float partial_rotary = 1.0f;        // fraction of head_dim rotated
+    int lin_key_heads = 0;              // deltanet: key/query heads
+    int lin_key_dim = 0;                // deltanet: key head dim
+    int lin_value_heads = 0;            // deltanet: value heads
+    int lin_value_dim = 0;              // deltanet: value head dim
+    int lin_conv_kernel = 4;            // depthwise causal conv width
+    bool shared_expert_gate = false;    // sigmoid gate on shared expert out
     int expert_inter() const {
         return moe_expert_inter > 0 ? moe_expert_inter : inter;
     }
     int shared_inter() const {
         return moe_shared_inter > 0 ? moe_shared_inter : expert_inter();
+    }
+    bool is_linear(int l) const {
+        return full_attention_interval > 0 && lin_key_heads > 0 &&
+               ((l + 1) % full_attention_interval) != 0;
+    }
+    int rotary_dim() const {
+        int hd = heads > 0 ? hidden / heads : 0;
+        int rd = (int)(hd * partial_rotary);
+        return rd > 0 && rd < hd ? rd & ~1 : hd;
     }
 };
 
@@ -82,8 +106,23 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.moe_expert_inter = j_int(o, "moe_expert_intermediate_size", c.moe_expert_inter);
     c.moe_shared_experts = j_int(o, "moe_num_shared_experts", c.moe_shared_experts);
     c.moe_shared_inter = j_int(o, "moe_shared_intermediate_size", c.moe_shared_inter);
+    c.full_attention_interval = j_int(o, "full_attention_interval", c.full_attention_interval);
+    c.attn_output_gate = j_bool(o, "attn_output_gate", c.attn_output_gate);
+    c.qk_norm = j_bool(o, "qk_norm", c.qk_norm);
+    c.partial_rotary = (float)j_num(o, "partial_rotary_factor", c.partial_rotary);
+    c.lin_key_heads = j_int(o, "linear_num_key_heads", c.lin_key_heads);
+    c.lin_key_dim = j_int(o, "linear_key_head_dim", c.lin_key_dim);
+    c.lin_value_heads = j_int(o, "linear_num_value_heads", c.lin_value_heads);
+    c.lin_value_dim = j_int(o, "linear_value_head_dim", c.lin_value_dim);
+    c.lin_conv_kernel = j_int(o, "linear_conv_kernel_dim", c.lin_conv_kernel);
+    c.shared_expert_gate = j_bool(o, "shared_expert_gate", c.shared_expert_gate);
     if (c.kv_heads <= 0) c.kv_heads = c.heads;
     if (c.heads <= 0 || c.hidden % c.heads) throw "model: bad head geometry";
+    if (c.full_attention_interval > 0 &&
+        (c.lin_key_heads <= 0 || c.lin_key_dim <= 0 ||
+         c.lin_value_heads <= 0 || c.lin_value_dim <= 0 ||
+         c.lin_value_heads % c.lin_key_heads != 0))
+        throw "model: bad linear-attention geometry";
     return c;
 }
 
@@ -140,10 +179,45 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
     for (int l = 0; l < c.layers; ++l) {
         auto& n1 = p.add(ln(l, "norm1"), {c.hidden});
         std::fill(n1.d.begin(), n1.d.end(), 1.0f);
-        fill(p.add(ln(l, "wq"), {(int64_t)c.heads * hd, c.hidden}));
-        fill(p.add(ln(l, "wk"), {(int64_t)c.kv_heads * hd, c.hidden}));
-        fill(p.add(ln(l, "wv"), {(int64_t)c.kv_heads * hd, c.hidden}));
-        fill(p.add(ln(l, "wo"), {c.hidden, (int64_t)c.heads * hd}));
+        if (c.is_linear(l)) {
+            // Qwen3.5 gated deltanet: fused qkv rows follow the HF
+            // checkpoint layout — per key-head group [q|k|v-group].
+            const int kd = c.lin_key_dim, vd = c.lin_value_dim;
+            const int kh = c.lin_key_heads, vh = c.lin_value_heads;
+            const int64_t key_dim = (int64_t)kh * kd;
+            const int64_t val_dim = (int64_t)vh * vd;
+            const int64_t conv_dim = key_dim * 2 + val_dim;
+            std::string b = ln(l, "lin.");
+            fill(p.add(b + "in_proj_qkv",
+                       {kh * (2 * kd + vd * (vh / kh)), c.hidden}));
+            fill(p.add(b + "in_proj_z", {val_dim, c.hidden}));
+            fill(p.add(b + "in_proj_a", {vh, c.hidden}));
+            fill(p.add(b + "in_proj_b", {vh, c.hidden}));
+            fill(p.add(b + "conv1d", {conv_dim, c.lin_conv_kernel}));
+            std::uniform_real_distribution<float> ua(0.01f, 16.0f);
+            auto& al = p.add(b + "A_log", {vh});
+            for (auto& x : al.d) x = std::log(ua(rng));
+            auto& dt = p.add(b + "dt_bias", {vh});
+            std::fill(dt.d.begin(), dt.d.end(), 1.0f);
+            auto& gn = p.add(b + "norm", {vd});
+            std::fill(gn.d.begin(), gn.d.end(), 1.0f);
+            fill(p.add(b + "out_proj", {c.hidden, val_dim}));
+        } else {
+            // attn_output_gate: q_proj rows are per-head [q|gate] pairs
+            // (HF Qwen3NextAttention layout — verbatim transplantable).
+            const int64_t qrows =
+                (int64_t)c.heads * hd * (c.attn_output_gate ? 2 : 1);
+            fill(p.add(ln(l, "wq"), {qrows, c.hidden}));
+            fill(p.add(ln(l, "wk"), {(int64_t)c.kv_heads * hd, c.hidden}));
+            fill(p.add(ln(l, "wv"), {(int64_t)c.kv_heads * hd, c.hidden}));
+            fill(p.add(ln(l, "wo"), {c.hidden, (int64_t)c.heads * hd}));
+            if (c.qk_norm) {
+                auto& qn = p.add(ln(l, "q_norm"), {hd});
+                auto& kn = p.add(ln(l, "k_norm"), {hd});
+                std::fill(qn.d.begin(), qn.d.end(), 1.0f);
+                std::fill(kn.d.begin(), kn.d.end(), 1.0f);
+            }
+        }
         auto& n2 = p.add(ln(l, "norm2"), {c.hidden});
         std::fill(n2.d.begin(), n2.d.end(), 1.0f);
         bool moe = c.moe_experts > 0 && (l % c.moe_layer_interval == 0);
@@ -163,6 +237,8 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
                 fill(p.add(b + "w3", {si, c.hidden}));
                 fill(p.add(b + "w2", {c.hidden, si}));
             }
+            if (c.shared_expert_gate && c.moe_shared_experts > 0)
+                fill(p.add(ln(l, "shared_gate"), {1, c.hidden}));
         } else {
             fill(p.add(ln(l, "w1"), {c.inter, c.hidden}));
             fill(p.add(ln(l, "w3"), {c.inter, c.hidden}));

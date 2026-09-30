@@ -82,7 +82,7 @@ internal static class Program
             if (flags.Contains("evaluate"))
                 return Emit(Evaluate(
                     toolRoot,
-                    opts.TryGetValue("job", out string? ej) ? ej : "",
+                    opts.TryGetValue("job-id", out string? ej) ? ej : "",
                     opts.TryGetValue("bundle", out string? eb) ? eb : "",
                     opts.TryGetValue("suite", out string? es) ? es : "",
                     opts.TryGetValue("baseline", out string? bl) ? bl : null,
@@ -118,7 +118,9 @@ internal static class Program
             "--job <id> | --self-test | --verify-audit | --db-status | " +
             "--migrate | --teacher-collect [--dry-run] | " +
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
-            "[--include-collected] [--val-permille N])");
+            "[--include-collected] [--val-permille N] | " +
+            "--evaluate --job-id <id> --bundle <dir> --suite <suite.json> " +
+            "[--baseline <dir>] [--chat])");
         return 2;
     }
 
@@ -204,6 +206,42 @@ internal static class Program
     {
         var repo = new TransformerTrainingRepository(toolRoot);
         return new TrainingJobExecutor(repo, toolRoot).RunJob(jobId);
+    }
+
+    /// <summary>Registers a completed job's exported bundle as an adapter
+    /// candidate and runs the governed native evaluation (capability or
+    /// eval suite) against an optional baseline bundle. Records the full
+    /// result row in the repository — the same gate self-learning uses.
+    /// --chat measures the deployed chat surface.</summary>
+    private static Dictionary<string, object?> Evaluate(
+        string toolRoot, string jobId, string bundle, string suitePath,
+        string? baseline, bool chat)
+    {
+        if (string.IsNullOrWhiteSpace(jobId) ||
+            string.IsNullOrWhiteSpace(bundle) ||
+            string.IsNullOrWhiteSpace(suitePath))
+            throw new ArgumentException(
+                "evaluate requires --job-id <id> --bundle <dir> " +
+                "--suite <suite.json>");
+        var repo = new TransformerTrainingRepository(toolRoot);
+        var adapter = repo.RegisterAdapterCandidate(
+            jobId, bundle,
+            new Dictionary<string, object?>
+            {
+                ["origin"] = "queue-job-evaluate",
+                ["prompt_mode"] = chat ? "chat" : "verbatim",
+            });
+        var eval = Evaluation.RunEvaluation(
+            repo, (string)adapter["adapter_id"]!, bundle, suitePath,
+            baselineArtifact: baseline,
+            evaluatedBy: "queue-job-evaluate", chat: chat);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = TransformerTrainingRepository.Truthy(
+                eval.GetValueOrDefault("ok")),
+            ["adapter_id"] = adapter["adapter_id"],
+            ["evaluation"] = eval,
+        };
     }
 
     /// <summary>Governed queue entry for externally prepared SFT rows:

@@ -2,19 +2,21 @@
  * Textually included once by transformer.c (single TU): matmul,
  * softmax, rmsnorm entry points. */
 
-/* Shared row-major i-k-j (axpy) kernel: C[M x N] = A[M x K] * B[K x N].
- * Callers validate arguments and the output extent; this kernel only runs
- * the loop.  SIMD: axpy with broadcast a_val.  AVX-512: 8×double per
- * instruction (zmm); AVX2: 4×double (ymm). */
-static void transformer_matmul_rows(
+/* Shared row-major i-k-j (axpy) kernel: C[M x N] = A[M x K] * B[K x N],
+ * restricted to the output column stripe [j0, j1).  Callers validate
+ * arguments and the output extent; this kernel only runs the loop.
+ * SIMD: axpy with broadcast a_val.  AVX-512: 8×double per instruction
+ * (zmm); AVX2: 4×double (ymm). */
+static void transformer_matmul_rows_range(
     const double* a, int64_t m, int64_t k,
     const double* b, int64_t n, double* c,
+    int64_t j0, int64_t j1,
     gptbridge_simd_level simd) {
     int64_t i, p, j;
     for (i = 0; i < m; ++i) {
         const double* a_row = a + i * k;
         double* c_row = c + i * n;
-        for (j = 0; j < n; ++j) c_row[j] = 0.0;
+        for (j = j0; j < j1; ++j) c_row[j] = 0.0;
 
         if (simd == GPTBRIDGE_SIMD_AVX512) {
 #ifdef GPTBRIDGE_HAVE_AVX512
@@ -22,21 +24,21 @@ static void transformer_matmul_rows(
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
                 __m512d av = _mm512_set1_pd(a_val);
-                int64_t j8 = 0;
-                for (; j8 + 8 <= n; j8 += 8) {
+                int64_t j8 = j0;
+                for (; j8 + 8 <= j1; j8 += 8) {
                     __m512d bv = _mm512_loadu_pd(b_row + j8);
                     __m512d cv = _mm512_loadu_pd(c_row + j8);
                     cv = _mm512_fmadd_pd(av, bv, cv);
                     _mm512_storeu_pd(c_row + j8, cv);
                 }
-                for (; j8 < n; ++j8) c_row[j8] += a_val * b_row[j8];
+                for (; j8 < j1; ++j8) c_row[j8] += a_val * b_row[j8];
             }
 #else
             /* Fallback if AVX-512 headers not available at compile time */
             for (p = 0; p < k; ++p) {
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
-                for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
+                for (j = j0; j < j1; ++j) c_row[j] += a_val * b_row[j];
             }
 #endif
         } else if (simd == GPTBRIDGE_SIMD_AVX2) {
@@ -45,8 +47,8 @@ static void transformer_matmul_rows(
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
                 __m256d av = _mm256_set1_pd(a_val);
-                int64_t j4 = 0;
-                for (; j4 + 4 <= n; j4 += 4) {
+                int64_t j4 = j0;
+                for (; j4 + 4 <= j1; j4 += 4) {
                     __m256d bv = _mm256_loadu_pd(b_row + j4);
                     __m256d cv = _mm256_loadu_pd(c_row + j4);
 #if defined(__FMA__)
@@ -56,23 +58,162 @@ static void transformer_matmul_rows(
 #endif
                     _mm256_storeu_pd(c_row + j4, cv);
                 }
-                for (; j4 < n; ++j4) c_row[j4] += a_val * b_row[j4];
+                for (; j4 < j1; ++j4) c_row[j4] += a_val * b_row[j4];
             }
 #else
             for (p = 0; p < k; ++p) {
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
-                for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
+                for (j = j0; j < j1; ++j) c_row[j] += a_val * b_row[j];
             }
 #endif
         } else {
             for (p = 0; p < k; ++p) {
                 const double a_val = a_row[p];
                 const double* b_row = b + p * n;
-                for (j = 0; j < n; ++j) c_row[j] += a_val * b_row[j];
+                for (j = j0; j < j1; ++j) c_row[j] += a_val * b_row[j];
             }
         }
     }
+}
+
+/* Parallel column-striped GEMM.  The output column range [0, n) is split
+ * into T stripes; each stripe runs the unchanged i-k-j kernel over its
+ * own [j0, j1) slice of every row, so each output element keeps its exact
+ * accumulation order — results are bit-identical to the sequential pass;
+ * only the wall-clock differs.
+ *
+ * Threads come from the OS *default process* thread pool
+ * (CreateThreadpoolWork/Submit/Wait): this core neither creates nor owns
+ * a pool and no work item outlives the call — honoring the
+ * "no per-request thread pool" bound.  GPTBRIDGE_MATMUL_THREADS is read
+ * once at first use: unset/0/<=1 = min(8, logical cores) stripes; 1 =
+ * serial; N = N stripes (cap 64).  Shapes below MATMUL_PAR_MIN_ELEMS
+ * stay sequential — the dispatch overhead would dominate. */
+#define MATMUL_PAR_MIN_ELEMS ((int64_t)4 * 1024 * 1024)
+#define MATMUL_PAR_MIN_STRIPE 32
+#define MATMUL_PAR_MAX_STRIPES 64
+
+#ifdef _WIN32
+static int transformer_matmul_threads(void) {
+    static volatile long cached = -1;
+    long threads = cached;
+    if (threads < 0) {
+        const char* value = getenv("GPTBRIDGE_MATMUL_THREADS");
+        if (value != NULL && *value != '\0') {
+            long parsed = strtol(value, NULL, 10);
+            threads = parsed <= 1 ? 1
+                    : parsed > MATMUL_PAR_MAX_STRIPES ? MATMUL_PAR_MAX_STRIPES
+                    : parsed;
+        } else {
+            SYSTEM_INFO info;
+            GetSystemInfo(&info);
+            threads = info.dwNumberOfProcessors <= 1 ? 1
+                    : info.dwNumberOfProcessors > 8 ? 8
+                    : (long)info.dwNumberOfProcessors;
+        }
+        cached = threads;
+    }
+    return (int)threads;
+}
+
+typedef struct {
+    const double* a;
+    int64_t m;
+    int64_t k;
+    const double* b;
+    int64_t n;
+    double* c;
+    int64_t j0;
+    int64_t j1;
+    gptbridge_simd_level simd;
+} matmul_stripe_ctx;
+
+static void CALLBACK transformer_matmul_stripe_cb(
+    PTP_CALLBACK_INSTANCE instance, PVOID context, PTP_WORK work) {
+    const matmul_stripe_ctx* stripe = (const matmul_stripe_ctx*)context;
+    (void)instance;
+    (void)work;
+    transformer_matmul_rows_range(
+        stripe->a, stripe->m, stripe->k, stripe->b, stripe->n, stripe->c,
+        stripe->j0, stripe->j1, stripe->simd);
+}
+#else
+static int transformer_matmul_threads(void) { return 1; }
+#endif
+
+static void transformer_matmul_dispatch(
+    const double* a, int64_t m, int64_t k,
+    const double* b, int64_t n, double* c,
+    gptbridge_simd_level simd) {
+    int64_t work = 0;
+    if (!gptbridge_native_mem_checked_mul_i64(k, n, &work)) {
+        work = 0;
+    }
+#ifdef _WIN32
+    if (work >= MATMUL_PAR_MIN_ELEMS && n >= 2 * MATMUL_PAR_MIN_STRIPE) {
+        const int threads = transformer_matmul_threads();
+        int64_t stripes = threads;
+        int64_t s, t, j0;
+        matmul_stripe_ctx ctxs[MATMUL_PAR_MAX_STRIPES];
+        PTP_WORK works[MATMUL_PAR_MAX_STRIPES];
+        if (stripes > MATMUL_PAR_MAX_STRIPES) stripes = MATMUL_PAR_MAX_STRIPES;
+        if (n / stripes < MATMUL_PAR_MIN_STRIPE) {
+            stripes = n / MATMUL_PAR_MIN_STRIPE;
+        }
+        if (stripes >= 2) {
+            const int64_t width = (n + stripes - 1) / stripes;
+            s = 0;
+            j0 = 0;
+            while (j0 < n && s < stripes) {
+                ctxs[s].a = a;
+                ctxs[s].m = m;
+                ctxs[s].k = k;
+                ctxs[s].b = b;
+                ctxs[s].n = n;
+                ctxs[s].c = c;
+                ctxs[s].j0 = j0;
+                ctxs[s].j1 = (j0 + width < n) ? j0 + width : n;
+                ctxs[s].simd = simd;
+                works[s] = NULL;
+                ++s;
+                j0 += width;
+            }
+            for (t = 1; t < s; ++t) {
+                works[t] = CreateThreadpoolWork(
+                    transformer_matmul_stripe_cb, &ctxs[t], NULL);
+                if (works[t] != NULL) {
+                    SubmitThreadpoolWork(works[t]);
+                } else {
+                    /* Pool object creation failed — degrade to inline
+                     * execution; semantics unchanged. */
+                    transformer_matmul_rows_range(
+                        ctxs[t].a, ctxs[t].m, ctxs[t].k, ctxs[t].b,
+                        ctxs[t].n, ctxs[t].c, ctxs[t].j0, ctxs[t].j1,
+                        ctxs[t].simd);
+                }
+            }
+            transformer_matmul_rows_range(
+                ctxs[0].a, ctxs[0].m, ctxs[0].k, ctxs[0].b, ctxs[0].n,
+                ctxs[0].c, ctxs[0].j0, ctxs[0].j1, ctxs[0].simd);
+            for (t = 1; t < s; ++t) {
+                if (works[t] != NULL) {
+                    WaitForThreadpoolWorkCallbacks(works[t], FALSE);
+                    CloseThreadpoolWork(works[t]);
+                }
+            }
+            return;
+        }
+    }
+#endif
+    transformer_matmul_rows_range(a, m, k, b, n, c, 0, n, simd);
+}
+
+static void transformer_matmul_rows(
+    const double* a, int64_t m, int64_t k,
+    const double* b, int64_t n, double* c,
+    gptbridge_simd_level simd) {
+    transformer_matmul_dispatch(a, m, k, b, n, c, simd);
 }
 
 int gptbridge_native_transformer_matmul(

@@ -38,7 +38,8 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         total_tokens += seq;
     }
 
-    std::vector<double> hidden(static_cast<size_t>(total_tokens * hidden_size));
+    std::vector<double>& hidden = fs_.hidden;
+    hidden.resize(static_cast<size_t>(total_tokens * hidden_size));
     for (size_t i = 0; i < spans.size(); ++i) {
         const BatchSpan& span = spans[i];
         const int64_t seq = static_cast<int64_t>(span.ids->size());
@@ -71,22 +72,28 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
 
     const int64_t q_dim = cfg.num_attention_heads * cfg.head_dim;
     const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
-    // Per-span RoPE tables (each sequence carries its own position offset).
+    // Per-span RoPE tables (each sequence carries its own position offset);
+    // the frequency bases are model-constant and cached once per engine.
     std::vector<std::vector<double>> rope_cos(spans.size());
     std::vector<std::vector<double>> rope_sin(spans.size());
     if (cfg.position_embedding_type == "rope") {
+        const std::vector<double>& bases = rope_bases(
+            cfg.head_dim, cfg.rope_theta,
+            rope_base_, rope_base_dim_, rope_base_theta_);
         for (size_t i = 0; i < spans.size(); ++i) {
             rope_tables(
                 static_cast<int64_t>(spans[i].ids->size()),
-                spans[i].position_offset, cfg.head_dim, cfg.rope_theta,
+                spans[i].position_offset, cfg.head_dim, bases,
                 rope_cos[i], rope_sin[i]);
         }
     }
 
     for (int64_t layer_idx = 0; layer_idx < cfg.num_hidden_layers; ++layer_idx) {
         LayerWeights& layer = layers_[static_cast<size_t>(layer_idx)];
-        std::vector<double> normed = rmsnorm(
-            hidden, total_tokens, hidden_size, layer.input_norm, cfg.rms_norm_eps);
+        std::vector<double>& normed = fs_.normed;
+        rmsnorm_into(
+            hidden, total_tokens, hidden_size, layer.input_norm,
+            cfg.rms_norm_eps, normed);
         if (module_rms != nullptr) {
             module_rms->push_back(
                 hidden_rms(normed, total_tokens, hidden_size));
@@ -97,19 +104,18 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         int64_t rope_q_count = 0;
         // Projections and FFN are token-wise: the packed rows of all spans
         // share one GEMM — that sharing is the R9 throughput win.
-        std::vector<double> q_flat;
-        std::vector<double> k_flat;
-        std::vector<double> v_flat;
-        {
-            std::vector<double> qkv_flat = linear(
-                normed, total_tokens, hidden_size, layer.qkv_t,
-                q_dim + 2 * kv_dim);
-            split_columns(
-                qkv_flat, total_tokens,
-                {{q_dim, &q_flat}, {kv_dim, &k_flat}, {kv_dim, &v_flat}});
-        }
+        std::vector<double>& q_flat = fs_.q_flat;
+        std::vector<double>& k_flat = fs_.k_flat;
+        std::vector<double>& v_flat = fs_.v_flat;
+        linear_into(
+            normed, total_tokens, hidden_size, layer.qkv_t,
+            q_dim + 2 * kv_dim, fs_.qkv);
+        split_columns(
+            fs_.qkv, total_tokens,
+            {{q_dim, &q_flat}, {kv_dim, &k_flat}, {kv_dim, &v_flat}});
 
-        std::vector<double> attn_flat(static_cast<size_t>(total_tokens * q_dim), 0.0);
+        std::vector<double>& attn_flat = fs_.attn_flat;
+        attn_flat.resize(static_cast<size_t>(total_tokens * q_dim));
         const int64_t head_ratio = cfg.num_attention_heads / cfg.num_key_value_heads;
         const double scale = 1.0 / std::sqrt(static_cast<double>(cfg.head_dim));
         // Attention is the only span-aware stage: each sequence attends
@@ -121,9 +127,12 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             const int64_t base = starts[i];
             const int64_t total_len = span.position_offset + seq;
 
-            std::vector<double> q_heads(static_cast<size_t>(cfg.num_attention_heads * seq * cfg.head_dim));
-            std::vector<double> k_heads(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
-            std::vector<double> v_heads(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
+            std::vector<double>& q_heads = fs_.q_heads;
+            std::vector<double>& k_heads = fs_.k_heads;
+            std::vector<double>& v_heads = fs_.v_heads;
+            q_heads.resize(static_cast<size_t>(cfg.num_attention_heads * seq * cfg.head_dim));
+            k_heads.resize(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
+            v_heads.resize(static_cast<size_t>(cfg.num_key_value_heads * seq * cfg.head_dim));
             for (int64_t s = 0; s < seq; ++s) {
                 for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
                     std::copy_n(
@@ -143,9 +152,13 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 }
             }
 
+            std::vector<double>* q_attn = &q_heads;
+            std::vector<double>* k_attn = &k_heads;
             if (cfg.position_embedding_type == "rope") {
-                std::vector<double> q_rope(q_heads.size());
-                std::vector<double> k_rope(k_heads.size());
+                std::vector<double>& q_rope = fs_.q_rope;
+                std::vector<double>& k_rope = fs_.k_rope;
+                q_rope.resize(q_heads.size());
+                k_rope.resize(k_heads.size());
                 checked_c_call(
                     gptbridge_native_transformer_rope(
                         q_heads.data(), 1, cfg.num_attention_heads, seq, cfg.head_dim,
@@ -156,12 +169,12 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                         k_heads.data(), 1, cfg.num_key_value_heads, seq, cfg.head_dim,
                         rope_cos[i].data(), rope_sin[i].data(), k_rope.data()),
                     "rope-k");
-                q_heads.swap(q_rope);
-                k_heads.swap(k_rope);
+                q_attn = &q_rope;
+                k_attn = &k_rope;
             }
             if (module_rms != nullptr) {
-                for (double value : q_heads) rope_q_sumsq += value * value;
-                rope_q_count += static_cast<int64_t>(q_heads.size());
+                for (double value : *q_attn) rope_q_sumsq += value * value;
+                rope_q_count += static_cast<int64_t>(q_attn->size());
             }
 
             if (span.append_cache) {
@@ -171,7 +184,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                         kv_write(
                             span.slot, true, layer_idx, position, h,
-                            k_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
+                            k_attn->data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
                         kv_write(
                             span.slot, false, layer_idx, position, h,
                             v_heads.data() + static_cast<size_t>((h * seq + s) * cfg.head_dim));
@@ -191,7 +204,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                     if (xcuda_kv_write_rows(
                             1, layer_idx, h, span.position_offset, seq,
-                            k_heads.data() +
+                            k_attn->data() +
                                 static_cast<size_t>(h * seq * cfg.head_dim)) != 0 ||
                         xcuda_kv_write_rows(
                             0, layer_idx, h, span.position_offset, seq,
@@ -201,7 +214,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     }
                 }
                 if (xcuda_kv_attention(
-                        layer_idx, q_heads.data(), cfg.num_attention_heads,
+                        layer_idx, q_attn->data(), cfg.num_attention_heads,
                         seq, cfg.num_key_value_heads, cfg.head_dim,
                         span.position_offset,
                         attn_flat.data() + static_cast<size_t>(base * q_dim),
@@ -222,28 +235,39 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             // current-step sources stay fp64 (KvSrc.fp).
             constexpr int64_t kAttnTile = 64;
             if (!device_attn_done) {
-            std::vector<KvSrc> k_srcs(static_cast<size_t>(total_len));
-            std::vector<KvSrc> v_srcs(static_cast<size_t>(total_len));
-            std::vector<double> tile_scores(static_cast<size_t>(kAttnTile));
-            std::vector<double> acc(static_cast<size_t>(cfg.head_dim));
+            std::vector<KvSrc>& k_srcs = fs_.k_srcs;
+            std::vector<KvSrc>& v_srcs = fs_.v_srcs;
+            std::vector<double>& tile_scores = fs_.tile_scores;
+            std::vector<double>& acc = fs_.acc;
+            k_srcs.resize(static_cast<size_t>(total_len));
+            v_srcs.resize(static_cast<size_t>(total_len));
+            tile_scores.resize(static_cast<size_t>(kAttnTile));
+            acc.resize(static_cast<size_t>(cfg.head_dim));
+            int64_t srcs_kv_head = -1;
             for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
                 const int64_t kv_head = h / head_ratio;
-                for (int64_t t = 0; t < total_len; ++t) {
-                    if (t < span.position_offset) {
-                        k_srcs[static_cast<size_t>(t)] =
-                            kv_src(span.slot, true, layer_idx, t, kv_head);
-                        v_srcs[static_cast<size_t>(t)] =
-                            kv_src(span.slot, false, layer_idx, t, kv_head);
-                    } else {
-                        const int64_t s = t - span.position_offset;
-                        k_srcs[static_cast<size_t>(t)].fp =
-                            k_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
-                        v_srcs[static_cast<size_t>(t)].fp =
-                            v_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
+                // GQA sharing: the source views depend only on kv_head —
+                // heads that share a kv_head rebuild identical tables, so
+                // the build runs once per distinct kv_head.
+                if (kv_head != srcs_kv_head) {
+                    srcs_kv_head = kv_head;
+                    for (int64_t t = 0; t < total_len; ++t) {
+                        if (t < span.position_offset) {
+                            k_srcs[static_cast<size_t>(t)] =
+                                kv_src(span.slot, true, layer_idx, t, kv_head);
+                            v_srcs[static_cast<size_t>(t)] =
+                                kv_src(span.slot, false, layer_idx, t, kv_head);
+                        } else {
+                            const int64_t s = t - span.position_offset;
+                            k_srcs[static_cast<size_t>(t)].fp =
+                                k_attn->data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
+                            v_srcs[static_cast<size_t>(t)].fp =
+                                v_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
+                        }
                     }
                 }
                 const double* q_head =
-                    q_heads.data() + static_cast<size_t>(h * seq * cfg.head_dim);
+                    q_attn->data() + static_cast<size_t>(h * seq * cfg.head_dim);
                 for (int64_t s = 0; s < seq; ++s) {
                     const double* q_row = q_head + s * cfg.head_dim;
                     double* out = attn_flat.data() +
@@ -304,8 +328,10 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                           rope_q_sumsq / static_cast<double>(rope_q_count))
                     : 0.0);
         }
-        std::vector<double> attn_out = linear(
-            attn_flat, total_tokens, q_dim, layer.o_proj_t, cfg.hidden_size);
+        std::vector<double>& attn_out = fs_.attn_out;
+        linear_into(
+            attn_flat, total_tokens, q_dim, layer.o_proj_t,
+            cfg.hidden_size, attn_out);
         if (module_rms != nullptr) {
             module_rms->push_back(
                 hidden_rms(attn_out, total_tokens, hidden_size));
@@ -314,7 +340,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             hidden.data(), 1.0, attn_out.data(),
             static_cast<int64_t>(hidden.size()));
 
-        normed = rmsnorm(hidden, total_tokens, hidden_size, layer.post_norm, cfg.rms_norm_eps);
+        rmsnorm_into(
+            hidden, total_tokens, hidden_size, layer.post_norm,
+            cfg.rms_norm_eps, normed);
         if (module_rms != nullptr) {
             module_rms->push_back(
                 hidden_rms(normed, total_tokens, hidden_size));
