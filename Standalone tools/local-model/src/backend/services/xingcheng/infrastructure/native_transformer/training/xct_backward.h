@@ -58,6 +58,20 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const int EI = c.expert_inter();
             const int SI = c.shared_inter();
             std::vector<float> dgl((size_t)T * E, 0.0f);
+            // Load-balance aux gradient (Switch Transformer): the layer
+            // contributes aux_scale·moe_aux_w·E·Σ_i f_i·P_i where
+            // P_i = mean_t gp[t,i] and f_i (assignment share) is a
+            // piecewise-constant routing statistic — so
+            // ∂L/∂gp[t,i] += aux_scale·moe_aux_w·E·f_i/T, added to dgl
+            // before the softmax backward below.
+            std::vector<float> moe_f((size_t)E, 0.0f);
+            if (aux_scale != 0.0f && c.moe_aux_w != 0.0f) {
+                for (size_t a = 0; a < L.moe_idx.size(); ++a)
+                    moe_f[(size_t)L.moe_idx[a]] += 1.0f;
+                for (int e = 0; e < E; ++e) moe_f[e] /= (float)(T * K);
+            }
+            const float lb_step = aux_scale * c.moe_aux_w * (float)E /
+                                  (float)std::max(1, T);
             for (int t = 0; t < T; ++t) {
                 const float* xr = L.n2.data() + (size_t)t * H;
                 float* dxr = dn2.data() + (size_t)t * H;
@@ -102,6 +116,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float dlogit = dot / wsum;            // contribution via this slot
                     dgl[(size_t)t * E + e] += dlogit;
                 }
+                for (int e = 0; e < E; ++e)
+                    dgl[(size_t)t * E + e] += lb_step * moe_f[(size_t)e];
                 // softmax backward at router logits (aux + weighted path share
                 // the logit grads approximated by direct slot contribution).
                 float* gpl = L.gate_probs.data() + (size_t)t * E;
@@ -113,7 +129,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
                 linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
                            dxr, p.g[ln(l, "gate")].d.data(), 1, H, E);
-                (void)gll; (void)aux_scale;
+                (void)gll;
             }
             // Shared experts (v26): always-on SwiGLU backward — the shared
             // output adds into proj with weight 1.0, so dproj flows through
