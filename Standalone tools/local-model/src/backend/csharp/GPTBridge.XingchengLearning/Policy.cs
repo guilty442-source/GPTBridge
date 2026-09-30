@@ -80,6 +80,12 @@ internal sealed class SelfLearningPolicy
     public bool DpoEnabled = false;
     public int DpoMinNewPairs = 8;
     public double DpoBeta = 0.1;
+    // Capability-training freeze (architecture-convergence phase): the
+    // cycle still collects / sanitizes / deduplicates / registers and
+    // runs evaluation gates, but the weight-changing stages (SFT/DPO/
+    // pretrain jobs and candidate activation) never fire. Defaults true
+    // — fail-closed; unfreezing requires an explicit policy edit.
+    public bool CapabilityTrainingFrozen = true;
 
     public Dictionary<string, object?> ToDict()
     {
@@ -128,6 +134,7 @@ internal sealed class SelfLearningPolicy
             ["dpo_enabled"] = DpoEnabled,
             ["dpo_min_new_pairs"] = DpoMinNewPairs,
             ["dpo_beta"] = DpoBeta,
+            ["capability_training_frozen"] = CapabilityTrainingFrozen,
         };
         return d;
     }
@@ -209,6 +216,9 @@ internal sealed class SelfLearningPolicy
             policy.DpoEnabled = Get(root, "dpo_enabled", policy.DpoEnabled);
             policy.DpoMinNewPairs = Get(root, "dpo_min_new_pairs", policy.DpoMinNewPairs);
             policy.DpoBeta = Get(root, "dpo_beta", policy.DpoBeta);
+            policy.CapabilityTrainingFrozen = Get(
+                root, "capability_training_frozen",
+                policy.CapabilityTrainingFrozen);
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

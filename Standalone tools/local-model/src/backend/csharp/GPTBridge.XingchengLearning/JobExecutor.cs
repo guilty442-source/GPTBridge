@@ -783,6 +783,13 @@ internal sealed class TrainingJobExecutor
 
     public Dictionary<string, object?> RunJob(string jobId)
     {
+        // Capability-training freeze: every queued job here mutates model
+        // weights, so the whole stage is sealed while frozen. Queueing /
+        // dataset registration stay open — only execution is gated.
+        var freezePolicy = SelfLearningPolicy.Load(_toolRoot);
+        if (freezePolicy.CapabilityTrainingFrozen)
+            throw new ExecutorError("EXECUTOR_TRAINING_FROZEN",
+                $"capability training is frozen; job {jobId} stays queued");
         var row = _repo.JobRow(jobId)
             ?? throw new ExecutorError("EXECUTOR_JOB_MISSING",
                 $"job {jobId} does not exist");
