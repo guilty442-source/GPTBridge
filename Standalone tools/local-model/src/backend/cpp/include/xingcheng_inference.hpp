@@ -194,6 +194,28 @@ struct SamplingConfig {
     uint64_t seed = 0;
 };
 
+// Two-level MoE trace (architecture-convergence observability contract):
+// level 1 = router decision — per MoE layer the router type, top-k and a
+// bounded per-token selection sample; level 2 = expert dispatch —
+// per-expert routed-token counts plus shared-expert participation,
+// aggregated over every forward of one request. Bounded: at most
+// kMoeTraceSelectedCap token rows are kept per layer; expert_counts is
+// always complete (size = num_experts).
+struct MoeTraceLayer {
+    int64_t layer_id = 0;
+    std::string router_type;
+    int64_t top_k = 0;
+    int64_t tokens_routed = 0;
+    bool shared_expert_used = false;
+    std::vector<int64_t> expert_counts;
+    std::vector<std::vector<int64_t>> selected;
+};
+struct MoeTrace {
+    std::vector<MoeTraceLayer> layers;
+    int64_t forwards = 0;
+};
+constexpr int64_t kMoeTraceSelectedCap = 64;
+
 class WeightBundle {
 public:
     struct Blob;
@@ -213,6 +235,10 @@ public:
     std::vector<std::string> tensor_names() const;
     int64_t weights_bytes() const { return weights_bytes_; }
     const std::string& weights_sha256() const { return weights_sha256_; }
+    // Lifecycle label from the bundle manifest (empty on legacy bundles).
+    const std::string& architecture_generation() const {
+        return architecture_generation_;
+    }
 
 private:
     struct TensorInfo {
@@ -230,6 +256,7 @@ private:
     std::unique_ptr<Blob> blob_;
     int64_t weights_bytes_ = 0;
     std::string weights_sha256_;
+    std::string architecture_generation_;
 };
 
 class ByteLevelBPETokenizer {
@@ -275,6 +302,7 @@ public:
     void load(const std::string& bundle_dir);
     void unload();
     bool loaded() const { return bundle_ != nullptr; }
+    const WeightBundle* bundle() const { return bundle_.get(); }
     bool cuda_active() const;
 
     std::vector<int64_t> encode(
@@ -350,6 +378,17 @@ public:
     std::string describe() const;
     void set_kv_memory_limit(int64_t bytes);
     void set_prefix_cache_limit(int64_t max_entries, int64_t max_bytes);
+    // Two-level MoE trace: enable before generate(); the sink resets per
+    // request and aggregates router decisions + expert dispatch counts.
+    void set_moe_trace_enabled(bool on) {
+        moe_trace_enabled_ = on;
+        if (on) {
+            moe_trace_.layers.clear();
+            moe_trace_.forwards = 0;
+        }
+    }
+    bool moe_trace_enabled() const { return moe_trace_enabled_; }
+    const MoeTrace& moe_trace() const { return moe_trace_; }
 
 private:
     struct LayerWeights {
@@ -528,6 +567,11 @@ private:
     // Per-slot DeltaNet states, parallel to kv_block_tables_:
     // lin_states_[slot][layer] — non-linear entries stay empty.
     std::vector<std::vector<LinLayerState>> lin_states_;
+    // Two-level MoE trace sink: armed per request via
+    // set_moe_trace_enabled; forward layers append router-level samples
+    // and expert-level dispatch counts. Bounded by kMoeTraceSelectedCap.
+    bool moe_trace_enabled_ = false;
+    MoeTrace moe_trace_;
     int64_t kv_block_stride_ = 0;
     int64_t kv_limit_bytes_ = 0;
     // KV INT8 (opt-in via governed env): per-token/per-head symmetric

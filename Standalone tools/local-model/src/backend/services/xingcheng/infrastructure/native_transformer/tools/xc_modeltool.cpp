@@ -2535,6 +2535,59 @@ bool serve_bool(const JsonValue& o, const char* k, bool d) {
     return (v && v->type == JsonValue::Type::Bool) ? v->boolean : d;
 }
 
+// Serialize the engine's two-level MoE trace: level 1 router decisions
+// (router_type, top_k, bounded per-token selection sample) + level 2
+// expert dispatch (per-expert routed counts, shared-expert
+// participation), tagged with request/model/architecture identifiers so
+// both levels join on one deterministic context.
+void emit_moe_trace(std::ostringstream& o,
+                    xingcheng::inference::NativeInferenceEngine& engine,
+                    const JsonValue& req) {
+    using xingcheng::inference::MoeTraceLayer;
+    const auto& tr = engine.moe_trace();
+    o << "{\"request_id\":\""
+      << gptbridge::jsonlite::json_escape(jget_str(req, "request_id"))
+      << "\""
+      << ",\"model_version\":\""
+      << gptbridge::jsonlite::json_escape(
+             engine.bundle() ? engine.bundle()->weights_sha256().substr(0, 16)
+                             : "")
+      << "\""
+      << ",\"architecture_generation\":\""
+      << gptbridge::jsonlite::json_escape(
+             engine.bundle() ? engine.bundle()->architecture_generation()
+                             : "")
+      << "\""
+      << ",\"forwards\":" << tr.forwards << ",\"layers\":[";
+    for (size_t i = 0; i < tr.layers.size(); ++i) {
+        const MoeTraceLayer& tl = tr.layers[i];
+        if (i) o << ',';
+        o << "{\"layer_id\":" << tl.layer_id
+          << ",\"router_type\":\"" << tl.router_type << "\""
+          << ",\"top_k\":" << tl.top_k
+          << ",\"tokens_routed\":" << tl.tokens_routed
+          << ",\"shared_expert_used\":"
+          << (tl.shared_expert_used ? "true" : "false")
+          << ",\"expert_counts\":[";
+        for (size_t e = 0; e < tl.expert_counts.size(); ++e) {
+            if (e) o << ',';
+            o << tl.expert_counts[e];
+        }
+        o << "],\"selected\":[";
+        for (size_t s = 0; s < tl.selected.size(); ++s) {
+            if (s) o << ',';
+            o << '[';
+            for (size_t k = 0; k < tl.selected[s].size(); ++k) {
+                if (k) o << ',';
+                o << tl.selected[s][k];
+            }
+            o << ']';
+        }
+        o << "]}";
+    }
+    o << "]}";
+}
+
 int mode_serve(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("SERVE_ARGS_MISSING");
@@ -2673,6 +2726,10 @@ int mode_serve(const Args& a) {
                 if (max_new > 2048) max_new = 2048;
 
                 std::vector<int64_t> pids = engine.encode(prompt, true, false);
+                // Two-level MoE trace (opt-in per request): router-level
+                // decisions + expert-level dispatch for this generation.
+                const bool want_moe_trace = serve_bool(req, "moe_trace", false);
+                engine.set_moe_trace_enabled(want_moe_trace);
                 auto t0 = std::chrono::steady_clock::now();
                 std::vector<int64_t> out =
                     engine.generate(pids, max_new, sc);
@@ -2733,7 +2790,13 @@ int mode_serve(const Args& a) {
                   << ",\"model_id\":\"xingcheng-native-transformer\""
                   << ",\"model_version\":\""
                   << gptbridge::jsonlite::json_escape(model_version) << "\""
-                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true}";
+                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true";
+                if (want_moe_trace) {
+                    o << ",\"moe_trace\":";
+                    emit_moe_trace(o, engine, req);
+                    engine.set_moe_trace_enabled(false);
+                }
+                o << '}';
                 emit(o.str());
                 continue;
             }

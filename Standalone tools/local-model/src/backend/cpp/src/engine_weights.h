@@ -423,6 +423,13 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
 
     const std::string weights_name = json_string(manifest, "weights_file");
     bundle.weights_sha256_ = json_string(manifest, "weights_sha256");
+    // Lifecycle label (architecture-convergence manifest field); absent on
+    // bundles exported before the contract — empty string, not an error.
+    if (const JsonValue* v = json_optional(manifest, "architecture_generation")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError("JSON_STRING_EXPECTED:architecture_generation");
+        bundle.architecture_generation_ = v->string;
+    }
     const std::filesystem::path weights_path = manifest_file.parent_path() / weights_name;
     bundle.blob_ = map_readonly_file(weights_path, 16LL * 1024 * 1024 * 1024);
     bundle.weights_bytes_ = static_cast<int64_t>(bundle.blob_->size);
