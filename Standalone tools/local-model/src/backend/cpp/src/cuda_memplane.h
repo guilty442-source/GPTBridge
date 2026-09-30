@@ -193,6 +193,16 @@ struct Manager {
                     &p, (size_t)bytes, pool,
                     streams[(int)lane]) != cudaSuccess)
                 return nullptr;
+            // Pool memory's availability is stream-ordered to the
+            // allocating lane — synchronize before handing the pointer
+            // to any other stream (cuBLAS default stream, compute
+            // lanes). Allocation is a growth/lifecycle event, never a
+            // per-token one, so the scoped wait stays off the hot path.
+            if (cudaStreamSynchronize(streams[(int)lane]) !=
+                    cudaSuccess) {
+                cudaFreeAsync(p, streams[(int)lane]);
+                return nullptr;
+            }
             owned[p] = {tier, bytes};
             account(tier, bytes);
             return p;
@@ -212,8 +222,12 @@ struct Manager {
             owned.erase(it);
         }
 #if defined(XINGCHENG_CUDA)
-        if (cuda_present && p != this)
+        if (cuda_present && p != this) {
+            // Same stream-ordering rule as alloc: drain the lane before
+            // the pool may recycle the block for another stream's use.
+            cudaStreamSynchronize(streams[(int)lane]);
             cudaFreeAsync(p, streams[(int)lane]);
+        }
 #endif
     }
 
@@ -222,9 +236,11 @@ struct Manager {
     void free_all(StreamLane lane = StreamLane::H2D) {
         std::lock_guard<std::mutex> lk(mu);
 #if defined(XINGCHENG_CUDA)
-        if (cuda_present)
+        if (cuda_present) {
+            cudaStreamSynchronize(streams[(int)lane]);
             for (auto& kv : owned)
                 cudaFreeAsync(kv.first, streams[(int)lane]);
+        }
 #endif
         owned.clear();
         for (auto& b : tier_bytes) b = 0;
@@ -365,9 +381,22 @@ struct Manager {
             if (pool) cudaMemPoolDestroy(pool);
         }
 #endif
-        bool sim = allow_sim;
-        *this = Manager{};
-        allow_sim = sim;
+        initialized = false;
+        cuda_present = false;
+        budget = emergency_headroom = cuda_reserve = graph_reserve = 0;
+        for (auto& b : tier_bytes) b = 0;
+        for (auto& b : tier_peak) b = 0;
+        pool_reserved = pool_used = pool_peak = 0;
+        pinned_host_bytes = pinned_host_cap = 0;
+        h2d_bytes = d2h_bytes = d2d_bytes = 0;
+        workspace_peak = ladder_events = allocs = 0;
+        owned.clear();
+#if defined(XINGCHENG_CUDA)
+        pool = nullptr;
+        for (auto& s : streams) s = nullptr;
+        pinned_dev = nullptr;
+        pinned_ring_size = pinned_ring_off = 0;
+#endif
     }
 };
 

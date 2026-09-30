@@ -1355,6 +1355,19 @@ internal sealed class TransformerTrainingRepository
         };
     }
 
+    internal static long Int64(IReadOnlyDictionary<string, object?> map, string key)
+    {
+        if (!map.TryGetValue(key, out object? v) || v == null) return 0;
+        return v switch
+        {
+            long l => l,
+            int i => i,
+            double d => (long)d,
+            _ => long.TryParse(v.ToString(), NumberStyles.Integer,
+                               CultureInfo.InvariantCulture, out long l) ? l : 0,
+        };
+    }
+
     internal static bool Truthy(object? value) => value switch
     {
         bool b => b,

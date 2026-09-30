@@ -319,17 +319,24 @@ int xcuda_matmul_f64(
         }
         double* ha = host_get(g_pin_a, a_elems);
         double* hc = host_get(g_pin_c, c_elems);
+        cudaStream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+        cudaStream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
+        // §15: transfers ride the dedicated lanes; stream-scoped sync
+        // keeps the function's contract without device-wide waits (§16).
         if (ha != nullptr) {
             std::memcpy(ha, a, a_bytes);
-            if (cudaMemcpy(da, ha, a_bytes, cudaMemcpyHostToDevice) !=
-                cudaSuccess) {
+            if (cudaMemcpyAsync(da, ha, a_bytes,
+                    cudaMemcpyHostToDevice, h2d) != cudaSuccess ||
+                cudaStreamSynchronize(h2d) != cudaSuccess) {
                 return 3;
             }
         } else if (
-            cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) !=
-            cudaSuccess) {
+            cudaMemcpyAsync(da, a, a_bytes,
+                cudaMemcpyHostToDevice, h2d) != cudaSuccess ||
+            cudaStreamSynchronize(h2d) != cudaSuccess) {
             return 3;
         }
+        mp::mgr().h2d_bytes += (int64_t)a_bytes;
         {
             const double alpha = 1.0;
             const double beta = 0.0;
@@ -344,16 +351,19 @@ int xcuda_matmul_f64(
             }
         }
         if (hc != nullptr) {
-            if (cudaMemcpy(hc, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-                cudaSuccess) {
+            if (cudaMemcpyAsync(hc, dc, c_bytes,
+                    cudaMemcpyDeviceToHost, d2h) != cudaSuccess ||
+                cudaStreamSynchronize(d2h) != cudaSuccess) {
                 return 3;
             }
             std::memcpy(out, hc, c_bytes);
         } else if (
-            cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-            cudaSuccess) {
+            cudaMemcpyAsync(out, dc, c_bytes,
+                cudaMemcpyDeviceToHost, d2h) != cudaSuccess ||
+            cudaStreamSynchronize(d2h) != cudaSuccess) {
             return 3;
         }
+        mp::mgr().d2h_bytes += (int64_t)c_bytes;
         rc = 0;
     }
     return rc;
@@ -401,17 +411,22 @@ int xcuda_matmul_f64_grouped(
     if (handle == nullptr || da == nullptr || dc == nullptr) return 3;
     double* ha = host_get(g_pin_a, a_elems);
     double* hc = host_get(g_pin_c, c_elems);
+    cudaStream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+    cudaStream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
     if (ha != nullptr) {
         std::memcpy(ha, a, a_bytes);
-        if (cudaMemcpy(da, ha, a_bytes, cudaMemcpyHostToDevice) !=
-            cudaSuccess) {
+        if (cudaMemcpyAsync(da, ha, a_bytes, cudaMemcpyHostToDevice,
+                h2d) != cudaSuccess ||
+            cudaStreamSynchronize(h2d) != cudaSuccess) {
             return 3;
         }
     } else if (
-        cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) !=
-        cudaSuccess) {
+        cudaMemcpyAsync(da, a, a_bytes, cudaMemcpyHostToDevice,
+            h2d) != cudaSuccess ||
+        cudaStreamSynchronize(h2d) != cudaSuccess) {
         return 3;
     }
+    mp::mgr().h2d_bytes += (int64_t)a_bytes;
     {
         const double alpha = 1.0;
         const double beta = 0.0;
@@ -438,16 +453,19 @@ int xcuda_matmul_f64_grouped(
         }
     }
     if (hc != nullptr) {
-        if (cudaMemcpy(hc, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-            cudaSuccess) {
+        if (cudaMemcpyAsync(hc, dc, c_bytes, cudaMemcpyDeviceToHost,
+                d2h) != cudaSuccess ||
+            cudaStreamSynchronize(d2h) != cudaSuccess) {
             return 3;
         }
         std::memcpy(out, hc, c_bytes);
     } else if (
-        cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-        cudaSuccess) {
+        cudaMemcpyAsync(out, dc, c_bytes, cudaMemcpyDeviceToHost,
+            d2h) != cudaSuccess ||
+        cudaStreamSynchronize(d2h) != cudaSuccess) {
         return 3;
     }
+    mp::mgr().d2h_bytes += (int64_t)c_bytes;
     return 0;
 }
 

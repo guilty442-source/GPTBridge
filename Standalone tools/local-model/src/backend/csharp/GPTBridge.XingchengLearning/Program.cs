@@ -845,6 +845,59 @@ internal static class Program
             // memory/CUDA acceptance battery
             if (flags.Contains("cuda-plane-checks"))
                 return Emit(CudaPlaneChecks.Run(toolRoot));
+            // ---- NativeSiliconEfficiencyPlane (silicon directive)
+            if (flags.Contains("runtime-host-acquire"))
+                return Emit(SiliconRuntime.AcquireHost(
+                    toolRoot,
+                    opts.TryGetValue("owner", out string? ow)
+                        ? ow : "xc-learning"));
+            if (flags.Contains("artifact-register"))
+                return Emit(SiliconRuntime.RegisterArtifact(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? arf)
+                            ? arf : "", "ARTIFACT_DUPLICATE_LOAD")));
+            if (flags.Contains("silicon-route"))
+            {
+                var sr = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? srf)
+                        ? srf : "", "SILICON_ROUTE_UNCERTIFIED");
+                var avail = new HashSet<string>(
+                    sr.TryGetProperty("available", out var av) &&
+                    av.ValueKind == JsonValueKind.Array
+                        ? av.EnumerateArray()
+                            .Select(x => x.GetString() ?? "")
+                        : Array.Empty<string>(),
+                    StringComparer.OrdinalIgnoreCase);
+                return Emit(SiliconRuntime.Route(
+                    sr.TryGetProperty("op", out var op)
+                        ? op.GetString() ?? "" : "",
+                    avail,
+                    sr.TryGetProperty("qos", out var q)
+                        ? q.GetString() ?? "NORMAL" : "NORMAL"));
+            }
+            if (flags.Contains("cpu-plan"))
+                return Emit(SiliconRuntime.CpuPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cpf)
+                            ? cpf : "", "CPU_AFFINITY_INVALID")));
+            if (flags.Contains("freeze-map-validate"))
+                return Emit(SiliconRuntime.ValidateFreezeMap(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? fmf)
+                            ? fmf : "", "PARAMETER_FREEZE_VIOLATION")));
+            if (flags.Contains("param-efficiency"))
+                return Emit(SiliconRuntime.EfficiencyReport(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? pef)
+                            ? pef : "", "EFFICIENCY_INPUT_INVALID")));
+            if (flags.Contains("lifetime-plan"))
+                return Emit(SiliconRuntime.LifetimePlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? lpf)
+                            ? lpf : "", "LIFETIME_PLAN_INVALID")));
+            // silicon acceptance battery
+            if (flags.Contains("silicon-checks"))
+                return Emit(SiliconChecks.Run(toolRoot));
             return Usage();
         }
         catch (Exception exc)
