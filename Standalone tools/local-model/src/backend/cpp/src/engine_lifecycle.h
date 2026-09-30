@@ -598,6 +598,28 @@ void NativeInferenceEngine::kv_write(
     *reinterpret_cast<double*>(dst + ((n + 7) & ~int64_t{7})) = scale;
 }
 
+// Prefix-restore write path: the snapshot already holds the on-pool
+// representation, so the bytes land verbatim — under KV-INT8 this avoids
+// requantizing a dequantized vector (which would drift the stored scale
+// by ~1 ulp and break bit-identical restore). The fp64 CUDA mirror still
+// gets its write-through; kv_int8_ never reaches the device (load fails
+// closed), so raw bytes suffice there.
+void NativeInferenceEngine::kv_restore_bytes(
+    int64_t slot, bool key_cache, int64_t layer, int64_t position,
+    int64_t head, const char* raw) {
+    char* dst = kv_slot_bytes(slot, key_cache, layer, position, head);
+#if defined(XINGCHENG_CUDA)
+    if (!kv_int8_ && kv_device_active_ && slot == 0 &&
+        xcuda_kv_write_rows(
+            key_cache ? 1 : 0,
+            kv_layer_ord_[static_cast<size_t>(layer)], head, position, 1,
+            reinterpret_cast<const double*>(raw)) != 0) {
+        throw InferenceError("CUDA_KV_WRITE_FAILED");
+    }
+#endif
+    std::memcpy(dst, raw, static_cast<size_t>(kv_elem_stride_bytes_));
+}
+
 NativeInferenceEngine::KvSrc NativeInferenceEngine::kv_src(
     int64_t slot, bool key_cache, int64_t layer, int64_t position, int64_t head) {
     char* p = kv_slot_bytes(slot, key_cache, layer, position, head);

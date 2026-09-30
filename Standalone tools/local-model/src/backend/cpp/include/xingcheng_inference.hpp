@@ -349,8 +349,14 @@ private:
 
     struct PrefixEntry {
         std::vector<int64_t> tokens;
-        std::vector<double> k;
-        std::vector<double> v;
+        // Raw per-(layer, position, head) pool bytes
+        // (kv_elem_stride_bytes_ each): fp64 vectors verbatim, or the
+        // packed int8 payload + trailing scale when KV-INT8 is active.
+        // Storing the on-pool representation keeps a restored prefix
+        // bit-identical to the original store — a dequantized fp64
+        // snapshot would re-quantize under a slightly different scale.
+        std::vector<char> k;
+        std::vector<char> v;
         uint64_t tick = 0;
     };
 
@@ -516,6 +522,13 @@ private:
     void kv_write(
         int64_t slot, bool key_cache, int64_t layer, int64_t position,
         int64_t head, const double* src);
+    // Prefix-restore path: memcpy a raw pool element back verbatim so a
+    // cached prefix is bit-identical under every storage format (no
+    // requantization under KV-INT8). Mirrors kv_write's device
+    // write-through when the fp64 CUDA mirror is active.
+    void kv_restore_bytes(
+        int64_t slot, bool key_cache, int64_t layer, int64_t position,
+        int64_t head, const char* raw);
     KvSrc kv_src(
         int64_t slot, bool key_cache,
         int64_t layer, int64_t position, int64_t head);

@@ -188,7 +188,6 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // per-slot DeltaNet state (S + conv tail) that a KV-only snapshot
     // cannot reconstruct — a hit would silently serve wrong-context
     // outputs, so the cache is bypassed for hybrid bundles entirely.
-    const int64_t kv_dim = cfg.num_key_value_heads * cfg.head_dim;
     const bool prefix_ok = !cfg.has_linear_layers();
     int64_t prefix_len = 0;
     size_t hit_index = prefix_cache_.size();
@@ -208,17 +207,23 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         for (int64_t position = 0; position < prefix_len; ++position) {
             kv_ensure_position(0, position);
         }
+        // Raw-byte restore: the snapshot holds the on-pool element
+        // format, so the bytes land verbatim — under KV-INT8 this is the
+        // difference between a bit-identical restore and a requantized
+        // (ulp-drifted) prefix.
+        const int64_t head_bytes = kv_elem_stride_bytes_;
+        const int64_t row_bytes =
+            cfg.num_key_value_heads * head_bytes;
         for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
             for (int64_t position = 0; position < prefix_len; ++position) {
                 for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
-                    kv_write(
-                        0, true, layer, position, h,
-                        hit.k.data() + (layer * prefix_len + position) * kv_dim +
-                            h * cfg.head_dim);
-                    kv_write(
-                        0, false, layer, position, h,
-                        hit.v.data() + (layer * prefix_len + position) * kv_dim +
-                            h * cfg.head_dim);
+                    const int64_t off =
+                        (layer * prefix_len + position) * row_bytes +
+                        h * head_bytes;
+                    kv_restore_bytes(
+                        0, true, layer, position, h, hit.k.data() + off);
+                    kv_restore_bytes(
+                        0, false, layer, position, h, hit.v.data() + off);
                 }
             }
         }
@@ -246,8 +251,10 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
     if (prefix_ok && prefix_cache_max_entries_ > 0 && kv_lens_[0] > 0) {
         const int64_t store_len = kv_lens_[0];
+        const int64_t head_bytes = kv_elem_stride_bytes_;
         const int64_t entry_bytes =
-            2 * cfg.num_hidden_layers * store_len * kv_dim * 8;
+            2 * cfg.num_hidden_layers * store_len *
+            cfg.num_key_value_heads * head_bytes;
         if (entry_bytes <= prefix_cache_max_bytes_) {
             auto existing = std::find_if(
                 prefix_cache_.begin(), prefix_cache_.end(),
@@ -260,7 +267,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                 int64_t total_bytes = entry_bytes;
                 for (const PrefixEntry& entry : prefix_cache_) {
                     total_bytes += static_cast<int64_t>(
-                        (entry.k.size() + entry.v.size()) * sizeof(double));
+                        entry.k.size() + entry.v.size());
                 }
                 while (
                     (!prefix_cache_.empty() &&
@@ -274,32 +281,37 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                             return a.tick < b.tick;
                         });
                     total_bytes -= static_cast<int64_t>(
-                        (oldest->k.size() + oldest->v.size()) *
-                        sizeof(double));
+                        oldest->k.size() + oldest->v.size());
                     prefix_cache_.erase(oldest);
                 }
                 PrefixEntry entry;
                 entry.tokens = prompt_ids;
-                // Snapshot stays fp64 in host memory; kv_read_head
-                // dequantizes when the pool stores packed int8.
+                // Snapshot the raw pool bytes (one element per
+                // layer/position/head): fp64 vectors verbatim, or the
+                // packed int8 payload + scale under KV-INT8 — restoring
+                // the stored representation keeps hits bit-identical.
+                const int64_t row_bytes =
+                    cfg.num_key_value_heads * head_bytes;
                 entry.k.resize(
                     static_cast<size_t>(
-                        cfg.num_hidden_layers * store_len * kv_dim));
+                        cfg.num_hidden_layers * store_len * row_bytes));
                 entry.v.resize(
                     static_cast<size_t>(
-                        cfg.num_hidden_layers * store_len * kv_dim));
+                        cfg.num_hidden_layers * store_len * row_bytes));
                 for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer) {
                     for (int64_t position = 0; position < store_len; ++position) {
                         for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
-                            const int64_t base_idx =
-                                (layer * store_len + position) * kv_dim +
-                                h * cfg.head_dim;
-                            kv_read_head(
-                                0, true, layer, position, h,
-                                entry.k.data() + base_idx);
-                            kv_read_head(
-                                0, false, layer, position, h,
-                                entry.v.data() + base_idx);
+                            const int64_t off =
+                                (layer * store_len + position) * row_bytes +
+                                h * head_bytes;
+                            std::memcpy(
+                                entry.k.data() + off,
+                                kv_slot_bytes(0, true, layer, position, h),
+                                static_cast<size_t>(head_bytes));
+                            std::memcpy(
+                                entry.v.data() + off,
+                                kv_slot_bytes(0, false, layer, position, h),
+                                static_cast<size_t>(head_bytes));
                         }
                     }
                 }
