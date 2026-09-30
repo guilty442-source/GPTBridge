@@ -514,6 +514,10 @@ void NativeInferenceEngine::unload() {
     lm_head_t_.clear();
     ple_model_projection_t_.clear();
     sequence_.clear();
+    mtp_ = MtpDrafter{};
+    mtp_lin_snapshot_.clear();
+    mtp_kv_len_before_ = 0;
+    mtp_rollback_armed_ = false;
 }
 
 void NativeInferenceEngine::validate_supported() const {
@@ -839,6 +843,11 @@ void NativeInferenceEngine::reset_cache() {
     // reset (kv_alloc_slot returns the first inactive slot → slot 0).
     kv_alloc_slot();
     sequence_.clear();
+    // The drafter's KV holds committed (h, e) pairs only — it dies with
+    // the trunk cache that produced them.
+    mtp_.reset();
+    mtp_lin_snapshot_.clear();
+    mtp_rollback_armed_ = false;
     mem_prefill_peak_ = 0;
     mem_decode_peak_ = 0;
 }

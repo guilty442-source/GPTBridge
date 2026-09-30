@@ -885,6 +885,11 @@ private:
         const double* h_last, int64_t next_token, int64_t pos);
     std::vector<double> mtp_z_of(
         const double* h_t, const double* e_next) const;
+    // Commit-only pair append (z computed, K/V stored, no draft) — used
+    // for prompt seeding and the second token of an accepted pair.
+    void mtp_append_kv(const std::vector<double>& z, int64_t pos);
+    void mtp_commit_pair(
+        const double* h_pos, int64_t next_token, int64_t pos);
     // Speculative decode loop for the greedy path — shares
     // decode_continue's caller contract (stop tokens, max_new, <|eot|>).
     std::vector<int64_t> decode_continue_spec(
