@@ -84,6 +84,11 @@ internal sealed class SelfLearningPolicy
     // still collects / sanitizes / deduplicates / registers datasets and
     // audits, but never creates a trainer job or activates a candidate.
     public bool CapabilityTrainingFrozen = false;
+    // SINGLE_CAPABILITY_RECOVERY lane (star-single-capability-recovery/v1):
+    // "FROZEN" seals every weight-mutating job; "SINGLE_CAPABILITY_RECOVERY"
+    // admits exactly one SFT lane whose capability == ActiveCapability.
+    public string CapabilityTrainingMode = "FROZEN";
+    public string ActiveCapability = "";
 
     public Dictionary<string, object?> ToDict()
     {
@@ -133,6 +138,8 @@ internal sealed class SelfLearningPolicy
             ["dpo_min_new_pairs"] = DpoMinNewPairs,
             ["dpo_beta"] = DpoBeta,
             ["capability_training_frozen"] = CapabilityTrainingFrozen,
+            ["capability_training_mode"] = CapabilityTrainingMode,
+            ["active_capability"] = ActiveCapability,
         };
         return d;
     }
@@ -216,6 +223,10 @@ internal sealed class SelfLearningPolicy
             policy.DpoBeta = Get(root, "dpo_beta", policy.DpoBeta);
             policy.CapabilityTrainingFrozen = Get(root, "capability_training_frozen",
                                                   policy.CapabilityTrainingFrozen);
+            policy.CapabilityTrainingMode = Get(root, "capability_training_mode",
+                                                policy.CapabilityTrainingMode);
+            policy.ActiveCapability = Get(root, "active_capability",
+                                          policy.ActiveCapability);
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

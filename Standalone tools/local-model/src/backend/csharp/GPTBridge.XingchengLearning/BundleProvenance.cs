@@ -8,12 +8,72 @@
 // "sha256:<hex>"). Load order is enforced and fail-closed:
 //   hash -> signature -> generation -> architecture -> checkpoint ->
 //   tensor shape -> runtime compatibility -> load.
+//
+// Compute/Sign produce the ``provenance.json`` block a governed bundle
+// carries alongside the manifest (star-bundle-provenance/v1).
+
+using System.Security.Cryptography;
+using System.Text;
 
 namespace GPTBridge.XingchengLearning;
 
 internal static class BundleProvenance
 {
     public const string Format = "star-bundle-provenance/v1";
+    public static readonly string[] RequiredFields =
+    {
+        "manifest_hash", "weights_hash", "tokenizer_hash",
+        "generation", "architecture_profile", "xcn_version",
+        "build_id", "runtime_compatibility", "lineage_id",
+    };
+
+    /// <summary>Compute the provenance block for a bundle directory —
+    /// hashes the manifest, weights and tokenizer payloads in the fixed
+    /// load order.</summary>
+    public static Dictionary<string, object?> Compute(
+        string bundleDir, string generation, string archProfile,
+        string xcnVersion, string buildId, string runtimeCompat,
+        string lineageId)
+    {
+        string Hash(string name)
+        {
+            string p = Path.Combine(bundleDir, name);
+            if (!File.Exists(p)) return "";
+            // stream — weights.bin exceeds File.ReadAllBytes' 2GB cap
+            using var s = new FileStream(p, FileMode.Open, FileAccess.Read,
+                                         FileShare.Read, 1024 * 1024);
+            return "sha256:" + Convert.ToHexString(SHA256.HashData(s))
+                .ToLowerInvariant();
+        }
+        var block = new Dictionary<string, object?>
+        {
+            ["format"] = Format,
+            ["manifest_hash"] = Hash("manifest.json"),
+            ["weights_hash"] = Hash("weights.bin"),
+            ["tokenizer_hash"] = Hash("tokenizer.json"),
+            ["generation"] = generation,
+            ["architecture_profile"] = archProfile,
+            ["xcn_version"] = xcnVersion,
+            ["build_id"] = buildId,
+            ["runtime_compatibility"] = runtimeCompat,
+            ["lineage_id"] = lineageId,
+        };
+        block["signature"] = Sign(block);
+        return block;
+    }
+
+    /// <summary>Deterministic detached signature over the canonical
+    /// provenance payload (sha256 — the optional crypto-signature lane;
+    /// a real asymmetric signer can replace this without a contract
+    /// change).</summary>
+    public static string Sign(Dictionary<string, object?> block)
+    {
+        var canon = new Dictionary<string, object?>(block);
+        canon.Remove("signature");
+        byte[] h = SHA256.HashData(
+            Encoding.UTF8.GetBytes(CanonicalJson.CanonicalDict(canon)));
+        return "sha256sig:" + Convert.ToHexString(h).ToLowerInvariant();
+    }
 
     public static Dictionary<string, object?> Check(
         string toolRoot, string bundleDir)

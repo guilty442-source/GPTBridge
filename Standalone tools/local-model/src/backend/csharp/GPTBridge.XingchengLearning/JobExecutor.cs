@@ -119,6 +119,14 @@ internal sealed class TrainingJobExecutor
             throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
                 $"unknown training_kind: {kind}");
         cfg["training_kind"] = kind;
+        // Capability-training freeze — a formal training kind is a
+        // frozen operation while the freeze holds; probes/benchmarks
+        // never flow through this executor. SINGLE_CAPABILITY_RECOVERY
+        // narrows the freeze to exactly one declared-capability SFT job.
+        cfg["capability"] =
+            TransformerTrainingRepository.Str(cfg, "capability") ?? "";
+        CapabilityFreeze.GuardJob(kind, (string)cfg["capability"]!,
+                                  SelfLearningPolicy.Load(_toolRoot));
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
         if (initRaw != null && initRaw.ToString() is { Length: > 0 } initStr)
@@ -783,6 +791,17 @@ internal sealed class TrainingJobExecutor
 
     public Dictionary<string, object?> RunJob(string jobId)
     {
+        // Capability-training freeze: every queued job here mutates model
+        // weights, so the stage is sealed while frozen. Queueing /
+        // dataset registration stay open — only execution is gated.
+        // SINGLE_CAPABILITY_RECOVERY opens the queue for jobs whose
+        // declared capability matches active_capability; GuardJob in
+        // NormalizeConfiguration denies everything else.
+        var freezePolicy = SelfLearningPolicy.Load(_toolRoot);
+        if (freezePolicy.CapabilityTrainingFrozen &&
+            !CapabilityFreeze.RecoveryLaneOpen(freezePolicy))
+            throw new ExecutorError("EXECUTOR_TRAINING_FROZEN",
+                $"capability training is frozen; job {jobId} stays queued");
         var row = _repo.JobRow(jobId)
             ?? throw new ExecutorError("EXECUTOR_JOB_MISSING",
                 $"job {jobId} does not exist");
@@ -797,6 +816,28 @@ internal sealed class TrainingJobExecutor
             configuration = NormalizeConfiguration(row);
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
+            // Recovery lane defense-in-depth: under
+            // SINGLE_CAPABILITY_RECOVERY every document carrying a
+            // capability tag must name the active capability — a mixed
+            // dataset is a multi-capability job and is denied.
+            {
+                var pol = SelfLearningPolicy.Load(_toolRoot);
+                if (CapabilityFreeze.RecoveryLaneOpen(pol))
+                {
+                    foreach (var d in trainDocs.Concat(valDocs))
+                    {
+                        string? dc = TransformerTrainingRepository
+                            .Str(d, "capability");
+                        if (dc != null && dc.Length > 0 &&
+                            !string.Equals(dc, pol.ActiveCapability,
+                                           StringComparison.OrdinalIgnoreCase))
+                            throw new ExecutorError(
+                                "MULTI_CAPABILITY_TRAINING_DENIED",
+                                $"dataset document carries capability " +
+                                $"'{dc}', not '{pol.ActiveCapability}'");
+                    }
+                }
+            }
 
             var (lc, lcDir) = LifecycleOf((string)configuration["model_id"]!);
             lifecycle = lc;

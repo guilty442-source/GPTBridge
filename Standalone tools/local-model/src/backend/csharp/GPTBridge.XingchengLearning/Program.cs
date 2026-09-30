@@ -284,6 +284,37 @@ internal static class Program
             // training, supported axes). star-convergence-checks/v1.
             if (flags.Contains("converge-check"))
                 return Emit(ConvergenceChecks.Run(toolRoot));
+            // ---- single-capability recovery lane
+            //      (star-single-capability-recovery/v1): armed by policy
+            //      capability_training_mode=SINGLE_CAPABILITY_RECOVERY +
+            //      active_capability; every stage is fail-closed.
+            if (flags.Contains("recovery-dataset-build"))
+            {
+                if (opts.TryGetValue("capability", out string? rcp) &&
+                    rcp.Length > 0)
+                    InstructionRecovery.Capability = rcp;
+                return Emit(InstructionRecovery.BuildDataset(
+                    opts.TryGetValue("out", out string? rdo)
+                        ? rdo : "",
+                    opts.TryGetValue("count", out string? rc) &&
+                        int.TryParse(rc, out int rcv) ? rcv : 2800,
+                    opts.TryGetValue("seed", out string? rsd) &&
+                        int.TryParse(rsd, out int rsv) ? rsv : 42));
+            }
+            if (flags.Contains("recovery-eval"))
+                return Emit(InstructionRecovery.EvalBundle(
+                    toolRoot,
+                    opts.TryGetValue("bundle", out string? reb)
+                        ? reb : "",
+                    opts.TryGetValue("suite", out string? res)
+                        ? res : "",
+                    opts.TryGetValue("out", out string? reo)
+                        ? reo : null));
+            if (flags.Contains("recovery-run"))
+                return Emit(InstructionRecovery.Run(
+                    toolRoot,
+                    opts.TryGetValue("plan", out string? rpp)
+                        ? rpp : ""));
             // ---- XingchengConvergenceGate: the single release gate.
             // Ordered steps; any critical FAIL -> PROMOTION_BLOCKED.
             if (flags.Contains("release-gate"))
@@ -577,6 +608,61 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? ck)
                             ? ck : "", "ACTIVE_PARAMS_MISSING")));
+            // ---- NativeTrainingAccelerationPlane (§0-§74) — the KPI
+            //      is TIME_TO_QUALIFIED_MODEL, not step/s.
+            if (flags.Contains("training-telemetry-validate"))
+                return Emit(TrainingAcceleration.ValidateTelemetry(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ttv)
+                            ? ttv : "", "TELEMETRY_INCOMPLETE")));
+            if (flags.Contains("bottleneck-classify"))
+                return Emit(TrainingAcceleration.BottleneckClassify(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? bc)
+                            ? bc : "", "TELEMETRY_INCOMPLETE")));
+            if (flags.Contains("eval-tier-policy"))
+                return Emit(TrainingAcceleration.EvalTiers(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? etp)
+                            ? etp : "", "EVAL_TIERS_INVALID")));
+            if (flags.Contains("training-pilot"))
+                return Emit(TrainingAcceleration.PilotLadder(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tp)
+                            ? tp : "", "PILOT_INVALID")));
+            if (flags.Contains("training-batch-plan"))
+                return Emit(TrainingAcceleration.BatchPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tbp)
+                            ? tbp : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("sequence-buckets"))
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = true,
+                    ["format"] = "star-sequence-buckets/v1",
+                    ["buckets"] = TrainingAcceleration.SeqBuckets
+                        .Cast<object?>().ToList(),
+                    ["rule"] = "same bucket = same tensor shape = " +
+                               "CUDA-graphable (§7/§31-§32)",
+                });
+            if (flags.Contains("training-precision-policy"))
+                return Emit(TrainingAcceleration.PrecisionPolicy());
+            if (flags.Contains("distill-artifact-validate"))
+                return Emit(TrainingAcceleration
+                    .ValidateDistillArtifact(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dav)
+                            ? dav : "", "DISTILL_ARTIFACT_INVALID")));
+            if (flags.Contains("time-to-quality"))
+                return Emit(TrainingAcceleration.TimeToQuality(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? t2q)
+                            ? t2q : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("speed-gate"))
+                return Emit(TrainingAcceleration.SpeedGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? sg)
+                            ? sg : "", "TRAINING_STAGE_INVALID")));
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
             if (flags.Contains("maturity-checks"))
                 return Emit(MaturityChecks.Run(toolRoot));
@@ -1244,7 +1330,11 @@ internal static class Program
             "--freeze-map-validate --file <f.json> | " +
             "--param-efficiency --file <f.json> | " +
             "--lifetime-plan --file <f.json> | --silicon-checks | " +
-            "--capacity-checks)");
+            "--capacity-checks | " +
+            "--recovery-dataset-build --out <dir> [--count N] " +
+            "[--seed N] [--capability <id>] | " +
+            "--recovery-eval --bundle <dir> --suite <file> " +
+            "[--out <file>] | --recovery-run --plan <plan.json>)");
         return 2;
     }
 
@@ -1556,6 +1646,11 @@ internal static class Program
             configuration: new Dictionary<string, object?>
             {
                 ["training_kind"] = "sft",
+                // §0 recovery lane: under SINGLE_CAPABILITY_RECOVERY a
+                // governed-chain job must declare the active capability
+                // — an unlabeled sft job is denied by GuardJob.
+                ["capability"] = SelfLearningPolicy.Load(toolRoot)
+                    .ActiveCapability,
                 ["tokenizer_dir"] =
                     "runtime/tokenizers/xingcheng-bpe-8k-20260919-120054",
                 ["model_id"] = "xingcheng-selftest",
