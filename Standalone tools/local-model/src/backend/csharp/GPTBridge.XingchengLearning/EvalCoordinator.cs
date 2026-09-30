@@ -20,7 +20,13 @@ internal static class EvalCoordinator
           "recurrent-state", "long-context", "tool-decision",
           "structured-output", "citation", "rag", "agent", "coding",
           "fim", "vision", "moe-routing", "generation-migration",
-          "bundle-provenance" };
+          "bundle-provenance",
+          // creative regression plane (§26) — eval-only while
+          // capability training is frozen.
+          "creative-writing", "roleplay", "story-continuation",
+          "character-dialogue", "style-transfer", "brainstorm",
+          "world-building", "long-form-continuity",
+          "refusal-quality", "zh-tw-naturalness" };
 
     private static readonly string[] ResultRequired =
         { "suite", "case", "generation", "bundle", "pass", "metric",
