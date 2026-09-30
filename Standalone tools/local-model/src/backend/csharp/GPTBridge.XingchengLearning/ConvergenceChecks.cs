@@ -352,7 +352,8 @@ internal static class ConvergenceChecks
                             continue;
                         bool declares = false;
                         foreach (string k in new[]
-                                 { "mtp_num_layers", "mtp_depth" })
+                                 { "num_nextn_predict_layers",
+                                   "mtp_stack_depth" })
                             if (cfg.TryGetProperty(k, out var v) &&
                                 v.ValueKind == JsonValueKind.Number &&
                                 v.GetInt64() > 0)
