@@ -829,6 +829,12 @@ std::string bundle_to_xct(const std::string& b, bool g4 = false) {
                        : m[2].str() == "up" ? "w3" : "w2";
         return base + m[1].str() + "." + w;
     }
+    // §22 MTP import: model.mtp.<name>.weight round-trips back to the
+    // trainer's mtp.<name> namespace so checkpoint→bundle→params stays
+    // lossless for the speculative head.
+    if (std::regex_match(b, m,
+            std::regex(R"(^model\.mtp\.([A-Za-z0-9_.]+)\.weight$)")))
+        return "mtp." + m[1].str();
     if (b == "vision.patch_proj.weight") return "vision.patch_proj";
     return "";
 }
@@ -1706,13 +1712,12 @@ int mode_export_bundle(const Args& a) {
     std::vector<std::pair<std::string, std::string>> pairs;
     pairs.reserve(p.order.size());
     for (const auto& n : p.order) {
-        // MTP (next-n predict / mtp-stack) tensors are training-time
-        // auxiliary heads; the serving contract drops them like
-        // DeepSeek-style MTP checkpoints.
-        if (n.compare(0, 4, "mtp.") == 0) continue;
+        // §22 MTP export: mtp.* tensors are part of the XCN10 contract
+        // and ride the bundle under model.mtp.* — the old DeepSeek-style
+        // discard is retired so a runtime drafter can bind the head.
         // aux-free lb_bias is a routing-time buffer updated by the sign
         // rule (never by the optimizer); the serving engine has no
-        // lb_bias consumer, so it is dropped like the MTP heads.
+        // lb_bias consumer, so it stays out of bundles.
         if (n.size() >= 7 &&
             n.compare(n.size() - 7, 7, "lb_bias") == 0) continue;
         std::string b = xct_to_bundle(n, c.is_gemma4());
