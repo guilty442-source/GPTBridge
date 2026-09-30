@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -47,6 +47,12 @@
 //   and the forward recurrent state (deltanet/conv). --inputcheck proves
 //   the lookup rows are bitwise, the rope score field is relative, and
 //   reordered inputs change the outputs.
+//
+// MoE mixing (dense/sparse contract): each FFN layer is either dense
+//   (one shared SwiGLU) or sparse (token-choice top-K router over E
+//   experts plus always-on shared experts) by moe_layer_interval.
+//   --mixcheck proves topology split, top-K routing, renormalized expert
+//   mixing, unrouted-expert isolation and per-token choice executably.
 //
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
@@ -109,6 +115,7 @@ namespace xct {
 #include "xct_job.h"
 #include "xct_depth.h"
 #include "xct_pos.h"
+#include "xct_mix.h"
 
 } // namespace xct
 
@@ -127,10 +134,11 @@ int main(int argc, char** argv) {
         else if (a == "--depthcheck") return xct::depthcheck();
         else if (a == "--poscheck") return xct::poscheck();
         else if (a == "--inputcheck") return xct::inputcheck();
+        else if (a == "--mixcheck") return xct::mixcheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck\n");
         return 2;
     }
     try {
