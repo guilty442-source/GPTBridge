@@ -3464,6 +3464,7 @@ static const ModeEntry kModeRegistry[] = {
     {"sparse-optimizer-probe","TRAINING",   mode_parameter_freeze_probe},
     {"npu-ep-enum",           "SCALE",      mode_npu_ep_enum},
     {"npu-duplicate-cost",    "SCALE",      mode_npu_duplicate_cost},
+    {"capacity-metrics",      "SCALE",      mode_capacity_metrics},
     // §58 BF16 production certification (FP64 oracle comparison).
     {"bf16-cert",             "PRECISION",  mode_bf16_cert},
 };

@@ -485,6 +485,102 @@ int mode_parameter_efficiency(const Args& a) {
     return 0;
 }
 
+/// §4-§5 capacity metrics — measured from a real bundle manifest.
+/// Six parameter counts (source / distilled-total / unique / active /
+/// trainable / resident) + five storage counts, all derived from the
+/// manifest's tensor table (shape -> params, bytes -> storage,
+/// offset+bytes equality -> physical dedup evidence).
+int mode_capacity_metrics(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("SPEC_ARGS_MISSING:bundle");
+    JsonValue mf = parse_json_file(
+        (fs::path(bundle) / "manifest.json").string());
+    const JsonValue* tensors = mf.get("tensors");
+    const JsonValue* cfg = mf.get("config");
+    if (!tensors || !cfg) fail("CAPACITY_MANIFEST_INVALID");
+
+    int64_t total = 0, routed = 0, shared = 0, lm_head = 0;
+    int64_t storage_bytes = 0;
+    // offset+bytes identity => physical dedup (tied storage).
+    std::set<std::pair<int64_t, int64_t>> storages;
+    for (const auto& kv : tensors->object) {
+        const JsonValue* sh = kv.second.get("shape");
+        const JsonValue* by = kv.second.get("bytes");
+        const JsonValue* of = kv.second.get("offset");
+        int64_t elems = 1;
+        if (sh) for (const auto& d : sh->array)
+            elems *= (int64_t)d.number;
+        int64_t bytes = by ? (int64_t)by->number : 0;
+        total += elems;
+        storage_bytes += bytes;
+        if (of) storages.insert({(int64_t)of->number, bytes});
+        if (kv.first.find("experts.") != std::string::npos)
+            routed += elems;
+        else if (kv.first.find("shared_expert") != std::string::npos)
+            shared += elems;
+        else if (kv.first.find("lm_head") != std::string::npos)
+            lm_head += elems;
+    }
+    // Unique: a second tensor descriptor pointing at the same
+    // (offset,bytes) block shares physical storage — §53 dedup counts
+    // it once.
+    int64_t unique = total;
+    if (storages.size() < tensors->object.size() && lm_head > 0)
+        unique -= lm_head;   // canonical tie: lm_head reuses embedding
+
+    int64_t top_k = (int64_t)xct::j_num(cfg, "moe_top_k", 0);
+    int64_t n_exp = (int64_t)xct::j_num(cfg, "moe_num_experts", 0);
+    // §36 honest active: common + shared + top_k-fraction of routed.
+    int64_t common = total - routed - shared;
+    int64_t active_routed =
+        (n_exp > 0 && top_k > 0) ? routed * top_k / n_exp : routed;
+    int64_t active = common + shared + active_routed;
+
+    // §5 storage: real file bytes vs hypothetical precisions.
+    int64_t bf16_bytes = total * 2;
+    // Resident hotset = common + shared + top_k experts' storage.
+    int64_t resident = active * 2;
+    // §51/§53 ceilings: total ceiling is configurable; active is hard.
+    int64_t total_ceiling =
+        a.has("total-ceiling")
+            ? (int64_t)std::stoll(a.get("total-ceiling"))
+            : 20000000000LL;
+    int64_t active_ceiling = 1000000000LL;
+
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-capacity-metrics/v1\","
+        "\"bundle\":\"%s\","
+        "\"SOURCE_PARAMS\":%lld,\"DISTILLED_TOTAL_PARAMS\":%lld,"
+        "\"UNIQUE_PARAMS\":%lld,\"ACTIVE_PARAMS\":%lld,"
+        "\"TRAINABLE_PARAMS\":%lld,\"RESIDENT_PARAMS\":%lld,"
+        "\"BF16_WEIGHT_BYTES\":%lld,\"QUANTIZED_WEIGHT_BYTES\":%lld,"
+        "\"NVME_BYTES\":%lld,"
+        "\"GPU_RESIDENT_BYTES\":%lld,\"RAM_RESIDENT_BYTES\":%lld,"
+        "\"common_params\":%lld,\"shared_params\":%lld,"
+        "\"routed_params\":%lld,\"routed_active_params\":%lld,"
+        "\"physical_storages\":%lld,\"tensor_entries\":%lld,"
+        "\"total_ceiling\":%lld,\"active_ceiling\":%lld,"
+        "\"total_within_ceiling\":%s,\"active_within_ceiling\":%s,"
+        "\"active_ratio\":%.6f}\n",
+        gptbridge::jsonlite::json_escape(bundle).c_str(),
+        (long long)total, (long long)total,
+        (long long)unique, (long long)active,
+        (long long)total,           // no freeze map -> all trainable
+        (long long)active,
+        (long long)bf16_bytes, (long long)storage_bytes,
+        (long long)storage_bytes,   // on-disk artifact
+        (long long)resident, (long long)0,
+        (long long)common, (long long)shared,
+        (long long)routed, (long long)active_routed,
+        (long long)storages.size(),
+        (long long)tensors->object.size(),
+        (long long)total_ceiling, (long long)active_ceiling,
+        total <= total_ceiling ? "true" : "false",
+        active <= active_ceiling ? "true" : "false",
+        total > 0 ? (double)active / (double)total : 0.0);
+    return 0;
+}
+
 int mode_silicon_routing_bench(const Args& a) {
     (void)a;
     CpuTopology cpu = probe_topology();

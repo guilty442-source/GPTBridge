@@ -589,9 +589,13 @@ internal static class ConvergenceGate
             "GPTBridge.XingchengLearning.csproj");
         if (!File.Exists(proj))
             return Fail("GATE_STEP_FAILED", "csproj missing");
+        // /nr:false + /m:1 + UseSharedCompilation=false: the release
+        // gate must never hang on the shared MSBuild node / VBCS
+        // server — those are shared with every other build on the
+        // host and can stall indefinitely under contention.
         return Shell("dotnet",
-            "build -c Release --nologo --no-restore /nr:false \"" +
-            proj + "\"",
+            "build -c Release --nologo --no-restore /nr:false /m:1 " +
+            "/p:UseSharedCompilation=false \"" + proj + "\"",
             toolRoot, 1200);
     }
 

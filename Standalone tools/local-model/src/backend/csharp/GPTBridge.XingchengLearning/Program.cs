@@ -521,6 +521,114 @@ internal static class Program
                             ? tbg : "", "SCALE_TIER_INVALID")));
             if (flags.Contains("thinking-levels"))
                 return Emit(ProductScale.ThinkingContract());
+            // ---- capacity & active-parameter formal spec
+            //      (capacity directive §0-§57)
+            if (flags.Contains("capacity-checks"))
+                return Emit(CapacityChecks.Run(toolRoot));
+            if (flags.Contains("capacity-ceiling"))
+                return Emit(CapacityPlane.CeilingReport(
+                    opts.TryGetValue("total-ceiling", out string? tc)
+                        ? long.Parse(tc, CultureInfo.InvariantCulture)
+                        : CapacityPlane.DefaultTotalCeiling));
+            if (flags.Contains("common-floor-gate"))
+                return Emit(CapacityPlane.CommonFloorGate(
+                    long.Parse(opts.TryGetValue("common", out string? cc)
+                                   ? cc : "0",
+                               CultureInfo.InvariantCulture),
+                    long.Parse(opts.TryGetValue("shared", out string? csh)
+                                   ? csh : "0",
+                               CultureInfo.InvariantCulture)));
+            if (flags.Contains("capacity-validate"))
+                return Emit(CapacityPlane.ValidateMetrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cv)
+                            ? cv : "", "ACTIVE_PARAMS_MISSING")));
+            if (flags.Contains("effective-compute"))
+                return Emit(CapacityPlane.EffectiveCompute(
+                    ToolContracts.ReadJsonLong(
+                        opts.TryGetValue("file", out string? ec)
+                            ? ec : "", "effective-compute",
+                        "active_params"),
+                    ToolContracts.ReadJsonLong(
+                        opts.TryGetValue("file", out string? ec2)
+                            ? ec2 : "", "effective-compute",
+                        "executed_tokens"),
+                    ToolContracts.ReadJsonLong(
+                        opts.TryGetValue("file", out string? ec3)
+                            ? ec3 : "", "effective-compute",
+                        "executed_layers", 1),
+                    ToolContracts.ReadJsonLong(
+                        opts.TryGetValue("file", out string? ec4)
+                            ? ec4 : "", "effective-compute",
+                        "total_layers", 1),
+                    ToolContracts.ReadJsonLong(
+                        opts.TryGetValue("file", out string? ec5)
+                            ? ec5 : "", "effective-compute",
+                        "expert_transfer_bytes", 0),
+                    ToolContracts.ReadJsonLong(
+                        opts.TryGetValue("file", out string? ec6)
+                            ? ec6 : "", "effective-compute",
+                        "mtp_verified_tokens", 0)));
+            if (flags.Contains("distillation-contract"))
+                return Emit(CapacityPlane.DistillationContract());
+            if (flags.Contains("reasoning-compression"))
+            {
+                var rc = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? rcf)
+                        ? rcf : "", "THINKING_COMPRESSION_REGRESSION");
+                return Emit(CapacityPlane.ReasoningCompression(
+                    Num(rc, "teacher_reasoning_tokens"),
+                    Num(rc, "student_reasoning_tokens"),
+                    NumF(rc, "teacher_score"),
+                    NumF(rc, "student_score")));
+            }
+            if (flags.Contains("quantization-validate"))
+            {
+                var qv = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? qvf)
+                        ? qvf : "", "QUANTIZATION_REGRESSION");
+                return Emit(CapacityPlane.ValidatePrecision(
+                    Str(qv, "component"), Str(qv, "precision"),
+                    qv.TryGetProperty("certified", out var qc) &&
+                        qc.ValueKind == JsonValueKind.True));
+            }
+            if (flags.Contains("expert-lifecycle-gate"))
+            {
+                var el = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? elf)
+                        ? elf : "", "EXPERT_PRUNING_REGRESSION");
+                return Emit(CapacityPlane.ExpertLifecycle(
+                    (int)Num(el, "expert_id"),
+                    NumF(el, "weight_similarity"),
+                    NumF(el, "utilization"),
+                    NumF(el, "capability_contribution"),
+                    el.TryGetProperty("replaceable", out var rpl) &&
+                        rpl.ValueKind == JsonValueKind.True,
+                    el.TryGetProperty("capability_gate_passed",
+                                      out var cgp) &&
+                        cgp.ValueKind == JsonValueKind.True));
+            }
+            if (flags.Contains("promotion-gate"))
+            {
+                var pg = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? pgf)
+                        ? pgf : "", "PROMOTION_BLOCKED");
+                var stages = new Dictionary<string, bool>();
+                foreach (var p in pg.EnumerateObject())
+                    if (p.Value.ValueKind == JsonValueKind.True ||
+                        p.Value.ValueKind == JsonValueKind.False)
+                        stages[p.Name] = p.Value.ValueKind ==
+                            JsonValueKind.True;
+                return Emit(CapacityPlane.PromotionGate(stages));
+            }
+            if (flags.Contains("capacity-kpis"))
+                return Emit(CapacityPlane.KpiReport(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ck)
+                            ? ck : "", "ACTIVE_PARAMS_MISSING")));
+            if (flags.Contains("capacity-metrics"))
+                return Emit(NativePassthrough(
+                    toolRoot, "capacity-metrics", opts));
             // ---- persona / style / steerability (Hermes lessons)
             if (flags.Contains("persona-validate"))
                 return Emit(PersonaRuntime.ValidatePersona(
