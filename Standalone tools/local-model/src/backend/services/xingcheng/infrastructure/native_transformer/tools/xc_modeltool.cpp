@@ -2591,6 +2591,356 @@ int mode_capability(const Args& a) {
     return 0;
 }
 
+// -------------------------------------------------------- mtp-draft-probe --
+// 300M §21-§23: real draft/verify against the exported MTP head. The
+// trainer's mtp_fwd is re-derived here in fp64 against bundle tensors —
+// cin = [rmsnorm(h_t;norm_h) | rmsnorm(e_{t+1};norm_e)] -> w_proj ->
+// norm1 -> full-rope(YaRN) causal attention over the MTP module's own
+// K/V -> wo -> +res -> norm2 -> gated FFN -> +res -> norm_out -> shared
+// lm_head. Greedy argmax verification: a draft is accepted iff it equals
+// the trunk argmax — emitted tokens are identical to plain greedy by
+// construction, so `output_parity` is guaranteed, not claimed.
+// draft_length=1 evidence only: the engine-side NativeMtpDrafter
+// production dispatch remains P8; this mode reports measured acceptance,
+// never a speedup claim.
+
+namespace {
+
+struct MtpDraft {
+    const xingcheng::inference::WeightBundle* b = nullptr;
+    const xingcheng::inference::ModelConfig* c = nullptr;
+    const xingcheng::inference::TensorView* norm_h = nullptr;
+    const xingcheng::inference::TensorView* norm_e = nullptr;
+    const xingcheng::inference::TensorView* w_proj = nullptr;
+    const xingcheng::inference::TensorView* norm1 = nullptr;
+    const xingcheng::inference::TensorView* wq = nullptr;
+    const xingcheng::inference::TensorView* wk = nullptr;
+    const xingcheng::inference::TensorView* wv = nullptr;
+    const xingcheng::inference::TensorView* wo = nullptr;
+    const xingcheng::inference::TensorView* norm2 = nullptr;
+    const xingcheng::inference::TensorView* w1 = nullptr;
+    const xingcheng::inference::TensorView* w3 = nullptr;
+    const xingcheng::inference::TensorView* w2 = nullptr;
+    const xingcheng::inference::TensorView* norm_out = nullptr;
+    const xingcheng::inference::TensorView* lm_head = nullptr;
+    const xingcheng::inference::TensorView* embed = nullptr;
+    int64_t positions = 0;
+    std::vector<double> kv_k;   // [pos][kvh*hd]
+    std::vector<double> kv_v;   // [pos][kvh*hd]
+
+    bool bind() {
+        static const char* names[][2] = {
+            {"model.mtp.norm_h.weight", "norm_h"},
+            {"model.mtp.norm_e.weight", "norm_e"},
+            {"model.mtp.w_proj.weight", "w_proj"},
+            {"model.mtp.norm1.weight", "norm1"},
+            {"model.mtp.wq.weight", "wq"},
+            {"model.mtp.wk.weight", "wk"},
+            {"model.mtp.wv.weight", "wv"},
+            {"model.mtp.wo.weight", "wo"},
+            {"model.mtp.norm2.weight", "norm2"},
+            {"model.mtp.w1.weight", "w1"},
+            {"model.mtp.w3.weight", "w3"},
+            {"model.mtp.w2.weight", "w2"},
+            {"model.mtp.norm_out.weight", "norm_out"},
+        };
+        const xingcheng::inference::TensorView** dst[] = {
+            &norm_h, &norm_e, &w_proj, &norm1, &wq, &wk, &wv, &wo,
+            &norm2, &w1, &w3, &w2, &norm_out};
+        for (size_t i = 0; i < 13; ++i) {
+            *dst[i] = &b->tensor(names[i][0]);   // throws when absent
+            if ((*dst[i])->data == nullptr || (*dst[i])->size() <= 0)
+                return false;
+        }
+        lm_head = &b->tensor(
+            c->tie_word_embeddings
+                ? "model.embeddings.word_embeddings.weight"
+                : "lm_head.weight");
+        embed = &b->tensor("model.embeddings.word_embeddings.weight");
+        return lm_head->data && embed->data;
+    }
+
+    static void rmsnorm(const double* x, const double* w, double* y,
+                        int64_t n, double eps) {
+        double ss = 0.0;
+        for (int64_t i = 0; i < n; ++i) ss += x[i] * x[i];
+        const double inv = 1.0 / std::sqrt(ss / (double)n + eps);
+        for (int64_t i = 0; i < n; ++i) y[i] = x[i] * w[i] * inv;
+    }
+    static void matvec(const double* W, const double* x, double* y,
+                       int64_t out, int64_t in) {
+        for (int64_t o = 0; o < out; ++o) {
+            const double* r = W + (size_t)o * in;
+            double s = 0.0;
+            for (int64_t i = 0; i < in; ++i) s += r[i] * x[i];
+            y[o] = s;
+        }
+    }
+    static double gate_act(double x, bool gelu) {
+        if (!gelu) return x / (1.0 + std::exp(-x));
+        const double c0 = 0.7978845608028654, c1 = 0.044715;
+        double u = c0 * (x + c1 * x * x * x);
+        return 0.5 * x * (1.0 + std::tanh(u));
+    }
+    // Trainer rope convention for the MTP block: interleaved pairs
+    // (2p, 2p+1) over the FULL head_dim with the YaRN-blended table —
+    // deliberately not the trunk's rotate-half partial rope.
+    void rope_pos(double* v, int64_t nh, int64_t pos) const {
+        const int64_t hd = c->head_dim;
+        const int64_t half = hd / 2;
+        const double theta = c->rope_theta;
+        const bool yarn = c->use_yarn();
+        const double ms = !yarn ? 1.0 :
+            (c->yarn_attention_factor > 0.0
+                 ? c->yarn_attention_factor
+                 : 0.1 * std::log(c->yarn_factor) + 1.0);
+        const double logb = std::log(theta);
+        auto blend = [&](int64_t p) {
+            if (!yarn) return 1.0;
+            auto corr = [&](double beta) {
+                return (double)hd *
+                       std::log((double)c->yarn_original_max_position_embeddings /
+                                (beta * 6.28318530718)) / (2.0 * logb);
+            };
+            double lo = std::max(0.0, std::floor(corr(c->yarn_beta_fast)));
+            double hi = std::min((double)(half - 1),
+                                 std::ceil(corr(c->yarn_beta_slow)));
+            if (hi == lo) hi = lo + 1e-3;
+            double ext = 1.0 - std::min(1.0,
+                std::max(0.0, ((double)p - lo) / (hi - lo)));
+            return ext + (1.0 - ext) / c->yarn_factor;
+        };
+        for (int64_t h = 0; h < nh; ++h) {
+            double* r = v + (size_t)h * hd;
+            for (int64_t p = 0; p < half; ++p) {
+                double fr = std::pow(theta, -2.0 * (double)p / (double)hd)
+                            * blend(p);
+                double co = std::cos((double)pos * fr) * ms;
+                double si = std::sin((double)pos * fr) * ms;
+                double a = r[2 * p], bv = r[2 * p + 1];
+                r[2 * p] = a * co - bv * si;
+                r[2 * p + 1] = a * si + bv * co;
+            }
+        }
+    }
+
+    // z_t = w_proj [rmsnorm(h) | rmsnorm(e_next)] — the shared head of
+    // every MTP position. Returns z; k/v appended separately.
+    std::vector<double> z_of(const double* h_t, const double* e_next) const {
+        const int64_t H = c->hidden_size;
+        std::vector<double> cin((size_t)2 * H);
+        rmsnorm(h_t, norm_h->data, cin.data(), H, c->rms_norm_eps);
+        rmsnorm(e_next, norm_e->data, cin.data() + H, H, c->rms_norm_eps);
+        std::vector<double> z((size_t)H);
+        matvec(w_proj->data, cin.data(), z.data(), H, 2 * H);
+        return z;
+    }
+    // Append position t's K/V (z must already be computed).
+    void kv_append(const std::vector<double>& z, int64_t pos) {
+        const int64_t H = c->hidden_size;
+        const int64_t kvl = c->num_key_value_heads * c->head_dim;
+        std::vector<double> n1((size_t)H);
+        rmsnorm(z.data(), norm1->data, n1.data(), H, c->rms_norm_eps);
+        std::vector<double> k((size_t)kvl), v((size_t)kvl);
+        matvec(wk->data, n1.data(), k.data(), kvl, H);
+        matvec(wv->data, n1.data(), v.data(), kvl, H);
+        rope_pos(k.data(), c->num_key_value_heads, pos);
+        kv_k.insert(kv_k.end(), k.begin(), k.end());
+        kv_v.insert(kv_v.end(), v.begin(), v.end());
+        ++positions;
+    }
+    // Full block at position t over accumulated KV -> draft logits argmax.
+    int64_t draft(const std::vector<double>& z, int64_t pos,
+                  std::vector<double>* logits_out = nullptr) const {
+        const int64_t H = c->hidden_size, hd = c->head_dim;
+        const int64_t nh = c->num_attention_heads;
+        const int64_t kvh = c->num_key_value_heads;
+        const int64_t kvl = kvh * hd, Hq = nh * hd;
+        const int64_t group = nh / kvh;
+        std::vector<double> n1((size_t)H);
+        rmsnorm(z.data(), norm1->data, n1.data(), H, c->rms_norm_eps);
+        std::vector<double> q((size_t)Hq);
+        matvec(wq->data, n1.data(), q.data(), Hq, H);
+        rope_pos(q.data(), nh, pos);
+        const double scale = 1.0 / std::sqrt((double)hd);
+        std::vector<double> attn((size_t)Hq, 0.0);
+        std::vector<double> scores((size_t)positions);
+        for (int64_t h = 0; h < nh; ++h) {
+            const int64_t kh2 = h / group;
+            const double* qr = q.data() + (size_t)h * hd;
+            double mx = -1e300;
+            for (int64_t s = 0; s < positions; ++s) {
+                const double* kr = kv_k.data() + (size_t)s * kvl +
+                                   (size_t)kh2 * hd;
+                double d = 0.0;
+                for (int64_t i = 0; i < hd; ++i) d += qr[i] * kr[i];
+                scores[(size_t)s] = d * scale;
+                mx = std::max(mx, scores[(size_t)s]);
+            }
+            double sum = 0.0;
+            for (int64_t s = 0; s < positions; ++s) {
+                scores[(size_t)s] = std::exp(scores[(size_t)s] - mx);
+                sum += scores[(size_t)s];
+            }
+            double* ao = attn.data() + (size_t)h * hd;
+            for (int64_t s = 0; s < positions; ++s) {
+                const double p = scores[(size_t)s] / sum;
+                const double* vr = kv_v.data() + (size_t)s * kvl +
+                                   (size_t)kh2 * hd;
+                for (int64_t i = 0; i < hd; ++i) ao[i] += p * vr[i];
+            }
+        }
+        std::vector<double> proj((size_t)H);
+        matvec(wo->data, attn.data(), proj.data(), H, Hq);
+        std::vector<double> xres((size_t)H);
+        for (int64_t i = 0; i < H; ++i) xres[(size_t)i] = z[(size_t)i] + proj[(size_t)i];
+        std::vector<double> n2((size_t)H);
+        rmsnorm(xres.data(), norm2->data, n2.data(), H, c->rms_norm_eps);
+        const bool gelu = c->hidden_act == "gelu" ||
+                          c->hidden_act == "geglu" ||
+                          c->hidden_act == "gelu_tanh";
+        std::vector<double> fa((size_t)c->intermediate_size),
+                            fb((size_t)c->intermediate_size),
+                            fh((size_t)c->intermediate_size);
+        matvec(w1->data, n2.data(), fa.data(), c->intermediate_size, H);
+        matvec(w3->data, n2.data(), fb.data(), c->intermediate_size, H);
+        for (size_t i = 0; i < fh.size(); ++i)
+            fh[i] = gate_act(fa[i], gelu) * fb[i];
+        matvec(w2->data, fh.data(), proj.data(), H, c->intermediate_size);
+        for (int64_t i = 0; i < H; ++i) xres[(size_t)i] += proj[(size_t)i];
+        std::vector<double> out((size_t)H);
+        rmsnorm(xres.data(), norm_out->data, out.data(), H,
+                c->rms_norm_eps);
+        std::vector<double> lg((size_t)c->vocab_size);
+        matvec(lm_head->data, out.data(), lg.data(), c->vocab_size, H);
+        int64_t best = 0;
+        for (int64_t i = 1; i < c->vocab_size; ++i)
+            if (lg[(size_t)i] > lg[(size_t)best]) best = i;
+        if (logits_out) *logits_out = std::move(lg);
+        return best;
+    }
+};
+
+}  // namespace
+
+int mode_mtp_draft_probe(const Args& a) {
+    std::string bundle = a.get("bundle");
+    std::string prompt = a.get("prompt");
+    if (bundle.empty() || prompt.empty())
+        fail("SPEC_ARGS_MISSING:bundle,prompt");
+    int64_t max_new = a.has("max-new")
+                          ? std::stoll(a.get("max-new")) : 24;
+    if (max_new < 1 || max_new > 256) fail("SPEC_ARGS_RANGE:max-new");
+
+    NativeInferenceEngine engine;
+    try {
+        engine.load(bundle);
+    } catch (const std::exception& e) {
+        fail(std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + e.what());
+    }
+    MtpDraft mtp;
+    mtp.b = engine.bundle();
+    mtp.c = &mtp.b->config();
+    const auto& c = *mtp.c;
+    bool bound = false;
+    try { bound = mtp.bind(); } catch (...) { bound = false; }
+    if (!bound) fail("MTP_TENSORS_MISSING");
+
+    const int64_t H = c.hidden_size, V = c.vocab_size;
+    std::vector<int64_t> ids = engine.encode(prompt);
+    if (ids.size() < 2) fail("SPEC_PROMPT_TOO_SHORT");
+    if ((int64_t)ids.size() + max_new > c.max_position_embeddings)
+        fail("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+
+    auto embed_row = [&](int64_t id) -> const double* {
+        return mtp.embed->data + (size_t)id * H;
+    };
+    auto lm_logits = [&](const double* hrow) -> std::vector<double> {
+        std::vector<double> lg((size_t)V);
+        MtpDraft::matvec(mtp.lm_head->data, hrow, lg.data(), V, H);
+        return lg;
+    };
+    auto argmax = [](const std::vector<double>& v) {
+        int64_t best = 0;
+        for (size_t i = 1; i < v.size(); ++i)
+            if (v[i] > v[(size_t)best]) best = (int64_t)i;
+        return best;
+    };
+
+    // Prefill: trunk hidden for every prompt position, then MTP K/V for
+    // positions 0..n-2 (their e_{j+1} are known prompt tokens).
+    std::vector<double> hid = engine.forward_all_hidden(ids);
+    for (size_t j = 0; j + 1 < ids.size(); ++j) {
+        std::vector<double> z =
+            mtp.z_of(hid.data() + j * H, embed_row(ids[j + 1]));
+        mtp.kv_append(z, (int64_t)j);
+    }
+
+    int64_t proposed = 0, accepted = 0, emitted = 0;
+    std::vector<int> accept_log;
+    std::vector<int64_t> emitted_ids;
+    std::string turn_tail;
+    while (emitted < max_new) {
+        const int64_t t = (int64_t)ids.size() - 1;
+        const double* h_t = hid.data() + (size_t)t * H;
+        std::vector<double> lg = lm_logits(h_t);
+        const int64_t tok = argmax(lg);
+        // Draft token t+2 from (h_t, e_{t+1}): kv_append then full block.
+        std::vector<double> z = mtp.z_of(h_t, embed_row(tok));
+        mtp.kv_append(z, t);
+        const int64_t draft_tok = mtp.draft(z, t);
+        ids.push_back(tok);
+        emitted_ids.push_back(tok);
+        turn_tail += engine.decode({tok}, false);
+        if (turn_tail.size() > 64)
+            turn_tail.erase(0, turn_tail.size() - 64);
+        ++emitted;
+        if (tok == c.eos_token_id || emitted >= max_new ||
+            (turn_tail.size() >= 7 &&
+             turn_tail.compare(turn_tail.size() - 7, 7, "<|eot|>") == 0))
+            break;
+        // Verify: trunk argmax for position t+2.
+        hid = engine.forward_all_hidden(ids);
+        const int64_t t2 = (int64_t)ids.size() - 1;
+        const int64_t verify =
+            argmax(lm_logits(hid.data() + (size_t)t2 * H));
+        ++proposed;
+        accept_log.push_back(verify == draft_tok ? 1 : 0);
+        if (verify == draft_tok) ++accepted;
+    }
+    engine.unload();
+
+    const double rate =
+        proposed ? (double)accepted / (double)proposed : 0.0;
+    std::ostringstream log_arr;
+    log_arr << '[';
+    for (size_t i = 0; i < accept_log.size(); ++i) {
+        if (i) log_arr << ',';
+        log_arr << accept_log[i];
+    }
+    log_arr << ']';
+    std::printf(
+        "{\"ok\":true,\"mode\":\"mtp-draft-probe\","
+        "\"format\":\"star-mtp-draft-probe/v1\","
+        "\"draft_length\":1,"
+        "\"verify_rule\":\"greedy_argmax\","
+        "\"output_parity\":\"guaranteed_by_verification\","
+        "\"proposed\":%lld,\"accepted\":%lld,"
+        "\"acceptance_rate\":%.6f,"
+        "\"est_tokens_per_forward_bound\":%.6f,"
+        "\"mtp_kv_positions\":%lld,"
+        "\"emitted_tokens\":%lld,"
+        "\"accept_log\":%s,"
+        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE — engine-side "
+        "NativeMtpDrafter dispatch is not bound (P8); SPECULATIVE_"
+        "DECODER_DISABLED remains in effect for production\","
+        "\"speedup\":null}\n",
+        (long long)proposed, (long long)accepted, rate,
+        1.0 + rate, (long long)mtp.positions, (long long)emitted,
+        log_arr.str().c_str());
+    return 0;
+}
+
 // ------------------------------------------------------------------ serve --
 // Long-lived stdin/stdout JSON-lines inference worker. The C# tool host
 // owns the loopback HTTP surface + descriptor; this mode keeps the
@@ -4416,6 +4766,7 @@ const ModeEntry kModeRegistry[] = {
     {"sparse-probe",         "DIAGNOSTIC",  mode_sparse_probe},
     {"kv-gather-probe",      "DIAGNOSTIC",  mode_kv_gather_probe},
     {"spec-probe",           "DIAGNOSTIC",  mode_spec_probe},
+    {"mtp-draft-probe",      "DIAGNOSTIC",  mode_mtp_draft_probe},
     {"hw-caps",              "DIAGNOSTIC",  mode_hw_caps},
 };
 
