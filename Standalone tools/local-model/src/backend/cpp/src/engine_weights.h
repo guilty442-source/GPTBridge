@@ -208,6 +208,37 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("JSON_NUM_EXPECTED:partial_rotary_factor");
         cfg.partial_rotary_factor = v->number;
     }
+    // v29 Qwen3-Coder YaRN fields — optional; absent means plain rope
+    // (use_yarn()==false), so older bundles load unchanged.
+    if (const JsonValue* v = json_optional(config_json, "yarn_factor")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_factor");
+        cfg.yarn_factor = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json,
+                                         "yarn_original_max_position_embeddings")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError(
+                "JSON_INT_EXPECTED:yarn_original_max_position_embeddings");
+        cfg.yarn_original_max_position_embeddings =
+            static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "yarn_beta_fast")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_beta_fast");
+        cfg.yarn_beta_fast = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json, "yarn_beta_slow")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_beta_slow");
+        cfg.yarn_beta_slow = v->number;
+    }
+    if (const JsonValue* v = json_optional(config_json,
+                                         "yarn_attention_factor")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:yarn_attention_factor");
+        cfg.yarn_attention_factor = v->number;
+    }
     for (const auto& field : {
              "linear_num_key_heads", "linear_key_head_dim",
              "linear_num_value_heads", "linear_value_head_dim",
@@ -228,6 +259,55 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             else
                 cfg.linear_conv_kernel_dim = value;
         }
+    }
+    // Fail closed on architecture axes the engine cannot execute: the
+    // trainer serializes Gemma-A4B hybrid-locality fields into XCN5/6
+    // checkpoints (sliding-window local attention, unified K==V, per-axis
+    // rope, post-proj norms, gelu FFN, logit softcap). A manifest that
+    // declares any of them non-default must never be silently run under
+    // dense-layer semantics.
+    for (const auto& field : {
+             "global_attention_interval", "sliding_window_size",
+             "num_global_kv_heads"}) {
+        if (const JsonValue* v = json_optional(config_json, field)) {
+            if (v->type != JsonValue::Type::Number)
+                throw InferenceError(
+                    std::string("JSON_INT_EXPECTED:") + field);
+            if (static_cast<int64_t>(v->number) > 0)
+                throw InferenceError(
+                    std::string("MODEL_AXIS_UNSUPPORTED:") + field);
+        }
+    }
+    for (const auto& field : {
+             "k_eq_v_global", "use_post_attn_norm", "use_post_ffw_norm"}) {
+        if (const JsonValue* v = json_optional(config_json, field)) {
+            if (v->type != JsonValue::Type::Bool)
+                throw InferenceError(
+                    std::string("JSON_BOOL_EXPECTED:") + field);
+            if (v->boolean)
+                throw InferenceError(
+                    std::string("MODEL_AXIS_UNSUPPORTED:") + field);
+        }
+    }
+    for (const auto& field : {
+             "local_rope_proportion", "global_rope_proportion",
+             "local_base_frequency", "global_base_frequency",
+             "final_logit_softcap"}) {
+        if (const JsonValue* v = json_optional(config_json, field)) {
+            if (v->type != JsonValue::Type::Number)
+                throw InferenceError(
+                    std::string("JSON_NUM_EXPECTED:") + field);
+            if (v->number > 0.0)
+                throw InferenceError(
+                    std::string("MODEL_AXIS_UNSUPPORTED:") + field);
+        }
+    }
+    if (const JsonValue* v = json_optional(config_json, "ffn_activation")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError("JSON_STR_EXPECTED:ffn_activation");
+        if (v->string != "silu")
+            throw InferenceError(
+                "MODEL_AXIS_UNSUPPORTED:ffn_activation");
     }
     cfg.quantization = json_string(config_json, "quantization");
     // Gemma4 profile — every field optional; the profile activates

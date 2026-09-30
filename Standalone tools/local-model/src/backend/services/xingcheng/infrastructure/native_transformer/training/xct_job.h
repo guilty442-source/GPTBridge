@@ -103,6 +103,11 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
     float bc1 = 1.0f - std::pow(b1, step + 1),
           bc2 = 1.0f - std::pow(b2, step + 1);
     for (auto& n : p.order) {
+        // DeepSeek aux-free lb_bias is a routing-time buffer updated by
+        // the sign rule (lb_bias_step), never by the optimizer — without
+        // this guard decoupled weight decay would pull it to zero.
+        if (n.size() >= 7 && n.compare(n.size() - 7, 7, "lb_bias") == 0)
+            continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
         tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
@@ -113,6 +118,33 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             w.d[(size_t)i] -=
                 lr_t * (mh / (std::sqrt(vh) + eps) + wd * w.d[(size_t)i]);
         });
+    }
+}
+
+// DeepSeek V3 aux-loss-free load balancing: per-expert bias b_e ranks
+// selection (s+b) while combination weights stay s; after each forward
+// the batch's assignment counts nudge b_e toward under-served experts —
+// b_e += u * sign(mean_load - load_e). Piecewise-constant by design.
+static void lb_bias_step(Params& p, const ModelConfig& c, const Fwd& o) {
+    if (!c.moe_auxfree_balance || c.moe_lb_bias_rate <= 0.0f) return;
+    const float u = c.moe_lb_bias_rate;
+    for (int l = 0; l < c.layers; ++l) {
+        if (!(c.moe_experts > 0 && (l % c.moe_layer_interval == 0)))
+            continue;
+        const LayerCache& L = o.layers[l];
+        const int E = c.moe_experts, K = c.moe_top_k;
+        const size_t slots = L.moe_idx.size();
+        if (!slots) continue;
+        const int T = (int)(slots / K);
+        std::vector<float> cnt((size_t)E, 0.0f);
+        for (int e : L.moe_idx) cnt[(size_t)e] += 1.0f;
+        const float mean = (float)(T * K) / (float)E;
+        Tensor& b = p.w[ln(l, "lb_bias")];
+        for (int e = 0; e < E; ++e) {
+            float err = mean - cnt[(size_t)e];
+            b.d[(size_t)e] += u * (err > 0.0f ? 1.0f : err < 0.0f ? -1.0f
+                                                              : 0.0f);
+        }
     }
 }
 
@@ -213,6 +245,7 @@ static JsonValue run_job(const JsonValue& job) {
                 // policy chosen
                 fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 fwd(p, c, ex.ids, fw);
+                lb_bias_step(p, c, fw);
                 float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
                 Fwd fc; fwd(ref, c, ex.ids, fc);
                 float rp_c = seq_logprob(fc.logits, ex.labels, (int)ex.ids.size(), c.vocab);
@@ -356,20 +389,20 @@ static JsonValue run_job(const JsonValue& job) {
                     vlab.insert(vlab.end(), lab.begin(), lab.end());
                     const int T = ex.vision_patches + (int)ex.ids.size();
                     fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
+                    lb_bias_step(p, c, fw);
                     loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
-                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx;
-                    std::vector<std::vector<float>> dmtp;
-                    loss += mtp_last =
-                        mtp_aux_loss(c, ex.ids, fw, dmtp);
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision, &dmtp);
+                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx
+                           + fw.mtp.loss;
+                    mtp_last = fw.mtp.loss;
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
                 } else {
                     fwd(p, c, ex.ids, fw);
+                    lb_bias_step(p, c, fw);
                     loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx;
-                    std::vector<std::vector<float>> dmtp;
-                    loss += mtp_last =
-                        mtp_aux_loss(c, ex.ids, fw, dmtp);
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
+                           + fw.moe_aux + fw.moe_zloss + fw.csa_idx
+                           + fw.mtp.loss;
+                    mtp_last = fw.mtp.loss;
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f);
                 }
             }
             // grad clip (global norm)
@@ -441,8 +474,8 @@ static JsonValue run_job(const JsonValue& job) {
     // scores track the main attention mass).
     if (c.csa_ratio >= 2 && c.csa_indexer)
         put("csa_idx_last", num(fw.csa_idx));
-    // v29 MTP head observability: weighted aux CE of the last example.
-    if (c.mtp_depth > 0) put("mtp_loss_last", num(mtp_last));
+    // DeepSeek MTP observability: weighted aux CE of the last example.
+    if (c.mtp_num_layers > 0) put("mtp_loss_last", num(mtp_last));
     if (task == "grpo") {
         put("rollouts", num((double)grpo_rollouts));
         const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;
@@ -1476,6 +1509,294 @@ static int gemmacheck() {
 
     bool ok = failures == 0;
     std::printf("gemmacheck: gemma-a4b failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+// -------------------------------------------------------------- dsvcheck --
+//
+// DeepSeek V4-Pro signatures — executable evidence:
+//   MLA: kv latent reconstruction (normed c drives per-head up
+//        projections bitwise), shared decoupled rope key (one w_kr
+//        perturbation moves every head while a per-head w_uk slice
+//        moves only its own), causal + sliding-window masks still hold;
+//   aux-free LB: bias ranks selection (s+b) yet never enters the
+//        weights — flipping a bias re-routes a token while its router
+//        scores stay bitwise identical; the sign rule moves load toward
+//        under-served experts; lb_bias is outside the optimizer;
+//   MTP: depth-1 module predicts ids[i+2] via shared embed/lm_head and
+//        the hidden states — labels, finite logits and gradients on the
+//        shared tensors + a finite-difference sweep over the new
+//        backward paths;
+//   XCN7: checkpoint round-trip preserves the whole axis.
+static int dsvcheck() {
+    int failures = 0;
+    auto fail = [&](const char* what) {
+        ++failures;
+        std::printf("  FAIL %s\n", what);
+    };
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 6;
+    c.heads = 4; c.kv_heads = 2; c.max_pos = 64;
+    // MLA on every attention layer; Gemma local/global split gives
+    // windowed-MLA layers (l0,1,3,4 local / l2,5 global).
+    c.global_attn_interval = 3;
+    c.sliding_window = 4;
+    c.kv_lora_rank = 8;
+    c.q_lora_rank = 8;
+    c.qk_nope_head_dim = 8;
+    c.qk_rope_head_dim = 8;
+    // aux-free balance over the v28 sigmoid router (V3's combo).
+    c.moe_experts = 4; c.moe_top_k = 2; c.moe_layer_interval = 3;
+    c.moe_expert_inter = 24; c.moe_router_sigmoid = true;
+    c.moe_auxfree_balance = true; c.moe_lb_bias_rate = 0.01f;
+    c.mtp_num_layers = 1; c.mtp_loss_weight = 0.3f;
+    Params p;
+    init_params(p, c, 37);
+    std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+    const int T = (int)ids.size();
+    const int H = c.hidden, hd = H / c.heads;
+    const int kn = c.qk_nope_head_dim, kr = c.qk_rope_head_dim;
+    Fwd fw;
+    fwd(p, c, ids, fw);
+
+    // (1) MLA latent + masks
+    for (int l = 0; l < c.layers; ++l) {
+        const LayerCache& L = fw.layers[(size_t)l];
+        if (L.mla_ckv.size() != (size_t)T * c.kv_lora_rank ||
+            L.mla_kn.size() != (size_t)T * c.heads * kn ||
+            L.mla_kr.size() != (size_t)T * kr ||
+            L.mla_cq.size() != (size_t)T * c.q_lora_rank)
+            fail("dsv: mla latent dims");
+        // latent norm identity: rmsnorm(raw) == cached normed
+        {
+            std::vector<float> re((size_t)T * c.kv_lora_rank),
+                rr((size_t)T);
+            rmsnorm_fwd(L.mla_ckv_raw.data(),
+                        p.w.at(ln(l, "norm_kvl")).d.data(), re.data(),
+                        rr.data(), T, c.kv_lora_rank, c.rms_eps);
+            if (std::memcmp(re.data(), L.mla_ckv.data(),
+                            re.size() * sizeof(float)) != 0)
+                fail("dsv: mla latent norm");
+        }
+        // up-projection reconstruction: W_uk @ ckv == kn bitwise
+        {
+            std::vector<float> re((size_t)T * c.heads * kn);
+            linear_fwd(L.mla_ckv.data(), p.w.at(ln(l, "w_uk")), re.data(),
+                       T, c.kv_lora_rank, c.heads * kn);
+            if (std::memcmp(re.data(), L.mla_kn.data(),
+                            re.size() * sizeof(float)) != 0)
+                fail("dsv: mla up-proj");
+        }
+        const int W = c.sliding_window;
+        for (int h = 0; h < c.heads; ++h)
+            for (int t = 0; t < T; ++t) {
+                const float* pr = L.probs.data() + ((size_t)h * T + t) * T;
+                float s = 0.0f;
+                const int lo = c.is_local_attn(l)
+                                   ? std::max(0, t - W + 1) : 0;
+                for (int u = 0; u < T; ++u) {
+                    if ((u < lo || u > t) && pr[u] != 0.0f)
+                        fail("dsv: mla mask leak");
+                    if (u >= lo && u <= t) s += pr[u];
+                }
+                if (std::fabs(s - 1.0f) > 1e-4f)
+                    fail("dsv: mla prob row sum");
+            }
+    }
+    // shared rope key: negating w_kr must move every head's probs;
+    // negating one head's w_uk slice moves only that head.
+    {
+        Params p2 = p;
+        for (auto& x : p2.w[ln(0, "w_kr")].d) x = -x;
+        Fwd f2; fwd(p2, c, ids, f2);
+        const LayerCache& a = fw.layers[0], &b = f2.layers[0];
+        for (int h = 0; h < c.heads; ++h)
+            if (std::memcmp(a.probs.data() + (size_t)h * T * T,
+                            b.probs.data() + (size_t)h * T * T,
+                            (size_t)T * T * sizeof(float)) == 0)
+                fail("dsv: shared rope-k reach");
+        Params p3 = p;
+        Tensor& uk = p3.w[ln(0, "w_uk")];
+        for (int i = 0; i < kn; ++i) uk.d[(size_t)i] = -uk.d[(size_t)i];
+        Fwd f3; fwd(p3, c, ids, f3);
+        const LayerCache& b3 = f3.layers[0];
+        if (std::memcmp(a.probs.data(), b3.probs.data(),
+                        (size_t)T * T * sizeof(float)) == 0)
+            fail("dsv: head0 w_uk slice");
+        for (int h = 1; h < c.heads; ++h)
+            if (std::memcmp(a.probs.data() + (size_t)h * T * T,
+                            b3.probs.data() + (size_t)h * T * T,
+                            (size_t)T * T * sizeof(float)) != 0)
+                fail("dsv: w_uk isolation");
+    }
+
+    // (2) aux-free balance: bias re-routes selection without touching
+    //     router scores or combination weights.
+    {
+        const int ml = 0;                 // l0 is moe (interval 3)
+        const LayerCache& L = fw.layers[ml];
+        const int E = c.moe_experts, K = c.moe_top_k;
+        int victim = -1, rival = -1;
+        for (int e = 0; e < E; ++e) {
+            bool sel = false;
+            for (int s = 0; s < K; ++s)
+                if (L.moe_idx[(size_t)s] == e) sel = true;
+            if (!sel) { victim = e; break; }
+        }
+        for (int e = 0; e < E; ++e)
+            if (e != victim && rival < 0) rival = e;
+        if (victim >= 0) {
+            Params p4 = p;
+            p4.w[ln(ml, "lb_bias")].d[(size_t)victim] = 1e3f;
+            Fwd f4; fwd(p4, c, ids, f4);
+            const LayerCache& L4 = f4.layers[ml];
+            bool routed = false;
+            for (int s = 0; s < K; ++s)
+                if (L4.moe_idx[(size_t)s] == victim) routed = true;
+            if (!routed) fail("dsv: lb bias re-route");
+            if (std::memcmp(L.gate_probs.data(), L4.gate_probs.data(),
+                            L.gate_probs.size() * sizeof(float)) != 0)
+                fail("dsv: lb bias touched scores");
+            if (routed) {
+                float s = 0.0f;
+                for (int k = 0; k < K; ++k) s += L4.moe_w[(size_t)k];
+                if (std::fabs(s - 1.0f) > 1e-4f)
+                    fail("dsv: moe weight renorm");
+            }
+        } else fail("dsv: lb probe degenerate");
+        // sign rule: bias must match u * sign(mean - count)
+        Params p5 = p;
+        lb_bias_step(p5, c, fw);
+        const Tensor& bb = p5.w[ln(ml, "lb_bias")];
+        std::vector<float> cnt((size_t)E, 0.0f);
+        for (int e : L.moe_idx) cnt[(size_t)e] += 1.0f;
+        const float mean = (float)(T * K) / (float)E;
+        for (int e = 0; e < E; ++e) {
+            float err = mean - cnt[(size_t)e];
+            float want = c.moe_lb_bias_rate *
+                         (err > 0.0f ? 1.0f : err < 0.0f ? -1.0f : 0.0f);
+            if (bb.d[(size_t)e] != want)
+                fail("dsv: lb sign rule");
+        }
+        // no aux gradient term under aux-free mode
+        if (fw.moe_aux != 0.0f) fail("dsv: auxfree aux leak");
+    }
+
+    // (3) MTP: labels t+2, finite logits, shared-tensor grads.
+    {
+        const MtpCache& M = fw.mtp;
+        if (!M.on || M.logits.size() != (size_t)T * c.vocab)
+            fail("dsv: mtp shape");
+        for (int i = 0; i < T; ++i) {
+            int want = i + 2 < T ? ids[(size_t)i + 2] : -100;
+            if (M.lab[(size_t)i] != want) fail("dsv: mtp labels");
+        }
+        for (float x : M.logits)
+            if (!std::isfinite(x)) fail("dsv: mtp logits");
+        if (!(M.loss > 0.0f && std::isfinite(M.loss)))
+            fail("dsv: mtp loss");
+        std::vector<int> lab = ids;
+        shift_labels(lab);
+        p.zero_grad();
+        Fwd f0; fwd(p, c, ids, f0);
+        std::vector<float> dl;
+        ce_loss(f0.logits, lab, T, c.vocab, dl);
+        bwd(p, c, ids, f0, dl, 1.0f);
+        auto gnorm = [&](const char* k) {
+            double s = 0.0;
+            for (float x : p.g[k].d) s += (double)x * x;
+            return s;
+        };
+        if (!(gnorm("mtp.w_proj") > 0.0)) fail("dsv: mtp w_proj grad");
+        if (!(gnorm("mtp.norm_h") > 0.0)) fail("dsv: mtp norm_h grad");
+        if (!(gnorm("embed") > 0.0)) fail("dsv: shared embed grad");
+        if (!(gnorm("lm_head") > 0.0)) fail("dsv: shared lm_head grad");
+        // lb_bias is outside the optimizer graph
+        for (int l = 0; l < c.layers; ++l)
+            if (c.moe_experts > 0 && (l % c.moe_layer_interval == 0))
+                if (gnorm(ln(l, "lb_bias").c_str()) != 0.0)
+                    fail("dsv: lb_bias grad leak");
+    }
+
+    // (4) finite-difference sweep over the new backward paths: MLA
+    //     latent chain (both directions), shared rope key, low-rank q,
+    //     MTP block + shared embed. lb_bias skipped — piecewise.
+    {
+        std::vector<int> lab = ids;
+        shift_labels(lab);
+        auto loss_of = [&]() {
+            Fwd f;
+            fwd(p, c, ids, f);
+            std::vector<float> dl;
+            return (double)ce_loss(f.logits, lab, T, c.vocab, dl) +
+                   f.moe_aux + f.mtp.loss;
+        };
+        p.zero_grad();
+        Fwd f0; fwd(p, c, ids, f0);
+        std::vector<float> dl;
+        ce_loss(f0.logits, lab, T, c.vocab, dl);
+        bwd(p, c, ids, f0, dl, 1.0f);
+        const double eps = 4e-3;
+        for (const char* key : {"layers.0.w_dkv", "layers.0.w_uk",
+                                "layers.0.w_kr", "layers.0.w_dq",
+                                "layers.2.norm_kvl", "layers.2.w_uv",
+                                "mtp.w_proj", "mtp.wq", "mtp.norm_h",
+                                "embed", "lm_head"}) {
+            Tensor& w = p.w[key];
+            Tensor& g = p.g[key];
+            size_t stride = w.d.size() > 4 ? w.d.size() / 4 : 1;
+            for (size_t i = 0; i < w.d.size(); i += stride) {
+                float orig = w.d[i];
+                w.d[i] = orig + (float)eps;
+                double lp = loss_of();
+                w.d[i] = orig - (float)eps;
+                double lm = loss_of();
+                w.d[i] = orig;
+                double num = (lp - lm) / (2.0 * eps);
+                double ana = g.d[i];
+                double abs_err = std::fabs(num - ana);
+                double rel = abs_err / std::max(1e-4, std::fabs(num));
+                if (rel > 0.10 && abs_err > 3e-3) {
+                    ++failures;
+                    std::printf("  FAIL fdiff %s[%zu]: ana=%.6f num=%.6f\n",
+                                key, i, ana, num);
+                }
+            }
+        }
+    }
+
+    // (5) XCN7 round-trip: config + every tensor (incl. lb_bias/mtp).
+    {
+        const char* tmp = "_dsvcheck_tmp.xcn";
+        if (!ckpt_save(p, c, tmp, /*overwrite*/true))
+            fail("dsv: ckpt save");
+        ModelConfig c2;
+        if (!ckpt_peek_config(tmp, c2))
+            fail("dsv: ckpt peek");
+        Params p2;
+        init_params(p2, c2, 0);          // tensor table needs the names
+        if (!ckpt_load(p2, c2, tmp))
+            fail("dsv: ckpt load");
+        if (c2.kv_lora_rank != c.kv_lora_rank ||
+            c2.q_lora_rank != c.q_lora_rank ||
+            c2.qk_nope_head_dim != c.qk_nope_head_dim ||
+            c2.qk_rope_head_dim != c.qk_rope_head_dim ||
+            c2.moe_auxfree_balance != c.moe_auxfree_balance ||
+            c2.moe_lb_bias_rate != c.moe_lb_bias_rate ||
+            c2.mtp_num_layers != c.mtp_num_layers ||
+            c2.mtp_loss_weight != c.mtp_loss_weight)
+            fail("dsv: ckpt config");
+        for (auto& n : p.order)
+            if (!p2.w.count(n) ||
+                std::memcmp(p.w[n].d.data(), p2.w[n].d.data(),
+                            p.w[n].d.size() * sizeof(float)) != 0)
+                fail("dsv: ckpt tensor");
+        std::remove(tmp);
+    }
+
+    bool ok = failures == 0;
+    std::printf("dsvcheck: deepseek-v4 failures=%d -> %s\n",
                 failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }

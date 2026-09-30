@@ -187,12 +187,17 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // are deterministic, so a restored cache is bit-identical to recompute.
     // The per-head slice stride matches the KV pool element stride — Gemma4
     // hybrid layers keep a uniform max_head_dim row width.
+    // v27 fused hybrid: linear-attention layers fold context into the
+    // per-slot DeltaNet state (S + conv tail) that a KV-only snapshot
+    // cannot reconstruct — a hit would silently serve wrong-context
+    // outputs, so the cache is bypassed for hybrid bundles entirely.
     const int64_t kv_head_dim =
         cfg.is_gemma4() ? cfg.max_head_dim() : cfg.head_dim;
     const int64_t kv_dim = cfg.num_key_value_heads * kv_head_dim;
+    const bool prefix_ok = !cfg.has_linear_layers();
     int64_t prefix_len = 0;
     size_t hit_index = prefix_cache_.size();
-    for (size_t i = 0; i < prefix_cache_.size(); ++i) {
+    for (size_t i = 0; prefix_ok && i < prefix_cache_.size(); ++i) {
         const PrefixEntry& entry = prefix_cache_[i];
         const int64_t len = static_cast<int64_t>(entry.tokens.size());
         if (len > 0 && len <= static_cast<int64_t>(prompt_ids.size()) &&
@@ -244,7 +249,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         forward_last_logits(suffix, forward_offset, true);
 
     // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
-    if (prefix_cache_max_entries_ > 0 && kv_lens_[0] > 0) {
+    if (prefix_ok && prefix_cache_max_entries_ > 0 && kv_lens_[0] > 0) {
         const int64_t store_len = kv_lens_[0];
         const int64_t entry_bytes =
             2 * cfg.num_hidden_layers * store_len * kv_dim * 8;
@@ -478,7 +483,15 @@ int64_t NativeInferenceEngine::kv_memory_bytes() const {
 }
 
 int64_t NativeInferenceEngine::memory_bytes() const {
-    return (bundle_ ? bundle_->weights_bytes() : 0) + kv_memory_bytes();
+    int64_t lin_bytes = 0;
+    for (const auto& slot_states : lin_states_) {
+        for (const LinLayerState& st : slot_states) {
+            lin_bytes += static_cast<int64_t>(
+                (st.conv_tail.size() + st.s.size()) * sizeof(double));
+        }
+    }
+    return (bundle_ ? bundle_->weights_bytes() : 0) +
+           kv_memory_bytes() + lin_bytes;
 }
 
 void NativeInferenceEngine::set_kv_memory_limit(int64_t bytes) {

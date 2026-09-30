@@ -127,6 +127,36 @@ struct ModelConfig {
     bool post_attn_norm = false;          // rmsnorm on attn out-proj
     bool post_ffw_norm = false;           // rmsnorm on ffn out-proj
     int ffn_act = 0;                      // 0 = silu, 1 = gelu_tanh
+    // DeepSeek V4-Pro signatures (all default-off; zero/false keeps the
+    // fused behaviour bit-identical):
+    int kv_lora_rank = 0;        // >0: MLA on non-linear attention layers —
+                                 // keys/values flow through a shared latent
+                                 // c = rmsnorm(W_dkv x) [kv_lora_rank] and
+                                 // per-head up-projections; decoupled rope
+                                 // channels ride a shared W_kr head.
+    int q_lora_rank = 0;         // >0: low-rank q (W_dq -> norm -> W_uq);
+                                 // 0 = direct wq projection.
+    int qk_nope_head_dim = 0;    // per-head non-rope q/k dim (V3: 128)
+    int qk_rope_head_dim = 0;    // decoupled rope channels (V3: 64; even)
+    bool moe_auxfree_balance = false;  // V3 aux-loss-free balancing:
+                                 // expert selection ranks s_e + b_e while
+                                 // weights stay s_e; b_e is a non-gradient
+                                 // buffer nudged by sign(mean - load)*u.
+    float moe_lb_bias_rate = 0.0f;     // bias update rate u (V3: ~1e-3)
+    int mtp_num_layers = 0;      // 1: multi-token-prediction module —
+                                 // predicts t+2 from [norm(h_i)|norm(Emb
+                                 // (t+1))] through one decoder block and
+                                 // the shared head; loss weight below.
+    float mtp_loss_weight = 0.0f;      // lambda on the MTP CE (V3: 0.3)
+    // Qwen3-Coder-480B YaRN context extension (default-off): per-channel
+    // blend of raw and factor-interpolated rope inv-freqs (beta_fast /
+    // beta_slow band boundaries) plus attention-factor mscale. Enabled
+    // when yarn_factor > 1 and yarn_orig_pos > 0.
+    float yarn_factor = 0.0f;
+    int yarn_orig_pos = 0;
+    float yarn_beta_fast = 32.0f;
+    float yarn_beta_slow = 1.0f;
+    float yarn_attn_factor = 0.0f;
     // Native vision early-fusion (v1): optional linear patch projection.
     // use_vision=false (default) keeps text-only behaviour bit-identical.
     bool use_vision = false;
@@ -283,6 +313,17 @@ struct ModelConfig {
         }
         return -1;
     }
+    // YaRN axis: blends rope frequencies when a factor and the original
+    // context length are configured (Qwen3-Coder long-context extension).
+    bool use_yarn() const {
+        return yarn_factor > 1.0f && yarn_orig_pos > 0;
+    }
+    // DeepSeek MLA axis (independent of the deltanet/local-global axes):
+    // every non-linear attention layer swaps its kv projections for the
+    // latent path when kv_lora_rank is set.
+    bool is_mla(int l) const {
+        return !is_linear(l) && kv_lora_rank > 0;
+    }
 };
 
 static ModelConfig parse_model(const JsonValue* o) {
@@ -363,6 +404,27 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.post_attn_norm = j_bool(o, "use_post_attn_norm", c.post_attn_norm);
     c.post_ffw_norm = j_bool(o, "use_post_ffw_norm", c.post_ffw_norm);
     if (j_str(o, "ffn_activation", "") == "gelu_tanh") c.ffn_act = 1;
+    // DeepSeek V4-Pro fields (HF deepseek_v3 naming where applicable)
+    c.kv_lora_rank = j_int(o, "kv_lora_rank", c.kv_lora_rank);
+    c.q_lora_rank = j_int(o, "q_lora_rank", c.q_lora_rank);
+    c.qk_nope_head_dim = j_int(o, "qk_nope_head_dim", c.qk_nope_head_dim);
+    c.qk_rope_head_dim = j_int(o, "qk_rope_head_dim", c.qk_rope_head_dim);
+    c.moe_auxfree_balance =
+        j_bool(o, "moe_auxfree_balance", c.moe_auxfree_balance);
+    c.moe_lb_bias_rate =
+        (float)j_num(o, "moe_lb_bias_rate", c.moe_lb_bias_rate);
+    c.mtp_num_layers = j_int(o, "num_nextn_predict_layers",
+                             c.mtp_num_layers);
+    c.mtp_loss_weight =
+        (float)j_num(o, "mtp_loss_weight", c.mtp_loss_weight);
+    // Qwen3-Coder YaRN (rope_scaling.yarn flattened).
+    c.yarn_factor = (float)j_num(o, "yarn_factor", c.yarn_factor);
+    c.yarn_orig_pos = j_int(o, "yarn_original_max_position_embeddings",
+                            c.yarn_orig_pos);
+    c.yarn_beta_fast = (float)j_num(o, "yarn_beta_fast", c.yarn_beta_fast);
+    c.yarn_beta_slow = (float)j_num(o, "yarn_beta_slow", c.yarn_beta_slow);
+    c.yarn_attn_factor =
+        (float)j_num(o, "yarn_attention_factor", c.yarn_attn_factor);
     c.use_vision = j_bool(o, "use_vision", c.use_vision);
     c.vision_patch_dim = j_int(o, "vision_patch_dim", c.vision_patch_dim);
     c.vision_max_patches = j_int(o, "vision_max_patches", c.vision_max_patches);
@@ -438,6 +500,32 @@ static ModelConfig parse_model(const JsonValue* o) {
         throw "model: rope proportion out of (0,1]";
     if (c.final_logit_softcap < 0.0f)
         throw "model: bad final_logit_softcap";
+    // DeepSeek-axis validation (fail-closed). MLA replaces the whole
+    // kv-projection family on its layers, so the alternate attention
+    // knobs that target wq/wk/wv rows are rejected rather than ignored.
+    if (c.kv_lora_rank > 0) {
+        if (c.qk_nope_head_dim <= 0 || c.qk_rope_head_dim <= 0 ||
+            (c.qk_rope_head_dim & 1))
+            throw "model: bad MLA qk head dims";
+        if (c.q_lora_rank < 0)
+            throw "model: bad q_lora_rank";
+        if (c.attn_output_gate || c.qk_norm || c.k_eq_v_global ||
+            c.num_global_kv_heads > 0)
+            throw "model: MLA conflicts with gate/qk_norm/kv axes";
+    } else if (c.q_lora_rank != 0 || c.qk_nope_head_dim != 0 ||
+               c.qk_rope_head_dim != 0)
+        throw "model: MLA dims need kv_lora_rank";
+    if (c.moe_auxfree_balance && c.moe_lb_bias_rate < 0.0f)
+        throw "model: bad moe_lb_bias_rate";
+    if (c.mtp_num_layers < 0 || c.mtp_num_layers > 1)
+        throw "model: mtp_num_layers >1 not supported";
+    if (c.mtp_num_layers > 0 && c.mtp_loss_weight <= 0.0f)
+        throw "model: mtp needs mtp_loss_weight";
+    if (c.yarn_factor > 1.0f && c.yarn_orig_pos <= 0)
+        throw "model: yarn needs yarn_original_max_position_embeddings";
+    if (c.use_yarn() &&
+        (c.yarn_beta_slow <= 0.0f || c.yarn_beta_fast <= c.yarn_beta_slow))
+        throw "model: bad yarn beta band";
     return c;
 }
 
@@ -571,6 +659,34 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
             auto& gn = p.add(b + "norm", {vd});
             std::fill(gn.d.begin(), gn.d.end(), 1.0f);
             fill(p.add(b + "out_proj", {c.hidden, val_dim}));
+        } else if (c.is_mla(l)) {
+            // DeepSeek MLA: kv latent w_dkv -> rmsnorm -> per-head
+            // up-projections (w_uk nope keys, w_uv values); decoupled
+            // shared rope key w_kr; q either direct or low-rank.
+            const int kn = c.qk_nope_head_dim, kr = c.qk_rope_head_dim;
+            const int rank = c.kv_lora_rank, qr = c.q_lora_rank;
+            const std::string b = ln(l, "");
+            fill(p.add(b + "w_dkv", {rank, c.hidden}));
+            auto& nk = p.add(b + "norm_kvl", {rank});
+            std::fill(nk.d.begin(), nk.d.end(), 1.0f);
+            fill(p.add(b + "w_uk", {(int64_t)c.heads * kn, rank}));
+            fill(p.add(b + "w_uv", {(int64_t)c.heads * hd, rank}));
+            fill(p.add(b + "w_kr", {kr, c.hidden}));
+            if (qr > 0) {
+                fill(p.add(b + "w_dq", {qr, c.hidden}));
+                auto& nq = p.add(b + "norm_ql", {qr});
+                std::fill(nq.d.begin(), nq.d.end(), 1.0f);
+                fill(p.add(b + "w_uq",
+                           {(int64_t)c.heads * (kn + kr), qr}));
+            } else {
+                fill(p.add(b + "wq",
+                           {(int64_t)c.heads * (kn + kr), c.hidden}));
+            }
+            fill(p.add(b + "wo", {c.hidden, (int64_t)c.heads * hd}));
+            if (c.post_attn_norm) {
+                auto& pn = p.add(ln(l, "norm_attn_out"), {c.hidden});
+                std::fill(pn.d.begin(), pn.d.end(), 1.0f);
+            }
         } else {
             // attn_output_gate: q_proj rows are per-head [q|gate] pairs
             // (HF Qwen3NextAttention layout — verbatim transplantable).
@@ -638,6 +754,12 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
             }
             if (c.shared_expert_gate && c.moe_shared_experts > 0)
                 fill(p.add(ln(l, "shared_gate"), {1, c.hidden}));
+            if (c.moe_auxfree_balance) {
+                // DeepSeek aux-free balance bias: routing-time additive
+                // term only — zero-initialised, updated by the sign rule
+                // (never by the optimizer; see adamw_step's skip).
+                p.add(ln(l, "lb_bias"), {c.moe_experts});
+            }
         } else {
             fill(p.add(ln(l, "w1"), {c.inter, c.hidden}));
             fill(p.add(ln(l, "w3"), {c.inter, c.hidden}));

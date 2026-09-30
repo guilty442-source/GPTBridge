@@ -5,8 +5,8 @@ open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Text.RegularExpressions
 
-/// 意圖規則判定（純函式）。優先順序與 Python 實作一致——配息/報價優先於
-/// 一般搜尋，避免誤判。fail-closed：空值/超長截斷，不拋例外。
+/// 意圖規則判定（純函式）。優先順序：配息/報價優先於一般搜尋，
+/// 避免誤判。fail-closed：空值/超長截斷，不拋例外。
 module IntentRules =
 
     [<Literal>]

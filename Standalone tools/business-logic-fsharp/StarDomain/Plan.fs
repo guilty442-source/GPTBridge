@@ -3,9 +3,9 @@ namespace StarDomain
 open System
 open System.Collections.Generic
 
-/// 執行計畫規則（純函式）。對應 Python StarNativePlanMixin：意圖 → 工具清單、
-/// 任務強度、grounding 需求、生成提示詞。模型仍由 Python 推論，此處僅產生
-/// 提示詞與工具清單。
+/// 執行計畫規則（純函式）：意圖 → 工具清單、任務強度、grounding
+/// 需求、生成提示詞。推論由 C++23 原生引擎執行，此處僅產生提示詞
+/// 與工具清單（Python 已退役 B166）。
 module PlanRules =
 
     let private toolMap: IReadOnlyDictionary<StarIntent, string[]> =

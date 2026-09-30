@@ -49,35 +49,78 @@ static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
     }
 }
 
+// YaRN per-channel frequency blend (Qwen3-Coder context extension):
+// pair channel i keeps the raw inv-freq below the fast boundary, uses
+// inv_freq/factor above the slow boundary, and ramps linearly between —
+// mirrors HF _compute_yarn_parameters over the rotary dim.
+static float yarn_blend_i(int i, int dim, float theta, float factor,
+                          int orig_pos, float beta_fast, float beta_slow) {
+    const int half = dim / 2;
+    const float logb = std::log(theta);
+    auto corr = [&](float beta) {
+        return dim * std::log((float)orig_pos / (beta * 6.28318530718f)) /
+               (2.0f * logb);
+    };
+    float lo = std::max(0.0f, std::floor(corr(beta_fast)));
+    float hi = std::min((float)(half - 1), std::ceil(corr(beta_slow)));
+    if (hi == lo) hi = lo + 1e-3f;
+    float ext =
+        1.0f - std::min(1.0f, std::max(0.0f, (i - lo) / (hi - lo)));
+    return ext + (1.0f - ext) / factor;
+}
+// YaRN attention-factor mscale applied to the rotated channels.
+static float yarn_mscale(const ModelConfig& c) {
+    if (!c.use_yarn()) return 1.0f;
+    return c.yarn_attn_factor > 0.0f
+               ? c.yarn_attn_factor
+               : 0.1f * std::log(c.yarn_factor) + 1.0f;
+}
+
 // RoPE cos/sin tables: angle(t,i) = t * theta^(-2i/dim) — identical
 // operands to the per-element pow() form, computed once per (T, dim,
-// theta) instead of per element. Table bounded to keep memory sane.
+// theta) instead of per element. With mc->use_yarn() the inv-freqs are
+// per-channel blended and the output scaled by the yarn mscale.
+// Table bounded to keep memory sane.
 struct RopeCs { std::vector<float> c, s; };
-static const RopeCs& rope_cs(int T, int dim, float theta) {
-    static int cT = -1, cd = -1;
-    static float ct = 0.0f;
+static const RopeCs& rope_cs(int T, int dim, float theta,
+                             const ModelConfig* mc) {
+    static int cT = -1, cd = -1, cyo = -1;
+    static float ct = 0.0f, cyf = -1.0f, cybF = 0.0f, cybS = 0.0f,
+                 cyaF = 0.0f;
     static RopeCs tab;
-    if (cT != T || cd != dim || ct != theta) {
+    const float yf = mc ? mc->yarn_factor : 0.0f;
+    const int yo = mc ? mc->yarn_orig_pos : 0;
+    const float ybF = mc ? mc->yarn_beta_fast : 0.0f;
+    const float ybS = mc ? mc->yarn_beta_slow : 0.0f;
+    const float yaF = mc ? mc->yarn_attn_factor : 0.0f;
+    if (cT != T || cd != dim || ct != theta || cyf != yf || cyo != yo ||
+        cybF != ybF || cybS != ybS || cyaF != yaF) {
         const int half = dim / 2;
+        const float ms = mc ? yarn_mscale(*mc) : 1.0f;
+        const bool yarn = mc && mc->use_yarn();
         tab.c.assign((size_t)T * half, 0.0f);
         tab.s.assign((size_t)T * half, 0.0f);
         for (int i = 0; i < half; ++i) {
             float fr = std::pow(theta, -(float)(2 * i) / (float)dim);
+            if (yarn) fr *= yarn_blend_i(i, dim, theta, yf, yo, ybF, ybS);
             for (int t = 0; t < T; ++t) {
-                tab.c[(size_t)t * half + i] = std::cos(t * fr);
-                tab.s[(size_t)t * half + i] = std::sin(t * fr);
+                tab.c[(size_t)t * half + i] = std::cos(t * fr) * ms;
+                tab.s[(size_t)t * half + i] = std::sin(t * fr) * ms;
             }
         }
         cT = T; cd = dim; ct = theta;
+        cyf = yf; cyo = yo; cybF = ybF; cybS = ybS; cyaF = yaF;
     }
     return tab;
 }
 
 // rotary pairs layout (i,i+1); `rotary` bounds the rotated dims —
-// pairs at i >= rotary pass through (partial-RoPE NoPE tail).
+// pairs at i >= rotary pass through (partial-RoPE NoPE tail). `mc`
+// selects the YaRN-blended cos/sin table when configured.
 static void rope_ex(float* v, int T, int nh, int hd, float theta,
-                    int rotary, bool inverse) {
-    const RopeCs& cs = rope_cs(T, hd, theta);
+                    int rotary, bool inverse,
+                    const ModelConfig* mc = nullptr) {
+    const RopeCs& cs = rope_cs(T, hd, theta, mc);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
@@ -93,8 +136,9 @@ static void rope_ex(float* v, int T, int nh, int hd, float theta,
         }
 }
 
-static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
-    rope_ex(v, T, nh, hd, theta, hd, inverse);
+static void rope(float* v, int T, int nh, int hd, float theta, bool inverse,
+                 const ModelConfig* mc = nullptr) {
+    rope_ex(v, T, nh, hd, theta, hd, inverse, mc);
 }
 
 static inline float silu_f(float x) { return x / (1.0f + std::exp(-x)); }
@@ -128,9 +172,10 @@ static inline float gate_act_df(float x, int act) {
 // rotary). rd must be even; channels >= rd pass through. inverse runs the
 // transpose (backward / inverse rotation).
 static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
-                            float theta, bool inverse) {
+                            float theta, bool inverse,
+                            const ModelConfig* mc = nullptr) {
     const int half = rd / 2;
-    const RopeCs& cs = rope_cs(T, rd, theta);
+    const RopeCs& cs = rope_cs(T, rd, theta, mc);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
@@ -287,6 +332,17 @@ struct LayerCache {
     std::vector<float> post_ffn_rms;         // [T]
     std::vector<float> qk_qraw, qk_kraw;     // pre qk_norm q/k (for bwd)
     std::vector<float> qk_qrms, qk_krms;     // per (t,h) rms factors
+    // DeepSeek MLA caches (attention layers when kv_lora_rank > 0)
+    std::vector<float> mla_ckv;              // [T*rank] normed kv latent
+    std::vector<float> mla_ckv_raw;          // [T*rank] pre-norm latent
+    std::vector<float> mla_ckv_rms;          // [T]
+    std::vector<float> mla_cq;               // [T*q_rank] normed q latent
+    std::vector<float> mla_cq_raw;           // [T*q_rank]
+    std::vector<float> mla_cq_rms;           // [T]
+    std::vector<float> mla_qn;               // [T*heads*kn] nope q
+    std::vector<float> mla_qr;               // [T*heads*kr] rope q (post)
+    std::vector<float> mla_kn;               // [T*heads*kn] nope k
+    std::vector<float> mla_kr;               // [T*kr] shared rope k (post)
     // gated deltanet (linear attention) caches
     std::vector<float> lin_conv_in;          // [T*conv_dim] flat q|k|v pre-conv
     std::vector<float> lin_conv_pre;         // [T*conv_dim] pre-SiLU
@@ -348,25 +404,25 @@ struct G4Layer {
     std::vector<float> ple_p, rms_ple;
 };
 
-// v29 MTP module caches (Qwen3.8-Max multi-token prediction). Depth d
-// module reads prev-hidden rows at text positions t and embeds of
-// ids[t+d+1], predicts ids[t+d+2]; rows = PT-2-d (text positions only —
-// vision prefix rows never reach the MTP stack).
+// DeepSeek MTP (depth-1): second-token-ahead prediction through one
+// decoder block over text rows only. Shares embed/lm_head/norm contract
+// with the trunk; patch-prefix rows never enter the MTP sequence.
 struct MtpCache {
-    int rows = 0;
-    std::vector<float> eh_in, ee_in;   // [R,H] pre-norm fusion inputs
-    std::vector<float> eh_rms, ee_rms; // [R]
-    std::vector<float> cat;            // [R,2H] normed concat (proj input)
-    std::vector<float> u;              // [R,H] fusion proj output
-    std::vector<float> n1, rms1;       // block norm1
-    std::vector<float> q, k, v;        // [R,Hq],[R,Hkv],[R,Hkv] post-rope
-    std::vector<float> probs;          // [heads*R*R]
-    std::vector<float> attn_out;       // [R,Hq]
-    std::vector<float> x1;             // [R,H] post-attn residual
-    std::vector<float> n2, rms2, fa, fb, fh;  // block norm2 + SwiGLU
-    std::vector<float> x2;             // [R,H] block output (next-depth in)
-    std::vector<float> hn, hrms;       // norm_o(x2)
-    std::vector<float> logits;         // [R,V] shared lm_head
+    bool on = false;
+    std::vector<int> lab;            // [PT] ids[i+2] else -100
+    std::vector<float> nh_src;       // [PT*H] pre-norm hidden inputs
+    std::vector<float> nh_rms;       // [PT]
+    std::vector<float> ne_src;       // [PT*H] pre-norm embed inputs
+    std::vector<float> ne_rms;       // [PT]
+    std::vector<int> ne_ids;         // [PT] embed row used (ids[i+1]|-1)
+    std::vector<float> cin;          // [PT*2H] normed concat input
+    std::vector<float> z;            // [PT*H] block input (w_proj out)
+    LayerCache lc;                   // block internals (n1..fh)
+    std::vector<float> res2;         // [PT*H] pre-norm_out residual
+    std::vector<float> out;          // [PT*H] norm_out output
+    std::vector<float> out_rms;      // [PT]
+    std::vector<float> logits;       // [PT*V]
+    float loss = 0.0f;               // lambda-weighted CE contribution
 };
 
 struct Fwd {
@@ -383,7 +439,7 @@ struct Fwd {
     float moe_aux = 0.0f;
     float moe_zloss = 0.0f;      // v29 router z-loss (B133)
     float csa_idx = 0.0f;        // CSA2 indexer alignment CE (aux)
-    std::vector<MtpCache> mtp;   // v29 MTP head caches
+    MtpCache mtp;                    // DeepSeek MTP module caches
     // Vision early-fusion: raw prefix patches + count. T (all row counts
     // above) includes these P rows when present; labels carry -100 there.
     std::vector<float> vision_in;  // [P*D]
@@ -394,15 +450,6 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                    const std::vector<int>& ids, Fwd& o);
 static void mtp_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o);
-// mtp_aux_loss/mtp_bwd live in xct_mtp.h (included last); xct_job.h and
-// xct_backward.h call them, so they need forward declarations here.
-static float mtp_aux_loss(const ModelConfig& c, const std::vector<int>& ids,
-                          const Fwd& fw,
-                          std::vector<std::vector<float>>& dmtp);
-static void mtp_bwd(Params& p, const ModelConfig& c,
-                    const std::vector<int>& ids, Fwd& o,
-                    const std::vector<std::vector<float>>& dm,
-                    float* dh_main);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,
@@ -582,6 +629,117 @@ static void fwd(const Params& p, const ModelConfig& c,
             });
             linear_fwd(L.lin_on.data(), p.w.at(lb + "out_proj"),
                        proj.data(), T, val_dim, H);
+        } else if (c.is_mla(l)) {
+            // ----- DeepSeek MLA (multi-head latent attention) -----
+            // kv latent c = rmsnorm(W_dkv x); per-head nope keys and
+            // values up-project from c; a single shared rope key head
+            // carries position. q is direct or itself low-rank.
+            const int kn = c.qk_nope_head_dim, kr = c.qk_rope_head_dim;
+            const int rank = c.kv_lora_rank, qr = c.q_lora_rank;
+            const std::string b = ln(l, "");
+            const int win = c.is_local_attn(l) ? c.sliding_window : 0;
+            L.mla_ckv_raw.resize((size_t)T * rank);
+            linear_fwd(L.n1.data(), p.w.at(b + "w_dkv"),
+                       L.mla_ckv_raw.data(), T, H, rank);
+            L.mla_ckv.resize((size_t)T * rank);
+            L.mla_ckv_rms.resize((size_t)T);
+            rmsnorm_fwd(L.mla_ckv_raw.data(), p.w.at(b + "norm_kvl").d.data(),
+                        L.mla_ckv.data(), L.mla_ckv_rms.data(), T, rank,
+                        c.rms_eps);
+            const int qd = kn + kr;
+            std::vector<float> qf((size_t)T * c.heads * qd);
+            if (qr > 0) {
+                L.mla_cq_raw.resize((size_t)T * qr);
+                linear_fwd(L.n1.data(), p.w.at(b + "w_dq"),
+                           L.mla_cq_raw.data(), T, H, qr);
+                L.mla_cq.resize((size_t)T * qr);
+                L.mla_cq_rms.resize((size_t)T);
+                rmsnorm_fwd(L.mla_cq_raw.data(),
+                            p.w.at(b + "norm_ql").d.data(), L.mla_cq.data(),
+                            L.mla_cq_rms.data(), T, qr, c.rms_eps);
+                linear_fwd(L.mla_cq.data(), p.w.at(b + "w_uq"),
+                           qf.data(), T, qr, c.heads * qd);
+            } else {
+                linear_fwd(L.n1.data(), p.w.at(b + "wq"),
+                           qf.data(), T, H, c.heads * qd);
+            }
+            L.mla_qn.resize((size_t)T * c.heads * kn);
+            L.mla_qr.resize((size_t)T * c.heads * kr);
+            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                for (int64_t h = hb; h < he; ++h)
+                    for (int t = 0; t < T; ++t) {
+                        const float* fr = qf.data() +
+                            ((size_t)t * c.heads + h) * (size_t)qd;
+                        std::copy(fr, fr + kn, L.mla_qn.data() +
+                                  ((size_t)t * c.heads + h) * kn);
+                        std::copy(fr + kn, fr + qd, L.mla_qr.data() +
+                                  ((size_t)t * c.heads + h) * kr);
+                    }
+            });
+            L.mla_kn.resize((size_t)T * c.heads * kn);
+            linear_fwd(L.mla_ckv.data(), p.w.at(b + "w_uk"),
+                       L.mla_kn.data(), T, rank, c.heads * kn);
+            L.v.resize((size_t)T * c.heads * hd);
+            linear_fwd(L.mla_ckv.data(), p.w.at(b + "w_uv"),
+                       L.v.data(), T, rank, c.heads * hd);
+            L.mla_kr.resize((size_t)T * kr);
+            linear_fwd(L.n1.data(), p.w.at(b + "w_kr"),
+                       L.mla_kr.data(), T, H, kr);
+            // decoupled rope: per-head q rope channels + the shared k
+            // rope head rotate at the layer's theta.
+            const float th = c.rope_theta_at(l);
+            rope_hf_partial(L.mla_qr.data(), T, c.heads, kr, kr, th,
+                            false, &c);
+            rope_hf_partial(L.mla_kr.data(), T, 1, kr, kr, th,
+                            false, &c);
+            const float scale = 1.0f / std::sqrt((float)qd);
+            L.probs.assign((size_t)c.heads * T * T, 0.0f);
+            L.attn_out.assign((size_t)T * c.heads * hd, 0.0f);
+            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                for (int64_t h = hb; h < he; ++h)
+                for (int t = 0; t < T; ++t) {
+                    float* pr = L.probs.data() + ((size_t)h * T + t) * T;
+                    const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
+                    float mx = -1e30f;
+                    const float* qnr = L.mla_qn.data() +
+                                       ((size_t)t * c.heads + h) * kn;
+                    const float* qrr = L.mla_qr.data() +
+                                       ((size_t)t * c.heads + h) * kr;
+                    for (int s = s0; s <= t; ++s) {
+                        const float* knr = L.mla_kn.data() +
+                                           ((size_t)s * c.heads + h) * kn;
+                        const float* krr = L.mla_kr.data() + (size_t)s * kr;
+                        pr[s] = (tpu_dot(qnr, knr, kn) +
+                                 tpu_dot(qrr, krr, kr)) * scale;
+                        mx = std::max(mx, pr[s]);
+                    }
+                    float sum = 0.0f;
+                    for (int s = s0; s <= t; ++s) {
+                        pr[s] = std::exp(pr[s] - mx); sum += pr[s];
+                    }
+                    float inv = 1.0f / sum;
+                    float* ao = L.attn_out.data() +
+                                ((size_t)t * c.heads + h) * hd;
+                    for (int s = s0; s <= t; ++s) {
+                        pr[s] *= inv;
+                        const float* vr = L.v.data() +
+                                          ((size_t)s * c.heads + h) * hd;
+                        tpu_axpy(ao, pr[s], vr, hd);
+                    }
+                }
+            });
+            linear_fwd(L.attn_out.data(), p.w.at(b + "wo"),
+                       proj.data(), T, c.heads * hd, H);
+            if (c.post_attn_norm) {
+                L.attn_proj = proj;
+                L.post_attn.resize((size_t)T * H);
+                L.post_attn_rms.resize(T);
+                rmsnorm_fwd(L.attn_proj.data(),
+                            p.w.at(ln(l, "norm_attn_out")).d.data(),
+                            L.post_attn.data(), L.post_attn_rms.data(),
+                            T, H, c.rms_eps);
+                proj = L.post_attn;
+            }
         } else {
             // ----- full attention (optional qk_norm / output gate /
             // partial rotary — all three gate Qwen3.5 parity) -----
@@ -655,11 +813,13 @@ static void fwd(const Params& p, const ModelConfig& c,
             const int rd = c.rotary_dim_at(l);
             const float th = c.rope_theta_at(l);
             if (rd < hd) {
-                rope_hf_partial(L.q.data(), T, c.heads, hd, rd, th, false);
-                rope_hf_partial(L.k.data(), T, kvh, hd, rd, th, false);
+                rope_hf_partial(L.q.data(), T, c.heads, hd, rd, th,
+                                false, &c);
+                rope_hf_partial(L.k.data(), T, kvh, hd, rd, th,
+                                false, &c);
             } else {
-                rope(L.q.data(), T, c.heads, hd, th, false);
-                rope(L.k.data(), T, kvh, hd, th, false);
+                rope(L.q.data(), T, c.heads, hd, th, false, &c);
+                rope(L.k.data(), T, kvh, hd, th, false, &c);
             }
             int group = c.heads / kvh;
             // ---- CSA2 (V4.1-Flash compressed sparse attention) ----
@@ -972,12 +1132,18 @@ static void fwd(const Params& p, const ModelConfig& c,
                 }
                 std::vector<int> idx(E);
                 std::iota(idx.begin(), idx.end(), 0);
+                // DeepSeek aux-free balance: selection ranks s+b (bias is
+                // routing-time only); weights still come from s itself.
+                const float* lbb = c.moe_auxfree_balance
+                    ? p.w.at(ln(l, "lb_bias")).d.data() : nullptr;
                 std::partial_sort(idx.begin(), idx.begin() + K, idx.end(),
                                   [&](int a, int b) {
                                       // Deterministic tie-break mirrors the
                                       // inference engine (stable_sort, ties
                                       // keep lower expert index first).
-                                      if (gp[a] != gp[b]) return gp[a] > gp[b];
+                                      float sa = gp[a], sb = gp[b];
+                                      if (lbb) { sa += lbb[a]; sb += lbb[b]; }
+                                      if (sa != sb) return sa > sb;
                                       return a < b;
                                   });
                 float wsum = 0.0f;
@@ -1050,19 +1216,24 @@ static void fwd(const Params& p, const ModelConfig& c,
             // Minimum 1.0 at perfect balance; approaches E under full
             // collapse. f_i is a routing statistic (piecewise-constant in
             // the weights); the gradient flows through P_i only — see bwd.
-            float lb_dot = 0.0f;
-            for (int e = 0; e < E; ++e) {
-                float p_i = 0.0f;
-                for (int t = 0; t < T; ++t)
-                    p_i += L.gate_probs[(size_t)t * E + e];
-                p_i /= (float)T;
-                lb_dot += (moe_cnt[(size_t)e] / (float)(T * K)) * p_i;
+            // DeepSeek aux-free mode skips it: load shaping comes from the
+            // lb_bias ranking offset, not a loss term.
+            if (!c.moe_auxfree_balance) {
+                float lb_dot = 0.0f;
+                for (int e = 0; e < E; ++e) {
+                    float p_i = 0.0f;
+                    for (int t = 0; t < T; ++t)
+                        p_i += L.gate_probs[(size_t)t * E + e];
+                    p_i /= (float)T;
+                    lb_dot += (moe_cnt[(size_t)e] / (float)(T * K)) * p_i;
+                }
+                o.moe_aux += c.moe_aux_w * (float)E * lb_dot;
             }
-            o.moe_aux += c.moe_aux_w * (float)E * lb_dot;
             // Router z-loss (B133): w·mean_t lse(gate_logits_t)² — penalizes
-            // router logit magnitude. The gradient is injected post-Jacobian
-            // in bwd: dz/dlogit_e = 2·w·lse_t·softmax_e/T (softmax over the
-            // raw logits regardless of the v28 sigmoid scoring mode).
+            // router logit magnitude; orthogonal to load-balancing, kept in
+            // aux-free mode too. The gradient is injected post-Jacobian in
+            // bwd: dz/dlogit_e = 2·w·lse_t·softmax_e/T (softmax over the raw
+            // logits regardless of the v28 sigmoid scoring mode).
             if (c.moe_zloss_w > 0.0f) {
                 float zsum = 0.0f;
                 for (int t = 0; t < T; ++t) {
@@ -1103,6 +1274,127 @@ static void fwd(const Params& p, const ModelConfig& c,
             o.logits[(size_t)i] = cap * std::tanh(o.logits[(size_t)i] * inv);
         });
     }
-    // v29 MTP head: consume the trunk hidden rows (post final norm).
-    mtp_fwd(p, c, ids, o);
+    if (c.mtp_num_layers > 0) mtp_fwd(p, c, ids, o);
+}
+
+// ------------------------------------------------------ DeepSeek MTP -----
+
+// ce_loss lives in xct_backward.h (same TU) — forward decl for mtp_fwd.
+static float ce_loss(const std::vector<float>& logits,
+                     const std::vector<int>& labels, int T, int V,
+                     std::vector<float>& dlogits);
+
+// Depth-1 multi-token prediction: each text row i predicts ids[i+2]
+// through M[w_proj]·[norm_h(h_i) | norm_e(Emb(ids[i+1]))] → one decoder
+// block (plain causal attention + dense FFN) → norm_out → shared head.
+// Patch-prefix rows never enter the sequence; the trunk is unchanged.
+static void mtp_fwd(const Params& p, const ModelConfig& c,
+                    const std::vector<int>& ids, Fwd& o) {
+    const int PT = (int)ids.size(), P = o.vision_patches;
+    const int H = c.hidden, hd = H / c.heads;
+    const int kvh = c.kv_heads, Hkvl = kvh * hd, Hq = c.heads * hd;
+    MtpCache& M = o.mtp;
+    M.on = true;
+    LayerCache& L = M.lc;
+    M.lab.resize((size_t)PT);
+    M.cin.resize((size_t)PT * 2 * H);
+    M.nh_src.resize((size_t)PT * H); M.nh_rms.resize((size_t)PT);
+    M.ne_src.assign((size_t)PT * H, 0.0f); M.ne_rms.resize((size_t)PT);
+    M.ne_ids.assign((size_t)PT, -1);
+    for (int i = 0; i < PT; ++i) {
+        M.lab[(size_t)i] = i + 2 < PT ? ids[(size_t)i + 2] : -100;
+        std::copy(o.hidden.data() + (size_t)(P + i) * H,
+                  o.hidden.data() + (size_t)(P + i + 1) * H,
+                  M.nh_src.data() + (size_t)i * H);
+        rmsnorm_fwd(M.nh_src.data() + (size_t)i * H,
+                    p.w.at("mtp.norm_h").d.data(),
+                    M.cin.data() + (size_t)i * 2 * H,
+                    M.nh_rms.data() + i, 1, H, c.rms_eps);
+        if (i + 1 < PT) {
+            int nid = ids[(size_t)i + 1];
+            M.ne_ids[(size_t)i] = nid;
+            const float* er = p.w.at("embed").d.data() + (size_t)nid * H;
+            std::copy(er, er + H, M.ne_src.data() + (size_t)i * H);
+        }
+        rmsnorm_fwd(M.ne_src.data() + (size_t)i * H,
+                    p.w.at("mtp.norm_e").d.data(),
+                    M.cin.data() + (size_t)i * 2 * H + H,
+                    M.ne_rms.data() + i, 1, H, c.rms_eps);
+    }
+    M.z.resize((size_t)PT * H);
+    linear_fwd(M.cin.data(), p.w.at("mtp.w_proj"), M.z.data(), PT, 2 * H, H);
+    L.x_in = M.z;
+    L.n1.resize((size_t)PT * H); L.rms1.resize(PT);
+    rmsnorm_fwd(M.z.data(), p.w.at("mtp.norm1").d.data(), L.n1.data(),
+                L.rms1.data(), PT, H, c.rms_eps);
+    L.q.resize((size_t)PT * Hq);
+    L.k.resize((size_t)PT * Hkvl); L.v.resize((size_t)PT * Hkvl);
+    linear_fwd(L.n1.data(), p.w.at("mtp.wq"), L.q.data(), PT, H, Hq);
+    linear_fwd(L.n1.data(), p.w.at("mtp.wk"), L.k.data(), PT, H, Hkvl);
+    linear_fwd(L.n1.data(), p.w.at("mtp.wv"), L.v.data(), PT, H, Hkvl);
+    rope(L.q.data(), PT, c.heads, hd, c.rope_theta, false, &c);
+    rope(L.k.data(), PT, kvh, hd, c.rope_theta, false, &c);
+    const int group = c.heads / kvh;
+    const float scale = 1.0f / std::sqrt((float)hd);
+    L.probs.assign((size_t)c.heads * PT * PT, 0.0f);
+    L.attn_out.assign((size_t)PT * Hq, 0.0f);
+    parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+        for (int64_t h = hb; h < he; ++h) {
+            int kh2 = (int)h / group;
+            for (int t = 0; t < PT; ++t) {
+                float* pr = L.probs.data() + ((size_t)h * PT + t) * PT;
+                float mx = -1e30f;
+                const float* qr = L.q.data() +
+                                  ((size_t)t * c.heads + h) * hd;
+                for (int s = 0; s <= t; ++s) {
+                    const float* kr = L.k.data() +
+                                      ((size_t)s * kvh + kh2) * hd;
+                    pr[s] = tpu_dot(qr, kr, hd) * scale;
+                    mx = std::max(mx, pr[s]);
+                }
+                float sum = 0.0f;
+                for (int s = 0; s <= t; ++s) {
+                    pr[s] = std::exp(pr[s] - mx); sum += pr[s];
+                }
+                float inv = 1.0f / sum;
+                float* ao = L.attn_out.data() +
+                            ((size_t)t * c.heads + h) * hd;
+                for (int s = 0; s <= t; ++s) {
+                    pr[s] *= inv;
+                    const float* vr = L.v.data() +
+                                      ((size_t)s * kvh + kh2) * hd;
+                    tpu_axpy(ao, pr[s], vr, hd);
+                }
+            }
+        }
+    });
+    std::vector<float> proj((size_t)PT * H);
+    linear_fwd(L.attn_out.data(), p.w.at("mtp.wo"), proj.data(), PT, Hq, H);
+    L.x_res.resize((size_t)PT * H);
+    for (size_t i = 0; i < L.x_res.size(); ++i) L.x_res[i] = M.z[i] + proj[i];
+    L.n2.resize((size_t)PT * H); L.rms2.resize(PT);
+    rmsnorm_fwd(L.x_res.data(), p.w.at("mtp.norm2").d.data(), L.n2.data(),
+                L.rms2.data(), PT, H, c.rms_eps);
+    L.fa.resize((size_t)PT * c.inter); L.fb.resize((size_t)PT * c.inter);
+    L.fh.resize((size_t)PT * c.inter);
+    linear_fwd(L.n2.data(), p.w.at("mtp.w1"), L.fa.data(), PT, H, c.inter);
+    linear_fwd(L.n2.data(), p.w.at("mtp.w3"), L.fb.data(), PT, H, c.inter);
+    tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
+        L.fh[(size_t)i] = gate_act_f(L.fa[(size_t)i], c.ffn_act) *
+                          L.fb[(size_t)i];
+    });
+    std::fill(proj.begin(), proj.end(), 0.0f);
+    linear_fwd(L.fh.data(), p.w.at("mtp.w2"), proj.data(), PT, c.inter, H);
+    M.res2.resize((size_t)PT * H);
+    for (size_t i = 0; i < M.res2.size(); ++i)
+        M.res2[i] = L.x_res[i] + proj[i];
+    M.out.resize((size_t)PT * H); M.out_rms.resize(PT);
+    rmsnorm_fwd(M.res2.data(), p.w.at("mtp.norm_out").d.data(), M.out.data(),
+                M.out_rms.data(), PT, H, c.rms_eps);
+    M.logits.resize((size_t)PT * c.vocab);
+    linear_fwd(M.out.data(), p.w.at("lm_head"), M.logits.data(), PT, H,
+               c.vocab);
+    std::vector<float> dtmp;
+    M.loss = c.mtp_loss_weight *
+             ce_loss(M.logits, M.lab, PT, c.vocab, dtmp);
 }

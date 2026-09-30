@@ -35,8 +35,7 @@ struct CorpusSource {
 };
 
 struct CorpusDoc {
-    std::string source_id, relpath, sha_raw, sha_nfc, overlap_sha,
-        language, split;
+    std::string source_id, relpath, sha_raw, sha_nfc, language, split;
     bool nfc_changed = false;
     std::vector<int64_t> ids;
 };
@@ -316,8 +315,6 @@ int mode_corpus(const Args& a) {
             bands[key].push_back((int64_t)docs.size());
         }
         d.language = corpus_lang(norm, fs::path(c.rel).extension().string());
-        const std::string overlap_sha = norm_text_sha(norm);
-        d.overlap_sha = overlap_sha;
         d.ids = tk.encode(norm, true, false);
         if (eos_id >= 0) d.ids.push_back(eos_id);
         if (d.ids.empty()) { ++empty_docs; continue; }
@@ -333,18 +330,11 @@ int mode_corpus(const Args& a) {
     fs::path train_path = out_dir / "train-ids.jsonl";
     fs::path valid_path = out_dir / "valid-ids.jsonl";
     fs::path docs_path = out_dir / "documents.jsonl";
-    fs::path trec_path = out_dir / "train-records.jsonl";
-    fs::path vrec_path = out_dir / "valid-records.jsonl";
     fs::path manifest_path = out_dir / "manifest.json";
     std::ofstream train(train_path, std::ios::binary | std::ios::trunc);
     std::ofstream valid(valid_path, std::ios::binary | std::ios::trunc);
     std::ofstream drec(docs_path, std::ios::binary | std::ios::trunc);
-    // Per-split hash records consumed by the capability eval's
-    // fail-closed corpus-overlap gate (--corpus-manifest train/val).
-    std::ofstream trec(trec_path, std::ios::binary | std::ios::trunc);
-    std::ofstream vrec(vrec_path, std::ios::binary | std::ios::trunc);
-    if (!train || !valid || !drec || !trec || !vrec)
-        fail("CORPUS_OUT_UNWRITABLE");
+    if (!train || !valid || !drec) fail("CORPUS_OUT_UNWRITABLE");
     int64_t train_rows = 0, valid_rows = 0, train_toks = 0, valid_toks = 0;
     std::vector<int64_t> pack;
     auto flush = [&](std::ofstream& out, int64_t& rows, int64_t& toks) {
@@ -381,14 +371,10 @@ int mode_corpus(const Args& a) {
              << ",\"language\":\"" << d.language
              << "\",\"tokens\":" << (int64_t)d.ids.size()
              << ",\"split\":\"" << d.split << "\"}\n";
-        std::ofstream& ovl = d.split == "valid" ? vrec : trec;
-        ovl << "{\"path\":\"" << gptbridge::jsonlite::json_escape(d.relpath)
-            << "\",\"sha256\":\"" << d.overlap_sha << "\"}\n";
     }
     flush(train, train_rows, train_toks);
     flush(valid, valid_rows, valid_toks);
     train.close(); valid.close(); drec.close();
-    trec.close(); vrec.close();
 
     std::string docs_sha = sha256_file(docs_path.string());
     std::ostringstream mf;
@@ -425,9 +411,7 @@ int mode_corpus(const Args& a) {
         if (i) mf << ',';
         mf << '"' << gptbridge::jsonlite::json_escape(rejected_sources[i]) << '"';
     }
-    mf << "],\"train\":{\"path\":\"train-records.jsonl\"}"
-       << ",\"val\":{\"path\":\"valid-records.jsonl\"}"
-       << ",\"split\":{\"val_ratio_pct\":" << val_pct
+    mf << "],\"split\":{\"val_ratio_pct\":" << val_pct
        << ",\"train_rows\":" << train_rows
        << ",\"valid_rows\":" << valid_rows
        << ",\"train_tokens\":" << train_toks
@@ -437,8 +421,6 @@ int mode_corpus(const Args& a) {
        << ",\"integrity\":{\"documents_jsonl_sha256\":\"" << docs_sha
        << "\",\"train_ids_sha256\":\"" << sha256_file(train_path.string())
        << "\",\"valid_ids_sha256\":\"" << sha256_file(valid_path.string())
-       << "\",\"train_records_sha256\":\"" << sha256_file(trec_path.string())
-       << "\",\"valid_records_sha256\":\"" << sha256_file(vrec_path.string())
        << "\"}}"
        << "\n";
     {

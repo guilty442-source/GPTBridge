@@ -28,10 +28,6 @@
 //   {"text"}                     -> {"input_ids"}           (pretrain; trainer
 //                                  shifts labels itself)
 //   {"prompt","chosen","rejected"} -> {"chosen","rejected"} (DPO)
-//   any sft/pretrain row may carry "vision_patches":[[..D..] x P] — the
-//   early-fusion vision grid is passed through verbatim after structural
-//   validation (dpo+vision is unsupported and drops); optional
-//   --vision-patch-dim N / --vision-max-patches N pin the geometry.
 //
 // Labels are emitted next-token-aligned (labels[t] = ids[t+1]) because
 // xct's ce_loss consumes aligned labels directly and only shifts for the
@@ -50,28 +46,20 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
-#include <condition_variable>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <functional>
 #include <limits>
-#include <mutex>
 #include <numeric>
 #include <random>
 #include <regex>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#if defined(_M_X64) || defined(__x86_64__)
-#include <immintrin.h>
-#include <intrin.h>
-#endif
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -92,9 +80,6 @@ using gptbridge::jsonlite::JsonValue;
 
 namespace xct {
 #include "xct_util.h"
-#include "xct_tpu.h"
-#include "xct_math.h"
-#include "xct_backward.h"
 #include "xct_ckpt.h"
 }  // namespace xct
 
@@ -609,46 +594,12 @@ bool clip_ids(Ids& e, int64_t max_len) {
                        [](int64_t y) { return y >= 0; });
 }
 
-// Fusion tokenization (v1): a `vision_patches` field carries the patch
-// grid through to trainer-ready rows — for early-fusion the grid IS the
-// vision token stream (prefix positions; the trainer masks them -100
-// and checks geometry against the model config). Structural validation
-// mirrors xct_util.h j_patch_grid: array of P numeric rows of uniform
-// width D. Returns 0 absent, 1 well-formed, -1 malformed — a malformed
-// grid drops the whole row; never emit a text-only copy of a multimodal
-// sample.
-int vision_grid_state(const JsonValue* v, int64_t& patches, int64_t& dim) {
-    if (!v) return 0;
-    if (v->type != JsonValue::Type::Array) return -1;
-    patches = (int64_t)v->array.size();
-    dim = -1;
-    for (const auto& pr : v->array) {
-        if (pr.type != JsonValue::Type::Array) return -1;
-        if (dim < 0) dim = (int64_t)pr.array.size();
-        if ((int64_t)pr.array.size() != dim || dim <= 0) return -1;
-        for (const auto& x : pr.array)
-            if (x.type != JsonValue::Type::Number) return -1;
-    }
-    return (patches > 0 && dim > 0) ? 1 : -1;
-}
-
 int mode_tokenize(const Args& a) {
     std::string tk_path = resolve_tokenizer_path(a.get("tokenizer"));
     ByteLevelBPETokenizer tk = ByteLevelBPETokenizer::load(tk_path);
     int64_t max_len = a.has("max-length")
                           ? std::stoll(a.get("max-length")) : 0;
     bool chat = a.has("chat");
-    // Optional geometry pins for the vision grid; absent = structural
-    // validation only (the trainer re-checks against the model config).
-    int64_t vision_pdim = 0, vision_pmax = 0;
-    if (a.has("vision-patch-dim")) {
-        try { vision_pdim = std::stoll(a.get("vision-patch-dim")); }
-        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
-    }
-    if (a.has("vision-max-patches")) {
-        try { vision_pmax = std::stoll(a.get("vision-max-patches")); }
-        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
-    }
     // eos: encode("", add_eos) returns {eos_id}; -1 when undetectable.
     std::vector<int64_t> eos_probe = tk.encode("", false, true);
     int64_t eos_id = eos_probe.empty() ? -1 : eos_probe.back();
@@ -658,25 +609,15 @@ int mode_tokenize(const Args& a) {
     std::vector<JsonValue> rows = read_jsonl(in_path);
     std::ofstream out(out_path, std::ios::binary | std::ios::trunc);
     if (!out) fail("TOKENIZE_OUT_UNWRITABLE");
-    int64_t n_in = 0, n_out = 0, n_dropped = 0, n_vision = 0;
+    int64_t n_in = 0, n_out = 0, n_dropped = 0;
     for (const JsonValue& row : rows) {
         ++n_in;
         std::string prompt = jget_str(row, "prompt");
         const JsonValue* chosen = row.get("chosen");
         const JsonValue* rejected = row.get("rejected");
         const JsonValue* text = row.get("text");
-        const JsonValue* vp = row.get("vision_patches");
-        int64_t v_p = 0, v_d = 0;
-        int v_state = vision_grid_state(vp, v_p, v_d);
-        if (v_state < 0 ||
-            (v_state > 0 && ((vision_pdim > 0 && v_d != vision_pdim) ||
-                             (vision_pmax > 0 && v_p > vision_pmax)))) {
-            ++n_dropped;
-            continue;
-        }
         std::string line;
         if (chosen && rejected) {
-            if (v_state > 0) { ++n_dropped; continue; }
             std::string ch = chosen->type == JsonValue::Type::String
                                  ? chosen->string : jget_str(row, "chosen_text");
             std::string rj = rejected->type == JsonValue::Type::String
@@ -716,41 +657,25 @@ int mode_tokenize(const Args& a) {
             ids_json(line, "labels", e.labels);
             line += '}';
         }
-        if (v_state > 0) {
-            line.resize(line.size() - 1);              // drop '}'
-            line += ",\"vision_patches\":";
-            line += gptbridge::jsonlite::json_serialize(*vp);
-            line += '}';
-            ++n_vision;
-        }
         out << line << '\n';
         ++n_out;
     }
     out.close();
     std::printf("{\"ok\":true,\"mode\":\"tokenize\",\"rows_in\":%lld,"
-                "\"rows_out\":%lld,\"rows_dropped\":%lld,"
-                "\"vision_rows\":%lld,\"eos_id\":%lld,"
+                "\"rows_out\":%lld,\"rows_dropped\":%lld,\"eos_id\":%lld,"
                 "\"tokenizer_sha256\":\"%s\"}\n",
                 (long long)n_in, (long long)n_out, (long long)n_dropped,
-                (long long)n_vision,
                 (long long)eos_id, sha256_file(tk_path).c_str());
     return 0;
 }
 
 // ----------------------------------------------------- name translation ---
 
-// `g4` selects the Gemma4 tensor contract: post_attention_norm is the
-// post-attention norm (xct `norm_attn`) and the pre-FFN norm lives at
-// pre_feedforward_norm (`norm2`); generic bundles keep the legacy
-// two-norm reading where post_attention_norm feeds the FFN (`norm2`).
-std::string bundle_to_xct(const std::string& b, bool g4 = false) {
+std::string bundle_to_xct(const std::string& b) {
     static const std::unordered_map<std::string, std::string> fixed = {
         {"model.embeddings.word_embeddings.weight", "embed"},
         {"lm_head.weight", "lm_head"},
         {"model.final_norm.weight", "norm_f"},
-        {"model.embed_tokens_per_layer.weight", "embed_ple"},
-        {"model.per_layer_model_projection.weight", "ple_model_proj"},
-        {"model.per_layer_projection_norm.weight", "ple_proj_norm"},
     };
     auto it = fixed.find(b);
     if (it != fixed.end()) return it->second;
@@ -760,32 +685,9 @@ std::string bundle_to_xct(const std::string& b, bool g4 = false) {
     if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.input_norm\.weight$)")))
         return base + m[1].str() + ".norm1";
-    if (g4) {
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.attention\.(q|k)_norm\.weight$)")))
-            return base + m[1].str() + "." + m[2].str() + "_norm";
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.post_attention_norm\.weight$)")))
-            return base + m[1].str() + ".norm_attn";
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.pre_feedforward_norm\.weight$)")))
-            return base + m[1].str() + ".norm2";
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.post_feedforward_norm\.weight$)")))
-            return base + m[1].str() + ".norm_ffn";
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.per_layer_input_gate\.weight$)")))
-            return base + m[1].str() + ".ple_gate";
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.per_layer_projection\.weight$)")))
-            return base + m[1].str() + ".ple_proj";
-        if (std::regex_match(b, m,
-                std::regex(R"(^model\.layers\.(\d+)\.post_per_layer_input_norm\.weight$)")))
-            return base + m[1].str() + ".ple_post";
-    }
     if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.post_attention_norm\.weight$)")))
-        return base + m[1].str() + (g4 ? ".norm_attn" : ".norm2");
+        return base + m[1].str() + ".norm2";
     if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.attention\.(q|k|v|o)_proj\.weight$)"))) {
         char w = m[2].str()[0];
@@ -827,14 +729,11 @@ std::string bundle_to_xct(const std::string& b, bool g4 = false) {
     return "";
 }
 
-std::string xct_to_bundle(const std::string& n, bool g4 = false) {
+std::string xct_to_bundle(const std::string& n) {
     static const std::unordered_map<std::string, std::string> fixed = {
         {"embed", "model.embeddings.word_embeddings.weight"},
         {"lm_head", "lm_head.weight"},
         {"norm_f", "model.final_norm.weight"},
-        {"embed_ple", "model.embed_tokens_per_layer.weight"},
-        {"ple_model_proj", "model.per_layer_model_projection.weight"},
-        {"ple_proj_norm", "model.per_layer_projection_norm.weight"},
     };
     auto it = fixed.find(n);
     if (it != fixed.end()) return it->second;
@@ -842,34 +741,8 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
     std::string base = "model.layers.";
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.norm1$)")))
         return base + m[1].str() + ".input_norm.weight";
-    if (g4) {
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.(q|k)_norm$)")))
-            return base + m[1].str() + ".attention." + m[2].str() +
-                   "_norm.weight";
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.norm_attn$)")))
-            return base + m[1].str() + ".post_attention_norm.weight";
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.norm2$)")))
-            return base + m[1].str() + ".pre_feedforward_norm.weight";
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.norm_ffn$)")))
-            return base + m[1].str() + ".post_feedforward_norm.weight";
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.ple_gate$)")))
-            return base + m[1].str() + ".per_layer_input_gate.weight";
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.ple_proj$)")))
-            return base + m[1].str() + ".per_layer_projection.weight";
-        if (std::regex_match(n, m,
-                std::regex(R"(^layers\.(\d+)\.ple_post$)")))
-            return base + m[1].str() +
-                   ".post_per_layer_input_norm.weight";
-    }
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.norm2$)")))
-        return base + m[1].str() + (g4 ? ".pre_feedforward_norm.weight"
-                                       : ".post_attention_norm.weight");
+        return base + m[1].str() + ".post_attention_norm.weight";
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.w([qkvo])$)"))) {
         char w = m[2].str()[0];
         return base + m[1].str() + ".attention." + w + "_proj.weight";
@@ -916,24 +789,35 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
 // ------------------------------------------------------- import-bundle ----
 
 xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
-    // Shared parser (job.json + manifest config + distill student config)
-    // — also validates the Gemma4 profile fail-closed.
     xct::ModelConfig c;
-    try {
-        c = xct::parse_model(&cfg);
-    } catch (const char* e) {
-        fail(std::string("CONFIG_INVALID:") + e);
-    }
-    const bool use_moe = xct::j_bool(&cfg, "use_moe", false);
-    if (!use_moe) {
+    c.vocab = (int)xct::j_num(&cfg, "vocab_size", c.vocab);
+    c.hidden = (int)xct::j_num(&cfg, "hidden_size", c.hidden);
+    c.inter = (int)xct::j_num(&cfg, "intermediate_size", c.inter);
+    c.layers = (int)xct::j_num(&cfg, "num_hidden_layers", c.layers);
+    c.heads = (int)xct::j_num(&cfg, "num_attention_heads", c.heads);
+    c.kv_heads = (int)xct::j_num(&cfg, "num_key_value_heads", c.heads);
+    c.max_pos = (int)xct::j_num(&cfg, "max_position_embeddings", c.max_pos);
+    c.rope_theta = (float)xct::j_num(&cfg, "rope_theta", c.rope_theta);
+    c.rms_eps = (float)xct::j_num(&cfg, "rms_norm_eps", c.rms_eps);
+    c.moe_aux_w = (float)xct::j_num(&cfg, "moe_aux_loss_weight", c.moe_aux_w);
+    bool use_moe = false;
+    const JsonValue* um = cfg.get("use_moe");
+    if (um && um->type == JsonValue::Type::Bool) use_moe = um->boolean;
+    if (use_moe) {
+        c.moe_experts = (int)xct::j_num(&cfg, "moe_num_experts", 0);
+        c.moe_top_k = (int)xct::j_num(&cfg, "moe_top_k", c.moe_top_k);
+        c.moe_layer_interval =
+            (int)xct::j_num(&cfg, "moe_layer_interval", c.moe_layer_interval);
+        c.moe_expert_inter =
+            (int)xct::j_num(&cfg, "moe_expert_intermediate_size", 0);
+        c.moe_shared_experts =
+            (int)xct::j_num(&cfg, "moe_num_shared_experts", 0);
+        c.moe_shared_inter =
+            (int)xct::j_num(&cfg, "moe_shared_intermediate_size", 0);
+    } else {
         c.moe_experts = 0;
         c.moe_shared_experts = 0;
-        c.moe_expert_inter = 0;
-        c.moe_shared_inter = 0;
     }
-    if (c.is_gemma4() &&
-        (use_moe || xct::j_bool(&cfg, "enable_moe_block", false)))
-        fail("CONFIG_GEMMA4_MOE_UNSUPPORTED");
     bool use_vision = false;
     const JsonValue* uv = cfg.get("use_vision");
     if (uv && uv->type == JsonValue::Type::Bool) use_vision = uv->boolean;
@@ -992,9 +876,9 @@ int64_t numel_of(const JsonValue& shape) {
 
 // Loads a bundle directory into xct Params (fp32). Fails closed on any
 // dtype/shape/contract violation — shared by import-bundle and
-// distill-init. Returns the number of filled tensors.
-size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
-                          xct::Params& p) {
+// distill-init.
+void load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
+                        xct::Params& p) {
     JsonValue manifest = parse_json_file((bundle / "manifest.json").string());
     const JsonValue* cfg = manifest.get("config");
     const JsonValue* tensors = manifest.get("tensors");
@@ -1008,7 +892,7 @@ size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
     std::unordered_set<std::string> filled;
     std::vector<std::string> unmapped;
     for (const auto& [name, info] : tensors->object) {
-        std::string xname = bundle_to_xct(name, c.is_gemma4());
+        std::string xname = bundle_to_xct(name);
         if (xname.empty()) { unmapped.push_back(name); continue; }
         auto wIt = p.w.find(xname);
         if (wIt == p.w.end()) fail("IMPORT_CONFIG_SHAPE_MISMATCH:" + xname);
@@ -1035,7 +919,6 @@ size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
     }
     for (const auto& n : p.order)
         if (!filled.count(n)) fail("IMPORT_MISSING_TENSOR:" + n);
-    return filled.size();
 }
 
 int mode_import_bundle(const Args& a) {
@@ -1044,13 +927,13 @@ int mode_import_bundle(const Args& a) {
     if (bundle.empty() || out.empty()) fail("IMPORT_ARGS_MISSING");
     xct::ModelConfig c;
     xct::Params p;
-    const size_t filled = load_bundle_params(bundle, c, p);
+    load_bundle_params(bundle, c, p);
     if (!xct::ckpt_save(p, c, out, /*overwrite=*/false))
         fail("IMPORT_CKPT_WRITE_FAILED:" + out);
     std::printf("{\"ok\":true,\"mode\":\"import-bundle\",\"out\":\"%s\","
                 "\"ckpt_sha256\":\"%s\",\"tensors\":%zu}\n",
                 gptbridge::jsonlite::json_escape(out).c_str(),
-                sha256_file(out).c_str(), filled);
+                sha256_file(out).c_str(), p.order.size());
     return 0;
 }
 
@@ -1122,9 +1005,6 @@ int mode_distill_init(const Args& a) {
     copy("embed", "embed");
     copy("lm_head", "lm_head");
     copy("norm_f", "norm_f");
-    copy("embed_ple", "embed_ple");
-    copy("ple_model_proj", "ple_model_proj");
-    copy("ple_proj_norm", "ple_proj_norm");
 
     // Teacher dense-MLP pool (layers carrying layers.N.w1).
     std::vector<int> dense_layers;
@@ -1150,9 +1030,7 @@ int mode_distill_init(const Args& a) {
                                               dense_layers.size()];
         int ml = tp.w.count(xct::ln(tl, "w1")) ? tl : nearest_dense(tl);
         for (const char* t :
-             {"norm1", "wq", "wk", "wv", "wo", "norm2", "q_norm",
-              "k_norm", "norm_attn", "norm_ffn", "ple_gate", "ple_proj",
-              "ple_post"})
+             {"norm1", "wq", "wk", "wv", "wo", "norm2"})
             copy(xct::ln(l, t), xct::ln(tl, t));
         for (const char* t : {"w1", "w2", "w3"})
             copy(xct::ln(l, t), xct::ln(ml, t));
@@ -1536,7 +1414,7 @@ int mode_export_bundle(const Args& a) {
     std::vector<std::pair<std::string, std::string>> pairs;
     pairs.reserve(p.order.size());
     for (const auto& n : p.order) {
-        std::string b = xct_to_bundle(n, c.is_gemma4());
+        std::string b = xct_to_bundle(n);
         if (b.empty()) fail("EXPORT_UNMAPPED_TENSOR:" + n);
         pairs.emplace_back(b, n);
     }
@@ -2519,83 +2397,6 @@ int mode_serve(const Args& a) {
                 o << ']';
                 o << ",\"generated_tokens\":" << (int64_t)out.size()
                   << ",\"latency_ms\":" << elapsed * 1000.0
-                  << ",\"model_id\":\"xingcheng-native-transformer\""
-                  << ",\"model_version\":\""
-                  << gptbridge::jsonlite::json_escape(model_version) << "\""
-                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true}";
-                emit(o.str());
-                continue;
-            }
-            if (op == "think") {
-                // Native Thinking: latent continuous-thought steps then
-                // parallel hypothesis branches ranked by model confidence
-                // (latent CoVe) — no textual chain-of-thought is produced.
-                std::string prompt = jget_str(req, "prompt");
-                const JsonValue* messages = req.get("messages");
-                if (prompt.empty() && messages &&
-                    messages->type == JsonValue::Type::Array) {
-                    prompt = serve_render_chat(*messages);
-                }
-                if (prompt.empty()) {
-                    err_obj("SERVE_INFER_PROMPT_REQUIRED");
-                    continue;
-                }
-                if (!engine.loaded()) engine.load(bundle);
-                SamplingConfig sc;
-                sc.do_sample = serve_bool(req, "do_sample", true);
-                sc.temperature = serve_num(req, "temperature", 1.0);
-                sc.top_k = (int64_t)serve_num(req, "top_k", 0);
-                sc.top_p = serve_num(req, "top_p", 1.0);
-                sc.repetition_penalty =
-                    serve_num(req, "repetition_penalty", 1.0);
-                sc.seed = (uint64_t)serve_num(req, "seed", 0);
-                int64_t max_new = (int64_t)serve_num(
-                    req, "max_new_tokens", 128);
-                if (max_new <= 0) max_new = 1;
-                if (max_new > 2048) max_new = 2048;
-                int64_t think_steps = (int64_t)serve_num(
-                    req, "think_steps", 4);
-                int64_t branches = (int64_t)serve_num(
-                    req, "branches", 4);
-
-                std::vector<int64_t> pids =
-                    engine.encode(prompt, true, false);
-                auto t0 = std::chrono::steady_clock::now();
-                auto res = engine.generate_thinking(
-                    pids, think_steps, branches, max_new, sc);
-                double elapsed = std::chrono::duration<double>(
-                    std::chrono::steady_clock::now() - t0).count();
-                std::string text = engine.decode(res.answer_ids, true);
-                size_t eot = text.find("<|eot|>");
-                if (eot != std::string::npos) text.erase(eot);
-
-                std::ostringstream o;
-                o << "{\"ok\":true,\"text\":\""
-                  << gptbridge::jsonlite::json_escape(text) << "\"";
-                o << ",\"token_ids\":[";
-                for (size_t i = 0; i < res.answer_ids.size(); ++i) {
-                    if (i) o << ',';
-                    o << res.answer_ids[i];
-                }
-                o << ']';
-                o << ",\"generated_tokens\":"
-                  << (int64_t)res.answer_ids.size()
-                  << ",\"thinking\":{\"think_steps\":" << res.think_steps
-                  << ",\"branches\":" << branches
-                  << ",\"chosen_branch\":" << res.chosen_branch
-                  << ",\"verify\":\"confidence\""
-                  << ",\"branch_scores\":[";
-                for (size_t i = 0; i < res.branch_scores.size(); ++i) {
-                    if (i) o << ',';
-                    o << res.branch_scores[i];
-                }
-                o << "],\"branch_lengths\":[";
-                for (size_t i = 0; i < res.branch_ids.size(); ++i) {
-                    if (i) o << ',';
-                    o << (int64_t)res.branch_ids[i].size();
-                }
-                o << "]}";
-                o << ",\"latency_ms\":" << elapsed * 1000.0
                   << ",\"model_id\":\"xingcheng-native-transformer\""
                   << ",\"model_version\":\""
                   << gptbridge::jsonlite::json_escape(model_version) << "\""

@@ -14,6 +14,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GPTBridge.ToolHost;
+using StarDomain;
 
 namespace GPTBridge.ToolHost.App;
 
@@ -41,6 +42,40 @@ internal sealed class ModelDialogueExecutor
     private readonly string _localModelRoot;
     private readonly string _ipcDir;
     private readonly string _workspaceInstanceId;
+
+    // F# StarDomain live lane: intent classification + execution-plan
+    // shaping run in-process on every dialogue/agent input. Pure CPU,
+    // cached (128-entry/5-min TTL), thread-safe, never throws outwards
+    // (fail-open null) — inference transport and lane labels
+    // ("dialogue"/"agent") are untouched; the classification rides along
+    // as additive observability until the RAG-grounding phase lands.
+    private static readonly RuleIntentClassifier IntentClassifier = new();
+    private static readonly DefaultPlanBuilder PlanBuilder = new();
+
+    private static JsonObject? ClassifyForDialogue(string text)
+    {
+        try
+        {
+            var intent = IntentClassifier.Classify(text);
+            var plan = PlanBuilder.Build(intent, "");
+            var candidates = new JsonArray();
+            foreach (var candidate in intent.Candidates)
+                candidates.Add(candidate.ToString());
+            var tools = new JsonArray();
+            foreach (var tool in plan.RequiredTools)
+                tools.Add(tool);
+            return new JsonObject
+            {
+                ["intent"] = intent.Primary.ToString(),
+                ["candidates"] = candidates,
+                ["confidence"] = intent.Confidence,
+                ["needs_grounding"] = plan.NeedsGrounding,
+                ["required_tools"] = tools,
+                ["task_intensity"] = plan.TaskIntensity,
+            };
+        }
+        catch { return null; }
+    }
 
     public ModelDialogueExecutor(GovernedEnvironment env)
     {
@@ -415,6 +450,11 @@ internal sealed class ModelDialogueExecutor
                 ["message"] = $"所選模型未安裝：{requested}",
             };
 
+        // F# live lane: classify before activation so progress events
+        // and the result can carry the shaping (observability-only;
+        // the infer request below is byte-identical either way).
+        var classification = ClassifyForDialogue(message);
+
         var ready = await EnsureModelService(emitProgress, ct)
             .ConfigureAwait(false);
         if (!ready)
@@ -470,6 +510,7 @@ internal sealed class ModelDialogueExecutor
             ["phase"] = "generating",
             ["message"] = "生成回答",
             ["model"] = ModelName,
+            ["classification"] = classification?.DeepClone(),
         }).ConfigureAwait(false);
 
         var inferBody = new JsonObject
@@ -541,6 +582,7 @@ internal sealed class ModelDialogueExecutor
             },
             ["native_runtime"] = SelectableModels(),
             ["route"] = "xingcheng-first",
+            ["classification"] = classification?.DeepClone(),
         };
     }
 
@@ -573,6 +615,10 @@ internal sealed class ModelDialogueExecutor
             payload["max_steps"]?.GetValue<int>() ?? 8, 1, 24);
         var startUrl = payload["start_url"]?.GetValue<string>()
             ?.Trim() ?? "";
+
+        // F# live lane (same contract as SendMessage): additive
+        // observability; the agent loop below is unchanged.
+        var classification = ClassifyForDialogue(task);
 
         var ready = await EnsureModelService(emitProgress, ct)
             .ConfigureAwait(false);
@@ -768,6 +814,7 @@ internal sealed class ModelDialogueExecutor
             },
             ["native_runtime"] = SelectableModels(),
             ["route"] = "xingcheng-first-agentic",
+            ["classification"] = classification?.DeepClone(),
         };
     }
 
