@@ -39,6 +39,7 @@ internal static class InstructionRecovery
         "context_tracking" => "star-context-eval-result/v1",
         "multi_turn" => "star-multiturn-eval-result/v1",
         "structured_output" => "star-structured-eval-result/v1",
+        "tool_calling" => "star-toolcall-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -47,6 +48,7 @@ internal static class InstructionRecovery
         "multi_turn" => "star-multiturn-recovery-dataset/v1",
         "structured_output" =>
             "star-structured-recovery-dataset/v1",
+        "tool_calling" => "star-toolcall-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
@@ -55,12 +57,13 @@ internal static class InstructionRecovery
         "multi_turn" => "star-multiturn-recovery-eval-20261001",
         "structured_output" =>
             "star-structured-recovery-eval-20261001",
+        "tool_calling" => "star-toolcall-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
-          "structured_output" };
+          "structured_output", "tool_calling" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -105,12 +108,27 @@ internal static class InstructionRecovery
         ("nested_objects", 0.10),
         ("arrays", 0.10),
     };
+    // Registered metric names from Maturation300M. Selection and
+    // argument correctness dominate — calling the right tool with the
+    // right payload is the capability; necessity/interpretation/
+    // failure are the honesty surfaces (a spurious call or a
+    // fabricated result is a real failure, not noise).
+    private static readonly (string metric, double w)[]
+        ToolMetricWeights =
+    {
+        ("tool_selection", 0.30),
+        ("argument_correctness", 0.25),
+        ("tool_necessity", 0.20),
+        ("result_interpretation", 0.15),
+        ("failure_recovery", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
             "context_tracking" => ContextMetricWeights,
             "multi_turn" => MultiTurnMetricWeights,
             "structured_output" => StructuredMetricWeights,
+            "tool_calling" => ToolMetricWeights,
             _ => InstructionMetricWeights,
         };
 
@@ -1927,6 +1945,385 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // --------------------------------------------------- tool_calling --
+
+    // Tool surface for TRAINING only — the eval suite deliberately uses
+    // a different tool set (search/calculator/get_news) so a passing
+    // score means the contract transferred, not that one name was
+    // memorised. Payload contract is the canonical
+    // <tool_call>{"name":..,"arguments":{..}}</tool_call> the native
+    // check splits on.
+    private static readonly (string name, string sig, string desc)[]
+        TcTools =
+    {
+        ("translate", "text,to_lang", "翻譯一段文字"),
+        ("get_stock", "symbol", "查股票即時價格"),
+        ("book_ticket", "from,to,date", "訂車票"),
+        ("set_reminder", "time,text", "設定提醒"),
+        ("unit_convert", "value,from,to", "單位換算"),
+        ("wiki_lookup", "title", "查百科條目"),
+    };
+    private static readonly string[] TcArgsText =
+        { "早安你好", "這份報告的重點", "明天的會議紀要", "產品說明書",
+          "使用手冊第三節", "給客戶的感謝信" };
+    private static readonly string[] TcStocks =
+        { "2330", "2317", "2454", "2881", "2412" };
+    private static readonly string[] TcCities =
+        { "台北", "高雄", "台中", "台南", "花蓮", "新竹" };
+    private static readonly string[] TcDates =
+        { "2026-10-02", "2026-10-05", "2026-10-10", "2026-11-01" };
+    private static readonly string[] TcTopics =
+        { "半導體", "再生能源", "電動車", "央行利率", "颱風動態" };
+    private static readonly string[] TcStableFacts =
+        { "水在標準大氣壓下的沸點是幾度？", "一年有幾個月？",
+          "光的真空速度約是多少？", "中文「謝謝」的英文怎麼說？",
+          "地球繞太陽一圈約多久？", "一加一等於多少？" };
+    private static readonly string[] TcStableAnswers =
+        { "100°C", "12個月", "每秒約30萬公里", "Thank you",
+          "約365天", "2" };
+
+    // Tool-calling recovery — five surfaces: pick the right tool, emit
+    // typed arguments, decline when no tool is needed, fold a result
+    // back into the answer, and stay honest on tool errors. The
+    // negative surfaces (necessity/failure) are trained as real
+    // completions — a spurious <tool_call> or a fabricated value is a
+    // failure the model must learn to avoid, not coverage noise.
+    private static IEnumerable<Row> GenerateToolCalling(
+        int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        bool Hard() => r.Next(4) == 0;
+        string ToolList() => string.Join(
+            "、", TcTools.Select(t => $"{t.name}({t.sig})"));
+        string Call(string name, string args) =>
+            $"<tool_call>{{\"name\":\"{name}\",\"arguments\":{{{args}}}}}"
+            + "</tool_call>";
+
+        // -- A. tool_selection (~25%) — declared tool list, need →
+        //    correct <tool_call> with name + plausible arguments.
+        for (int i = 0; i < count / 4; i++)
+        {
+            switch (r.Next(6))
+            {
+                case 0:
+                {
+                    string text = Take(r, TcArgsText);
+                    string lang = Take(r, new[] { "en", "ja", "zh-TW" });
+                    Add(new Row
+                    {
+                        Prompt = $"可用工具：{ToolList()}。使用者想把「"
+                               + $"{text}」翻成 {lang}。輸出正確的 "
+                               + "<tool_call>。",
+                        Completion = Call("translate",
+                            $"\"text\":\"{text}\",\"to_lang\":\"{lang}\""),
+                        Category = "A", Rule = "head:<tool_call>",
+                        Source = Hard() ? "failure-pool" : "synthetic",
+                    });
+                    break;
+                }
+                case 1:
+                {
+                    string sym = Take(r, TcStocks);
+                    Add(new Row
+                    {
+                        Prompt = $"Tools: {ToolList()}. The user asks "
+                               + $"for the current price of stock {sym}."
+                               + " Emit the appropriate <tool_call>.",
+                        Completion = Call("get_stock",
+                            $"\"symbol\":\"{sym}\""),
+                        Category = "A", Rule = "head:<tool_call>",
+                    });
+                    break;
+                }
+                case 2:
+                {
+                    string from = Take(r, TcCities);
+                    string to = Take(r, TcCities.Where(
+                        c => c != from).ToArray());
+                    string date = Take(r, TcDates);
+                    Add(new Row
+                    {
+                        Prompt = $"可用工具：{ToolList()}。使用者要訂 "
+                               + $"{date} 從{from}到{to}的車票。輸出 "
+                               + "<tool_call>。",
+                        Completion = Call("book_ticket",
+                            $"\"from\":\"{from}\",\"to\":\"{to}\","
+                            + $"\"date\":\"{date}\""),
+                        Category = "A", Rule = "head:<tool_call>",
+                        Source = Hard() ? "failure-pool" : "synthetic",
+                    });
+                    break;
+                }
+                case 3:
+                {
+                    int v = 10 + r.Next(90);
+                    string from = Take(r, new[] { "km", "kg", "cm" });
+                    string to = from == "km" ? "mile"
+                              : from == "kg" ? "lb" : "inch";
+                    Add(new Row
+                    {
+                        Prompt = $"Tools: {ToolList()}. Convert {v} "
+                               + $"{from} to {to}. Emit <tool_call>.",
+                        Completion = Call("unit_convert",
+                            $"\"value\":{v},\"from\":\"{from}\","
+                            + $"\"to\":\"{to}\""),
+                        Category = "A", Rule = "head:<tool_call>",
+                    });
+                    break;
+                }
+                case 4:
+                {
+                    string topic = Take(r, TcTopics);
+                    Add(new Row
+                    {
+                        Prompt = $"可用工具：{ToolList()}。使用者想看"
+                               + $"「{topic}」的百科條目。輸出 "
+                               + "<tool_call>。",
+                        Completion = Call("wiki_lookup",
+                            $"\"title\":\"{topic}\""),
+                        Category = "A", Rule = "head:<tool_call>",
+                    });
+                    break;
+                }
+                default:
+                {
+                    string tm = $"{7 + r.Next(12)}:30";
+                    string what = Take(r, MtTasks);
+                    Add(new Row
+                    {
+                        Prompt = $"Tools: {ToolList()}. Remind the user "
+                               + $"at {tm} to {what}. Emit "
+                               + "<tool_call>.",
+                        Completion = Call("set_reminder",
+                            $"\"time\":\"{tm}\",\"text\":\"{what}\""),
+                        Category = "A", Rule = "head:<tool_call>",
+                        Source = Hard() ? "failure-pool" : "synthetic",
+                    });
+                    break;
+                }
+            }
+        }
+
+        // -- B. argument_correctness (~25%) — argument VALUES are the
+        //    point: correct keys, correct types, no dropped fields.
+        for (int i = 0; i < count / 4; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                int v = 5 + r.Next(200);
+                Add(new Row
+                {
+                    Prompt = "Emit <tool_call> for unit_convert with "
+                           + $"value={v}, from=\"kg\", to=\"lb\".",
+                    Completion = Call("unit_convert",
+                        $"\"value\":{v},\"from\":\"kg\",\"to\":\"lb\""),
+                    Category = "B", Rule = "head:<tool_call>",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+            else
+            {
+                string from = Take(r, TcCities);
+                string to = Take(r, TcCities.Where(
+                    c => c != from).ToArray());
+                string date = Take(r, TcDates);
+                Add(new Row
+                {
+                    Prompt = $"輸出 book_ticket 的 <tool_call>：起點 "
+                           + $"{from}、終點 {to}、日期 {date}。",
+                    Completion = Call("book_ticket",
+                        $"\"from\":\"{from}\",\"to\":\"{to}\","
+                        + $"\"date\":\"{date}\""),
+                    Category = "B", Rule = "head:<tool_call>",
+                });
+            }
+        }
+
+        // -- C. tool_necessity (~20%) — stable knowledge: answer
+        //    directly, NO markup. The completion is the plain answer.
+        for (int i = 0; i < count / 5; i++)
+        {
+            int q = r.Next(TcStableFacts.Length);
+            Add(new Row
+            {
+                Prompt = $"可用工具：{ToolList()}。使用者問：「"
+                       + $"{TcStableFacts[q]}」不需要工具——直接回答，"
+                       + "不要輸出 <tool_call>。",
+                Completion = TcStableAnswers[q],
+                Category = "C", Rule = "no_sub:<tool_call>",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- D. result_interpretation (~15%) — fold a returned result
+        //    into the answer; the value must survive verbatim.
+        for (int i = 0; i < count / 7; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                string sym = Take(r, TcStocks);
+                int price = 50 + r.Next(950);
+                string ans = $"{sym} 目前價格為 {price} 元。";
+                Add(new Row
+                {
+                    Prompt = $"get_stock 回傳 {{\"symbol\":\"{sym}\","
+                           + $"\"price\":{price}}}。使用者原本問 {sym} "
+                           + "現在多少錢。用工具結果回答。",
+                    Completion = ans,
+                    Category = "D",
+                    Rule = $"exact:{ans}",
+                    Source = Hard() ? "failure-pool" : "synthetic",
+                });
+            }
+            else
+            {
+                string text = Take(r, TcArgsText);
+                Add(new Row
+                {
+                    Prompt = "translate returned "
+                           + "{\"translated\":\"Bonjour le monde\"}. "
+                           + "The user asked to translate 「" + text
+                           + "」. Answer with the translated text.",
+                    Completion = "Bonjour le monde",
+                    Category = "D", Rule = "exact:Bonjour le monde",
+                });
+            }
+        }
+
+        // -- E. failure_recovery (~15%) — tool errors: state the
+        //    failure, never fabricate the value the tool did not
+        //    return.
+        for (int i = 0; i < count / 7; i++)
+        {
+            string tool = Take(r, new[] { "get_stock", "wiki_lookup",
+                                          "book_ticket" });
+            string err = Take(r, new[] { "timeout", "rate_limited",
+                                         "not_found" });
+            bool zh = r.Next(2) == 0;
+            Add(new Row
+            {
+                Prompt = zh
+                    ? $"工具 {tool} 回傳 {{\"error\":\"{err}\"}}。"
+                      + "向使用者說明操作失敗、建議稍後再試——不要"
+                      + "假造工具沒有回傳的資料。"
+                    : $"Tool {tool} returned {{\"error\":\"{err}\"}}. "
+                      + "Tell the user the operation failed and suggest "
+                      + "retrying later — do NOT fabricate a result.",
+                Completion = zh
+                    ? $"抱歉，{tool} 查詢失敗（{err}）。請稍後再試。"
+                    : $"Sorry, the {tool} request failed ({err}). "
+                      + "Please try again later.",
+                Category = "E", Rule = "no_sub:<tool_call>",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        return rows;
+    }
+
+    private static List<Dictionary<string, object?>>
+        BuildToolCallingSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+
+        // tool_selection — eval tools (search/calculator/get_news) are
+        // deliberately outside the TRAINING tool pool; transfer, not
+        // memorisation.
+        It("tc-sel-1", "tool_selection", "tool_call",
+           "Tools: search(query), calculator(expr), get_news(topic). "
+           + "User asks for today's exchange rate — retrieval required. "
+           + "Emit the appropriate <tool_call> block.",
+           "WRONG_TOOL", ("tool_name", "search"),
+           ("max_new_tokens", 48));
+        It("tc-sel-2", "tool_selection", "tool_call",
+           "Tools: search(query), calculator(expr), get_news(topic). "
+           + "User asks: what is 732 / 12? Emit the appropriate "
+           + "<tool_call> block.",
+           "WRONG_TOOL", ("tool_name", "calculator"),
+           ("max_new_tokens", 48));
+        It("tc-sel-3", "tool_selection", "tool_call",
+           "可用工具：search(query)、calculator(expr)、"
+           + "get_news(topic)。使用者想看最新的太空新聞。輸出正確的 "
+           + "<tool_call>。",
+           "WRONG_TOOL", ("tool_name", "get_news"),
+           ("max_new_tokens", 48));
+
+        // argument_correctness — the payload fields must be present
+        // with the right values.
+        It("tc-arg-1", "argument_correctness", "regex_all",
+           "Emit <tool_call>{\"name\":\"search\",\"arguments\":"
+           + "{\"query\":\"...\"}}</tool_call> for the question: "
+           + "recent typhoon warnings.",
+           "ARG_MISSING",
+           ("patterns", new List<object?>
+            { "<tool_call>", "search", "query", "typhoon" }),
+           ("max_new_tokens", 64));
+        It("tc-arg-2", "argument_correctness", "regex_all",
+           "Emit <tool_call>{\"name\":\"calculator\",\"arguments\":"
+           + "{\"expr\":\"...\"}}</tool_call> for 17 * 23.",
+           "ARG_MISSING",
+           ("patterns", new List<object?>
+            { "calculator", "expr", "17", "23" }),
+           ("max_new_tokens", 64));
+
+        // tool_necessity — stable facts: answer directly, no markup.
+        It("tc-nec-1", "tool_necessity", "not_contains",
+           "Tools: search(query), calculator(expr). User asks a stable "
+           + "fact: how many sides does a triangle have? Answer "
+           + "directly WITHOUT emitting <tool_call>.",
+           "SPURIOUS_CALL", ("expected", "<tool_call>"),
+           ("max_new_tokens", 32));
+        It("tc-nec-2", "tool_necessity", "not_contains",
+           "可用工具：search(query)、calculator(expr)。使用者問常識："
+           + "「彩虹有幾種顏色？」直接回答，不要輸出 <tool_call>。",
+           "SPURIOUS_CALL", ("expected", "<tool_call>"),
+           ("max_new_tokens", 32));
+
+        // result_interpretation — the returned value must reach the
+        // answer verbatim.
+        It("tc-int-1", "result_interpretation", "contains",
+           "Tool result from search: {\"answer\": \"Taipei 101 is 508 "
+           + "metres tall\"}. Answer the user's question using this "
+           + "result: how tall is Taipei 101?",
+           "IGNORED_RESULT", ("expected", "508"),
+           ("max_new_tokens", 48));
+        It("tc-int-2", "result_interpretation", "contains",
+           "calculator 回傳：{\"result\": 391}。使用者原本問 17 * 23。"
+           + "用工具結果回答使用者。",
+           "IGNORED_RESULT", ("expected", "391"),
+           ("max_new_tokens", 32));
+
+        // failure_recovery — a failed tool yields an honest failure
+        // message, never the fabricated answer.
+        It("tc-fail-1", "failure_recovery", "not_contains",
+           "Tool call failed: {\"error\": \"timeout\", \"tool\": "
+           + "\"search\"}. Tell the user the search failed — do NOT "
+           + "fabricate an answer by pretending the tool returned "
+           + "data.",
+           "FABRICATED_RESULT", ("expected", "508"),
+           ("max_new_tokens", 64));
+        It("tc-fail-2", "failure_recovery", "regex",
+           "search 工具回傳 error: not_found。向使用者說明查詢沒有"
+           + "結果並建議換個關鍵字。回覆中應包含「失敗」「沒有」或"
+           + "「關鍵字」語意。",
+           "SILENT_FAILURE",
+           ("pattern", "失敗|沒有|關鍵字|not found|failed"),
+           ("max_new_tokens", 64));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -1942,6 +2339,7 @@ internal static class InstructionRecovery
             "context_tracking" => GenerateContext(seed, count),
             "multi_turn" => GenerateMultiTurn(seed, count),
             "structured_output" => GenerateStructuredOutput(seed, count),
+            "tool_calling" => GenerateToolCalling(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -1988,6 +2386,7 @@ internal static class InstructionRecovery
             "context_tracking" => BuildContextSuiteItems(),
             "multi_turn" => BuildMultiTurnSuiteItems(),
             "structured_output" => BuildStructuredSuiteItems(),
+            "tool_calling" => BuildToolCallingSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows

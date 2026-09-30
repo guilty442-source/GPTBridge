@@ -178,6 +178,33 @@ internal sealed class TrainingJobExecutor
         return cfg;
     }
 
+    /// <summary>§41 freeze patterns from the job config: accepts a JSON
+    /// array of strings (bounded 64, each ≤256 chars) — anything else is
+    /// a typed rejection, never a silent drop.</summary>
+    private static List<object?>? FreezePatterns(
+        Dictionary<string, object?> configuration)
+    {
+        if (!configuration.TryGetValue("freeze", out object? raw) ||
+            raw is null)
+            return null;
+        if (raw is not System.Collections.IEnumerable list ||
+            raw is string)
+            throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
+                "freeze must be an array of pattern strings");
+        var patterns = new List<object?>();
+        foreach (object? item in list)
+        {
+            if (item is not string s || s.Length == 0 || s.Length > 256)
+                throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
+                    "freeze pattern must be a non-empty string ≤256 chars");
+            patterns.Add(s);
+            if (patterns.Count > 64)
+                throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
+                    "freeze pattern count exceeds 64");
+        }
+        return patterns;
+    }
+
     private (Dictionary<string, object?> dataset,
              List<Dictionary<string, object?>> trainDocs,
              List<Dictionary<string, object?>> valDocs) LoadSplitDocuments(
@@ -642,6 +669,11 @@ internal sealed class TrainingJobExecutor
                 ["init_checkpoint"] = initXcn,
                 ["emit_checkpoint"] = emitCkpt,
                 ["overwrite"] = true,
+                // §41-§45 ParameterFreezeMap passthrough: config
+                // "freeze" is a bounded list of wildcard patterns; the
+                // trainer resolves it before init_params so frozen
+                // params never allocate Adam moments (sparse optimizer).
+                ["freeze"] = FreezePatterns(configuration),
             },
             ["data"] = new Dictionary<string, object?>
             {
