@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
         if (a == "--job" && i + 1 < argc) job_path = argv[++i];
         else if (a == "--report" && i + 1 < argc) report_path = argv[++i];
         else if (a == "--smoke") do_smoke = true;
+        else if (a == "--gradcheck") return xct::gradcheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {

@@ -243,6 +243,81 @@ static JsonValue run_job(const JsonValue& job) {
     return r;
 }
 
+// ------------------------------------------------------------- gradcheck --
+
+// Central finite-difference check of analytic gradients on a tiny hybrid
+// (deltanet + gated attention + gated-MoE) model. fp32 limits accuracy, so
+// the pass bar is a loose relative tolerance — this catches sign/order
+// bugs, not last-ulp drift.
+static int gradcheck() {
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+    c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+    c.full_attention_interval = 2;          // layer 0 deltanet, layer 1 attn
+    c.attn_output_gate = true;
+    c.qk_norm = true;
+    c.partial_rotary = 0.5f;
+    c.lin_key_heads = 1; c.lin_key_dim = 32;
+    c.lin_value_heads = 2; c.lin_value_dim = 32;
+    c.lin_conv_kernel = 4;
+    c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 1;
+    c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+    c.moe_shared_inter = 24; c.shared_expert_gate = true;
+    Params p;
+    init_params(p, c, 7);
+    std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
+    std::vector<int> labels = {-100, 5, 7, 11, 13, 17, 19, 23, 29, 31};
+    auto loss_of = [&]() {
+        Fwd fw;
+        fwd(p, c, ids, fw);
+        std::vector<float> dl;
+        return (double)ce_loss(fw.logits, labels, (int)ids.size(), c.vocab,
+                               dl) + fw.moe_aux;
+    };
+    p.zero_grad();
+    Fwd fw;
+    fwd(p, c, ids, fw);
+    std::vector<float> dl;
+    double loss0 = ce_loss(fw.logits, labels, (int)ids.size(), c.vocab, dl)
+                   + fw.moe_aux;
+    bwd(p, c, ids, fw, dl, 1.0f);
+    const double eps = 1e-3;
+    double worst_rel = 0.0, worst_abs = 0.0;
+    std::string worst_name;
+    int checked = 0, failed = 0;
+    for (const auto& n : p.order) {
+        Tensor& w = p.w[n];
+        Tensor& g = p.g[n];
+        // stride to keep the check bounded but cover every tensor kind
+        size_t total = w.d.size();
+        size_t stride = total > 8 ? total / 8 : 1;
+        for (size_t i = 0; i < total; i += stride) {
+            float orig = w.d[i];
+            w.d[i] = orig + (float)eps; double lp = loss_of();
+            w.d[i] = orig - (float)eps; double lm = loss_of();
+            w.d[i] = orig;
+            double num = (lp - lm) / (2.0 * eps);
+            double ana = g.d[i];
+            double abs_err = std::fabs(num - ana);
+            double rel = abs_err / std::max(1e-4, std::fabs(num));
+            ++checked;
+            if (rel > 0.05 && abs_err > 1e-3) {
+                ++failed;
+                if (rel > worst_rel) {
+                    worst_rel = rel; worst_abs = abs_err;
+                    worst_name = n + "[" + std::to_string(i) + "]";
+                }
+            }
+        }
+    }
+    bool ok = failed == 0;
+    std::printf("gradcheck: loss=%.5f checked=%d failed=%d worst=%s "
+                "rel=%.4f abs=%.6f -> %s\n", loss0, checked, failed,
+                worst_name.c_str(), worst_rel, worst_abs,
+                ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 // ------------------------------------------------------------------ smoke --
 
 static int smoke() {
