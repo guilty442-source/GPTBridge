@@ -3012,12 +3012,18 @@ int mode_probe_cuda() {
     long long fb = 0, tb = 0;
     int ccm = 0, ccn = 0;
     const int ok = xcuda_probe(&fb, &tb, &ccm, &ccn);
+    unsigned util = 0, mw = 0;
+    const int stats = xcuda_gpu_stats(&util, &mw);
+    char ubuf[16] = "null", pbuf[16] = "null";
+    if (stats & 1) std::snprintf(ubuf, sizeof(ubuf), "%u", util);
+    if (stats & 2) std::snprintf(pbuf, sizeof(pbuf), "%.1f", mw / 1000.0);
     std::printf(
         "{\"ok\":true,\"cuda\":{\"available\":%s,"
         "\"vram_free_mb\":%lld,\"vram_total_mb\":%lld,"
-        "\"cc_major\":%d,\"cc_minor\":%d}}\n",
+        "\"cc_major\":%d,\"cc_minor\":%d,"
+        "\"nvml_util_pct\":%s,\"nvml_power_w\":%s}}\n",
         ok ? "true" : "false", fb / (1024 * 1024), tb / (1024 * 1024),
-        ccm, ccn);
+        ccm, ccn, ubuf, pbuf);
     return 0;
 }
 
@@ -4167,25 +4173,28 @@ int mode_hw_baseline(const Args& a) {
     std::atomic<bool> sample_run{true};
     std::atomic<unsigned> util_max{0}, power_max{0};
     std::atomic<int> util_seen{0}, power_seen{0};
-    std::thread sampler([&] {
-        while (sample_run.load()) {
-            unsigned u = 0, p = 0;
-            const int m = xcuda_gpu_stats(&u, &p);
-            if (m & 1) {
-                util_seen.fetch_add(1);
-                unsigned cur = util_max.load();
-                while (u > cur &&
-                       !util_max.compare_exchange_weak(cur, u)) {}
+    std::thread sampler;
+    if (cuda) {
+        sampler = std::thread([&] {
+            while (sample_run.load()) {
+                unsigned u = 0, p = 0;
+                const int m = xcuda_gpu_stats(&u, &p);
+                if (m & 1) {
+                    util_seen.fetch_add(1);
+                    unsigned cur = util_max.load();
+                    while (u > cur &&
+                           !util_max.compare_exchange_weak(cur, u)) {}
+                }
+                if (m & 2) {
+                    power_seen.fetch_add(1);
+                    unsigned cur = power_max.load();
+                    while (p > cur &&
+                           !power_max.compare_exchange_weak(cur, p)) {}
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
-            if (m & 2) {
-                power_seen.fetch_add(1);
-                unsigned cur = power_max.load();
-                while (p > cur &&
-                       !power_max.compare_exchange_weak(cur, p)) {}
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        }
-    });
+        });
+    }
     FILETIME c0{}, e0{}, k0{}, u0{};
     GetProcessTimes(GetCurrentProcess(), &c0, &e0, &k0, &u0);
     auto t0 = std::chrono::steady_clock::now();
@@ -4194,7 +4203,7 @@ int mode_hw_baseline(const Args& a) {
     std::vector<int64_t> gen = engine.generate(ids, decode, sc);
     auto t2 = std::chrono::steady_clock::now();
     sample_run.store(false);
-    sampler.join();
+    if (sampler.joinable()) sampler.join();
 
     FILETIME c1{}, e1{}, k1{}, u1{};
     GetProcessTimes(GetCurrentProcess(), &c1, &e1, &k1, &u1);
@@ -4267,10 +4276,10 @@ int mode_hw_baseline(const Args& a) {
         gptbridge::jsonlite::json_escape(bundle).c_str(),
         engine.bundle() ? engine.bundle()->weights_sha256().c_str() : "",
         vram_buf,
-        (long long)ram_peak, cpu_util,
+        (long long)ram_peak, cpu_util, gpu_buf,
         prefill_s > 0 ? prefill / prefill_s : 0.0,
         decode_s > 0 ? (double)gen.size() / decode_s : 0.0,
-        ttft_ms, itl_ms, tps_buf,
+        ttft_ms, itl_ms, tps_buf, pwr_buf,
         (long long)prefill, (long long)gen.size(),
         load_s, (long long)engine.kv_memory_bytes(),
         cuda ? "true" : "false");

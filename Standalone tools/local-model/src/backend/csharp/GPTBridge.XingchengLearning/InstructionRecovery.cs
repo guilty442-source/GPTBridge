@@ -1207,10 +1207,6 @@ internal static class InstructionRecovery
     // elaboration control, topic shift & return, role discipline, and
     // accumulating multi-step state. Eval-suite values (names, items,
     // times) are deliberately disjoint from these training pools.
-    private static readonly string[] MtSubjects =
-    {
-        "慢跑", "游泳", "登山", "瑜珈", "羽球", "籃球",
-    };
     private static readonly (string subject, string benefit)[]
         MtBenefits =
     {
@@ -1389,10 +1385,9 @@ internal static class InstructionRecovery
             for (int i = 0; i < 3; i++)
                 Add(new Row
                 {
-                    Prompt = Mt(q, Ack(), "你現在是什麼角色？"),
-                    Completion = a.Contains("助理") ? "助理" : a,
-                    Category = "E",
-                    Rule = "no_sub:<|user|>",
+                    Prompt = Mt(q, a, "你現在是什麼角色？"),
+                    Completion = "助理", Category = "E",
+                    Rule = "no_sub:<|user|>;no_sub:<|assistant|>",
                     Source = Hard() ? "failure-pool" : "synthetic",
                 });
         for (int i = 0; i < count / 24; i++)
