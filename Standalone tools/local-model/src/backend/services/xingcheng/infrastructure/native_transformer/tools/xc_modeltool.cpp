@@ -1702,6 +1702,11 @@ int mode_export_bundle(const Args& a) {
         // auxiliary heads; the serving contract drops them like
         // DeepSeek-style MTP checkpoints.
         if (n.compare(0, 4, "mtp.") == 0) continue;
+        // aux-free lb_bias is a routing-time buffer updated by the sign
+        // rule (never by the optimizer); the serving engine has no
+        // lb_bias consumer, so it is dropped like the MTP heads.
+        if (n.size() >= 7 &&
+            n.compare(n.size() - 7, 7, "lb_bias") == 0) continue;
         std::string b = xct_to_bundle(n, c.is_gemma4());
         if (b.empty()) fail("EXPORT_UNMAPPED_TENSOR:" + n);
         pairs.emplace_back(b, n);
