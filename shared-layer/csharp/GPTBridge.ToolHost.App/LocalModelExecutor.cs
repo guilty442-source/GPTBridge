@@ -40,6 +40,7 @@ internal sealed class LocalModelExecutor
     private readonly string _modeltoolExe;
     private readonly string _bundleDir;
     private readonly JsonObject _samplingDefaults;
+    private readonly int _cpuThreads;
 
     private readonly SemaphoreSlim _childLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
@@ -60,7 +61,8 @@ internal sealed class LocalModelExecutor
             env.ToolRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
-        (_bundleDir, _samplingDefaults) = ResolveBundle(env.ToolRoot);
+        (_bundleDir, _samplingDefaults, _cpuThreads) =
+            ResolveBundle(env.ToolRoot);
     }
 
     /// <summary>
@@ -68,9 +70,12 @@ internal sealed class LocalModelExecutor
     /// inference bundle. The checkpoint value may point at a bundle dir
     // directly or at a source .pt whose exported bundle is matched by
     /// source_checkpoint + size (parity with ModelServiceLocator).
+    /// cpu_threads feeds the native core's striped-GEMM stripe count via
+    /// GPTBRIDGE_MATMUL_THREADS on the worker process; absent/<=1 leaves
+    /// the core's auto default.
     /// </summary>
-    private static (string Bundle, JsonObject Defaults) ResolveBundle(
-        string toolRoot)
+    private static (string Bundle, JsonObject Defaults, int CpuThreads)
+        ResolveBundle(string toolRoot)
     {
         var settingsPath = Path.Combine(
             toolRoot, "runtime", "settings", "native-engine.json");
@@ -102,11 +107,16 @@ internal sealed class LocalModelExecutor
             throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_UNPINNED");
         var checkpointPath = Path.GetFullPath(Path.IsPathRooted(checkpoint)
             ? checkpoint : Path.Combine(toolRoot, checkpoint));
+        var cpuThreads =
+            root.TryGetProperty("cpu_threads", out var ct)
+            && ct.ValueKind == JsonValueKind.Number
+                ? ct.GetInt32()
+                : 0;
 
         // Pinned bundle directory (current contract).
         if (Directory.Exists(checkpointPath)
             && IsBundleDir(checkpointPath))
-            return (checkpointPath, defaults);
+            return (checkpointPath, defaults, cpuThreads);
 
         // Legacy contract: checkpoint is the source .pt; find its bundle.
         if (File.Exists(checkpointPath))
@@ -140,7 +150,8 @@ internal sealed class LocalModelExecutor
                         if (mr.TryGetProperty("source_size", out var sz)
                             && sz.GetInt64() != size)
                             continue;
-                        if (IsBundleDir(dir)) return (dir, defaults);
+                        if (IsBundleDir(dir))
+                            return (dir, defaults, cpuThreads);
                     }
                     catch (JsonException) { /* skip unreadable bundle */ }
                 }
@@ -493,6 +504,9 @@ internal sealed class LocalModelExecutor
         psi.ArgumentList.Add("serve");
         psi.ArgumentList.Add("--bundle");
         psi.ArgumentList.Add(_bundleDir);
+        if (_cpuThreads > 0)
+            psi.Environment["GPTBRIDGE_MATMUL_THREADS"] =
+                _cpuThreads.ToString();
         var child = Process.Start(psi)
             ?? throw new InvalidOperationException("MODEL_WORKER_SPAWN_FAILED");
         _ = Task.Run(async () =>

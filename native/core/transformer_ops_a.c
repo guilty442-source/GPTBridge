@@ -90,8 +90,8 @@ static void transformer_matmul_rows_range(
  * once at first use: unset/0/<=1 = min(8, logical cores) stripes; 1 =
  * serial; N = N stripes (cap 64).  Shapes below MATMUL_PAR_MIN_ELEMS
  * stay sequential — the dispatch overhead would dominate. */
-#define MATMUL_PAR_MIN_ELEMS ((int64_t)4 * 1024 * 1024)
-#define MATMUL_PAR_MIN_STRIPE 32
+#define MATMUL_PAR_MIN_ELEMS ((int64_t)512 * 1024)
+#define MATMUL_PAR_MIN_STRIPE 16
 #define MATMUL_PAR_MAX_STRIPES 64
 
 #ifdef _WIN32

@@ -468,15 +468,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 // Fused [gate|up] grouped GEMM: each row carries gate in
                 // columns [0, inter) and up in [inter, 2*inter).
                 std::vector<double>& gate_up = fs_.moe_gate_up;
-                gate_up.resize(
-                    static_cast<size_t>(grouped_rows * 2 * expert_inter));
-                checked_c_call(
-                    gptbridge_native_transformer_matmul_grouped(
-                        grouped_in.data(), group_rows.data(),
-                        static_cast<int64_t>(group_rows.size()),
-                        gate_up_list.data(), hidden_size,
-                        2 * expert_inter, gate_up.data()),
-                    "matmul-grouped");
+                matmul_grouped_into(
+                    grouped_in, group_rows, gate_up_list, hidden_size,
+                    2 * expert_inter, gate_up);
                 std::vector<double>& act = fs_.moe_act;
                 act.resize(static_cast<size_t>(grouped_rows * expert_inter));
                 for (int64_t r = 0; r < grouped_rows; ++r) {
@@ -491,15 +485,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     }
                 }
                 std::vector<double>& grouped_out = fs_.moe_grouped_out;
-                grouped_out.resize(
-                    static_cast<size_t>(grouped_rows * hidden_size));
-                checked_c_call(
-                    gptbridge_native_transformer_matmul_grouped(
-                        act.data(), group_rows.data(),
-                        static_cast<int64_t>(group_rows.size()),
-                        down_list.data(), expert_inter,
-                        hidden_size, grouped_out.data()),
-                    "matmul-grouped");
+                matmul_grouped_into(
+                    act, group_rows, down_list, expert_inter,
+                    hidden_size, grouped_out);
                 for (int64_t r = 0; r < grouped_rows; ++r) {
                     const double w = row_weight[static_cast<size_t>(r)];
                     const double* src = grouped_out.data() +
