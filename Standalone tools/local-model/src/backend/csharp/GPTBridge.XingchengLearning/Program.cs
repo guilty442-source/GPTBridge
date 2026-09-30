@@ -278,6 +278,15 @@ internal static class Program
             if (flags.Contains("catalog-validate"))
                 return Emit(FeatureCatalog.Validate(
                     opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- XingchengConvergenceGate: the single release gate.
+            // Ordered steps; any critical FAIL -> PROMOTION_BLOCKED.
+            if (flags.Contains("release-gate"))
+                return Emit(ConvergenceGate.Run(toolRoot,
+                    opts.TryGetValue("bundle", out string? gb) &&
+                    gb.Length > 0 ? gb : null,
+                    runBuilds: !flags.Contains("no-builds"),
+                    suite: opts.TryGetValue("suite", out string? gs) &&
+                    gs.Length > 0 ? gs : null));
             // ---- runtime capability plane (star-runtime-capabilities/v1)
             if (flags.Contains("caps-status"))
                 return Emit(RuntimeCapabilities.Status(toolRoot));
@@ -814,6 +823,28 @@ internal static class Program
             // §44 acceptance battery
             if (flags.Contains("system1-checks"))
                 return Emit(LayaMiMoChecks.Run(toolRoot));
+            // ---- NativeMemoryCudaPlane (memory/CUDA directive)
+            if (flags.Contains("precision-policy"))
+                return Emit(MemoryCudaPlane.PrecisionReport());
+            if (flags.Contains("prefill-chunk"))
+            {
+                var pc = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? pcf)
+                        ? pcf : "", "MEMPLANE_BUDGET_EXCEEDED");
+                return Emit(MemoryCudaPlane.PrefillChunkPlan(
+                    pc.GetProperty("free_vram_bytes").GetInt64(),
+                    pc.GetProperty("bytes_per_token").GetInt64(),
+                    pc.TryGetProperty("active_decode_kbs", out var adk)
+                        ? adk.GetInt64() : 0));
+            }
+            if (flags.Contains("memplane-telemetry-validate"))
+                return Emit(MemoryCudaPlane.ValidateTelemetry(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mtv)
+                            ? mtv : "", "MEMPLANE_TELEMETRY_INVALID")));
+            // memory/CUDA acceptance battery
+            if (flags.Contains("cuda-plane-checks"))
+                return Emit(CudaPlaneChecks.Run(toolRoot));
             return Usage();
         }
         catch (Exception exc)
@@ -882,7 +913,10 @@ internal static class Program
             "--groupwise-eval --file <f.json> | " +
             "--reward-gate --file <f.json> | " +
             "--correction-validate --file <f.json> | " +
-            "--system1-checks)");
+            "--system1-checks | --precision-policy | " +
+            "--prefill-chunk --file <f.json> | " +
+            "--memplane-telemetry-validate --file <f.json> | " +
+            "--cuda-plane-checks)");
         return 2;
     }
 

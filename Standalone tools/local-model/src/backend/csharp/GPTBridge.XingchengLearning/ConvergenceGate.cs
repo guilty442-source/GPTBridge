@@ -685,25 +685,81 @@ internal static class ConvergenceGate
 
             // Registered snapshot paths must never appear in a
             // retention deletion plan.
+            // Every registered snapshot path is part of a dataset
+            // row's identity — assert ours landed and that a dry-run
+            // never plans deletion for ANY registered snapshot.
+            var registered = repo.DatasetSnapshotPaths()
+                .Select(p => Path.IsPathRooted(p)
+                    ? Path.GetFullPath(p)
+                    : Path.GetFullPath(Path.Combine(
+                        toolRoot, "xingcheng", p)))
+                .ToList();
+            string absA = Path.GetFullPath(snapA);
+            if (!registered.Contains(absA))
+                return Fail("REGISTERED_SNAPSHOT_MISSING",
+                            "dataset snapshot path absent from registry");
             var plan = Retention.ApplyRetention(toolRoot, dryRun: true);
-            if (plan.TryGetValue("plans", out var plansObj) &&
-                plansObj is Dictionary<string, object?> plans &&
-                plans.TryGetValue("snapshots", out var snapObj))
+            if (plan.TryGetValue("deleted", out var delObj) &&
+                delObj is List<Dictionary<string, object?>> del)
             {
-                string planned = JsonSerializer.Serialize(snapObj);
-                string absA = Path.GetFullPath(snapA)
-                    .Replace('\\', '/');
-                string absB = Path.GetFullPath(snapB)
-                    .Replace('\\', '/');
-                if (planned.Contains(absA) || planned.Contains(absB) ||
-                    planned.Contains("snap-a.json") ||
-                    planned.Contains("snap-b.json"))
+                var regSet = new HashSet<string>(
+                    registered, StringComparer.OrdinalIgnoreCase);
+                var hit = del
+                    .Select(d => d.GetValueOrDefault("path")?.ToString()
+                                 ?? "")
+                    .Where(p => p.Length > 0)
+                    .Select(p => { try { return Path.GetFullPath(p); }
+                                   catch { return p; } })
+                    .FirstOrDefault(regSet.Contains);
+                if (hit != null)
                     return Fail("REGISTERED_SNAPSHOT_PRUNED",
-                                "retention planned a registered "
-                                + "snapshot deletion");
+                                $"retention planned {hit}");
+            }
+
+            // Unreadable registry -> preserve: with a dead DSN the
+            // fallback must protect every snapshot file in the
+            // snapshot dir (fail closed, never delete blind).
+            string scratchRoot = Path.Combine(scratchDir, "fake-tool");
+            string snapDir = Path.Combine(scratchRoot,
+                XcPaths.SelfLearningSnapshotRel.Replace('/',
+                    Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(snapDir);
+            string orphan = Path.Combine(snapDir, "orphan.jsonl");
+            File.WriteAllText(orphan, "{}\n");
+            string? savedDsn = Environment.GetEnvironmentVariable(
+                "GPTBRIDGE_POSTGRES_DSN");
+            try
+            {
+                Environment.SetEnvironmentVariable(
+                    "GPTBRIDGE_POSTGRES_DSN",
+                    "host=127.0.0.1;port=1;connect_timeout=1");
+                var blind = Retention.ApplyRetention(scratchRoot,
+                    new RetentionPolicy { Enabled = true,
+                                          KeepSnapshots = 0 },
+                    dryRun: true);
+                if (blind.TryGetValue("deleted", out var bObj) &&
+                    bObj is List<Dictionary<string, object?>> bDel)
+                {
+                    string absO = Path.GetFullPath(orphan);
+                    bool plannedDelete = bDel.Any(d =>
+                        string.Equals(
+                            d.GetValueOrDefault("path")?.ToString()
+                                is string dp
+                                ? Path.GetFullPath(dp) : "",
+                            absO, StringComparison.OrdinalIgnoreCase));
+                    if (plannedDelete)
+                        return Fail("UNREADABLE_REGISTRY_PRUNED",
+                                    "retention planned deletion with "
+                                    + "unreadable registry");
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(
+                    "GPTBRIDGE_POSTGRES_DSN", savedDsn);
             }
             return Pass($"dedup={id1 == id2} newrow={id3 != id1} "
-                        + "protected=true");
+                        + "protected=true blind_preserve=true");
         }
         catch (Exception ex)
         {
@@ -712,6 +768,20 @@ internal static class ConvergenceGate
             return Fail("DATASET_REGISTRY_UNAVAILABLE",
                         ex.GetType().Name + ": " +
                         ex.Message[..Math.Min(200, ex.Message.Length)]);
+        }
+        finally
+        {
+            // snap-a/snap-b stay — the registered dataset rows
+            // reference their paths (deleting them would leave a
+            // protected-but-missing snapshot). Only the fake-tool
+            // scratch tree goes.
+            try
+            {
+                string fake = Path.Combine(scratchDir, "fake-tool");
+                if (Directory.Exists(fake))
+                    Directory.Delete(fake, true);
+            }
+            catch { }
         }
     }
 
