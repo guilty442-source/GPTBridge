@@ -197,7 +197,7 @@ internal static partial class ManifestExport
             new[]
             {
                 "DETACHED_PROCESS", "CREATE_NO_WINDOW",
-                "ollama.exe serve", "spawn-unavailable",
+                "\" serve\"", "spawn-unavailable",
             });
         e.Contains("ollama-service:ownership",
             $"{ollamaSvc}/ollama_service.cpp",
