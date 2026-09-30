@@ -155,6 +155,7 @@ namespace xct {
 #include "xct_route.h"
 #include "xct_yarn.h"
 #include "xct_csa.h"
+#include "xct_canon.h"
 
 } // namespace xct
 
@@ -180,6 +181,8 @@ int main(int argc, char** argv) {
         else if (a == "--yarncheck") return xct::yarncheck();
         else if (a == "--csacheck") return xct::csacheck();
         else if (a == "--mtpcheck") return xct::mtpcheck();
+        else if (a == "--canoncheck") return xct::canoncheck();
+        else if (a == "--probe-all") return xct::probe_all();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {

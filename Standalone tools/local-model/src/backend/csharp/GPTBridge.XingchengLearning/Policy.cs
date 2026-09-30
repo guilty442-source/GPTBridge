@@ -86,6 +86,13 @@ internal sealed class SelfLearningPolicy
     // pretrain jobs and candidate activation) never fire. Defaults true
     // — fail-closed; unfreezing requires an explicit policy edit.
     public bool CapabilityTrainingFrozen = true;
+    // Single-capability recovery lane (star-single-capability-recovery/v1):
+    // when CapabilityTrainingFrozen holds AND this mode reads
+    // "SINGLE_CAPABILITY_RECOVERY", exactly one SFT job whose declared
+    // capability equals ActiveCapability may run; any other capability or
+    // non-SFT kind is still denied. Default "FROZEN" keeps the full freeze.
+    public string CapabilityTrainingMode = "FROZEN";
+    public string ActiveCapability = "";
 
     public Dictionary<string, object?> ToDict()
     {
@@ -135,6 +142,8 @@ internal sealed class SelfLearningPolicy
             ["dpo_min_new_pairs"] = DpoMinNewPairs,
             ["dpo_beta"] = DpoBeta,
             ["capability_training_frozen"] = CapabilityTrainingFrozen,
+            ["capability_training_mode"] = CapabilityTrainingMode,
+            ["active_capability"] = ActiveCapability,
         };
         return d;
     }
@@ -219,6 +228,14 @@ internal sealed class SelfLearningPolicy
             policy.CapabilityTrainingFrozen = Get(
                 root, "capability_training_frozen",
                 policy.CapabilityTrainingFrozen);
+            if (root.TryGetProperty("capability_training_mode",
+                    out var ctm) && ctm.ValueKind == JsonValueKind.String)
+                policy.CapabilityTrainingMode = ctm.GetString() ??
+                                                policy.CapabilityTrainingMode;
+            if (root.TryGetProperty("active_capability",
+                    out var ac) && ac.ValueKind == JsonValueKind.String)
+                policy.ActiveCapability = ac.GetString() ??
+                                          policy.ActiveCapability;
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

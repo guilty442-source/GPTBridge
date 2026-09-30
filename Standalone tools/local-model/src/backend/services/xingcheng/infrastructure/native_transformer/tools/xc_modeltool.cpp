@@ -2311,6 +2311,95 @@ int mode_capability(const Args& a) {
             } else if (kind == "regex") {
                 pass = std::regex_search(reply,
                                          std::regex(jget_str(item, "pattern")));
+            } else if (kind == "regex_all") {
+                // instruction-recovery: every pattern in `patterns` must
+                // match the same generation (composite constraints).
+                pass = true;
+                const JsonValue* pats = item.get("patterns");
+                if (pats && pats->type == JsonValue::Type::Array) {
+                    for (const auto& p : pats->array) {
+                        if (p.type != JsonValue::Type::String ||
+                            !std::regex_search(reply, std::regex(p.string))) {
+                            pass = false; break;
+                        }
+                    }
+                } else pass = false;
+            } else if (kind == "not_contains") {
+                // negative-constraint check: `expected` and every entry of
+                // `forbidden` must be absent from the reply.
+                pass = reply.find(jget_str(item, "expected")) ==
+                       std::string::npos;
+                const JsonValue* fb = item.get("forbidden");
+                if (fb && fb->type == JsonValue::Type::Array)
+                    for (const auto& f : fb->array)
+                        if (f.type == JsonValue::Type::String &&
+                            reply.find(f.string) != std::string::npos)
+                            pass = false;
+            } else if (kind == "count_lines") {
+                // count non-empty lines matching optional `line_pattern`;
+                // pass iff count == expected (exact-count instructions).
+                int64_t want = (int64_t)xct::j_num(&item, "expected", -1);
+                std::string lp = jget_str(item, "line_pattern");
+                int64_t cnt = 0;
+                std::istringstream iss(reply);
+                std::string line;
+                while (std::getline(iss, line)) {
+                    std::string t = py_strip(line);
+                    if (t.empty()) continue;
+                    if (!lp.empty() &&
+                        !std::regex_search(t, std::regex(lp))) continue;
+                    ++cnt;
+                }
+                pass = want >= 0 && cnt == want;
+            } else if (kind == "json_valid") {
+                // structural JSON gate: reply (optionally fenced) must parse
+                // as an object carrying `required_fields`; `exact_fields`
+                // forbids extra keys; `field_order` enforces key order.
+                std::string t = py_strip(reply);
+                size_t eot = t.find("<|eot|>");
+                if (eot != std::string::npos) t = py_strip(t.substr(0, eot));
+                if (t.rfind("```", 0) == 0) {
+                    size_t nl = t.find('\n');
+                    size_t end = t.rfind("```");
+                    if (nl != std::string::npos && end > nl)
+                        t = py_strip(t.substr(nl + 1, end - nl - 1));
+                }
+                bool parsed = false;
+                try {
+                    JsonValue j = JsonParser(t).parse();
+                    if (j.type == JsonValue::Type::Object) {
+                        parsed = true;
+                        const JsonValue* rf = item.get("required_fields");
+                        if (rf && rf->type == JsonValue::Type::Array) {
+                            std::vector<std::string> order;
+                            for (const auto& kv : j.object)
+                                order.push_back(kv.first);
+                            for (const auto& f : rf->array)
+                                if (f.type == JsonValue::Type::String &&
+                                    !j.get(f.string))
+                                    parsed = false;
+                            if (parsed &&
+                                xct::j_num(&item, "exact_fields", 0) > 0.5 &&
+                                order.size() != (size_t)rf->array.size())
+                                parsed = false;
+                            const JsonValue* fo = item.get("field_order");
+                            if (parsed && fo &&
+                                fo->type == JsonValue::Type::Array) {
+                                std::vector<std::string> want;
+                                for (const auto& f : fo->array)
+                                    if (f.type == JsonValue::Type::String)
+                                        want.push_back(f.string);
+                                std::vector<std::string> got;
+                                for (auto& k : order)
+                                    if (std::find(want.begin(), want.end(), k)
+                                        != want.end())
+                                        got.push_back(k);
+                                if (got != want) parsed = false;
+                            }
+                        }
+                    }
+                } catch (...) { parsed = false; }
+                pass = parsed;
             } else if (kind == "tool_call") {
                 pass = split_tool_call_name(reply, jget_str(item, "tool_name"));
             } else {
