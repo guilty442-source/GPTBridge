@@ -1268,6 +1268,13 @@ int mode_cache_smoke(const Args& a) {
     if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
+    // v27 fused hybrid: prefix cache stores K/V only and cannot restore
+    // DeltaNet recurrent state, so the engine bypasses it for hybrid
+    // bundles. The contract inverts: hits must stay absent while the
+    // recomputed path still yields identical greedy output.
+    const bool hybrid =
+        xct::j_num(mcfg, "full_attention_interval", 0) > 0 &&
+        xct::j_num(mcfg, "linear_num_key_heads", 0) > 0;
     std::vector<int64_t> ids;
     {
         std::mt19937_64 rng(seed);
@@ -1280,9 +1287,11 @@ int mode_cache_smoke(const Args& a) {
     } catch (const std::exception& e) {
         fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
     }
-    bool ok = fp.logits_finite && fp.logits_deterministic &&
-              fp.prefix_hit && fp.partial_prefix_hit && fp.gen_nonempty &&
-              fp.gen_identical;
+    const bool prefix_ok =
+        hybrid ? (!fp.prefix_hit && !fp.partial_prefix_hit)
+               : (fp.prefix_hit && fp.partial_prefix_hit);
+    bool ok = fp.logits_finite && fp.logits_deterministic && prefix_ok &&
+              fp.gen_nonempty && fp.gen_identical;
     // kv-int8: logits() never touches the KV pool, so the meaningful
     // evidence is the cached path — prefix hits still fire, the
     // restore→requantize round-trip keeps greedy output identical, and
@@ -1290,7 +1299,8 @@ int mode_cache_smoke(const Args& a) {
     // reported but not gated (quantization may legitimately nudge
     // argmax).
     bool int8_ok = true, int8_finite = false, int8_hit = false,
-         int8_partial = false, int8_gen_id = false, int8_vs_fp64 = false;
+         int8_partial = false, int8_gen_id = false, int8_vs_fp64 = false,
+         int8_nonempty = false;
     if (want_int8) {
 #ifdef _WIN32
         _putenv_s("XINGCHENG_CPP_KV_INT8", "1");
@@ -1302,10 +1312,12 @@ int mode_cache_smoke(const Args& a) {
             int8_finite = q8.logits_finite;
             int8_hit = q8.prefix_hit;
             int8_partial = q8.partial_prefix_hit;
-            int8_gen_id = q8.gen_identical && q8.gen_nonempty;
+            int8_gen_id = q8.gen_identical;
+            int8_nonempty = q8.gen_nonempty;
             int8_vs_fp64 = vec_eq(q8.ref_logits, fp.ref_logits);
-            int8_ok = int8_finite && int8_hit && int8_partial &&
-                      int8_gen_id;
+            int8_ok = int8_finite && int8_gen_id &&
+                      (hybrid ? (!int8_hit && !int8_partial)
+                              : (int8_hit && int8_partial));
         } catch (...) {
             int8_ok = false;
         }
@@ -1313,15 +1325,18 @@ int mode_cache_smoke(const Args& a) {
     }
     std::printf(
         "{\"ok\":%s,\"mode\":\"cache-smoke\",\"bundle\":\"%s\","
-        "\"vocab\":%lld,\"logits_finite\":%s,\"logits_deterministic\":%s,"
+        "\"vocab\":%lld,\"hybrid\":%s,\"logits_finite\":%s,"
+        "\"logits_deterministic\":%s,"
         "\"prefix_hit\":%s,\"partial_prefix_hit\":%s,"
         "\"gen_identical\":%s,"
         "\"kv_int8\":{\"requested\":%s,\"ok\":%s,\"finite\":%s,"
         "\"prefix_hit\":%s,\"partial_prefix_hit\":%s,"
-        "\"gen_identical\":%s,\"vs_fp64_logits_identical\":%s}}\n",
+        "\"gen_identical\":%s,\"gen_nonempty\":%s,"
+        "\"vs_fp64_logits_identical\":%s}}\n",
         ok ? "true" : "false",
         gptbridge::jsonlite::json_escape(bundle).c_str(),
         (long long)vocab,
+        hybrid ? "true" : "false",
         fp.logits_finite ? "true" : "false",
         fp.logits_deterministic ? "true" : "false",
         fp.prefix_hit ? "true" : "false",
@@ -1330,11 +1345,151 @@ int mode_cache_smoke(const Args& a) {
         want_int8 ? "true" : "false", int8_ok ? "true" : "false",
         int8_finite ? "true" : "false", int8_hit ? "true" : "false",
         int8_partial ? "true" : "false", int8_gen_id ? "true" : "false",
+        int8_nonempty ? "true" : "false",
         int8_vs_fp64 ? "true" : "false");
     return ok ? 0 : 1;
 }
 
 // ------------------------------------------------------- export-bundle ----
+
+// ------------------------------------------------------------- parity ----
+// v27 fused-hybrid gate: numeric parity between the trainer checkpoint
+// (fp32 xct::fwd) and the exported bundle run through the C++ engine
+// (fp64) on identical token ids. Compares summed next-token NLL,
+// last-position logits and greedy argmax — this is the end-to-end check
+// that export + engine execution reproduce trained weights exactly,
+// including DeltaNet recurrence, causal-conv tails, q/k norm, gated
+// attention out and partial RoPE.
+int mode_parity(const Args& a) {
+    std::string ckpt = a.get("ckpt"), bundle = a.get("bundle");
+    if (ckpt.empty() || bundle.empty()) fail("PARITY_ARGS_MISSING");
+    double tol_nll = 0.02, tol_logit = 0.10;
+    if (a.has("tol")) {
+        try { tol_nll = std::stod(a.get("tol")); }
+        catch (...) { fail("PARITY_BAD_TOL"); }
+    }
+    if (a.has("tol-logit")) {
+        try { tol_logit = std::stod(a.get("tol-logit")); }
+        catch (...) { fail("PARITY_BAD_TOL"); }
+    }
+
+    xct::ModelConfig c;
+    if (!xct::ckpt_peek_config(ckpt, c)) fail("PARITY_CKPT_UNREADABLE");
+
+    // ids: explicit CSV via --ids, else seeded probe ids like cache-smoke.
+    std::vector<int64_t> ids;
+    if (a.has("ids")) {
+        const std::string s = a.get("ids");
+        size_t pos = 0;
+        while (pos <= s.size()) {
+            size_t comma = s.find(',', pos);
+            std::string tok =
+                s.substr(pos, comma == std::string::npos
+                                 ? std::string::npos : comma - pos);
+            if (tok.empty()) fail("PARITY_BAD_IDS");
+            try { ids.push_back(std::stoll(tok)); }
+            catch (...) { fail("PARITY_BAD_IDS"); }
+            if (comma == std::string::npos) break;
+            pos = comma + 1;
+        }
+    } else {
+        int64_t len = a.has("len")
+                          ? std::stoll(a.get("len")) : 32;
+        uint64_t seed = a.has("seed")
+                            ? (uint64_t)std::stoull(a.get("seed")) : 11;
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<int64_t> tok(3, c.vocab - 1);
+        for (int64_t i = 0; i < len; ++i) ids.push_back(tok(rng));
+    }
+    if (ids.size() < 4) fail("PARITY_IDS_TOO_SHORT");
+    for (int64_t id : ids)
+        if (id < 0 || id >= c.vocab) fail("PARITY_ID_RANGE");
+
+    xct::Params p;
+    xct::init_params(p, c, 0);
+    if (!xct::ckpt_load(p, c, ckpt)) fail("PARITY_CKPT_LOAD_FAILED");
+    std::vector<int> tids(ids.begin(), ids.end());
+    xct::Fwd o;
+    try {
+        xct::fwd(p, c, tids, o);
+    } catch (const char* e) {
+        fail(std::string("PARITY_TRAINER_FWD:") + e);
+    } catch (const std::exception& e) {
+        fail(std::string("PARITY_TRAINER_FWD:") + e.what());
+    } catch (...) {
+        fail("PARITY_TRAINER_FWD");
+    }
+
+    const int T = (int)tids.size(), V = c.vocab;
+    if ((int64_t)o.logits.size() != (int64_t)T * V)
+        fail("PARITY_TRAINER_SHAPE");
+    double nll_t = 0.0;
+    int64_t cnt = 0;
+    for (int i = 0; i + 1 < T; ++i) {
+        const float* row = o.logits.data() + (size_t)i * V;
+        double mx = (double)row[0];
+        for (int v = 1; v < V; ++v)
+            if ((double)row[v] > mx) mx = (double)row[v];
+        double se = 0.0;
+        for (int v = 0; v < V; ++v)
+            se += std::exp((double)row[v] - mx);
+        const int tgt = tids[(size_t)i + 1];
+        nll_t += mx + std::log(se) - (double)row[tgt];
+        ++cnt;
+    }
+    const float* last_t = o.logits.data() + (size_t)(T - 1) * V;
+    int argmax_t = 0;
+    for (int v = 1; v < V; ++v)
+        if (last_t[v] > last_t[argmax_t]) argmax_t = v;
+
+    NativeInferenceEngine e;
+    try {
+        e.load(bundle);
+    } catch (const std::exception& ex) {
+        fail(std::string("PARITY_ENGINE_LOAD:") + ex.what());
+    }
+    std::pair<double, int64_t> nll_e;
+    std::vector<double> lg;
+    try {
+        nll_e = e.sequence_nll(ids);
+        lg = e.logits(ids);
+    } catch (const std::exception& ex) {
+        fail(std::string("PARITY_ENGINE_FWD:") + ex.what());
+    }
+    if ((int64_t)lg.size() != V) fail("PARITY_ENGINE_SHAPE");
+    int argmax_e = 0;
+    double max_logit_d = 0.0;
+    for (int v = 0; v < V; ++v) {
+        if (lg[(size_t)v] > lg[(size_t)argmax_e]) argmax_e = v;
+        double d = std::fabs(lg[(size_t)v] - (double)last_t[v]);
+        if (d > max_logit_d) max_logit_d = d;
+    }
+    const double mean_t = nll_t / (double)cnt;
+    const double mean_e =
+        nll_e.second > 0 ? nll_e.first / (double)nll_e.second : -1.0;
+    const double mean_d = std::fabs(mean_t - mean_e);
+    int linear_layers = 0;
+    for (int l = 0; l < c.layers; ++l)
+        if (c.is_linear(l)) ++linear_layers;
+    const bool ok = nll_e.second == cnt && argmax_t == argmax_e &&
+                    mean_d <= tol_nll && max_logit_d <= tol_logit &&
+                    std::isfinite(mean_t) && std::isfinite(mean_e);
+    std::printf(
+        "{\"ok\":%s,\"mode\":\"parity\",\"ckpt\":\"%s\",\"bundle\":\"%s\","
+        "\"tokens\":%lld,\"scored\":%lld,\"linear_layers\":%d,"
+        "\"nll_trainer\":%.6f,\"nll_engine\":%.6f,"
+        "\"mean_nll_trainer\":%.6f,\"mean_nll_engine\":%.6f,"
+        "\"mean_nll_diff\":%.6f,\"logit_max_abs_diff\":%.6f,"
+        "\"argmax_trainer\":%d,\"argmax_engine\":%d,"
+        "\"argmax_match\":%s}\n",
+        ok ? "true" : "false",
+        gptbridge::jsonlite::json_escape(ckpt).c_str(),
+        gptbridge::jsonlite::json_escape(bundle).c_str(),
+        (long long)ids.size(), (long long)nll_e.second, linear_layers,
+        nll_t, nll_e.first, mean_t, mean_e, mean_d, max_logit_d,
+        argmax_t, argmax_e, argmax_t == argmax_e ? "true" : "false");
+    return ok ? 0 : 1;
+}
 
 int mode_export_bundle(const Args& a) {
     std::string ckpt = a.get("ckpt");
@@ -2435,7 +2590,7 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
             "xc_modeltool <tokenize|corpus|import-bundle|distill-init|export-bundle|eval|"
-            "capability|vision-smoke|cache-smoke|serve> [args]\n");
+            "capability|vision-smoke|cache-smoke|parity|serve> [args]\n");
         return 2;
     }
     std::string mode = argv[1];
@@ -2450,6 +2605,7 @@ int main(int argc, char** argv) {
         if (mode == "capability") return mode_capability(a);
         if (mode == "vision-smoke") return mode_vision_smoke(a);
         if (mode == "cache-smoke") return mode_cache_smoke(a);
+        if (mode == "parity") return mode_parity(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {

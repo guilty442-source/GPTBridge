@@ -1,0 +1,77 @@
+{
+  "schema": "star-native-thinking/v1",
+  "owner": "xingcheng",
+  "runtime": "native-cpp",
+  "summary": "Latent-space reasoning (Native Thinking) + reinforcement learning for Xingcheng. Continuous-thought steps are performed inside hidden state space (no detokenized CoT); parallel hypothesis branches are decoded from private KV slots and self-verified by model confidence (latent CoVe); GRPO trains the policy on verifiable rewards.",
+
+  "inference": {
+    "entry_point": "NativeInferenceEngine::generate_thinking",
+    "serve_op": "think",
+    "flow": [
+      "prefill: prompt KV on slot 0, last hidden row seeds first thought",
+      "think_steps: feed previous hidden row back as input embedding via BatchSpan::embed_override; occupies one KV position each; never detokenizes",
+      "fork: kv_copy_slot clones slot-0 KV into K private branch slots",
+      "decode: each branch samples independently from the final-thought logits",
+      "verify: branch scored by mean token logprob (model self-confidence); argmax supplies the final answer",
+      "cleanup: every branch slot is freed (also on throw)"
+    ],
+    "controls": {
+      "think_steps": { "default": 4, "min": 0, "max": 32, "error": "THINK_STEPS_OUT_OF_BOUNDS" },
+      "branches": { "default": 4, "min": 1, "max": 8, "error": "THINK_BRANCHES_OUT_OF_BOUNDS" },
+      "max_new_tokens": { "default": 128, "min": 1, "max": 2048, "note": "clamped by serve; prompt+think_steps+max_new must fit max_position_embeddings" },
+      "sampling": [ "do_sample", "temperature", "top_k", "top_p", "repetition_penalty", "seed" ]
+    },
+    "response_surface": {
+      "text": "decoded winning branch",
+      "token_ids": "winning branch ids",
+      "generated_tokens": "winning branch length",
+      "thinking": {
+        "think_steps": "int",
+        "branches": "int",
+        "chosen_branch": "int",
+        "verify": "confidence",
+        "branch_scores": "float[] — mean logprob per branch",
+        "branch_lengths": "int[]"
+      },
+      "latency_ms": "float",
+      "decoder": "native-cpp",
+      "cpp_runtime": true
+    },
+    "kv_isolation": {
+      "helper": "kv_copy_slot(dst, src, count)",
+      "guarantee": "branch slots hold private copies of prompt+thought KV; no shared mutable KV across hypotheses"
+    },
+    "embedding_override": {
+      "field": "BatchSpan::embed_override",
+      "semantics": "when set, replaces the token embedding with the supplied hidden_size vector (validated); works in legacy and gemma4 embed paths; PLE per-layer input is neutralized for latent positions"
+    }
+  },
+
+  "training": {
+    "task": "grpo",
+    "summary": "Group Relative Policy Optimization: on-policy group rollouts, verifiable reward, group-normalized advantage, policy gradient with KL-to-reference regularization.",
+    "data_format": "grpo jsonl: {\"prompt_ids\": [...], \"completion_ids\": [...]} — completion is the verifiable target",
+    "flow": [
+      "sample G=group_size rollouts per prompt at rollout temperature",
+      "reward each rollout: exact match (1.0/0.0) or matched-prefix fraction",
+      "advantage = (reward - group_mean) / group_std (0 when degenerate)",
+      "loss per rollout = (-adv * lp_policy + kl_coef * (lp_policy - lp_ref)) / completion_len",
+      "backprop soft-grad (softmax - onehot) over completion positions only"
+    ],
+    "controls": {
+      "group_size": { "default": 4, "min": 2, "max": 8 },
+      "max_new_tokens": { "default": 8, "min": 1, "max": 64 },
+      "temperature": { "default": 1.0 },
+      "kl_coef": { "default": 0.02 },
+      "reward": { "default": "exact", "enum": ["exact", "prefix"] }
+    },
+    "report_fields": [ "rollouts", "reward_mean", "kl_mean" ],
+    "smoke_leg": "smoke-grpo"
+  },
+
+  "fail_closed": [
+    "unsupported bounds throw InferenceError, never silently clamp or fall back to textual CoT",
+    "MoE gemma4 profiles stay rejected (MOE_GEMMA4_UNSUPPORTED)",
+    "no python runtime in the thinking or GRPO path"
+  ]
+}
