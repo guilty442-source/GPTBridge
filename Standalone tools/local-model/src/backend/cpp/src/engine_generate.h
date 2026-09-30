@@ -361,8 +361,10 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     for (int64_t step = 0; step < max_new_tokens; ++step) {
         if (dbg_gen) {
             uint64_t ph = 1469598103934665603ULL;
-            for (int64_t pos = 0; pos < kv_lens_[0]; ++pos) {
-                const char* p = kv_slot_bytes(0, true, 0, pos, 0);
+            for (int64_t layer = 0; layer < cfg.num_hidden_layers; ++layer)
+            for (int64_t pos = 0; pos < kv_lens_[0]; ++pos)
+            for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
+                const char* p = kv_slot_bytes(0, true, layer, pos, h);
                 for (int64_t b = 0; b < kv_elem_stride_bytes_; ++b) {
                     ph ^= (unsigned char)p[b]; ph *= 1099511628211ULL;
                 }
