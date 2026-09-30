@@ -142,6 +142,15 @@ internal static class GenerationMigration
         {
             ["format"] = StateFormat,
             ["active_generation"] = "",
+            // Unified identity fields (§3 active/canonical separation):
+            // lineage generation, architecture profile, checkpoint
+            // contract, runtime and bundle versions are tracked
+            // independently — one string never denotes two concepts.
+            ["architecture_generation"] = "",
+            ["candidate_architecture"] = "",
+            ["checkpoint_version"] = "",
+            ["runtime_version"] = "",
+            ["bundle_version"] = "",
         };
     }
 
@@ -150,6 +159,17 @@ internal static class GenerationMigration
     {
         state["format"] = StateFormat;
         state["updated_at"] = XcPaths.IsoNow();
+        // Fill unified identity fields when absent so a v1 state file
+        // upgrades in place without rewriting its lineage fields.
+        foreach (var k in new[]
+                 {
+                     "architecture_generation", "candidate_architecture",
+                     "checkpoint_version", "runtime_version",
+                     "bundle_version",
+                 })
+        {
+            if (!state.ContainsKey(k)) state[k] = "";
+        }
         ModelLifecycle.AtomicWrite(
             StatePath(toolRoot), CanonicalJson.PrettyDict(state) + "\n");
     }

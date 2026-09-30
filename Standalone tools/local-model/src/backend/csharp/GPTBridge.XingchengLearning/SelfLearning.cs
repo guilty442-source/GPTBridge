@@ -1113,6 +1113,10 @@ internal static class SelfLearning
         string initRelative = Path.GetRelativePath(repositoryRoot, activePath)
             .Replace(Path.DirectorySeparatorChar, '/');
 
+        if (FrozenResult(resolvedPolicy, tool, state, dataset,
+                         total, newExamples) is { } frozenSft)
+            return frozenSft;
+
         var job = repository.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
             configuration: new Dictionary<string, object?>
@@ -1160,6 +1164,34 @@ internal static class SelfLearning
             ["origin"] = origin,
         };
         return merged;
+    }
+
+    /// <summary>Architecture-convergence freeze gate: when
+    /// <c>capability_training_frozen</c> is set the cycle keeps its
+    /// collect/sanitize/dedup/register work (the dataset snapshot above
+    /// is already registered) but must not create a trainer job or
+    /// touch active weights. Returns null when not frozen.</summary>
+    private static Dictionary<string, object?>? FrozenResult(
+        SelfLearningPolicy policy, string tool,
+        Dictionary<string, object?> state,
+        IReadOnlyDictionary<string, object?> dataset,
+        int total, int newCount)
+    {
+        if (!policy.CapabilityTrainingFrozen) return null;
+        SelfLearningState.Save(tool, new Dictionary<string, object?>(state)
+        {
+            ["last_run_at"] = IsoNow(),
+            ["last_action"] = "frozen",
+        });
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["action"] = "frozen",
+            ["reason"] = "capability-training-frozen",
+            ["dataset_id"] = dataset["dataset_id"],
+            ["total_examples"] = total,
+            ["new_examples"] = newCount,
+        };
     }
 
     private static Dictionary<string, object?> RunDpoCycle(
@@ -1219,6 +1251,9 @@ internal static class SelfLearning
             TransformerTrainingRepository.Int(state, "trained_pair_total"));
         string initRelative = Path.GetRelativePath(repositoryRoot, activePath)
             .Replace(Path.DirectorySeparatorChar, '/');
+        if (FrozenResult(policy, tool, state, dataset,
+                         pairsTotal, newPairs) is { } frozenDpo)
+            return frozenDpo;
         var job = repository.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
             configuration: new Dictionary<string, object?>

@@ -80,6 +80,10 @@ internal sealed class SelfLearningPolicy
     public bool DpoEnabled = false;
     public int DpoMinNewPairs = 8;
     public double DpoBeta = 0.1;
+    // Architecture-convergence phase (凍結能力訓練): when true the cycle
+    // still collects / sanitizes / deduplicates / registers datasets and
+    // audits, but never creates a trainer job or activates a candidate.
+    public bool CapabilityTrainingFrozen = false;
 
     public Dictionary<string, object?> ToDict()
     {
@@ -128,6 +132,7 @@ internal sealed class SelfLearningPolicy
             ["dpo_enabled"] = DpoEnabled,
             ["dpo_min_new_pairs"] = DpoMinNewPairs,
             ["dpo_beta"] = DpoBeta,
+            ["capability_training_frozen"] = CapabilityTrainingFrozen,
         };
         return d;
     }
@@ -209,6 +214,8 @@ internal sealed class SelfLearningPolicy
             policy.DpoEnabled = Get(root, "dpo_enabled", policy.DpoEnabled);
             policy.DpoMinNewPairs = Get(root, "dpo_min_new_pairs", policy.DpoMinNewPairs);
             policy.DpoBeta = Get(root, "dpo_beta", policy.DpoBeta);
+            policy.CapabilityTrainingFrozen = Get(root, "capability_training_frozen",
+                                                  policy.CapabilityTrainingFrozen);
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

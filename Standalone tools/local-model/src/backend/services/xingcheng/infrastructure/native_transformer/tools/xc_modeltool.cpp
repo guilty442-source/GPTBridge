@@ -1826,18 +1826,44 @@ int mode_export_bundle(const Args& a) {
         cfg_canon = gptbridge::jsonlite::json_serialize(cfg_copy);
     }
     std::string ckpt_sha = sha256_file(ckpt);
+    // Checkpoint contract version read straight from the XCN1 header so
+    // the bundle manifest carries the same contract identity as the
+    // source artifact (unified §10 checkpoint/bundle contract).
+    uint32_t ckpt_ver = 0;
+    {
+        std::ifstream ch(ckpt, std::ios::binary);
+        char hdr[8] = {};
+        if (ch.read(hdr, 8) &&
+            hdr[0] == 'X' && hdr[1] == 'C' && hdr[2] == 'N' && hdr[3] == '1')
+            std::memcpy(&ckpt_ver, hdr + 4, 4);
+    }
+    // Architecture generation declared by the shipped config (present
+    // for canonical-generation jobs such as xc-fused-1).
+    std::string arch_gen;
+    {
+        const JsonValue* g = cfg->get("generation");
+        if (g && g->type == JsonValue::Type::String) arch_gen = g->string;
+    }
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
                       std::chrono::system_clock::now().time_since_epoch())
                       .count();
     std::ostringstream mf;
     mf << "{\"checkpoint_sha256\":\"" << ckpt_sha << "\""
-       << ",\"config\":" << cfg_canon
+       << ",\"checkpoint_version\":" << ckpt_ver;
+    if (!arch_gen.empty())
+        mf << ",\"architecture_generation\":\""
+           << gptbridge::jsonlite::json_escape(arch_gen) << "\"";
+    mf << ",\"config\":" << cfg_canon
        << ",\"created_by\":\"xc-modeltool\""
        << ",\"created_at\":" << now
        << ",\"schema_version\":\"star-native-inference-bundle/v1\""
        << ",\"source_checkpoint\":\""
        << gptbridge::jsonlite::json_escape(ckpt) << "\""
        << ",\"source_ckpt_sha256\":\"" << ckpt_sha << "\""
+       << ",\"lineage\":{\"source_checkpoint\":\""
+       << gptbridge::jsonlite::json_escape(ckpt)
+       << "\",\"source_ckpt_sha256\":\"" << ckpt_sha
+       << "\",\"checkpoint_version\":" << ckpt_ver << "}"
        << ",\"tensors\":" << tensors_json.str()
        << ",\"weights_file\":\"weights.bin\""
        << ",\"weights_sha256\":\"" << weights_sha << "\""
