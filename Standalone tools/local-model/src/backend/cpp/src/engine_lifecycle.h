@@ -497,8 +497,11 @@ void NativeInferenceEngine::validate_supported() const {
          cfg.moe_shared_intermediate_size < 0)) {
         throw InferenceError("MOE_CONFIG_UNSUPPORTED");
     }
+    // Accepted manifest quantizations: none / int8 / int4(_packed —
+    // the exporter's exact string) / bf16 (PRODUCTION_BF16 candidate).
     if (cfg.quantization != "none" && cfg.quantization != "int8" &&
-        cfg.quantization != "int4") {
+        cfg.quantization != "int4" && cfg.quantization != "int4_packed" &&
+        cfg.quantization != "bf16") {
         throw InferenceError("QUANTIZED_INFERENCE_UNSUPPORTED");
     }
     if (cfg.norm_type != "rmsnorm") throw InferenceError("NORM_TYPE_UNSUPPORTED");

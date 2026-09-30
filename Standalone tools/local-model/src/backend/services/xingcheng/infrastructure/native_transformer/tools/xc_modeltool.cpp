@@ -12,7 +12,9 @@
 //                 --out <student.xcn> [--seed N] [--overwrite]
 //   export-bundle --ckpt <file> --out <dir>
 //                 --config-from <manifest.json> --tokenizer <tokenizer.json>
-//                 [--quant none|int8|int4_packed]
+//                 [--quant none|int8|int4_packed|bf16]
+//   precision     --ref <bundle> --candidate <bundle> [--tol F] [--seed N] [--len N]
+//                 (precision-candidate validation: logits/NLL/greedy/memory)
 //   eval          --bundle <dir> --suite <suite.json>
 //                 [--baseline-bundle <dir>|--baseline-metrics <file>]
 //   capability    --bundle <dir> --suite <suite.json>
@@ -1340,23 +1342,17 @@ struct Run {
 Run probe_run(const std::string& bundle,
               const std::vector<int64_t>& ids) {
     NativeInferenceEngine e;
-    std::fprintf(stderr, "dbg: load\n"); std::fflush(stderr);
     e.load(bundle);
-    std::fprintf(stderr, "dbg: loaded\n"); std::fflush(stderr);
     Run r;
     r.ref_logits = e.logits(ids);
-    std::fprintf(stderr, "dbg: logits1\n"); std::fflush(stderr);
     r.logits_finite = all_finite(r.ref_logits);
     r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
-    std::fprintf(stderr, "dbg: logits2\n"); std::fflush(stderr);
     SamplingConfig sc;                    // do_sample=false → argmax
     std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
     std::vector<int64_t> g1 =
         e.generate(prompt, 6, sc);        // miss → stores prefix entry
-    std::fprintf(stderr, "dbg: gen1\n"); std::fflush(stderr);
     const int64_t h1 = prefix_hits(e);
     std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
-    std::fprintf(stderr, "dbg: gen2\n"); std::fflush(stderr);
     const int64_t h2 = prefix_hits(e);
     r.prefix_hit = (h2 > h1);
     r.gen_nonempty = !g1.empty();
@@ -1366,7 +1362,6 @@ Run probe_run(const std::string& bundle,
     // longest-match restore path as well.
     std::vector<int64_t> prompt2(ids.begin(), ids.begin() + 24);
     std::vector<int64_t> g3 = e.generate(prompt2, 4, sc);
-    std::fprintf(stderr, "dbg: gen3\n"); std::fflush(stderr);
     const int64_t h3 = prefix_hits(e);
     r.partial_prefix_hit = (h3 > h2) && !g3.empty();
     return r;
@@ -1616,6 +1611,123 @@ int mode_parity(const Args& a) {
     return ok ? 0 : 1;
 }
 
+// §15 precision-candidate validation: the same weights exported at two
+// precisions (REFERENCE_FP64 vs PRODUCTION_BF16) are compared through
+// the real engine — last-position logit drift, argmax agreement,
+// sequence NLL, greedy continuation identity, load time and resident
+// memory. Reports evidence; promotion stays a lifecycle decision.
+int mode_precision(const Args& a) {
+    std::string ref_path = a.get("ref"), cand_path = a.get("candidate");
+    if (ref_path.empty() || cand_path.empty()) fail("PRECISION_ARGS_MISSING");
+    double tol = 0.5;
+    if (a.has("tol")) {
+        try { tol = std::stod(a.get("tol")); }
+        catch (...) { fail("PRECISION_BAD_TOL"); }
+    }
+    uint64_t seed = 11;
+    int64_t len = 32;
+    if (a.has("seed")) {
+        try { seed = (uint64_t)std::stoull(a.get("seed")); }
+        catch (...) { fail("PRECISION_BAD_SEED"); }
+    }
+    if (a.has("len")) {
+        try { len = std::stoll(a.get("len")); }
+        catch (...) { fail("PRECISION_BAD_LEN"); }
+    }
+    if (len < 4) fail("PRECISION_LEN_TOO_SHORT");
+
+    NativeInferenceEngine ref, cand;
+    auto now_ms = [] {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    const int64_t t_load0 = now_ms();
+    try { ref.load(ref_path); }
+    catch (const std::exception& ex) {
+        fail(std::string("PRECISION_REF_LOAD:") + ex.what());
+    }
+    const int64_t t_load1 = now_ms();
+    try { cand.load(cand_path); }
+    catch (const std::exception& ex) {
+        fail(std::string("PRECISION_CAND_LOAD:") + ex.what());
+    }
+    const int64_t t_load2 = now_ms();
+
+    std::vector<int64_t> ids;
+    {
+        // Seeded probe ids; bound by the reference manifest vocab.
+        JsonValue mf = parse_json_file(
+            (fs::path(ref_path) / "manifest.json").string());
+        const JsonValue* cfg = mf.get("config");
+        const int64_t vocab = (int64_t)xct::j_num(cfg, "vocab_size", 0);
+        if (vocab < 8) fail("PRECISION_BAD_CONFIG");
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+        for (int64_t i = 0; i < len; ++i) ids.push_back(tok(rng));
+    }
+
+    std::vector<double> lg_ref, lg_cand;
+    std::pair<double, int64_t> nll_ref, nll_cand;
+    try {
+        lg_ref = ref.logits(ids);
+        nll_ref = ref.sequence_nll(ids);
+        lg_cand = cand.logits(ids);
+        nll_cand = cand.sequence_nll(ids);
+    } catch (const std::exception& ex) {
+        fail(std::string("PRECISION_FWD:") + ex.what());
+    }
+    if (lg_ref.size() != lg_cand.size()) fail("PRECISION_SHAPE");
+    bool finite = cache_smoke_detail::all_finite(lg_ref) &&
+                  cache_smoke_detail::all_finite(lg_cand);
+    double max_d = 0.0;
+    int argmax_r = 0, argmax_c = 0;
+    for (size_t v = 0; v < lg_ref.size(); ++v) {
+        max_d = std::max(max_d,
+                         std::fabs(lg_ref[v] - lg_cand[v]));
+        if (lg_ref[v] > lg_ref[(size_t)argmax_r]) argmax_r = (int)v;
+        if (lg_cand[v] > lg_cand[(size_t)argmax_c]) argmax_c = (int)v;
+    }
+    // Greedy continuation identity + decode throughput on the candidate.
+    SamplingConfig sc;
+    std::vector<int64_t> prompt(ids.begin(), ids.begin() + len / 2);
+    std::vector<int64_t> g_ref, g_cand;
+    const int64_t t_gen0 = now_ms();
+    try {
+        g_ref = ref.generate(prompt, 8, sc);
+        g_cand = cand.generate(prompt, 8, sc);
+    } catch (const std::exception& ex) {
+        fail(std::string("PRECISION_GEN:") + ex.what());
+    }
+    const int64_t t_gen1 = now_ms();
+    const bool gen_identical = g_ref == g_cand && !g_cand.empty();
+    const double gen_ms = (double)std::max<int64_t>(1, t_gen1 - t_gen0);
+    const double tps = 16.0 * 1000.0 / gen_ms;   // both runs, 8 each
+    const bool ok = finite && argmax_r == argmax_c &&
+                    gen_identical && max_d <= tol;
+    std::printf(
+        "{\"ok\":%s,\"mode\":\"precision\",\"ref\":\"%s\","
+        "\"candidate\":\"%s\",\"tokens\":%lld,"
+        "\"finite\":%s,\"logit_max_abs_diff\":%.6f,"
+        "\"argmax_match\":%s,\"nll_ref\":%.6f,\"nll_cand\":%.6f,"
+        "\"nll_diff\":%.6f,\"gen_identical\":%s,"
+        "\"load_ms_ref\":%lld,\"load_ms_cand\":%lld,"
+        "\"memory_bytes_ref\":%lld,\"memory_bytes_cand\":%lld,"
+        "\"tps_approx\":%.2f,\"tol\":%.6f}\n",
+        ok ? "true" : "false",
+        gptbridge::jsonlite::json_escape(ref_path).c_str(),
+        gptbridge::jsonlite::json_escape(cand_path).c_str(),
+        (long long)ids.size(),
+        finite ? "true" : "false", max_d,
+        argmax_r == argmax_c ? "true" : "false",
+        nll_ref.first, nll_cand.first,
+        std::fabs(nll_ref.first - nll_cand.first),
+        gen_identical ? "true" : "false",
+        (long long)(t_load1 - t_load0), (long long)(t_load2 - t_load1),
+        (long long)ref.memory_bytes(), (long long)cand.memory_bytes(),
+        tps, tol);
+    return ok ? 0 : 1;
+}
+
 int mode_export_bundle(const Args& a) {
     std::string ckpt = a.get("ckpt");
     fs::path out_dir = a.get("out");
@@ -1716,12 +1828,15 @@ int mode_export_bundle(const Args& a) {
     }
     std::sort(pairs.begin(), pairs.end());
 
-    // --quant none|int8|int4_packed: weight-only per-tensor symmetric
-    // quantization of 2-D matrices (mirrors kernels/quant.py; the engine
-    // dequantizes to fp64 at load). 1-D tensors (norms) stay fp64.
+    // --quant none|int8|int4_packed|bf16: 2-D matrices are stored
+    // compressed (per-tensor symmetric scale for int8/int4; bf16 keeps
+    // fp32's exponent with a truncated mantissa — PRODUCTION_BF16
+    // candidate). The engine widens to fp64 at load; 1-D tensors
+    // (norms) stay fp64.
     std::string quant = a.get("quant");
     if (quant.empty()) quant = "none";
-    if (quant != "none" && quant != "int8" && quant != "int4_packed")
+    if (quant != "none" && quant != "int8" && quant != "int4_packed" &&
+        quant != "bf16")
         fail("EXPORT_QUANT_UNSUPPORTED:" + quant);
 
     std::string bin_path = (out_dir / "weights.bin").string();
@@ -1740,7 +1855,21 @@ int mode_export_bundle(const Args& a) {
         int64_t bytes;
         std::string dtype;
         double scale = 0.0;
-        if (q && quant == "int8") {
+        if (q && quant == "bf16") {
+            // bf16: top 16 bits of fp32, round-to-nearest-even on the
+            // dropped mantissa (x + 0x7FFF + lsb). decode is bits<<16.
+            std::vector<uint16_t> qd((size_t)n);
+            for (int64_t k = 0; k < n; ++k) {
+                uint32_t bits;
+                const float fv = t.d[(size_t)k];
+                std::memcpy(&bits, &fv, 4);
+                bits += 0x7FFFu + ((bits >> 16) & 1u);
+                qd[(size_t)k] = (uint16_t)(bits >> 16);
+            }
+            bin.write((char*)qd.data(), (std::streamsize)(n * 2));
+            bytes = n * 2;
+            dtype = "bf16";
+        } else if (q && quant == "int8") {
             double mx = 0.0;
             for (int64_t k = 0; k < n; ++k)
                 mx = std::max(mx, (double)std::fabs(t.d[(size_t)k]));
@@ -2839,6 +2968,7 @@ int main(int argc, char** argv) {
         if (mode == "vision-smoke") return mode_vision_smoke(a);
         if (mode == "cache-smoke") return mode_cache_smoke(a);
         if (mode == "parity") return mode_parity(a);
+    if (mode == "precision") return mode_precision(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {

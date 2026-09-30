@@ -439,7 +439,8 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("TENSOR_INFO_INVALID");
         }
         const std::string dtype = json_string(info, "dtype");
-        if (dtype != "float64" && dtype != "int8" && dtype != "int4_packed") {
+        if (dtype != "float64" && dtype != "int8" &&
+            dtype != "int4_packed" && dtype != "bf16") {
             throw InferenceError("TENSOR_DTYPE_UNSUPPORTED:" + name);
         }
         const std::string endian = json_string(info, "endianness");
@@ -454,6 +455,8 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
         int64_t expected_bytes = elements * 8;
         if (dtype == "int8") {
             expected_bytes = elements;
+        } else if (dtype == "bf16") {
+            expected_bytes = elements * 2;
         } else if (dtype == "int4_packed") {
             if (item.shape.size() != 2) {
                 throw InferenceError("TENSOR_INT4_SHAPE_UNSUPPORTED:" + name);
@@ -472,6 +475,23 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             view.data = reinterpret_cast<const double*>(
                 bundle.blob_->data + item.offset);
         } else {
+            const unsigned char* raw = bundle.blob_->data + item.offset;
+            bundle.owned_tensors_.emplace_back(
+                static_cast<size_t>(elements));
+            std::vector<double>& dst = bundle.owned_tensors_.back();
+            if (dtype == "bf16") {
+                // PRODUCTION_BF16 candidate: brain-float16 storage
+                // (fp32 exponent, truncated mantissa) widened exactly to
+                // fp64 at load — no scale, decode is bit placement.
+                for (int64_t i = 0; i < elements; ++i) {
+                    const uint16_t b =
+                        reinterpret_cast<const uint16_t*>(raw)[i];
+                    const uint32_t bits = (uint32_t)b << 16;
+                    float fv;
+                    std::memcpy(&fv, &bits, 4);
+                    dst[static_cast<size_t>(i)] = (double)fv;
+                }
+            } else {
             // Weight-only per-tensor symmetric quantization (mirrors
             // kernels/quant.py): dequantize once at load into owned fp64
             // storage so every downstream GEMM is unchanged.
@@ -482,10 +502,6 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
                 throw InferenceError("TENSOR_SCALE_INVALID:" + name);
             }
             const double scale = scale_v->number;
-            const unsigned char* raw = bundle.blob_->data + item.offset;
-            bundle.owned_tensors_.emplace_back(
-                static_cast<size_t>(elements));
-            std::vector<double>& dst = bundle.owned_tensors_.back();
             if (dtype == "int8") {
                 for (int64_t i = 0; i < elements; ++i) {
                     dst[static_cast<size_t>(i)] =
@@ -508,6 +524,7 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
                         drow[c] = static_cast<double>(nibble - 8) * scale;
                     }
                 }
+            }
             }
             view.data = dst.data();
         }
