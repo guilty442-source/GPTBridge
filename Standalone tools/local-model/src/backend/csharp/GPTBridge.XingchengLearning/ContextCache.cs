@@ -146,7 +146,7 @@ internal sealed class ContextCacheManager
             Value = value,
             StoredUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Generation = key.Generation,
-            SizeBytes = CanonicalJson.Encode(value).Length,
+            SizeBytes = CanonicalJson.CanonicalDict(value).Length,
         };
         if (idx.TryGetValue(k, out var old))
         {
