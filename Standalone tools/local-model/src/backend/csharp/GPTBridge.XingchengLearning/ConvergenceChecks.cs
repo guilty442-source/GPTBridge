@@ -609,7 +609,7 @@ internal static class ConvergenceChecks
                 // enforce the floor explicitly rather than trusting the
                 // process flag alone.
                 int i = run.StdoutTail.IndexOf(
-                    "\"format\":\"star-trainer-probe-report/v1\"",
+                    "{\"format\":\"star-trainer-probe-report/v1\"",
                     StringComparison.Ordinal);
                 if (i < 0) return false;
                 try
