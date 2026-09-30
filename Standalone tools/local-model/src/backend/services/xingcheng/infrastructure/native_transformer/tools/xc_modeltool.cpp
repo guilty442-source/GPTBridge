@@ -2117,15 +2117,29 @@ int mode_export_bundle(const Args& a) {
     const std::string tk_sha = sha256_file(tk_src.string());
     std::ostringstream mf;
     // Canonical provenance envelope (star-bundle-provenance/v1 gate):
-    // checkpoint_version ships in the XCN1 v10 string form, generation +
-    // architecture_generation are emitted unconditionally so
+    // checkpoint_version ships in the XCN1 v10 string form; generation is
+    // the lineage identity (--generation override, else the source
+    // manifest's generation/lineage_id, else unversioned) and
+    // architecture_generation is emitted unconditionally so
     // BundleProvenance.Check can verify lineage/architecture identity.
+    std::string lineage_gen = a.get("generation");
+    if (lineage_gen.empty()) {
+        const JsonValue* g = src_manifest.get("generation");
+        if (g && g->type == JsonValue::Type::String)
+            lineage_gen = g->string;
+        if (lineage_gen.empty()) {
+            const JsonValue* g2 = src_manifest.get("lineage_id");
+            if (g2 && g2->type == JsonValue::Type::String)
+                lineage_gen = g2->string;
+        }
+    }
+    if (lineage_gen.empty()) lineage_gen = "unversioned";
     const std::string arch_gen_eff =
         arch_gen.empty() ? std::string("unversioned") : arch_gen;
     mf << "{\"checkpoint_sha256\":\"" << ckpt_sha << "\""
        << ",\"checkpoint_version\":\"XCN1 v" << ckpt_ver << "\""
        << ",\"generation\":\""
-       << gptbridge::jsonlite::json_escape(arch_gen_eff) << "\""
+       << gptbridge::jsonlite::json_escape(lineage_gen) << "\""
        << ",\"architecture_generation\":\""
        << gptbridge::jsonlite::json_escape(arch_gen_eff) << "\"";
     mf << ",\"config\":" << cfg_canon
@@ -2151,7 +2165,7 @@ int mode_export_bundle(const Args& a) {
        << "\"runtime_compatibility\":"
           "\"star-native-inference-engine/v1\","
        << "\"generation\":\""
-       << gptbridge::jsonlite::json_escape(arch_gen_eff)
+       << gptbridge::jsonlite::json_escape(lineage_gen)
        << "\",\"xcn_version\":" << ckpt_ver
        << ",\"manifest_core_sha256\":\"";
     // manifest_core_sha256 covers everything before the provenance

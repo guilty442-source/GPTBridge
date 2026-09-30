@@ -402,6 +402,48 @@ internal static class ConvergenceGate
                 return Pass(
                     "bf16-cert + quant-cert + policy floor verified");
             })),
+            new("system1-benchmark", true, () => NeedBundle(() =>
+            {
+                // P5: System-1 production benchmark — bound probe heads
+                // fit on frozen hidden states (supervised-calibration
+                // lane; model weights untouched), measured on held-out
+                // eval rows: accuracy/ECE/Brier/TTFD for all four
+                // decision types, decode_tokens=0 by construction.
+                string evalDir = Path.Combine(toolRoot, "xingcheng",
+                    "eval");
+                string? suite = Directory.Exists(evalDir)
+                    ? Directory.EnumerateFiles(evalDir,
+                            "star-system1-suite-*.json")
+                        .OrderByDescending(f => f).FirstOrDefault()
+                    : null;
+                if (suite == null)
+                    return Fail("SYSTEM1_SUITE_MISSING", evalDir);
+                string log = Path.Combine(toolRoot,
+                    ReportRel.Replace('/', Path.DirectorySeparatorChar),
+                    "gate-stderr.log");
+                string headOut = Path.Combine(toolRoot, "xingcheng",
+                    "runtime", "scratch", "system1", "heads");
+                var r = NativeTools.Run(toolExe,
+                    new[] { "system1-bench", "--bundle", bundle!,
+                            "--suite", suite, "--head-out", headOut },
+                    toolRoot, log, 1200);
+                string tail = r.StdoutTail.Trim();
+                if (r.ExitCode != 0)
+                    return Fail("SYSTEM1_BENCH_FAILED",
+                        tail[..Math.Min(200, tail.Length)]);
+                foreach (var req in new[]
+                         { "star-system1-benchmark/v1",
+                           "\"BOOLEAN\"", "\"CHOICE\"",
+                           "\"ORDINAL_SCORE\"", "\"CONFIDENCE\"",
+                           "\"ece\"", "\"brier\"", "\"ttfd_ms\"",
+                           "\"decode_tokens\":0",
+                           "\"weights_mutated\":false" })
+                    if (!tail.Contains(req, StringComparison.Ordinal))
+                        return Fail("SYSTEM1_BENCH_CONTRACT",
+                            $"missing '{req}' in "
+                            + tail[..Math.Min(200, tail.Length)]);
+                return Pass("4-type benchmark evidence");
+            })),
             // ---------- hardware / provenance / audit ----------
             new("cuda-probe", false, () =>
                 Native(toolRoot, toolExe, "probe-cuda")),
