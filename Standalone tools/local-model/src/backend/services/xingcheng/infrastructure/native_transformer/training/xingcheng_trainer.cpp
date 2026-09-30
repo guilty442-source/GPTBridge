@@ -19,7 +19,11 @@
 //            moe_layer_interval, moe_aux_loss_weight }
 //   train: { lr, weight_decay, max_steps, grad_clip, warmup_steps, lr_decay,
 //            seed, beta(dpo), deadline_s, log_every, checkpoint_every,
-//            init_checkpoint, emit_checkpoint }
+//            init_checkpoint, emit_checkpoint,
+//            threads(0=auto|1=serial|N), simd(avx2+fma dispatch) }
+//   env:   XCT_TPU_THREADS / XCT_TPU_SIMD=0 override the job fields.
+//   lanes: disjoint-output partitions keep results identical for any
+//          thread count; SIMD keeps one fixed order per build.
 //   data:  { path, format(sft|pretrain|dpo), max_rows }
 //
 // data rows:  sft      {"input_ids":[...],"labels":[...]}   (-100 = masked)
@@ -35,14 +39,23 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <fstream>
+#include <functional>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
+#if defined(_M_X64) || defined(__x86_64__)
+#include <immintrin.h>
+#include <intrin.h>
+#endif
 
 #include "jsonlite.h"
 
@@ -52,6 +65,7 @@ using gptbridge::jsonlite::JsonValue;
 namespace xct {
 
 #include "xct_util.h"
+#include "xct_tpu.h"
 #include "xct_math.h"
 #include "xct_backward.h"
 #include "xct_ckpt.h"

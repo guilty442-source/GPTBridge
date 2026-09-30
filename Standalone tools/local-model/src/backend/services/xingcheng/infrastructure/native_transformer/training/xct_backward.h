@@ -37,12 +37,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             linear_bwd(dproj.data(), L.fh.data(), p.w.at(ln(l, "w2")),
                        dfh.data(), p.g[ln(l, "w2")].d.data(), T, c.inter, H);
             std::vector<float> dfa((size_t)T * c.inter, 0.0f), dfb((size_t)T * c.inter, 0.0f);
-            for (size_t i = 0; i < L.fh.size(); ++i) {
-                float a = L.fa[i], b = L.fb[i], d = dfh[i];
+            tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
+                float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
                 float sig = sigmoid_f(a);
-                dfa[i] += d * b * sig * (1.0f + a * (1.0f - sig));
-                dfb[i] += d * a * sig;
-            }
+                dfa[(size_t)i] += d * b * sig * (1.0f + a * (1.0f - sig));
+                dfb[(size_t)i] += d * a * sig;
+            });
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
                        dn2.data(), p.g[ln(l, "w1")].d.data(), T, H, c.inter);
             linear_bwd(dfb.data(), L.n2.data(), p.w.at(ln(l, "w3")),
@@ -127,24 +127,26 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 const float* dproj_use = dproj.data();
                 if (sgated) {
                     dsg_in.assign((size_t)T * H, 0.0f);
-                    for (int t = 0; t < T; ++t) {
-                        float g = L.shared_gate_sig[(size_t)t];
-                        for (int i = 0; i < H; ++i)
-                            dsg_in[(size_t)t * H + i] =
-                                dproj[(size_t)t * H + i] * g;
-                    }
+                    parallel_for(T, [&](int64_t b, int64_t e) {
+                        for (int64_t t = b; t < e; ++t) {
+                            float g = L.shared_gate_sig[(size_t)t];
+                            tpu_scale_copy(dsg_in.data() + (size_t)t * H,
+                                           dproj.data() + (size_t)t * H,
+                                           g, H);
+                        }
+                    });
                     dproj_use = dsg_in.data();
                 }
                 linear_bwd(dproj_use, sfh.data(), p.w.at(b + "w2"),
                            dsh.data(), p.g[b + "w2"].d.data(), T, SI, H);
                 std::vector<float> dsa((size_t)T * SI, 0.0f);
                 std::vector<float> dsb((size_t)T * SI, 0.0f);
-                for (size_t i = 0; i < sfh.size(); ++i) {
-                    float a = sfa[i], bb = sfb[i], d = dsh[i];
+                tpu_elementwise((int64_t)sfh.size(), [&](int64_t i) {
+                    float a = sfa[(size_t)i], bb = sfb[(size_t)i], d = dsh[(size_t)i];
                     float sig = sigmoid_f(a);
-                    dsa[i] += d * bb * sig * (1.0f + a * (1.0f - sig));
-                    dsb[i] += d * a * sig;
-                }
+                    dsa[(size_t)i] += d * bb * sig * (1.0f + a * (1.0f - sig));
+                    dsb[(size_t)i] += d * a * sig;
+                });
                 linear_bwd(dsa.data(), L.n2.data(), p.w.at(b + "w1"),
                            dn2.data(), p.g[b + "w1"].d.data(), T, H, SI);
                 linear_bwd(dsb.data(), L.n2.data(), p.w.at(b + "w3"),
@@ -177,7 +179,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         rmsnorm_bwd(dn2.data(), L.x_res.data(), p.w.at(ln(l, "norm2")).d.data(),
                     L.rms2.data(), dxres2.data(), p.g[ln(l, "norm2")].d.data(), T, H);
         std::vector<float> dpre((size_t)T * H);
-        for (size_t i = 0; i < dpre.size(); ++i) dpre[i] = dx_res[i] + dxres2[i];
+        tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
+            dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
+        });
         // attention block: dpre splits into attn path + layer-input residual
         std::vector<float> dproj_attn = dpre;             // through output proj
         std::vector<float> dx_attn_in = dpre;             // residual to x_in
@@ -200,12 +204,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // silu(z) gate then gated-RMSNorm backward
             std::vector<float> donorm((size_t)T * val_dim),
                                dz((size_t)T * val_dim);
-            for (size_t i = 0; i < don.size(); ++i) {
-                float z = L.lin_z[i];
+            tpu_elementwise((int64_t)don.size(), [&](int64_t i) {
+                float z = L.lin_z[(size_t)i];
                 float sg = sigmoid_f(z);
-                donorm[i] = don[i] * z * sg;
-                dz[i] = don[i] * L.lin_onorm[i] * sg * (1.0f + z * (1.0f - sg));
-            }
+                donorm[(size_t)i] = don[(size_t)i] * z * sg;
+                dz[(size_t)i] = don[(size_t)i] * L.lin_onorm[(size_t)i] * sg * (1.0f + z * (1.0f - sg));
+            });
             std::vector<float> do_((size_t)T * val_dim, 0.0f);
             for (int t = 0; t < T; ++t)
                 for (int h = 0; h < vh; ++h) {
@@ -216,7 +220,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                 do_.data() + off,
                                 p.g[lb + "norm"].d.data(), 1, vd);
                 }
-            // recurrent scan backward (reverse-time)
+            // (kept serial: rmsnorm_bwd folds a shared dw row into
+            // p.g[lb+"norm"] — partitioning it would reorder the fold.)
+            // recurrent scan backward (reverse-time). TPU lanes: heads are
+            // disjoint lanes — dS carry, dqn/dkn/dv/da_raw/db_raw and the
+            // A_log/dt_bias slots are all indexed by h.
             std::vector<float> dqn((size_t)T * vh * kd, 0.0f),
                                dkn((size_t)T * vh * kd, 0.0f),
                                dv((size_t)T * val_dim, 0.0f),
@@ -225,8 +233,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             float* dA_log = p.g[lb + "A_log"].d.data();
             float* ddt_bias = p.g[lb + "dt_bias"].d.data();
             const float* A_log = p.w.at(lb + "A_log").d.data();
-            for (int h = 0; h < vh; ++h) {
+            parallel_for(vh, [&](int64_t hb, int64_t he) {
+            for (int64_t h = hb; h < he; ++h) {
                 std::vector<float> dS(ssz, 0.0f);  // carry: dL/dS_t
+                std::vector<float> Sd(ssz), u(vd), kvm(vd), du(vd), dkv(vd);
                 for (int t = T - 1; t >= 0; --t) {
                     const float* S_t = L.lin_S.data() + ((size_t)(t + 1) * vh + h) * ssz;
                     const float* S_prev = L.lin_S.data() + ((size_t)t * vh + h) * ssz;
@@ -237,34 +247,24 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     const float* dor = do_.data() + ((size_t)t * vh + h) * vd;
                     float bt = sigmoid_f(L.lin_b_raw[(size_t)t * vh + h]);
                     // S̃ = dec · S_{t-1};  u = β(v − S̃ᵀk) recomputed
-                    std::vector<float> Sd(ssz), u(vd), kvm(vd);
-                    for (size_t i = 0; i < ssz; ++i) Sd[i] = S_prev[i] * dec;
-                    for (int i = 0; i < vd; ++i) {
-                        float kv = 0.0f;
-                        for (int d = 0; d < kd; ++d)
-                            kv += Sd[(size_t)d * vd + i] * kr[d];
-                        kvm[i] = kv;
-                        u[i] = (vr[i] - kv) * bt;
-                    }
+                    tpu_scale_copy(Sd.data(), S_prev, dec, (int64_t)ssz);
+                    std::fill(kvm.begin(), kvm.end(), 0.0f);
+                    for (int d = 0; d < kd; ++d)
+                        tpu_axpy(kvm.data(), kr[d], Sd.data() + (size_t)d * vd, vd);
+                    for (int i = 0; i < vd; ++i) u[i] = (vr[i] - kvm[i]) * bt;
                     // o_t = S_tᵀq_t → D += q ⊗ do_t ; dq_t = S_t·do_t
                     float* dqr = dqn.data() + ((size_t)t * vh + h) * kd;
                     for (int d = 0; d < kd; ++d) {
-                        float s = 0.0f;
-                        for (int i = 0; i < vd; ++i)
-                            s += S_t[(size_t)d * vd + i] * dor[i];
-                        dqr[d] += s;
-                        for (int i = 0; i < vd; ++i)
-                            dS[(size_t)d * vd + i] += qr[d] * dor[i];
+                        dqr[d] += tpu_dot(S_t + (size_t)d * vd, dor, vd);
+                        tpu_axpy(dS.data() + (size_t)d * vd, qr[d], dor, vd);
                     }
                     // S_t = S̃ + k⊗u → du = Dᵀk ; dk += D·u ; dS̃ = D + k⊗dkv
-                    std::vector<float> du(vd, 0.0f);
-                    for (int i = 0; i < vd; ++i)
-                        for (int d = 0; d < kd; ++d)
-                            du[i] += dS[(size_t)d * vd + i] * kr[d];
+                    std::fill(du.begin(), du.end(), 0.0f);
+                    for (int d = 0; d < kd; ++d)
+                        tpu_axpy(du.data(), kr[d], dS.data() + (size_t)d * vd, vd);
                     float* dkr = dkn.data() + ((size_t)t * vh + h) * kd;
                     for (int d = 0; d < kd; ++d)
-                        for (int i = 0; i < vd; ++i)
-                            dkr[d] += dS[(size_t)d * vd + i] * u[i];
+                        dkr[d] += tpu_dot(dS.data() + (size_t)d * vd, u.data(), vd);
                     // u = β(v − kv_mem)
                     float dbt = 0.0f;
                     for (int i = 0; i < vd; ++i) {
@@ -274,19 +274,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     }
                     db_raw[(size_t)t * vh + h] += dbt * bt * (1.0f - bt);
                     // kv_mem = S̃ᵀk → dS̃ += k⊗dkv ; dk += S̃·dkv
-                    for (int i = 0; i < vd; ++i) {
-                        float dkv = -bt * du[i];
-                        for (int d = 0; d < kd; ++d) {
-                            dS[(size_t)d * vd + i] += kr[d] * dkv;
-                            dkr[d] += Sd[(size_t)d * vd + i] * dkv;
-                        }
+                    for (int i = 0; i < vd; ++i) dkv[i] = -bt * du[i];
+                    for (int d = 0; d < kd; ++d) {
+                        tpu_axpy(dS.data() + (size_t)d * vd, kr[d], dkv.data(), vd);
+                        dkr[d] += tpu_dot(Sd.data() + (size_t)d * vd, dkv.data(), vd);
                     }
                     // S̃ = dec·S_{t-1}: dS_{t-1} = dec·dS̃ ; dg = Σ dS̃⊙S̃
-                    float dg = 0.0f;
-                    for (size_t i = 0; i < ssz; ++i) {
-                        dg += dS[i] * Sd[i];
-                        dS[i] *= dec;
-                    }
+                    float dg = tpu_dot(dS.data(), Sd.data(), (int64_t)ssz);
+                    tpu_scale(dS.data(), dec, (int64_t)ssz);
                     // g = −e^{A_log}·softplus(a_raw): g_t = ln(dec)
                     float g_t = std::log(dec);
                     float eA = std::exp(A_log[h]);
@@ -297,12 +292,16 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     ddt_bias[h] += dar;
                 }
             }
+            });
             // fold v-head grads back to k-heads (repeat_interleave inverse)
             const float qscale = 1.0f / std::sqrt((float)kd);
             std::vector<float> dqk_raw((size_t)T * kh * kd, 0.0f),
                                dkk_raw((size_t)T * kh * kd, 0.0f),
                                dconv_v((size_t)T * val_dim);
-            for (int t = 0; t < T; ++t)
+            // fold v-head grads back to k-heads — lane per t keeps the
+            // r-order fold identical; (t,g) slots stay single-lane.
+            parallel_for(T, [&](int64_t b, int64_t e) {
+            for (int64_t t = b; t < e; ++t)
                 for (int h = 0; h < vh; ++h) {
                     int g = h / ratio;
                     for (int d = 0; d < kd; ++d) {
@@ -312,8 +311,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                             dkn[((size_t)t * vh + h) * kd + d];
                     }
                 }
+            });
             // undo q scale then l2norm backward on q and k
-            for (auto& x : dqk_raw) x *= qscale;
+            tpu_scale(dqk_raw.data(), qscale, (int64_t)dqk_raw.size());
             std::vector<float> dq_pre((size_t)T * kh * kd),
                                dk_pre((size_t)T * kh * kd);
             {
@@ -401,27 +401,33 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 // dao currently flows to gated output; split into raw
                 // attention grad and gate-logit grad.
                 dgate.assign((size_t)T * Hq, 0.0f);
-                for (size_t i = 0; i < dao.size(); ++i) {
-                    float sg = sigmoid_f(L.attn_gate[i]);
-                    dgate[i] = dao[i] * L.attn_out[i] * sg * (1.0f - sg);
-                    dao[i] *= sg;
-                }
+                tpu_elementwise((int64_t)dao.size(), [&](int64_t i) {
+                    float sg = sigmoid_f(L.attn_gate[(size_t)i]);
+                    dgate[(size_t)i] =
+                        dao[(size_t)i] * L.attn_out[(size_t)i] * sg * (1.0f - sg);
+                    dao[(size_t)i] *= sg;
+                });
             }
             int group = c.heads / c.kv_heads;
             float scale = 1.0f / std::sqrt((float)hd);
             std::vector<float> dq((size_t)T * Hq, 0.0f), dk((size_t)T * Hkv, 0.0f),
                                 dvv((size_t)T * Hkv, 0.0f);
-            for (int h = 0; h < c.heads; ++h) {
+            // TPU lanes: one lane per kv-head group — the q-heads of a GQA
+            // group share its k/v slices, so grouping keeps dk/dv writes
+            // disjoint across lanes; per-element order is unchanged.
+            parallel_for(c.kv_heads, [&](int64_t gb, int64_t ge) {
+            for (int64_t g = gb; g < ge; ++g)
+            for (int h = (int)g * group;
+                 h < std::min((int)(g + 1) * group, c.heads); ++h) {
                 int kh2 = h / group;
+                std::vector<float> dscore;
                 for (int t = 0; t < T; ++t) {
                     const float* pr = L.probs.data() + ((size_t)h * T + t) * T;
                     const float* dao_r = dao.data() + ((size_t)t * c.heads + h) * hd;
-                    std::vector<float> dscore(t + 1, 0.0f);
+                    dscore.assign((size_t)t + 1, 0.0f);
                     for (int s = 0; s <= t; ++s) {
-                        float dotv = 0.0f;
                         const float* vr = L.v.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        for (int i = 0; i < hd; ++i) dotv += dao_r[i] * vr[i];
-                        dscore[s] = dotv;
+                        dscore[s] = tpu_dot(dao_r, vr, hd);
                     }
                     float dsum = 0.0f;
                     for (int s = 0; s <= t; ++s) dsum += dscore[s] * pr[s];
@@ -431,15 +437,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     for (int s = 0; s <= t; ++s) {
                         const float* kr = L.k.data() + ((size_t)s * c.kv_heads + kh2) * hd;
                         float* dkr = dk.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        for (int i = 0; i < hd; ++i) {
-                            dqr[i] += dscore[s] * kr[i];
-                            dkr[i] += dscore[s] * qr[i];
-                        }
+                        tpu_axpy(dqr, dscore[s], kr, hd);
+                        tpu_axpy(dkr, dscore[s], qr, hd);
                         float* dvr = dvv.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        for (int i = 0; i < hd; ++i) dvr[i] += pr[s] * dao_r[i];
+                        tpu_axpy(dvr, pr[s], dao_r, hd);
                     }
                 }
             }
+            });
             const int rd = c.rotary_dim();
             if (rd < hd) {
                 rope_hf_partial(dq.data(), T, c.heads, hd, rd,
@@ -501,7 +506,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         std::vector<float> dx_in2((size_t)T * H, 0.0f);
         rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at(ln(l, "norm1")).d.data(),
                     L.rms1.data(), dx_in2.data(), p.g[ln(l, "norm1")].d.data(), T, H);
-        for (size_t i = 0; i < dx.size(); ++i) dx[i] = dx_attn_in[i] + dx_in2[i];
+        tpu_elementwise((int64_t)dx.size(), [&](int64_t i) {
+            dx[(size_t)i] = dx_attn_in[(size_t)i] + dx_in2[(size_t)i];
+        });
     }
     // embedding backward (text rows start after the P prefix rows)
     for (int t = 0; t < PT; ++t) {

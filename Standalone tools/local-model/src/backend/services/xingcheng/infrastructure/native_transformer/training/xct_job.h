@@ -66,6 +66,10 @@ struct TrainCfg {
     double deadline_s = 0.0;                   // 0 = unbounded (bounded by steps)
     std::string init_ckpt, emit_ckpt, decay = "cosine";
     bool overwrite = false;
+    // TPU-cluster lanes: threads 0 = auto (min(8, hw), cap 16), 1 = serial;
+    // simd toggles the runtime AVX2/FMA dispatch (scalar fallback).
+    int threads = 0;
+    bool simd = true;
 };
 
 static double now_s() {
@@ -102,6 +106,15 @@ static JsonValue run_job(const JsonValue& job) {
     tc.init_ckpt = j_str(tj, "init_checkpoint", "");
     tc.emit_ckpt = j_str(tj, "emit_checkpoint", "");
     tc.overwrite = j_bool(tj, "overwrite", false);
+    tc.threads = j_int(tj, "threads", tc.threads);
+    tc.simd = j_bool(tj, "simd", tc.simd);
+    // Operator env overrides win over the job fields (bounded either way).
+    if (const char* e = std::getenv("XCT_TPU_THREADS"))
+        tc.threads = std::atoi(e);
+    if (const char* e = std::getenv("XCT_TPU_SIMD"))
+        tc.simd = !(e[0] == '0' && e[1] == '\0');
+    g_tpu.threads = tc.threads;
+    g_tpu.simd = tc.simd;
     int max_rows = j_int(dj, "max_rows", 10000);
     int max_len = j_int(dj, "max_len", c.max_pos);
 
@@ -225,13 +238,13 @@ static JsonValue run_job(const JsonValue& job) {
             for (auto& n : p.order) {
                 Tensor& w = p.w[n]; Tensor& g = p.g[n];
                 Tensor& m = p.m[n]; Tensor& v = p.v[n];
-                for (size_t i = 0; i < w.d.size(); ++i) {
-                    float gi = g.d[i] * gscale;
-                    m.d[i] = b1 * m.d[i] + (1 - b1) * gi;
-                    v.d[i] = b2 * v.d[i] + (1 - b2) * gi * gi;
-                    float mh = m.d[i] / bc1, vh = v.d[i] / bc2;
-                    w.d[i] -= lr_t * (mh / (std::sqrt(vh) + eps) + tc.wd * w.d[i]);
-                }
+                tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
+                    float gi = g.d[(size_t)i] * gscale;
+                    m.d[(size_t)i] = b1 * m.d[(size_t)i] + (1 - b1) * gi;
+                    v.d[(size_t)i] = b2 * v.d[(size_t)i] + (1 - b2) * gi * gi;
+                    float mh = m.d[(size_t)i] / bc1, vh = v.d[(size_t)i] / bc2;
+                    w.d[(size_t)i] -= lr_t * (mh / (std::sqrt(vh) + eps) + tc.wd * w.d[(size_t)i]);
+                });
             }
             losses.push_back(loss);
             ++step;
@@ -256,6 +269,12 @@ static JsonValue run_job(const JsonValue& job) {
     auto bol = [](bool b) { JsonValue v; v.type = JsonValue::Type::Bool; v.boolean = b; return v; };
     put("schema", str("star-native-train-report/v1"));
     put("task", str(task.c_str()));
+    {
+        JsonValue tpu; tpu.type = JsonValue::Type::Object;
+        tpu.object.emplace_back("threads", num((double)tpu_threads()));
+        tpu.object.emplace_back("simd", str(tpu_simd_name()));
+        put("tpu_cluster", tpu);
+    }
     put("steps", num(step));
     put("examples", num((double)data.size()));
     put("deadline_hit", bol(deadline_hit));
