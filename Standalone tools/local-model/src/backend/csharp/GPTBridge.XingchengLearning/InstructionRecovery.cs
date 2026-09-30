@@ -43,6 +43,7 @@ internal static class InstructionRecovery
         "reading_grounding" => "star-reading-eval-result/v1",
         "rag" => "star-rag-eval-result/v1",
         "math" => "star-math-eval-result/v1",
+        "coding" => "star-coding-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -55,6 +56,7 @@ internal static class InstructionRecovery
         "reading_grounding" => "star-reading-recovery-dataset/v1",
         "rag" => "star-rag-recovery-dataset/v1",
         "math" => "star-math-recovery-dataset/v1",
+        "coding" => "star-coding-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
@@ -68,13 +70,14 @@ internal static class InstructionRecovery
             "star-reading-recovery-eval-20261001",
         "rag" => "star-rag-recovery-eval-20261001",
         "math" => "star-math-recovery-eval-20261001",
+        "coding" => "star-coding-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
           "structured_output", "tool_calling", "reading_grounding",
-          "rag", "math" };
+          "rag", "math", "coding" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -178,6 +181,20 @@ internal static class InstructionRecovery
         ("simple_algebra", 0.12),
         ("word_problem", 0.13),
     };
+    // Registered names from Maturation300M (6 metrics). Syntax and
+    // function dominate the floor; fim/bug_fix are the editing
+    // surfaces; small_multi_file is the shallow repo boundary (large
+    // agent work stays out of scope per the canonical suite notes).
+    private static readonly (string metric, double w)[]
+        CodingMetricWeights =
+    {
+        ("syntax", 0.20),
+        ("function", 0.20),
+        ("unit_task", 0.20),
+        ("fim", 0.15),
+        ("bug_fix", 0.15),
+        ("small_multi_file", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
@@ -186,6 +203,9 @@ internal static class InstructionRecovery
             "structured_output" => StructuredMetricWeights,
             "tool_calling" => ToolMetricWeights,
             "reading_grounding" => ReadingMetricWeights,
+            "rag" => RagMetricWeights,
+            "math" => MathMetricWeights,
+            "coding" => CodingMetricWeights,
             _ => InstructionMetricWeights,
         };
 
