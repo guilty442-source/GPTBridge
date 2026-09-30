@@ -3379,6 +3379,7 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"engine_proposed\":%lld,\"engine_accepted\":%lld,"
         "\"engine_spec_forwards\":%lld,"
         "\"engine_acceptance_rate\":%.6f,"
+        "\"engine_emitted\":%lld,"
         "\"engine_output_parity\":%s,"
         "\"speculative_decoder\":\"%s\","
         "\"speedup\":null}\n",
@@ -3390,6 +3391,7 @@ int mode_mtp_draft_probe(const Args& a) {
         eng_bound ? "true" : "false",
         (long long)eng_proposed, (long long)eng_accepted,
         (long long)eng_forwards, eng_rate,
+        (long long)spec_out.size(),
         eng_parity ? "true" : "false",
         production ? "PRODUCTION_DISPATCH" : "DISPATCH_NOT_ENGAGED");
     return eng_parity ? 0 : 3;
