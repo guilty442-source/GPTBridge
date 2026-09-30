@@ -265,10 +265,16 @@ internal static class CapabilityFreeze
                                 SelfLearningPolicy policy)
     {
         if (!CAPABILITY_TRAINING_FROZEN) return;
-        bool recovery = policy.CapabilityTrainingFrozen &&
-            string.Equals(policy.CapabilityTrainingMode,
-                          "SINGLE_CAPABILITY_RECOVERY",
-                          StringComparison.OrdinalIgnoreCase);
+        // §0 recovery unfreeze: the lane is admitted by the MODE
+        // declaration, not by the frozen flag. A policy that sets
+        // capability_training_frozen=false while declaring
+        // SINGLE_CAPABILITY_RECOVERY admits exactly this governed
+        // lane; frozen=false without the mode falls through to the
+        // plain guard and stays denied.
+        bool recovery = string.Equals(
+            policy.CapabilityTrainingMode,
+            "SINGLE_CAPABILITY_RECOVERY",
+            StringComparison.OrdinalIgnoreCase);
         if (!recovery)
         {
             Guard(operation);
