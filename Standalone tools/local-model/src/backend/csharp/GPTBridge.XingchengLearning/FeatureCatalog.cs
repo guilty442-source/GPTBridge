@@ -357,7 +357,7 @@ internal static class FeatureCatalog
             "cpp-runtime",
             new[] { "npu-prefill-bench" }),
         new("f-npu-decoder", "silicon directive",
-            "Full HybridCausalDecoder on NPU — deferred (dynamic "
+            "Full decoder on NPU — deferred (dynamic "
             + "DeltaNet/MoE/KV state unsuitable for first wave)",
             "DEFERRED", false, false, false, "governance",
             Array.Empty<string>()),

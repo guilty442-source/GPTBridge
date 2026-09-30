@@ -500,29 +500,37 @@ internal static class ConvergenceGate
             using var doc = JsonDocument.Parse(File.ReadAllText(
                 Path.Combine(bundle, "manifest.json")));
             var root = doc.RootElement;
-            if (arch.Length == 0)
-            {
             JsonElement cfg = root;
             if (root.TryGetProperty("config", out var c) &&
                 c.ValueKind == JsonValueKind.Object)
                 cfg = c;
+            string manArch = "";
             foreach (var k in new[] { "architecture",
                                      "architecture_generation",
                                      "model_type", "generation" })
                 if (cfg.TryGetProperty(k, out var a) &&
                     a.ValueKind == JsonValueKind.String)
-                { arch = a.GetString() ?? ""; if (arch.Length > 0) break; }
-            if (arch.Length == 0)
+                { manArch = a.GetString() ?? "";
+                  if (manArch.Length > 0) break; }
+            if (manArch.Length == 0)
                 foreach (var k in new[] { "architecture",
                                          "architecture_generation" })
                     if (root.TryGetProperty(k, out var a) &&
                         a.ValueKind == JsonValueKind.String)
-                    { arch = a.GetString() ?? "";
-                      if (arch.Length > 0) break; }
+                    { manArch = a.GetString() ?? "";
+                      if (manArch.Length > 0) break; }
+            if (arch.Length == 0)
+            { arch = manArch; archSrc = "manifest"; }
+            else if (manArch.Length > 0 && manArch != arch &&
+                     manArch != "current-compatible-profile" &&
+                     manArch != "unversioned")
+                return Fail("ARCHITECTURE_DRIFT",
+                    $"manifest declares {manArch} but provenance "
+                    + $"certifies {arch}");
             if (arch.Length > 0 && arch != "xc-fused-1" &&
                 arch != "xc_fused_1" && !arch.StartsWith("xc-fused-1"))
                 return Fail("ARCHITECTURE_DRIFT",
-                            $"manifest declares {arch}");
+                            $"{archSrc} declares {arch}");
             var quarantined = new List<string>();
             foreach (var k in new[] { "use_csa", "use_mla",
                                       "aux_free_lb_bias" })
@@ -533,8 +541,9 @@ internal static class ConvergenceGate
                 return Fail("CANONICAL_CONTRACT_VIOLATION",
                             string.Join(",", quarantined));
             return Pass(arch.Length > 0
-                ? $"architecture={arch}"
+                ? $"architecture={arch} ({archSrc})"
                 : "no architecture claim (legacy manifest)");
+            }
         }
         catch (Exception ex)
         {
