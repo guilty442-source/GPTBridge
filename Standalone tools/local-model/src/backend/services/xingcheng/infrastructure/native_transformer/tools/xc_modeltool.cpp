@@ -1829,8 +1829,46 @@ int mode_export_bundle(const Args& a) {
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
                       std::chrono::system_clock::now().time_since_epoch())
                       .count();
+    // Lifecycle metadata (architecture-convergence contract): the bundle
+    // records which architecture profile it carries, which checkpoint
+    // contract produced it and the governed runtime lineage — distinct
+    // from the deployment active_generation, which lives in the C#
+    // generation state.
+    uint32_t ckpt_ver = 0;
+    {
+        std::ifstream hdr(ckpt, std::ios::binary);
+        char magic[4] = {0, 0, 0, 0};
+        if (hdr.read(magic, 4) && std::memcmp(magic, "XCN1", 4) == 0) {
+            unsigned char vb[4] = {0, 0, 0, 0};
+            if (hdr.read((char*)vb, 4))
+                ckpt_ver = (uint32_t)vb[0] | ((uint32_t)vb[1] << 8) |
+                           ((uint32_t)vb[2] << 16) | ((uint32_t)vb[3] << 24);
+        }
+    }
+    const bool arch_xc_fused1 =
+        !c.is_gemma4() && c.full_attention_interval == 4 &&
+        c.attn_output_gate && c.qk_norm &&
+        std::fabs(c.partial_rotary - 0.5f) < 1e-6f &&
+        c.moe_router_sigmoid && c.moe_top_k == 2 &&
+        c.moe_layer_interval == 1 && c.moe_experts >= 8 &&
+        c.moe_shared_experts >= 1 && c.shared_expert_gate &&
+        std::fabs(c.moe_aux_w - 0.001f) < 1e-7f &&
+        !c.moe_auxfree_balance && c.moe_lb_bias_rate == 0.0f &&
+        c.mtp_depth >= 1 && c.mtp_loss_w >= 0.1f && c.use_vision &&
+        c.vision_patch_dim >= 16 && c.vision_max_patches >= 64 &&
+        c.yarn_factor >= 2.0f && c.kv_lora_rank == 0 &&
+        c.q_lora_rank == 0 && c.csa_ratio == 0;
     std::ostringstream mf;
     mf << "{\"checkpoint_sha256\":\"" << ckpt_sha << "\""
+       << ",\"architecture_generation\":\""
+       << (arch_xc_fused1 ? "xc-fused-1" : "current-compatible-profile")
+       << "\""
+       << ",\"checkpoint_version\":\"XCN1 v" << ckpt_ver << "\""
+       << ",\"runtime_version\":\"xc-native-cpp23\""
+       << ",\"capability_training_frozen\":true"
+       << ",\"lineage\":{\"source_checkpoint\":\""
+       << gptbridge::jsonlite::json_escape(ckpt)
+       << "\",\"source_ckpt_sha256\":\"" << ckpt_sha << "\"}"
        << ",\"config\":" << cfg_canon
        << ",\"created_by\":\"xc-modeltool\""
        << ",\"created_at\":" << now
