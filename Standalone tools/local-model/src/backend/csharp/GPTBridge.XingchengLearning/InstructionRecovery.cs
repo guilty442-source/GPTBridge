@@ -3134,6 +3134,274 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // ----------------------------------------------------------- math --
+
+    private static readonly string[] MathNames =
+        { "小明", "小華", "美玲", "阿傑", "淑芬", "志豪" };
+    private static readonly string[] MathItems =
+        { "顆糖", "顆蘋果", "張貼紙", "本書", "枚硬幣", "杯飲料" };
+
+    // Math recovery — eight arithmetic surfaces, all procedurally
+    // generated so train/eval values never collide. Completions are
+    // the bare number: reasoning text is not requested and the suite
+    // checks first_int, so training the bare answer is the contract.
+    private static IEnumerable<Row> GenerateMath(int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        bool Hard() => r.Next(4) == 0;
+        void Num(string prompt, int ans, string cat)
+        {
+            Add(new Row
+            {
+                Prompt = prompt, Completion = ans.ToString(),
+                Category = cat, Rule = $"exact:{ans}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        bool Zh() => r.Next(3) != 0;
+
+        // -- A. add_sub (~18%) — 2-3 digit add/subtract.
+        for (int i = 0; i < count / 5; i++)
+        {
+            int a = 40 + r.Next(860), b = 15 + r.Next(500);
+            if (r.Next(2) == 0)
+                Num(Zh() ? $"計算：{a} + {b}。只回答數字。"
+                         : $"What is {a} + {b}? Number only.",
+                    a + b, "A");
+            else
+            {
+                int hi = Math.Max(a, b), lo = Math.Min(a, b);
+                Num(Zh() ? $"計算：{hi} - {lo}。只回答數字。"
+                         : $"What is {hi} - {lo}? Number only.",
+                    hi - lo, "A");
+            }
+        }
+
+        // -- B. mul_div (~18%) — small products, exact divisions.
+        for (int i = 0; i < count / 5; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                int a = 6 + r.Next(43), b = 3 + r.Next(28);
+                Num(Zh() ? $"計算：{a} * {b}。只回答數字。"
+                         : $"What is {a} * {b}? Number only.",
+                    a * b, "B");
+            }
+            else
+            {
+                int b = 3 + r.Next(28), q = 4 + r.Next(40);
+                int a = b * q;
+                Num(Zh() ? $"計算：{a} / {b}。只回答數字。"
+                         : $"What is {a} / {b}? Number only.",
+                    q, "B");
+            }
+        }
+
+        // -- C. carry_borrow (~12%) — sums that cross a digit, round
+        //    numbers minus small remainders.
+        for (int i = 0; i < count / 8; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                int a = 100 * (1 + r.Next(9)) - r.Next(80);
+                int b = 100 * (1 + r.Next(9)) - r.Next(80);
+                Num(Zh() ? $"進位加法：{a} + {b} = ? 只回答數字。"
+                         : $"Carry addition: {a} + {b} = ? "
+                           + "Number only.",
+                    a + b, "C");
+            }
+            else
+            {
+                int hi = 1000 * (1 + r.Next(9));
+                int lo = 120 + r.Next(800);
+                Num(Zh() ? $"借位減法：{hi} - {lo} = ? 只回答數字。"
+                         : $"Borrow subtraction: {hi} - {lo} = ? "
+                           + "Number only.",
+                    hi - lo, "C");
+            }
+        }
+
+        // -- D. percentage (~12%) — x% of n, 打x折 discounts.
+        for (int i = 0; i < count / 8; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                int pct = Take(r, new[] { 10, 20, 25, 30, 40, 50,
+                                          60, 75, 80 });
+                int n = Take(r, new[] { 40, 60, 80, 120, 160, 200,
+                                        240, 320, 480, 600 });
+                Num(Zh() ? $"{n} 的 {pct}% 是多少？只回答數字。"
+                         : $"What is {pct}% of {n}? Number only.",
+                    n * pct / 100, "D");
+            }
+            else
+            {
+                int z = Take(r, new[] { 9, 8, 7, 6, 5 });
+                int price = Take(r, new[] { 200, 300, 400, 500,
+                                            800, 1000 });
+                Num($"原價 {price} 元，打{z}折後多少元？只回答數字。",
+                    price * z / 10, "D");
+            }
+        }
+
+        // -- E. ratio (~10%) — scale a:b by one side.
+        for (int i = 0; i < count / 10; i++)
+        {
+            int ra = 2 + r.Next(6), rb = 1 + r.Next(5);
+            int kb = rb * (2 + r.Next(9));
+            Num(Zh()
+                    ? $"男女比例 {ra}:{rb}，女生 {kb} 人，男生幾人？"
+                      + "只回答數字。"
+                    : $"The ratio of A to B is {ra}:{rb}. If B has "
+                      + $"{kb}, how many A? Number only.",
+                kb * ra / rb, "E");
+        }
+
+        // -- F. parentheses (~10%) — grouped ops and precedence.
+        for (int i = 0; i < count / 10; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                int a = 2 + r.Next(9), b = 3 + r.Next(9),
+                    c = 4 + r.Next(9), d = 1 + r.Next(4);
+                Num(Zh() ? $"計算：({a} + {b}) * ({c} - {d})。"
+                           + "只回答數字。"
+                         : $"What is ({a} + {b}) * ({c} - {d})? "
+                           + "Number only.",
+                    (a + b) * (c - d), "F");
+            }
+            else
+            {
+                int a = 2 + r.Next(9), b = 2 + r.Next(9),
+                    c = 2 + r.Next(9);
+                Num(Zh() ? $"計算：{a} + {b} * {c}（先乘除後加減）。"
+                           + "只回答數字。"
+                         : $"What is {a} + {b} * {c}? Number only.",
+                    a + b * c, "F");
+            }
+        }
+
+        // -- G. simple_algebra (~12%) — x+n=m and kx=m.
+        for (int i = 0; i < count / 8; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                int x = 3 + r.Next(60), n = 5 + r.Next(40);
+                Num(Zh() ? $"解方程式：x + {n} = {x + n}，x = ? "
+                           + "只回答數字。"
+                         : $"Solve: x + {n} = {x + n}. What is x? "
+                           + "Number only.",
+                    x, "G");
+            }
+            else
+            {
+                int k = 2 + r.Next(8), x = 3 + r.Next(30);
+                Num(Zh() ? $"解方程式：{k}x = {k * x}，x = ? "
+                           + "只回答數字。"
+                         : $"Solve: {k}x = {k * x}. What is x? "
+                           + "Number only.",
+                    x, "G");
+            }
+        }
+
+        // -- H. word_problem (~12%) — buy/eat stories, distance,
+        //    rate-reading.
+        for (int i = 0; i < count / 8; i++)
+        {
+            string who = Take(r, MathNames);
+            string item = Take(r, MathItems);
+            switch (r.Next(3))
+            {
+                case 0:
+                {
+                    int s = 10 + r.Next(40), eat = 2 + r.Next(8),
+                        buy = 3 + r.Next(15);
+                    Num($"{who}有 {s} {item}，吃了 {eat} 個，又買了 "
+                        + $"{buy} 個。現在幾個？只回答數字。",
+                        s - eat + buy, "H");
+                    break;
+                }
+                case 1:
+                {
+                    int v = 20 + r.Next(80), t = 2 + r.Next(6);
+                    Num(Zh()
+                            ? $"一台車時速 {v} 公里，開 {t} 小時，共行"
+                              + "駛幾公里？只回答數字。"
+                            : $"A car travels {v} km per hour for {t} "
+                              + "hours. How far? Number only.",
+                        v * t, "H");
+                    break;
+                }
+                default:
+                {
+                    int days = 4 + r.Next(9), per = 10 + r.Next(40);
+                    int total = days * per;
+                    Num($"一份報告共 {total} 頁，每天讀 {per} 頁，幾天"
+                        + "讀完？只回答數字。", days, "H");
+                    break;
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static List<Dictionary<string, object?>>
+        BuildMathSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string prompt, int expected)
+        {
+            items.Add(new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric,
+                ["check"] = "first_int", ["prompt"] = prompt,
+                ["expected"] = expected, ["max_new_tokens"] = 24,
+                ["fail_code"] = "WRONG_ANSWER",
+            });
+        }
+        // Values disjoint from the canonical math suite AND outside
+        // the training generator's ranges (add a≤899/b≤514, mul a≤48/
+        // b≤30, div b≤30, carry a,b≤~899, borrow lo≤919, pct/n from
+        // closed lists, ratio rb≤5, paren operands≤9, algebra n≤44/
+        // k≤9, word names/objects distinct).
+        It("ma-as-1", "add_sub",
+           "計算：917 + 388。只回答數字。", 1305);
+        It("ma-as-2", "add_sub",
+           "What is 1504 - 267? Number only.", 1237);
+        It("ma-md-1", "mul_div",
+           "What is 23 * 33? Number only.", 759);
+        It("ma-md-2", "mul_div",
+           "計算：528 / 33。只回答數字。", 16);
+        It("ma-cb-1", "carry_borrow",
+           "進位加法：1234 + 876 = ? 只回答數字。", 2110);
+        It("ma-cb-2", "carry_borrow",
+           "Borrow subtraction: 3000 - 1234 = ? Number only.", 1766);
+        It("ma-pc-1", "percentage",
+           "What is 45% of 260? Number only.", 117);
+        It("ma-pc-2", "percentage",
+           "原價 640 元，打七五折後多少元？只回答數字。", 480);
+        It("ma-ra-1", "ratio",
+           "The ratio of pens to pencils is 4:7. If there are 35 "
+           + "pencils, how many pens? Number only.", 20);
+        It("ma-pa-1", "parentheses",
+           "計算：(12 + 8) * (9 - 4)。只回答數字。", 100);
+        It("ma-pa-2", "parentheses",
+           "What is 11 + 5 * 8? Number only.", 51);
+        It("ma-al-1", "simple_algebra",
+           "解方程式：x + 63 = 90，x = ? 只回答數字。", 27);
+        It("ma-al-2", "simple_algebra",
+           "Solve: 11x = 132. What is x? Number only.", 12);
+        It("ma-wp-1", "word_problem",
+           "小芳有 25 張卡片，送出去 8 張，又抽到 12 張。現在幾張？"
+           + "只回答數字。", 29);
+        It("ma-wp-2", "word_problem",
+           "A bus covers 45 km per hour for 4 hours. How far does it "
+           + "go? Number only.", 180);
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -3152,6 +3420,7 @@ internal static class InstructionRecovery
             "tool_calling" => GenerateToolCalling(seed, count),
             "reading_grounding" => GenerateReading(seed, count),
             "rag" => GenerateRag(seed, count),
+            "math" => GenerateMath(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -3201,6 +3470,7 @@ internal static class InstructionRecovery
             "tool_calling" => BuildToolCallingSuiteItems(),
             "reading_grounding" => BuildReadingSuiteItems(),
             "rag" => BuildRagSuiteItems(),
+            "math" => BuildMathSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
