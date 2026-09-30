@@ -290,8 +290,12 @@ extern "C" __global__ void xc_f64_to_bf16(
 extern "C" __global__ void xc_gemm_bf16(
     const __nv_bfloat16* a, const __nv_bfloat16* b, float* c,
     int m, int k, int n) {
-    __shared__ __nv_bfloat16 as[XC_TILE][XC_TILE];
-    __shared__ __nv_bfloat16 bs[XC_TILE][XC_TILE];
+    // fp32 shared tiles: each tile element is converted exactly once at
+    // load instead of once per consuming FMA (XC_TILE× per element).
+    // Identical values and FMA order — bit-identical to the bf16-shared
+    // version, minus the per-read conversion cost.
+    __shared__ float as[XC_TILE][XC_TILE];
+    __shared__ float bs[XC_TILE][XC_TILE];
     const int row = blockIdx.y * XC_TILE + threadIdx.y;
     const int col = blockIdx.x * XC_TILE + threadIdx.x;
     float acc = 0.0f;
@@ -300,16 +304,16 @@ extern "C" __global__ void xc_gemm_bf16(
         const int b_row = t * XC_TILE + threadIdx.y;
         as[threadIdx.y][threadIdx.x] =
             (row < m && a_col < k)
-                ? a[(long long)row * k + a_col]
-                : __float2bfloat16(0.0f);
+                ? __bfloat162float(a[(long long)row * k + a_col])
+                : 0.0f;
         bs[threadIdx.y][threadIdx.x] =
             (b_row < k && col < n)
-                ? b[(long long)b_row * n + col]
-                : __float2bfloat16(0.0f);
+                ? __bfloat162float(b[(long long)b_row * n + col])
+                : 0.0f;
         __syncthreads();
+#pragma unroll
         for (int i = 0; i < XC_TILE; ++i) {
-            acc += __bfloat162float(as[threadIdx.y][i]) *
-                   __bfloat162float(bs[i][threadIdx.x]);
+            acc += as[threadIdx.y][i] * bs[i][threadIdx.x];
         }
         __syncthreads();
     }
@@ -331,11 +335,18 @@ extern "C" __global__ void xc_gemv_bf16_part(
     const int i0 = blockIdx.y * kchunk;
     const int i1 = min(k, i0 + kchunk);
     float acc[XC_GEMV_MAX_M];
+#pragma unroll
     for (int r = 0; r < XC_GEMV_MAX_M; ++r) acc[r] = 0.0f;
     for (int i = i0; i < i1; ++i) {
         const float bv = __bfloat162float(b[(long long)i * n + col]);
-        for (int r = 0; r < m; ++r) {
-            acc[r] += __bfloat162float(a[(long long)r * k + i]) * bv;
+        // Constant-bound unrolled loop keeps acc[] in registers — a
+        // runtime-bound loop (r < m) forces the array to local memory.
+        // Dead lanes contribute av=0, so the math is identical.
+#pragma unroll
+        for (int r = 0; r < XC_GEMV_MAX_M; ++r) {
+            const float av = (r < m)
+                ? __bfloat162float(a[(long long)r * k + i]) : 0.0f;
+            acc[r] += av * bv;
         }
     }
     for (int r = 0; r < m; ++r)
@@ -374,8 +385,10 @@ extern "C" __global__ void xc_f64_to_fp8(
 extern "C" __global__ void xc_gemm_fp8(
     const float* a, const __nv_fp8_e4m3* b, float* c,
     int m, int k, int n) {
+    // Same shared-tile conversion hoist as xc_gemm_bf16: bs lands in
+    // shared as fp32 so the inner loop does zero per-FMA conversions.
     __shared__ float as[XC_TILE][XC_TILE];
-    __shared__ __nv_fp8_e4m3 bs[XC_TILE][XC_TILE];
+    __shared__ float bs[XC_TILE][XC_TILE];
     const int row = blockIdx.y * XC_TILE + threadIdx.y;
     const int col = blockIdx.x * XC_TILE + threadIdx.x;
     float acc = 0.0f;
@@ -387,10 +400,11 @@ extern "C" __global__ void xc_gemm_fp8(
                 ? a[(long long)row * k + a_col] : 0.0f;
         bs[threadIdx.y][threadIdx.x] =
             (b_row < k && col < n)
-                ? b[(long long)b_row * n + col] : __nv_fp8_e4m3(0.0f);
+                ? (float)(b[(long long)b_row * n + col]) : 0.0f;
         __syncthreads();
+#pragma unroll
         for (int i = 0; i < XC_TILE; ++i) {
-            acc += as[threadIdx.y][i] * (float)(bs[i][threadIdx.x]);
+            acc += as[threadIdx.y][i] * bs[i][threadIdx.x];
         }
         __syncthreads();
     }
@@ -408,11 +422,14 @@ extern "C" __global__ void xc_gemv_fp8_part(
     const int i0 = blockIdx.y * kchunk;
     const int i1 = min(k, i0 + kchunk);
     float acc[XC_GEMV_MAX_M];
+#pragma unroll
     for (int r = 0; r < XC_GEMV_MAX_M; ++r) acc[r] = 0.0f;
     for (int i = i0; i < i1; ++i) {
         const float bv = (float)(b[(long long)i * n + col]);
-        for (int r = 0; r < m; ++r) {
-            acc[r] += a[(long long)r * k + i] * bv;
+#pragma unroll
+        for (int r = 0; r < XC_GEMV_MAX_M; ++r) {
+            const float av = (r < m) ? a[(long long)r * k + i] : 0.0f;
+            acc[r] += av * bv;
         }
     }
     for (int r = 0; r < m; ++r)
