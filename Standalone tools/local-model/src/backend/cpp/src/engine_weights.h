@@ -492,39 +492,42 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
                     dst[static_cast<size_t>(i)] = (double)fv;
                 }
             } else {
-            // Weight-only per-tensor symmetric quantization (mirrors
-            // kernels/quant.py): dequantize once at load into owned fp64
-            // storage so every downstream GEMM is unchanged.
-            const JsonValue* scale_v = json_optional(info, "scale");
-            if (scale_v == nullptr ||
-                scale_v->type != JsonValue::Type::Number ||
-                !(scale_v->number > 0.0)) {
-                throw InferenceError("TENSOR_SCALE_INVALID:" + name);
-            }
-            const double scale = scale_v->number;
-            if (dtype == "int8") {
-                for (int64_t i = 0; i < elements; ++i) {
-                    dst[static_cast<size_t>(i)] =
-                        static_cast<double>(
-                            reinterpret_cast<const int8_t*>(raw)[i]) * scale;
+                // Weight-only per-tensor symmetric quantization (mirrors
+                // kernels/quant.py): dequantize once at load into owned
+                // fp64 storage so every downstream GEMM is unchanged.
+                const JsonValue* scale_v = json_optional(info, "scale");
+                if (scale_v == nullptr ||
+                    scale_v->type != JsonValue::Type::Number ||
+                    !(scale_v->number > 0.0)) {
+                    throw InferenceError("TENSOR_SCALE_INVALID:" + name);
                 }
-            } else {
-                // int4_packed: two 4-bit values per byte along the last dim
-                // (low nibble = even index, high nibble = odd), shifted +8.
-                const int64_t last = item.shape.back();
-                const int64_t rows = elements / last;
-                const int64_t packed_row = (last + 1) / 2;
-                for (int64_t r = 0; r < rows; ++r) {
-                    const unsigned char* prow = raw + r * packed_row;
-                    double* drow = dst.data() + r * last;
-                    for (int64_t c = 0; c < last; ++c) {
-                        const unsigned char byte = prow[c / 2];
-                        const int64_t nibble =
-                            (c % 2 == 0) ? (byte & 0x0F) : (byte >> 4);
-                        drow[c] = static_cast<double>(nibble - 8) * scale;
+                const double scale = scale_v->number;
+                if (dtype == "int8") {
+                    for (int64_t i = 0; i < elements; ++i) {
+                        dst[static_cast<size_t>(i)] =
+                            static_cast<double>(
+                                reinterpret_cast<const int8_t*>(raw)[i]) *
+                            scale;
+                    }
+                } else {
+                    // int4_packed: two 4-bit values per byte along the
+                    // last dim (low nibble = even index, high nibble =
+                    // odd), shifted +8.
+                    const int64_t last = item.shape.back();
+                    const int64_t rows = elements / last;
+                    const int64_t packed_row = (last + 1) / 2;
+                    for (int64_t r = 0; r < rows; ++r) {
+                        const unsigned char* prow = raw + r * packed_row;
+                        double* drow = dst.data() + r * last;
+                        for (int64_t c = 0; c < last; ++c) {
+                            const unsigned char byte = prow[c / 2];
+                            const int64_t nibble =
+                                (c % 2 == 0) ? (byte & 0x0F) : (byte >> 4);
+                            drow[c] =
+                                static_cast<double>(nibble - 8) * scale;
+                        }
                     }
                 }
-            }
             }
             view.data = dst.data();
         }
