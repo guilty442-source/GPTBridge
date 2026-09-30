@@ -172,7 +172,15 @@ fn session_command(
             }
         }),
         _ => Some({
-            let result = dispatch_command(command, payload);
+            let mut result = dispatch_command(command, payload);
+            // The renderer correlates command results by `request_id`
+            // (retired-session contract): echo it back verbatim so
+            // waitForIpcEvent predicates can match their frame.
+            if let (Some(obj), Some(id)) =
+                (result.as_object_mut(), payload.get("request_id"))
+            {
+                obj.insert("request_id".to_string(), id.clone());
+            }
             json!({"event": format!("{command}_result"), "payload": result})
         }),
     }
