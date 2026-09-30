@@ -1976,6 +1976,12 @@ int mode_export_bundle(const Args& a) {
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
                       std::chrono::system_clock::now().time_since_epoch())
                       .count();
+    // §25 bundle provenance: resolve + hash the tokenizer up-front so the
+    // manifest can ship the full evidence block (hash -> signature ->
+    // generation -> architecture -> checkpoint -> shape -> runtime
+    // compatibility -> load; provenance-check enforces it fail-closed).
+    fs::path tk_src = resolve_tokenizer_path(tokenizer);
+    const std::string tk_sha = sha256_file(tk_src.string());
     std::ostringstream mf;
     mf << "{\"checkpoint_sha256\":\"" << ckpt_sha << "\""
        << ",\"checkpoint_version\":" << ckpt_ver;
@@ -1998,7 +2004,23 @@ int mode_export_bundle(const Args& a) {
        << ",\"weights_sha256\":\"" << weights_sha << "\""
        << ",\"param_count\":" << param_count
        << ",\"quantized_tensors\":" << quantized_tensors
-       << ",\"quantization\":\"" << quant << "\"}";
+       << ",\"quantization\":\"" << quant << "\""
+       << ",\"tokenizer_sha256\":\"" << tk_sha << "\""
+       << ",\"provenance\":{\"format\":\"star-bundle-provenance/v1\","
+       << "\"build_id\":\"xc-modeltool/" << __DATE__ << "\","
+       << "\"runtime_compatibility\":"
+          "\"star-native-inference-engine/v1\","
+       << "\"generation\":\""
+       << gptbridge::jsonlite::json_escape(
+              arch_gen.empty() ? std::string("unversioned") : arch_gen)
+       << "\",\"xcn_version\":" << ckpt_ver
+       << ",\"manifest_core_sha256\":\"";
+    // manifest_core_sha256 covers everything before the provenance
+    // block — the hash is computed over the mf prefix already streamed.
+    std::string core_sha = xingcheng::inference::sha256_hex(
+        reinterpret_cast<const unsigned char*>(mf.str().data()),
+        mf.str().size());
+    mf << core_sha << "\"}}";
     std::string mf_path = (out_dir / "manifest.json").string();
     std::string mf_tmp = mf_path + ".tmp";
     {
@@ -2009,7 +2031,6 @@ int mode_export_bundle(const Args& a) {
     if (std::rename(mf_tmp.c_str(), mf_path.c_str()) != 0)
         fail("EXPORT_MANIFEST_RENAME_FAILED");
 
-    fs::path tk_src = resolve_tokenizer_path(tokenizer);
     fs::copy_file(tk_src, out_dir / "tokenizer.json",
                   fs::copy_options::overwrite_existing);
 
@@ -2652,6 +2673,15 @@ bool serve_bool(const JsonValue& o, const char* k, bool d) {
     return (v && v->type == JsonValue::Type::Bool) ? v->boolean : d;
 }
 
+// Runtime-capability integration fragment (moe-analyze / fim helpers
+// used by serve ops below; probe modes dispatched from main).
+#include "xcm_integration.h"
+
+// Runtime-capability integration headers: probe/analyzer helpers and
+// standalone modes used by both mode_serve ops and main() dispatch.
+#include "xcm_runtime.h"
+#include "xcm_integration.h"
+
 int mode_serve(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("SERVE_ARGS_MISSING");
@@ -3123,7 +3153,6 @@ int mode_serve(const Args& a) {
 }
 
 #include "xcm_corpus.h"
-#include "xcm_runtime.h"
 
 }  // namespace
 
@@ -3156,6 +3185,9 @@ int main(int argc, char** argv) {
         if (mode == "reuse-probe") return mode_reuse_probe(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
+        if (mode == "provenance-check") return mode_provenance_check(a);
+        if (mode == "depth-probe") return mode_depth_probe(a);
+        if (mode == "moe-analyze") return mode_moe_analyze(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

@@ -341,6 +341,162 @@ internal static class Program
             }
             if (flags.Contains("langcheck"))
                 return Emit(LangCheck.Scan(toolRoot));
+            // §16/§17 tool contracts
+            if (flags.Contains("tool-call-validate"))
+                return Emit(ToolContracts.ValidateCall(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tc)
+                            ? tc : "", "TOOL_SCHEMA_INVALID")));
+            if (flags.Contains("tool-result-validate"))
+                return Emit(ToolContracts.ValidateResult(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? trr)
+                            ? trr : "", "TOOL_SCHEMA_INVALID")));
+            if (flags.Contains("tool-gate"))
+                return Emit(ToolContracts.Gate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("call", out string? gc)
+                            ? gc : "", "TOOL_SCHEMA_INVALID"),
+                    (opts.TryGetValue("tools", out string? ta)
+                        ? ta : "").Split(',', StringSplitOptions
+                            .RemoveEmptyEntries |
+                            StringSplitOptions.TrimEntries),
+                    opts.TryGetValue("budget", out string? gb) &&
+                        int.TryParse(gb, out int gbv) ? gbv : -1,
+                    flags.Contains("confirmed"),
+                    flags.Contains("needed")));
+            if (flags.Contains("tool-metrics"))
+                return Emit(ToolContracts.Metrics(toolRoot));
+            if (flags.Contains("grounded-validate"))
+                return Emit(ToolContracts.ValidateGrounded(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gv)
+                            ? gv : "", "GROUNDING_UNSUPPORTED_CLAIM")));
+            // §18 structured output
+            if (flags.Contains("structured-validate"))
+            {
+                string outFile =
+                    opts.TryGetValue("file", out string? of) ? of : "";
+                if (!File.Exists(outFile))
+                    throw new ExecutorError(
+                        "STRUCTURED_PARSE_FAILED", "output file missing");
+                var schema = ToolContracts.ReadJson(
+                    opts.TryGetValue("schema", out string? sf2)
+                        ? sf2 : "", "STRUCTURED_SCHEMA_FAILED");
+                return Emit(StructuredOutput.Validate(
+                    File.ReadAllText(outFile), schema,
+                    !flags.Contains("no-repair")));
+            }
+            // §5 long-horizon tasks
+            if (flags.Contains("task-create"))
+                return Emit(LongHorizonTasks.Create(
+                    toolRoot,
+                    opts.TryGetValue("goal", out string? g2) ? g2 : "",
+                    opts.TryGetValue("constraints", out string? c2)
+                        ? c2 : ""));
+            if (flags.Contains("task-plan"))
+                return Emit(LongHorizonTasks.SetPlan(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tp) ? tp : "",
+                    (opts.TryGetValue("steps", out string? st2)
+                        ? st2 : "").Split(',', StringSplitOptions
+                            .RemoveEmptyEntries |
+                            StringSplitOptions.TrimEntries)));
+            if (flags.Contains("task-step"))
+                return Emit(LongHorizonTasks.RecordStep(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? ts) ? ts : "",
+                    opts.TryGetValue("step", out string? ss) ? ss : "",
+                    opts.TryGetValue("result", out string? sr) ? sr : "",
+                    opts.TryGetValue("evidence", out string? se)
+                        ? se : ""));
+            if (flags.Contains("task-checkpoint"))
+                return Emit(LongHorizonTasks.Checkpoint(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? ck) ? ck : ""));
+            if (flags.Contains("task-compact"))
+                return Emit(LongHorizonTasks.Compact(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? cp) ? cp : ""));
+            if (flags.Contains("task-resume"))
+                return Emit(LongHorizonTasks.Resume(
+                    toolRoot,
+                    opts.TryGetValue("checkpoint", out string? rc)
+                        ? rc : ""));
+            if (flags.Contains("task-revalidate"))
+                return Emit(LongHorizonTasks.Revalidate(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? rv) ? rv : ""));
+            if (flags.Contains("task-transition"))
+                return Emit(LongHorizonTasks.Transition(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tt) ? tt : "",
+                    opts.TryGetValue("to", out string? to2) ? to2 : "",
+                    opts.TryGetValue("reason", out string? re)
+                        ? re : ""));
+            if (flags.Contains("task-status"))
+                return Emit(LongHorizonTasks.Status(toolRoot));
+            // §10/§11/§22 coding + FIM contracts
+            if (flags.Contains("code-task-validate"))
+                return Emit(CodeAgent.ValidateTask(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cd)
+                            ? cd : "", "REPO_TASK_SCOPE_INVALID")));
+            if (flags.Contains("fim-validate"))
+                return Emit(CodeAgent.ValidateFim(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? fm)
+                            ? fm : "", "FIM_CONTRACT_INVALID")));
+            if (flags.Contains("harness-validate"))
+                return Emit(CodeAgent.ValidateHarness(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hv)
+                            ? hv : "", "REPO_TASK_SCOPE_INVALID")));
+            // §12 modality + teacher lineage schemas
+            if (flags.Contains("modality-validate"))
+                return Emit(Modality.ValidateProvenance(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mv)
+                            ? mv : "", "VISION_FALLBACK_FAILED")));
+            if (flags.Contains("teacher-validate"))
+                return Emit(Modality.ValidateTeacher(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tv)
+                            ? tv : "", "BUNDLE_PROVENANCE_INVALID")));
+            // §15 architecture change gate
+            if (flags.Contains("arch-gate"))
+                return Emit(ArchitectureGate.Evaluate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ag)
+                            ? ag : "", "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+            // §14/§19 dataset quality
+            if (flags.Contains("data-quality"))
+                return Emit(DataQuality.Evaluate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dq)
+                            ? dq : "", "DATA_QUALITY_INVALID"),
+                    opts.TryGetValue("min-quality", out string? mq) &&
+                        double.TryParse(mq, out double mqv)
+                            ? mqv : 0.0));
+            // §29 routing trace
+            if (flags.Contains("routing-record"))
+                return Emit(RoutingAnalysis.Record(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rr)
+                            ? rr : "", "MOE_TRACE_INVALID")));
+            if (flags.Contains("routing-status"))
+                return Emit(RoutingAnalysis.Aggregate(toolRoot));
+            // §30 eval plane
+            if (flags.Contains("eval-result-validate"))
+                return Emit(EvalCoordinator.ValidateResult(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ev)
+                            ? ev : "", "EVAL_RESULT_INVALID")));
+            if (flags.Contains("eval-suites"))
+                return Emit(EvalCoordinator.SuitesStatus());
             if (flags.Contains("queue-job"))
                 return Emit(QueueJob(
                     toolRoot,

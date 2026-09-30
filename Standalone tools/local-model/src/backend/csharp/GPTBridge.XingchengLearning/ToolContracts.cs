@@ -322,7 +322,8 @@ internal static class ToolContracts
             throw new ExecutorError(errCode, $"{file}: file missing");
         try
         {
-            return JsonDocument.Parse(File.ReadAllText(file)).RootElement;
+            return JsonDocument.Parse(File.ReadAllText(file))
+                               .RootElement.Clone();
         }
         catch (JsonException e)
         {

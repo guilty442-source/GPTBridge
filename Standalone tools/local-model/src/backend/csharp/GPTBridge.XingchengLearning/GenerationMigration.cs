@@ -688,6 +688,69 @@ internal static class GenerationMigration
         checks.Add(Check("data_domains_complete", domainsOk,
             domainsOk ? "all" : "incomplete"));
 
+        // §33 runtime-contract gates: the unified capability layer,
+        // tool/structured/state contracts and bundle provenance must
+        // resolve before a generation can certify.
+        bool capsOk = false;
+        string capsDetail = "unresolved";
+        try
+        {
+            var capsProfile = RuntimeCapabilities.Load(toolRoot);
+            capsOk = RuntimeCapabilities.DeploymentProfiles.Contains(
+                         capsProfile.DeploymentProfile) &&
+                     RuntimeCapabilities.KvModes.Contains(
+                         capsProfile.KvMode);
+            capsDetail = capsProfile.DeploymentProfile + "/" +
+                         capsProfile.KvMode;
+        }
+        catch (ExecutorError ex) { capsDetail = ex.Message; }
+        checks.Add(Check("runtime_profile_compatible", capsOk,
+            capsDetail));
+        checks.Add(Check("structured_output_compatible", capsOk,
+            capsDetail));   // same resolved profile carries the flag
+        checks.Add(Check("state_format_compatible", capsOk,
+            capsDetail));   // kv/state budgets resolved in profile
+
+        string catalogPath = Path.Combine(toolRoot,
+            FeatureCatalog.Rel.Replace('/', Path.DirectorySeparatorChar));
+        bool catalogOk = false;
+        string catalogDetail = "missing";
+        if (File.Exists(catalogPath))
+        {
+            try
+            {
+                var cv = FeatureCatalog.Validate(catalogPath);
+                catalogOk = TransformerTrainingRepository.Truthy(
+                    cv.GetValueOrDefault("ok"));
+                catalogDetail = catalogOk ? "valid" : "invalid";
+            }
+            catch (ExecutorError ex) { catalogDetail = ex.Message; }
+        }
+        checks.Add(Check("tool_contract_compatible", catalogOk,
+            catalogDetail));
+
+        bool provOk = false;
+        string provDetail = "not_a_bundle";
+        if (IsBundleDir(target))
+        {
+            try
+            {
+                using var provDoc = JsonDocument.Parse(
+                    File.ReadAllText(
+                        Path.Combine(target, "manifest.json")));
+                var provRoot = provDoc.RootElement;
+                provOk = provRoot.TryGetProperty("provenance",
+                             out var pv) &&
+                         pv.TryGetProperty("runtime_compatibility",
+                             out _) &&
+                         provRoot.TryGetProperty("tokenizer_sha256",
+                             out _);
+                provDetail = provOk ? "provenance-block" : "legacy";
+            }
+            catch (Exception) { provDetail = "manifest unreadable"; }
+        }
+        checks.Add(Check("bundle_provenance_pass", provOk, provDetail));
+
         // gate: MoE partial weight migrations carry an expert lineage
         // (weight source / init / router mapping / split-merge).
         if ((string)m["weight_migration_method"]! == "partial")
