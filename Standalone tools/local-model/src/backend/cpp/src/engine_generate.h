@@ -181,6 +181,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     generated.reserve(static_cast<size_t>(max_new_tokens));
     uint64_t rng_state = sampling.seed ? sampling.seed : 0x9E3779B97F4A7C15ULL;
 
+    const bool dbg_gen = std::getenv("XC_DBG") != nullptr;
     // P3d prefix reuse: restore the longest cached prompt prefix so only the
     // suffix is recomputed. The snapshot stores per-layer K/V slices; values
     // are deterministic, so a restored cache is bit-identical to recompute.
@@ -226,6 +227,12 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                         0, false, layer, position, h, hit.v.data() + off);
                 }
             }
+        }
+        if (dbg_gen) {
+            uint64_t hs = 1469598103934665603ULL;
+            for (char c : hit.k) { hs ^= (unsigned char)c; hs *= 1099511628211ULL; }
+            std::fprintf(stderr, "[dbg] restore entry.k hash=%llx len=%lld\n",
+                (unsigned long long)hs, (long long)prefix_len);
         }
         hit.tick = ++prefix_tick_;
         ++prefix_hits_;
@@ -331,6 +338,14 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                 }
                 entry.logits = next_logits;
                 entry.tick = ++prefix_tick_;
+                if (dbg_gen) {
+                    uint64_t hs = 1469598103934665603ULL;
+                    for (char c : entry.k) {
+                        hs ^= (unsigned char)c; hs *= 1099511628211ULL;
+                    }
+                    std::fprintf(stderr, "[dbg] snapshot entry.k hash=%llx len=%lld\n",
+                        (unsigned long long)hs, (long long)store_len);
+                }
                 prefix_cache_.push_back(std::move(entry));
             }
         }
@@ -343,11 +358,19 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // reply is unchanged).
     std::string turn_tail;
     turn_tail.reserve(64);
-    const bool dbg = std::getenv("XC_DBG") != nullptr;
     for (int64_t step = 0; step < max_new_tokens; ++step) {
-        if (dbg) {
+        if (dbg_gen) {
+            uint64_t ph = 1469598103934665603ULL;
+            for (int64_t pos = 0; pos < kv_lens_[0]; ++pos) {
+                const char* p = kv_slot_bytes(0, true, 0, pos, 0);
+                for (int64_t b = 0; b < kv_elem_stride_bytes_; ++b) {
+                    ph ^= (unsigned char)p[b]; ph *= 1099511628211ULL;
+                }
+            }
             double s = 0.0;
             for (double x : next_logits) s += x;
+            std::fprintf(stderr, "[dbg] poolK-l0-h0 hash=%llx\n",
+                (unsigned long long)ph);
             std::fprintf(stderr,
                 "[dbg] step=%lld len=%lld lsum=%.9g l0=%.9g\n",
                 (long long)step, (long long)kv_lens_[0], s,
