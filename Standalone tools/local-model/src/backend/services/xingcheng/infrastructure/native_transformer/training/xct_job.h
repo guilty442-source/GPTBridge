@@ -450,6 +450,10 @@ static JsonValue run_job(const JsonValue& job) {
     put("schema", str("star-native-train-report/v1"));
     put("task", str(task.c_str()));
     {
+        const std::string gen = j_str(mj, "generation", "");
+        if (!gen.empty()) put("generation", str(gen.c_str()));
+    }
+    {
         JsonValue tpu; tpu.type = JsonValue::Type::Object;
         tpu.object.emplace_back("threads", num((double)tpu_threads()));
         tpu.object.emplace_back("simd", str(tpu_simd_name()));

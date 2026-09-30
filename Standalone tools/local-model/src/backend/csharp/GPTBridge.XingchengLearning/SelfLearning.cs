@@ -195,7 +195,7 @@ internal static class SelfLearning
                 magic[2] != 'N' || magic[3] != '1')
                 return null;
             uint ver = r.ReadUInt32();
-            if (ver < 1 || ver > 8) return null;
+            if (ver < 1 || ver > 10) return null;
             var cfg = new Dictionary<string, object?>
             {
                 ["vocab_size"] = (long)r.ReadUInt32(),
@@ -281,6 +281,56 @@ internal static class SelfLearning
                 cfg["yarn_beta_fast"] = (double)r.ReadSingle();
                 cfg["yarn_beta_slow"] = (double)r.ReadSingle();
                 cfg["yarn_attention_factor"] = (double)r.ReadSingle();
+            }
+            if (ver >= 9)
+            {
+                // XCN9 Gemma4 block (see xct_ckpt.h write order): the
+                // marker u32 is always present — 1 = g4 fields follow,
+                // 0 = non-gemma4 (canonical xc-fused-1 checkpoints).
+                uint g4m = r.ReadUInt32();
+                if (g4m == 1u)
+                {
+                    cfg["model_type"] = "gemma4_text";
+                    cfg["head_dim"] = (long)r.ReadUInt32();
+                    cfg["global_head_dim"] = (long)r.ReadUInt32();
+                    cfg["sliding_window"] = (long)r.ReadUInt32();
+                    cfg["num_kv_shared_layers"] = (long)r.ReadUInt32();
+                    cfg["hidden_size_per_layer_input"] =
+                        (long)r.ReadUInt32();
+                    cfg["vocab_size_per_layer_input"] =
+                        (long)r.ReadUInt32();
+                    uint g4flags = r.ReadUInt32();
+                    cfg["use_double_wide_mlp"] = (g4flags & 1u) != 0;
+                    cfg["tie_word_embeddings"] = (g4flags & 2u) != 0;
+                    cfg["rope_theta_full"] = (double)r.ReadSingle();
+                    cfg["rope_partial_rotary_factor"] =
+                        (double)r.ReadSingle();
+                    cfg["final_logit_softcapping"] = (double)r.ReadSingle();
+                    cfg["attention_scale"] = (double)r.ReadSingle();
+                    uint nt = r.ReadUInt32();
+                    var types = new List<object?>();
+                    for (uint i = 0; i < nt; ++i)
+                    {
+                        uint nl = r.ReadUInt32();
+                        types.Add(System.Text.Encoding.UTF8.GetString(
+                            r.ReadBytes((int)nl)));
+                    }
+                    cfg["layer_types"] = types;
+                    uint al = r.ReadUInt32();
+                    cfg["hidden_activation"] =
+                        System.Text.Encoding.UTF8.GetString(
+                            r.ReadBytes((int)al));
+                }
+                else if (g4m != 0u)
+                {
+                    return null;
+                }
+            }
+            if (ver >= 10)
+            {
+                // XCN10 v29 MTP-stack block (see xct_ckpt.h).
+                cfg["mtp_stack_depth"] = (long)r.ReadUInt32();
+                cfg["mtp_stack_loss_weight"] = (double)r.ReadSingle();
             }
             return cfg;
         }

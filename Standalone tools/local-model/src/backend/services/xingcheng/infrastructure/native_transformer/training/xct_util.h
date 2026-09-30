@@ -450,6 +450,70 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.csa_indexer = j_bool(o, "csa_indexer", c.csa_indexer);
     c.csa_indexer_w =
         (float)j_num(o, "csa_indexer_loss_weight", c.csa_indexer_w);
+    // Canonical single-generation contract ("xc-fused-1"): one named
+    // generation pins every fused mechanism axis — hybrid DeltaNet
+    // interleave, MLA on the full-attention layers, sigmoid-router MoE
+    // with aux-free balancing and the shared-expert gate, the MTP stack,
+    // vision early-fusion and YaRN long-context. Dimensional sizes still
+    // come from the job; mechanism flags are canonical, so a job field
+    // that conflicts with the generation contract is overridden
+    // deterministically (never a silently different architecture).
+    // CSA (csa_*) is outside this generation — its compressed-KV path
+    // is mutually exclusive with MLA's latent path (fail-closed below)
+    // — and the gemma4 family is a separate model_type.
+    const std::string gen = j_str(o, "generation", "");
+    if (!gen.empty()) {
+        if (gen != "xc-fused-1") throw "model: unknown generation";
+        if (c.is_gemma4())
+            throw "model: xc-fused-1 excludes the gemma4 family";
+        const int hd = c.heads > 0 ? c.hidden / c.heads : 0;
+        // hybrid deltanet interleave: every 4th layer full attention.
+        c.full_attention_interval = 4;
+        c.lin_key_heads = std::max(1, c.heads / 4);
+        c.lin_key_dim = std::max(8, (hd / 2) & ~1);
+        c.lin_value_heads = c.lin_key_heads * 2;
+        c.lin_value_dim = hd;
+        c.lin_conv_kernel = 4;
+        // MLA on full-attention layers; the alternate non-MLA attention
+        // knobs (attn gate / qk_norm / kv-sharing) are MLA-exclusive and
+        // stay off in the canonical contract.
+        const int kr = std::max(8, (hd / 4) & ~1);
+        c.qk_rope_head_dim = kr;
+        c.qk_nope_head_dim = hd - kr > 0 ? hd - kr : hd;
+        c.kv_lora_rank = std::max(16, c.hidden / 8);
+        c.q_lora_rank = std::max(16, c.hidden / 4);
+        c.attn_output_gate = false;
+        c.qk_norm = false;
+        c.k_eq_v_global = false;
+        c.num_global_kv_heads = 0;
+        // MoE: fused sigmoid router + aux-free balancing + shared expert.
+        if (c.moe_experts <= 0) c.moe_experts = 8;
+        if (c.moe_top_k <= 0 || c.moe_top_k > c.moe_experts)
+            c.moe_top_k = 2;
+        if (c.moe_layer_interval <= 0) c.moe_layer_interval = 1;
+        c.moe_router_sigmoid = true;
+        c.moe_auxfree_balance = true;
+        if (c.moe_lb_bias_rate <= 0.0f) c.moe_lb_bias_rate = 0.001f;
+        if (c.moe_shared_experts <= 0) c.moe_shared_experts = 1;
+        c.shared_expert_gate = true;
+        // MTP stack (XCN10): depth-1 fusion module.
+        if (c.mtp_depth <= 0) c.mtp_depth = 1;
+        if (c.mtp_loss_w <= 0.0f) c.mtp_loss_w = 0.1f;
+        // Vision early-fusion prefix.
+        c.use_vision = true;
+        if (c.vision_patch_dim <= 0) c.vision_patch_dim = 16;
+        if (c.vision_max_patches <= 0) c.vision_max_patches = 64;
+        // YaRN long-context extension over every rope path.
+        if (c.yarn_factor <= 1.0f) c.yarn_factor = 2.0f;
+        if (c.yarn_orig_pos <= 0) c.yarn_orig_pos = c.max_pos;
+        if (c.yarn_beta_fast <= c.yarn_beta_slow) {
+            c.yarn_beta_fast = 32.0f;
+            c.yarn_beta_slow = 1.0f;
+        }
+        // Not part of this generation.
+        c.csa_ratio = 0; c.csa_topk = 0; c.csa_window = 0;
+        c.csa_rope_theta = 0.0f; c.csa_group = 0; c.csa_reindex = false;
+    }
     if (c.csa_ratio > 0 && c.csa_ratio < 2)
         throw "model: csa_compress_ratio must be >=2";
     if (c.csa_ratio >= 2) {
