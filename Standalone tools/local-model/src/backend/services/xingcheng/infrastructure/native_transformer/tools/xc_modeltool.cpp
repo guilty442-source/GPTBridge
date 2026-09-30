@@ -3967,8 +3967,8 @@ bool decode_delta_state_flat(const std::vector<char>& blob,
         return (int64_t)v;
     };
     if (u32(0) != 0x53544C44u || u32(4) != 1) return false;
-    const int64_t layers = i64(12);
-    size_t p = 20;
+    const int64_t layers = i64(16);   // magic|ver|slot|layers header
+    size_t p = 24;
     for (int64_t l = 0; l < layers; ++l) {
         if (p + 1 > blob.size()) return false;
         ++p;   // present flag — geometry already proven by restore path
