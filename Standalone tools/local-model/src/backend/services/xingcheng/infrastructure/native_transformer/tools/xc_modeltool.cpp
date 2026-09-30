@@ -2116,11 +2116,18 @@ int mode_export_bundle(const Args& a) {
     fs::path tk_src = resolve_tokenizer_path(tokenizer);
     const std::string tk_sha = sha256_file(tk_src.string());
     std::ostringstream mf;
+    // Canonical provenance envelope (star-bundle-provenance/v1 gate):
+    // checkpoint_version ships in the XCN1 v10 string form, generation +
+    // architecture_generation are emitted unconditionally so
+    // BundleProvenance.Check can verify lineage/architecture identity.
+    const std::string arch_gen_eff =
+        arch_gen.empty() ? std::string("unversioned") : arch_gen;
     mf << "{\"checkpoint_sha256\":\"" << ckpt_sha << "\""
-       << ",\"checkpoint_version\":" << ckpt_ver;
-    if (!arch_gen.empty())
-        mf << ",\"architecture_generation\":\""
-           << gptbridge::jsonlite::json_escape(arch_gen) << "\"";
+       << ",\"checkpoint_version\":\"XCN1 v" << ckpt_ver << "\""
+       << ",\"generation\":\""
+       << gptbridge::jsonlite::json_escape(arch_gen_eff) << "\""
+       << ",\"architecture_generation\":\""
+       << gptbridge::jsonlite::json_escape(arch_gen_eff) << "\"";
     mf << ",\"config\":" << cfg_canon
        << ",\"created_by\":\"xc-modeltool\""
        << ",\"created_at\":" << now
@@ -2144,8 +2151,7 @@ int mode_export_bundle(const Args& a) {
        << "\"runtime_compatibility\":"
           "\"star-native-inference-engine/v1\","
        << "\"generation\":\""
-       << gptbridge::jsonlite::json_escape(
-              arch_gen.empty() ? std::string("unversioned") : arch_gen)
+       << gptbridge::jsonlite::json_escape(arch_gen_eff)
        << "\",\"xcn_version\":" << ckpt_ver
        << ",\"manifest_core_sha256\":\"";
     // manifest_core_sha256 covers everything before the provenance

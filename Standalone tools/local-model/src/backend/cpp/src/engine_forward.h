@@ -642,20 +642,26 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             bool device_attn_done = false;
 #if defined(XINGCHENG_CUDA)
             if (kv_device_active_ && span.slot == 0) {
+                // Device buffers are indexed by the dense full-attention
+                // ordinal (kv_layer_ord_), matching xcuda_kv_alloc and the
+                // host pool — the global layer index is out of bounds on
+                // every hybrid bundle (DeltaNet layers own no KV).
+                const int64_t kv_ord =
+                    kv_layer_ord_[static_cast<size_t>(layer_idx)];
                 for (int64_t h = 0; h < cfg.num_key_value_heads; ++h) {
                     if (xcuda_kv_write_rows(
-                            1, layer_idx, h, span.position_offset, seq,
+                            1, kv_ord, h, span.position_offset, seq,
                             k_attn->data() +
                                 static_cast<size_t>(h * seq * cfg.head_dim)) != 0 ||
                         xcuda_kv_write_rows(
-                            0, layer_idx, h, span.position_offset, seq,
+                            0, kv_ord, h, span.position_offset, seq,
                             v_heads.data() +
                                 static_cast<size_t>(h * seq * cfg.head_dim)) != 0) {
                         throw InferenceError("CUDA_KV_WRITE_FAILED");
                     }
                 }
                 if (xcuda_kv_attention(
-                        layer_idx, q_attn->data(), cfg.num_attention_heads,
+                        kv_ord, q_attn->data(), cfg.num_attention_heads,
                         seq, cfg.num_key_value_heads, cfg.head_dim,
                         span.position_offset,
                         attn_flat.data() + static_cast<size_t>(base * q_dim),
