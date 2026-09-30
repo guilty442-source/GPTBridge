@@ -59,6 +59,68 @@ internal static class ConvErr
     };
 }
 
+/// <summary>§43 unified failure taxonomy: every error code — C#
+/// constants and native tool codes alike — maps to exactly one class.
+/// Classification is prefix-ordered and total: an unrecognized code
+/// lands in RUNTIME rather than nowhere.</summary>
+internal static class FailureTaxonomy
+{
+    public static readonly string[] Categories =
+    {
+        "ARCHITECTURE", "CHECKPOINT", "RUNTIME", "STATE", "CACHE",
+        "CUDA", "TRAINER", "TOOL", "STRUCTURED_OUTPUT", "GROUNDING",
+        "GENERATION", "LIFECYCLE", "CAPABILITY", "LANGUAGE_BOUNDARY",
+    };
+
+    // Explicit table first, then longest-prefix fallbacks.
+    private static readonly (string Prefix, string Category)[] Rules =
+    {
+        ("LANGUAGE_BOUNDARY", "LANGUAGE_BOUNDARY"),
+        ("CANONICAL_CONTRACT_VIOLATION", "ARCHITECTURE"),
+        ("ARCHITECTURE_", "ARCHITECTURE"),
+        ("ARCH_", "ARCHITECTURE"),
+        ("XCN", "CHECKPOINT"),
+        ("CHECKPOINT", "CHECKPOINT"),
+        ("BUNDLE_", "CHECKPOINT"),
+        ("PROVENANCE", "CHECKPOINT"),
+        ("CKPT_", "CHECKPOINT"),
+        ("STATE_", "STATE"),
+        ("SNAPSHOT_", "STATE"),
+        ("DELTA_STATE", "STATE"),
+        ("KV_", "CACHE"),
+        ("CACHE_", "CACHE"),
+        ("PREFIX_", "CACHE"),
+        ("CUDA_", "CUDA"),
+        ("TRAINER_", "TRAINER"),
+        ("TRAIN_", "TRAINER"),
+        ("PROBE_", "TRAINER"),
+        ("TOOL_", "TOOL"),
+        ("STRUCTURED_", "STRUCTURED_OUTPUT"),
+        ("FIM_", "STRUCTURED_OUTPUT"),
+        ("GROUNDING_", "GROUNDING"),
+        ("CITATION_", "GROUNDING"),
+        ("GENERATION_", "GENERATION"),
+        ("GEN_", "GENERATION"),
+        ("RELEASE_GATE_", "LIFECYCLE"),
+        ("LIFECYCLE_", "LIFECYCLE"),
+        ("RETENTION_", "LIFECYCLE"),
+        ("CAPABILITY_", "CAPABILITY"),
+        ("PRECISION_", "CAPABILITY"),
+        ("VISION_", "CAPABILITY"),
+        ("EVAL_", "CAPABILITY"),
+        ("QUANT_", "CAPABILITY"),
+    };
+
+    public static string Classify(string code)
+    {
+        code = (code ?? "").Trim().ToUpperInvariant();
+        foreach (var (prefix, cat) in Rules)
+            if (code.StartsWith(prefix, StringComparison.Ordinal))
+                return cat;
+        return "RUNTIME";   // SPECULATIVE_*, SERVE_*, MEMORY_*, etc.
+    }
+}
+
 /// <summary>§9 reasoning effort — orchestration budgets only.</summary>
 internal enum ReasoningMode { NONE = 0, LOW = 1, NORMAL = 2, HIGH = 3 }
 

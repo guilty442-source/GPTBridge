@@ -103,6 +103,12 @@ internal static class XingchengEvaluationCoordinator
             }
             catch (JsonException) { /* keep scanning */ }
         }
+        if (!pass)
+            FailurePool.Record(   // §29: every suite failure feeds the
+                toolRoot, $"suite:{suite}", "gen-2-consolidated",
+                FailurePool.ClassForSuite(suite), "suite pass",
+                err.Length > 0 ? err : "SUITE_FAILED",
+                bundle, "medium", reproducible: true);
         return Result(
             suite, "suite-run", "gen-2-consolidated", bundle, pass,
             pass ? 1.0 : 0.0, 1.0,

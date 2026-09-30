@@ -4220,52 +4220,80 @@ int mode_precision_parity(const Args& a) {
     return pass ? 0 : 1;
 }
 
+// ------------------------------------ §37 mode registry -------------
+// Every mode carries a category (MODEL|DATA|EVAL|RUNTIME|DIAGNOSTIC).
+// Dispatch goes through this table — a mode without a category cannot
+// be reached, so the tool cannot grow past the registry.
+struct ModeEntry {
+    const char* name;
+    const char* category;
+    int (*fn)(const Args&);
+};
+
+int probe_cuda_entry(const Args&) { return mode_probe_cuda(); }
+
+const ModeEntry kModeRegistry[] = {
+    {"tokenize",             "MODEL",       mode_tokenize},
+    {"import-bundle",        "MODEL",       mode_import_bundle},
+    {"export-bundle",        "MODEL",       mode_export_bundle},
+    {"distill-init",         "MODEL",       mode_distill_init},
+    {"corpus",               "DATA",        mode_corpus},
+    {"eval",                 "EVAL",        mode_eval},
+    {"capability",           "EVAL",        mode_capability},
+    {"native-thinking-eval", "EVAL",        mode_native_thinking_eval},
+    {"precision-parity",     "EVAL",        mode_precision_parity},
+    {"parity",               "EVAL",        mode_parity},
+    {"spec-verify",          "EVAL",        mode_spec_verify},
+    {"vision-smoke",         "RUNTIME",     mode_vision_smoke},
+    {"cache-smoke",          "RUNTIME",     mode_cache_smoke},
+    {"serve",                "RUNTIME",     mode_serve},
+    {"memory-plan",          "RUNTIME",     mode_memory_plan},
+    {"state-snapshot",       "RUNTIME",     mode_state_snapshot},
+    {"state-bench",          "RUNTIME",     mode_state_bench},
+    {"state-drift",          "RUNTIME",     mode_state_drift},
+    {"state2-smoke",         "RUNTIME",     mode_state2_smoke},
+    {"sched-smoke",          "RUNTIME",     mode_sched_smoke},
+    {"vision-budget",        "RUNTIME",     mode_vision_budget},
+    {"router-analyze",       "DIAGNOSTIC",  mode_router_analyze},
+    {"probe-cuda",           "DIAGNOSTIC",  probe_cuda_entry},
+    {"cuda-parity-all",      "DIAGNOSTIC",  mode_cuda_parity_all},
+    {"param-reuse-probe",    "DIAGNOSTIC",  mode_param_reuse},
+    {"sparse-probe",         "DIAGNOSTIC",  mode_sparse_probe},
+    {"kv-gather-probe",      "DIAGNOSTIC",  mode_kv_gather_probe},
+    {"spec-probe",           "DIAGNOSTIC",  mode_spec_probe},
+    {"hw-caps",              "DIAGNOSTIC",  mode_hw_caps},
+};
+
 }  // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
-            "xc_modeltool <tokenize|corpus|import-bundle|distill-init|export-bundle|eval|"
-            "capability|vision-smoke|cache-smoke|parity|serve|probe-cuda|"
-            "memory-plan|state-snapshot|state-bench|router-analyze|"
-            "vision-budget|spec-verify|param-reuse-probe|precision-parity>"
-            " [args]\n");
+            "xc_modeltool <mode> [args]   (modes: see 'modes')\n");
         return 2;
     }
     std::string mode = argv[1];
+    // §37 registry listing — self-describing surface for the release
+    // gate and operators.
+    if (mode == "modes") {
+        std::printf("{\"ok\":true,\"format\":\"star-mode-registry/v1\","
+                    "\"categories\":[\"MODEL\",\"DATA\",\"EVAL\","
+                    "\"RUNTIME\",\"DIAGNOSTIC\"],\"modes\":[");
+        for (size_t i = 0;
+             i < sizeof(kModeRegistry) / sizeof(kModeRegistry[0]);
+             ++i) {
+            if (i) std::printf(",");
+            std::printf("{\"name\":\"%s\",\"category\":\"%s\"}",
+                        kModeRegistry[i].name,
+                        kModeRegistry[i].category);
+        }
+        std::printf("]}\n");
+        return 0;
+    }
     Args a = parse_args(argc, argv);
     try {
-        if (mode == "tokenize") return mode_tokenize(a);
-        if (mode == "corpus") return mode_corpus(a);
-        if (mode == "import-bundle") return mode_import_bundle(a);
-        if (mode == "distill-init") return mode_distill_init(a);
-        if (mode == "export-bundle") return mode_export_bundle(a);
-        if (mode == "eval") return mode_eval(a);
-        if (mode == "capability") return mode_capability(a);
-        if (mode == "vision-smoke") return mode_vision_smoke(a);
-        if (mode == "cache-smoke") return mode_cache_smoke(a);
-        if (mode == "parity") return mode_parity(a);
-        if (mode == "serve") return mode_serve(a);
-        if (mode == "probe-cuda") return mode_probe_cuda();
-    if (mode == "cuda-parity-all") return mode_cuda_parity_all(a);
-        if (mode == "memory-plan") return mode_memory_plan(a);
-        if (mode == "state-snapshot") return mode_state_snapshot(a);
-    if (mode == "native-thinking-eval")
-        return mode_native_thinking_eval(a);
-        if (mode == "state-bench") return mode_state_bench(a);
-        if (mode == "router-analyze") return mode_router_analyze(a);
-        if (mode == "vision-budget") return mode_vision_budget(a);
-        if (mode == "spec-verify") return mode_spec_verify(a);
-        if (mode == "param-reuse-probe") return mode_param_reuse(a);
-        if (mode == "precision-parity") return mode_precision_parity(a);
-        // batch-2 probes (research/runtime infra; production untouched)
-        if (mode == "sparse-probe") return mode_sparse_probe(a);
-        if (mode == "kv-gather-probe") return mode_kv_gather_probe(a);
-        if (mode == "sched-smoke") return mode_sched_smoke(a);
-        if (mode == "state-drift") return mode_state_drift(a);
-        if (mode == "spec-probe") return mode_spec_probe(a);
-        if (mode == "hw-caps") return mode_hw_caps(a);
-        if (mode == "state2-smoke") return mode_state2_smoke(a);
+        for (const ModeEntry& e : kModeRegistry)
+            if (mode == e.name) return e.fn(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());
