@@ -1,23 +1,28 @@
 //go:build windows
 
 // browser_test.go — live WebView2 lifecycle test for BrowserManager.
-// A hidden top-level HWND stands in for the Wails main window; every
-// session op runs through the real pump-thread/WebView2 pipeline.
+// A hidden top-level HWND created on the pump thread stands in for the
+// Wails main window (cross-thread parent/child attaches input queues and
+// deadlocks a non-pumping owner, so the test parent must pump too);
+// every session op runs through the real WebView2 pipeline.
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 	"unsafe"
 )
 
 const wsPopupWindow = 0x80000000
 
-func newTestParent(t *testing.T) uintptr {
-	t.Helper()
+func createPopupWindow() (uintptr, error) {
 	if err := registerBrowserClass(); err != nil {
-		t.Fatalf("register browser class: %v", err)
+		return 0, err
 	}
 	name, _ := syscall.UTF16PtrFromString("AiCollabWebView2Host")
 	caption, _ := syscall.UTF16PtrFromString("aicollab-ui-test-parent")
@@ -26,9 +31,9 @@ func newTestParent(t *testing.T) uintptr {
 		0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(caption)),
 		wsPopupWindow, 0, 0, 640, 480, 0, 0, hinst, 0)
 	if hwnd == 0 {
-		t.Fatalf("create parent window: %v", err)
+		return 0, err
 	}
-	return hwnd
+	return hwnd, nil
 }
 
 func wantOK(t *testing.T, op string, res map[string]any) {
@@ -39,18 +44,27 @@ func wantOK(t *testing.T, op string, res map[string]any) {
 }
 
 func TestBrowserManagerLifecycle(t *testing.T) {
-	parent := newTestParent(t)
-	defer destroyWindow(parent)
-
+	// WebView2 child processes outlive session close by a few hundred
+	// ms — use a plain dir and retry cleanup instead of t.TempDir.
+	dataRoot := filepath.Join(os.TempDir(),
+		"aicollab-ui-test-"+strconv.Itoa(int(pid())))
 	var evMu sync.Mutex
 	var events []map[string]any
 	m := NewBrowserManager(uint32(pid()), "aicollab-ui-test-parent",
-		t.TempDir(), func(p map[string]any) {
+		dataRoot, func(p map[string]any) {
 			evMu.Lock()
 			events = append(events, p)
 			evMu.Unlock()
 		})
+
+	var parent uintptr
+	var perr error
+	m.run(func() { parent, perr = createPopupWindow() })
+	if perr != nil || parent == 0 {
+		t.Fatalf("create parent window: %v", perr)
+	}
 	m.parent = parent
+	defer func() { m.run(func() { destroyWindow(parent) }) }()
 	defer m.Shutdown()
 
 	res := m.Invoke("embedded-browser:create", map[string]any{
@@ -93,4 +107,12 @@ func TestBrowserManagerLifecycle(t *testing.T) {
 	if ok, _ := res["ok"].(bool); ok {
 		t.Fatalf("url after close should fail: %v", res)
 	}
+
+	for i := 0; i < 20; i++ {
+		if err := os.RemoveAll(dataRoot); err == nil {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	_ = os.RemoveAll(dataRoot)
 }
