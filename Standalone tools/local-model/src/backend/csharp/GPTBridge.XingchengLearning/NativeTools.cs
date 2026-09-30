@@ -95,8 +95,8 @@ internal static class NativeTools
             lock (stdoutTail)
             {
                 stdoutTail.AppendLine(e.Data);
-                if (stdoutTail.Length > 8192)
-                    stdoutTail.Remove(0, stdoutTail.Length - 8192);
+                if (stdoutTail.Length > 1048576)
+                    stdoutTail.Remove(0, stdoutTail.Length - 1048576);
             }
         };
         proc.ErrorDataReceived += (_, e) =>

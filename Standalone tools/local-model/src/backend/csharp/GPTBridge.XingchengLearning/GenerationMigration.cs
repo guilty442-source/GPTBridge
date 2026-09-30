@@ -411,6 +411,27 @@ internal static class GenerationMigration
             ["gate"] = name, ["pass"] = pass, ["detail"] = detail,
         };
 
+    private static Dictionary<string, object?> StdoutJson(
+        NativeTools.RunResult run)
+    {
+        string tail = run.StdoutTail.Trim();
+        int start = tail.IndexOf('{');
+        if (start < 0)
+            throw new ExecutorError("GEN_EVAL_NO_JSON",
+                $"tool produced no JSON (exit {run.ExitCode})");
+        using var doc = JsonDocument.Parse(tail[start..]);
+        var map = new Dictionary<string, object?>();
+        foreach (var p in doc.RootElement.EnumerateObject())
+            map[p.Name] = ModelLifecycle.Decode(p.Value);
+        return map;
+    }
+
+    private static Dictionary<string, object?> ChildMap(
+        IReadOnlyDictionary<string, object?> map, string key)
+        => map.TryGetValue(key, out object? v) &&
+           v is Dictionary<string, object?> d
+            ? d : new Dictionary<string, object?>();
+
     public static Dictionary<string, object?> Certify(
         string toolRoot, string id, string suitePath = "")
     {
@@ -526,7 +547,10 @@ internal static class GenerationMigration
         }
 
         // gate: capability regression vs the source bundle, when a
-        // capability suite is supplied (Evaluation records the run).
+        // capability suite is supplied. A generation artifact has no
+        // transformer_training_job, so no adapter candidate can be
+        // registered for it; the evaluation runs directly against the
+        // native tool and the outcome is recorded on this manifest.
         if (suitePath.Length > 0)
         {
             string? baseline = null;
@@ -537,15 +561,65 @@ internal static class GenerationMigration
                     toolRoot, src.Replace('/', Path.DirectorySeparatorChar));
                 if (IsBundleDir(srcAbs)) baseline = srcAbs;
             }
-            var repo = new TransformerTrainingRepository(toolRoot);
-            var eval = Evaluation.RunEvaluation(
-                repo, $"generation:{id}", target, suitePath, baseline,
-                "generation-migration");
-            checks.Add(Check("capability_regression",
-                TransformerTrainingRepository.Truthy(
-                    eval.GetValueOrDefault("passed")),
-                TransformerTrainingRepository.Str(eval, "error")
-                ?? suitePath));
+            string suiteAbs = Path.IsPathRooted(suitePath)
+                ? suitePath
+                : Path.Combine(toolRoot,
+                    suitePath.Replace('/', Path.DirectorySeparatorChar));
+            bool passed = false;
+            string detail = suitePath;
+            string? baselineReportPath = null;
+            try
+            {
+                if (baseline != null)
+                {
+                    baselineReportPath = Path.Combine(
+                        Path.GetTempPath(),
+                        $"xc-cap-base-{Guid.NewGuid():N}.json");
+                    var baseRun = NativeTools.Run(
+                        NativeTools.ModelToolExe(toolRoot),
+                        new[] { "capability", "--bundle", baseline,
+                                "--suite", suiteAbs },
+                        toolRoot, stderrLog, timeoutS: 7200);
+                    var baseOut = StdoutJson(baseRun);
+                    File.WriteAllText(
+                        baselineReportPath,
+                        CanonicalJson.PlainDict(
+                            ChildMap(baseOut, "report")),
+                        new System.Text.UTF8Encoding(false));
+                }
+                var args = new List<string>
+                {
+                    "capability", "--bundle", target,
+                    "--suite", suiteAbs,
+                };
+                if (baselineReportPath != null)
+                    args.AddRange(new[]
+                        { "--baseline-report", baselineReportPath });
+                var run = NativeTools.Run(
+                    NativeTools.ModelToolExe(toolRoot), args,
+                    toolRoot, stderrLog, timeoutS: 7200);
+                var output = StdoutJson(run);
+                passed = run.ExitCode == 0 &&
+                         TransformerTrainingRepository.Truthy(
+                             output.GetValueOrDefault("passed"));
+                var comparison = ChildMap(output, "comparison");
+                if (comparison.Count > 0)
+                    detail = CanonicalJson.PlainDict(comparison);
+                Event(m, "capability_evaluated",
+                      ("suite", Path.GetFileName(suiteAbs)),
+                      ("passed", passed ? "true" : "false"),
+                      ("baseline", baseline ?? ""));
+            }
+            catch (Exception ex)
+            {
+                detail = ex.Message;
+            }
+            finally
+            {
+                if (baselineReportPath != null)
+                    try { File.Delete(baselineReportPath); } catch { }
+            }
+            checks.Add(Check("capability_regression", passed, detail));
         }
         else
         {
