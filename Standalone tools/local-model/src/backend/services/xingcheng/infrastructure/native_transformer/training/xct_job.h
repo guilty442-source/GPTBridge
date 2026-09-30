@@ -83,11 +83,37 @@ struct TrainCfg {
     float temperature = 1.0f;                  // rollout sampling temp
     float kl_coef = 0.02f;                     // KL(policy||ref) weight
     std::string reward = "exact";              // exact|prefix
+    // TPU-cluster lanes: threads 0 = auto (min(8, hw), cap 16), 1 = serial;
+    // simd toggles the runtime AVX2/FMA dispatch (scalar fallback).
+    int threads = 0;
+    bool simd = true;
 };
 
 static double now_s() {
     return std::chrono::duration<double>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// AdamW update (learning rule): decoupled weight decay + bias-corrected
+// first/second moments. Depends on activities (via g), the supervised
+// target (via ce_loss dlogits -> g) and the current weights (wd term).
+static void adamw_step(Params& p, float gscale, float lr_t, float wd,
+                       int step) {
+    const float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
+    float bc1 = 1.0f - std::pow(b1, step + 1),
+          bc2 = 1.0f - std::pow(b2, step + 1);
+    for (auto& n : p.order) {
+        Tensor& w = p.w[n]; Tensor& g = p.g[n];
+        Tensor& m = p.m[n]; Tensor& v = p.v[n];
+        tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
+            float gi = g.d[(size_t)i] * gscale;
+            m.d[(size_t)i] = b1 * m.d[(size_t)i] + (1 - b1) * gi;
+            v.d[(size_t)i] = b2 * v.d[(size_t)i] + (1 - b2) * gi * gi;
+            float mh = m.d[(size_t)i] / bc1, vh = v.d[(size_t)i] / bc2;
+            w.d[(size_t)i] -=
+                lr_t * (mh / (std::sqrt(vh) + eps) + wd * w.d[(size_t)i]);
+        });
+    }
 }
 
 // cross-entropy with next-token shift inside a row
@@ -132,6 +158,15 @@ static JsonValue run_job(const JsonValue& job) {
     tc.init_ckpt = j_str(tj, "init_checkpoint", "");
     tc.emit_ckpt = j_str(tj, "emit_checkpoint", "");
     tc.overwrite = j_bool(tj, "overwrite", false);
+    tc.threads = j_int(tj, "threads", tc.threads);
+    tc.simd = j_bool(tj, "simd", tc.simd);
+    // Operator env overrides win over the job fields (bounded either way).
+    if (const char* e = std::getenv("XCT_TPU_THREADS"))
+        tc.threads = std::atoi(e);
+    if (const char* e = std::getenv("XCT_TPU_SIMD"))
+        tc.simd = !(e[0] == '0' && e[1] == '\0');
+    g_tpu.threads = tc.threads;
+    g_tpu.simd = tc.simd;
     int max_rows = j_int(dj, "max_rows", 10000);
     int max_len = j_int(dj, "max_len", c.max_pos);
 
@@ -343,19 +378,7 @@ static JsonValue run_job(const JsonValue& job) {
                 float pr = (float)(step - tc.warmup) / (tc.max_steps - tc.warmup);
                 lr_t *= 0.5f * (1.0f + std::cos(3.14159265f * std::min(1.0f, pr)));
             }
-            float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
-            float bc1 = 1.0f - std::pow(b1, step + 1), bc2 = 1.0f - std::pow(b2, step + 1);
-            for (auto& n : p.order) {
-                Tensor& w = p.w[n]; Tensor& g = p.g[n];
-                Tensor& m = p.m[n]; Tensor& v = p.v[n];
-                for (size_t i = 0; i < w.d.size(); ++i) {
-                    float gi = g.d[i] * gscale;
-                    m.d[i] = b1 * m.d[i] + (1 - b1) * gi;
-                    v.d[i] = b2 * v.d[i] + (1 - b2) * gi * gi;
-                    float mh = m.d[i] / bc1, vh = v.d[i] / bc2;
-                    w.d[i] -= lr_t * (mh / (std::sqrt(vh) + eps) + tc.wd * w.d[i]);
-                }
-            }
+            adamw_step(p, gscale, lr_t, tc.wd, step);
             losses.push_back(loss);
             ++step;
             if (tc.ckpt_every > 0 && step % tc.ckpt_every == 0 && !tc.emit_ckpt.empty())
@@ -379,6 +402,12 @@ static JsonValue run_job(const JsonValue& job) {
     auto bol = [](bool b) { JsonValue v; v.type = JsonValue::Type::Bool; v.boolean = b; return v; };
     put("schema", str("star-native-train-report/v1"));
     put("task", str(task.c_str()));
+    {
+        JsonValue tpu; tpu.type = JsonValue::Type::Object;
+        tpu.object.emplace_back("threads", num((double)tpu_threads()));
+        tpu.object.emplace_back("simd", str(tpu_simd_name()));
+        put("tpu_cluster", tpu);
+    }
     put("steps", num(step));
     put("examples", num((double)data.size()));
     put("deadline_hit", bol(deadline_hit));
@@ -652,5 +681,581 @@ static int smoke() {
     ok = ok && okg;
     std::fputs(gptbridge::jsonlite::json_serialize(r).c_str(), stdout);
     std::fputc('\n', stdout);
+    return ok ? 0 : 1;
+}
+
+// -------------------------------------------------------------- maskcheck --
+
+// Masked self-attention causality probe: corrupting the token at position j
+// must leave logits[0..j) bitwise identical — a decoder may never read the
+// future — while logits[j..] must move (non-vacuous perturbation). Identity
+// is bitwise because every mixing op is causal-bounded: full attention
+// scores rows s<=t only, the deltanet scan accumulates state strictly
+// forward, and the depthwise conv reads x[t-j]. Sweeps the layer matrix
+// all-attention / hybrid / all-linear so both mixers are exercised.
+static int maskcheck() {
+    int failures = 0;
+    for (int interval : {0, 2, 100}) {
+        ModelConfig c;
+        c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+        c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+        c.full_attention_interval = interval;
+        c.attn_output_gate = true;
+        c.qk_norm = true;
+        c.partial_rotary = 0.5f;
+        c.lin_key_heads = 1; c.lin_key_dim = 32;
+        c.lin_value_heads = 2; c.lin_value_dim = 32;
+        c.lin_conv_kernel = 4;
+        c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 1;
+        c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+        c.moe_shared_inter = 24; c.shared_expert_gate = true;
+        Params p;
+        init_params(p, c, 13);
+        std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+        const int T = (int)ids.size();
+        Fwd fw0;
+        fwd(p, c, ids, fw0);
+        for (int j : {T - 1, T / 2}) {
+            std::vector<int> ids2 = ids;
+            ids2[j] = (ids2[j] + 13) % c.vocab;
+            if (ids2[j] == ids[j]) ids2[j] = (ids2[j] + 1) % c.vocab;
+            Fwd fw1;
+            fwd(p, c, ids2, fw1);
+            const size_t past = (size_t)j * c.vocab;
+            bool sealed = std::memcmp(fw0.logits.data(), fw1.logits.data(),
+                                      past * sizeof(float)) == 0;
+            bool moved = std::memcmp(fw0.logits.data() + past,
+                                     fw1.logits.data() + past,
+                                     ((size_t)T * c.vocab - past) *
+                                         sizeof(float)) != 0;
+            if (!sealed || !moved) {
+                ++failures;
+                std::printf("  FAIL interval=%d j=%d sealed=%d moved=%d\n",
+                            interval, j, (int)sealed, (int)moved);
+            }
+        }
+    }
+    bool ok = failures == 0;
+    std::printf("maskcheck: causal-probe failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+// -------------------------------------------------------------- headcheck --
+//
+// Multi-head attention probe: proves the fused decoder's full-attention
+// layers really run `heads` independent views over GQA kv groups — the
+// "analyze the sequence from multiple angles at once" contract:
+//   1. normalized causal softmax: every (head,t) prob row sums to 1 on
+//      s<=t and stays exactly 0 above the diagonal;
+//   2. head isolation: perturbing head h's wq rows moves probs[h] and its
+//      attn_out slice while every other head stays bitwise identical —
+//      no cross-head leakage through the packed qkv buffers;
+//   3. kv-group sharing: perturbing kv head g's wk/wv rows moves exactly
+//      the q-heads {h | h/group == g} — the GQA map, and only it;
+//   4. non-degeneracy: distinct heads produce distinct attention patterns
+//      (a slicing bug that folds every head onto one view fails here).
+// Sweeps GQA (4q/2kv), MHA (2q/2kv) and MQA (4q/1kv) geometries under the
+// gated full-attention stack (attn_output_gate + qk_norm + partial
+// rotary). The deltanet mixer's heads are covered by --maskcheck; this
+// probe targets multi-head *attention*.
+static int headcheck() {
+    int failures = 0;
+    const int geos[][2] = {{4, 2}, {2, 2}, {4, 1}};
+    for (auto& ge : geos) {
+        ModelConfig c;
+        c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+        c.heads = ge[0]; c.kv_heads = ge[1]; c.max_pos = 64;
+        c.full_attention_interval = 0;
+        c.attn_output_gate = true;
+        c.qk_norm = true;
+        c.partial_rotary = 0.5f;
+        Params p;
+        init_params(p, c, 29);
+        std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23};
+        const int T = (int)ids.size();
+        const int hd = c.hidden / c.heads;
+        const int group = c.heads / c.kv_heads;
+        const int qmul = c.attn_output_gate ? 2 : 1;
+        Fwd fw0;
+        fwd(p, c, ids, fw0);
+
+        auto fail = [&](const char* what, int l, int h) {
+            ++failures;
+            std::printf("  FAIL heads=%d kv=%d %s layer=%d head=%d\n",
+                        c.heads, c.kv_heads, what, l, h);
+        };
+        auto probs_eq = [&](const Fwd& a, const Fwd& b, int l, int h) {
+            return std::memcmp(a.layers[l].probs.data() + (size_t)h * T * T,
+                               b.layers[l].probs.data() + (size_t)h * T * T,
+                               (size_t)T * T * sizeof(float)) == 0;
+        };
+        auto out_eq = [&](const Fwd& a, const Fwd& b, int l, int h) {
+            for (int t = 0; t < T; ++t) {
+                const float* ar = a.layers[l].attn_out.data() +
+                                  ((size_t)t * c.heads + h) * hd;
+                const float* br = b.layers[l].attn_out.data() +
+                                  ((size_t)t * c.heads + h) * hd;
+                if (std::memcmp(ar, br, (size_t)hd * sizeof(float)) != 0)
+                    return false;
+            }
+            return true;
+        };
+        auto moved = [&](const Fwd& a, const Fwd& b) {
+            return std::memcmp(a.logits.data(), b.logits.data(),
+                               a.logits.size() * sizeof(float)) != 0;
+        };
+        auto perturb_rows = [&](Params& p2, int l, const char* wname,
+                                int r0, int rn) {
+            float* w = p2.w.at(ln(l, wname)).d.data();
+            for (int r = r0; r < r0 + rn; ++r)
+                for (int i = 0; i < c.hidden; ++i)
+                    w[(size_t)r * c.hidden + i] += 0.05f;
+        };
+
+        for (int l = 0; l < c.layers; ++l) {
+            const LayerCache& L = fw0.layers[l];
+            for (int h = 0; h < c.heads; ++h)
+                for (int t = 0; t < T; ++t) {
+                    const float* pr =
+                        L.probs.data() + ((size_t)h * T + t) * T;
+                    float sum = 0.0f;
+                    for (int s = 0; s <= t; ++s) sum += pr[s];
+                    bool bad = std::fabs(sum - 1.0f) > 1e-5f;
+                    for (int s = t + 1; s < T && !bad; ++s)
+                        bad = pr[s] != 0.0f;
+                    if (bad) fail("softmax", l, h);
+                }
+            for (int a = 0; a < c.heads; ++a)
+                for (int b = a + 1; b < c.heads; ++b)
+                    if (std::memcmp(L.probs.data() + (size_t)a * T * T,
+                                    L.probs.data() + (size_t)b * T * T,
+                                    (size_t)T * T * sizeof(float)) == 0)
+                        fail("degenerate-heads", l, a);
+
+            for (int hp = 0; hp < c.heads; ++hp) {
+                Params p2 = p;
+                perturb_rows(p2, l, "wq", hp * hd * qmul, hd);
+                Fwd fw2;
+                fwd(p2, c, ids, fw2);
+                if (!moved(fw0, fw2)) fail("wq-vacuous", l, hp);
+                for (int h = 0; h < c.heads; ++h) {
+                    if (probs_eq(fw0, fw2, l, h) == (h == hp))
+                        fail("wq-isolation", l, h);
+                    if (out_eq(fw0, fw2, l, h) == (h == hp))
+                        fail("wq-out-isolation", l, h);
+                }
+            }
+            for (int g = 0; g < c.kv_heads; ++g)
+                for (int which = 0; which < 2; ++which) {
+                    Params p2 = p;
+                    perturb_rows(p2, l, which ? "wk" : "wv", g * hd, hd);
+                    Fwd fw2;
+                    fwd(p2, c, ids, fw2);
+                    if (!moved(fw0, fw2))
+                        fail(which ? "wk-vacuous" : "wv-vacuous", l, g);
+                    for (int h = 0; h < c.heads; ++h) {
+                        bool member = (h / group) == g;
+                        if (out_eq(fw0, fw2, l, h) != !member)
+                            fail(which ? "wk-group" : "wv-group", l, h);
+                        bool exp_probs_eq = (which == 0) || !member;
+                        if (probs_eq(fw0, fw2, l, h) != exp_probs_eq)
+                            fail(which ? "wk-probs" : "wv-probs", l, h);
+                    }
+                }
+        }
+    }
+    bool ok = failures == 0;
+    std::printf("headcheck: multi-head probe failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+// -------------------------------------------------------------- rulecheck --
+
+// The fused network's three canonical parts, each probed executably:
+//   structure  — weights + activity topology: every declared weight has
+//                matching grad/m/v state, expected per-layer params exist,
+//                and one forward yields finite activities.
+//   activation — short-timescale dynamics: scalar rules (sigmoid/silu/
+//                softplus) obey their math, and cached activities satisfy
+//                their invariants (softmax rows sum to 1, sigmoid gates in
+//                (0,1), deltanet decay in (0,1], rms factors > 0).
+//   learning   — long-timescale weight update: the rule depends on the
+//                supervised target (different labels -> different grads),
+//                on activities (all-masked labels -> zero CE signal), and
+//                on current weights (pure decay scales w by 1-lr*wd);
+//                a few AdamW steps reduce the loss.
+static int rulecheck() {
+    int failures = 0;
+    auto fail = [&](const char* what) {
+        ++failures;
+        std::printf("  FAIL %s\n", what);
+    };
+    // hybrid model: layer 0 deltanet, layer 1 gated full attention, MoE FFN
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+    c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+    c.full_attention_interval = 2;
+    c.attn_output_gate = true;
+    c.qk_norm = true;
+    c.partial_rotary = 0.5f;
+    c.lin_key_heads = 1; c.lin_key_dim = 32;
+    c.lin_value_heads = 2; c.lin_value_dim = 32;
+    c.lin_conv_kernel = 4;
+    c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 1;
+    c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+    c.moe_shared_inter = 24; c.shared_expert_gate = true;
+    Params p;
+    init_params(p, c, 17);
+    std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+    const int T = (int)ids.size();
+
+    // ---- structure: variables and their topology -------------------------
+    for (auto& n : p.order) {
+        Tensor& w = p.w[n];
+        if (!p.g.count(n) || !p.m.count(n) || !p.v.count(n))
+            fail("structure: weight missing grad/m/v state");
+        if (p.g[n].numel() != w.numel() || p.m[n].numel() != w.numel() ||
+            p.v[n].numel() != w.numel())
+            fail("structure: state shape mismatch");
+        for (float x : w.d)
+            if (!std::isfinite(x)) fail("structure: non-finite weight");
+    }
+    auto has = [&](const std::string& n) {
+        if (!p.w.count(n)) fail((std::string("structure: missing ") + n).c_str());
+    };
+    has("embed"); has("lm_head"); has("norm_f");
+    for (int l = 0; l < c.layers; ++l) {
+        has(ln(l, "norm1")); has(ln(l, "norm2"));
+        if (c.is_linear(l)) {
+            for (const char* s : {"lin.in_proj_qkv", "lin.in_proj_z",
+                                  "lin.in_proj_a", "lin.in_proj_b",
+                                  "lin.conv1d", "lin.A_log", "lin.dt_bias",
+                                  "lin.norm", "lin.out_proj"})
+                has(ln(l, s));
+        } else {
+            for (const char* s : {"wq", "wk", "wv", "wo"})
+                has(ln(l, s));
+            if (c.qk_norm) { has(ln(l, "q_norm")); has(ln(l, "k_norm")); }
+        }
+        if (c.moe_experts > 0 && l % c.moe_layer_interval == 0) {
+            has(ln(l, "gate"));
+            for (int e = 0; e < c.moe_experts; ++e)
+                for (const char* s : {"w1", "w3", "w2"})
+                    has(ln(l, "experts.") + std::to_string(e) + "." + s);
+            if (c.moe_shared_experts > 0)
+                for (const char* s : {"w1", "w3", "w2"})
+                    has(ln(l, "shared.0.") + s);
+        }
+    }
+    Fwd fw;
+    fwd(p, c, ids, fw);
+    for (float x : fw.logits)
+        if (!std::isfinite(x)) fail("structure: non-finite logits");
+    for (float x : fw.hidden)
+        if (!std::isfinite(x)) fail("structure: non-finite hidden");
+
+    // ---- activation rule: short-timescale dynamics ------------------------
+    if (sigmoid_f(0.0f) != 0.5f) fail("activation: sigmoid(0)");
+    for (float x : {-1.f, 0.f, 1.f})
+        if (!(sigmoid_f(x) > 0.0f && sigmoid_f(x) < 1.0f))
+            fail("activation: sigmoid range");
+    for (float x : {-30.f, 30.f})   // fp32 saturates exactly at the tails
+        if (!(sigmoid_f(x) >= 0.0f && sigmoid_f(x) <= 1.0f))
+            fail("activation: sigmoid tail range");
+    if (std::fabs(silu_f(0.0f)) > 1e-7f ||
+        std::fabs(silu_f(10.0f) - 10.0f) > 1e-2f)
+        fail("activation: silu identity");
+    if (std::fabs(softplus_f(0.0f) - 0.693147f) > 1e-4f)
+        fail("activation: softplus(0)=ln2");
+    for (float x : {-5.f, 0.f, 5.f})
+        if (!(softplus_f(x) > 0.0f)) fail("activation: softplus range");
+    for (int l = 0; l < c.layers; ++l) {
+        const LayerCache& L = fw.layers[(size_t)l];
+        if (c.is_linear(l)) {
+            for (float x : L.lin_decay)
+                if (!(x > 0.0f && x <= 1.0f))
+                    fail("activation: deltanet decay range");
+            for (float x : L.lin_orms)
+                if (!(x > 0.0f && std::isfinite(x)))
+                    fail("activation: lin rms factor");
+        } else {
+            // softmax rows: entries >=0, masked tail exactly 0, sums to 1
+            for (int t = 0; t < T; ++t)
+                for (int h = 0; h < c.heads; ++h) {
+                    const float* pr =
+                        L.probs.data() + ((size_t)h * T + t) * T;
+                    float s = 0.0f;
+                    for (int u = 0; u < T; ++u) {
+                        if (!(pr[u] >= 0.0f))
+                            fail("activation: prob<0");
+                        if (u > t && pr[u] != 0.0f)
+                            fail("activation: prob leak past mask");
+                        if (u <= t) s += pr[u];
+                    }
+                    if (std::fabs(s - 1.0f) > 1e-4f)
+                        fail("activation: prob row sum");
+                }
+            // output gate consistency: gated = out * sigmoid(gate)
+            for (size_t i = 0; i < L.attn_gated.size(); ++i) {
+                float expct =
+                    L.attn_out[i] * sigmoid_f(L.attn_gate[i]);
+                if (std::fabs(L.attn_gated[i] - expct) > 1e-5f)
+                    fail("activation: attn gate");
+            }
+        }
+        for (float x : L.rms1)
+            if (!(x > 0.0f && std::isfinite(x))) fail("activation: rms1");
+        for (float x : L.rms2)
+            if (!(x > 0.0f && std::isfinite(x))) fail("activation: rms2");
+        // MoE router softmax rows
+        const int E = c.moe_experts;
+        for (int t = 0; t < T; ++t) {
+            float s = 0.0f;
+            for (int e = 0; e < E; ++e) {
+                float gp = L.gate_probs[(size_t)t * E + e];
+                if (!(gp >= 0.0f && gp <= 1.0f))
+                    fail("activation: router prob range");
+                s += gp;
+            }
+            if (std::fabs(s - 1.0f) > 1e-4f)
+                fail("activation: router row sum");
+        }
+    }
+
+    // ---- learning rule: long-timescale weight update ----------------------
+    // (a) all-masked labels -> zero supervised signal in dlogits
+    {
+        std::vector<int> nolab((size_t)T, -100);
+        std::vector<float> dl;
+        float l = ce_loss(fw.logits, nolab, T, c.vocab, dl);
+        if (l != 0.0f) fail("learning: masked-label loss");
+        for (float x : dl)
+            if (x != 0.0f) fail("learning: masked-label dlogits");
+    }
+    // (b) supervised target dependence: different labels -> different grads
+    {
+        std::vector<int> lab = ids;
+        shift_labels(lab);
+        std::vector<float> dl;
+        auto grads_of = [&](std::vector<int>& l, const char* key) {
+            p.zero_grad();
+            Fwd f;
+            fwd(p, c, ids, f);
+            ce_loss(f.logits, l, T, c.vocab, dl);
+            bwd(p, c, ids, f, dl, 1.0f);
+            return p.g[key].d;
+        };
+        std::vector<float> g1 = grads_of(lab, "lm_head");
+        std::vector<int> lab2 = lab;
+        lab2[0] = (lab2[0] + 1) % c.vocab;
+        if (lab2[0] == lab[0]) lab2[0] = (lab2[0] + 1) % c.vocab;
+        std::vector<float> g2 = grads_of(lab2, "lm_head");
+        bool differ = false;
+        for (size_t i = 0; i < g1.size(); ++i)
+            if (g1[i] != g2[i]) { differ = true; break; }
+        if (!differ) fail("learning: target independence");
+    }
+    // (c) weight dependence: fresh params (m=v=g=0) under adamw_step decay
+    //     by exactly (1 - lr*wd)
+    {
+        Params p3;
+        init_params(p3, c, 5);
+        p3.zero_grad();
+        const float lr = 0.01f, wd = 0.5f;
+        std::vector<float> before = p3.w["lm_head"].d;
+        adamw_step(p3, 1.0f, lr, wd, 0);
+        const std::vector<float>& after = p3.w["lm_head"].d;
+        for (size_t i = 0; i < before.size(); ++i) {
+            float expct = before[i] * (1.0f - lr * wd);
+            if (std::fabs(after[i] - expct) > 1e-6f)
+                fail("learning: decoupled weight decay");
+        }
+    }
+    // (d) AdamW steps on a fixed batch reduce the loss (rule actually learns)
+    {
+        std::vector<int> lab = ids;
+        shift_labels(lab);
+        float first = 0.0f, last = 0.0f;
+        for (int s = 0; s < 4; ++s) {
+            p.zero_grad();
+            Fwd f;
+            fwd(p, c, ids, f);
+            std::vector<float> dl;
+            float l = ce_loss(f.logits, lab, T, c.vocab, dl) + f.moe_aux;
+            if (s == 0) first = l;
+            last = l;
+            bwd(p, c, ids, f, dl, 1.0f);
+            adamw_step(p, 1.0f, 0.05f, 0.0f, s);
+        }
+        if (!(std::isfinite(last) && last < first))
+            fail("learning: loss did not decrease");
+    }
+
+    bool ok = failures == 0;
+    std::printf("rulecheck: structure+activation+learning failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+// ------------------------------------------------------------- inputcheck --
+
+// Input layer: token embedding (lookup table) + positional encoding.
+// The architecture gathers all token rows in parallel — there is no
+// RNN-style sequential input — so order information must be injected
+// afterwards: rotary position coding on full-attention q/k, and the
+// strictly forward recurrent state inside the deltanet/conv mixers.
+// Probes: layer-0 residual input rows are bitwise the embed lookup rows
+// (content only, no position); permuting ids permutes those rows; the
+// rope score field is translation-invariant (relative positions) but
+// non-degenerate across offsets; partial rotary leaves channels >= rd
+// untouched; and reordered inputs produce different logits.
+static int inputcheck() {
+    int failures = 0;
+    auto fail = [&](const char* what) {
+        ++failures;
+        std::printf("  FAIL %s\n", what);
+    };
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+    c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+    c.full_attention_interval = 2;
+    c.attn_output_gate = true;
+    c.qk_norm = true;
+    c.partial_rotary = 0.5f;
+    c.lin_key_heads = 1; c.lin_key_dim = 32;
+    c.lin_value_heads = 2; c.lin_value_dim = 32;
+    c.lin_conv_kernel = 4;
+    Params p;
+    init_params(p, c, 23);
+    std::vector<int> ids = {3, 7, 11, 5, 7, 19, 23, 7, 29, 31, 37, 7};
+    const int T = (int)ids.size();
+    const int H = c.hidden;
+    Fwd fw;
+    fwd(p, c, ids, fw);
+
+    // (1) token embedding is a lookup table: x_in[t] == embed[ids[t]]
+    const std::vector<float>& xin = fw.layers[0].x_in;
+    const float* emb = p.w.at("embed").d.data();
+    for (int t = 0; t < T; ++t)
+        if (std::memcmp(xin.data() + (size_t)t * H,
+                        emb + (size_t)ids[t] * H,
+                        (size_t)H * sizeof(float)) != 0)
+            fail("input: embed lookup");
+    // same token, different positions -> identical embedding rows
+    for (int a = 0; a < T; ++a)
+        for (int b = a + 1; b < T; ++b)
+            if (ids[a] == ids[b] &&
+                std::memcmp(xin.data() + (size_t)a * H,
+                            xin.data() + (size_t)b * H,
+                            (size_t)H * sizeof(float)) != 0)
+                fail("input: repeat-token rows");
+    // permuting ids permutes exactly those rows (content-only channel)
+    {
+        std::vector<int> sw = ids;
+        std::swap(sw[0], sw[1]);
+        Fwd fs;
+        fwd(p, c, sw, fs);
+        const std::vector<float>& xs = fs.layers[0].x_in;
+        for (int t = 0; t < T; ++t)
+            if (std::memcmp(xs.data() + (size_t)t * H,
+                            emb + (size_t)sw[t] * H,
+                            (size_t)H * sizeof(float)) != 0)
+                fail("input: permuted lookup");
+        if (std::memcmp(fw.logits.data(), fs.logits.data(),
+                        (size_t)T * c.vocab * sizeof(float)) == 0)
+            fail("input: order ignored (position not encoded)");
+    }
+
+    // (2) positional encoding: rotary carries relative order on q/k
+    {
+        const int TR = 16, hd = 16, nh = 1;
+        const float theta = c.rope_theta;
+        auto rot = [&](float* v) {
+            rope(v, TR, nh, hd, theta, false);
+        };
+        auto score = [&](const float* q, const float* k, int t, int s) {
+            return tpu_dot(q + (size_t)t * hd, k + (size_t)s * hd, hd);
+        };
+        // relative property: score(t,s) == score(t+d,s+d)
+        {
+            std::vector<float> q((size_t)TR * hd), k((size_t)TR * hd);
+            for (int t = 0; t < TR; ++t)
+                for (int i = 0; i < hd; ++i) {
+                    q[(size_t)t * hd + i] =
+                        std::sin(0.37f * i + 0.11f);
+                    k[(size_t)t * hd + i] =
+                        std::cos(0.29f * i + 0.23f);
+                }
+            rot(q.data()); rot(k.data());
+            for (int d = -4; d <= 4; ++d)
+                for (int t = 0; t < TR; ++t)
+                    for (int s = 0; s < TR; ++s) {
+                        int t2 = t + d, s2 = s + d;
+                        if (t2 < 0 || s2 < 0 || t2 >= TR || s2 >= TR)
+                            continue;
+                        float a = score(q.data(), k.data(), t, s);
+                        float b = score(q.data(), k.data(), t2, s2);
+                        if (std::fabs(a - b) > 2e-4f)
+                            fail("input: rope relativity");
+                    }
+            // non-degenerate: different offsets give different scores
+            float s1 = score(q.data(), k.data(), 5, 5);
+            float s2 = score(q.data(), k.data(), 5, 3);
+            if (std::fabs(s1 - s2) < 1e-6f)
+                fail("input: rope degenerate");
+            // inverse rotation restores the raw vectors
+            std::vector<float> qr((size_t)TR * hd);
+            for (int t = 0; t < TR; ++t)
+                for (int i = 0; i < hd; ++i)
+                    qr[(size_t)t * hd + i] = 0.31f * i - 0.02f * t;
+            std::vector<float> raw = qr;
+            rope(qr.data(), TR, nh, hd, theta, false);
+            rope(qr.data(), TR, nh, hd, theta, true);
+            for (size_t i = 0; i < qr.size(); ++i)
+                if (std::fabs(qr[i] - raw[i]) > 1e-5f)
+                    fail("input: rope inverse");
+        }
+        // partial rotary: channels >= rd are untouched by the encoding
+        {
+            const int rd = 8;
+            std::vector<float> v((size_t)TR * hd), raw;
+            for (int t = 0; t < TR; ++t)
+                for (int i = 0; i < hd; ++i)
+                    v[(size_t)t * hd + i] = 0.13f * i + 0.07f * t;
+            raw = v;
+            rope_hf_partial(v.data(), TR, nh, hd, rd, theta, false);
+            for (int t = 0; t < TR; ++t) {
+                const float* r = v.data() + (size_t)t * hd;
+                const float* w0 = raw.data() + (size_t)t * hd;
+                for (int i = rd; i < hd; ++i)
+                    if (r[i] != w0[i])
+                        fail("input: partial rope tail");
+                bool rotated = false;
+                for (int i = 0; i < rd; ++i)
+                    if (std::fabs(r[i] - w0[i]) > 1e-6f) rotated = true;
+                if (t > 0 && !rotated)
+                    fail("input: partial rope head");
+            }
+        }
+    }
+
+    // (3) parallel-input + position contract at model level: reversing
+    // the sequence changes the outputs — order reaches the model through
+    // the positional code, not through the embedding gather.
+    {
+        std::vector<int> rev = ids;
+        std::reverse(rev.begin(), rev.end());
+        Fwd fr;
+        fwd(p, c, rev, fr);
+        if (std::memcmp(fw.logits.data(), fr.logits.data(),
+                        (size_t)T * c.vocab * sizeof(float)) == 0)
+            fail("input: reversed order identical");
+    }
+
+    bool ok = failures == 0;
+    std::printf("inputcheck: embed+position failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }

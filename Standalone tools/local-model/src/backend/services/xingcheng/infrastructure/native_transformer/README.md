@@ -1,12 +1,18 @@
 # 星澄原生模型 (XingCheng Native Model)
 
-> **狀態註記（A612 / A621）**：PyTorch 已退役為 migration-only lineage；
-> 訓練主線為 JAX + XLA（`native_transformer/jax_backend`），推論以
-> Native Dispatch（Python / C++）為準。本文件下列以 PyTorch 為主線的
-> 章節屬歷史遷移參考，非當前 canonical 架構。
+> **狀態註記（B167 / B38 / B73 / D140）**：當前 canonical 架構為 **C++23
+> 原生車道** — 訓練唯一執行者為 `training/xingcheng_trainer.exe`
+> （`xct_*.h` 片段；含 `xct_tpu.h` TPU-cluster 等效車道：有界 lane pool、
+> AVX2/FMA SIMD dispatch、tiled GEMM），模型產物橋接工具為
+> `tools/xc_modeltool.exe`；F# 為訓練評估唯一擁有者。**Python / NumPy /
+> JAX / XLA / PyTorch 已全面退役**——零 source、dependency、execution、
+> artifact、reference、fallback 角色，final and immediately effective；
+> 任何退役框架 consumer 一律 fail-closed 拒絕。本文件下列以 PyTorch /
+> JAX 為主線的章節屬**歷史遷移參考**，非當前 canonical 架構，亦不得
+> 作為任何實作、測試、評估或驗收依據。
 
 「星澄」本地原生 AI 模型架構 — 高效能、可擴充、可逐層下沉最佳化的
-PyTorch Transformer 原生實作。
+C++23 原生 Transformer 實作（訓練與推論同源）。
 
 ## 架構總覽
 
@@ -269,8 +275,9 @@ python native_transformer\tests\test_model.py -v
    （PyTorch 生態內選項，有 CUDA+Triton 環境才啟用）。
 2. **進階量化**：per-channel / group-wise / AWQ / GPTQ / FP8。
 3. **Apple MPS / Metal**：未來支線。
-4. **JAX + XLA**：研究 / 架構實驗支線，不納入第一版正式核心。
-5. **TensorFlow**：僅保留為相容 / 研究選項，不與 PyTorch 主架構同時作為正式依賴。
+4. **JAX + XLA**：已退役（B167/B73/D140）——零角色、零產物、零 fallback，
+   非研究支線亦非驗收來源；等效能力由 `xct_tpu.h` 原生車道承接。
+5. **TensorFlow**：已退役，不作為任何正式或研究依賴。
 
 後續自研推論引擎（C++ 範疇，承接時與 Python 路徑共用權重、tokenizer 與
 語意契約；訓練永不涉 C++）：

@@ -4,47 +4,34 @@
 
 // ------------------------------------------------------------- primitives --
 
+// TPU-cluster lanes: both wrappers ride the tiled disjoint-partition
+// kernels in xct_tpu.h (flat output-space lanes for fwd; split dW/dx row
+// partitions for bwd). Per-element accumulation order is unchanged, so
+// results are identical for any lane count; SIMD only reassociates the
+// inner dot product.
 static void linear_fwd(const float* x, const Tensor& W, float* y,
                        int T, int I, int O) {
-    for (int t = 0; t < T; ++t) {
-        const float* xr = x + (size_t)t * I;
-        for (int o = 0; o < O; ++o) {
-            const float* wr = W.d.data() + (size_t)o * I;
-            float s = 0.0f;
-            for (int i = 0; i < I; ++i) s += xr[i] * wr[i];
-            y[(size_t)t * O + o] = s;
-        }
-    }
+    tpu_linear(x, W.d.data(), y, T, I, O);
 }
 
 static void linear_bwd(const float* dy, const float* x, const Tensor& W,
                        float* dx, float* dW, int T, int I, int O) {
-    for (int o = 0; o < O; ++o) {
-        const float* w = W.d.data() + (size_t)o * I;
-        float* dw = dW + (size_t)o * I;
-        for (int t = 0; t < T; ++t) {
-            float d = dy[(size_t)t * O + o];
-            const float* xr = x + (size_t)t * I;
-            for (int i = 0; i < I; ++i) dw[i] += d * xr[i];
-            if (dx) {
-                float* dxr = dx + (size_t)t * I;
-                for (int i = 0; i < I; ++i) dxr[i] += d * w[i];
-            }
-        }
-    }
+    tpu_linear_bwd(dy, x, W.d.data(), dx, dW, T, I, O);
 }
 
 static void rmsnorm_fwd(const float* x, const float* w, float* y, float* rms,
                         int T, int H, float eps) {
-    for (int t = 0; t < T; ++t) {
-        const float* xr = x + (size_t)t * H;
-        float ss = 0.0f;
-        for (int i = 0; i < H; ++i) ss += xr[i] * xr[i];
-        float r = std::sqrt(ss / H + eps);
-        rms[t] = r;
-        float inv = 1.0f / r;
-        for (int i = 0; i < H; ++i) y[(size_t)t * H + i] = xr[i] * inv * w[i];
-    }
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            const float* xr = x + (size_t)t * H;
+            float ss = tpu_dot(xr, xr, H);
+            float r = std::sqrt(ss / H + eps);
+            rms[t] = r;
+            float inv = 1.0f / r;
+            float* yr = y + (size_t)t * H;
+            for (int i = 0; i < H; ++i) yr[i] = xr[i] * inv * w[i];
+        }
+    });
 }
 
 static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
@@ -62,17 +49,42 @@ static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
     }
 }
 
+// RoPE cos/sin tables: angle(t,i) = t * theta^(-2i/dim) — identical
+// operands to the per-element pow() form, computed once per (T, dim,
+// theta) instead of per element. Table bounded to keep memory sane.
+struct RopeCs { std::vector<float> c, s; };
+static const RopeCs& rope_cs(int T, int dim, float theta) {
+    static int cT = -1, cd = -1;
+    static float ct = 0.0f;
+    static RopeCs tab;
+    if (cT != T || cd != dim || ct != theta) {
+        const int half = dim / 2;
+        tab.c.assign((size_t)T * half, 0.0f);
+        tab.s.assign((size_t)T * half, 0.0f);
+        for (int i = 0; i < half; ++i) {
+            float fr = std::pow(theta, -(float)(2 * i) / (float)dim);
+            for (int t = 0; t < T; ++t) {
+                tab.c[(size_t)t * half + i] = std::cos(t * fr);
+                tab.s[(size_t)t * half + i] = std::sin(t * fr);
+            }
+        }
+        cT = T; cd = dim; ct = theta;
+    }
+    return tab;
+}
+
 // rotary pairs layout (i,i+1); `rotary` bounds the rotated dims —
 // pairs at i >= rotary pass through (partial-RoPE NoPE tail).
 static void rope_ex(float* v, int T, int nh, int hd, float theta,
                     int rotary, bool inverse) {
+    const RopeCs& cs = rope_cs(T, hd, theta);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
             const int lim = std::min(hd, rotary);
             for (int i = 0; i + 1 < lim; i += 2) {
-                float fr = std::pow(theta, -(float)i / hd);
-                float c = std::cos(t * fr), s = std::sin(t * fr);
+                float c = cs.c[(size_t)t * (hd / 2) + i / 2];
+                float s = cs.s[(size_t)t * (hd / 2) + i / 2];
                 if (inverse) s = -s;
                 float a = r[i], b = r[i + 1];
                 r[i] = a * c - b * s;
@@ -97,12 +109,13 @@ static inline float sigmoid_f(float x) { return 1.0f / (1.0f + std::exp(-x)); }
 static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
                             float theta, bool inverse) {
     const int half = rd / 2;
+    const RopeCs& cs = rope_cs(T, rd, theta);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
             for (int i = 0; i < half; ++i) {
-                float fr = std::pow(theta, -(float)(2 * i) / (float)rd);
-                float c = std::cos(t * fr), s = std::sin(t * fr);
+                float c = cs.c[(size_t)t * half + i];
+                float s = cs.s[(size_t)t * half + i];
                 if (inverse) s = -s;
                 float a = r[i], b = r[i + half];
                 r[i] = a * c - b * s;
@@ -416,7 +429,7 @@ static void fwd(const Params& p, const ModelConfig& c,
             l2norm_fwd(L.lin_qn.data(), T * vh, kd, 1e-6f, L.lin_qrms.data());
             l2norm_fwd(L.lin_kn.data(), T * vh, kd, 1e-6f, L.lin_krms.data());
             const float qscale = 1.0f / std::sqrt((float)kd);
-            for (auto& x : L.lin_qn) x *= qscale;
+            tpu_scale(L.lin_qn.data(), qscale, (int64_t)L.lin_qn.size());
             L.lin_z.resize((size_t)T * val_dim);
             linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_z"),
                        L.lin_z.data(), T, H, val_dim);
@@ -440,10 +453,14 @@ static void fwd(const Params& p, const ModelConfig& c,
                         sigmoid_f(L.lin_b_raw[(size_t)t * vh + h]);
                 }
             // recurrent scan (fp32 state, HF torch_recurrent_gated_delta_rule)
+            // TPU lanes: heads are disjoint lanes; each step is expressed as
+            // contiguous axpy/scale sweeps so SIMD tiles the state block.
             L.lin_S.assign((size_t)(T + 1) * vh * kd * vd, 0.0f);
             L.lin_o.resize((size_t)T * vh * vd);
             const size_t ssz = (size_t)kd * vd;
-            for (int h = 0; h < vh; ++h)
+            parallel_for(vh, [&](int64_t hb, int64_t he) {
+                std::vector<float> u(vd), kvm(vd);
+                for (int64_t h = hb; h < he; ++h)
                 for (int t = 0; t < T; ++t) {
                     float* S = L.lin_S.data() + ((size_t)t * vh + h) * ssz;
                     float* Sp = L.lin_S.data() + ((size_t)(t + 1) * vh + h) * ssz;
@@ -452,31 +469,28 @@ static void fwd(const Params& p, const ModelConfig& c,
                     const float* vr = L.lin_v.data() + ((size_t)t * vh + h) * vd;
                     const float* qr = L.lin_qn.data() + ((size_t)t * vh + h) * kd;
                     float bt = beta[(size_t)t * vh + h];
-                    for (size_t i = 0; i < ssz; ++i) Sp[i] = S[i] * dec;
-                    std::vector<float> u(vd);
-                    for (int i = 0; i < vd; ++i) {
-                        float kv = 0.0f;
-                        for (int d = 0; d < kd; ++d)
-                            kv += Sp[(size_t)d * vd + i] * kr[d];
-                        u[i] = (vr[i] - kv) * bt;
-                    }
+                    tpu_scale_copy(Sp, S, dec, (int64_t)ssz);
+                    std::fill(kvm.begin(), kvm.end(), 0.0f);
                     for (int d = 0; d < kd; ++d)
-                        for (int i = 0; i < vd; ++i)
-                            Sp[(size_t)d * vd + i] += kr[d] * u[i];
+                        tpu_axpy(kvm.data(), kr[d], Sp + (size_t)d * vd, vd);
+                    for (int i = 0; i < vd; ++i)
+                        u[i] = (vr[i] - kvm[i]) * bt;
+                    for (int d = 0; d < kd; ++d)
+                        tpu_axpy(Sp + (size_t)d * vd, kr[d], u.data(), vd);
                     float* orow = L.lin_o.data() + ((size_t)t * vh + h) * vd;
-                    for (int i = 0; i < vd; ++i) {
-                        float s = 0.0f;
-                        for (int d = 0; d < kd; ++d)
-                            s += Sp[(size_t)d * vd + i] * qr[d];
-                        orow[i] = s;
-                    }
+                    std::fill(orow, orow + vd, 0.0f);
+                    for (int d = 0; d < kd; ++d)
+                        tpu_axpy(orow, qr[d], Sp + (size_t)d * vd, vd);
                 }
-            // gated RMSNorm per v-head then SiLU(z) gate
+            });
+            // gated RMSNorm per v-head then SiLU(z) gate — disjoint (t,h)
+            // rows ride the lane pool when large enough.
             L.lin_on.resize((size_t)T * val_dim);
             L.lin_onorm.resize((size_t)T * val_dim);
             L.lin_orms.resize((size_t)T * vh);
-            for (int t = 0; t < T; ++t)
-                for (int h = 0; h < vh; ++h) {
+            parallel_for((int64_t)T * vh, [&](int64_t b, int64_t e) {
+                for (int64_t th = b; th < e; ++th) {
+                    const int t = (int)(th / vh), h = (int)(th % vh);
                     const float* or_ = L.lin_o.data() + ((size_t)t * vh + h) * vd;
                     float* on = L.lin_onorm.data() + ((size_t)t * vh + h) * vd;
                     float rms;
@@ -487,6 +501,7 @@ static void fwd(const Params& p, const ModelConfig& c,
                     float* og = L.lin_on.data() + ((size_t)t * vh + h) * vd;
                     for (int i = 0; i < vd; ++i) og[i] = on[i] * silu_f(zr[i]);
                 }
+            });
             linear_fwd(L.lin_on.data(), p.w.at(lb + "out_proj"),
                        proj.data(), T, val_dim, H);
         } else {
@@ -553,17 +568,18 @@ static void fwd(const Params& p, const ModelConfig& c,
             float scale = 1.0f / std::sqrt((float)hd);
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * Hq, 0.0f);
-            for (int h = 0; h < c.heads; ++h) {
-                int kh2 = h / group;
+            // TPU lanes: heads are disjoint lanes (probs per-h slice,
+            // attn_out per-h column slice); per-element order unchanged.
+            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                for (int64_t h = hb; h < he; ++h) {
+                int kh2 = (int)h / group;
                 for (int t = 0; t < T; ++t) {
                     float* pr = L.probs.data() + ((size_t)h * T + t) * T;
                     float mx = -1e30f;
                     const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
                     for (int s = 0; s <= t; ++s) {
                         const float* kr = L.k.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        float dot = 0.0f;
-                        for (int i = 0; i < hd; ++i) dot += qr[i] * kr[i];
-                        pr[s] = dot * scale;
+                        pr[s] = tpu_dot(qr, kr, hd) * scale;
                         mx = std::max(mx, pr[s]);
                     }
                     float sum = 0.0f;
@@ -573,16 +589,18 @@ static void fwd(const Params& p, const ModelConfig& c,
                     for (int s = 0; s <= t; ++s) {
                         pr[s] *= inv;
                         const float* vr = L.v.data() + ((size_t)s * c.kv_heads + kh2) * hd;
-                        for (int i = 0; i < hd; ++i) ao[i] += pr[s] * vr[i];
+                        tpu_axpy(ao, pr[s], vr, hd);
                     }
                 }
-            }
+                }
+            });
             const float* wo_in = L.attn_out.data();
             if (c.attn_output_gate) {
                 L.attn_gated.resize(L.attn_out.size());
-                for (size_t i = 0; i < L.attn_out.size(); ++i)
-                    L.attn_gated[i] =
-                        L.attn_out[i] * sigmoid_f(L.attn_gate[i]);
+                tpu_elementwise((int64_t)L.attn_out.size(), [&](int64_t i) {
+                    L.attn_gated[(size_t)i] =
+                        L.attn_out[(size_t)i] * sigmoid_f(L.attn_gate[(size_t)i]);
+                });
                 wo_in = L.attn_gated.data();
             }
             linear_fwd(wo_in, p.w.at(ln(l, "wo")), proj.data(), T, Hq, H);
@@ -599,7 +617,9 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.fh.resize((size_t)T * c.inter);
             linear_fwd(L.n2.data(), p.w.at(ln(l, "w1")), L.fa.data(), T, H, c.inter);
             linear_fwd(L.n2.data(), p.w.at(ln(l, "w3")), L.fb.data(), T, H, c.inter);
-            for (size_t i = 0; i < L.fh.size(); ++i) L.fh[i] = silu_f(L.fa[i]) * L.fb[i];
+            tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
+                L.fh[(size_t)i] = silu_f(L.fa[(size_t)i]) * L.fb[(size_t)i];
+            });
             linear_fwd(L.fh.data(), p.w.at(ln(l, "w2")), proj.data(), T, c.inter, H);
         } else {
             const int E = c.moe_experts, K = c.moe_top_k;
@@ -673,7 +693,9 @@ static void fwd(const Params& p, const ModelConfig& c,
                 fh.resize((size_t)T * SI);
                 linear_fwd(L.n2.data(), p.w.at(b + "w1"), fa.data(), T, H, SI);
                 linear_fwd(L.n2.data(), p.w.at(b + "w3"), fb.data(), T, H, SI);
-                for (size_t i = 0; i < fh.size(); ++i) fh[i] = silu_f(fa[i]) * fb[i];
+                tpu_elementwise((int64_t)fh.size(), [&](int64_t i) {
+                    fh[(size_t)i] = silu_f(fa[(size_t)i]) * fb[(size_t)i];
+                });
                 std::vector<float> so((size_t)T * H);
                 linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
                 if (L.shared_gate_sig.empty())

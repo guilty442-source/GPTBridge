@@ -226,6 +226,14 @@ public:
         int64_t max_length = 0) const;
     std::string decode(const std::vector<int64_t>& ids, bool skip_special = true) const;
     std::vector<double> logits(const std::vector<int64_t>& input_ids);
+    // Vision early-fusion prefill probe: text ids + num_patches rows of
+    // patch_dim doubles → last-position logits. Pure feedforward (no KV
+    // writes); throws VISION_* on contract violation. This is the only
+    // entry that attaches vision — text-only callers are unaffected.
+    std::vector<double> forward_vision_logits(
+        const std::vector<int64_t>& input_ids,
+        const std::vector<double>& patches,
+        int64_t num_patches);
     // Teacher-forced next-token NLL: one packed forward (no KV writes),
     // returns {sum of -log p(id[i+1] | id[0..i]), scored tokens}.
     // perplexity = exp(nll / count); deterministic, mirrors the Python
