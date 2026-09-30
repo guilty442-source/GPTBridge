@@ -59,6 +59,14 @@ struct ModelConfig {
     int64_t moe_num_shared_experts = 0;
     int64_t moe_expert_intermediate_size = 0;
     int64_t moe_shared_intermediate_size = 0;
+    // Native vision early-fusion (v1): optional linear patch projection.
+    // When use_vision, each span may carry vision_num_patches rows of
+    // vision_patch_dim floats; they are projected to hidden_size and
+    // prepended to the text embeddings (single decoder stream, causal).
+    // Default off: text-only behaviour is bit-identical.
+    bool use_vision = false;
+    int64_t vision_patch_dim = 0;
+    int64_t vision_max_patches = 0;
     std::string quantization = "none";
 };
 
@@ -245,11 +253,17 @@ private:
     };
 
     // R9: one span = one sequence's tokens inside a packed forward call.
+    // Vision early-fusion: vision_patches (flat vision_num_patches x
+    // ModelConfig::vision_patch_dim, row-major) is projected and prepended
+    // to the text embeddings. Prefix-cache paths never attach vision, so a
+    // vision span always recomputes (no false prefix hits by construction).
     struct BatchSpan {
         int64_t slot = 0;
         const std::vector<int64_t>* ids = nullptr;
         int64_t position_offset = 0;
         bool append_cache = false;
+        const std::vector<double>* vision_patches = nullptr;
+        int64_t vision_num_patches = 0;
     };
     static constexpr int64_t kMaxBatchSeqs = 64;
 
@@ -266,6 +280,10 @@ private:
     TensorView final_norm_;
     TensorView lm_head_;
     std::vector<double> lm_head_t_;
+    // Vision early-fusion: raw [hidden x patch_dim] view plus transposed
+    // [patch_dim x hidden] GEMM operand. Empty unless use_vision.
+    TensorView vision_patch_proj_;
+    std::vector<double> vision_patch_proj_t_;
     // R6 paged KV: shared block table maps logical position blocks to
     // physical blocks covering all layers; blocks allocate on demand and
     // return to kv_free_blocks_ on reset_cache (bounded, audited via

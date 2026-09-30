@@ -173,7 +173,8 @@ internal sealed class LocalModelExecutor
                             && sz.GetInt64() != size)
                             continue;
                         if (IsBundleDir(dir))
-                            return (dir, defaults, cpuThreads);
+                            return (dir, defaults, cpuThreads, cuda,
+                                    cudaKv, cudaPrecision);
                     }
                     catch (JsonException) { /* skip unreadable bundle */ }
                 }
@@ -529,6 +530,14 @@ internal sealed class LocalModelExecutor
         if (_cpuThreads > 0)
             psi.Environment["GPTBRIDGE_MATMUL_THREADS"] =
                 _cpuThreads.ToString();
+        if (_cuda)
+            psi.Environment["XINGCHENG_CPP_CUDA"] = "1";
+        if (_cudaKv)
+            psi.Environment["XINGCHENG_CPP_CUDA_KV"] = "1";
+        if (_cudaPrecision == "bf16")
+            psi.Environment["XINGCHENG_CPP_CUDA_BF16"] = "1";
+        else if (_cudaPrecision == "fp8")
+            psi.Environment["XINGCHENG_CPP_CUDA_FP8"] = "1";
         var child = Process.Start(psi)
             ?? throw new InvalidOperationException("MODEL_WORKER_SPAWN_FAILED");
         _ = Task.Run(async () =>
