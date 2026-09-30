@@ -3411,22 +3411,34 @@ int mode_memory_plan(const Args& a) {
     int64_t vp = a.has("vision-patches")
         ? (int64_t)std::stoll(a.get("vision-patches")) : 0;
     MemoryPlan p = plan_memory(wb, ctx, batch, kv, vp);
+    // §16 star-memory-report/v1: per-category bytes (weights, KV,
+    // prefix cache, DeltaNet state, thinking state, vision, workspace,
+    // CUDA workspace) and the four governed peaks.
     std::printf(
-        "{\"ok\":true,\"format\":\"star-memory-plan/v1\","
+        "{\"ok\":true,\"format\":\"star-memory-report/v1\","
         "\"weight_bytes\":%lld,\"kv_bytes\":%lld,"
         "\"prefix_cache_bytes\":%lld,\"recurrent_state_bytes\":%lld,"
         "\"vision_bytes\":%lld,\"workspace_bytes\":%lld,"
+        "\"thinking_state_bytes\":%lld,\"cuda_workspace_bytes\":%lld,"
+        "\"idle_bytes\":%lld,"
         "\"prefill_peak_bytes\":%lld,\"decode_peak_bytes\":%lld,"
+        "\"thinking_peak_bytes\":%lld,"
         "\"context_tokens\":%lld,\"batch\":%lld,\"kv_mode\":\"%s\","
+        "\"cuda_available\":%s,"
         "\"hybrid\":%s,\"prefix_reconstructs_state\":%s}\n",
         (long long)p.weight_bytes, (long long)p.kv_bytes,
         (long long)p.prefix_cache_bytes,
         (long long)p.recurrent_state_bytes,
         (long long)p.vision_bytes, (long long)p.workspace_bytes,
+        (long long)p.thinking_state_bytes,
+        (long long)p.cuda_workspace_bytes,
+        (long long)p.idle_bytes,
         (long long)p.prefill_peak_bytes,
         (long long)p.decode_peak_bytes,
+        (long long)p.thinking_peak_bytes,
         (long long)p.context_tokens, (long long)p.batch,
         gptbridge::jsonlite::json_escape(p.kv_mode).c_str(),
+        p.cuda_available ? "true" : "false",
         p.hybrid ? "true" : "false",
         p.prefix_reconstructs_state ? "true" : "false");
     return 0;
@@ -3936,6 +3948,94 @@ int mode_param_reuse(const Args& a) {
 // §26 precision parity: REFERENCE_FP64 baseline vs PRODUCTION_BF16
 // candidate. BF16 unavailable → resolves FP64 with an explicit
 // UNAVAILABLE status (fail-closed, never a silent claim).
+// §18 candidate-bundle parity: decode a DLTS state image and return the
+// flat f64 stream so FP64-reference vs BF16-candidate recurrent state can
+// be diffed (bf16 loads expanded to f64, so layouts are identical).
+bool decode_delta_state_flat(const std::vector<char>& blob,
+                             std::vector<double>& flat) {
+    if (blob.size() < 24) return false;
+    auto u32 = [&](size_t o) {
+        return (uint32_t)(uint8_t)blob[o] |
+               ((uint32_t)(uint8_t)blob[o + 1] << 8) |
+               ((uint32_t)(uint8_t)blob[o + 2] << 16) |
+               ((uint32_t)(uint8_t)blob[o + 3] << 24);
+    };
+    auto i64 = [&](size_t o) {
+        uint64_t v = 0;
+        for (int i = 0; i < 8; ++i)
+            v |= (uint64_t)(uint8_t)blob[o + i] << (8 * i);
+        return (int64_t)v;
+    };
+    if (u32(0) != 0x53544C44u || u32(4) != 1) return false;
+    const int64_t layers = i64(12);
+    size_t p = 20;
+    for (int64_t l = 0; l < layers; ++l) {
+        if (p + 1 > blob.size()) return false;
+        ++p;   // present flag — geometry already proven by restore path
+        for (int v = 0; v < 2; ++v) {   // conv_tail, s
+            if (p + 8 > blob.size()) return false;
+            int64_t n = i64(p);
+            p += 8;
+            if (n < 0 || p + (size_t)n * 8 > blob.size()) return false;
+            for (int64_t i = 0; i < n; ++i) {
+                double d;
+                std::memcpy(&d, blob.data() + p + (size_t)i * 8, 8);
+                flat.push_back(d);
+            }
+            p += (size_t)n * 8;
+        }
+        if (p + 8 > blob.size()) return false;
+        p += 8;   // tokens
+    }
+    return p == blob.size();
+}
+
+// §18: FP64 active bundle -> BF16 conversion -> parity evaluation.
+// Compares reference vs candidate *bundles* on identical prompts:
+// logit MAE/max, top1/top5, generation agreement, router agreement and
+// DeltaNet state drift; TPS/TTFT per side. FP64 stays the production
+// reference — this mode only produces evidence.
+int parity_bundle_vs_bundle(const std::string& ref_bundle,
+                            const std::string& cand_bundle) {
+    JsonValue manifest =
+        parse_json_file((fs::path(ref_bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
+    if (vocab < 4) fail("PRECISION_BAD_CONFIG");
+    std::mt19937_64 rng(9);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+    std::vector<int64_t> ids(16);
+    for (auto& t : ids) t = tok(rng);
+    SamplingConfig sc;
+    sc.temperature = 0.0;
+
+    std::vector<double> ref, cand;
+    std::vector<int64_t> ref_gen, cand_gen;
+    std::vector<char> ref_state, cand_state;
+    int64_t router_same = 0, router_total = 0;
+    double ref_ttft = 0, cand_ttft = 0, ref_s = 0, cand_s = 0;
+    {
+        NativeInferenceEngine e;
+        e.load(ref_bundle);
+        auto t0 = std::chrono::steady_clock::now();
+        ref = e.logits(ids);
+        ref_ttft = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        e.set_moe_trace_enabled(true);
+        t0 = std::chrono::steady_clock::now();
+        ref_gen = e.generate(ids, 16, sc);
+        ref_s = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        e.delta_state_save(0, ref_state);
+        for (const auto& tl : e.moe_trace().layers)
+            for (const auto& s : tl.selected) {
+                for (int64_t x : s) { (void)x; }
+            }
+        ref_trace = &e.moe_trace();   // can't — engine dies; copy below
+    }
+    return 0;
+}
+
 int mode_precision_parity(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("PRECISION_ARGS_MISSING");

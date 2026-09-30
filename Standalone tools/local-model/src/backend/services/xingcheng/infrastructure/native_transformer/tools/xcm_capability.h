@@ -38,11 +38,16 @@ struct MemoryPlan {
     int64_t recurrent_state_bytes = 0;
     int64_t vision_bytes = 0;
     int64_t workspace_bytes = 0;
+    int64_t thinking_state_bytes = 0;
+    int64_t cuda_workspace_bytes = 0;
+    int64_t idle_bytes = 0;
     int64_t prefill_peak_bytes = 0;
     int64_t decode_peak_bytes = 0;
+    int64_t thinking_peak_bytes = 0;
     int64_t context_tokens = 0;
     int64_t batch = 1;
     std::string kv_mode = "fp64";
+    bool cuda_available = false;
     bool hybrid = false;
     // §7 honesty: a hybrid model's prefix cache cannot reconstruct the
     // DeltaNet recurrence — it stores K/V only, so its coverage is
@@ -114,12 +119,28 @@ inline MemoryPlan plan_memory(
     const int64_t prefill_ws = context * row * 4;
     const int64_t decode_ws = batch * row * 8;
     p.workspace_bytes = std::max(prefill_ws, decode_ws);
+    // §16 thinking state: each branch owns a full private KV slot plus
+    // a DeltaNet state copy — bounded by the engine's branch cap (8),
+    // same bound enforced by generate_thinking.
+    const int64_t kBranchCap = 8;
+    const int64_t per_seq_state =
+        (p.kv_bytes + p.recurrent_state_bytes) / batch;
+    p.thinking_state_bytes = kBranchCap * per_seq_state;
+#ifdef XC_WITH_CUDA
+    p.cuda_available = true;
+    // Device-side staging mirrors the host decode workspace; GEMM tiles
+    // are pooled by the CUDA orchestration lane, not per-request.
+    p.cuda_workspace_bytes = decode_ws;
+#endif
+    p.idle_bytes = p.weight_bytes;
     p.prefill_peak_bytes = p.weight_bytes + p.kv_bytes +
                            p.recurrent_state_bytes + p.vision_bytes +
                            prefill_ws;
     p.decode_peak_bytes = p.weight_bytes + p.kv_bytes +
                           p.recurrent_state_bytes +
                           p.prefix_cache_bytes + decode_ws;
+    p.thinking_peak_bytes = p.decode_peak_bytes +
+                            p.thinking_state_bytes;
     return p;
 }
 
