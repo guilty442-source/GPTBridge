@@ -375,6 +375,37 @@ public:
         return router_trace_;
     }
 
+    // Inference memory planner surface: typed budget breakdown plus
+    // prefill/decode high-water marks. Report-only — budgets are set
+    // through set_kv_memory_limit / set_prefix_cache_limit.
+    struct MemoryReport {
+        int64_t weight_bytes = 0;
+        int64_t kv_bytes = 0;
+        int64_t prefix_cache_bytes = 0;
+        int64_t recurrent_state_bytes = 0;
+        int64_t vision_bytes = 0;
+        int64_t workspace_bytes = 0;
+        int64_t prefill_peak_bytes = 0;
+        int64_t decode_peak_bytes = 0;
+    };
+    MemoryReport memory_report() const;
+
+    // DeltaStateSnapshot: versioned, sha256-hashed, generation- and
+    // model-hash-bound serialization of per-slot DeltaNet recurrent
+    // state (conv tail + s + folded-token count). Paged KV and prefix
+    // cache are evictable by policy and are never part of the snapshot.
+    // Save/restore/verify; a foreign generation or model hash fails
+    // closed (STATE_GENERATION_MISMATCH / STATE_MODEL_MISMATCH).
+    std::string snapshot_delta_state(
+        const std::string& generation) const;
+    void restore_delta_state(
+        const std::string& blob, const std::string& generation);
+    static std::string delta_state_sha256(const std::string& blob);
+
+    // Depth telemetry: RMS of each linear layer's delta-rule state
+    // matrix s (recurrent_state_norm). Empty on dense models.
+    std::vector<double> recurrent_state_norms() const;
+
 private:
     struct LayerWeights {
         TensorView input_norm;
@@ -571,6 +602,12 @@ private:
     // engine's device state (write-through mirror then fails mid-forward).
     bool cuda_session_owned_ = false;
     std::vector<int64_t> sequence_;
+    // Inference memory planner: high-water marks per phase, updated at
+    // the end of every forward_batch_hidden* call (seq>1 -> prefill,
+    // seq==1 -> decode). Reported through memory_report().
+    int64_t mem_prefill_peak_ = 0;
+    int64_t mem_decode_peak_ = 0;
+    void mem_note(int64_t seq_tokens);
 
     struct KvSrc {
         const double* fp = nullptr;

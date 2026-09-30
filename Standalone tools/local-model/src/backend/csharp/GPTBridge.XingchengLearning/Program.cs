@@ -255,8 +255,7 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? agf)
                             ? agf : "",
-                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")))
-                        ? agf : ""));
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
             if (flags.Contains("provenance-check"))
                 return Emit(BundleProvenance.Check(
                     toolRoot,
