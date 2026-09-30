@@ -269,23 +269,20 @@ func (m *BrowserManager) waitReady(s *session) bool {
 func (m *BrowserManager) activate(id string) {
 	m.mu.Lock()
 	m.active = id
-	var hidden []uintptr
-	for otherID, s := range m.sessions {
-		if otherID != id {
-			hidden = append(hidden, s.hwnd)
-		}
-	}
 	m.mu.Unlock()
 	// Only one session is visible at a time — the activated one.
 	m.post(func() {
 		m.mu.Lock()
-		for _, s := range m.sessions {
-			_ = s.chromium.Hide()
+		for otherID, s := range m.sessions {
+			if otherID == id {
+				_ = s.chromium.Show()
+				showWindow(s.hwnd, true)
+			} else {
+				_ = s.chromium.Hide()
+				showWindow(s.hwnd, false)
+			}
 		}
 		m.mu.Unlock()
-		for _, hw := range hidden {
-			showWindow(hw, false)
-		}
 	})
 }
 

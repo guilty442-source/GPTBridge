@@ -293,7 +293,43 @@ pub fn health_payload(level: &str) -> Value {
         "dependencies": readiness.dependencies,
         "services": {},
         "capabilities": {},
+        // Retired-contract parity: the renderer's 星澄 indicator reads
+        // xingcheng_native_model_runtime.{running,available} on every
+        // status push.  The successor reports governed-runtime truth —
+        // `running` means the local-model tool runtime is live in this
+        // backend's registry, `available` means its native entry is
+        // installed.  A stopped tool is "stopped", never "unavailable".
+        "xingcheng_native_model_runtime": native_model_status(),
         "health_level": level,
+    })
+}
+
+/// Successor of the retired ``native_model_status``: the first-party
+/// 星澄 model runs inside the governed local-model tool runtime, so
+/// liveness follows the tool registry and availability follows the
+/// launchable native entry.
+fn native_model_status() -> Value {
+    let running = crate::tools::governed_tool_running("local-model");
+    let available =
+        running || crate::tools::governed_tool_launchable("local-model");
+    json!({
+        "model_id": "star-main-native-model",
+        "state": if running {
+            "ready"
+        } else if available {
+            "stopped"
+        } else {
+            "unavailable"
+        },
+        "running": running,
+        "available": available,
+        "checked_at": gptbridge_core::app::iso_now(),
+        "message": if running || available {
+            ""
+        } else {
+            "local-model runtime not installed"
+        },
+        "third_party_weights_used": false,
     })
 }
 

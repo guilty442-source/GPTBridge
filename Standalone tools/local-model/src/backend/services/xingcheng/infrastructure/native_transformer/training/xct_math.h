@@ -169,7 +169,25 @@ static void l2norm_bwd(const float* dy, const float* x_normed,
 struct LayerCache {
     std::vector<float> x_in, n1, rms1;       // attention block
     std::vector<float> q, k, v, probs, attn_out, x_res;
+    std::vector<float> attn_gate;            // [T*Hq] sigmoid gate (attn_output_gate)
+    std::vector<float> qk_qraw, qk_kraw;     // pre qk_norm q/k (for bwd)
+    std::vector<float> qk_qrms, qk_krms;     // per (t,h) rms factors
+    // gated deltanet (linear attention) caches
+    std::vector<float> lin_conv_in;          // [T*conv_dim] flat q|k|v pre-conv
+    std::vector<float> lin_conv_pre;         // [T*conv_dim] pre-SiLU
+    std::vector<float> lin_qn, lin_kn;       // post-l2norm q,k [T*vh*kd] (v-head expanded)
+    std::vector<float> lin_qrms, lin_krms;   // [T*kh] pre-norm lengths
+    std::vector<float> lin_v;                // [T*vh*vd]
+    std::vector<float> lin_a_raw;            // [T*vh] a + dt_bias (pre-softplus)
+    std::vector<float> lin_b_raw;            // [T*vh] pre-sigmoid beta arg
+    std::vector<float> lin_z;                // [T*vh*vd] pre-SiLU gate
+    std::vector<float> lin_on;               // gated-RMSNorm output [T*vh*vd]
+    std::vector<float> lin_orms;             // [T*vh] per (t,h) rms factors
+    std::vector<float> lin_o;                // pre-norm scan output [T*vh*vd]
+    std::vector<float> lin_S;                // [(T+1)*vh*kd*vd] state snapshots
+    std::vector<float> lin_decay;            // [T*vh] exp(g_t) per step
     std::vector<float> n2, rms2;             // ffn block
+    std::vector<float> shared_gate_sig;      // [T] sigmoid(shared_gate@n2)
     // dense ffn caches (single buffer) or MoE per-slot caches
     std::vector<float> fa, fb, fh;
     std::vector<int> moe_idx;                // [T*K]

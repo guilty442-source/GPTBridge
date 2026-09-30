@@ -105,6 +105,31 @@ fn discover_manifests() -> Vec<(PathBuf, Value)> {
     found
 }
 
+/// Whether the tool's governed runtime is currently live in this
+/// backend's registry (started through ``toolbox_start_tool`` and not
+/// yet stopped).  Used by the status payload's native-model field.
+pub fn governed_tool_running(tool_id: &str) -> bool {
+    running()
+        .lock()
+        .map(|registry| registry.tools.contains_key(tool_id))
+        .unwrap_or(false)
+}
+
+/// Whether the tool is installed and launchable through the governed
+/// native entry: manifest present, not disabled, ``runtime.native_entry``
+/// configured.  Availability is about the artifact, not liveness.
+pub fn governed_tool_launchable(tool_id: &str) -> bool {
+    load_manifest(tool_id)
+        .map(|manifest| {
+            manifest["enabled"].as_bool().unwrap_or(true)
+                && manifest["runtime"]["native_entry"]
+                    .as_str()
+                    .map(|entry| !entry.trim().is_empty())
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false)
+}
+
 pub(super) fn load_manifest(tool_id: &str) -> Option<Value> {
     let path = tools_root().join(tool_id).join("manifest.json");
     if let Ok(raw) = std::fs::read_to_string(&path) {
