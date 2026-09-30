@@ -263,6 +263,10 @@ static int gradcheck() {
     c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 1;
     c.moe_expert_inter = 24; c.moe_shared_experts = 1;
     c.moe_shared_inter = 24; c.shared_expert_gate = true;
+    if (const char* e = std::getenv("XCT_GC_E")) c.moe_experts = std::atoi(e);
+    if (const char* k = std::getenv("XCT_GC_K")) c.moe_top_k = std::atoi(k);
+    if (const char* s = std::getenv("XCT_GC_SHARED"))
+        c.moe_shared_experts = std::atoi(s);
     Params p;
     init_params(p, c, 7);
     std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
