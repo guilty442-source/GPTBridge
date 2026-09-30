@@ -662,6 +662,10 @@ struct Params {
     std::vector<std::string> order;
     std::vector<std::string> freeze_patterns;
     std::unordered_set<std::string> frozen;   // resolved at alloc_adam
+    // §44 routed-expert activation set: backward marks every expert
+    // weight that received a token this step, so adamw_step tests
+    // membership instead of scanning each expert gradient for nonzero.
+    std::unordered_set<std::string> touched;
 
     static bool pat_match(const std::string& pat,
                           const std::string& n) {

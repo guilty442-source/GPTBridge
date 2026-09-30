@@ -144,15 +144,13 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         if (p.frozen.count(n)) continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
         // §44 gradient sparsity, scoped to routed experts: an expert no
-        // token selected this step (gradient exactly zero) gets no
-        // gradient update AND no optimizer update — decoupled weight
-        // decay would otherwise silently shrink dormant experts. Dense
-        // params keep standard AdamW semantics (wd applies at g=0).
-        if (n.find(".experts.") != std::string::npos) {
-            bool nz = false;
-            for (float x : g.d) if (x != 0.0f) { nz = true; break; }
-            if (!nz) continue;
-        }
+        // token selected this step (backward never marked it touched)
+        // gets no gradient update AND no optimizer update — decoupled
+        // weight decay would otherwise silently shrink dormant experts.
+        // Dense params keep standard AdamW semantics (wd applies at g=0).
+        if (n.find(".experts.") != std::string::npos &&
+            !p.touched.count(n))
+            continue;
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
         if (cuda_ok) {
             const int64_t cnt = static_cast<int64_t>(w.d.size());
@@ -168,12 +166,16 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
                     xcuda_adamw_sync(w.d.data(), w.d.data(),
                                      m.d.data(), v.d.data());
                 } else {
+                    // consumed: the fused-zero contract clears the host
+                    // gradient so the next step's backward starts clean.
+                    std::fill(g.d.begin(), g.d.end(), 0.0f);
                     continue;
                 }
             }
         }
         tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
             float gi = g.d[(size_t)i] * gscale;
+            g.d[(size_t)i] = 0.0f;   // consumed: fused zero_grad
             m.d[(size_t)i] = b1 * m.d[(size_t)i] + (1 - b1) * gi;
             v.d[(size_t)i] = b2 * v.d[(size_t)i] + (1 - b2) * gi * gi;
             float mh = m.d[(size_t)i] / bc1, vh = v.d[(size_t)i] / bc2;
@@ -181,6 +183,7 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
                 lr_t * (mh / (std::sqrt(vh) + eps) + wd * w.d[(size_t)i]);
         });
     }
+    p.touched.clear();
 }
 
 // DeepSeek V3 aux-loss-free load balancing: per-expert bias b_e ranks
@@ -310,7 +313,9 @@ static JsonValue run_job(const JsonValue& job) {
             if (tc.deadline_s > 0 && now_s() - t0 > tc.deadline_s) {
                 deadline_hit = true; break;
             }
-            p.zero_grad();
+            // Gradients self-clear: adamw_step zeroes each buffer as it
+            // consumes it (fused zero_grad) — params skipped by the
+            // §44/§41 guards always hold zero already.
             float loss = 0.0f;
             if (task == "dpo") {
                 // policy chosen

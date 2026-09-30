@@ -127,6 +127,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     int e = L.moe_idx[(size_t)t * K + s];
                     float wgt = L.moe_w[(size_t)t * K + s];
                     std::string b = ln(l, "experts.") + std::to_string(e) + ".";
+                    // §44: a selected expert owns a weight update this
+                    // step — mark its tensors so adamw_step skips the
+                    // per-expert nonzero scan for dormant experts.
+                    p.touched.insert(b + "w1");
+                    p.touched.insert(b + "w2");
+                    p.touched.insert(b + "w3");
                     const std::vector<float>& fh = L.mfh[(size_t)t * K + s];
                     const std::vector<float>& fa = L.mfa[(size_t)t * K + s];
                     const std::vector<float>& fb = L.mfb[(size_t)t * K + s];
