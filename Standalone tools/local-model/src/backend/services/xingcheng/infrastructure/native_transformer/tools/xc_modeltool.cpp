@@ -3373,6 +3373,9 @@ int mode_serve(const Args& a) {
 // topology/profile probes, silicon routing, expert granularity,
 // parameter efficiency, NPU probe-first discovery.
 #include "xcm_silicon.h"
+// §58 BF16 production certification: FP64 CPU oracle vs cuBLAS-fp64
+// and the NVRTC bf16 GEMM lane on deterministic shapes.
+#include "xcm_bf16cert.h"
 
 }  // namespace
 
@@ -3461,6 +3464,8 @@ static const ModeEntry kModeRegistry[] = {
     {"sparse-optimizer-probe","TRAINING",   mode_parameter_freeze_probe},
     {"npu-ep-enum",           "SCALE",      mode_npu_ep_enum},
     {"npu-duplicate-cost",    "SCALE",      mode_npu_duplicate_cost},
+    // §58 BF16 production certification (FP64 oracle comparison).
+    {"bf16-cert",             "PRECISION",  mode_bf16_cert},
 };
 
 static int mode_registry_emit() {

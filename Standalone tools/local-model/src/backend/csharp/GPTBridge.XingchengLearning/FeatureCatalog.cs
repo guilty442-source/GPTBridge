@@ -271,7 +271,7 @@ internal static class FeatureCatalog
             "session affinity)",
             "INTEGRATED_RUNTIME", false, true, false, "cpp-runtime",
             new[] { "prefetch-probe" }),
-        new("f-scale-tiers", "scale directive",
+        new("f-residency-tiers", "scale directive",
             "DEVICE_HOT/HOST_WARM/NVME_COLD expert tiers",
             "INTEGRATED_RUNTIME", false, true, false, "cpp-runtime",
             new[] { "low-resource-sim" }),
