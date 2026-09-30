@@ -749,6 +749,11 @@ internal static class Program
             configuration: new Dictionary<string, object?>
             {
                 ["training_kind"] = "sft",
+                // §0 recovery lane: under SINGLE_CAPABILITY_RECOVERY a
+                // governed-chain job must declare the active capability
+                // — an unlabeled sft job is denied by GuardJob.
+                ["capability"] = SelfLearningPolicy.Load(toolRoot)
+                    .ActiveCapability,
                 ["tokenizer_dir"] =
                     "runtime/tokenizers/xingcheng-bpe-8k-20260919-120054",
                 ["model_id"] = "xingcheng-selftest",
