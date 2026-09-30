@@ -289,6 +289,33 @@ internal static class ToolContracts
 
     // ------------------------------------------------------- helpers --
 
+    /// <summary>JSON-file object read as a decoded dictionary — shared
+    /// by the contract consumers that work on maps rather than
+    /// JsonElement (LongHorizonTask, DatasetQuality).</summary>
+    public static Dictionary<string, object?> ReadObject(
+        string file, string errCode)
+    {
+        var root = ReadJson(file, errCode);
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new ExecutorError(errCode, $"{file}: not object");
+        var map = new Dictionary<string, object?>();
+        foreach (var p in root.EnumerateObject())
+            map[p.Name] = ModelLifecycle.Decode(p.Value);
+        return map;
+    }
+
+    /// <summary>String field from a decoded map ("" when absent).</summary>
+    public static string Str(
+        IReadOnlyDictionary<string, object?> m, string key)
+        => TransformerTrainingRepository.Str(m, key) ?? "";
+
+    /// <summary>List field from a decoded map (empty when absent or
+    /// not a list).</summary>
+    public static List<object?> Arr(
+        IReadOnlyDictionary<string, object?> m, string key)
+        => m.TryGetValue(key, out object? v) && v is List<object?> l
+            ? l : new List<object?>();
+
     public static JsonElement ReadJson(string file, string errCode)
     {
         if (string.IsNullOrEmpty(file) || !File.Exists(file))
