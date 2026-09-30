@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -28,6 +28,12 @@
 //   softmax, gates, norms), learning rule = long-timescale weight update
 //   (AdamW: depends on target, activities, current weights).
 //   --rulecheck probes all three executably.
+//
+// Multi-layer stack (depth contract): hybrid layers interleave by
+//   full_attention_interval and MoE FFNs by moe_layer_interval; every
+//   layer must move the residual stream, receive nonzero gradient at
+//   depth, and stay learnable. --depthcheck probes an 8-layer fused
+//   stack executably.
 //
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
@@ -88,6 +94,7 @@ namespace xct {
 #include "xct_backward.h"
 #include "xct_ckpt.h"
 #include "xct_job.h"
+#include "xct_depth.h"
 
 } // namespace xct
 
@@ -103,10 +110,11 @@ int main(int argc, char** argv) {
         else if (a == "--maskcheck") return xct::maskcheck();
         else if (a == "--headcheck") return xct::headcheck();
         else if (a == "--rulecheck") return xct::rulecheck();
+        else if (a == "--depthcheck") return xct::depthcheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck\n");
         return 2;
     }
     try {
