@@ -1124,8 +1124,12 @@ static int gemmacheck() {
         if (L.k.size() != (size_t)T * kvh * hd)
             fail("gemma: kv dim per layer");
         if (c.kv_unified(l)) {
-            if (std::memcmp(L.k.data(), L.v.data(),
-                            L.k.size() * sizeof(float)) != 0)
+            // one projection: v IS the raw shared tensor; k takes the
+            // scoring transforms (qk_norm + rope) on top of the same
+            // values — qk_kraw (pre-norm cache) must equal v bitwise.
+            if (!L.qk_kraw.empty() &&
+                std::memcmp(L.qk_kraw.data(), L.v.data(),
+                            L.v.size() * sizeof(float)) != 0)
                 fail("gemma: k_eq_v not unified");
             if (!p.w.count(ln(l, "wkv")) || p.w.count(ln(l, "wv")))
                 fail("gemma: wkv params");

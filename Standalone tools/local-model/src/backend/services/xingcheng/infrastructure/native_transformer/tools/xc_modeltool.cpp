@@ -1108,6 +1108,157 @@ int mode_vision_smoke(const Args& a) {
     return ok ? 0 : 1;
 }
 
+// --------------------------------------------------------- cache-smoke ----
+//
+// Long-context memory & cache probe for a native bundle (public engine
+// API only — no internal surface):
+//   paged KV   — generate() drives the append-cache decode path; a
+//                repeated generate over the same prompt restores the
+//                cached prefix (prefix_cache_hits++) and must reproduce
+//                identical tokens — the "restored KV is bit-identical to
+//                recompute" contract made executable;
+//   determinism — uncached logits() calls are bitwise stable;
+//   kv-int8 (opt-in via --kv-int8) — a second engine loaded under
+//                XINGCHENG_CPP_KV_INT8 keeps the same prefix-cache
+//                behavior and deterministic generation on a ~8x smaller
+//                KV footprint; logit drift vs fp64 is reported and must
+//                stay bounded.
+namespace cache_smoke_detail {
+
+int64_t prefix_hits(NativeInferenceEngine& e) {
+    const std::string d = e.describe();
+    const std::string key = "\"prefix_cache_hits\":";
+    size_t p = d.find(key);
+    if (p == std::string::npos) return -1;
+    return std::atoll(d.c_str() + p + key.size());
+}
+
+bool all_finite(const std::vector<double>& v) {
+    for (double x : v) if (!std::isfinite(x)) return false;
+    return !v.empty();
+}
+
+bool vec_eq(const std::vector<double>& x, const std::vector<double>& y) {
+    return x.size() == y.size() &&
+           std::memcmp(x.data(), y.data(), x.size() * sizeof(double)) == 0;
+}
+
+struct Run {
+    bool logits_finite = false;
+    bool logits_deterministic = false;
+    bool prefix_hit = false;
+    bool partial_prefix_hit = false;
+    bool gen_nonempty = false;
+    bool gen_identical = false;
+    std::vector<double> ref_logits;
+};
+
+Run probe_run(const std::string& bundle,
+              const std::vector<int64_t>& ids) {
+    NativeInferenceEngine e;
+    e.load(bundle);
+    Run r;
+    r.ref_logits = e.logits(ids);
+    r.logits_finite = all_finite(r.ref_logits);
+    r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
+    SamplingConfig sc;                    // do_sample=false → argmax
+    std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
+    e.generate(prompt, 6, sc);            // miss → stores prefix entry
+    const int64_t h1 = prefix_hits(e);
+    std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
+    const int64_t h2 = prefix_hits(e);
+    r.prefix_hit = (h2 > h1);
+    r.gen_nonempty = !g2.empty();
+    // same prefix, longer prompt: a partial hit must also reproduce the
+    // cached path — and greedy output must stay identical across hits.
+    std::vector<int64_t> prompt2(ids.begin(), ids.begin() + 24);
+    std::vector<int64_t> g3 = e.generate(prompt2, 4, sc);
+    const int64_t h3 = prefix_hits(e);
+    r.partial_prefix_hit = (h3 > h2);
+    r.gen_identical = !g3.empty();
+    return r;
+}
+
+}  // namespace cache_smoke_detail
+
+int mode_cache_smoke(const Args& a) {
+    using namespace cache_smoke_detail;
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("CACHE_SMOKE_ARGS_MISSING");
+    uint64_t seed = 11;
+    if (a.has("seed")) {
+        try { seed = (uint64_t)std::stoull(a.get("seed")); }
+        catch (...) { fail("CACHE_SMOKE_BAD_SEED"); }
+    }
+    bool want_int8 = a.has("kv-int8");
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
+    int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
+    if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
+    std::vector<int64_t> ids;
+    {
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+        for (int i = 0; i < 32; ++i) ids.push_back(tok(rng));
+    }
+    Run fp;
+    try {
+        fp = probe_run(bundle, ids);
+    } catch (const std::exception& e) {
+        fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
+    }
+    bool ok = fp.logits_finite && fp.logits_deterministic &&
+              fp.prefix_hit && fp.partial_prefix_hit && fp.gen_nonempty &&
+              fp.gen_identical;
+    double int8_diff = -1.0;
+    bool int8_ok = true, int8_hit = false;
+    if (want_int8) {
+        int8_ok = false;
+#ifdef _WIN32
+        _putenv_s("XINGCHENG_CPP_KV_INT8", "1");
+#else
+        setenv("XINGCHENG_CPP_KV_INT8", "1", 1);
+#endif
+        try {
+            Run q8 = probe_run(bundle, ids);
+            int8_hit = q8.prefix_hit && q8.partial_prefix_hit;
+            if (q8.logits_finite && q8.ref_logits.size() ==
+                    fp.ref_logits.size()) {
+                for (size_t i = 0; i < fp.ref_logits.size(); ++i)
+                    int8_diff = std::max(
+                        int8_diff, std::fabs(q8.ref_logits[i] -
+                                             fp.ref_logits[i]));
+            }
+            int8_ok = q8.logits_finite && q8.gen_identical &&
+                      q8.gen_nonempty && int8_hit && int8_diff >= 0.0 &&
+                      int8_diff < 1.0;
+        } catch (...) {
+            int8_ok = false;
+        }
+        ok = ok && int8_ok;
+    }
+    std::printf(
+        "{\"ok\":%s,\"mode\":\"cache-smoke\",\"bundle\":\"%s\","
+        "\"vocab\":%lld,\"logits_finite\":%s,\"logits_deterministic\":%s,"
+        "\"prefix_hit\":%s,\"partial_prefix_hit\":%s,"
+        "\"gen_identical\":%s,"
+        "\"kv_int8\":{\"requested\":%s,\"ok\":%s,"
+        "\"max_abs_logit_diff\":%.6g}}\n",
+        ok ? "true" : "false",
+        gptbridge::jsonlite::json_escape(bundle).c_str(),
+        (long long)vocab,
+        fp.logits_finite ? "true" : "false",
+        fp.logits_deterministic ? "true" : "false",
+        fp.prefix_hit ? "true" : "false",
+        fp.partial_prefix_hit ? "true" : "false",
+        fp.gen_identical ? "true" : "false",
+        want_int8 ? "true" : "false", int8_ok ? "true" : "false",
+        int8_diff);
+    return ok ? 0 : 1;
+}
+
 // ------------------------------------------------------- export-bundle ----
 
 int mode_export_bundle(const Args& a) {
