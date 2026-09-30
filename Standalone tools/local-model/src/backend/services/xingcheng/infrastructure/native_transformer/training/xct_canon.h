@@ -213,6 +213,102 @@ static int canoncheck() {
     return ok ? 0 : 1;
 }
 
+// --canonical-materialize (convergence §18-§21): resolve the default
+// ModelConfig through the single xc-fused-1 materialization path and
+// emit the complete effective config. Any pin/exclusion drift is the
+// typed failure ARCHITECTURE_CONTRACT_DRIFT — never a partially valid
+// printout. Raw ModelConfig defaults may stay loose; the production
+// canonical config must come from THIS path, not scattered overrides.
+static int canonical_materialize() {
+    JsonValue mj = JsonParser(
+        "{\"generation\":\"xc-fused-1\",\"vocab_size\":8192,"
+        "\"hidden_size\":768,\"intermediate_size\":2048,"
+        "\"num_hidden_layers\":12,\"num_attention_heads\":12,"
+        "\"num_key_value_heads\":4,"
+        "\"max_position_embeddings\":2048}").parse();
+    ModelConfig c;
+    try {
+        c = parse_model(&mj);
+    } catch (const char* e) {
+        std::printf("{\"ok\":false,\"error\":\"ARCHITECTURE_"
+                    "CONTRACT_DRIFT\",\"detail\":\"%s\"}\n", e);
+        return 1;
+    } catch (...) {
+        std::printf("{\"ok\":false,\"error\":\"ARCHITECTURE_"
+                    "CONTRACT_DRIFT\"}\n");
+        return 1;
+    }
+
+    // Every §19 pin, asserted before emit — a drifted config is
+    // rejected, never reported.
+    auto bad = [&](bool cond, const char* what) -> bool {
+        if (!cond) {
+            std::printf("{\"ok\":false,\"error\":\"ARCHITECTURE_"
+                        "CONTRACT_DRIFT\",\"pin\":\"%s\"}\n", what);
+            return true;
+        }
+        return false;
+    };
+    if (bad(c.full_attention_interval == 4, "full_attention_interval") ||
+        bad(c.attn_output_gate, "attn_output_gate") ||
+        bad(c.qk_norm, "qk_norm") ||
+        bad(c.partial_rotary == 0.5f, "partial_rotary") ||
+        bad(c.lin_conv_kernel == 4, "lin_conv_kernel") ||
+        bad(c.moe_experts >= 8, "moe_experts") ||
+        bad(c.moe_top_k == 2, "moe_top_k") ||
+        bad(c.moe_router_sigmoid, "moe_router_sigmoid") ||
+        bad(c.moe_layer_interval == 1, "moe_layer_interval") ||
+        bad(c.moe_shared_experts >= 1, "moe_shared_experts") ||
+        bad(c.shared_expert_gate, "shared_expert_gate") ||
+        bad(c.moe_aux_w == 0.001f, "moe_aux_w") ||
+        bad(c.mtp_depth >= 1, "mtp_depth") ||
+        bad(c.mtp_loss_w >= 0.1f, "mtp_loss_w") ||
+        bad(c.yarn_factor >= 2.0f, "yarn_factor") ||
+        bad(c.csa_ratio == 0 && c.kv_lora_rank == 0 &&
+            c.q_lora_rank == 0 && !c.moe_auxfree_balance &&
+            c.moe_lb_bias_rate == 0.0f && c.num_kv_shared_layers == 0 &&
+            !c.is_gemma4() && !c.k_eq_v_global, "exclusion"))
+        return 1;
+
+    std::printf("{\"ok\":true,\"format\":\"star-canonical-effective/v1\","
+                "\"generation\":\"xc-fused-1\","
+                "\"effective_config\":{"
+                "\"full_attention_interval\":%d,"
+                "\"attn_output_gate\":%s,\"qk_norm\":%s,"
+                "\"partial_rotary\":%g,\"lin_conv_kernel\":%d,"
+                "\"lin_key_heads\":%d,\"lin_key_dim\":%d,"
+                "\"lin_value_heads\":%d,\"lin_value_dim\":%d,"
+                "\"moe_experts\":%d,\"moe_top_k\":%d,"
+                "\"moe_router_sigmoid\":%s,\"moe_layer_interval\":%d,"
+                "\"moe_shared_experts\":%d,\"shared_expert_gate\":%s,"
+                "\"moe_aux_w\":%g,\"mtp_depth\":%d,\"mtp_loss_w\":%g,"
+                "\"yarn_factor\":%g,\"use_vision\":%s,"
+                "\"vision_patch_dim\":%d,\"vision_max_patches\":%d,"
+                "\"csa_ratio\":%d,\"kv_lora_rank\":%d,"
+                "\"q_lora_rank\":%d,\"moe_auxfree_balance\":%s,"
+                "\"moe_lb_bias_rate\":%g,\"num_kv_shared_layers\":%d,"
+                "\"k_eq_v_global\":%s}}\n",
+                c.full_attention_interval,
+                c.attn_output_gate ? "true" : "false",
+                c.qk_norm ? "true" : "false",
+                (double)c.partial_rotary, c.lin_conv_kernel,
+                c.lin_key_heads, c.lin_key_dim,
+                c.lin_value_heads, c.lin_value_dim,
+                c.moe_experts, c.moe_top_k,
+                c.moe_router_sigmoid ? "true" : "false",
+                c.moe_layer_interval, c.moe_shared_experts,
+                c.shared_expert_gate ? "true" : "false",
+                (double)c.moe_aux_w, c.mtp_depth,
+                (double)c.mtp_loss_w, (double)c.yarn_factor,
+                c.use_vision ? "true" : "false",
+                c.vision_patch_dim, c.vision_max_patches,
+                c.csa_ratio, c.kv_lora_rank, c.q_lora_rank,
+                c.moe_auxfree_balance ? "true" : "false",
+                (double)c.moe_lb_bias_rate, c.num_kv_shared_layers,
+                c.k_eq_v_global ? "true" : "false");
+    return 0;
+}
+
 // ------------------------------------------------------ probe driver --
 // Unified trainer probe runner (--probe-all -> star-trainer-probe-
 // report/v1): the single aggregation entry the ConvergenceGate calls.

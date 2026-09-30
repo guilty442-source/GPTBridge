@@ -187,6 +187,8 @@ int main(int argc, char** argv) {
         else if (a == "--mtpcheck") return xct::mtpcheck();
         else if (a == "--canoncheck") return xct::canoncheck();
         else if (a == "--freezecheck") return xct::freezecheck();
+        else if (a == "--canonical-materialize")
+            return xct::canonical_materialize();
         else if (a == "--probe-all") return xct::probe_all();
     }
     if (do_smoke) return xct::smoke();
