@@ -274,6 +274,19 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             layer.expert_down.reserve(static_cast<size_t>(experts));
             layer.expert_gate_up_t.reserve(static_cast<size_t>(experts));
             layer.expert_down_t.reserve(static_cast<size_t>(experts));
+            // Effective expert inner widths: forward falls back to
+            // intermediate_size when the optional moe_*_intermediate_size
+            // manifest fields are absent -- the fused gate_up/down views
+            // must be built with the same width or they silently come out
+            // empty (null data -> C_ABI_CALL_FAILED:matmul-grouped).
+            const int64_t expert_inter =
+                cfg.moe_expert_intermediate_size > 0
+                    ? cfg.moe_expert_intermediate_size
+                    : cfg.intermediate_size;
+            const int64_t shared_inter =
+                cfg.moe_shared_intermediate_size > 0
+                    ? cfg.moe_shared_intermediate_size
+                    : expert_inter;
             for (int64_t e = 0; e < experts; ++e) {
                 const std::string ep =
                     prefix + "mlp.experts." + std::to_string(e) + ".";
@@ -288,8 +301,8 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                 const std::vector<double> up_t =
                     transpose_matrix(layer.expert_up.back());
                 layer.expert_gate_up_t.push_back(hcat_weights(
-                    {{&gate_t, cfg.moe_expert_intermediate_size},
-                     {&up_t, cfg.moe_expert_intermediate_size}},
+                    {{&gate_t, expert_inter},
+                     {&up_t, expert_inter}},
                     cfg.hidden_size));
                 layer.expert_down_t.push_back(
                     transpose_matrix(layer.expert_down.back()));
@@ -317,8 +330,8 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                 const std::vector<double> up_t =
                     transpose_matrix(layer.shared_up.back());
                 layer.shared_gate_up_t.push_back(hcat_weights(
-                    {{&gate_t, cfg.moe_shared_intermediate_size},
-                     {&up_t, cfg.moe_shared_intermediate_size}},
+                    {{&gate_t, shared_inter},
+                     {&up_t, shared_inter}},
                     cfg.hidden_size));
                 layer.shared_down_t.push_back(
                     transpose_matrix(layer.shared_down.back()));
