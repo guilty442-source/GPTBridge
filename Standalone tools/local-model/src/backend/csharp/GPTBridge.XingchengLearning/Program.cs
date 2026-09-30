@@ -146,6 +146,119 @@ internal static class Program
                     opts.TryGetValue("val-permille", out string? vp) &&
                     int.TryParse(vp, out int vpv) ? vpv : 50,
                     flags.Contains("include-collected")));
+            // ── convergence contract (P0-P9) entry points ────────────
+            if (flags.Contains("feature-catalog"))
+                return Emit(FeatureCatalog.Install(toolRoot));
+            if (flags.Contains("capabilities-resolve"))
+                return Emit(CapabilitiesResolve(
+                    toolRoot,
+                    opts.TryGetValue("request", out string? rq)
+                        ? rq : "",
+                    opts.TryGetValue("bundle", out string? rb)
+                        ? rb : ""));
+            if (flags.Contains("language-scan"))
+                return Emit(LanguageBoundary.Report(
+                    opts.TryGetValue("root", out string? lr) &&
+                    lr.Length > 0
+                        ? Path.GetFullPath(lr) : toolRoot));
+            if (flags.Contains("arch-gate"))
+                return Emit(ArchGate(
+                    opts.TryGetValue("evidence", out string? ev)
+                        ? ev : ""));
+            if (flags.Contains("tool-call-validate"))
+                return Emit(ToolCallV2.ValidateRequest(
+                    ParseJsonFile(
+                        opts.TryGetValue("call", out string? tc)
+                            ? tc : "")));
+            if (flags.Contains("tool-result-validate"))
+                return Emit(ToolCallV2.ValidateResult(
+                    ParseJsonFile(
+                        opts.TryGetValue("result", out string? trr)
+                            ? trr : "")));
+            if (flags.Contains("structured-validate"))
+                return Emit(StructuredValidate(
+                    opts.TryGetValue("text", out string? sv) ? sv : "",
+                    opts.TryGetValue("schema", out string? ss)
+                        ? ss : ""));
+            if (flags.Contains("fim-validate"))
+                return Emit(FimContract.Validate(
+                    ParseJsonFile(
+                        opts.TryGetValue("fim", out string? fj)
+                            ? fj : "")));
+            if (flags.Contains("code-task-validate"))
+                return Emit(StarCodeAgentRuntime.ValidateTask(
+                    ParseJsonFile(
+                        opts.TryGetValue("task", out string? ct)
+                            ? ct : "")));
+            if (flags.Contains("task-create"))
+                return Emit(LongHorizonTaskCoordinator.Create(
+                    toolRoot,
+                    opts.TryGetValue("goal", out string? tg) ? tg : "",
+                    opts.TryGetValue("constraints", out string? tcs) &&
+                    tcs.Length > 0
+                        ? tcs.Split(';').ToList()
+                        : new List<string>(),
+                    opts.TryGetValue("generation", out string? tgen)
+                        ? tgen : "gen-2-consolidated"));
+            if (flags.Contains("task-status"))
+                return Emit(LongHorizonTaskCoordinator.Load(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tid)
+                        ? tid : "").ToDict());
+            if (flags.Contains("task-transition"))
+                return Emit(LongHorizonTaskCoordinator.Transition(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tt) ? tt : "",
+                    Enum.Parse<LongHorizonState>(
+                        opts.TryGetValue("state", out string? ts)
+                            ? ts : "", ignoreCase: true),
+                    opts.TryGetValue("note", out string? tn)
+                        ? tn : ""));
+            if (flags.Contains("task-checkpoint"))
+                return Emit(LongHorizonTaskCoordinator.Checkpoint(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tc2) ? tc2 : "",
+                    opts.TryGetValue("summary", out string? sm)
+                        ? sm : ""));
+            if (flags.Contains("task-resume"))
+                return Emit(LongHorizonTaskCoordinator.Resume(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tr) ? tr : "",
+                    opts.TryGetValue("generation", out string? rg)
+                        ? rg : ""));
+            if (flags.Contains("task-step"))
+                return Emit(LongHorizonTaskCoordinator.RecordStep(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? st2) ? st2 : "",
+                    opts.TryGetValue("step", out string? sp) ? sp : "",
+                    flags.Contains("done")));
+            if (flags.Contains("provenance-verify"))
+                return Emit(BundleProvenance.Verify(
+                    opts.TryGetValue("bundle", out string? pb)
+                        ? pb : "",
+                    ParseJsonFile(
+                        opts.TryGetValue("provenance", out string? pp)
+                            ? pp : ""),
+                    opts.TryGetValue("generation", out string? pg)
+                        ? pg : "",
+                    opts.TryGetValue("architecture", out string? pa)
+                        ? pa : "xc-fused-1"));
+            if (flags.Contains("provenance-compute"))
+                return Emit(BundleProvenance.Compute(
+                    opts.TryGetValue("bundle", out string? cb)
+                        ? cb : "",
+                    opts.TryGetValue("generation", out string? cg)
+                        ? cg : "gen-2-consolidated",
+                    opts.TryGetValue("architecture", out string? ca)
+                        ? ca : "xc-fused-1",
+                    opts.TryGetValue("xcn", out string? cx)
+                        ? cx : "XCN1 v10",
+                    opts.TryGetValue("build", out string? cbd)
+                        ? cbd : "",
+                    opts.TryGetValue("runtime", out string? crt)
+                        ? crt : "xc-native-cpp23",
+                    opts.TryGetValue("lineage", out string? cl)
+                        ? cl : ""));
             return Usage();
         }
         catch (Exception exc)
@@ -182,8 +295,111 @@ internal static class Program
             "--gen-certify --manifest <id> [--suite <suite.json>] | " +
             "--gen-promote --manifest <id> | " +
             "--gen-purge --manifest <id> [--apply] | " +
-            "--gen-status [--manifest <id>])");
+            "--gen-status [--manifest <id>] | " +
+            "--feature-catalog | " +
+            "--capabilities-resolve --request <json> [--bundle <dir>] | " +
+            "--language-scan [--root <dir>] | " +
+            "--arch-gate --evidence <file.json> | " +
+            "--tool-call-validate --call <file.json> | " +
+            "--tool-result-validate --result <file.json> | " +
+            "--structured-validate --text <file> [--schema <file>] | " +
+            "--fim-validate --fim <file.json> | " +
+            "--code-task-validate --task <file.json> | " +
+            "--task-create --goal <text> [--constraints a;b] " +
+            "[--generation <gen>] | " +
+            "--task-status|--task-transition|--task-checkpoint|" +
+            "--task-resume|--task-step --task <id> [...] | " +
+            "--provenance-verify --bundle <dir> --provenance <file.json> " +
+            "[--generation <gen>] [--architecture <arch>] | " +
+            "--provenance-compute --bundle <dir> [...])");
         return 2;
+    }
+
+    // ── convergence helpers ───────────────────────────────────────────
+
+    private static Dictionary<string, object?> ParseJsonFile(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            throw new ArgumentException("json file missing or unreadable");
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        return (Dictionary<string, object?>)ModelLifecycle.Decode(
+            doc.RootElement)!;
+    }
+
+    private static Dictionary<string, object?> CapabilitiesResolve(
+        string toolRoot, string requestPath, string bundle)
+    {
+        long trainedContext = 0;
+        if (bundle.Length > 0)
+        {
+            // Read the bundle manifest's trained context so the context
+            // budget resolves against the real ceiling.
+            string mp = Path.Combine(bundle, "manifest.json");
+            if (File.Exists(mp))
+            {
+                using var doc = JsonDocument.Parse(
+                    File.ReadAllText(mp));
+                if (doc.RootElement.TryGetProperty("config",
+                        out var cfg) &&
+                    cfg.TryGetProperty("max_position_embeddings",
+                        out var mpe) &&
+                    mpe.ValueKind == JsonValueKind.Number)
+                    trainedContext = mpe.GetInt64();
+            }
+        }
+        var req = string.IsNullOrWhiteSpace(requestPath)
+            ? new Dictionary<string, object?>()
+            : ParseJsonFile(requestPath);
+        return RuntimeCapabilityLayer.Resolve(req, trainedContext);
+    }
+
+    private static Dictionary<string, object?> ArchGate(string evidencePath)
+    {
+        var e = string.IsNullOrWhiteSpace(evidencePath)
+            ? new ArchitectureChangeGate.Evidence()
+            : ParseEvidence(evidencePath);
+        return ArchitectureChangeGate.Evaluate(e);
+    }
+
+    private static ArchitectureChangeGate.Evidence ParseEvidence(
+        string path)
+    {
+        var d = ParseJsonFile(path);
+        bool B(string k)
+            => d.TryGetValue(k, out var v) && v is bool b && b;
+        return new ArchitectureChangeGate.Evidence
+        {
+            ExistingArchCannotSolve = B("existing_arch_cannot_solve"),
+            RuntimeOptimizationIneffective =
+                B("runtime_optimization_ineffective"),
+            DataImprovementIneffective = B("data_improvement_ineffective"),
+            PostTrainingIneffective = B("post_training_ineffective"),
+            IndependentBenchmark = B("independent_benchmark"),
+            Ablation = B("ablation"),
+            MemoryImpact = B("memory_impact"),
+            LatencyImpact = B("latency_impact"),
+        };
+    }
+
+    private static Dictionary<string, object?> StructuredValidate(
+        string textPath, string schemaPath)
+    {
+        if (string.IsNullOrWhiteSpace(textPath) ||
+            !File.Exists(textPath))
+            throw new ArgumentException("structured text file missing");
+        string text = File.ReadAllText(textPath);
+        string? schema =
+            string.IsNullOrWhiteSpace(schemaPath) ||
+            !File.Exists(schemaPath)
+                ? null : File.ReadAllText(schemaPath);
+        var outcome = StructuredOutputValidator.Validate(text, schema);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = outcome.Ok,
+            ["error"] = outcome.Error.Length > 0 ? outcome.Error : null,
+            ["repaired"] = outcome.Repaired,
+            ["format"] = StructuredOutputValidator.Format,
+        };
     }
 
     private static string InferToolRoot()

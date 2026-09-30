@@ -139,7 +139,9 @@ internal sealed class DeploymentProfile
     public const string Edge = "EDGE";
 
     public static readonly string[] Names =
-        { Reference, Balanced, Fast, LowMemory, Edge };
+        { Reference, Balanced, Fast, LowMemory, Edge, UltraLowLatency };
+
+    public const string UltraLowLatency = "ULTRA_LOW_LATENCY";
 
     public string Name = Balanced;
     public string Precision = "REFERENCE_FP64";   // §26 profile name
@@ -187,6 +189,17 @@ internal sealed class DeploymentProfile
                 p.KvMode = "int8";
                 p.VisionPatchBudget = 64;
                 p.Reasoning = "LOW";
+                break;
+            // §6 fast-path profile (batch-2 reasoning contract): the
+            // lowest-latency lane; carries the rollback rule in
+            // ReasoningRuntime.ResolveDeploymentFallback.
+            case UltraLowLatency:
+                p.Name = UltraLowLatency;
+                p.Precision = "EDGE_INT8";          // schema only (§26)
+                p.Device = "cpu";
+                p.KvMode = "int8";
+                p.VisionPatchBudget = 32;
+                p.Reasoning = "NONE";
                 break;
             default:
                 throw new ExecutorError(
@@ -296,7 +309,7 @@ internal sealed class RuntimeCapabilityRequest
     public long ContextBudget = 0;                 // §28 (0 = default)
     public long KvStateBudgetBytes = 0;            // §27 (0 = default)
     public string CodingMode = "";                 // §10 star-code-task
-    public string DeploymentProfile =              // §13
+    public string Deployment =                     // §13
         DeploymentProfile.Balanced;
 
     public static RuntimeCapabilityRequest Parse(
@@ -321,8 +334,7 @@ internal sealed class RuntimeCapabilityRequest
         r.ContextBudget = Num("context_budget", 0);
         r.KvStateBudgetBytes = Num("kv_state_budget_bytes", 0);
         r.CodingMode = Str("coding_mode", r.CodingMode);
-        r.DeploymentProfile =
-            Str("deployment_profile", r.DeploymentProfile);
+        r.Deployment = Str("deployment_profile", r.Deployment);
         return r;
     }
 }
