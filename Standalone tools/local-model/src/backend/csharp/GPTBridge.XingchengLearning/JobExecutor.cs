@@ -121,8 +121,12 @@ internal sealed class TrainingJobExecutor
         cfg["training_kind"] = kind;
         // §34 capability-training freeze — a formal training kind is a
         // frozen operation while the freeze holds; probes/benchmarks
-        // never flow through this executor.
-        CapabilityFreeze.Guard(kind);
+        // never flow through this executor. SINGLE_CAPABILITY_RECOVERY
+        // narrows the freeze to exactly one declared-capability SFT job.
+        cfg["capability"] =
+            TransformerTrainingRepository.Str(cfg, "capability") ?? "";
+        CapabilityFreeze.GuardJob(kind, (string)cfg["capability"]!,
+                                  SelfLearningPolicy.Load(_toolRoot));
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
         if (initRaw != null && initRaw.ToString() is { Length: > 0 } initStr)
@@ -808,6 +812,31 @@ internal sealed class TrainingJobExecutor
             configuration = NormalizeConfiguration(row);
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
+            // §1 recovery lane defense-in-depth: under
+            // SINGLE_CAPABILITY_RECOVERY every document carrying a
+            // capability tag must name the active capability — a mixed
+            // dataset is a multi-capability job and is denied.
+            {
+                var pol = SelfLearningPolicy.Load(_toolRoot);
+                if (pol.CapabilityTrainingFrozen &&
+                    string.Equals(pol.CapabilityTrainingMode,
+                                  "SINGLE_CAPABILITY_RECOVERY",
+                                  StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var d in trainDocs.Concat(valDocs))
+                    {
+                        string? dc = TransformerTrainingRepository
+                            .Str(d, "capability");
+                        if (dc != null && dc.Length > 0 &&
+                            !string.Equals(dc, pol.ActiveCapability,
+                                           StringComparison.OrdinalIgnoreCase))
+                            throw new ExecutorError(
+                                "MULTI_CAPABILITY_TRAINING_DENIED",
+                                $"dataset document carries capability " +
+                                $"'{dc}', not '{pol.ActiveCapability}'");
+                    }
+                }
+            }
 
             var (lc, lcDir) = LifecycleOf((string)configuration["model_id"]!);
             lifecycle = lc;

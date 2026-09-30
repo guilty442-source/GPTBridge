@@ -251,6 +251,42 @@ internal static class CapabilityFreeze
         throw new ExecutorError("CAPABILITY_TRAINING_FROZEN",
             $"operation '{operation}' requires capability training which is frozen");
     }
+
+    /// <summary>Single-capability recovery lane (§1
+    /// star-single-capability-recovery/v1): while the freeze holds, a
+    /// policy may declare capability_training_mode =
+    /// SINGLE_CAPABILITY_RECOVERY plus active_capability. Under that mode
+    /// exactly one SFT job whose declared capability equals the active
+    /// capability may proceed; every other capability and every non-SFT
+    /// kind stays denied. Recovery mode only narrows the freeze — it can
+    /// never widen it (an unconfigured/again-frozen policy falls back to
+    /// the plain guard).</summary>
+    public static void GuardJob(string operation, string? capability,
+                                SelfLearningPolicy policy)
+    {
+        if (!CAPABILITY_TRAINING_FROZEN) return;
+        bool recovery = policy.CapabilityTrainingFrozen &&
+            string.Equals(policy.CapabilityTrainingMode,
+                          "SINGLE_CAPABILITY_RECOVERY",
+                          StringComparison.OrdinalIgnoreCase);
+        if (!recovery)
+        {
+            Guard(operation);
+            return;
+        }
+        if (operation != "sft")
+            throw new ExecutorError("CAPABILITY_TRAINING_FROZEN",
+                $"SINGLE_CAPABILITY_RECOVERY permits only sft; " +
+                $"operation '{operation}' stays frozen");
+        if (policy.ActiveCapability.Length == 0)
+            throw new ExecutorError("CAPABILITY_RECOVERY_UNCONFIGURED",
+                "SINGLE_CAPABILITY_RECOVERY requires active_capability");
+        if (!string.Equals(capability ?? "", policy.ActiveCapability,
+                           StringComparison.OrdinalIgnoreCase))
+            throw new ExecutorError("MULTI_CAPABILITY_TRAINING_DENIED",
+                $"job capability '{capability ?? ""}' is not the active " +
+                $"recovery capability '{policy.ActiveCapability}'");
+    }
 }
 
 // ------------------------------------------------- §17 evolution order

@@ -116,12 +116,16 @@ static int canoncheck() {
     // CSA / MLA / aux-free lb_bias are TRAINER_ONLY_EXPERIMENTAL or
     // NON_CANONICAL_EXPERIMENTAL axes — legal to serialize, never part
     // of the xc-fused-1 claim.
-    auto reject = [&](const char* what, void (*mut)(ModelConfig&)) {
+    auto reject = [&](const char* what, void (*mut)(ModelConfig&),
+                      bool round_trips = true) {
         ModelConfig c = canonical();
         mut(c);
         if (cfg_is_canonical(c)) fail(what);
         // Non-canonical axes still round-trip — the contract rejects
-        // the *claim*, not the serialization.
+        // the *claim*, not the serialization. CSA is excluded: its
+        // fields are not part of XCN10 at all, so a CSA configuration
+        // can never be serialized as a canonical checkpoint.
+        if (!round_trips) return;
         Params p;
         init_params(p, c, 29);
         if (ckpt_save(p, c, tmp, true)) {
@@ -134,7 +138,8 @@ static int canoncheck() {
     reject("csa allowed in canonical",
            [](ModelConfig& c) { c.csa_ratio = 2; c.csa_topk = 2;
                                 c.csa_window = 4;
-                                c.global_attn_interval = 1; });
+                                c.global_attn_interval = 1; },
+           false);
     reject("mla kv-lora allowed in canonical",
            [](ModelConfig& c) { c.kv_lora_rank = 64; });
     reject("mla q-lora allowed in canonical",
@@ -143,7 +148,7 @@ static int canoncheck() {
            [](ModelConfig& c) { c.moe_auxfree_balance = true;
                                 c.moe_lb_bias_rate = 1e-3f; });
     reject("gemma4 claimed as xc-fused-1",
-           [](ModelConfig& c) { c.num_kv_shared_layers = 2; });
+           [](ModelConfig& c) { c.model_type = "gemma4_text"; });
     reject("interval != 4",
            [](ModelConfig& c) { c.full_attention_interval = 3; });
     reject("aux_w drift", [](ModelConfig& c) { c.moe_aux_w = 0.01f; });
