@@ -390,7 +390,38 @@ $X = "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearnin
 
 Implementation: `GPTBridge.XingchengLearning/GenerationMigration.cs`;
 directory artifacts (native bundles) hash via manifest/weights digest
-in `Lifecycle.cs::ArtifactHashDir`.
+in `Lifecycle.cs::ArtifactHashDir`. `--gen-promote` runs §18
+post-activation verification (pin → active artifact, lifecycle active
+weights, independent native inference) before reporting PROMOTED — a
+failure rolls back pin + lifecycle active version + generation state;
+`--gen-purge --apply` stamps a `lineage` block (predecessor identity,
+hashes, activation/retirement times, carried-record counts) that
+survives the deleted runtime.
+
+## 星澄 Capability Trace (`star-capability-trace/v1` / `star-capability-result/v1`)
+
+> Convergence freeze (capability_training_frozen=true): two-level
+> observability only — records never feed a trainer job.
+
+- Level 2 request trace (`xingcheng/runtime/logs/capability-trace.jsonl`):
+  `request_id`, `intent`, `service_expert`, `model_generation`,
+  `architecture_generation`, `router_layers[]`
+  (`layer_id`/`router_type`/`selected_neural_experts`/`shared_expert_used`),
+  `tool_used`, `rag_used`, `final_result`, `capability_eval`.
+- Level 1 expert result
+  (`xingcheng/runtime/logs/capability-results.jsonl`):
+  `capability`, `status` (pass/fail/degraded/skipped), `evidence`,
+  `confidence`, `source`, `failure`, `fallback`, `trace_id`.
+
+```powershell
+& $X --tool-root "Standalone tools\local-model" --trace-record --trace <file.json>
+& $X --tool-root "Standalone tools\local-model" --cap-record --result <file.json>
+& $X --tool-root "Standalone tools\local-model" --trace-status
+```
+
+Implementation: `GPTBridge.XingchengLearning/CapabilityTrace.cs`
+(append-only JSONL; generation identity auto-stamps from the active
+generation state).
 
 ## 星澄 Data Residency (`xingcheng-internal`)
 
