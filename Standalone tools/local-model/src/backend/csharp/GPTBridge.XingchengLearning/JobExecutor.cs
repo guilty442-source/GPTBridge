@@ -299,10 +299,10 @@ internal sealed class TrainingJobExecutor
         return map;
     }
 
-    /// <summary>Read the XCN1..XCN6 header into a trainer ``model``
+    /// <summary>Read the XCN1..XCN7 header into a trainer ``model``
     /// config dict (XCN2 MoE widths, XCN3 hybrid-attention geometry,
     /// XCN4 vision early-fusion block, XCN5 Gemma A4B axis, XCN6
-    /// fused-router flag — field names match
+    /// fused-router flag, XCN7 DeepSeek V4-Pro axis — field names match
     /// ``xct_util.parse_model``).</summary>
     private static Dictionary<string, object?> XcnConfig(string ckptPath)
     {
@@ -313,7 +313,7 @@ internal sealed class TrainingJobExecutor
             magic[0] != 'X' || magic[1] != 'C' || magic[2] != 'N' || magic[3] != '1')
             throw new ExecutorError("EXECUTOR_CKPT_BAD_MAGIC", ckptPath);
         uint ver = r.ReadUInt32();
-        if (ver < 1 || ver > 6)
+        if (ver < 1 || ver > 7)
             throw new ExecutorError("EXECUTOR_CKPT_VERSION", $"v{ver}");
         uint vocab = r.ReadUInt32();
         uint hidden = r.ReadUInt32();
@@ -394,6 +394,20 @@ internal sealed class TrainingJobExecutor
             // XCN6 fused router: Qwen3-A3B softmax | Qwen3.5 sigmoid
             // scoring flag (see xct_ckpt.h).
             cfg["moe_router_sigmoid"] = r.ReadUInt32() != 0u;
+        }
+        if (ver >= 7)
+        {
+            // XCN7 DeepSeek V4-Pro block (see xct_ckpt.h write order):
+            // MLA dims, aux-free balance flag + bias rate, MTP depth +
+            // loss weight.
+            cfg["kv_lora_rank"] = (long)r.ReadUInt32();
+            cfg["q_lora_rank"] = (long)r.ReadUInt32();
+            cfg["qk_nope_head_dim"] = (long)r.ReadUInt32();
+            cfg["qk_rope_head_dim"] = (long)r.ReadUInt32();
+            cfg["moe_auxfree_balance"] = r.ReadUInt32() != 0u;
+            cfg["moe_lb_bias_rate"] = (double)r.ReadSingle();
+            cfg["num_nextn_predict_layers"] = (long)r.ReadUInt32();
+            cfg["mtp_loss_weight"] = (double)r.ReadSingle();
         }
         return cfg;
     }

@@ -137,6 +137,15 @@ struct ModelConfig {
                                  // (t+1))] through one decoder block and
                                  // the shared head; loss weight below.
     float mtp_loss_weight = 0.0f;      // lambda on the MTP CE (V3: 0.3)
+    // Qwen3-Coder-480B YaRN context extension (default-off): per-channel
+    // blend of raw and factor-interpolated rope inv-freqs (beta_fast /
+    // beta_slow band boundaries) plus attention-factor mscale. Enabled
+    // when yarn_factor > 1 and yarn_orig_pos > 0.
+    float yarn_factor = 0.0f;
+    int yarn_orig_pos = 0;
+    float yarn_beta_fast = 32.0f;
+    float yarn_beta_slow = 1.0f;
+    float yarn_attn_factor = 0.0f;
     // Native vision early-fusion (v1): optional linear patch projection.
     // use_vision=false (default) keeps text-only behaviour bit-identical.
     bool use_vision = false;
@@ -189,6 +198,11 @@ struct ModelConfig {
         int hd = heads > 0 ? hidden / heads : 0;
         int rd = (int)(hd * rope_prop_at(l));
         return rd > 0 && rd < hd ? rd & ~1 : hd;
+    }
+    // YaRN axis: blends rope frequencies when a factor and the original
+    // context length are configured (Qwen3-Coder long-context extension).
+    bool use_yarn() const {
+        return yarn_factor > 1.0f && yarn_orig_pos > 0;
     }
     // DeepSeek MLA axis (independent of the deltanet/local-global axes):
     // every non-linear attention layer swaps its kv projections for the
@@ -260,6 +274,14 @@ static ModelConfig parse_model(const JsonValue* o) {
                              c.mtp_num_layers);
     c.mtp_loss_weight =
         (float)j_num(o, "mtp_loss_weight", c.mtp_loss_weight);
+    // Qwen3-Coder YaRN (rope_scaling.yarn flattened).
+    c.yarn_factor = (float)j_num(o, "yarn_factor", c.yarn_factor);
+    c.yarn_orig_pos = j_int(o, "yarn_original_max_position_embeddings",
+                            c.yarn_orig_pos);
+    c.yarn_beta_fast = (float)j_num(o, "yarn_beta_fast", c.yarn_beta_fast);
+    c.yarn_beta_slow = (float)j_num(o, "yarn_beta_slow", c.yarn_beta_slow);
+    c.yarn_attn_factor =
+        (float)j_num(o, "yarn_attention_factor", c.yarn_attn_factor);
     c.use_vision = j_bool(o, "use_vision", c.use_vision);
     c.vision_patch_dim = j_int(o, "vision_patch_dim", c.vision_patch_dim);
     c.vision_max_patches = j_int(o, "vision_max_patches", c.vision_max_patches);
@@ -305,6 +327,11 @@ static ModelConfig parse_model(const JsonValue* o) {
         throw "model: mtp_num_layers >1 not supported";
     if (c.mtp_num_layers > 0 && c.mtp_loss_weight <= 0.0f)
         throw "model: mtp needs mtp_loss_weight";
+    if (c.yarn_factor > 1.0f && c.yarn_orig_pos <= 0)
+        throw "model: yarn needs yarn_original_max_position_embeddings";
+    if (c.use_yarn() &&
+        (c.yarn_beta_slow <= 0.0f || c.yarn_beta_fast <= c.yarn_beta_slow))
+        throw "model: bad yarn beta band";
     return c;
 }
 

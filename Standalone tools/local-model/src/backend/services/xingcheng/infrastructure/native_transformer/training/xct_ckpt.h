@@ -30,9 +30,12 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // post_attn_norm | post_ffw_norm | ffn_act), local/global rope
     // proportions and base frequencies, final_logit_softcap.
     // XCN6 = XCN5 + fused-router flag: moe_router_sigmoid (u32 bool).
-    // v1..v5 checkpoints still load: absent fields default to the
+    // XCN7 = XCN6 + DeepSeek V4-Pro block: MLA dims (kv_lora_rank,
+    // q_lora_rank, qk_nope/qk_rope head dims), aux-free balance flag +
+    // bias rate, MTP depth + loss weight.
+    // v1..v6 checkpoints still load: absent fields default to the
     // Qwen-style fused behaviour.
-    f.write("XCN1", 4); u32(f, 6);
+    f.write("XCN1", 4); u32(f, 7);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
     u32(f, (uint32_t)c.heads); u32(f, (uint32_t)c.kv_heads);
@@ -64,6 +67,13 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     f.write((char*)&c.rope_theta_global, 4);
     f.write((char*)&c.final_logit_softcap, 4);
     u32(f, c.moe_router_sigmoid ? 1u : 0u);
+    u32(f, (uint32_t)c.kv_lora_rank); u32(f, (uint32_t)c.q_lora_rank);
+    u32(f, (uint32_t)c.qk_nope_head_dim);
+    u32(f, (uint32_t)c.qk_rope_head_dim);
+    u32(f, c.moe_auxfree_balance ? 1u : 0u);
+    f.write((char*)&c.moe_lb_bias_rate, 4);
+    u32(f, (uint32_t)c.mtp_num_layers);
+    f.write((char*)&c.mtp_loss_weight, 4);
     u32(f, (uint32_t)p.order.size());
     for (auto& n : p.order) {
         const Tensor& t = p.w.at(n);
@@ -85,7 +95,7 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 6) return false;
+    if (ver < 1 || ver > 7) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -129,6 +139,15 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
         f.read((char*)&c.final_logit_softcap, 4);
     }
     if (ver >= 6) c.moe_router_sigmoid = r32(f) != 0;
+    if (ver >= 7) {
+        c.kv_lora_rank = (int)r32(f); c.q_lora_rank = (int)r32(f);
+        c.qk_nope_head_dim = (int)r32(f);
+        c.qk_rope_head_dim = (int)r32(f);
+        c.moe_auxfree_balance = r32(f) != 0;
+        f.read((char*)&c.moe_lb_bias_rate, 4);
+        c.mtp_num_layers = (int)r32(f);
+        f.read((char*)&c.mtp_loss_weight, 4);
+    }
     return (bool)f;
 }
 
@@ -138,7 +157,7 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     char magic[4]; f.read(magic, 4);
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 6) return false;
+    if (ver < 1 || ver > 7) return false;
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -182,6 +201,15 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
         f.read((char*)&c.final_logit_softcap, 4);
     }
     if (ver >= 6) c.moe_router_sigmoid = r32(f) != 0;
+    if (ver >= 7) {
+        c.kv_lora_rank = (int)r32(f); c.q_lora_rank = (int)r32(f);
+        c.qk_nope_head_dim = (int)r32(f);
+        c.qk_rope_head_dim = (int)r32(f);
+        c.moe_auxfree_balance = r32(f) != 0;
+        f.read((char*)&c.moe_lb_bias_rate, 4);
+        c.mtp_num_layers = (int)r32(f);
+        f.read((char*)&c.mtp_loss_weight, 4);
+    }
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {
         uint32_t nl = r32(f);
