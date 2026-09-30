@@ -22,10 +22,9 @@
 //   scale-status           --bundle <dir>   §55 star-scale-status/v1
 //   future-scale-probe     --file <shape.json> | --bundle <dir>
 //                          §40-§43 research estimators (no arch change)
+// NOTE: included inside the anonymous namespace — <map>/<set> are
+// pulled by xc_modeltool.cpp's top-level include block.
 #pragma once
-
-#include <map>
-#include <set>
 
 // ------------------------------------------------- §3 accounting ----
 // Tensor classes: routed experts / shared experts / router / common
@@ -491,8 +490,7 @@ int mode_prefetch_probe(const Args& a) {
     catch (const std::exception& ex) {
         fail(std::string("PREFETCH_GEN:") + ex.what());
     }
-    JsonValue tr = e.router_trace();
-    const JsonValue* layers = tr.get("layers");
+    const auto& layers = e.router_trace();
     XcmPrefetchPlanner planner;
     XcmExpertResidency res;
     res.expert_bytes = 0;
@@ -500,45 +498,37 @@ int mode_prefetch_probe(const Args& a) {
     res.gpu_budget_bytes = 0;      // measures planner accuracy only
     int64_t selections = 0, predicted_correct = 0;
     int64_t pinned = 0;
-    std::set<int64_t> prev_sel_layers;
     std::map<int64_t, std::vector<int64_t>> prev_sel;
-    std::map<int64_t, std::map<int64_t, double>> prob_hist;
-    if (layers && layers->type == JsonValue::Type::Array) {
-        for (const auto& L : layers->array) {
-            int64_t lid = (int64_t)xct::j_num(&L, "layer_id", -1);
-            const JsonValue* sel = L.get("selected");
-            if (!sel || sel->type != JsonValue::Type::Array) continue;
-            // per-token top-k rows
-            for (const auto& row : sel->array) {
-                if (row.type != JsonValue::Type::Array) continue;
-                std::vector<int64_t> cur;
-                for (const auto& x : row.array)
-                    cur.push_back((int64_t)x.number);
-                ++selections;
-                // session affinity accumulate
-                for (int64_t ex : cur) planner.affinity[{lid, ex}]++;
-                // score the prediction made for this layer
-                if (prev_sel.count(lid - 0) == 0) {}
-                auto pit = prev_sel.find(lid);
-                if (pit != prev_sel.end()) {
-                    auto preds = planner.predict(
-                        lid, 0, pit->second);
-                    for (int64_t pe : preds) {
-                        ++planner.prefetches;
-                        bool hit = std::find(cur.begin(), cur.end(),
-                                             pe) != cur.end();
-                        if (hit) ++planner.prefetch_hits;
-                        else ++planner.prefetch_misses;
-                        if (hit) ++predicted_correct;
-                    }
+    for (const auto& L : layers) {
+        // per-token top-k rows: flat [token_count * top_k] experts
+        for (int64_t t = 0; t < L.token_count; ++t) {
+            std::vector<int64_t> cur;
+            for (int64_t k = 0; k < L.top_k; ++k)
+                cur.push_back(
+                    L.expert_ids[(size_t)(t * L.top_k + k)]);
+            ++selections;
+            // session affinity accumulate
+            for (int64_t ex : cur) planner.affinity[{L.layer_id, ex}]++;
+            // score the prediction made for this layer
+            auto pit = prev_sel.find(L.layer_id);
+            if (pit != prev_sel.end()) {
+                auto preds = planner.predict(L.layer_id, 0,
+                                             pit->second);
+                for (int64_t pe : preds) {
+                    ++planner.prefetches;
+                    bool hit = std::find(cur.begin(), cur.end(),
+                                         pe) != cur.end();
+                    if (hit) ++planner.prefetch_hits;
+                    else ++planner.prefetch_misses;
+                    if (hit) ++predicted_correct;
                 }
-                // transition stats: current layer's selection -> next
-                // layer's experts are learned as they are seen.
-                for (int64_t ex : cur)
-                    for (int64_t nx : cur)
-                        planner.trans[{lid, ex}][nx]++;
-                prev_sel[lid] = cur;
             }
+            // transition stats: current layer's selection -> next
+            // layer's experts are learned as they are seen.
+            for (int64_t ex : cur)
+                for (int64_t nx : cur)
+                    planner.trans[{L.layer_id, ex}][nx]++;
+            prev_sel[L.layer_id] = cur;
         }
     }
     double hit_rate = planner.prefetches > 0
@@ -771,10 +761,9 @@ int mode_low_resource_sim(const Args& a) {
     catch (const std::exception& ex) {
         fail(std::string("LOWRES_GEN:") + ex.what());
     }
-    JsonValue tr = e.router_trace();
-    const JsonValue* layers = tr.get("layers");
+    const auto& layers = e.router_trace();
 
-    // tier state per expert: 0=COLD 1=WARM 2=HOT
+    // tier state per expert: 0=NVME_COLD 1=HOST_WARM 2=DEVICE_HOT
     std::map<std::pair<int64_t, int64_t>, int> tier;
     std::map<std::pair<int64_t, int64_t>, uint64_t> last_use, freq;
     uint64_t tick = 0;
@@ -804,43 +793,39 @@ int mode_low_resource_sim(const Args& a) {
         ++evictions;
         return true;
     };
-    if (layers && layers->type == JsonValue::Type::Array)
-        for (const auto& L : layers->array) {
-            int64_t lid = (int64_t)xct::j_num(&L, "layer_id", -1);
-            const JsonValue* sel = L.get("selected");
-            if (!sel || sel->type != JsonValue::Type::Array) continue;
-            for (const auto& row : sel->array) {
-                if (row.type != JsonValue::Type::Array) continue;
-                for (const auto& x : row.array) {
-                    ++tick;
-                    std::pair<int64_t, int64_t> key{
-                        lid, (int64_t)x.number};
-                    int t = tier.count(key) ? tier[key] : 0;
-                    ++freq[key];
-                    last_use[key] = tick;
-                    if (t == 2) { ++hits_hot; continue; }
-                    if (t == 1) {
-                        ++hits_warm;
-                        // WARM -> HOT staging
-                        while (hot_bytes + per_expert >
-                                   gpu_expert_cap &&
-                               evict_hot()) {}
-                        tier[key] = 2;
-                        hot_bytes += per_expert;
-                        warm_bytes -= per_expert;
-                        est_transfer_ms += per_expert / 1e6 * 8.0;
-                        continue;
-                    }
-                    // COLD: NVMe -> RAM staging -> HOT
-                    ++cold_loads;
-                    est_transfer_ms += per_expert / 1e6 * 20.0;
-                    while (hot_bytes + per_expert > gpu_expert_cap &&
+    for (const auto& L : layers) {
+        for (int64_t t = 0; t < L.token_count; ++t) {
+            for (int64_t k = 0; k < L.top_k; ++k) {
+                ++tick;
+                std::pair<int64_t, int64_t> key{
+                    L.layer_id,
+                    L.expert_ids[(size_t)(t * L.top_k + k)]};
+                int tr_tier = tier.count(key) ? tier[key] : 0;
+                ++freq[key];
+                last_use[key] = tick;
+                if (tr_tier == 2) { ++hits_hot; continue; }
+                if (tr_tier == 1) {
+                    ++hits_warm;
+                    // WARM -> HOT staging
+                    while (hot_bytes + per_expert >
+                               gpu_expert_cap &&
                            evict_hot()) {}
                     tier[key] = 2;
                     hot_bytes += per_expert;
+                    warm_bytes -= per_expert;
+                    est_transfer_ms += per_expert / 1e6 * 8.0;
+                    continue;
                 }
+                // COLD: NVMe -> RAM staging -> HOT
+                ++cold_loads;
+                est_transfer_ms += per_expert / 1e6 * 20.0;
+                while (hot_bytes + per_expert > gpu_expert_cap &&
+                       evict_hot()) {}
+                tier[key] = 2;
+                hot_bytes += per_expert;
             }
         }
+    }
     // CPU budget: dequant+prefetch threads are a fixed slice of each
     // token's host-side work; exceeding the pct is fail-closed.
     double cold_share =

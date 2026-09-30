@@ -61,8 +61,10 @@
 #include <fstream>
 #include <functional>
 #include <limits>
+#include <map>
 #include <mutex>
 #include <numeric>
+#include <set>
 #include <random>
 #include <regex>
 #include <sstream>
