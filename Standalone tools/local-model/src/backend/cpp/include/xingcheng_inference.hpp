@@ -482,15 +482,9 @@ private:
         std::vector<double> lin_beta;       // [T, vh]
         std::vector<double> lin_o;          // [T, vh*vd] scan output
         std::vector<double> lin_on;         // [T, vh*vd] normed+gated
-        std::vector<double> lin_local_conv; // scratch state tail copy
-        std::vector<double> lin_local_s;    // scratch state copy
         std::vector<double> attn_gate;      // [T, q_dim] gate logits
-        std::vector<double> qk_tmp;         // per-head qk_norm scratch
+        std::vector<double> qk_tmp;         // per-head qk_norm/scan scratch
         std::vector<double> shared_sig;     // [T] shared-expert gate
-        std::vector<double> rope_cos_hd;    // trainer-contract tables
-        std::vector<double> rope_sin_hd;
-        std::vector<double> rope_cos_rd;
-        std::vector<double> rope_sin_rd;
     };
     ForwardScratch fs_;
     // RoPE frequency-base cache (dim/theta keyed): pow() once per model.

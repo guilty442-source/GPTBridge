@@ -154,20 +154,317 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 hidden_rms(normed, total_tokens, hidden_size));
         }
         // RoPE probe accumulator: RMS of post-RoPE queries across all spans
-        // (post-projection queries when the config is not rope).
+        // (post-projection queries when the config is not rope; on DeltaNet
+        // layers the post-normalization query stream plays that role).
         double rope_q_sumsq = 0.0;
         int64_t rope_q_count = 0;
+        std::vector<double>& attn_out = fs_.attn_out;
+        if (layer.is_linear) {
+        // ── v27 gated DeltaNet (linear attention) ────────────────────
+        // One fused GEMM produces [qkvz|z|a|b] per packed row; the causal
+        // depthwise conv + per-value-head delta-rule scan then runs per
+        // sequence over the slot's persistent recurrent state.
+        {
+            std::vector<double>& fused = fs_.lin_fused;
+            std::vector<double>& qkvz = fs_.lin_qkvz;
+            std::vector<double>& lz = fs_.lin_z;
+            std::vector<double>& la = fs_.lin_a;
+            std::vector<double>& lb = fs_.lin_b;
+            linear_into(
+                normed, total_tokens, hidden_size, layer.lin_fused_t,
+                lin_fused_cols, fused);
+            split_columns(
+                fused, total_tokens,
+                {{lin_kh * lin_group_sz, &qkvz},
+                 {lin_val_dim, &lz}, {lin_vh, &la}, {lin_vh, &lb}});
+            std::vector<double>& conv_in = fs_.lin_conv_in;
+            std::vector<double>& conv_pad = fs_.lin_conv_pad;
+            std::vector<double>& conv_out = fs_.lin_conv_out;
+            std::vector<double>& lq = fs_.lin_qn;
+            std::vector<double>& lk = fs_.lin_kn;
+            std::vector<double>& lv = fs_.lin_v;
+            std::vector<double>& lo = fs_.lin_o;
+            std::vector<double>& lon = fs_.lin_on;
+            std::vector<double>& decay = fs_.lin_decay;
+            std::vector<double>& beta = fs_.lin_beta;
+            conv_in.resize(static_cast<size_t>(total_tokens * lin_conv_dim));
+            lq.resize(static_cast<size_t>(total_tokens * lin_vh * lin_kd));
+            lk.resize(static_cast<size_t>(total_tokens * lin_vh * lin_kd));
+            lv.resize(static_cast<size_t>(total_tokens * lin_val_dim));
+            lo.resize(static_cast<size_t>(total_tokens * lin_val_dim));
+            lon.resize(static_cast<size_t>(total_tokens * lin_val_dim));
+            decay.resize(static_cast<size_t>(total_tokens * lin_vh));
+            beta.resize(static_cast<size_t>(total_tokens * lin_vh));
+            const int64_t s_sz = lin_kd * lin_vd;
+            const double* a_log = layer.lin_a_log.data;
+            const double* dt_bias = layer.lin_dt_bias.data;
+            const double* conv_w = layer.lin_conv1d.data;
+            const double* out_norm = layer.lin_out_norm.data;
+            std::vector<double>& kvm = fs_.qk_tmp;
+            std::vector<double> u(static_cast<size_t>(lin_vd));
+            const double qscale =
+                1.0 / std::sqrt(static_cast<double>(lin_kd));
+            for (size_t i = 0; i < spans.size(); ++i) {
+                const BatchSpan& span = spans[i];
+                const int64_t seq = vlens[i];
+                const int64_t base = starts[i];
+                // State resolution: appended spans read+write the slot's
+                // persistent state; probe spans (append_cache=false) run
+                // on a local scratch state — fresh at offset 0, a copy of
+                // the slot's saved state when resuming mid-sequence.
+                LinLayerState local;
+                LinLayerState* st;
+                if (span.append_cache) {
+                    st = &lin_states_[static_cast<size_t>(span.slot)]
+                                     [static_cast<size_t>(layer_idx)];
+                    if (span.position_offset == 0) {
+                        st->tokens = 0;
+                    } else if (st->tokens != span.position_offset) {
+                        throw InferenceError("LIN_STATE_MISMATCH");
+                    }
+                } else if (span.position_offset == 0) {
+                    st = &local;
+                } else {
+                    const LinLayerState& saved =
+                        lin_states_[static_cast<size_t>(span.slot)]
+                                   [static_cast<size_t>(layer_idx)];
+                    if (saved.tokens != span.position_offset) {
+                        throw InferenceError("LIN_STATE_MISMATCH");
+                    }
+                    local = saved;
+                    st = &local;
+                }
+                if (st->conv_tail.empty()) {
+                    st->conv_tail.assign(static_cast<size_t>(
+                        (lin_kernel - 1) * lin_conv_dim), 0.0);
+                    st->s.assign(
+                        static_cast<size_t>(lin_vh * s_sz), 0.0);
+                }
+                // Unpack per-key-head [q|k|v-group] rows into the flat
+                // [q_flat|k_flat|v_flat] conv layout (HF in_proj_qkvz).
+                for (int64_t s = 0; s < seq; ++s) {
+                    const double* src = qkvz.data() + static_cast<size_t>(
+                        (base + s) * lin_kh * lin_group_sz);
+                    double* dst = conv_in.data() +
+                        static_cast<size_t>((base + s) * lin_conv_dim);
+                    for (int64_t g = 0; g < lin_kh; ++g) {
+                        const double* gr = src + g * lin_group_sz;
+                        std::copy_n(gr, lin_kd, dst + g * lin_kd);
+                        std::copy_n(gr + lin_kd, lin_kd,
+                                    dst + lin_key_dim + g * lin_kd);
+                        std::copy_n(gr + 2 * lin_kd, lin_vd * lin_ratio,
+                                    dst + 2 * lin_key_dim +
+                                        g * lin_vd * lin_ratio);
+                    }
+                }
+                // Causal depthwise conv + SiLU: the slot's last kernel-1
+                // raw rows supply the left context for continuation spans.
+                conv_pad.resize(static_cast<size_t>(
+                    (lin_kernel - 1 + seq) * lin_conv_dim));
+                std::copy(st->conv_tail.begin(), st->conv_tail.end(),
+                          conv_pad.begin());
+                for (int64_t s = 0; s < seq; ++s) {
+                    std::copy_n(
+                        conv_in.data() +
+                            static_cast<size_t>((base + s) * lin_conv_dim),
+                        lin_conv_dim,
+                        conv_pad.data() + static_cast<size_t>(
+                            (lin_kernel - 1 + s) * lin_conv_dim));
+                }
+                conv_out.resize(static_cast<size_t>(seq * lin_conv_dim));
+                for (int64_t s = 0; s < seq; ++s) {
+                    double* out_row = conv_out.data() +
+                        static_cast<size_t>(s * lin_conv_dim);
+                    const double* pad_row = conv_pad.data() +
+                        static_cast<size_t>((lin_kernel - 1 + s) * lin_conv_dim);
+                    for (int64_t c = 0; c < lin_conv_dim; ++c) {
+                        double acc = 0.0;
+                        for (int64_t j = 0; j < lin_kernel; ++j) {
+                            acc += conv_w[c * lin_kernel + j] *
+                                   pad_row[static_cast<size_t>(
+                                       c - j * lin_conv_dim)];
+                        }
+                        out_row[c] = silu_d(acc);
+                    }
+                }
+                // Expand q/k across the value-head group, l2-normalize,
+                // scale q by 1/sqrt(kd) — trainer order, row-wise.
+                for (int64_t s = 0; s < seq; ++s) {
+                    const int64_t row = base + s;
+                    const double* cr = conv_out.data() +
+                        static_cast<size_t>(s * lin_conv_dim);
+                    for (int64_t g = 0; g < lin_kh; ++g) {
+                        for (int64_t r = 0; r < lin_ratio; ++r) {
+                            const int64_t h = g * lin_ratio + r;
+                            std::copy_n(
+                                cr + g * lin_kd, lin_kd,
+                                lq.data() + static_cast<size_t>(
+                                    (row * lin_vh + h) * lin_kd));
+                            std::copy_n(
+                                cr + lin_key_dim + g * lin_kd, lin_kd,
+                                lk.data() + static_cast<size_t>(
+                                    (row * lin_vh + h) * lin_kd));
+                        }
+                    }
+                    std::copy_n(
+                        cr + 2 * lin_key_dim, lin_val_dim,
+                        lv.data() + static_cast<size_t>(
+                            row * lin_val_dim));
+                }
+                for (int64_t s = 0; s < seq; ++s) {
+                    const int64_t row = base + s;
+                    for (int64_t h = 0; h < lin_vh; ++h) {
+                        const double ar =
+                            la[static_cast<size_t>(row * lin_vh + h)] +
+                            dt_bias[h];
+                        decay[static_cast<size_t>(row * lin_vh + h)] =
+                            std::exp(-std::exp(a_log[h]) * softplus_d(ar));
+                        beta[static_cast<size_t>(row * lin_vh + h)] =
+                            sigmoid_d(
+                                lb[static_cast<size_t>(row * lin_vh + h)]);
+                    }
+                }
+                // Per-span l2-normalize + q scale (order matches trainer).
+                l2norm_span_rows(
+                    lq, base, seq, lin_vh, lin_kd, 1e-6);
+                l2norm_span_rows(
+                    lk, base, seq, lin_vh, lin_kd, 1e-6);
+                for (int64_t s = 0; s < seq; ++s) {
+                    double* qr = lq.data() + static_cast<size_t>(
+                        ((base + s) * lin_vh) * lin_kd);
+                    for (int64_t e = 0; e < lin_vh * lin_kd; ++e) {
+                        qr[e] *= qscale;
+                    }
+                }
+                // Delta-rule recurrence (fp64 twin of the trainer scan):
+                //   S' = dec·S; u = β·(v − S'ᵀk); S' += k⊗u; o = qᵀS'.
+                kvm.resize(static_cast<size_t>(lin_vd));
+                for (int64_t h = 0; h < lin_vh; ++h) {
+                    double* S = st->s.data() +
+                        static_cast<size_t>(h * s_sz);
+                    for (int64_t s = 0; s < seq; ++s) {
+                        const int64_t row = base + s;
+                        const double* kr = lk.data() + static_cast<size_t>(
+                            (row * lin_vh + h) * lin_kd);
+                        const double* vr = lv.data() + static_cast<size_t>(
+                            (row * lin_vh + h) * lin_vd);
+                        const double* qr = lq.data() + static_cast<size_t>(
+                            (row * lin_vh + h) * lin_kd);
+                        const double dec = decay[static_cast<size_t>(
+                            row * lin_vh + h)];
+                        const double bt = beta[static_cast<size_t>(
+                            row * lin_vh + h)];
+                        for (int64_t e = 0; e < s_sz; ++e) S[e] *= dec;
+                        std::fill(kvm.begin(), kvm.end(), 0.0);
+                        for (int64_t d = 0; d < lin_kd; ++d) {
+                            axpy_f64(kvm.data(), kr[d],
+                                     S + static_cast<size_t>(d * lin_vd),
+                                     lin_vd);
+                        }
+                        for (int64_t j = 0; j < lin_vd; ++j) {
+                            u[static_cast<size_t>(j)] =
+                                (vr[j] - kvm[static_cast<size_t>(j)]) * bt;
+                        }
+                        for (int64_t d = 0; d < lin_kd; ++d) {
+                            axpy_f64(S + static_cast<size_t>(d * lin_vd),
+                                     kr[d], u.data(), lin_vd);
+                        }
+                        double* orow = lo.data() + static_cast<size_t>(
+                            (row * lin_vh + h) * lin_vd);
+                        std::fill(orow, orow + lin_vd, 0.0);
+                        for (int64_t d = 0; d < lin_kd; ++d) {
+                            axpy_f64(orow, qr[d],
+                                     S + static_cast<size_t>(d * lin_vd),
+                                     lin_vd);
+                        }
+                    }
+                }
+                // Persist the rolling conv window + folded position count
+                // for the next span of this sequence.
+                if (span.append_cache) {
+                    const size_t tail = st->conv_tail.size();
+                    std::copy(
+                        conv_pad.end() - static_cast<std::ptrdiff_t>(tail),
+                        conv_pad.end(), st->conv_tail.begin());
+                    st->tokens = span.position_offset + seq;
+                }
+            }
+            // Gated RMSNorm per value head, then SiLU(z) gate — the
+            // (t,h) row decomposition matches the trainer exactly.
+            for (int64_t s = 0; s < total_tokens; ++s) {
+                for (int64_t h = 0; h < lin_vh; ++h) {
+                    const double* orow = lo.data() + static_cast<size_t>(
+                        (s * lin_vh + h) * lin_vd);
+                    double* on = lon.data() + static_cast<size_t>(
+                        (s * lin_vh + h) * lin_vd);
+                    double ss = 0.0;
+                    for (int64_t j = 0; j < lin_vd; ++j) {
+                        ss += orow[j] * orow[j];
+                    }
+                    const double inv = 1.0 / std::sqrt(
+                        ss / static_cast<double>(lin_vd) +
+                        cfg.rms_norm_eps);
+                    const double* zr = lz.data() + static_cast<size_t>(
+                        (s * lin_vh + h) * lin_vd);
+                    for (int64_t j = 0; j < lin_vd; ++j) {
+                        on[j] = orow[j] * inv * out_norm[j] * silu_d(zr[j]);
+                    }
+                }
+            }
+            if (module_rms != nullptr) {
+                for (double v : lq) {
+                    rope_q_sumsq += v * v;
+                }
+                rope_q_count += static_cast<int64_t>(lq.size());
+            }
+            linear_into(
+                lon, total_tokens, lin_val_dim, layer.lin_out_proj_t,
+                hidden_size, attn_out);
+        }
+        } else {
+        // ── full attention (dense + v27 gated hybrid layers) ─────────
+        {
         // Projections and FFN are token-wise: the packed rows of all spans
         // share one GEMM — that sharing is the R9 throughput win.
         std::vector<double>& q_flat = fs_.q_flat;
         std::vector<double>& k_flat = fs_.k_flat;
         std::vector<double>& v_flat = fs_.v_flat;
+        std::vector<double>& gate_flat = fs_.attn_gate;
         linear_into(
             normed, total_tokens, hidden_size, layer.qkv_t,
-            q_dim + 2 * kv_dim, fs_.qkv);
-        split_columns(
-            fs_.qkv, total_tokens,
-            {{q_dim, &q_flat}, {kv_dim, &k_flat}, {kv_dim, &v_flat}});
+            q_mul * q_dim + 2 * kv_dim, fs_.qkv);
+        if (cfg.attn_output_gate) {
+            // q|gate fused rows: per head the q block emits
+            // [q head_dim | gate head_dim] — de-interleave into separate
+            // flat streams before head-major unpack.
+            std::vector<double>& qg = fs_.lin_qkvz;
+            split_columns(
+                fs_.qkv, total_tokens,
+                {{q_mul * q_dim, &qg},
+                 {kv_dim, &k_flat}, {kv_dim, &v_flat}});
+            q_flat.resize(static_cast<size_t>(total_tokens * q_dim));
+            gate_flat.resize(static_cast<size_t>(total_tokens * q_dim));
+            for (int64_t s = 0; s < total_tokens; ++s) {
+                for (int64_t h = 0; h < cfg.num_attention_heads; ++h) {
+                    const double* src = qg.data() + static_cast<size_t>(
+                        (s * cfg.num_attention_heads + h) * 2 * cfg.head_dim);
+                    std::copy_n(
+                        src, cfg.head_dim,
+                        q_flat.data() + static_cast<size_t>(
+                            (s * cfg.num_attention_heads + h) *
+                            cfg.head_dim));
+                    std::copy_n(
+                        src + cfg.head_dim, cfg.head_dim,
+                        gate_flat.data() + static_cast<size_t>(
+                            (s * cfg.num_attention_heads + h) *
+                            cfg.head_dim));
+                }
+            }
+        } else {
+            split_columns(
+                fs_.qkv, total_tokens,
+                {{q_dim, &q_flat}, {kv_dim, &k_flat}, {kv_dim, &v_flat}});
+        }
 
         std::vector<double>& attn_flat = fs_.attn_flat;
         attn_flat.resize(static_cast<size_t>(total_tokens * q_dim));
@@ -209,9 +506,48 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 }
             }
 
+            // v27 QK-norm: per-head RMSNorm on q/k pre-RoPE (trainer
+            // order — norm first, then rotary).
+            if (cfg.qk_norm) {
+                std::vector<double>& qn = fs_.qk_tmp;
+                rmsnorm_into(
+                    q_heads, cfg.num_attention_heads * seq, cfg.head_dim,
+                    layer.q_norm, cfg.rms_norm_eps, qn);
+                q_heads.swap(qn);
+                rmsnorm_into(
+                    k_heads, cfg.num_key_value_heads * seq, cfg.head_dim,
+                    layer.k_norm, cfg.rms_norm_eps, qn);
+                k_heads.swap(qn);
+            }
+
             std::vector<double>* q_attn = &q_heads;
             std::vector<double>* k_attn = &k_heads;
             if (cfg.position_embedding_type == "rope") {
+                if (fused_contract) {
+                    // v27 trainer pairing (xct_math.h): partial rotary is
+                    // rotate-half over the first rd channels; rd == hd
+                    // selects the interleaved (2i,2i+1) pairing. Both run
+                    // in-place — unlike the legacy rotate-half C kernel.
+                    if (rotary_dim < cfg.head_dim) {
+                        rope_partial_rows(
+                            q_heads.data(), cfg.num_attention_heads, seq,
+                            cfg.head_dim, rotary_dim, span.position_offset,
+                            *fused_bases);
+                        rope_partial_rows(
+                            k_heads.data(), cfg.num_key_value_heads, seq,
+                            cfg.head_dim, rotary_dim, span.position_offset,
+                            *fused_bases);
+                    } else {
+                        rope_interleaved_rows(
+                            q_heads.data(), cfg.num_attention_heads, seq,
+                            cfg.head_dim, span.position_offset,
+                            *fused_bases);
+                        rope_interleaved_rows(
+                            k_heads.data(), cfg.num_key_value_heads, seq,
+                            cfg.head_dim, span.position_offset,
+                            *fused_bases);
+                    }
+                } else {
                 std::vector<double>& q_rope = fs_.q_rope;
                 std::vector<double>& k_rope = fs_.k_rope;
                 q_rope.resize(q_heads.size());
@@ -228,6 +564,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     "rope-k");
                 q_attn = &q_rope;
                 k_attn = &k_rope;
+                }
             }
             if (module_rms != nullptr) {
                 for (double value : *q_attn) rope_q_sumsq += value * value;
@@ -378,18 +715,27 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             }
         }
 
+        }
+        // v27 attention output gate: sigmoid gate on the pre-o_proj
+        // stream (trainer attn_gated = attn_out * sigmoid(gate)).
+        if (cfg.attn_output_gate) {
+            for (int64_t e = 0; e < total_tokens * q_dim; ++e) {
+                attn_flat[static_cast<size_t>(e)] *=
+                    sigmoid_d(gate_flat[static_cast<size_t>(e)]);
+            }
+        }
+        linear_into(
+            attn_flat, total_tokens, q_dim, layer.o_proj_t,
+            cfg.hidden_size, attn_out);
+        }
+        }
+
         if (module_rms != nullptr) {
             module_rms->push_back(
                 rope_q_count > 0
                     ? std::sqrt(
                           rope_q_sumsq / static_cast<double>(rope_q_count))
                     : 0.0);
-        }
-        std::vector<double>& attn_out = fs_.attn_out;
-        linear_into(
-            attn_flat, total_tokens, q_dim, layer.o_proj_t,
-            cfg.hidden_size, attn_out);
-        if (module_rms != nullptr) {
             module_rms->push_back(
                 hidden_rms(attn_out, total_tokens, hidden_size));
         }
@@ -563,6 +909,17 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     axpy_f64(dst, w, src, hidden_size);
                 }
             }
+            // v27 shared-expert sigmoid gate: σ(gate·x) on the post-norm
+            // input scales every shared expert's contribution (trainer
+            // shared_gate on the n2 activation).
+            const bool shared_gated = !layer.shared_expert_gate_t.empty();
+            std::vector<double>& sg_sig = fs_.shared_sig;
+            if (shared_gated) {
+                linear_into(
+                    normed, total_tokens, hidden_size,
+                    layer.shared_expert_gate_t, 1, sg_sig);
+                for (double& v : sg_sig) v = sigmoid_d(v);
+            }
             // Shared experts (v26): always-on SwiGLU over every token,
             // weight 1.0 — mirrors modules/moe.py `output + shared(x)`.
             for (size_t se = 0; se < layer.shared_gate.size(); ++se) {
@@ -587,9 +944,21 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 linear_into(
                     sg, total_tokens, shared_inter,
                     layer.shared_down_t[se], hidden_size, sd);
-                axpy_f64(
-                    mlp_out.data(), 1.0, sd.data(),
-                    static_cast<int64_t>(mlp_out.size()));
+                if (shared_gated) {
+                    for (int64_t r = 0; r < total_tokens; ++r) {
+                        axpy_f64(
+                            mlp_out.data() +
+                                static_cast<size_t>(r * hidden_size),
+                            sg_sig[static_cast<size_t>(r)],
+                            sd.data() +
+                                static_cast<size_t>(r * hidden_size),
+                            hidden_size);
+                    }
+                } else {
+                    axpy_f64(
+                        mlp_out.data(), 1.0, sd.data(),
+                        static_cast<int64_t>(mlp_out.size()));
+                }
             }
             if (module_rms != nullptr) {
                 module_rms->push_back(

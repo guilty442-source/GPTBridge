@@ -469,6 +469,22 @@ double softplus_d(double x) {
     return x > 20.0 ? x : std::log1p(std::exp(x));
 }
 
+// Span-scoped variant for the packed [T, vh, dim] deltanet buffers:
+// normalizes the seq*vh rows belonging to one span (rows are indexed
+// (row * vh + h) with row relative to the packed batch).
+void l2norm_span_rows(std::vector<double>& v, int64_t base_row,
+                      int64_t seq, int64_t heads_per_row, int64_t dim,
+                      double eps) {
+    const int64_t row0 = base_row * heads_per_row;
+    for (int64_t r = 0; r < seq * heads_per_row; ++r) {
+        double* row = v.data() + static_cast<size_t>((row0 + r) * dim);
+        double ss = 0.0;
+        for (int64_t i = 0; i < dim; ++i) ss += row[i] * row[i];
+        const double inv = 1.0 / std::sqrt(ss + eps);
+        for (int64_t i = 0; i < dim; ++i) row[i] *= inv;
+    }
+}
+
 // In-place L2 row normalization on a [rows x dim] flat buffer
 // (deltanet q/k, eps folded into the length like the trainer).
 void l2norm_rows(std::vector<double>& v, int64_t rows, int64_t dim,

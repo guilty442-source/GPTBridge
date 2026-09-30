@@ -86,6 +86,11 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
     float bc1 = 1.0f - std::pow(b1, step + 1),
           bc2 = 1.0f - std::pow(b2, step + 1);
     for (auto& n : p.order) {
+        // DeepSeek aux-free lb_bias is a routing-time buffer updated by
+        // the sign rule (lb_bias_step), never by the optimizer — without
+        // this guard decoupled weight decay would pull it to zero.
+        if (n.size() >= 7 && n.compare(n.size() - 7, 7, "lb_bias") == 0)
+            continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
         tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
@@ -96,6 +101,33 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             w.d[(size_t)i] -=
                 lr_t * (mh / (std::sqrt(vh) + eps) + wd * w.d[(size_t)i]);
         });
+    }
+}
+
+// DeepSeek V3 aux-loss-free load balancing: per-expert bias b_e ranks
+// selection (s+b) while combination weights stay s; after each forward
+// the batch's assignment counts nudge b_e toward under-served experts —
+// b_e += u * sign(mean_load - load_e). Piecewise-constant by design.
+static void lb_bias_step(Params& p, const ModelConfig& c, const Fwd& o) {
+    if (!c.moe_auxfree_balance || c.moe_lb_bias_rate <= 0.0f) return;
+    const float u = c.moe_lb_bias_rate;
+    for (int l = 0; l < c.layers; ++l) {
+        if (!(c.moe_experts > 0 && (l % c.moe_layer_interval == 0)))
+            continue;
+        const LayerCache& L = o.layers[l];
+        const int E = c.moe_experts, K = c.moe_top_k;
+        const size_t slots = L.moe_idx.size();
+        if (!slots) continue;
+        const int T = (int)(slots / K);
+        std::vector<float> cnt((size_t)E, 0.0f);
+        for (int e : L.moe_idx) cnt[(size_t)e] += 1.0f;
+        const float mean = (float)(T * K) / (float)E;
+        Tensor& b = p.w[ln(l, "lb_bias")];
+        for (int e = 0; e < E; ++e) {
+            float err = mean - cnt[(size_t)e];
+            b.d[(size_t)e] += u * (err > 0.0f ? 1.0f : err < 0.0f ? -1.0f
+                                                              : 0.0f);
+        }
     }
 }
 
@@ -180,6 +212,7 @@ static JsonValue run_job(const JsonValue& job) {
                 // policy chosen
                 fw.layers.clear(); fw.moe_aux = 0.0f;
                 fwd(p, c, ex.ids, fw);
+                lb_bias_step(p, c, fw);
                 float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
                 Fwd fc; fwd(ref, c, ex.ids, fc);
                 float rp_c = seq_logprob(fc.logits, ex.labels, (int)ex.ids.size(), c.vocab);
@@ -232,13 +265,15 @@ static JsonValue run_job(const JsonValue& job) {
                     vlab.insert(vlab.end(), lab.begin(), lab.end());
                     const int T = ex.vision_patches + (int)ex.ids.size();
                     fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
+                    lb_bias_step(p, c, fw);
                     loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
-                           + fw.moe_aux;
+                           + fw.moe_aux + fw.mtp.loss;
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
                 } else {
                     fwd(p, c, ex.ids, fw);
+                    lb_bias_step(p, c, fw);
                     loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                           + fw.moe_aux;
+                           + fw.moe_aux + fw.mtp.loss;
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f);
                 }
             }

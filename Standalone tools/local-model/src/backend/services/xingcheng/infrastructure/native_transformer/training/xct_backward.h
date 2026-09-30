@@ -4,6 +4,10 @@
 
 // -------------------------------------------------------------- backward --
 
+static void mtp_bwd(Params& p, const ModelConfig& c,
+                    const std::vector<int>& ids, Fwd& o, float aux_scale,
+                    std::vector<float>& dh);
+
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale,
                 const std::vector<float>* vision = nullptr) {
@@ -35,6 +39,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     std::vector<float> dh((size_t)T * H, 0.0f);
     linear_bwd(dlp, o.hidden.data(), p.w.at("lm_head"),
                dh.data(), p.g["lm_head"].d.data(), T, H, c.vocab);
+    // DeepSeek MTP: the module's CE also reaches the shared lm_head /
+    // embed and the trunk hidden states (dh rows over text positions).
+    // aux_scale==0 (DPO) keeps MTP out of the preference gradient.
+    mtp_bwd(p, c, ids, o, aux_scale, dh);
     std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx_fin.data(), p.g["norm_f"].d.data(), T, H);
@@ -429,6 +437,134 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                        dn1.data(), p.g[lb + "in_proj_a"].d.data(), T, H, vh);
             linear_bwd(db_raw.data(), L.n1.data(), p.w.at(lb + "in_proj_b"),
                        dn1.data(), p.g[lb + "in_proj_b"].d.data(), T, H, vh);
+        } else if (c.is_mla(l)) {
+            // -------- DeepSeek MLA backward --------
+            const int kn = c.qk_nope_head_dim, kr = c.qk_rope_head_dim;
+            const int rank = c.kv_lora_rank, qr = c.q_lora_rank;
+            const int qd = kn + kr;
+            const std::string b = ln(l, "");
+            const int win = c.is_local_attn(l) ? c.sliding_window : 0;
+            const float scale = 1.0f / std::sqrt((float)qd);
+            std::vector<float> dao((size_t)T * c.heads * hd, 0.0f);
+            linear_bwd(dproj_attn.data(), L.attn_out.data(),
+                       p.w.at(b + "wo"), dao.data(),
+                       p.g[b + "wo"].d.data(), T, c.heads * hd, H);
+            std::vector<float> dqn((size_t)T * c.heads * kn, 0.0f),
+                               dqr((size_t)T * c.heads * kr, 0.0f),
+                               dkn((size_t)T * c.heads * kn, 0.0f),
+                               dkr((size_t)T * kr, 0.0f),
+                               dvv((size_t)T * c.heads * hd, 0.0f);
+            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                for (int64_t h = hb; h < he; ++h) {
+                    std::vector<float> dscore;
+                    for (int t = 0; t < T; ++t) {
+                        const float* pr = L.probs.data() +
+                                          ((size_t)h * T + t) * T;
+                        const float* dao_r = dao.data() +
+                            ((size_t)t * c.heads + h) * hd;
+                        const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
+                        dscore.assign((size_t)(t - s0) + 1, 0.0f);
+                        for (int s = s0; s <= t; ++s) {
+                            const float* vr = L.v.data() +
+                                ((size_t)s * c.heads + h) * hd;
+                            dscore[(size_t)s - s0] = tpu_dot(dao_r, vr, hd);
+                        }
+                        float dsum = 0.0f;
+                        for (int s = s0; s <= t; ++s)
+                            dsum += dscore[(size_t)s - s0] * pr[s];
+                        for (int s = s0; s <= t; ++s)
+                            dscore[(size_t)s - s0] =
+                                pr[s] * (dscore[(size_t)s - s0] - dsum) * scale;
+                        const float* qnr = L.mla_qn.data() +
+                            ((size_t)t * c.heads + h) * kn;
+                        const float* qrr = L.mla_qr.data() +
+                            ((size_t)t * c.heads + h) * kr;
+                        float* dqnr = dqn.data() +
+                            ((size_t)t * c.heads + h) * kn;
+                        float* dqrr = dqr.data() +
+                            ((size_t)t * c.heads + h) * kr;
+                        for (int s = s0; s <= t; ++s) {
+                            const float* knr = L.mla_kn.data() +
+                                ((size_t)s * c.heads + h) * kn;
+                            const float* krr = L.mla_kr.data() + (size_t)s * kr;
+                            float* dknr = dkn.data() +
+                                ((size_t)s * c.heads + h) * kn;
+                            float* dkrr = dkr.data() + (size_t)s * kr;
+                            tpu_axpy(dqnr, dscore[(size_t)s - s0], knr, kn);
+                            tpu_axpy(dqrr, dscore[(size_t)s - s0], krr, kr);
+                            tpu_axpy(dknr, dscore[(size_t)s - s0], qnr, kn);
+                            tpu_axpy(dkrr, dscore[(size_t)s - s0], qrr, kr);
+                            float* dvr = dvv.data() +
+                                ((size_t)s * c.heads + h) * hd;
+                            tpu_axpy(dvr, pr[s], dao_r, hd);
+                        }
+                    }
+                }
+            });
+            // inverse decoupled rope on the rope-channel grads
+            const float th = c.rope_theta_at(l);
+            rope_hf_partial(dqr.data(), T, c.heads, kr, kr, th, true);
+            rope_hf_partial(dkr.data(), T, 1, kr, kr, th, true);
+            // q path: repack [nope|rope] per head, then direct wq or the
+            // low-rank chain W_uq -> latent norm -> W_dq.
+            std::vector<float> dqf((size_t)T * c.heads * qd, 0.0f);
+            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                for (int64_t h = hb; h < he; ++h)
+                    for (int t = 0; t < T; ++t) {
+                        float* fr = dqf.data() +
+                            ((size_t)t * c.heads + h) * (size_t)qd;
+                        std::copy(dqn.begin() +
+                                  ((size_t)t * c.heads + h) * kn,
+                                  dqn.begin() +
+                                  ((size_t)t * c.heads + h) * kn + kn, fr);
+                        std::copy(dqr.begin() +
+                                  ((size_t)t * c.heads + h) * kr,
+                                  dqr.begin() +
+                                  ((size_t)t * c.heads + h) * kr + kr,
+                                  fr + kn);
+                    }
+            });
+            if (qr > 0) {
+                std::vector<float> dcq((size_t)T * qr, 0.0f);
+                linear_bwd(dqf.data(), L.mla_cq.data(), p.w.at(b + "w_uq"),
+                           dcq.data(), p.g[b + "w_uq"].d.data(),
+                           T, qr, c.heads * qd);
+                std::vector<float> dcq_raw((size_t)T * qr, 0.0f);
+                for (int t = 0; t < T; ++t)
+                    rmsnorm_bwd(dcq.data() + (size_t)t * qr,
+                                L.mla_cq_raw.data() + (size_t)t * qr,
+                                p.w.at(b + "norm_ql").d.data(),
+                                L.mla_cq_rms.data() + t,
+                                dcq_raw.data() + (size_t)t * qr,
+                                p.g[b + "norm_ql"].d.data(), 1, qr);
+                linear_bwd(dcq_raw.data(), L.n1.data(), p.w.at(b + "w_dq"),
+                           dn1.data(), p.g[b + "w_dq"].d.data(), T, H, qr);
+            } else {
+                linear_bwd(dqf.data(), L.n1.data(), p.w.at(b + "wq"),
+                           dn1.data(), p.g[b + "wq"].d.data(),
+                           T, H, c.heads * qd);
+            }
+            // kv path: dkn/dv fold into the shared latent grad; shared
+            // rope key flows straight to w_kr.
+            std::vector<float> dckv((size_t)T * rank, 0.0f);
+            linear_bwd(dkn.data(), L.mla_ckv.data(), p.w.at(b + "w_uk"),
+                       dckv.data(), p.g[b + "w_uk"].d.data(),
+                       T, rank, c.heads * kn);
+            linear_bwd(dvv.data(), L.mla_ckv.data(), p.w.at(b + "w_uv"),
+                       dckv.data(), p.g[b + "w_uv"].d.data(),
+                       T, rank, c.heads * hd);
+            linear_bwd(dkr.data(), L.n1.data(), p.w.at(b + "w_kr"),
+                       dn1.data(), p.g[b + "w_kr"].d.data(), T, H, kr);
+            std::vector<float> dckv_raw((size_t)T * rank, 0.0f);
+            for (int t = 0; t < T; ++t)
+                rmsnorm_bwd(dckv.data() + (size_t)t * rank,
+                            L.mla_ckv_raw.data() + (size_t)t * rank,
+                            p.w.at(b + "norm_kvl").d.data(),
+                            L.mla_ckv_rms.data() + t,
+                            dckv_raw.data() + (size_t)t * rank,
+                            p.g[b + "norm_kvl"].d.data(), 1, rank);
+            linear_bwd(dckv_raw.data(), L.n1.data(), p.w.at(b + "w_dkv"),
+                       dn1.data(), p.g[b + "w_dkv"].d.data(), T, H, rank);
         } else {
             // -------- full attention backward --------
             std::vector<float> dao((size_t)T * Hq, 0.0f);
@@ -575,6 +711,143 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                    p.w.at("vision.patch_proj"), nullptr,
                    p.g["vision.patch_proj"].d.data(),
                    P, c.vision_patch_dim, H);
+    }
+}
+
+// ------------------------------------------------------- DeepSeek MTP -----
+
+// Depth-1 MTP backward: CE on ids[i+2] labels -> shared lm_head ->
+// norm_out -> decoder block -> w_proj -> normed [h|emb] inputs; dh gains
+// the trunk-hidden grads (text rows only) and embed.g the token-emb
+// grads. Everything scales by lambda * aux_scale (aux_scale==0 in DPO
+// keeps the module out of preference updates, matching the pretrain
+// contract).
+static void mtp_bwd(Params& p, const ModelConfig& c,
+                    const std::vector<int>& ids, Fwd& o, float aux_scale,
+                    std::vector<float>& dh) {
+    if (!o.mtp.on || aux_scale == 0.0f) return;
+    const MtpCache& M = o.mtp;
+    const int PT = (int)ids.size(), P = o.vision_patches;
+    const int H = c.hidden, hd = H / c.heads;
+    const int kvh = c.kv_heads, Hkvl = kvh * hd, Hq = c.heads * hd;
+    std::vector<float> dlm;
+    ce_loss(M.logits, M.lab, PT, c.vocab, dlm);
+    const float sc = c.mtp_loss_weight * aux_scale;
+    for (auto& d : dlm) d *= sc;
+    std::vector<float> dout((size_t)PT * H, 0.0f);
+    linear_bwd(dlm.data(), M.out.data(), p.w.at("lm_head"), dout.data(),
+               p.g["lm_head"].d.data(), PT, H, c.vocab);
+    const LayerCache& L = M.lc;
+    std::vector<float> dx2((size_t)PT * H, 0.0f);
+    rmsnorm_bwd(dout.data(), M.res2.data(),
+                p.w.at("mtp.norm_out").d.data(), M.out_rms.data(),
+                dx2.data(), p.g["mtp.norm_out"].d.data(), PT, H);
+    // residual split: ffn path + x_res skip
+    std::vector<float> dx_res = dx2;
+    std::vector<float> dn2((size_t)PT * H, 0.0f);
+    std::vector<float> dfh((size_t)PT * c.inter, 0.0f),
+                       dfa((size_t)PT * c.inter, 0.0f),
+                       dfb((size_t)PT * c.inter, 0.0f);
+    linear_bwd(dx2.data(), L.fh.data(), p.w.at("mtp.w2"), dfh.data(),
+               p.g["mtp.w2"].d.data(), PT, c.inter, H);
+    tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
+        float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
+        dfa[(size_t)i] += d * b * gate_act_df(a, c.ffn_act);
+        dfb[(size_t)i] += d * gate_act_f(a, c.ffn_act);
+    });
+    linear_bwd(dfa.data(), L.n2.data(), p.w.at("mtp.w1"), dn2.data(),
+               p.g["mtp.w1"].d.data(), PT, H, c.inter);
+    linear_bwd(dfb.data(), L.n2.data(), p.w.at("mtp.w3"), dn2.data(),
+               p.g["mtp.w3"].d.data(), PT, H, c.inter);
+    std::vector<float> dxres2((size_t)PT * H, 0.0f);
+    rmsnorm_bwd(dn2.data(), L.x_res.data(),
+                p.w.at("mtp.norm2").d.data(), L.rms2.data(),
+                dxres2.data(), p.g["mtp.norm2"].d.data(), PT, H);
+    std::vector<float> dpre((size_t)PT * H);
+    tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
+        dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
+    });
+    // plain causal attention backward
+    std::vector<float> dz_res = dpre;             // residual to z
+    std::vector<float> dao((size_t)PT * Hq, 0.0f);
+    linear_bwd(dpre.data(), L.attn_out.data(), p.w.at("mtp.wo"),
+               dao.data(), p.g["mtp.wo"].d.data(), PT, Hq, H);
+    const int group = c.heads / kvh;
+    const float scale = 1.0f / std::sqrt((float)hd);
+    std::vector<float> dq((size_t)PT * Hq, 0.0f),
+                       dk((size_t)PT * Hkvl, 0.0f),
+                       dv((size_t)PT * Hkvl, 0.0f);
+    parallel_for(kvh, [&](int64_t gb, int64_t ge) {
+        for (int64_t g = gb; g < ge; ++g)
+        for (int h = (int)g * group;
+             h < std::min((int)(g + 1) * group, c.heads); ++h) {
+            int kh2 = (int)h / group;
+            std::vector<float> dscore;
+            for (int t = 0; t < PT; ++t) {
+                const float* pr = L.probs.data() +
+                                  ((size_t)h * PT + t) * PT;
+                const float* dao_r = dao.data() +
+                                     ((size_t)t * c.heads + h) * hd;
+                dscore.assign((size_t)t + 1, 0.0f);
+                for (int s = 0; s <= t; ++s) {
+                    const float* vr = L.v.data() +
+                                      ((size_t)s * kvh + kh2) * hd;
+                    dscore[(size_t)s] = tpu_dot(dao_r, vr, hd);
+                }
+                float dsum = 0.0f;
+                for (int s = 0; s <= t; ++s) dsum += dscore[(size_t)s] * pr[s];
+                for (int s = 0; s <= t; ++s)
+                    dscore[(size_t)s] = pr[s] * (dscore[(size_t)s] - dsum) * scale;
+                const float* qr = L.q.data() +
+                                  ((size_t)t * c.heads + h) * hd;
+                float* dqr = dq.data() + ((size_t)t * c.heads + h) * hd;
+                for (int s = 0; s <= t; ++s) {
+                    const float* kr = L.k.data() +
+                                      ((size_t)s * kvh + kh2) * hd;
+                    float* dkr = dk.data() + ((size_t)s * kvh + kh2) * hd;
+                    tpu_axpy(dqr, dscore[(size_t)s], kr, hd);
+                    tpu_axpy(dkr, dscore[(size_t)s], qr, hd);
+                    float* dvr = dv.data() + ((size_t)s * kvh + kh2) * hd;
+                    tpu_axpy(dvr, pr[s], dao_r, hd);
+                }
+            }
+        }
+    });
+    rope(dq.data(), PT, c.heads, hd, c.rope_theta, true);
+    rope(dk.data(), PT, kvh, hd, c.rope_theta, true);
+    std::vector<float> dn1((size_t)PT * H, 0.0f);
+    linear_bwd(dq.data(), L.n1.data(), p.w.at("mtp.wq"), dn1.data(),
+               p.g["mtp.wq"].d.data(), PT, H, Hq);
+    linear_bwd(dk.data(), L.n1.data(), p.w.at("mtp.wk"), dn1.data(),
+               p.g["mtp.wk"].d.data(), PT, H, Hkvl);
+    linear_bwd(dv.data(), L.n1.data(), p.w.at("mtp.wv"), dn1.data(),
+               p.g["mtp.wv"].d.data(), PT, H, Hkvl);
+    std::vector<float> dz((size_t)PT * H, 0.0f);
+    rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at("mtp.norm1").d.data(),
+                L.rms1.data(), dz.data(), p.g["mtp.norm1"].d.data(), PT, H);
+    tpu_elementwise((int64_t)dz.size(), [&](int64_t i) {
+        dz[(size_t)i] += dz_res[(size_t)i];
+    });
+    // w_proj input split: normed hidden half + normed embed half
+    std::vector<float> dcin((size_t)PT * 2 * H, 0.0f);
+    linear_bwd(dz.data(), M.cin.data(), p.w.at("mtp.w_proj"), dcin.data(),
+               p.g["mtp.w_proj"].d.data(), PT, 2 * H, H);
+    for (int i = 0; i < PT; ++i) {
+        rmsnorm_bwd(dcin.data() + (size_t)i * 2 * H,
+                    M.nh_src.data() + (size_t)i * H,
+                    p.w.at("mtp.norm_h").d.data(), M.nh_rms.data() + i,
+                    dh.data() + (size_t)(P + i) * H,
+                    p.g["mtp.norm_h"].d.data(), 1, H);
+        if (M.ne_ids[(size_t)i] >= 0) {
+            std::vector<float> demb((size_t)H, 0.0f);
+            rmsnorm_bwd(dcin.data() + (size_t)i * 2 * H + H,
+                        M.ne_src.data() + (size_t)i * H,
+                        p.w.at("mtp.norm_e").d.data(), M.ne_rms.data() + i,
+                        demb.data(), p.g["mtp.norm_e"].d.data(), 1, H);
+            float* ger = p.g["embed"].d.data() +
+                         (size_t)M.ne_ids[(size_t)i] * H;
+            for (int j = 0; j < H; ++j) ger[j] += demb[(size_t)j];
+        }
     }
 }
 

@@ -20,6 +20,8 @@
 //                 [--baseline-report <file>]
 //   serve         --bundle <dir>   (stdin/stdout JSON-lines worker)
 //   vision-smoke  --bundle <vision-bundle-dir> [--patches N] [--seed N]
+//   cache-smoke   --bundle <dir> [--seed N] [--kv-int8]
+//                 (paged-KV / prefix-cache determinism probe)
 //
 // Tokenize row shapes (star SFT/DPO/pretrain contracts):
 //   {"prompt","completion"}      -> {"input_ids","labels"}  (masked prompt)
@@ -44,6 +46,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -691,6 +694,17 @@ std::string bundle_to_xct(const std::string& b) {
         return base + m[1].str() + ".w" + w;
     }
     if (std::regex_match(b, m,
+            std::regex(R"(^model\.layers\.(\d+)\.attention\.(q|k)_norm\.weight$)")))
+        return base + m[1].str() + "." + m[2].str() + "_norm";
+    // v27 fused hybrid: gated DeltaNet linear-attention tensors keep the
+    // trainer's lin.* layout under the HF-style linear_attn.* namespace.
+    if (std::regex_match(b, m,
+            std::regex(R"(^model\.layers\.(\d+)\.linear_attn\.(in_proj_qkv|in_proj_z|in_proj_a|in_proj_b|conv1d|A_log|dt_bias|norm|out_proj)\.weight$)")))
+        return base + m[1].str() + ".lin." + m[2].str();
+    if (std::regex_match(b, m,
+            std::regex(R"(^model\.layers\.(\d+)\.mlp\.shared_expert_gate\.weight$)")))
+        return base + m[1].str() + ".shared_gate";
+    if (std::regex_match(b, m,
             std::regex(R"(^model\.layers\.(\d+)\.mlp\.router\.weight$)")))
         return base + m[1].str() + ".gate";
     if (std::regex_match(b, m,
@@ -733,6 +747,20 @@ std::string xct_to_bundle(const std::string& n) {
         char w = m[2].str()[0];
         return base + m[1].str() + ".attention." + w + "_proj.weight";
     }
+    if (std::regex_match(n, m,
+            std::regex(R"(^layers\.(\d+)\.(q|k)_norm$)")))
+        return base + m[1].str() + ".attention." + m[2].str() +
+               "_norm.weight";
+    // v27 gated DeltaNet (linear attention) tensors — the bundle keeps
+    // the trainer's lin.* naming under linear_attn.* so the engine loads
+    // the same projections verbatim.
+    if (std::regex_match(n, m,
+            std::regex(R"(^layers\.(\d+)\.lin\.(in_proj_qkv|in_proj_z|in_proj_a|in_proj_b|conv1d|A_log|dt_bias|norm|out_proj)$)")))
+        return base + m[1].str() + ".linear_attn." + m[2].str() +
+               ".weight";
+    if (std::regex_match(n, m,
+            std::regex(R"(^layers\.(\d+)\.shared_gate$)")))
+        return base + m[1].str() + ".mlp.shared_expert_gate.weight";
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.gate$)")))
         return base + m[1].str() + ".mlp.router.weight";
     if (std::regex_match(n, m,
@@ -800,6 +828,36 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
         if (c.vision_patch_dim <= 0 || c.vision_max_patches <= 0)
             fail("IMPORT_VISION_GEOMETRY");
     }
+    // v27 fused hybrid (XCN3 fields): same names/semantics as the job
+    // manifest model block — absent keys keep the dense defaults so
+    // pre-v27 bundles import unchanged.
+    c.full_attention_interval =
+        (int)xct::j_num(&cfg, "full_attention_interval",
+                        c.full_attention_interval);
+    c.attn_output_gate =
+        xct::j_bool(&cfg, "attn_output_gate", c.attn_output_gate);
+    c.qk_norm = xct::j_bool(&cfg, "qk_norm", c.qk_norm);
+    c.shared_expert_gate =
+        xct::j_bool(&cfg, "shared_expert_gate", c.shared_expert_gate);
+    c.moe_router_sigmoid =
+        xct::j_bool(&cfg, "moe_router_sigmoid", c.moe_router_sigmoid);
+    c.partial_rotary =
+        (float)xct::j_num(&cfg, "partial_rotary_factor", c.partial_rotary);
+    c.lin_key_heads =
+        (int)xct::j_num(&cfg, "linear_num_key_heads", c.lin_key_heads);
+    c.lin_key_dim =
+        (int)xct::j_num(&cfg, "linear_key_head_dim", c.lin_key_dim);
+    c.lin_value_heads =
+        (int)xct::j_num(&cfg, "linear_num_value_heads", c.lin_value_heads);
+    c.lin_value_dim =
+        (int)xct::j_num(&cfg, "linear_value_head_dim", c.lin_value_dim);
+    c.lin_conv_kernel =
+        (int)xct::j_num(&cfg, "linear_conv_kernel_dim", c.lin_conv_kernel);
+    if (c.full_attention_interval > 0 &&
+        (c.lin_key_heads <= 0 || c.lin_key_dim <= 0 ||
+         c.lin_value_heads <= 0 || c.lin_value_dim <= 0 ||
+         c.lin_value_heads % c.lin_key_heads != 0))
+        fail("IMPORT_LINEAR_ATTN_GEOMETRY");
     return c;
 }
 
@@ -1163,19 +1221,21 @@ Run probe_run(const std::string& bundle,
     r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
     SamplingConfig sc;                    // do_sample=false → argmax
     std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
-    e.generate(prompt, 6, sc);            // miss → stores prefix entry
+    std::vector<int64_t> g1 =
+        e.generate(prompt, 6, sc);        // miss → stores prefix entry
     const int64_t h1 = prefix_hits(e);
     std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
     const int64_t h2 = prefix_hits(e);
     r.prefix_hit = (h2 > h1);
-    r.gen_nonempty = !g2.empty();
-    // same prefix, longer prompt: a partial hit must also reproduce the
-    // cached path — and greedy output must stay identical across hits.
+    r.gen_nonempty = !g1.empty();
+    // Restored-KV decode must reproduce the recomputed output exactly.
+    r.gen_identical = !g1.empty() && g1 == g2;
+    // Same prefix, longer prompt: a partial-prefix hit exercises the
+    // longest-match restore path as well.
     std::vector<int64_t> prompt2(ids.begin(), ids.begin() + 24);
     std::vector<int64_t> g3 = e.generate(prompt2, 4, sc);
     const int64_t h3 = prefix_hits(e);
-    r.partial_prefix_hit = (h3 > h2);
-    r.gen_identical = !g3.empty();
+    r.partial_prefix_hit = (h3 > h2) && !g3.empty();
     return r;
 }
 
@@ -1294,6 +1354,55 @@ int mode_export_bundle(const Args& a) {
              ((int)xct::j_num(cfg, "vision_patch_dim", -1) != c.vision_patch_dim ||
               (int)xct::j_num(cfg, "vision_max_patches", -1) != c.vision_max_patches)))
             fail("EXPORT_VISION_MISMATCH");
+    }
+    // v27 fused-hybrid parity (XCN3 fields): a non-default checkpoint
+    // field must be present verbatim in the shipped manifest; a declared
+    // field must equal the checkpoint's value. Otherwise the engine
+    // would run the bundle under silently-wrong layer semantics.
+    {
+        struct NumParity { const char* key; int64_t ckpt; bool required; };
+        const bool lin_required = c.full_attention_interval > 0;
+        for (const NumParity& np : {
+                 NumParity{"full_attention_interval",
+                           (int64_t)c.full_attention_interval, lin_required},
+                 {"linear_num_key_heads", (int64_t)c.lin_key_heads, lin_required},
+                 {"linear_key_head_dim", (int64_t)c.lin_key_dim, lin_required},
+                 {"linear_num_value_heads", (int64_t)c.lin_value_heads,
+                  lin_required},
+                 {"linear_value_head_dim", (int64_t)c.lin_value_dim,
+                  lin_required},
+                 {"linear_conv_kernel_dim", (int64_t)c.lin_conv_kernel,
+                  lin_required}}) {
+            const JsonValue* v = cfg->get(np.key);
+            if (v != nullptr && v->type != JsonValue::Type::Number)
+                fail("EXPORT_HYBRID_MISMATCH");
+            if (np.required && v == nullptr)
+                fail("EXPORT_HYBRID_MISMATCH");
+            if (v != nullptr && (int64_t)v->number != np.ckpt)
+                fail("EXPORT_HYBRID_MISMATCH");
+        }
+        const JsonValue* pr = cfg->get("partial_rotary_factor");
+        if (pr != nullptr && pr->type != JsonValue::Type::Number)
+            fail("EXPORT_HYBRID_MISMATCH");
+        if (c.partial_rotary != 1.0f && pr == nullptr)
+            fail("EXPORT_HYBRID_MISMATCH");
+        if (pr != nullptr &&
+            std::fabs(pr->number - (double)c.partial_rotary) > 1e-6)
+            fail("EXPORT_HYBRID_MISMATCH");
+        struct BoolParity { const char* key; bool ckpt; };
+        for (const BoolParity& bp : {
+                 BoolParity{"attn_output_gate", c.attn_output_gate},
+                 {"qk_norm", c.qk_norm},
+                 {"shared_expert_gate", c.shared_expert_gate},
+                 {"moe_router_sigmoid", c.moe_router_sigmoid}}) {
+            const JsonValue* v = cfg->get(bp.key);
+            if (v != nullptr && v->type != JsonValue::Type::Bool)
+                fail("EXPORT_HYBRID_MISMATCH");
+            if (bp.ckpt && (v == nullptr || !v->boolean))
+                fail("EXPORT_HYBRID_MISMATCH");
+            if (v != nullptr && v->boolean != bp.ckpt)
+                fail("EXPORT_HYBRID_MISMATCH");
+        }
     }
 
     fs::create_directories(out_dir);
@@ -2311,7 +2420,7 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
             "xc_modeltool <tokenize|corpus|import-bundle|distill-init|export-bundle|eval|"
-            "capability|vision-smoke|serve> [args]\n");
+            "capability|vision-smoke|cache-smoke|serve> [args]\n");
         return 2;
     }
     std::string mode = argv[1];
@@ -2325,6 +2434,7 @@ int main(int argc, char** argv) {
         if (mode == "eval") return mode_eval(a);
         if (mode == "capability") return mode_capability(a);
         if (mode == "vision-smoke") return mode_vision_smoke(a);
+        if (mode == "cache-smoke") return mode_cache_smoke(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {

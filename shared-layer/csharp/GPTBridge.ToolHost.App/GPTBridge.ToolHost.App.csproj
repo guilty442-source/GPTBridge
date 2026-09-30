@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GPTBridge.ToolHost\GPTBridge.ToolHost\GPTBridge.ToolHost.csproj" />
+    <ProjectReference Include="..\..\..\Standalone tools\business-logic-fsharp\StarDomain\StarDomain.fsproj" />
   </ItemGroup>
 
 </Project>

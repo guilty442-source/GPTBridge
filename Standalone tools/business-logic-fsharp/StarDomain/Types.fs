@@ -6,8 +6,8 @@ open System.Collections.Generic
 // transformation + business state transitions. C# consumes these typed
 // contracts only (FSHARP-FLOW: typed analysis contracts only).
 
-/// 對應 Python StarNativeIntentMixin / StarModelRegistry 的意圖分類。
-/// 模型周邊業務規則由 F# 負責，模型推論仍經 Python/C++ 路徑。
+/// 意圖分類（F# 擁有）：模型周邊業務規則由 F# 負責，模型推論經
+/// C++23 原生引擎（Python 已退役 B166）。
 type StarIntent =
     | Conversation = 0
     | Capabilities = 1

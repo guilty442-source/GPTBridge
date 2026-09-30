@@ -4,7 +4,7 @@ open System
 open System.Collections.Generic
 open System.Text
 
-/// 證據篩選/去重/整併規則（純函式）。對應 Python StarNativeGroundingMixin。
+/// 證據篩選/去重/整併規則（純函式，F# 擁有）。
 /// fail-closed：空或全無效輸入不拋例外，標記 HasSufficientEvidence 供業務層
 /// 決定是否回退或要求補充輸入。
 module GroundingRules =
