@@ -361,7 +361,7 @@ internal static class ConvergenceGate
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
                     "gate-stderr.log");
                 int clip(string s, int n) => Math.Min(n, s.Length);
-                var check = (string b, bool expectContract) =>
+                StepResult check(string b, bool expectContract)
                 {
                     var r = NativeTools.Run(toolExe,
                         new[] { "mtp-draft-probe", "--bundle", b,
@@ -397,16 +397,16 @@ internal static class ConvergenceGate
                                 $"missing '{req}' in "
                                 + tail[..clip(tail, 200)]);
                     return Pass("draft-probe v1 + production dispatch");
-                };
+                }
                 var pinned = check(bundle!, BundleDeclaresMtp(bundle!));
-                if (!pinned.Ok) return pinned;
+                if (pinned.Status != "PASS") return pinned;
                 string fixture = Path.Combine(toolRoot,
                     "xingcheng", "runtime", "devin", "mtp-contract",
                     "bundle");
                 if (Directory.Exists(fixture))
                 {
                     var fx = check(fixture, true);
-                    if (!fx.Ok) return fx;
+                    if (fx.Status != "PASS") return fx;
                 }
                 return pinned;
             })),
