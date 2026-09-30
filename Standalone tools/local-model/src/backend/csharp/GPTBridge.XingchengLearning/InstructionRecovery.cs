@@ -1564,16 +1564,20 @@ internal static class InstructionRecovery
             });
         }
 
-        // -- D. enum_membership (~15%) — value drawn from a closed set.
+        // -- D. enum_membership (~15%) — value drawn from a closed set;
+        //    a second payload field keeps the shapes distinct so dedup
+        //    does not collapse the lane to six canonical rows.
         for (int i = 0; i < count / 8; i++)
         {
             string lv = Take(r, SoLevels);
+            string task = Take(r, MtTasks);
             Add(new Row
             {
-                Prompt = $"輸出 JSON：{{\"priority\": <值>}}，"
-                       + "值只能是 high、medium、low 其中之一。"
-                       + $"選 {lv}。",
-                Completion = $"{{\"priority\":\"{lv}\"}}",
+                Prompt = $"輸出 JSON：{{\"priority\": <值>, \"task\": "
+                       + "<字串>}，priority 只能是 high、medium、low "
+                       + $"其中之一。選 {lv}。task={task}。",
+                Completion = $"{{\"priority\":\"{lv}\","
+                           + $"\"task\":\"{task}\"}}",
                 Category = "D",
                 Rule = $"json_obj;exact_json:{lv}",
                 Source = Hard() ? "failure-pool" : "synthetic",
@@ -1581,15 +1585,20 @@ internal static class InstructionRecovery
         }
         foreach (string st in SoStates)
             for (int i = 0; i < 6; i++)
+            {
+                string task = Take(r, MtTasks);
                 Add(new Row
                 {
-                    Prompt = "只輸出 JSON：{\"狀態\": <值>}，值只能是"
-                           + "「已完成」「進行中」「待處理」之一。"
-                           + $"選「{st}」。",
-                    Completion = $"{{\"狀態\":\"{st}\"}}",
+                    Prompt = "只輸出 JSON：{\"狀態\": <值>, \"事項\": "
+                           + "<字串>}，狀態只能是「已完成」「進行中」"
+                           + "「待處理」之一。"
+                           + $"選「{st}」。事項={task}。",
+                    Completion = $"{{\"狀態\":\"{st}\","
+                               + $"\"事項\":\"{task}\"}}",
                     Category = "D",
                     Rule = $"json_obj;exact_json:{st}",
                 });
+            }
 
         // -- E. nested_objects (~10%) — an object inside the object.
         for (int i = 0; i < count / 10; i++)
@@ -1772,6 +1781,152 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // Structured-output eval suite — `category` = metric name feeding
+    // StructuredMetricWeights. All field names and values are disjoint
+    // from the So* training pools (eval: city/sunny, code/level,
+    // score/pass, level enum {urgent,normal,deferred}, owner/tags,
+    // readings). fail_code taxonomy: JSON_INVALID / SCHEMA_MISMATCH /
+    // TYPE_ERROR / ENUM_VIOLATION / NESTING_ERROR / ARRAY_ERROR.
+    private static List<Dictionary<string, object?>>
+        BuildStructuredSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+
+        // json_valid — bare object, exact keys, nothing else.
+        It("jv-basic-1", "json_valid", "json_valid",
+           "Output only a JSON object with fields city (string) and "
+           + "sunny (boolean). city=Tainan, sunny=true. No other text.",
+           "JSON_INVALID",
+           ("required_fields", new List<object?> { "city", "sunny" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["city"] = "string", ["sunny"] = "boolean" }),
+           ("max_new_tokens", 40));
+        It("jv-exact-1", "json_valid", "json_valid",
+           "只輸出 JSON：{\"done\": false}。不要任何其他文字。",
+           "JSON_INVALID",
+           ("required_fields", new List<object?> { "done" }),
+           ("exact_fields", 1),
+           ("field_types", new Dictionary<string, object?>
+            { ["done"] = "boolean" }),
+           ("max_new_tokens", 24));
+
+        // schema_conformant — exact field set and declared order.
+        It("sc-order-1", "schema_conformant", "json_valid",
+           "Return a JSON object with EXACTLY the keys code, label, "
+           + "retry — in that order. code=\"E7\", label=\"timeout\", "
+           + "retry=false. Only the object.",
+           "SCHEMA_MISMATCH",
+           ("required_fields",
+            new List<object?> { "code", "label", "retry" }),
+           ("exact_fields", 1),
+           ("field_order",
+            new List<object?> { "code", "label", "retry" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["code"] = "string", ["label"] = "string",
+              ["retry"] = "boolean" }),
+           ("max_new_tokens", 56));
+        It("sc-two-1", "schema_conformant", "json_valid",
+           "輸出 JSON，恰好兩個欄位 month 與 day。month=11,day=30。",
+           "SCHEMA_MISMATCH",
+           ("required_fields",
+            new List<object?> { "month", "day" }),
+           ("exact_fields", 1),
+           ("field_types", new Dictionary<string, object?>
+            { ["month"] = "number", ["day"] = "number" }),
+           ("max_new_tokens", 32));
+
+        // typed_fields — a quoted digit fails the number type check.
+        It("tf-num-1", "typed_fields", "json_valid",
+           "Output JSON with fields score (integer, NOT a string) and "
+           + "note (string). score=88, note=pass. Only JSON.",
+           "TYPE_ERROR",
+           ("required_fields",
+            new List<object?> { "score", "note" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["score"] = "number", ["note"] = "string" }),
+           ("max_new_tokens", 40));
+        It("tf-bool-1", "typed_fields", "json_valid",
+           "輸出 JSON：enabled 為布林值（不是字串），ratio 為數字。"
+           + "enabled=true,ratio=0.5。只輸出 JSON。",
+           "TYPE_ERROR",
+           ("required_fields",
+            new List<object?> { "enabled", "ratio" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["enabled"] = "boolean", ["ratio"] = "number" }),
+           ("max_new_tokens", 40));
+
+        // enum_membership — value inside the closed set only.
+        It("em-en-1", "enum_membership", "json_valid",
+           "Output JSON {\"level\": <value>} where value must be one "
+           + "of: urgent, normal, deferred. Choose urgent. Only JSON.",
+           "ENUM_VIOLATION",
+           ("required_fields", new List<object?> { "level" }),
+           ("field_values", new Dictionary<string, object?>
+            { ["level"] = new List<object?>
+              { "urgent", "normal", "deferred" } }),
+           ("max_new_tokens", 24));
+        It("em-zh-1", "enum_membership", "json_valid",
+           "只輸出 JSON：{\"優先級\": <值>}，值只能是"
+           + "「緊急」「普通」「延後」其中之一。選「緊急」。",
+           "ENUM_VIOLATION",
+           ("required_fields", new List<object?> { "優先級" }),
+           ("field_values", new Dictionary<string, object?>
+            { ["優先級"] = new List<object?>
+              { "緊急", "普通", "延後" } }),
+           ("max_new_tokens", 24));
+
+        // nested_objects — object inside object.
+        It("no-user-1", "nested_objects", "json_valid",
+           "Output JSON {\"owner\": {\"name\": <string>, \"id\": "
+           + "<number>}} with owner.name=\"Kai\", owner.id=42. "
+           + "Only JSON.",
+           "NESTING_ERROR",
+           ("required_fields", new List<object?> { "owner" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["owner"] = "object" }),
+           ("max_new_tokens", 48));
+        It("no-deep-1", "nested_objects", "json_valid",
+           "Produce nested JSON: {\"meta\": {\"version\": 2}, "
+           + "\"ok\": true}. Follow this shape exactly. Only JSON.",
+           "NESTING_ERROR",
+           ("required_fields",
+            new List<object?> { "meta", "ok" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["meta"] = "object", ["ok"] = "boolean" }),
+           ("max_new_tokens", 48));
+
+        // arrays — real array fields, correct element types and count.
+        It("ar-list-1", "arrays", "json_valid",
+           "輸出 JSON：{\"items\": [<字串陣列>], \"total\": <數字>}。"
+           + "items=鉛筆、橡皮擦、尺。只輸出 JSON。",
+           "ARRAY_ERROR",
+           ("required_fields",
+            new List<object?> { "items", "total" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["items"] = "array", ["total"] = "number" }),
+           ("max_new_tokens", 56));
+        It("ar-empty-1", "arrays", "json_valid",
+           "Output JSON {\"readings\": []} — readings must be an empty "
+           + "array, not a string. Only JSON.",
+           "ARRAY_ERROR",
+           ("required_fields", new List<object?> { "readings" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["readings"] = "array" }),
+           ("max_new_tokens", 24));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -1786,6 +1941,7 @@ internal static class InstructionRecovery
         {
             "context_tracking" => GenerateContext(seed, count),
             "multi_turn" => GenerateMultiTurn(seed, count),
+            "structured_output" => GenerateStructuredOutput(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -1831,6 +1987,7 @@ internal static class InstructionRecovery
         {
             "context_tracking" => BuildContextSuiteItems(),
             "multi_turn" => BuildMultiTurnSuiteItems(),
+            "structured_output" => BuildStructuredSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
