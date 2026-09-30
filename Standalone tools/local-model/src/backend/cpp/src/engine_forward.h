@@ -615,10 +615,13 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         }
     }
 
-    for (const BatchSpan& span : spans) {
+    for (size_t i = 0; i < spans.size(); ++i) {
+        const BatchSpan& span = spans[i];
         if (span.append_cache) {
+            // Advance by the fused length (vision prefix + text) — the next
+            // position_offset must continue after the patch rows too.
             kv_lens_[static_cast<size_t>(span.slot)] =
-                span.position_offset + static_cast<int64_t>(span.ids->size());
+                span.position_offset + vlens[i];
         }
     }
     std::vector<double> normed = rmsnorm(
