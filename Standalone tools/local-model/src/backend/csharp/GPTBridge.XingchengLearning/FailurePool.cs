@@ -1,11 +1,14 @@
-// FailurePool.cs — ``star-capability-failure-pool/v1`` (§29).
+// FailurePool.cs — ``star-capability-failure-pool/v1`` (§29) +
+// AutonomousCapabilityRecoveryLoop §6-§11 collection substrate.
 //
 // Unified capability-failure store: every evaluation surface records
-// failures here with a fixed class vocabulary, so the future
-// unfreeze phase can consume the pool directly — no re-mining logs.
-// Bounded append-only JSONL under xingcheng/runtime/state/failure-pool;
-// recording never throws — a pool write failure must not mask the
-// evaluation verdict it was describing.
+// failures here so the recovery loop consumes the pool directly — no
+// re-mining logs. Per-capability bounded JSONL pools under
+// xingcheng/runtime/state/failure-pool (pool-<class>.jsonl). Exact +
+// normalized near-duplicate dedup keeps one repeated error from
+// dominating a dataset (§11); a repeat bumps seen_count instead of
+// appending. Recording never throws — a pool write failure must not
+// mask the evaluation verdict it was describing.
 
 using System.Security.Cryptography;
 using System.Text;
@@ -19,38 +22,73 @@ internal static class FailurePool
     public const string PoolDirRel =
         "xingcheng/runtime/state/failure-pool";
     public const string PoolFile = "pool.jsonl";
-    public const int MaxEntries = 4096;   // bounded: oldest rotate out
+    public const int MaxEntries = 4096;   // bounded per class
 
+    // §7 capability vocabulary (pool-class spelling) + the historical
+    // suite classes. §7 names are the primary contract; the older
+    // entries stay so existing suite mappings remain total.
     public static readonly string[] Classes =
     {
-        "instruction", "context", "math", "reading", "coding",
-        "tool-call", "structured-output", "vision", "reasoning",
-        "routing", "grounding",
+        "instruction", "context", "multi-turn", "structured-output",
+        "tool-call", "reading", "rag", "math", "coding", "vision",
+        "system1", "thinking",
+        "reasoning", "routing", "grounding",
     };
+
+    // §55 failure memory states.
+    public static readonly string[] States =
+        { "OPEN", "TRAINED", "RESOLVED", "REGRESSED" };
+
+    /// <summary>Map a §7 capability name (INSTRUCTION, MULTI_TURN, ...)
+    /// to its pool class — the recovery loop's classifier vocabulary.</summary>
+    public static string ClassForCapability(string capability) =>
+        capability.Trim().ToUpperInvariant() switch
+        {
+            "INSTRUCTION" => "instruction",
+            "CONTEXT" => "context",
+            "MULTI_TURN" => "multi-turn",
+            "STRUCTURED" => "structured-output",
+            "TOOL" => "tool-call",
+            "READING" => "reading",
+            "RAG" => "rag",
+            "MATH" => "math",
+            "CODING" => "coding",
+            "VISION" => "vision",
+            "SYSTEM1" => "system1",
+            "THINKING" => "thinking",
+            _ => "reasoning",
+        };
 
     /// <summary>Map an evaluation suite name to its failure class —
     /// the suite vocabulary is closed, so this mapping is total.</summary>
     public static string ClassForSuite(string suite) => suite switch
     {
-        "tool-decision" or "tool_call_format" => "tool-call",
-        "structured-output" or "fim" => "structured-output",
+        "tool-decision" or "tool_call_format" or "tool_calling"
+            => "tool-call",
+        "structured-output" or "structured_output" or "fim"
+            => "structured-output",
         "vision" => "vision",
+        "system1" => "system1",
+        "thinking" or "thinking_eval" => "thinking",
         "moe-routing" or "expert_routing" => "routing",
-        "citation" or "rag" => "grounding",
+        "citation" => "rag",
+        "rag" => "rag",
         "code" or "coding" => "coding",
         "math" => "math",
         "reading" => "reading",
-        "long-context" or "context_tracking" or "multi_turn"
-            => "context",
+        "multi_turn" => "multi-turn",
+        "long-context" or "context_tracking" => "context",
         "runtime-parity" or "precision-parity" or "kv-cache"
             or "recurrent-state" or "generation-migration"
             or "bundle-provenance" => "reasoning",
         _ => "instruction",
     };
 
-    private static string PoolPath(string toolRoot) => Path.Combine(
-        toolRoot, PoolDirRel.Replace('/', Path.DirectorySeparatorChar),
-        PoolFile);
+    private static string PoolDir(string toolRoot) => Path.Combine(
+        toolRoot, PoolDirRel.Replace('/', Path.DirectorySeparatorChar));
+
+    private static string PoolPath(string toolRoot, string cls) =>
+        Path.Combine(PoolDir(toolRoot), $"pool-{cls}.jsonl");
 
     private static string Fingerprint(string input)
     {
@@ -58,33 +96,105 @@ internal static class FailurePool
         return Convert.ToHexString(h)[..16].ToLowerInvariant();
     }
 
-    /// <summary>Append one failure record. Never throws; returns the
-    /// record on success, null when the store is unwritable.</summary>
+    /// <summary>Normalized near-duplicate key (§11): case-folded,
+    /// whitespace/punctuation-collapsed — catches failures that differ
+    /// only in formatting, which must not re-enter as "new" data.</summary>
+    private static string NormFingerprint(string input)
+    {
+        var sb = new StringBuilder((input ?? "").Length);
+        bool ws = false;
+        foreach (char ch in (input ?? "").ToLowerInvariant())
+        {
+            if (char.IsWhiteSpace(ch)) { ws = true; continue; }
+            if (char.IsPunctuation(ch) || char.IsSymbol(ch)) continue;
+            if (ws && sb.Length > 0) sb.Append(' ');
+            ws = false;
+            sb.Append(ch);
+        }
+        byte[] h = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
+        return Convert.ToHexString(h)[..16].ToLowerInvariant();
+    }
+
+    /// <summary>Append one failure record (§10 fields) into the
+    /// capability's own pool, with §11 dedup: an exact or normalized
+    /// fingerprint repeat bumps seen_count/last_seen instead of
+    /// appending. Never throws; returns the record on success.</summary>
     public static Dictionary<string, object?>? Record(
         string toolRoot, string input, string generation,
         string failureClass, string expected, string actual,
         string evidence, string severity = "medium",
-        bool reproducible = true)
+        bool reproducible = true, string? reason = null,
+        string? modelVersion = null, string? runtimeVersion = null,
+        string? provenance = null)
     {
         try
         {
             if (!Classes.Contains(failureClass))
                 failureClass = "reasoning";
+            string fp = Fingerprint(input);
+            string nfp = NormFingerprint(input);
+            string now = XcPaths.IsoNow();
             var rec = new Dictionary<string, object?>
             {
                 ["format"] = Format,
-                ["input_fingerprint"] = Fingerprint(input),
+                ["input_fingerprint"] = fp,
+                ["norm_fingerprint"] = nfp,
+                ["input"] = input,
                 ["generation"] = generation,
+                ["model_version"] = modelVersion ?? generation,
+                ["runtime_version"] =
+                    runtimeVersion ?? "xc-native-cpp23",
                 ["failure_class"] = failureClass,
+                ["failure_reason"] = reason ?? "",
                 ["expected"] = expected,
                 ["actual"] = actual,
                 ["evidence"] = evidence,
+                ["provenance"] = provenance ?? "",
                 ["severity"] = severity,
                 ["reproducible"] = reproducible,
-                ["recorded_at"] = XcPaths.IsoNow(),
+                ["state"] = "OPEN",
+                ["seen_count"] = 1,
+                ["recorded_at"] = now,
+                ["last_seen"] = now,
             };
-            string path = PoolPath(toolRoot);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            string dir = PoolDir(toolRoot);
+            Directory.CreateDirectory(dir);
+            string path = PoolPath(toolRoot, failureClass);
+            // §11 dedup: a repeat of an existing fingerprint updates
+            // the record in place — identical failures never dominate.
+            var lines = File.Exists(path)
+                ? File.ReadAllLines(path).ToList()
+                : new List<string>();
+            for (int i = 0; i < lines.Count; ++i)
+            {
+                if (!lines[i].TrimStart().StartsWith("{")) continue;
+                try
+                {
+                    var old = JsonSerializer
+                        .Deserialize<Dictionary<string, object?>>(
+                            lines[i]);
+                    if (old == null ||
+                        !old.TryGetValue("input_fingerprint",
+                            out object? ofp) ||
+                        !old.TryGetValue("norm_fingerprint",
+                            out object? onfp))
+                        continue;
+                    if (ofp?.ToString() != fp && onfp?.ToString() != nfp)
+                        continue;
+                    int seen = old.TryGetValue("seen_count",
+                        out object? sc) && sc is JsonElement je &&
+                        je.TryGetInt32(out int n) ? n : 1;
+                    old["seen_count"] = seen + 1;
+                    old["last_seen"] = now;
+                    if (severity == "high") old["severity"] = "high";
+                    lines[i] = CanonicalJson.CanonicalDict(old);
+                    File.WriteAllLines(path, lines);
+                    rec["seen_count"] = seen + 1;
+                    rec["dedup"] = "repeat";
+                    return rec;
+                }
+                catch (JsonException) { }
+            }
             File.AppendAllText(
                 path, CanonicalJson.CanonicalDict(rec) + "\n");
             RotateIfNeeded(path);
@@ -93,9 +203,9 @@ internal static class FailurePool
         catch { return null; }
     }
 
-    /// <summary>Bounded store: when the pool exceeds MaxEntries, keep
-    /// the newest records (lineage lives in eval reports; the pool is a
-    /// working set for the next unfreeze phase).</summary>
+    /// <summary>Bounded store: when a class pool exceeds MaxEntries,
+    /// keep the newest records (lineage lives in eval reports; the
+    /// pool is a working set for the recovery loop).</summary>
     private static void RotateIfNeeded(string path)
     {
         var lines = File.ReadAllLines(path);
@@ -104,33 +214,70 @@ internal static class FailurePool
             path, lines.Skip(lines.Length - MaxEntries).ToArray());
     }
 
-    /// <summary>Pool status for converge-check / governance reads.</summary>
+    /// <summary>All records for one capability class — the recovery
+    /// loop's FailurePool read path (§10 per-capability pools).</summary>
+    public static List<Dictionary<string, object?>> ReadPool(
+        string toolRoot, string cls)
+    {
+        var rows = new List<Dictionary<string, object?>>();
+        string path = PoolPath(toolRoot, cls);
+        if (!File.Exists(path)) return rows;
+        foreach (string line in File.ReadLines(path))
+        {
+            if (!line.TrimStart().StartsWith("{")) continue;
+            try
+            {
+                var rec = JsonSerializer
+                    .Deserialize<Dictionary<string, object?>>(line);
+                if (rec != null) rows.Add(rec);
+            }
+            catch (JsonException) { }
+        }
+        return rows;
+    }
+
+    /// <summary>Pool status for converge-check / governance reads:
+    /// per-capability entry counts across every pool-<class>.jsonl.</summary>
     public static Dictionary<string, object?> Status(string toolRoot)
     {
-        string path = PoolPath(toolRoot);
         var byClass = Classes.ToDictionary(c => c, _ => 0);
-        int total = 0;
-        if (File.Exists(path))
-            foreach (string line in File.ReadLines(path))
-            {
-                if (!line.TrimStart().StartsWith("{")) continue;
-                try
+        var byState = States.ToDictionary(s => s, _ => 0);
+        int total = 0, repeats = 0;
+        string dir = PoolDir(toolRoot);
+        if (Directory.Exists(dir))
+            foreach (string f in Directory.EnumerateFiles(
+                         dir, "pool-*.jsonl"))
+                foreach (string line in File.ReadLines(f))
                 {
-                    using var doc = JsonDocument.Parse(line);
-                    if (doc.RootElement.TryGetProperty(
-                            "failure_class", out var fc) &&
-                        byClass.ContainsKey(fc.GetString() ?? ""))
-                        ++byClass[fc.GetString()!];
-                    ++total;
+                    if (!line.TrimStart().StartsWith("{")) continue;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(line);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("failure_class",
+                                out var fc) &&
+                            byClass.ContainsKey(fc.GetString() ?? ""))
+                            ++byClass[fc.GetString()!];
+                        if (root.TryGetProperty("state", out var st) &&
+                            byState.ContainsKey(st.GetString() ?? ""))
+                            ++byState[st.GetString()!];
+                        if (root.TryGetProperty("seen_count",
+                                out var sc) &&
+                            sc.TryGetInt32(out int n) && n > 1)
+                            repeats += n - 1;
+                        ++total;
+                    }
+                    catch (JsonException) { }
                 }
-                catch (JsonException) { }
-            }
         return new Dictionary<string, object?>
         {
             ["ok"] = true,
             ["format"] = Format,
             ["entries"] = total,
+            ["repeat_observations"] = repeats,
             ["by_class"] = byClass,
+            ["by_state"] = byState,
+            ["per_capability_pools"] = true,
             ["bounded"] = MaxEntries,
         };
     }
