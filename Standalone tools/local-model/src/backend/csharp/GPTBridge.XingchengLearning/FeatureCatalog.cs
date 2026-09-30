@@ -45,6 +45,11 @@ internal sealed class FeatureEntry
         // CONTRACT_ONLY = interface contract exists, model lane absent.
         "REJECT_DUPLICATE", "PROBE_ONLY",
         "HARDWARE_EXPERIMENTAL", "CONTRACT_ONLY",
+        // §22/§23 quarantine: NON_CANONICAL_EXPERIMENTAL = training-
+        // verified but outside xc-fused-1 — production load is a
+        // CANONICAL_CONTRACT_VIOLATION; TRAINER_ONLY_EXPERIMENTAL =
+        // trainer-probe evidence only, no serving semantics.
+        "NON_CANONICAL_EXPERIMENTAL", "TRAINER_ONLY_EXPERIMENTAL",
     };
 
     public Dictionary<string, object?> ToDict() => new()
@@ -542,6 +547,44 @@ internal static class FeatureCatalog
             SourceInspiration = "Kimi KDA / RWKV / Mamba2 blocks",
             XingchengComponent = "none (xc-fused-1 fixed)",
             Status = "REJECTED",
+            RuntimeRequired = false,
+            Owner = "governance",
+            Tests = Array.Empty<string>(),
+        },
+        // §22/§23/§45 quarantine rows — verified in training, fenced
+        // from production: loading one under an xc-fused-1 claim is
+        // CANONICAL_CONTRACT_VIOLATION.
+        new FeatureEntry
+        {
+            FeatureId = "csa-production",
+            SourceInspiration =
+                "DeepSeek compressed sparse attention",
+            XingchengComponent =
+                "trainer path only — serving unimplemented",
+            Status = "NON_CANONICAL_EXPERIMENTAL",
+            RuntimeRequired = false,
+            Owner = "cpp:xingcheng_trainer --csacheck",
+            Tests = new[] { "csacheck" },
+        },
+        new FeatureEntry
+        {
+            FeatureId = "mla-production",
+            SourceInspiration = "DeepSeek multi-head latent attention",
+            XingchengComponent =
+                "trainer path only — not xc-fused-1 canonical",
+            Status = "NON_CANONICAL_EXPERIMENTAL",
+            RuntimeRequired = false,
+            Owner = "governance",
+            Tests = Array.Empty<string>(),
+        },
+        new FeatureEntry
+        {
+            FeatureId = "aux-free-lb-bias",
+            SourceInspiration =
+                "DeepSeek aux-loss-free load balancing",
+            XingchengComponent =
+                "trainer path only — canonical serving router is fixed",
+            Status = "TRAINER_ONLY_EXPERIMENTAL",
             RuntimeRequired = false,
             Owner = "governance",
             Tests = Array.Empty<string>(),
