@@ -255,8 +255,11 @@ internal static class Maturation300M
             ? s?.ToString() ?? "pending" : "pending";
     }
 
-    /// <summary>The sequence head: first capability not yet frozen.
-    /// Null when every capability is frozen (maturation complete).</summary>
+    /// <summary>The sequence head: first capability not yet resolved.
+    /// "frozen" (gate passed) and "unsupported" (modality absent on a
+    /// text-only bundle — fail-closed evidence, not a pass) both
+    /// resolve the slot; "unsupported" never counts as a gated
+    /// capability. Null when every capability is resolved.</summary>
     public static CapabilitySpec? Head(
         IReadOnlyDictionary<string, object?> state)
     {
@@ -264,8 +267,11 @@ internal static class Maturation300M
             raw is not Dictionary<string, object?> caps)
             return Sequence[0];
         foreach (var spec in Sequence)
-            if (StatusOf(caps, spec.Id) != "frozen")
+        {
+            string st = StatusOf(caps, spec.Id);
+            if (st != "frozen" && st != "unsupported")
                 return spec;
+        }
         return null;
     }
 
@@ -325,6 +331,50 @@ internal static class Maturation300M
             ["ok"] = true,
             ["frozen"] = capability,
             ["weight_version"] = WeightVersionFor(IndexOf(capability)),
+            ["next_capability"] = next?.Id,
+        };
+    }
+
+    /// <summary>Resolve the head capability as unsupported — used when
+    /// the governed evidence itself proves the capability cannot be
+    /// exercised on this bundle (e.g. every vision-suite item is
+    /// skipped "modality-unavailable" on the text-only 300M bundle).
+    /// Records the evidence and reason; stamps no weight version —
+    /// "unsupported" is never a pass. Only the sequence head may be
+    /// marked.</summary>
+    public static Dictionary<string, object?> MarkUnsupported(
+        string toolRoot, string capability, string evidenceRef,
+        string reason)
+    {
+        var state = LoadState(toolRoot);
+        CapabilitySpec? head = Head(state);
+        if (head == null || !string.Equals(capability, head.Id,
+                StringComparison.OrdinalIgnoreCase))
+            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+                $"cannot mark '{capability}' unsupported: sequence "
+                + $"head is '{head?.Id ?? "none"}'");
+        if (string.IsNullOrWhiteSpace(evidenceRef))
+            throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
+                "unsupported requires fail-closed evidence "
+                + "(eval report ref)");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
+                "unsupported requires a reason");
+        var caps = (Dictionary<string, object?>)state["capabilities"]!;
+        caps[capability] = new Dictionary<string, object?>
+        {
+            ["status"] = "unsupported",
+            ["reason"] = reason,
+            ["evidence"] = evidenceRef,
+            ["marked_at"] = XcPaths.IsoNow(),
+        };
+        SaveState(toolRoot, state);
+        CapabilitySpec? next = Head(state);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["unsupported"] = capability,
+            ["reason"] = reason,
             ["next_capability"] = next?.Id,
         };
     }
