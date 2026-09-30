@@ -337,6 +337,11 @@ public:
     // eval-suite metric (native_eval_suite.evaluate_checkpoint).
     std::pair<double, int64_t> sequence_nll(
         const std::vector<int64_t>& input_ids);
+    // MTP drafter probe support (300M §21-§23): teacher-forced
+    // post-final-norm hidden states at every position — [seq * hidden].
+    // No KV writes; the caller owns lm_head projection and draft/verify.
+    std::vector<double> forward_all_hidden(
+        const std::vector<int64_t>& input_ids);
     // G41 layerwise parity probe: RMS of the hidden stream at each stage
     // (embedding, each transformer layer output, final norm). No KV writes.
     std::vector<double> layer_metrics(const std::vector<int64_t>& input_ids);
