@@ -205,6 +205,9 @@ int main(int argc, char** argv) {
     } catch (const char* e) {
         std::fprintf(stderr, "train-job error: %s\n", e);
         return 1;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "train-job error: %s\n", e.what());
+        return 1;
     } catch (...) {
         std::fprintf(stderr, "train-job error: malformed job or unrecoverable state\n");
         return 1;
