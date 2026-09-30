@@ -118,8 +118,45 @@ internal sealed class ModelLifecycle
             ["metadata"] = metadata ?? new Dictionary<string, object?>(),
         };
         versionList.Add(entry);
+        int previousActive = ActiveWeightsVersion;
         if (kind == "weights" && activate)
+        {
             ActiveWeightsVersion = (int)entry["version"]!;
+            // 世代繼任契約：新代啟用時自動把前代完整記錄（version、
+            // sha256、path、全份 metadata 資料血統）攜入新代
+            // metadata["succeeded_from"]——刪除前代的前置條件，使前代
+            // 資料保留在新代而非隨實體檔案消失。
+            if (previousActive > 0 && previousActive != (int)entry["version"]!)
+            {
+                var prev = versionList
+                    .OfType<Dictionary<string, object?>>()
+                    .FirstOrDefault(e =>
+                        Convert.ToInt32(e["version"]) == previousActive);
+                if (prev != null)
+                {
+                    if (entry["metadata"] is not Dictionary<string, object?> meta)
+                    {
+                        meta = new Dictionary<string, object?>();
+                        entry["metadata"] = meta;
+                    }
+                    meta["succeeded_from"] = new Dictionary<string, object?>
+                    {
+                        ["version"] = previousActive,
+                        ["path"] = prev.GetValueOrDefault("path"),
+                        ["sha256"] = prev.GetValueOrDefault("sha256"),
+                        ["registered_at"] = prev.GetValueOrDefault("registered_at"),
+                        ["metadata"] = prev.GetValueOrDefault("metadata"),
+                    };
+                    History.Add(new Dictionary<string, object?>
+                    {
+                        ["at"] = UtcNow(),
+                        ["event"] = "weights_succession",
+                        ["version"] = entry["version"],
+                        ["succeeded_from"] = previousActive,
+                    });
+                }
+            }
+        }
         History.Add(new Dictionary<string, object?>
         {
             ["at"] = UtcNow(),
@@ -282,6 +319,51 @@ internal sealed class ModelLifecycle
             ["kept"] = keepVersions.Order().Select(v => (object?)v).ToList(),
         });
         return retiredNow;
+    }
+
+    // Move a single weights entry into retired with succession markers
+    // (used when a superseded generation's files are physically pruned:
+    // the live table must not keep a dead path, and the retired record
+    // carries data_carried_to so the lineage survives deletion).
+    // Fail-closed: never retires the active generation or unknown
+    // versions (returns null).
+    public Dictionary<string, object?>? RetireWeightVersion(
+        int version, int succeededBy)
+    {
+        if (version <= 0 || version == ActiveWeightsVersion) return null;
+        if (!Artifacts.TryGetValue("weights", out var weights)) return null;
+        var list = WeightVersions().Cast<object?>().ToList();
+        weights["versions"] = list;
+        Dictionary<string, object?>? moved = null;
+        for (int i = 0; i < list.Count; ++i)
+        {
+            if (list[i] is Dictionary<string, object?> e &&
+                Convert.ToInt32(e["version"]) == version)
+            {
+                moved = new Dictionary<string, object?>(e);
+                moved["retired_at"] = UtcNow();
+                moved["succeeded_by"] = succeededBy;
+                moved["data_carried_to"] = succeededBy;
+                list.RemoveAt(i);
+                break;
+            }
+        }
+        if (moved == null) return null;
+        if (!weights.TryGetValue("retired", out object? rl) ||
+            rl is not List<object?> retiredList)
+        {
+            retiredList = new List<object?>();
+            weights["retired"] = retiredList;
+        }
+        retiredList.Add(moved);
+        History.Add(new Dictionary<string, object?>
+        {
+            ["at"] = UtcNow(),
+            ["event"] = "weights_retired",
+            ["versions"] = new List<object?> { version },
+            ["succeeded_by"] = succeededBy,
+        });
+        return moved;
     }
 
     private IEnumerable<Dictionary<string, object?>> WeightVersions()
