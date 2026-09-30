@@ -128,6 +128,18 @@ struct Args {
     bool has(const char* k) const {
         return kv.count(k) || flags.count(k);
     }
+    // Numeric arg lookup; accepts both "key" and "--key" spellings.
+    int64_t num_arg(const char* k, int64_t d = 0) const {
+        std::string key = k;
+        while (key.rfind("--", 0) == 0) key = key.substr(2);
+        auto it = kv.find(key);
+        if (it == kv.end()) return d;
+        try {
+            return std::stoll(it->second);
+        } catch (...) {
+            return d;
+        }
+    }
 };
 
 Args parse_args(int argc, char** argv) {
@@ -150,6 +162,52 @@ Args parse_args(int argc, char** argv) {
                 gptbridge::jsonlite::json_escape(code).c_str());
     std::exit(1);
 }
+
+void emit_line(const std::string& s) {
+    std::printf("%s\n", s.c_str());
+}
+
+// Minimal fluent JSON object writer used by the certification headers
+// (xcm_bf16cert.h §58). Strings are escaped through jsonlite; numbers
+// and booleans are emitted verbatim.
+struct JsonWriter {
+    std::ostringstream o;
+    bool first = true;
+    JsonWriter& begin() { o << '{'; first = true; return *this; }
+    JsonWriter& end() { o << '}'; return *this; }
+    JsonWriter& comma_() {
+        if (!first) o << ',';
+        first = false;
+        return *this;
+    }
+    JsonWriter& kv(const char* k, const std::string& v) {
+        comma_();
+        o << '"' << k << "\":\""
+          << gptbridge::jsonlite::json_escape(v) << '"';
+        return *this;
+    }
+    JsonWriter& kv(const char* k, const char* v) {
+        return kv(k, std::string(v));
+    }
+    JsonWriter& kv(const char* k, int64_t v) {
+        comma_();
+        o << '"' << k << "\":" << v;
+        return *this;
+    }
+    JsonWriter& kv(const char* k, int v) { return kv(k, (int64_t)v); }
+    JsonWriter& kv(const char* k, size_t v) { return kv(k, (int64_t)v); }
+    JsonWriter& kv(const char* k, double v) {
+        comma_();
+        o << '"' << k << "\":" << v;
+        return *this;
+    }
+    JsonWriter& kv(const char* k, bool v) {
+        comma_();
+        o << '"' << k << "\":" << (v ? "true" : "false");
+        return *this;
+    }
+    std::string str() const { return o.str(); }
+};
 
 std::string slurp(const std::string& path) {
     std::ifstream f(path, std::ios::binary);

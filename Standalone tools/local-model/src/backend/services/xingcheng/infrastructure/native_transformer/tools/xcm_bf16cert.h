@@ -185,10 +185,10 @@ static int mode_bf16_cert(const Args& a) {
 // without respawning. logits() never touches the prefix cache
 // (append_cache=false), so the comparison is not contaminated.
 int mode_bf16_drift(const Args& a) {
-    const std::string bundle = a.get("--bundle", "");
-    const int prefill = a.num_arg("--prefill", 64);
-    const int decode = a.num_arg("--decode", 32);
-    const int64_t seed = a.num_arg("--seed", 7);
+    const std::string bundle = a.get("bundle", "");
+    const int prefill = (int)a.num_arg("prefill", 64);
+    const int decode = (int)a.num_arg("decode", 32);
+    const int64_t seed = a.num_arg("seed", 7);
     JsonWriter w;
     w.begin().kv("schema", "star-bf16-drift-report/v1")
             .kv("bundle", bundle).kv("prefill", prefill)
@@ -212,7 +212,6 @@ int mode_bf16_drift(const Args& a) {
         std::string err64, err16;
         SamplingConfig sc;
         sc.temperature = 0.0;
-        sc.max_tokens = decode;
         xengine_cuda_lane(1, 0);
         try { l64 = e.logits(ids); g64 = e.generate(ids, decode, sc); }
         catch (const std::exception& ex) { err64 = ex.what(); }
