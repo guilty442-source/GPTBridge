@@ -1,4 +1,4 @@
-//! main_window — native egui main dashboard (E180/C116 native-UI).
+//! main_window ??native egui main dashboard (E180/C116 native-UI).
 //!
 //! Replaces the retired WebView2/JS main renderer, reproducing the
 //! original product design in pure Rust: dark ``#060a12`` canvas,
@@ -9,7 +9,7 @@
 //!
 //! Removed JS-era surfaces: third-party panel, saga visualiser,
 //! capacity/SLO drawers, sovereign dashboard, detail drawers and HMR
-//! plumbing — the governed operator surface only.
+//! plumbing ??the governed operator surface only.
 
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use crate::tool_window::{Backend, ConnState, ToolWindowConfig};
 
-// ── Design tokens (mirror of renderer App.css :root) ──────────────
+// ?�?� Design tokens (mirror of renderer App.css :root) ?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 const BG: egui::Color32 = egui::Color32::from_rgb(6, 10, 18);
 const CARD_TOP: egui::Color32 = egui::Color32::from_rgb(14, 21, 38);
 const CARD_BOTTOM: egui::Color32 = egui::Color32::from_rgb(9, 15, 26);
@@ -62,26 +62,26 @@ fn hatch_line() -> egui::Color32 {
 
 const LIST_REFRESH: Duration = Duration::from_secs(5);
 
-/// Monogram per tool id — same map as the retired webview card.
+/// Monogram per tool id ??same map as the retired webview card.
 fn tool_mark(id: &str, name: &str) -> String {
     match id {
-        "ai-assistant" => "投".to_string(),
-        "xingcheng" | "local-model" => "星".to_string(),
-        "ai-collaboration" => "外".to_string(),
-        "project-cleaner" => "救".to_string(),
-        "vaultly" => "安".to_string(),
-        "file-sorter" => "檔".to_string(),
-        _ => name.chars().next().unwrap_or('工').to_string(),
+        "ai-assistant" => "??.to_string(),
+        "xingcheng" | "local-model" => "??.to_string(),
+        "ai-collaboration" => "�?.to_string(),
+        "project-cleaner" => "??.to_string(),
+        "vaultly" => "�?.to_string(),
+        "file-sorter" => "�?.to_string(),
+        _ => name.chars().next().unwrap_or('�?).to_string(),
     }
 }
 
 fn status_label(status: &str) -> &'static str {
     match status {
-        "running" => "執行中",
-        "starting" => "啟動中",
-        "stopping" => "強制關閉中",
-        "error" => "需要處理",
-        _ => "已停止",
+        "running" => "?��?�?,
+        "starting" => "?��?�?,
+        "stopping" => "強制?��?�?,
+        "error" => "?�要�???,
+        _ => "已�?�?,
     }
 }
 
@@ -94,7 +94,7 @@ fn status_color(status: &str) -> egui::Color32 {
     }
 }
 
-/// zh-TW byte formatting — mirrors the retired ``formatBytes``.
+/// zh-TW byte formatting ??mirrors the retired ``formatBytes``.
 fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
     let mut v = bytes as f64;
@@ -131,28 +131,28 @@ impl ToolCard {
         }
         let db = &v["data_boundary"];
         let data_boundary = match db["database_scope"].as_str() {
-            Some("tool-database-only") => "工具專屬資料庫".to_string(),
+            Some("tool-database-only") => "工具專屬資�?�?.to_string(),
             Some(scope) => scope.to_string(),
             None if db["code_scope"].as_str() == Some("tool-root-only") => {
-                "工具根目錄".to_string()
+                "工具?�目??.to_string()
             }
-            None if db["standalone"].as_bool() == Some(true) => "獨立".to_string(),
-            _ => "未宣告".to_string(),
+            None if db["standalone"].as_bool() == Some(true) => "?��?".to_string(),
+            _ => "?�宣??.to_string(),
         };
         let auto = v["automatic_runtime_mode"].as_str().unwrap_or("");
         let selected = match auto {
-            "governed-source" => "治理來源碼",
-            "executable" => "執行檔",
+            "governed-source" => "治�?來�?�?,
+            "executable" => "?��?�?,
             _ => "",
         };
         let runtime_mode = match v["runtime_mode"].as_str() {
             Some("dual-runtime") if !selected.is_empty() => {
-                format!("雙執行模式（目前：{selected}）")
+                format!("?�執行模式�??��?：{selected}�?)
             }
-            Some("dual-runtime") => "雙執行模式".to_string(),
-            Some("governed-source") => "治理來源碼".to_string(),
-            Some("executable") => "執行檔".to_string(),
-            _ => "未宣告".to_string(),
+            Some("dual-runtime") => "?�執行模�?.to_string(),
+            Some("governed-source") => "治�?來�?�?.to_string(),
+            Some("executable") => "?��?�?.to_string(),
+            _ => "?�宣??.to_string(),
         };
         Some(Self {
             name: v["name"]
@@ -180,7 +180,7 @@ impl ToolCard {
     }
 }
 
-/// Cut-corner silhouette — top-left and bottom-right corners clipped,
+/// Cut-corner silhouette ??top-left and bottom-right corners clipped,
 /// the signature HUD panel shape shared with the native tool surfaces.
 fn chamfer_pts(rect: egui::Rect, cut: f32) -> Vec<egui::Pos2> {
     let (l, t, r, b) =
@@ -212,7 +212,7 @@ fn corner_tick(
         .line_segment([egui::pos2(x, y), egui::pos2(x, y + dy * len)], stroke);
 }
 
-/// Filled diamond — HUD status marker replacing the round dot.
+/// Filled diamond ??HUD status marker replacing the round dot.
 fn diamond(
     painter: &egui::Painter,
     center: egui::Pos2,
@@ -231,7 +231,7 @@ fn diamond(
     ));
 }
 
-/// Staggered dot-grid backdrop — low-alpha tech texture behind cards.
+/// Staggered dot-grid backdrop ??low-alpha tech texture behind cards.
 fn paint_dot_grid(painter: &egui::Painter, rect: egui::Rect) {
     let clipped = painter.with_clip_rect(rect);
     let mut y = rect.top() + 8.0;
@@ -245,7 +245,7 @@ fn paint_dot_grid(painter: &egui::Painter, rect: egui::Rect) {
     }
 }
 
-/// Diagonal hatch marks — header-band texture.
+/// Diagonal hatch marks ??header-band texture.
 fn paint_diag_hatch(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -265,8 +265,8 @@ fn paint_diag_hatch(
     }
 }
 
-/// Vertical-gradient HUD card — the webview cards ran
-/// ``rgba(17,27,46,.7) → rgba(10,16,28,.7)`` at 160deg over ``#060a12``;
+/// Vertical-gradient HUD card ??the webview cards ran
+/// ``rgba(17,27,46,.7) ??rgba(10,16,28,.7)`` at 160deg over ``#060a12``;
 /// the silhouette is chamfered, with a neon slash on the cut corner and
 /// aiming ticks on the sharp corners when ``detail`` is set.
 fn paint_card(
@@ -343,7 +343,7 @@ pub struct MainWindow {
     backend: Backend,
     last_list_poll: Option<Instant>,
     tools: Vec<ToolCard>,
-    /// tool id → (bytes, file_count) from ``app:get-platform-tool-sizes``.
+    /// tool id ??(bytes, file_count) from ``app:get-platform-tool-sizes``.
     sizes: HashMap<String, (u64, u64)>,
     busy: HashSet<String>,
     status: Option<Value>,
@@ -370,7 +370,7 @@ impl MainWindow {
 
     fn request_list(&mut self) {
         if self.backend.send("toolbox_list_tools", json!({})).is_none() {
-            self.notice = Some("無法送出工具清單請求".to_string());
+            self.notice = Some("?��??�出工具清單請�?".to_string());
         }
         let _ = self
             .backend
@@ -446,7 +446,7 @@ impl MainWindow {
                 self.notice = payload["message"]
                     .as_str()
                     .map(|s| s.to_string())
-                    .or_else(|| Some("後端回報錯誤".to_string()));
+                    .or_else(|| Some("後端?�報?�誤".to_string()));
             }
             _ => {}
         }
@@ -459,16 +459,16 @@ impl MainWindow {
             && status.and_then(|s| s["runtime_state"].as_str()) == Some("ready")
     }
 
-    /// Header connection pill — (label, detail, tone color).
+    /// Header connection pill ??(label, detail, tone color).
     fn connection(&self) -> (&'static str, &'static str, egui::Color32) {
         match self.backend.state {
             ConnState::Connected if self.connected_ready() => {
-                ("系統正常", "安全連線與啟動維護均已完成", SUCCESS)
+                ("系統�?��", "安全????��??�維護�?已�???, SUCCESS)
             }
-            ConnState::Connected => ("系統審查中", "即時通道連接或修復中", WARNING),
-            ConnState::Connecting => ("正在連線", "正在檢查並恢復後端服務", WARNING),
+            ConnState::Connected => ("系統審查�?, "?��??��???��?�修復中", WARNING),
+            ConnState::Connecting => ("�?��???", "�?��檢查並恢復�?端�???, WARNING),
             ConnState::Disconnected => {
-                ("系統異常", "後端即時通道中斷，正在自動重連", DANGER)
+                ("系統?�常", "後端?��??��?中斷，正?�自?��???, DANGER)
             }
         }
     }
@@ -660,17 +660,17 @@ impl MainWindow {
         ui.label(egui::RichText::new(&tool.runtime_mode).size(9.0).color(SUBTLE));
         ui.add_space(6.0);
 
-        // Quick meta: 資料夾總大小 / 資料邊界 (same cells as the webview card).
+        // Quick meta: 資�?夾總大�? / 資�??��? (same cells as the webview card).
         let size_text = self
             .sizes
             .get(&tool.id)
             .map(|(b, _)| format_bytes(*b))
-            .unwrap_or_else(|| "計算中".to_string());
+            .unwrap_or_else(|| "計�?�?.to_string());
         ui.horizontal(|ui| {
             let cell_w = (ui.available_width() - 8.0) / 2.0;
             for (label, value) in [
-                ("資料夾總大小", size_text.as_str()),
-                ("資料邊界", tool.data_boundary.as_str()),
+                ("資�?夾總大�?", size_text.as_str()),
+                ("資�??��?", tool.data_boundary.as_str()),
             ] {
                 egui::Frame::new()
                     .corner_radius(egui::CornerRadius::same(4))
@@ -720,9 +720,9 @@ impl MainWindow {
                     can_stop,
                     egui::Button::new(
                         egui::RichText::new(if tool.status == "stopping" {
-                            "強制關閉中…"
+                            "強制?��?中�?
                         } else {
-                            "強制關閉"
+                            "強制?��?"
                         })
                         .size(11.0)
                         .strong()
@@ -742,9 +742,9 @@ impl MainWindow {
                     can_start,
                     egui::Button::new(
                         egui::RichText::new(if tool.status == "starting" {
-                            "啟動中…"
+                            "?��?中�?
                         } else {
-                            "啟動"
+                            "?��?"
                         })
                         .size(11.0)
                         .strong()
@@ -815,19 +815,19 @@ impl eframe::App for MainWindow {
         let (conn_label, conn_detail, conn_color) = self.connection();
         let (review_state, review_hint, review_warn) = if issues > 0 {
             (
-                format!("{issues} 處異常"),
-                "偵測到異常的工具".to_string(),
+                format!("{issues} ?�異�?),
+                "?�測?�異常�?工具".to_string(),
                 true,
             )
         } else if ready {
-            ("正常".to_string(), "已依據法典完成全域唯讀審查".to_string(), false)
+            ("�?��".to_string(), "已�??��??��??�全?�唯讀審查".to_string(), false)
         } else if self.backend.connected() {
-            ("審查中".to_string(), "即時通道連接或修復中".to_string(), false)
+            ("審查�?.to_string(), "?��??��???��?�修復中".to_string(), false)
         } else {
-            ("系統異常".to_string(), "後端即時通道中斷".to_string(), true)
+            ("系統?�常".to_string(), "後端?��??��?中斷".to_string(), true)
         };
 
-        // ── Header ────────────────────────────────────────────────
+        // ?�?� Header ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
         egui::Panel::top("header")
             .exact_size(40.0)
             .frame(
@@ -859,7 +859,7 @@ impl eframe::App for MainWindow {
                     ),
                 );
                 ui.horizontal(|ui| {
-                    // Brand lockup — chamfered mark.
+                    // Brand lockup ??chamfered mark.
                     let (mark_rect, _) = ui.allocate_exact_size(
                         egui::vec2(26.0, 26.0),
                         egui::Sense::hover(),
@@ -884,7 +884,7 @@ impl eframe::App for MainWindow {
                     ui.vertical(|ui| {
                         ui.label(egui::RichText::new("GPTBridge").size(12.0).strong().color(TEXT));
                         ui.label(
-                            egui::RichText::new("應用程式控制中心").size(10.0).color(MUTED),
+                            egui::RichText::new("?�用程�??�制中�?").size(10.0).color(MUTED),
                         );
                     });
 
@@ -919,7 +919,7 @@ impl eframe::App for MainWindow {
                 });
             });
 
-        // ── Footer ────────────────────────────────────────────────
+        // ?�?� Footer ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
         egui::Panel::bottom("footer")
             .exact_size(34.0)
             .frame(
@@ -942,7 +942,7 @@ impl eframe::App for MainWindow {
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
-                            egui::RichText::new("Windows 11 · 本機優先")
+                            egui::RichText::new("Windows 11 · ?��??��?")
                                 .size(10.0)
                                 .color(SUBTLE),
                         );
@@ -950,7 +950,7 @@ impl eframe::App for MainWindow {
                 });
             });
 
-        // ── Main ──────────────────────────────────────────────────
+        // ?�?� Main ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::symmetric(24, 18)))
             .show(ui, |ui| {
@@ -959,12 +959,12 @@ impl eframe::App for MainWindow {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false; 2])
                     .show(ui, |ui| {
-                // Notice — offline safe mode / maintenance gate.
+                // Notice ??offline safe mode / maintenance gate.
                 if !ready || !maintenance {
                     let (text, detail) = if !self.backend.connected() {
-                        ("離線安全模式", "後端連線中斷時，狀態變更指令不會送出或排隊；系統會自動修正並重新連線。")
+                        ("?��?安全模�?", "後端???中斷?��??�?��??��?令�??�送出?��??��?系統?�自?�修�?��?�新?????)
                     } else {
-                        ("啟動維護尚未完成", "正在檢查版本相容性並執行主系統穩定性修正，完成前不開放狀態變更。")
+                        ("?��?維護尚未完�?", "�?��檢查?�本?�容?�並?��?主系統穩定性修�??完�??��??�放?�?��??��?)
                     };
                     egui::Frame::new()
                         .corner_radius(egui::CornerRadius::same(4))
@@ -1009,40 +1009,40 @@ impl eframe::App for MainWindow {
                     ui.add_space(12.0);
                 }
 
-                // Hero grid — five stat cards.
+                // Hero grid ??five stat cards.
                 let gap = 12.0;
                 let avail = ui.available_width();
                 let hero_w = ((avail - gap * 4.0) / 5.0).max(140.0);
                 ui.horizontal(|ui| {
                     Self::hero_card(
-                        ui, hero_w, "可用工具", &total.to_string(), TEXT_SOFT,
-                        "已註冊的獨立工具", true, false,
+                        ui, hero_w, "?�用工具", &total.to_string(), TEXT_SOFT,
+                        "已註?��??��?工具", true, false,
                     );
                     ui.add_space(gap);
                     Self::hero_card(
-                        ui, hero_w, "執行中", &running.to_string(), TEXT_SOFT,
-                        "目前由主系統管理", false, false,
+                        ui, hero_w, "?��?�?, &running.to_string(), TEXT_SOFT,
+                        "?��??�主系統管�?", false, false,
                     );
                     ui.add_space(gap);
                     Self::hero_card(
-                        ui, hero_w, "需要處理", &issues.to_string(), TEXT_SOFT,
-                        "偵測到異常的工具", false, issues > 0,
+                        ui, hero_w, "?�要�???, &issues.to_string(), TEXT_SOFT,
+                        "?�測?�異常�?工具", false, issues > 0,
                     );
                     ui.add_space(gap);
                     Self::hero_card(
-                        ui, hero_w, "指令策略", "請求工具執行", TEXT_SOFT,
-                        "治理驗證後交由權責工具執行", false, false,
+                        ui, hero_w, "?�令策略", "請�?工具?��?", TEXT_SOFT,
+                        "治�?驗�?後交?��?責工?�執�?, false, false,
                     );
                     ui.add_space(gap);
                     Self::hero_card(
-                        ui, hero_w, "星澄助理", &review_state,
+                        ui, hero_w, "?��??��?", &review_state,
                         if review_warn { WARNING } else { SUCCESS },
                         &review_hint, false, review_warn,
                     );
                 });
                 ui.add_space(18.0);
 
-                // ── Toolbox panel ─────────────────────────────────
+                // ?�?� Toolbox panel ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
                 let needle = self.search.trim().to_lowercase();
                 let filtered: Vec<usize> = self
                     .tools
@@ -1070,17 +1070,18 @@ impl eframe::App for MainWindow {
                         ui.horizontal(|ui| {
                             ui.vertical(|ui| {
                                 ui.label(
-                                    egui::RichText::new("獨立工具")
+                                    egui::RichText::new("// ?��?工具")
                                         .size(10.0)
                                         .strong()
-                                        .color(egui::Color32::from_rgb(145, 175, 255)),
+                                        .color(egui::Color32::from_rgb(145, 175, 255))
+                                        .family(egui::FontFamily::Monospace),
                                 );
                                 ui.label(
-                                    egui::RichText::new("獨立工具").size(20.0).strong().color(TEXT),
+                                    egui::RichText::new("?��?工具").size(20.0).strong().color(TEXT),
                                 );
                                 ui.label(
                                     egui::RichText::new(
-                                        "由主系統統一請求啟動、停止與更新；各工具的功能與資料維持清楚邊界。",
+                                        "?�主系統統�?請�??��??��?止�??�新；�?工具?��??��?資�?維�?清�??��???,
                                     )
                                     .size(11.0)
                                     .color(MUTED),
@@ -1092,7 +1093,7 @@ impl eframe::App for MainWindow {
                                     if ui
                                         .add(
                                             egui::Button::new(
-                                                egui::RichText::new("重新整理")
+                                                egui::RichText::new("?�新?��?")
                                                     .size(11.0)
                                                     .strong()
                                                     .color(egui::Color32::from_rgb(
@@ -1103,7 +1104,7 @@ impl eframe::App for MainWindow {
                                                     30, 41, 59, 128,
                                                 ))
                                                 .stroke(egui::Stroke::new(1.0, line_strong()))
-                                                .corner_radius(egui::CornerRadius::same(9)),
+                                                .corner_radius(egui::CornerRadius::same(3)),
                                         )
                                         .clicked()
                                         && self.backend.connected()
@@ -1127,10 +1128,10 @@ impl eframe::App for MainWindow {
                         );
                         ui.add_space(14.0);
 
-                        // Search + filter row (原 webview toolbar).
+                        // Search + filter row (??webview toolbar).
                         ui.horizontal(|ui| {
                             egui::Frame::new()
-                                .corner_radius(egui::CornerRadius::same(9))
+                                .corner_radius(egui::CornerRadius::same(3))
                                 .inner_margin(egui::Margin::symmetric(10, 6))
                                 .fill(FIELD_FILL)
                                 .stroke(egui::Stroke::new(1.0, line()))
@@ -1139,7 +1140,7 @@ impl eframe::App for MainWindow {
                                         [208.0, 18.0],
                                         egui::TextEdit::singleline(&mut self.search)
                                             .hint_text(
-                                                egui::RichText::new("搜尋工具或功能")
+                                                egui::RichText::new("?��?工具?��???)
                                                     .color(SUBTLE),
                                             )
                                             .text_color(TEXT)
@@ -1148,7 +1149,7 @@ impl eframe::App for MainWindow {
                                 });
                             ui.add_space(10.0);
                             for (label, active) in
-                                [("全部", !self.filter_issues), ("需處理", self.filter_issues)]
+                                [("?�部", !self.filter_issues), ("?�?��?", self.filter_issues)]
                             {
                                 let (fill, text_col) = if active {
                                     (
@@ -1168,11 +1169,11 @@ impl eframe::App for MainWindow {
                                         )
                                         .fill(fill)
                                         .stroke(egui::Stroke::new(1.0, line()))
-                                        .corner_radius(egui::CornerRadius::same(8)),
+                                        .corner_radius(egui::CornerRadius::same(3)),
                                     )
                                     .clicked()
                                 {
-                                    self.filter_issues = label == "需處理";
+                                    self.filter_issues = label == "?�?��?";
                                 }
                             }
                         });
@@ -1180,7 +1181,7 @@ impl eframe::App for MainWindow {
 
                         if self.tools.is_empty() {
                             egui::Frame::new()
-                                .corner_radius(egui::CornerRadius::same(14))
+                                .corner_radius(egui::CornerRadius::same(4))
                                 .inner_margin(egui::Margin::symmetric(24, 32))
                                 .stroke(egui::Stroke::new(
                                     1.0,
@@ -1189,7 +1190,7 @@ impl eframe::App for MainWindow {
                                 .show(ui, |ui| {
                                     ui.centered_and_justified(|ui| {
                                         ui.label(
-                                            egui::RichText::new("尚未發現可用的獨立工具。")
+                                            egui::RichText::new("尚未?�現?�用?�獨立工?��?)
                                                 .size(12.0)
                                                 .color(MUTED),
                                         );
@@ -1199,18 +1200,18 @@ impl eframe::App for MainWindow {
                         }
                         if filtered.is_empty() {
                             egui::Frame::new()
-                                .corner_radius(egui::CornerRadius::same(14))
+                                .corner_radius(egui::CornerRadius::same(4))
                                 .inner_margin(egui::Margin::symmetric(24, 32))
                                 .stroke(egui::Stroke::new(1.0, line_strong()))
                                 .show(ui, |ui| {
                                     ui.vertical_centered(|ui| {
                                         ui.label(
-                                            egui::RichText::new("找不到符合條件的工具")
+                                            egui::RichText::new("?��??�符?��?件�?工具")
                                                 .size(12.0)
                                                 .color(MUTED),
                                         );
                                         ui.label(
-                                            egui::RichText::new("請調整搜尋文字或篩選條件。")
+                                            egui::RichText::new("請調?��?尋�?字�?篩選條件??)
                                                 .size(10.0)
                                                 .color(SUBTLE),
                                         );
