@@ -21,6 +21,10 @@
 //   {"text"}                     -> {"input_ids"}           (pretrain; trainer
 //                                  shifts labels itself)
 //   {"prompt","chosen","rejected"} -> {"chosen","rejected"} (DPO)
+//   any sft/pretrain row may carry "vision_patches":[[..D..] x P] — the
+//   early-fusion vision grid is passed through verbatim after structural
+//   validation (dpo+vision is unsupported and drops); optional
+//   --vision-patch-dim N / --vision-max-patches N pin the geometry.
 //
 // Labels are emitted next-token-aligned (labels[t] = ids[t+1]) because
 // xct's ce_loss consumes aligned labels directly and only shifts for the
@@ -586,12 +590,46 @@ bool clip_ids(Ids& e, int64_t max_len) {
                        [](int64_t y) { return y >= 0; });
 }
 
+// Fusion tokenization (v1): a `vision_patches` field carries the patch
+// grid through to trainer-ready rows — for early-fusion the grid IS the
+// vision token stream (prefix positions; the trainer masks them -100
+// and checks geometry against the model config). Structural validation
+// mirrors xct_util.h j_patch_grid: array of P numeric rows of uniform
+// width D. Returns 0 absent, 1 well-formed, -1 malformed — a malformed
+// grid drops the whole row; never emit a text-only copy of a multimodal
+// sample.
+int vision_grid_state(const JsonValue* v, int64_t& patches, int64_t& dim) {
+    if (!v) return 0;
+    if (v->type != JsonValue::Type::Array) return -1;
+    patches = (int64_t)v->array.size();
+    dim = -1;
+    for (const auto& pr : v->array) {
+        if (pr.type != JsonValue::Type::Array) return -1;
+        if (dim < 0) dim = (int64_t)pr.array.size();
+        if ((int64_t)pr.array.size() != dim || dim <= 0) return -1;
+        for (const auto& x : pr.array)
+            if (x.type != JsonValue::Type::Number) return -1;
+    }
+    return (patches > 0 && dim > 0) ? 1 : -1;
+}
+
 int mode_tokenize(const Args& a) {
     std::string tk_path = resolve_tokenizer_path(a.get("tokenizer"));
     ByteLevelBPETokenizer tk = ByteLevelBPETokenizer::load(tk_path);
     int64_t max_len = a.has("max-length")
                           ? std::stoll(a.get("max-length")) : 0;
     bool chat = a.has("chat");
+    // Optional geometry pins for the vision grid; absent = structural
+    // validation only (the trainer re-checks against the model config).
+    int64_t vision_pdim = 0, vision_pmax = 0;
+    if (a.has("vision-patch-dim")) {
+        try { vision_pdim = std::stoll(a.get("vision-patch-dim")); }
+        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
+    }
+    if (a.has("vision-max-patches")) {
+        try { vision_pmax = std::stoll(a.get("vision-max-patches")); }
+        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
+    }
     // eos: encode("", add_eos) returns {eos_id}; -1 when undetectable.
     std::vector<int64_t> eos_probe = tk.encode("", false, true);
     int64_t eos_id = eos_probe.empty() ? -1 : eos_probe.back();
@@ -601,15 +639,25 @@ int mode_tokenize(const Args& a) {
     std::vector<JsonValue> rows = read_jsonl(in_path);
     std::ofstream out(out_path, std::ios::binary | std::ios::trunc);
     if (!out) fail("TOKENIZE_OUT_UNWRITABLE");
-    int64_t n_in = 0, n_out = 0, n_dropped = 0;
+    int64_t n_in = 0, n_out = 0, n_dropped = 0, n_vision = 0;
     for (const JsonValue& row : rows) {
         ++n_in;
         std::string prompt = jget_str(row, "prompt");
         const JsonValue* chosen = row.get("chosen");
         const JsonValue* rejected = row.get("rejected");
         const JsonValue* text = row.get("text");
+        const JsonValue* vp = row.get("vision_patches");
+        int64_t v_p = 0, v_d = 0;
+        int v_state = vision_grid_state(vp, v_p, v_d);
+        if (v_state < 0 ||
+            (v_state > 0 && ((vision_pdim > 0 && v_d != vision_pdim) ||
+                             (vision_pmax > 0 && v_p > vision_pmax)))) {
+            ++n_dropped;
+            continue;
+        }
         std::string line;
         if (chosen && rejected) {
+            if (v_state > 0) { ++n_dropped; continue; }
             std::string ch = chosen->type == JsonValue::Type::String
                                  ? chosen->string : jget_str(row, "chosen_text");
             std::string rj = rejected->type == JsonValue::Type::String
@@ -649,14 +697,23 @@ int mode_tokenize(const Args& a) {
             ids_json(line, "labels", e.labels);
             line += '}';
         }
+        if (v_state > 0) {
+            line.resize(line.size() - 1);              // drop '}'
+            line += ",\"vision_patches\":";
+            line += gptbridge::jsonlite::json_serialize(*vp);
+            line += '}';
+            ++n_vision;
+        }
         out << line << '\n';
         ++n_out;
     }
     out.close();
     std::printf("{\"ok\":true,\"mode\":\"tokenize\",\"rows_in\":%lld,"
-                "\"rows_out\":%lld,\"rows_dropped\":%lld,\"eos_id\":%lld,"
+                "\"rows_out\":%lld,\"rows_dropped\":%lld,"
+                "\"vision_rows\":%lld,\"eos_id\":%lld,"
                 "\"tokenizer_sha256\":\"%s\"}\n",
                 (long long)n_in, (long long)n_out, (long long)n_dropped,
+                (long long)n_vision,
                 (long long)eos_id, sha256_file(tk_path).c_str());
     return 0;
 }
