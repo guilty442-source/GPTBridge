@@ -2,7 +2,7 @@ using System.Buffers;
 
 namespace StarBusinessLogic.Infrastructure;
 
-// 對應 native 池與 Python 張量池：C# 業務層的記憶體池
+// 對應 native 池（native/core）與 C++ 張量池：C# 業務層的記憶體池
 // 速度：重用 RAG 向量、批次打分緩衝，避免高頻 new[]；正確性：歸還前清零防洩漏
 public static class StarMemoryPool
 {

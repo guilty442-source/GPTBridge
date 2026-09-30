@@ -176,6 +176,59 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("JSON_INT_EXPECTED:vision_max_patches");
         cfg.vision_max_patches = static_cast<int64_t>(v->number);
     }
+    // v27 fused-hybrid fields — optional; absent means the legacy dense
+    // all-full-attention layout, so pre-v27 bundles load unchanged.
+    if (const JsonValue* v = json_optional(config_json, "full_attention_interval")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:full_attention_interval");
+        cfg.full_attention_interval = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "attn_output_gate")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:attn_output_gate");
+        cfg.attn_output_gate = v->boolean;
+    }
+    if (const JsonValue* v = json_optional(config_json, "qk_norm")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:qk_norm");
+        cfg.qk_norm = v->boolean;
+    }
+    if (const JsonValue* v = json_optional(config_json, "shared_expert_gate")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:shared_expert_gate");
+        cfg.shared_expert_gate = v->boolean;
+    }
+    if (const JsonValue* v = json_optional(config_json, "moe_router_sigmoid")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:moe_router_sigmoid");
+        cfg.moe_router_sigmoid = v->boolean;
+    }
+    if (const JsonValue* v = json_optional(config_json, "partial_rotary_factor")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_NUM_EXPECTED:partial_rotary_factor");
+        cfg.partial_rotary_factor = v->number;
+    }
+    for (const auto& field : {
+             "linear_num_key_heads", "linear_key_head_dim",
+             "linear_num_value_heads", "linear_value_head_dim",
+             "linear_conv_kernel_dim"}) {
+        if (const JsonValue* v = json_optional(config_json, field)) {
+            if (v->type != JsonValue::Type::Number)
+                throw InferenceError(
+                    std::string("JSON_INT_EXPECTED:") + field);
+            const int64_t value = static_cast<int64_t>(v->number);
+            if (std::string(field) == "linear_num_key_heads")
+                cfg.linear_num_key_heads = value;
+            else if (std::string(field) == "linear_key_head_dim")
+                cfg.linear_key_head_dim = value;
+            else if (std::string(field) == "linear_num_value_heads")
+                cfg.linear_num_value_heads = value;
+            else if (std::string(field) == "linear_value_head_dim")
+                cfg.linear_value_head_dim = value;
+            else
+                cfg.linear_conv_kernel_dim = value;
+        }
+    }
     cfg.quantization = json_string(config_json, "quantization");
     // Gemma4 profile — every field optional; the profile activates
     // when layer_types is present (per-layer-type attention) or the

@@ -2,8 +2,8 @@ using System.Text.Json;
 
 namespace StarBusinessLogic.Infrastructure;
 
-// star-model-service-descriptor/v1：Python ModelService 啟動時原子寫入
-// <toolRoot>/xingcheng/runtime/ipc/model-service.json，停止時移除。
+// star-model-service-descriptor/v1：local-model ToolHost（C# LocalModelExecutor）
+// 啟動時原子寫入 <toolRoot>/xingcheng/runtime/ipc/model-service.json，停止時移除。
 // C# 編排層據此定位 loopback endpoint 與 session token，fail-closed。
 public sealed record ModelServiceEndpoint(
     string Endpoint,
@@ -87,8 +87,8 @@ public static class ModelServiceLocator
 
     // P11/MS6 受管傳輸選擇：runtime/settings/native-engine.json 的
     // `csharp_transport` 決定編排層走哪條路——
-    //   "http"（缺省，現行行為）：loopback HTTP + session token（Python 中介）
-    //   "native-abi"：同行程 C ABI（NativeModelClient），Python 僅留治理語意
+    //   "http"（缺省，現行行為）：loopback HTTP + session token（C++ xc_modeltool 子行程）
+    //   "native-abi"：同行程 C ABI（NativeModelClient），C++ 引擎 DLL 直接宿主
     // 未知值 / 映像或 bundle 缺失一律 fail-closed。傳輸切換不碰裁決／權限／
     // 稽核鏈（皆在上游 GovernedIpcClient），也不改變 shadow→parity→primary
     // 順序——native-abi 僅在設定顯式 pin 時啟用。
@@ -126,20 +126,21 @@ public static class ModelServiceLocator
         }
     }
 
-    // dist-native 下最新的版本化引擎映像（.pyd 即 DLL；xc_engine_* 與
-    // pybind11 模組共用同一映像）。無映像 → fail-closed。
+    // 原生 C ABI 引擎映像（C++23，匯出 xc_engine_*；與 pybind11 無關，
+    // Python 已退役 B166）。無映像 → fail-closed。
     private static string ResolveEngineImage(string toolRoot)
     {
         var distDir = Path.Combine(toolRoot, "dist-native");
         if (!Directory.Exists(distDir))
             throw new InvalidOperationException("XC_ENGINE_IMAGE_MISSING");
-        var candidates = Directory.GetFiles(distDir, "_xingcheng_inference*.pyd");
+        var candidates = Directory.GetFiles(distDir, "xingcheng_engine*.dll")
+            .Concat(Directory.GetFiles(distDir, "_xingcheng_inference*.pyd"));
         var image = candidates.OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
         if (image is null) throw new InvalidOperationException("XC_ENGINE_IMAGE_MISSING");
         return image;
     }
 
-    // bundle 有效性契約與 Python cpp_runtime._bundle_matches_source 相同：
+    // bundle 有效性契約與 C# LocalModelExecutor.ResolveBundle 相同：
     // schema、source_checkpoint 解析後路徑一致、size/mtime 吻合、weights 檔存在。
     // bundle 只由受管 export 管線產生——此處純消費，缺合法 bundle 即 fail-closed。
     private static string ResolveBundleDir(string toolRoot)

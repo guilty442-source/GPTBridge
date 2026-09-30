@@ -4,8 +4,9 @@
  *
  * Declares the canonical platform and compute ABI. Platform functions are
  * implemented by native/bridge/gptbridge_native.c; compute functions are
- * implemented by the pure-C cores in native/core/. Python bindings consume
- * this header only and never include private core headers (A220/E185).
+ * implemented by the pure-C cores in native/core/. C/C++/C#/F#/Rust
+ * consumers use this header only and never include private core headers
+ * (A220/E185). Python has zero role (retired B166).
  */
 #ifndef GPTBRIDGE_NATIVE_H
 #define GPTBRIDGE_NATIVE_H
@@ -33,8 +34,8 @@ int64_t gptbridge_native_private_bytes(void);
 int gptbridge_native_release_working_set(void);
 
 /* P24 psutil-convergence primitives — process/system queries for the
-   resident Python surfaces that today call psutil.  All fail closed:
-   -1/0 on error or unsupported platform. */
+   resident C#/Rust surfaces (ex-psutil call sites, Python retired B166).
+   All fail closed: -1/0 on error or unsupported platform. */
 
 /* Total physical RAM in bytes, or -1. */
 int64_t gptbridge_native_system_memory_total_bytes(void);

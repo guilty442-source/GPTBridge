@@ -3,7 +3,8 @@ using StarBusinessLogic.Application;
 using StarBusinessLogic.Infrastructure;
 
 // Hybrid-host boundary (P7): C# owns business orchestration requests but is
-// only a consumer of the Python-owned model-service lifecycle.  Python is not
+// only a consumer of the native-owned model-service lifecycle (C# LocalModelExecutor
+// + C++ xc_modeltool serve; Python retired B166). This host is not
 // spawned or stopped here; Electron remains the outer process supervisor.
 var toolRoot = Environment.GetEnvironmentVariable("GPTBRIDGE_TOOL_ROOT");
 if (string.IsNullOrWhiteSpace(toolRoot))
@@ -104,7 +105,7 @@ IModelClient? client = null;
 try
 {
     client = ModelServiceLocator.CreateModelClient(modelToolRoot);
-    await WriteAsync(new { ok = true, event_name = "ready", owner = "local-model/channel_runtime.py" });
+    await WriteAsync(new { ok = true, event_name = "ready", owner = "local-model/toolhost-model-service" });
 
     string? line;
     while ((line = await Console.In.ReadLineAsync()) is not null)

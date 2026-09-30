@@ -6,8 +6,9 @@ using System.Text.Json;
 namespace StarBusinessLogic.Application;
 
 // P11/MS6：熱路徑去 Python 中介——直接在 C# 行程內載入原生推論引擎。
-// 引擎映像即 dist-native/_xingcheng_inference*.pyd（.pyd 本身就是 DLL，
-// xc_engine_* C ABI 與 pybind11 模組共用同一映像）。
+// 引擎映像為 C++23 原生 DLL（匯出 xc_engine_* C ABI）；現行線上推論則走
+// LocalModelExecutor 擁有之 xc_modeltool serve 子行程（stdio/loopback），
+// 本 client 為同行程 ABI 傳輸選項（csharp_transport=native-abi 時）。
 //
 // 治理邊界不變：此 client 只是**傳輸替換**（HTTP loopback → 同行程 ABI），
 // 裁決/權限/稽核仍在上游 GovernedIpcClient 與編排層；契約失敗一律
@@ -145,10 +146,10 @@ public sealed class NativeModelClient : IModelClient, IDisposable
         }
     }
 
-    // 審計鏈等價：HTTP 路徑的 Python 層每次生成都會寫
+    // 審計鏈等價：舊 HTTP 路徑由原生層每次生成寫入
     // native-engine-executions.jsonl；native-abi 移除此中介後，稽核責任
     // 落到本 client——同一 ledger、同一 schema（transport=native-abi
-    // 標記來源），與 Python 端一致採 fail-soft（ledger I/O 失敗不使
+    // 標記來源），與原生端一致採 fail-soft（ledger I/O 失敗不使
     // 推論失敗）。_toolRoot 為 null 時無法定位 ledger → 不寫（與
     // 未接線的舊行為相同，不偽造稽核）。
     private void AppendExecutionLedger(string prompt, string text, int evalCount, long latencyMs)
@@ -184,7 +185,7 @@ public sealed class NativeModelClient : IModelClient, IDisposable
                 JsonSerializer.Serialize(entry) + "\n",
                 new UTF8Encoding(false));
         }
-        catch (IOException) { /* fail-soft — 與 Python _ledger_append 相同 */ }
+        catch (IOException) { /* fail-soft — 與原生執行層 ledger 語義相同 */ }
         catch (UnauthorizedAccessException) { }
     }
 

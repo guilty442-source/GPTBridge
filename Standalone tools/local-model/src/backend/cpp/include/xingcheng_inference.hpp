@@ -67,6 +67,52 @@ struct ModelConfig {
     bool use_vision = false;
     int64_t vision_patch_dim = 0;
     int64_t vision_max_patches = 0;
+    // Fused hybrid Decoder (v27/XCN3 contract): gated DeltaNet
+    // linear-attention layers interleaved with periodic gated full
+    // attention.  full_attention_interval > 0 makes layer l full
+    // attention iff (l+1) % interval == 0 (HF layer_types =
+    // [linear*(interval-1), full]*n); every other layer runs the
+    // DeltaNet recurrence.  0 = legacy all-full-attention dense layout.
+    int64_t full_attention_interval = 0;
+    bool attn_output_gate = false;    // full-attn q_proj emits [q|gate]
+    bool qk_norm = false;             // per-head RMSNorm on q/k pre-RoPE
+    double partial_rotary_factor = 1.0;   // fraction of head_dim rotated
+    int64_t linear_num_key_heads = 0;    // DeltaNet key/query heads
+    int64_t linear_key_head_dim = 0;     // DeltaNet key head dim
+    int64_t linear_num_value_heads = 0;  // DeltaNet value heads
+    int64_t linear_value_head_dim = 0;   // DeltaNet value head dim
+    int64_t linear_conv_kernel_dim = 0;  // depthwise causal conv width
+    bool shared_expert_gate = false;  // sigmoid gate on shared expert out
+    // v28 fused router: Qwen3.5 per-expert sigmoid scoring replaces the
+    // Qwen3-A3B softmax denominator — scores stay independent under many
+    // fine-grained experts; deterministic top-k + renorm are unchanged.
+    bool moe_router_sigmoid = false;
+    bool is_linear_layer(int64_t layer) const {
+        return full_attention_interval > 0 && linear_num_key_heads > 0 &&
+               ((layer + 1) % full_attention_interval) != 0;
+    }
+    // Any layer carries DeltaNet weights → the model owns per-slot
+    // recurrent state and prefix cache entries (K/V only) cannot
+    // reconstruct it.
+    bool has_linear_layers() const {
+        return full_attention_interval > 0 && linear_num_key_heads > 0;
+    }
+    // Trainer rope contract for fused bundles: rd channels rotated
+    // (rotate-half pairing over the first rd channels); rd == head_dim
+    // selects the trainer's interleaved full-rotary form.  rd <= 0 or
+    // rd >= head_dim clamp to full, mirroring ModelConfig::rotary_dim().
+    int64_t rotary_dim() const {
+        int64_t rd = static_cast<int64_t>(
+            static_cast<double>(head_dim) * partial_rotary_factor);
+        return rd > 0 && rd < head_dim ? rd & ~int64_t{1} : head_dim;
+    }
+    // Fused-contract bundles (XCN3 fields present or interval set) use
+    // the trainer's rope pairing; pre-v27 bundles keep the legacy
+    // rotate-half kernel unchanged.
+    bool fused_rope_contract() const {
+        return full_attention_interval > 0 || attn_output_gate ||
+               qk_norm || partial_rotary_factor < 1.0;
+    }
     std::string quantization = "none";
     // Gemma4 profile (architecture="gemma4"): hybrid sliding/full
     // attention with per-layer-type head_dim and RoPE, QK-norm,
@@ -329,19 +375,44 @@ private:
         std::vector<double> o_proj_t;
         std::vector<double> gate_up_t;
         std::vector<double> down_proj_t;
+        // v27 gated DeltaNet (linear attention): populated when
+        // ModelConfig::is_linear_layer(i); full-attention views stay
+        // empty on those layers.
+        bool is_linear = false;
+        TensorView lin_in_proj_qkv;   // [kh*(2kd + vd*ratio), hidden]
+        TensorView lin_in_proj_z;     // [vh*vd, hidden]
+        TensorView lin_in_proj_a;     // [vh, hidden]
+        TensorView lin_in_proj_b;     // [vh, hidden]
+        TensorView lin_conv1d;        // [conv_dim, kernel]
+        TensorView lin_a_log;         // [vh]
+        TensorView lin_dt_bias;       // [vh]
+        TensorView lin_out_norm;      // [vd]
+        TensorView lin_out_proj;      // [hidden, vh*vd]
+        // Load-time fused operand: one GEMM produces [qkv|z|a|b] per
+        // input row — the deltanet projection block runs as a single
+        // matmul dispatch instead of four.
+        std::vector<double> lin_fused_t;
+        std::vector<double> lin_out_proj_t;
+        // Full-attention extras (v27): per-head q/k RMSNorm weights.
+        // Shared with the Gemma4 wiring below (same [head_dim] scales).
+        TensorView q_norm;            // [head_dim]
+        TensorView k_norm;            // [head_dim]
+        // v27 shared-expert sigmoid gate [1, hidden]; empty unless the
+        // MoE layer opts in via shared_expert_gate.
+        TensorView shared_expert_gate;
+        std::vector<double> shared_expert_gate_t;
         // Gemma4 layer wiring (unused on the legacy path): per-head
-        // QK RMSNorm scales, the post-attention norm applied to the
-        // o_proj output before the residual add, the pre/post FFN
-        // norms, and the PLE correction branch (gate Linear ->
-        // gelu -> *per_layer_input -> projection -> norm -> residual).
-        // kv_shared layers carry no k/v projections or k/v norms.
+        // QK RMSNorm scales (q_norm/k_norm above), the post-attention
+        // norm applied to the o_proj output before the residual add,
+        // the pre/post FFN norms, and the PLE correction branch
+        // (gate Linear -> gelu -> *per_layer_input -> projection ->
+        // norm -> residual). kv_shared layers carry no k/v projections
+        // or k/v norms.
         bool kv_shared = false;
         int64_t g4_head_dim = 0;
         int64_t g4_q_dim = 0;
         int64_t g4_kv_dim = 0;
         int64_t kv_anchor_layer = -1;
-        TensorView q_norm;
-        TensorView k_norm;
         TensorView post_attn_norm;
         TensorView pre_ffn_norm;
         TensorView post_ffn_norm;
@@ -353,6 +424,17 @@ private:
         std::vector<double> v_proj_t;
         std::vector<double> ple_gate_t;
         std::vector<double> ple_proj_t;
+    };
+
+    // Per-slot DeltaNet recurrence state (linear layers only): the
+    // causal conv's last kernel-1 raw input rows and the delta-rule
+    // state S[kd x vd] per value head.  Mirroring the KV block tables,
+    // state persists only across append_cache forwards and is released
+    // with the slot.
+    struct LinLayerState {
+        std::vector<double> conv_tail;   // [(kernel-1) * conv_dim]
+        std::vector<double> s;           // [vh * kd * vd]
+        int64_t tokens = 0;              // positions folded into s
     };
 
     struct PrefixEntry {
@@ -415,6 +497,13 @@ private:
     std::vector<std::vector<int32_t>> kv_block_tables_;
     std::vector<bool> kv_slot_active_;
     std::vector<int64_t> kv_lens_;
+    // Dense ordinal of each full-attention layer (linear layers map to
+    // -1): KV blocks are sized by the full-attention count only, so a
+    // hybrid layout does not reserve dead regions for DeltaNet layers.
+    std::vector<int64_t> kv_layer_ord_;
+    // Per-slot DeltaNet states, parallel to kv_block_tables_:
+    // lin_states_[slot][layer] — non-linear entries stay empty.
+    std::vector<std::vector<LinLayerState>> lin_states_;
     int64_t kv_block_stride_ = 0;
     int64_t kv_limit_bytes_ = 0;
     // KV INT8 (opt-in via governed env): per-token/per-head symmetric
@@ -490,6 +579,31 @@ private:
         std::vector<double> shared_sd;
         // Vision early-fusion prefix projection output.
         std::vector<double> vision_prefix;
+        // v27 fused-hybrid lanes (dense models never touch these).
+        std::vector<double> lin_fused;      // fused [qkv|z|a|b] rows
+        std::vector<double> lin_qkvz;       // [T, kh*group_sz]
+        std::vector<double> lin_z;          // [T, vh*vd]
+        std::vector<double> lin_a;          // [T, vh]
+        std::vector<double> lin_b;          // [T, vh]
+        std::vector<double> lin_conv_in;    // [T, conv_dim] flat q|k|v
+        std::vector<double> lin_conv_pad;   // [(K-1)+T, conv_dim]
+        std::vector<double> lin_conv_out;   // [T, conv_dim]
+        std::vector<double> lin_qn;         // [T, vh*kd] normed+scaled
+        std::vector<double> lin_kn;         // [T, vh*kd]
+        std::vector<double> lin_v;          // [T, vh*vd]
+        std::vector<double> lin_decay;      // [T, vh]
+        std::vector<double> lin_beta;       // [T, vh]
+        std::vector<double> lin_o;          // [T, vh*vd] scan output
+        std::vector<double> lin_on;         // [T, vh*vd] normed+gated
+        std::vector<double> lin_local_conv; // scratch state tail copy
+        std::vector<double> lin_local_s;    // scratch state copy
+        std::vector<double> attn_gate;      // [T, q_dim] gate logits
+        std::vector<double> qk_tmp;         // per-head qk_norm scratch
+        std::vector<double> shared_sig;     // [T] shared-expert gate
+        std::vector<double> rope_cos_hd;    // trainer-contract tables
+        std::vector<double> rope_sin_hd;
+        std::vector<double> rope_cos_rd;
+        std::vector<double> rope_sin_rd;
     };
     ForwardScratch fs_;
     // RoPE frequency-base cache (dim/theta keyed): pow() once per model.

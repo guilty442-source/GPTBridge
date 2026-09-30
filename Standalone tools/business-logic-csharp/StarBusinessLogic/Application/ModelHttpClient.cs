@@ -3,11 +3,11 @@ using System.Text.Json;
 
 namespace StarBusinessLogic.Application;
 
-// 對接 Python 模型服務端點（star-model-service/v1）：
-//   POST /v1/infer    — governed 推論（Python 引擎或 XINGCHENG_CPP_RUNTIME 路由的 C++ 執行層）
+// 對接原生模型服務端點（star-model-service/v1，C# LocalModelExecutor 擁有）：
+//   POST /v1/infer    — governed 推論（C++ xc_modeltool serve 執行層）
 //   GET  /v1/status   — 控制面狀態
-//   POST /v1/release  — 顯式 auto-release（對應 Python AutoReleaseManager）
-// 僅允許 loopback 端點；session token 與 Python IPC 信任邊界一致（X-GPTBridge-Session-Token）。
+//   POST /v1/release  — 顯式 auto-release（對應 C# AutoReleaseManager / 原生引擎閒置回收）
+// 僅允許 loopback 端點；session token 與受管 IPC 信任邊界一致（X-GPTBridge-Session-Token）。
 // 速度：連線重用 + 有界超時；正確性：契約失敗 fail-closed（不產生偽造回應）。
 public sealed class HttpModelClient : IModelClient, IDisposable
 {

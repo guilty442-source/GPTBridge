@@ -5,7 +5,7 @@ using StarBusinessLogic.Application;
 
 namespace StarBusinessLogic.Tests;
 
-// G30 契約測試：C# HttpModelClient ↔ Python star-model-service/v1
+// G30 契約測試：C# HttpModelClient ↔ 原生 star-model-service/v1（C# LocalModelExecutor + C++ 引擎）
 public class ModelHttpClientTests
 {
     private sealed class StubHandler : HttpMessageHandler

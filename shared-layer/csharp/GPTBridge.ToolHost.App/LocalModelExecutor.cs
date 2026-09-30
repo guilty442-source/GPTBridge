@@ -30,8 +30,10 @@ internal sealed class LocalModelExecutor
 {
     internal const string LifecycleOwner = "local-model/toolhost-model-service";
     internal const string ConsumerPolicy = "csharp-orchestrator-client-only";
-    private const string TokenFileName = "model-service-session-token";
-    private const string DescriptorFileName = "model-service.json";
+    private const string TokenFileName =
+        ModelServiceDescriptor.TokenFileName;
+    private const string DescriptorFileName =
+        ModelServiceDescriptor.DescriptorFileName;
     private static readonly TimeSpan ServeOpTimeout = TimeSpan.FromMinutes(10);
 
     private readonly GovernedEnvironment _env;
@@ -248,7 +250,7 @@ internal sealed class LocalModelExecutor
 
         var descriptor = new JsonObject
         {
-            ["schema"] = "star-model-service-descriptor/v1",
+            ["schema"] = ModelServiceDescriptor.Schema,
             ["tool_id"] = _ownerId,
             ["pid"] = Environment.ProcessId,
             ["port"] = _port,
@@ -260,21 +262,13 @@ internal sealed class LocalModelExecutor
                 .ToLowerInvariant(),
             ["created_at"] = DateTimeOffset.UtcNow.ToString("O"),
         };
-        WriteAtomically(
+        ModelServiceDescriptor.WriteAtomically(
             Path.Combine(_ipcDir, TokenFileName), _token + "\n");
-        WriteAtomically(
+        ModelServiceDescriptor.WriteAtomically(
             Path.Combine(_ipcDir, DescriptorFileName),
             descriptor.ToJsonString() + "\n");
 
         _acceptLoop = Task.Run(AcceptLoopAsync);
-    }
-
-    private static void WriteAtomically(string path, string content)
-    {
-        var tmp = path + "." + Environment.ProcessId + ".tmp";
-        File.WriteAllText(tmp, content, new UTF8Encoding(false));
-        if (File.Exists(path)) File.Delete(path);
-        File.Move(tmp, path);
     }
 
     private static void WriteJson(
@@ -652,5 +646,68 @@ internal sealed class LocalModelExecutor
         _listener?.Close();
         _cts.Dispose();
         _childLock.Dispose();
+    }
+}
+
+/// <summary>Single owned implementation of the
+/// star-model-service-descriptor/v1 file contract. Writer:
+/// LocalModelExecutor.StartService. Reader:
+/// ModelDialogueExecutor.DiscoverService (StarBusinessLogic's
+/// ModelServiceLocator.Discover is the orphan twin kept in parity by
+/// inspection — it is not referenced by this host). Wire format and
+/// validation are unchanged; this type only removes the second copy of
+/// the parse/validate logic so the two executors cannot drift.</summary>
+internal static class ModelServiceDescriptor
+{
+    public const string Schema = "star-model-service-descriptor/v1";
+    public const string DescriptorFileName = "model-service.json";
+    public const string TokenFileName = "model-service-session-token";
+
+    public sealed record Endpoint(string Url, int Port, string SessionToken);
+
+    public static void WriteAtomically(string path, string content)
+    {
+        var tmp = path + "." + Environment.ProcessId + ".tmp";
+        File.WriteAllText(tmp, content, new UTF8Encoding(false));
+        if (File.Exists(path)) File.Delete(path);
+        File.Move(tmp, path);
+    }
+
+    public static Endpoint? TryRead(
+        string ipcDir, string lifecycleOwner, string consumerPolicy)
+    {
+        var descriptorPath = Path.Combine(ipcDir, DescriptorFileName);
+        if (!File.Exists(descriptorPath)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(
+                File.ReadAllText(descriptorPath));
+            var root = doc.RootElement;
+            if (root.TryGetProperty("schema", out var s)
+                is false
+                || s.GetString() != Schema)
+                return null;
+            var port = root.TryGetProperty("port", out var p)
+                ? p.GetInt32() : 0;
+            if (port < 1 || port > 65535) return null;
+            var tokenFile = root.TryGetProperty("token_file", out var tf)
+                ? tf.GetString() : null;
+            if (string.IsNullOrWhiteSpace(tokenFile)
+                || tokenFile.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || tokenFile.Contains(Path.DirectorySeparatorChar)
+                || tokenFile.Contains(Path.AltDirectorySeparatorChar))
+                return null;
+            var token = File.ReadAllText(
+                Path.Combine(ipcDir, tokenFile)).Trim();
+            if (token.Length == 0) return null;
+            var owner = root.TryGetProperty("lifecycle_owner", out var lo)
+                ? lo.GetString() : null;
+            if (owner != lifecycleOwner) return null;
+            if (root.TryGetProperty("consumer_policy", out var cp)
+                && cp.GetString() != consumerPolicy)
+                return null;
+            return new Endpoint($"http://127.0.0.1:{port}", port, token);
+        }
+        catch { return null; }
     }
 }

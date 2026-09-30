@@ -63,9 +63,9 @@ public class BusinessLogicTests
     }
 
     [Fact]
-    public async Task MoE_Config_ShouldBePresentInPythonButNotRequiredForCSharp()
+    public async Task MoE_Config_ShouldBePresentInNativeEngineButNotRequiredForCSharp()
     {
-        // C# 業務層不直接處理 MoE 路由，僅透由 IModelClient 呼叫 Python 推論（Python/C++ 雙路徑在模型層）
+        // C# 業務層不直接處理 MoE 路由，僅透由 IModelClient 呼叫原生 C++ 推論（C ABI / loopback 雙傳輸在模型層）
         // 此測試確保業務層不依賴模型權重
         var client = new FakeModelClient();
         var req = new ModelInferenceRequest("prompt", "context", "Conversation");

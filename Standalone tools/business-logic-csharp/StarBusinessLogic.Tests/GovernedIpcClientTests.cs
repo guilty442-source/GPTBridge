@@ -41,9 +41,9 @@ public class GovernedIpcClientTests
         => JsonSerializer.Serialize(new { @event = name, payload });
 
     [Fact]
-    public void WorkspaceInstanceId_MatchesPythonNormcase()
+    public void WorkspaceInstanceId_MatchesGovernedNormcase()
     {
-        // ipc/server_tokens.py: normcase(str(Path(root).absolute())).replace("\\","/")
+        // governed IPC contract (ex-ipc/server_tokens.py, Python retired B166): normcase(str(Path(root).absolute())).replace("\\","/")
         // For "E:\GPTBridge": normcase → "e:\gptbridge" → "e:/gptbridge".
         var expected = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("e:/gptbridge"))).ToLowerInvariant()[..24];
         Assert.Equal(expected, GovernedIpcDiscovery.WorkspaceInstanceId(@"E:\GPTBridge"));

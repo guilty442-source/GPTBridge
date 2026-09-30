@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --routecheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -48,12 +48,34 @@
 //   the lookup rows are bitwise, the rope score field is relative, and
 //   reordered inputs change the outputs.
 //
+// Gemma 4 26B A4B axis (config-gated, off by default): local sliding-
+//   window attention alternating with global attention
+//   (global_attention_interval + sliding_window_size), unified K==V and
+//   fewer kv heads on global layers (k_eq_v_global/num_global_kv_heads),
+//   per-type RoPE (local_rope_proportion/global_rope_proportion +
+//   local/global_base_frequency), post attention/FFW sandwich norms
+//   (use_post_attn_norm/use_post_ffw_norm), GeGLU FFN
+//   (ffn_activation="gelu_tanh") and final_logit_softcap. --gemmacheck
+//   probes all of them plus a finite-diff pass over the new backward
+//   paths.
+//
+// MoE mixing (dense/sparse contract): each FFN layer is either dense
+//   (one shared SwiGLU) or sparse (token-choice top-K router over E
+//   experts plus always-on shared experts) by moe_layer_interval.
+//   --mixcheck proves topology split, top-K routing, renormalized expert
+//   mixing, unrouted-expert isolation and per-token choice executably.
+//   The fused router (Qwen3-A3B × Qwen3.5) keeps that shared top-k +
+//   renorm contract while moe_router_sigmoid swaps the scoring function:
+//   softmax (A3B denominator) or per-expert sigmoid (Qwen3.5 — scale
+//   -robust under many fine-grained experts). --routecheck proves the
+//   scoring modes, selection, rerouting and router grads executably.
+//
 // job.json (star-native-train-job/v1):
 //   task:  "pretrain" | "sft" | "dpo"
 //   model: { vocab_size, hidden_size, intermediate_size, num_hidden_layers,
 //            num_attention_heads, num_key_value_heads, max_position_embeddings,
 //            rope_theta, rms_norm_eps, moe_num_experts, moe_top_k,
-//            moe_layer_interval, moe_aux_loss_weight }
+//            moe_layer_interval, moe_aux_loss_weight, moe_router_sigmoid }
 //   train: { lr, weight_decay, max_steps, grad_clip, warmup_steps, lr_decay,
 //            seed, beta(dpo), deadline_s, log_every, checkpoint_every,
 //            init_checkpoint, emit_checkpoint,
@@ -110,6 +132,8 @@ namespace xct {
 #include "xct_job.h"
 #include "xct_depth.h"
 #include "xct_pos.h"
+#include "xct_mix.h"
+#include "xct_route.h"
 
 } // namespace xct
 
@@ -128,10 +152,13 @@ int main(int argc, char** argv) {
         else if (a == "--depthcheck") return xct::depthcheck();
         else if (a == "--poscheck") return xct::poscheck();
         else if (a == "--inputcheck") return xct::inputcheck();
+        else if (a == "--gemmacheck") return xct::gemmacheck();
+        else if (a == "--mixcheck") return xct::mixcheck();
+        else if (a == "--routecheck") return xct::routecheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --routecheck | --gemmacheck\n");
         return 2;
     }
     try {

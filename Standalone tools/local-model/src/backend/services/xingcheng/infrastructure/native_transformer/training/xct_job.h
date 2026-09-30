@@ -1259,3 +1259,207 @@ static int inputcheck() {
                 failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }
+
+// ------------------------------------------------------------- gemmacheck --
+
+// Gemma 4 26B A4B fusion probe. The config-gated signatures are verified
+// executably on a miniature A4B topology: local sliding-window attention
+// alternating with global attention (num_global_kv_heads + unified K==V),
+// per-type RoPE (local full / global p-RoPE, independent base
+// frequencies), post attention/FFW norms, GeGLU FFN, and the final logit
+// softcap — plus a finite-difference spot check of the new backward
+// paths (windowed score grads, wkv merge, post-norm, softcap chain).
+static int gemmacheck() {
+    int failures = 0;
+    auto fail = [&](const char* what) {
+        ++failures;
+        std::printf("  FAIL %s\n", what);
+    };
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 6;
+    c.heads = 4; c.kv_heads = 2; c.max_pos = 64;
+    c.qk_norm = true;
+    c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 2;
+    c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+    c.moe_shared_inter = 24; c.shared_expert_gate = true;
+    // Gemma axis: (l+1)%3 != 0 -> local windowed; l=2,5 global.
+    c.global_attn_interval = 3;
+    c.sliding_window = 4;
+    c.num_global_kv_heads = 1;
+    c.k_eq_v_global = true;
+    c.local_rope_proportion = 1.0f;
+    c.global_rope_proportion = 0.25f;
+    c.rope_theta_local = 10000.0f;
+    c.rope_theta_global = 1000000.0f;
+    c.final_logit_softcap = 30.0f;
+    c.post_attn_norm = true;
+    c.post_ffw_norm = true;
+    c.ffn_act = 1;
+    Params p;
+    init_params(p, c, 31);
+    std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41};
+    const int T = (int)ids.size();
+    const int H = c.hidden, hd = H / c.heads;
+    Fwd fw;
+    fwd(p, c, ids, fw);
+
+    // (1) local layers: window mask — zero outside the last W, sum 1.
+    //     global layers: reach beyond the window must be non-degenerate.
+    for (int l = 0; l < c.layers; ++l) {
+        const LayerCache& L = fw.layers[(size_t)l];
+        const int W = c.sliding_window;
+        if (c.is_local_attn(l)) {
+            for (int h = 0; h < c.heads; ++h)
+                for (int t = 0; t < T; ++t) {
+                    const float* pr =
+                        L.probs.data() + ((size_t)h * T + t) * T;
+                    float s = 0.0f;
+                    for (int u = 0; u < T; ++u) {
+                        int lo = std::max(0, t - W + 1);
+                        if ((u < lo || u > t) && pr[u] != 0.0f)
+                            fail("gemma: local window leak");
+                        if (u >= lo && u <= t) s += pr[u];
+                    }
+                    if (std::fabs(s - 1.0f) > 1e-4f)
+                        fail("gemma: local prob row sum");
+                }
+        } else {
+            // global reach: some row t>=W attends past the window
+            bool reach = false;
+            for (int h = 0; h < c.heads && !reach; ++h)
+                for (int t = c.sliding_window; t < T && !reach; ++t) {
+                    const float* pr =
+                        L.probs.data() + ((size_t)h * T + t) * T;
+                    for (int u = 0; u <= t - c.sliding_window; ++u)
+                        if (pr[u] > 0.0f) { reach = true; break; }
+                }
+            if (!reach) fail("gemma: global reach degenerate");
+        }
+    }
+
+    // (2) unified K==V on global layers; per-layer kv dims
+    for (int l = 0; l < c.layers; ++l) {
+        const LayerCache& L = fw.layers[(size_t)l];
+        const int kvh = c.kv_heads_at(l);
+        if (L.k.size() != (size_t)T * kvh * hd)
+            fail("gemma: kv dim per layer");
+        if (c.kv_unified(l)) {
+            // one projection: v IS the raw shared tensor; k takes the
+            // scoring transforms (qk_norm + rope) on top of the same
+            // values — qk_kraw (pre-norm cache) must equal v bitwise.
+            if (!L.qk_kraw.empty() &&
+                std::memcmp(L.qk_kraw.data(), L.v.data(),
+                            L.v.size() * sizeof(float)) != 0)
+                fail("gemma: k_eq_v not unified");
+            if (!p.w.count(ln(l, "wkv")) || p.w.count(ln(l, "wv")))
+                fail("gemma: wkv params");
+        } else {
+            if (std::memcmp(L.k.data(), L.v.data(),
+                            L.k.size() * sizeof(float)) == 0)
+                fail("gemma: non-global kv unexpectedly unified");
+        }
+    }
+
+    // (3) post norms: rmsnorm(attn_proj) feeds the residual; same for FFN
+    for (int l = 0; l < c.layers; ++l) {
+        const LayerCache& L = fw.layers[(size_t)l];
+        if (L.post_attn.size() != (size_t)T * H ||
+            L.post_attn_rms.size() != (size_t)T)
+            fail("gemma: post_attn cache");
+        for (float r : L.post_attn_rms)
+            if (!(r > 0.0f && std::isfinite(r)))
+                fail("gemma: post_attn rms");
+        for (size_t i = 0; i < (size_t)T * H; ++i)
+            if (L.x_res[i] != L.x_in[i] + L.post_attn[i])
+                fail("gemma: post_attn sandwich");
+        if (L.post_ffn.size() != (size_t)T * H)
+            fail("gemma: post_ffn cache");
+        if (l + 1 < c.layers) {
+            const std::vector<float>& nx = fw.layers[(size_t)l + 1].x_in;
+            for (size_t i = 0; i < (size_t)T * H; ++i)
+                if (nx[i] != L.x_res[i] + L.post_ffn[i])
+                    fail("gemma: post_ffn sandwich");
+        }
+    }
+
+    // (4) final logit softcap bound
+    for (float x : fw.logits)
+        if (std::fabs(x) > c.final_logit_softcap + 1e-4f)
+            fail("gemma: softcap bound");
+
+    // (5) GeGLU: dense FFN (layer 1) and an MoE expert slot use gelu_tanh
+    {
+        const LayerCache& L1 = fw.layers[1];
+        if (!L1.fh.empty())
+            for (size_t i = 0; i < L1.fh.size(); ++i)
+                if (std::fabs(L1.fh[i] -
+                              gelu_tanh_f(L1.fa[i]) * L1.fb[i]) > 1e-5f)
+                    fail("gemma: dense GeGLU");
+        bool saw_slot = false;
+        for (int l = 0; l < c.layers; ++l) {
+            const LayerCache& L = fw.layers[(size_t)l];
+            for (size_t s = 0; s < L.mfh.size() && !saw_slot; ++s)
+                if (!L.mfh[s].empty()) {
+                    saw_slot = true;
+                    for (size_t i = 0; i < L.mfh[s].size(); ++i)
+                        if (std::fabs(L.mfh[s][i] -
+                                      gelu_tanh_f(L.mfa[s][i]) *
+                                          L.mfb[s][i]) > 1e-5f)
+                            fail("gemma: expert GeGLU");
+                }
+        }
+        if (!saw_slot) fail("gemma: expert GeGLU coverage");
+    }
+
+    // (6) finite-difference spot check across the new backward paths:
+    //     wkv merge, local windowed scores, post norms, softcap chain,
+    //     GeGLU expert weights.
+    {
+        std::vector<int> lab = ids;
+        shift_labels(lab);
+        auto loss_of = [&]() {
+            Fwd f;
+            fwd(p, c, ids, f);
+            std::vector<float> dl;
+            return (double)ce_loss(f.logits, lab, T, c.vocab, dl) +
+                   f.moe_aux;
+        };
+        p.zero_grad();
+        Fwd f0;
+        fwd(p, c, ids, f0);
+        std::vector<float> dl;
+        ce_loss(f0.logits, lab, T, c.vocab, dl);
+        bwd(p, c, ids, f0, dl, 1.0f);
+        const double eps = 4e-3;
+        for (const char* key : {"layers.2.wkv", "layers.0.wk",
+                                "layers.0.norm_attn_out",
+                                "layers.5.norm_ffw_out",
+                                "layers.0.experts.0.w1", "lm_head"}) {
+            Tensor& w = p.w[key];
+            Tensor& g = p.g[key];
+            size_t stride = w.d.size() > 4 ? w.d.size() / 4 : 1;
+            for (size_t i = 0; i < w.d.size(); i += stride) {
+                float orig = w.d[i];
+                w.d[i] = orig + (float)eps;
+                double lp = loss_of();
+                w.d[i] = orig - (float)eps;
+                double lm = loss_of();
+                w.d[i] = orig;
+                double num = (lp - lm) / (2.0 * eps);
+                double ana = g.d[i];
+                double abs_err = std::fabs(num - ana);
+                double rel = abs_err / std::max(1e-4, std::fabs(num));
+                if (rel > 0.10 && abs_err > 3e-3) {
+                    ++failures;
+                    std::printf("  FAIL fdiff %s[%zu]: ana=%.6f num=%.6f\n",
+                                key, i, ana, num);
+                }
+            }
+        }
+    }
+
+    bool ok = failures == 0;
+    std::printf("gemmacheck: gemma-a4b failures=%d -> %s\n",
+                failures, ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}

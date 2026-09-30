@@ -103,6 +103,23 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     }
 
     layers_.assign(static_cast<size_t>(cfg.num_hidden_layers), LayerWeights{});
+    const int64_t lin_kh = cfg.linear_num_key_heads;
+    const int64_t lin_kd = cfg.linear_key_head_dim;
+    const int64_t lin_vh = cfg.linear_num_value_heads;
+    const int64_t lin_vd = cfg.linear_value_head_dim;
+    const int64_t lin_ratio =
+        lin_kh > 0 ? lin_vh / lin_kh : 0;
+    const int64_t lin_key_dim = lin_kh * lin_kd;
+    const int64_t lin_val_dim = lin_vh * lin_vd;
+    const int64_t lin_conv_dim = lin_key_dim * 2 + lin_val_dim;
+    const int64_t lin_group = 2 * lin_kd + lin_vd * lin_ratio;
+    auto expect_shape = [](const TensorView& t,
+                           const std::vector<int64_t>& dims,
+                           const std::string& name) {
+        if (t.shape != dims) {
+            throw InferenceError("TENSOR_SHAPE_MISMATCH:" + name);
+        }
+    };
     for (int64_t i = 0; i < cfg.num_hidden_layers; ++i) {
         LayerWeights& layer = layers_[static_cast<size_t>(i)];
         const std::string prefix = "model.layers." + std::to_string(i) + ".";
@@ -161,11 +178,89 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             continue;
         }
         layer.input_norm = bundle_->tensor(prefix + "input_norm.weight");
-        layer.q_proj = bundle_->tensor(prefix + "attention.q_proj.weight");
-        layer.k_proj = bundle_->tensor(prefix + "attention.k_proj.weight");
-        layer.v_proj = bundle_->tensor(prefix + "attention.v_proj.weight");
-        layer.o_proj = bundle_->tensor(prefix + "attention.o_proj.weight");
         layer.post_norm = bundle_->tensor(prefix + "post_attention_norm.weight");
+        layer.is_linear = cfg.is_linear_layer(i);
+        if (layer.is_linear) {
+            // v27 gated DeltaNet (linear attention): fused projection
+            // weights, depthwise conv, decay/bias and gated norm.
+            const std::string lp = prefix + "linear_attn.";
+            layer.lin_in_proj_qkv =
+                bundle_->tensor(lp + "in_proj_qkv.weight");
+            layer.lin_in_proj_z = bundle_->tensor(lp + "in_proj_z.weight");
+            layer.lin_in_proj_a = bundle_->tensor(lp + "in_proj_a.weight");
+            layer.lin_in_proj_b = bundle_->tensor(lp + "in_proj_b.weight");
+            layer.lin_conv1d = bundle_->tensor(lp + "conv1d.weight");
+            layer.lin_a_log = bundle_->tensor(lp + "A_log.weight");
+            layer.lin_dt_bias = bundle_->tensor(lp + "dt_bias.weight");
+            layer.lin_out_norm = bundle_->tensor(lp + "norm.weight");
+            layer.lin_out_proj = bundle_->tensor(lp + "out_proj.weight");
+            expect_shape(layer.lin_in_proj_qkv,
+                         {lin_kh * lin_group, cfg.hidden_size},
+                         lp + "in_proj_qkv.weight");
+            expect_shape(layer.lin_in_proj_z,
+                         {lin_val_dim, cfg.hidden_size},
+                         lp + "in_proj_z.weight");
+            expect_shape(layer.lin_in_proj_a, {lin_vh, cfg.hidden_size},
+                         lp + "in_proj_a.weight");
+            expect_shape(layer.lin_in_proj_b, {lin_vh, cfg.hidden_size},
+                         lp + "in_proj_b.weight");
+            expect_shape(layer.lin_conv1d,
+                         {lin_conv_dim, cfg.linear_conv_kernel_dim},
+                         lp + "conv1d.weight");
+            expect_shape(layer.lin_a_log, {lin_vh}, lp + "A_log.weight");
+            expect_shape(layer.lin_dt_bias, {lin_vh}, lp + "dt_bias.weight");
+            expect_shape(layer.lin_out_norm, {lin_vd}, lp + "norm.weight");
+            expect_shape(layer.lin_out_proj, {cfg.hidden_size, lin_val_dim},
+                         lp + "out_proj.weight");
+            // Compile-time fusion: [qkv|z|a|b] share one GEMM.
+            const std::vector<double> qkv_t =
+                transpose_matrix(layer.lin_in_proj_qkv);
+            const std::vector<double> z_t =
+                transpose_matrix(layer.lin_in_proj_z);
+            const std::vector<double> a_t =
+                transpose_matrix(layer.lin_in_proj_a);
+            const std::vector<double> b_t =
+                transpose_matrix(layer.lin_in_proj_b);
+            layer.lin_fused_t = hcat_weights(
+                {{&qkv_t, lin_kh * lin_group},
+                 {&z_t, lin_val_dim},
+                 {&a_t, lin_vh},
+                 {&b_t, lin_vh}},
+                cfg.hidden_size);
+            layer.lin_out_proj_t = transpose_matrix(layer.lin_out_proj);
+        } else {
+            layer.q_proj = bundle_->tensor(prefix + "attention.q_proj.weight");
+            layer.k_proj = bundle_->tensor(prefix + "attention.k_proj.weight");
+            layer.v_proj = bundle_->tensor(prefix + "attention.v_proj.weight");
+            layer.o_proj = bundle_->tensor(prefix + "attention.o_proj.weight");
+            const int64_t q_rows =
+                cfg.num_attention_heads * cfg.head_dim *
+                (cfg.attn_output_gate ? 2 : 1);
+            expect_shape(layer.q_proj, {q_rows, cfg.hidden_size},
+                         prefix + "attention.q_proj.weight");
+            if (cfg.qk_norm) {
+                layer.q_norm =
+                    bundle_->tensor(prefix + "attention.q_norm.weight");
+                layer.k_norm =
+                    bundle_->tensor(prefix + "attention.k_norm.weight");
+                expect_shape(layer.q_norm, {cfg.head_dim},
+                             prefix + "attention.q_norm.weight");
+                expect_shape(layer.k_norm, {cfg.head_dim},
+                             prefix + "attention.k_norm.weight");
+            }
+            const std::vector<double> q_t = transpose_matrix(layer.q_proj);
+            const std::vector<double> k_t = transpose_matrix(layer.k_proj);
+            const std::vector<double> v_t = transpose_matrix(layer.v_proj);
+            // attn_output_gate: the q block is 2*q_dim wide, per head
+            // interleaved [q|gate] — de-interleaved per token in forward.
+            layer.qkv_t = hcat_weights(
+                {{&q_t, cfg.num_attention_heads * cfg.head_dim *
+                            (cfg.attn_output_gate ? 2 : 1)},
+                 {&k_t, cfg.num_key_value_heads * cfg.head_dim},
+                 {&v_t, cfg.num_key_value_heads * cfg.head_dim}},
+                cfg.hidden_size);
+            layer.o_proj_t = transpose_matrix(layer.o_proj);
+        }
         layer.is_moe = cfg.use_moe &&
             (i % std::max<int64_t>(1, cfg.moe_layer_interval)) == 0;
         if (layer.is_moe) {
@@ -228,6 +323,17 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                 layer.shared_down_t.push_back(
                     transpose_matrix(layer.shared_down.back()));
             }
+            // v27 shared-expert sigmoid gate: a [1 x hidden] linear on
+            // the post-norm activation scaling every shared expert out.
+            if (cfg.shared_expert_gate && shared > 0) {
+                layer.shared_expert_gate = bundle_->tensor(
+                    prefix + "mlp.shared_expert_gate.weight");
+                expect_shape(layer.shared_expert_gate,
+                             {int64_t{1}, cfg.hidden_size},
+                             prefix + "mlp.shared_expert_gate.weight");
+                layer.shared_expert_gate_t =
+                    transpose_matrix(layer.shared_expert_gate);
+            }
         } else {
             layer.gate_proj = bundle_->tensor(prefix + "mlp.gate_proj.weight");
             layer.up_proj = bundle_->tensor(prefix + "mlp.up_proj.weight");
@@ -242,15 +348,6 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
                 cfg.hidden_size);
             layer.down_proj_t = transpose_matrix(layer.down_proj);
         }
-        const std::vector<double> q_t = transpose_matrix(layer.q_proj);
-        const std::vector<double> k_t = transpose_matrix(layer.k_proj);
-        const std::vector<double> v_t = transpose_matrix(layer.v_proj);
-        layer.qkv_t = hcat_weights(
-            {{&q_t, cfg.num_attention_heads * cfg.head_dim},
-             {&k_t, cfg.num_key_value_heads * cfg.head_dim},
-             {&v_t, cfg.num_key_value_heads * cfg.head_dim}},
-            cfg.hidden_size);
-        layer.o_proj_t = transpose_matrix(layer.o_proj);
     }
 
     // Gemma4 model-level PLE tensors.
@@ -267,6 +364,16 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         }
     }
 
+    // KV pools cover only full-attention layers: DeltaNet layers carry
+    // their own bounded per-slot state instead, so blocks are sized by
+    // the dense ordinal count (75% of a 4:1 hybrid is never wasted).
+    kv_layer_ord_.assign(static_cast<size_t>(cfg.num_hidden_layers), -1);
+    int64_t kv_layers = 0;
+    for (int64_t i = 0; i < cfg.num_hidden_layers; ++i) {
+        if (!cfg.is_linear_layer(i)) {
+            kv_layer_ord_[static_cast<size_t>(i)] = kv_layers++;
+        }
+    }
     // Gemma4 layers carry per-type head dims; the pool keeps a
     // uniform per-head stride sized to the largest head_dim.
     const int64_t kv_head_dim =
@@ -279,18 +386,18 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
         ? ((kv_head_dim + 7) & ~int64_t{7}) + 8
         : kv_head_dim * static_cast<int64_t>(sizeof(double));
     const int64_t kv_bytes = kv_int8_
-        ? cfg.num_hidden_layers * cfg.max_position_embeddings *
+        ? kv_layers * cfg.max_position_embeddings *
               cfg.num_key_value_heads * kv_elem_stride_bytes_ * 2
-        : cfg.num_hidden_layers * cfg.max_position_embeddings * kv_dim * 8 * 2;
+        : kv_layers * cfg.max_position_embeddings * kv_dim * 8 * 2;
     if (kv_limit_bytes_ > 0 && kv_bytes > kv_limit_bytes_) {
         throw InferenceError("KV_MEMORY_LIMIT_EXCEEDED");
     }
     // R6 paged KV: allocate on demand instead of the worst-case footprint.
     kv_block_stride_ = kv_int8_
-        ? (cfg.num_hidden_layers * kKvBlockTokens *
+        ? (kv_layers * kKvBlockTokens *
                cfg.num_key_value_heads * kv_elem_stride_bytes_ + 7) /
               8
-        : cfg.num_hidden_layers * kKvBlockTokens * kv_dim;
+        : kv_layers * kKvBlockTokens * kv_dim;
     if (kv_pool_ != nullptr) {
         gptbridge_kv_pool_destroy(kv_pool_);
         kv_pool_ = nullptr;
@@ -300,6 +407,7 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     kv_block_tables_.clear();
     kv_slot_active_.clear();
     kv_lens_.clear();
+    lin_states_.clear();
 
     // Device-resident KV mirror (P1-1②): fp64 device buffers sized to the
     // worst-case footprint; writes are mirrored per row for slot 0 only.
@@ -315,7 +423,7 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             throw InferenceError("CUDA_KV_UNSUPPORTED_CONFIG");
         }
         if (xcuda_kv_alloc(
-                cfg.num_hidden_layers, cfg.num_key_value_heads,
+                kv_layers, cfg.num_key_value_heads,
                 cfg.head_dim, cfg.max_position_embeddings) != 0) {
             throw InferenceError("CUDA_KV_UNAVAILABLE");
         }
@@ -369,6 +477,8 @@ void NativeInferenceEngine::unload() {
     kv_block_tables_.clear();
     kv_slot_active_.clear();
     kv_lens_.clear();
+    lin_states_.clear();
+    kv_layer_ord_.clear();
     kv_block_stride_ = 0;
     kv_int8_ = false;
     kv_elem_stride_bytes_ = 0;
@@ -466,6 +576,30 @@ void NativeInferenceEngine::validate_supported() const {
         cfg.num_attention_heads % cfg.num_key_value_heads != 0) {
         throw InferenceError("MODEL_SHAPE_UNSUPPORTED");
     }
+    // v27 fused hybrid: interval selects periodic full attention; all
+    // other layers need a complete, geometrically consistent DeltaNet
+    // block — a partial declaration fails closed instead of silently
+    // degrading to the dense path.
+    if (cfg.full_attention_interval < 0) {
+        throw InferenceError("LINEAR_ATTN_CONFIG_UNSUPPORTED");
+    }
+    if (cfg.full_attention_interval > 0) {
+        if (cfg.linear_num_key_heads <= 0 || cfg.linear_key_head_dim <= 0 ||
+            cfg.linear_num_value_heads <= 0 ||
+            cfg.linear_value_head_dim <= 0 ||
+            cfg.linear_num_value_heads % cfg.linear_num_key_heads != 0 ||
+            cfg.linear_conv_kernel_dim <= 0 ||
+            cfg.num_key_value_heads <= 0) {
+            throw InferenceError("LINEAR_ATTN_CONFIG_UNSUPPORTED");
+        }
+    }
+    if (cfg.partial_rotary_factor <= 0.0 || cfg.partial_rotary_factor > 1.0) {
+        throw InferenceError("LINEAR_ATTN_CONFIG_UNSUPPORTED");
+    }
+    if (cfg.fused_rope_contract() &&
+        cfg.position_embedding_type != "rope") {
+        throw InferenceError("POSITION_EMBEDDING_UNSUPPORTED");
+    }
 }
 
 std::vector<int64_t> NativeInferenceEngine::encode(
@@ -497,11 +631,14 @@ int32_t NativeInferenceEngine::kv_alloc_block() {
 
 int64_t NativeInferenceEngine::kv_alloc_slot() {
     // R9: bounded per-sequence KV namespaces over the shared pool.
+    const int64_t layers = bundle_->config().num_hidden_layers;
     for (int64_t i = 0; i < static_cast<int64_t>(kv_slot_active_.size()); ++i) {
         if (!kv_slot_active_[static_cast<size_t>(i)]) {
             kv_slot_active_[static_cast<size_t>(i)] = true;
             kv_block_tables_[static_cast<size_t>(i)].clear();
             kv_lens_[static_cast<size_t>(i)] = 0;
+            lin_states_[static_cast<size_t>(i)].assign(
+                static_cast<size_t>(layers), LinLayerState{});
             return i;
         }
     }
@@ -511,6 +648,7 @@ int64_t NativeInferenceEngine::kv_alloc_slot() {
     kv_slot_active_.push_back(true);
     kv_block_tables_.emplace_back();
     kv_lens_.push_back(0);
+    lin_states_.emplace_back(static_cast<size_t>(layers), LinLayerState{});
     return static_cast<int64_t>(kv_slot_active_.size()) - 1;
 }
 
@@ -523,6 +661,11 @@ void NativeInferenceEngine::kv_free_slot(int64_t slot) {
     }
     kv_block_tables_[static_cast<size_t>(slot)].clear();
     kv_lens_[static_cast<size_t>(slot)] = 0;
+    // DeltaNet state is slot-scoped exactly like the KV blocks: a freed
+    // sequence must never leak its recurrence into the next tenant.
+    for (LinLayerState& st : lin_states_[static_cast<size_t>(slot)]) {
+        st = LinLayerState{};
+    }
     kv_slot_active_[static_cast<size_t>(slot)] = false;
 }
 
@@ -537,11 +680,13 @@ void NativeInferenceEngine::kv_ensure_position(int64_t slot, int64_t position) {
 char* NativeInferenceEngine::kv_slot_bytes(
     int64_t slot, bool key_cache, int64_t layer, int64_t position, int64_t head) {
     const ModelConfig& cfg = bundle_->config();
+    const int64_t ord = kv_layer_ord_[static_cast<size_t>(layer)];
+    if (ord < 0) throw InferenceError("KV_LAYER_NOT_CACHED");
     const int64_t block =
         kv_block_tables_[static_cast<size_t>(slot)]
             [static_cast<size_t>(position / kKvBlockTokens)];
     const int64_t elem_index =
-        layer * (kKvBlockTokens * cfg.num_key_value_heads) +
+        ord * (kKvBlockTokens * cfg.num_key_value_heads) +
         (position % kKvBlockTokens) * cfg.num_key_value_heads + head;
     char* base = reinterpret_cast<char*>(
         gptbridge_kv_pool_data(
@@ -563,10 +708,13 @@ void NativeInferenceEngine::kv_write(
 #if defined(XINGCHENG_CUDA)
     // Write-through to the device-resident mirror (slot 0 only); the host
     // pool stays the source of truth and a failed mirror fails the forward
-    // — never silently divergent caches.
+    // — never silently divergent caches. Hybrid: device buffers are
+    // indexed by the dense full-attention ordinal, like the host pool.
     if (kv_device_active_ && slot == 0 &&
         xcuda_kv_write_rows(
-            key_cache ? 1 : 0, layer, head, position, 1, src) != 0) {
+            key_cache ? 1 : 0,
+            kv_layer_ord_[static_cast<size_t>(layer)], head, position, 1,
+            src) != 0) {
         throw InferenceError("CUDA_KV_WRITE_FAILED");
     }
 #endif
