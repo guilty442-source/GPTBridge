@@ -1,4 +1,4 @@
-// xc_modeltool.cpp — governed model-side utilities for the native lane.
+// xc_modeltool.cpp ??governed model-side utilities for the native lane.
 //
 // Modes (single JSON object on stdout; non-zero exit on failure):
 //   tokenize      --tokenizer <tokenizer.json|dir> --in rows.jsonl
@@ -12,7 +12,9 @@
 //                 --out <student.xcn> [--seed N] [--overwrite]
 //   export-bundle --ckpt <file> --out <dir>
 //                 --config-from <manifest.json> --tokenizer <tokenizer.json>
-//                 [--quant none|int8|int4_packed]
+//                 [--quant none|int8|int4_packed|bf16]
+//   precision     --ref <bundle> --candidate <bundle> [--tol F] [--seed N] [--len N]
+//                 (precision-candidate validation: logits/NLL/greedy/memory)
 //   eval          --bundle <dir> --suite <suite.json>
 //                 [--baseline-bundle <dir>|--baseline-metrics <file>]
 //   capability    --bundle <dir> --suite <suite.json>
@@ -28,7 +30,7 @@
 //   {"text"}                     -> {"input_ids"}           (pretrain; trainer
 //                                  shifts labels itself)
 //   {"prompt","chosen","rejected"} -> {"chosen","rejected"} (DPO)
-//   any sft/pretrain row may carry "vision_patches":[[..D..] x P] — the
+//   any sft/pretrain row may carry "vision_patches":[[..D..] x P] ??the
 //   early-fusion vision grid is passed through verbatim after structural
 //   validation (dpo+vision is unsupported and drops); optional
 //   --vision-patch-dim N / --vision-max-patches N pin the geometry.
@@ -59,8 +61,10 @@
 #include <fstream>
 #include <functional>
 #include <limits>
+#include <map>
 #include <mutex>
 #include <numeric>
+#include <set>
 #include <random>
 #include <regex>
 #include <sstream>
@@ -231,7 +235,7 @@ std::string sha256_text(const std::string& s) {
 
 // ------------------------------------------------- Python-parity canon ----
 // Canonical form used for suite_sha256 / payload hashes:
-// json.dumps(obj, ensure_ascii=False, sort_keys=True) — separators
+// json.dumps(obj, ensure_ascii=False, sort_keys=True) ??separators
 // (", ", ": "). Works on raw JSON text so integer vs float lexemes are
 // preserved (3000 -> "3000"; 3000.0 -> "3000.0"), matching Python digests
 // for the existing suite files byte-exactly.
@@ -450,7 +454,7 @@ void canon_value(RawCur& c, std::string& out) {
     canon_number(c, out);
 }
 
-// sha256 of json.dumps(obj, sort_keys=True) — default separators.
+// sha256 of json.dumps(obj, sort_keys=True) ??default separators.
 std::string suite_sha256(const std::string& raw_json) {
     RawCur c{raw_json.data(), raw_json.data() + raw_json.size()};
     std::string canon;
@@ -461,7 +465,7 @@ std::string suite_sha256(const std::string& raw_json) {
 }
 
 // ------------------------------------------------------------- NFC trim ----
-// Python unicodedata.normalize("NFC", text).strip() — used for overlap
+// Python unicodedata.normalize("NFC", text).strip() ??used for overlap
 // hashing. Windows NormalizeString handles NFC; trim strips ASCII/Unicode
 // whitespace sentinels at both ends.
 
@@ -605,7 +609,7 @@ void ids_json(std::string& out, const char* key,
 }
 
 // Truncate post-alignment to max_len; returns false when no supervised
-// (label >= 0) positions remain — those rows are dropped, not emitted.
+// (label >= 0) positions remain ??those rows are dropped, not emitted.
 bool clip_ids(Ids& e, int64_t max_len) {
     if (max_len <= 0 || (int64_t)e.ids.size() <= max_len) {
         return std::any_of(e.labels.begin(), e.labels.end(),
@@ -618,11 +622,11 @@ bool clip_ids(Ids& e, int64_t max_len) {
 }
 
 // Fusion tokenization (v1): a `vision_patches` field carries the patch
-// grid through to trainer-ready rows — for early-fusion the grid IS the
+// grid through to trainer-ready rows ??for early-fusion the grid IS the
 // vision token stream (prefix positions; the trainer masks them -100
 // and checks geometry against the model config). Structural validation
 // mirrors xct_util.h j_patch_grid: array of P numeric rows of uniform
-// width D. Returns 0 absent, 1 well-formed, -1 malformed — a malformed
+// width D. Returns 0 absent, 1 well-formed, -1 malformed ??a malformed
 // grid drops the whole row; never emit a text-only copy of a multimodal
 // sample.
 int vision_grid_state(const JsonValue* v, int64_t& patches, int64_t& dim) {
@@ -831,8 +835,8 @@ std::string bundle_to_xct(const std::string& b, bool g4 = false) {
                        : m[2].str() == "up" ? "w3" : "w2";
         return base + m[1].str() + "." + w;
     }
-    // §22 MTP import: model.mtp.<name>.weight round-trips back to the
-    // trainer's mtp.<name> namespace so checkpoint→bundle→params stays
+    // 禮22 MTP import: model.mtp.<name>.weight round-trips back to the
+    // trainer's mtp.<name> namespace so checkpoint?undle?arams stays
     // lossless for the speculative head.
     if (std::regex_match(b, m,
             std::regex(R"(^model\.mtp\.([A-Za-z0-9_.]+)\.weight$)")))
@@ -892,7 +896,7 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
             std::regex(R"(^layers\.(\d+)\.(q|k)_norm$)")))
         return base + m[1].str() + ".attention." + m[2].str() +
                "_norm.weight";
-    // v27 gated DeltaNet (linear attention) tensors — the bundle keeps
+    // v27 gated DeltaNet (linear attention) tensors ??the bundle keeps
     // the trainer's lin.* naming under linear_attn.* so the engine loads
     // the same projections verbatim.
     if (std::regex_match(n, m,
@@ -918,8 +922,8 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
         return base + m[1].str() + ".mlp.shared_experts." + m[2].str() + "." +
                w + "_proj.weight";
     }
-    // §22 MTP export: the speculative head is part of the XCN10
-    // contract — mtp.* tensors ride the bundle verbatim under
+    // 禮22 MTP export: the speculative head is part of the XCN10
+    // contract ??mtp.* tensors ride the bundle verbatim under
     // model.mtp.* so a runtime drafter can bind them; silently dropping
     // them orphans the trained draft head (the old DeepSeek-style
     // discard is retired for canonical bundles).
@@ -939,7 +943,7 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
 
 xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
     // Shared parser (job.json + manifest config + distill student config)
-    // — also validates the Gemma4 profile fail-closed.
+    // ??also validates the Gemma4 profile fail-closed.
     xct::ModelConfig c;
     try {
         c = xct::parse_model(&cfg);
@@ -967,7 +971,7 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
             fail("IMPORT_VISION_GEOMETRY");
     }
     // v27 fused hybrid (XCN3 fields): same names/semantics as the job
-    // manifest model block — absent keys keep the dense defaults so
+    // manifest model block ??absent keys keep the dense defaults so
     // pre-v27 bundles import unchanged.
     c.full_attention_interval =
         (int)xct::j_num(&cfg, "full_attention_interval",
@@ -1001,7 +1005,7 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
 
 JsonValue parse_json_file(const std::string& path) {
     std::string raw = slurp(path);
-    JsonParser p(raw);  // JsonParser holds a pointer into `raw` — lvalue only.
+    JsonParser p(raw);  // JsonParser holds a pointer into `raw` ??lvalue only.
     return p.parse();
 }
 
@@ -1013,7 +1017,7 @@ int64_t numel_of(const JsonValue& shape) {
 }
 
 // Loads a bundle directory into xct Params (fp32). Fails closed on any
-// dtype/shape/contract violation — shared by import-bundle and
+// dtype/shape/contract violation ??shared by import-bundle and
 // distill-init. Returns the number of filled tensors.
 size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
                           xct::Params& p) {
@@ -1056,9 +1060,9 @@ size_t load_bundle_params(const fs::path& bundle, xct::ModelConfig& c,
         fail("IMPORT_UNMAPPED_TENSORS:" + list);
     }
     for (const auto& n : p.order) {
-        // lb_bias is a train-time routing buffer that never exports —
+        // lb_bias is a train-time routing buffer that never exports ??
         // absence from a bundle is not a contract violation. mtp.* must
-        // be present (§22) so it is NOT exempted.
+        // be present (禮22) so it is NOT exempted.
         if (n.size() >= 7 &&
             n.compare(n.size() - 7, 7, "lb_bias") == 0) continue;
         if (!filled.count(n)) fail("IMPORT_MISSING_TENSOR:" + n);
@@ -1319,14 +1323,14 @@ int mode_vision_smoke(const Args& a) {
 // --------------------------------------------------------- cache-smoke ----
 //
 // Long-context memory & cache probe for a native bundle (public engine
-// API only — no internal surface):
-//   paged KV   — generate() drives the append-cache decode path; a
+// API only ??no internal surface):
+//   paged KV   ??generate() drives the append-cache decode path; a
 //                repeated generate over the same prompt restores the
 //                cached prefix (prefix_cache_hits++) and must reproduce
-//                identical tokens — the "restored KV is bit-identical to
+//                identical tokens ??the "restored KV is bit-identical to
 //                recompute" contract made executable;
-//   determinism — uncached logits() calls are bitwise stable;
-//   kv-int8 (opt-in via --kv-int8) — a second engine loaded under
+//   determinism ??uncached logits() calls are bitwise stable;
+//   kv-int8 (opt-in via --kv-int8) ??a second engine loaded under
 //                XINGCHENG_CPP_KV_INT8 keeps the same prefix-cache
 //                behavior and deterministic generation on a ~8x smaller
 //                KV footprint; logit drift vs fp64 is reported and must
@@ -1369,10 +1373,10 @@ Run probe_run(const std::string& bundle,
     r.ref_logits = e.logits(ids);
     r.logits_finite = all_finite(r.ref_logits);
     r.logits_deterministic = vec_eq(e.logits(ids), r.ref_logits);
-    SamplingConfig sc;                    // do_sample=false → argmax
+    SamplingConfig sc;                    // do_sample=false ??argmax
     std::vector<int64_t> prompt(ids.begin(), ids.begin() + 16);
     std::vector<int64_t> g1 =
-        e.generate(prompt, 6, sc);        // miss → stores prefix entry
+        e.generate(prompt, 6, sc);        // miss ??stores prefix entry
     const int64_t h1 = prefix_hits(e);
     std::vector<int64_t> g2 = e.generate(prompt, 6, sc);
     const int64_t h2 = prefix_hits(e);
@@ -1407,10 +1411,11 @@ int mode_cache_smoke(const Args& a) {
     if (!mcfg) fail("CACHE_SMOKE_MANIFEST_INVALID");
     int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
     if (vocab < 32) fail("CACHE_SMOKE_BAD_CONFIG");
-    // v27 fused hybrid: prefix cache stores K/V only and cannot restore
-    // DeltaNet recurrent state, so the engine bypasses it for hybrid
-    // bundles. The contract inverts: hits must stay absent while the
-    // recomputed path still yields identical greedy output.
+    // v27+ fused hybrid: the engine's hybrid prefix path restores
+    // attention KV *and* DeltaNet recurrent state (see
+    // hybrid-prefix-smoke / delta-prefix-restore), so prefix hits are
+    // now REQUIRED on hybrid bundles too ??greedy output must stay
+    // bit-identical either way.
     const bool hybrid =
         xct::j_num(mcfg, "full_attention_interval", 0) > 0 &&
         xct::j_num(mcfg, "linear_num_key_heads", 0) > 0;
@@ -1426,14 +1431,12 @@ int mode_cache_smoke(const Args& a) {
     } catch (const std::exception& e) {
         fail(std::string("CACHE_SMOKE_FORWARD_FAILED:") + e.what());
     }
-    const bool prefix_ok =
-        hybrid ? (!fp.prefix_hit && !fp.partial_prefix_hit)
-               : (fp.prefix_hit && fp.partial_prefix_hit);
+    const bool prefix_ok = fp.prefix_hit && fp.partial_prefix_hit;
     bool ok = fp.logits_finite && fp.logits_deterministic && prefix_ok &&
               fp.gen_nonempty && fp.gen_identical;
     // kv-int8: logits() never touches the KV pool, so the meaningful
-    // evidence is the cached path — prefix hits still fire, the
-    // restore→requantize round-trip keeps greedy output identical, and
+    // evidence is the cached path ??prefix hits still fire, the
+    // restore?equantize round-trip keeps greedy output identical, and
     // generation stays non-degenerate. fp64-vs-int8 token equality is
     // reported but not gated (quantization may legitimately nudge
     // argmax).
@@ -1455,8 +1458,7 @@ int mode_cache_smoke(const Args& a) {
             int8_nonempty = q8.gen_nonempty;
             int8_vs_fp64 = vec_eq(q8.ref_logits, fp.ref_logits);
             int8_ok = int8_finite && int8_gen_id &&
-                      (hybrid ? (!int8_hit && !int8_partial)
-                              : (int8_hit && int8_partial));
+                      int8_hit && int8_partial;
         } catch (...) {
             int8_ok = false;
         }
@@ -1495,7 +1497,7 @@ int mode_cache_smoke(const Args& a) {
 // v27 fused-hybrid gate: numeric parity between the trainer checkpoint
 // (fp32 xct::fwd) and the exported bundle run through the C++ engine
 // (fp64) on identical token ids. Compares summed next-token NLL,
-// last-position logits and greedy argmax — this is the end-to-end check
+// last-position logits and greedy argmax ??this is the end-to-end check
 // that export + engine execution reproduce trained weights exactly,
 // including DeltaNet recurrence, causal-conv tails, q/k norm, gated
 // attention out and partial RoPE.
@@ -1547,7 +1549,9 @@ int mode_parity(const Args& a) {
     xct::Params p;
     xct::init_params(p, c, 0);
     if (!xct::ckpt_load(p, c, ckpt)) fail("PARITY_CKPT_LOAD_FAILED");
-    std::vector<int> tids(ids.begin(), ids.end());
+    std::vector<int> tids;
+    tids.reserve(ids.size());
+    for (int64_t id : ids) tids.push_back((int)id);
     xct::Fwd o;
     try {
         xct::fwd(p, c, tids, o);
@@ -1627,6 +1631,124 @@ int mode_parity(const Args& a) {
         (long long)ids.size(), (long long)nll_e.second, linear_layers,
         nll_t, nll_e.first, mean_t, mean_e, mean_d, max_logit_d,
         argmax_t, argmax_e, argmax_t == argmax_e ? "true" : "false");
+    return ok ? 0 : 1;
+}
+
+// 禮15 precision-candidate validation: the same weights exported at two
+// precisions (REFERENCE_FP64 vs PRODUCTION_BF16) are compared through
+// the real engine ??last-position logit drift, argmax agreement,
+// sequence NLL, greedy continuation identity, load time and resident
+// memory. Reports evidence; promotion stays a lifecycle decision.
+int mode_precision(const Args& a) {
+    std::string ref_path = a.get("ref"), cand_path = a.get("candidate");
+    if (ref_path.empty() || cand_path.empty()) fail("PRECISION_ARGS_MISSING");
+    double tol = 0.5;
+    if (a.has("tol")) {
+        try { tol = std::stod(a.get("tol")); }
+        catch (...) { fail("PRECISION_BAD_TOL"); }
+    }
+    uint64_t seed = 11;
+    int64_t len = 32;
+    if (a.has("seed")) {
+        try { seed = (uint64_t)std::stoull(a.get("seed")); }
+        catch (...) { fail("PRECISION_BAD_SEED"); }
+    }
+    if (a.has("len")) {
+        try { len = std::stoll(a.get("len")); }
+        catch (...) { fail("PRECISION_BAD_LEN"); }
+    }
+    if (len < 4) fail("PRECISION_LEN_TOO_SHORT");
+
+    NativeInferenceEngine ref, cand;
+    auto now_ms = [] {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    const int64_t t_load0 = now_ms();
+    try { ref.load(ref_path); }
+    catch (const std::exception& ex) {
+        fail(std::string("PRECISION_REF_LOAD:") + ex.what());
+    }
+    const int64_t t_load1 = now_ms();
+    try { cand.load(cand_path); }
+    catch (const std::exception& ex) {
+        fail(std::string("PRECISION_CAND_LOAD:") + ex.what());
+    }
+    const int64_t t_load2 = now_ms();
+
+    std::vector<int64_t> ids;
+    {
+        // Seeded probe ids; bound by the reference manifest vocab.
+        JsonValue mf = parse_json_file(
+            (fs::path(ref_path) / "manifest.json").string());
+        const JsonValue* cfg = mf.get("config");
+        const int64_t vocab = (int64_t)xct::j_num(cfg, "vocab_size", 0);
+        if (vocab < 8) fail("PRECISION_BAD_CONFIG");
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+        for (int64_t i = 0; i < len; ++i) ids.push_back(tok(rng));
+    }
+
+    std::vector<double> lg_ref, lg_cand;
+    std::pair<double, int64_t> nll_ref, nll_cand;
+    try {
+        lg_ref = ref.logits(ids);
+        nll_ref = ref.sequence_nll(ids);
+        lg_cand = cand.logits(ids);
+        nll_cand = cand.sequence_nll(ids);
+    } catch (const std::exception& ex) {
+        fail(std::string("PRECISION_FWD:") + ex.what());
+    }
+    if (lg_ref.size() != lg_cand.size()) fail("PRECISION_SHAPE");
+    bool finite = cache_smoke_detail::all_finite(lg_ref) &&
+                  cache_smoke_detail::all_finite(lg_cand);
+    double max_d = 0.0;
+    int argmax_r = 0, argmax_c = 0;
+    for (size_t v = 0; v < lg_ref.size(); ++v) {
+        max_d = std::max(max_d,
+                         std::fabs(lg_ref[v] - lg_cand[v]));
+        if (lg_ref[v] > lg_ref[(size_t)argmax_r]) argmax_r = (int)v;
+        if (lg_cand[v] > lg_cand[(size_t)argmax_c]) argmax_c = (int)v;
+    }
+    // Greedy continuation identity + decode throughput on the candidate.
+    SamplingConfig sc;
+    std::vector<int64_t> prompt(ids.begin(), ids.begin() + len / 2);
+    std::vector<int64_t> g_ref, g_cand;
+    const int64_t t_gen0 = now_ms();
+    try {
+        g_ref = ref.generate(prompt, 8, sc);
+        g_cand = cand.generate(prompt, 8, sc);
+    } catch (const std::exception& ex) {
+        fail(std::string("PRECISION_GEN:") + ex.what());
+    }
+    const int64_t t_gen1 = now_ms();
+    const bool gen_identical = g_ref == g_cand && !g_cand.empty();
+    const double gen_ms = (double)std::max<int64_t>(1, t_gen1 - t_gen0);
+    const double tps = 16.0 * 1000.0 / gen_ms;   // both runs, 8 each
+    const bool ok = finite && argmax_r == argmax_c &&
+                    gen_identical && max_d <= tol;
+    std::printf(
+        "{\"ok\":%s,\"mode\":\"precision\",\"ref\":\"%s\","
+        "\"candidate\":\"%s\",\"tokens\":%lld,"
+        "\"finite\":%s,\"logit_max_abs_diff\":%.6f,"
+        "\"argmax_match\":%s,\"nll_ref\":%.6f,\"nll_cand\":%.6f,"
+        "\"nll_diff\":%.6f,\"gen_identical\":%s,"
+        "\"load_ms_ref\":%lld,\"load_ms_cand\":%lld,"
+        "\"memory_bytes_ref\":%lld,\"memory_bytes_cand\":%lld,"
+        "\"tps_approx\":%.2f,\"tol\":%.6f%s}\n",
+        ok ? "true" : "false",
+        gptbridge::jsonlite::json_escape(ref_path).c_str(),
+        gptbridge::jsonlite::json_escape(cand_path).c_str(),
+        (long long)ids.size(),
+        finite ? "true" : "false", max_d,
+        argmax_r == argmax_c ? "true" : "false",
+        nll_ref.first, nll_cand.first,
+        std::fabs(nll_ref.first - nll_cand.first),
+        gen_identical ? "true" : "false",
+        (long long)(t_load1 - t_load0), (long long)(t_load2 - t_load1),
+        (long long)ref.memory_bytes(), (long long)cand.memory_bytes(),
+        tps, tol,
+        ok ? "" : ",\"error_code\":\"PRECISION_PARITY_FAILED\"");
     return ok ? 0 : 1;
 }
 
@@ -1720,8 +1842,8 @@ int mode_export_bundle(const Args& a) {
     std::vector<std::pair<std::string, std::string>> pairs;
     pairs.reserve(p.order.size());
     for (const auto& n : p.order) {
-        // §22 MTP export: mtp.* tensors are part of the XCN10 contract
-        // and ride the bundle under model.mtp.* — the old DeepSeek-style
+        // 禮22 MTP export: mtp.* tensors are part of the XCN10 contract
+        // and ride the bundle under model.mtp.* ??the old DeepSeek-style
         // discard is retired so a runtime drafter can bind the head.
         // aux-free lb_bias is a routing-time buffer updated by the sign
         // rule (never by the optimizer); the serving engine has no
@@ -1734,11 +1856,11 @@ int mode_export_bundle(const Args& a) {
     }
     std::sort(pairs.begin(), pairs.end());
 
-    // --quant none|int8|int4_packed|bf16: weight-only per-tensor
-    // quantization of 2-D matrices; the engine dequantizes to fp64 at
-    // load. int8/int4_packed are symmetric-with-scale (mirrors
-    // kernels/quant.py); bf16 is unscaled RNE truncation (§18
-    // conversion lane — never retrained). 1-D tensors (norms) stay fp64.
+    // --quant none|int8|int4_packed|bf16: 2-D matrices are stored
+    // compressed (per-tensor symmetric scale for int8/int4; bf16 keeps
+    // fp32's exponent with a truncated mantissa ??PRODUCTION_BF16
+    // candidate). The engine widens to fp64 at load; 1-D tensors
+    // (norms) stay fp64.
     std::string quant = a.get("quant");
     if (quant.empty()) quant = "none";
     if (quant != "none" && quant != "int8" && quant != "int4_packed" &&
@@ -1761,7 +1883,21 @@ int mode_export_bundle(const Args& a) {
         int64_t bytes;
         std::string dtype;
         double scale = 0.0;
-        if (q && quant == "int8") {
+        if (q && quant == "bf16") {
+            // bf16: top 16 bits of fp32, round-to-nearest-even on the
+            // dropped mantissa (x + 0x7FFF + lsb). decode is bits<<16.
+            std::vector<uint16_t> qd((size_t)n);
+            for (int64_t k = 0; k < n; ++k) {
+                uint32_t bits;
+                const float fv = t.d[(size_t)k];
+                std::memcpy(&bits, &fv, 4);
+                bits += 0x7FFFu + ((bits >> 16) & 1u);
+                qd[(size_t)k] = (uint16_t)(bits >> 16);
+            }
+            bin.write((char*)qd.data(), (std::streamsize)(n * 2));
+            bytes = n * 2;
+            dtype = "bf16";
+        } else if (q && quant == "int8") {
             double mx = 0.0;
             for (int64_t k = 0; k < n; ++k)
                 mx = std::max(mx, (double)std::fabs(t.d[(size_t)k]));
@@ -1797,7 +1933,7 @@ int mode_export_bundle(const Args& a) {
             dtype = "int4_packed";
         } else if (q && quant == "bf16") {
             // fp64 -> bf16 via fp32 with round-to-nearest-even on the
-            // dropped mantissa; unscaled — the loader widens back.
+            // dropped mantissa; unscaled ??the loader widens back.
             std::vector<uint16_t> qd((size_t)n);
             for (int64_t k = 0; k < n; ++k) {
                 const float f = (float)t.d[(size_t)k];
@@ -1842,8 +1978,8 @@ int mode_export_bundle(const Args& a) {
     if (std::rename(bin_tmp.c_str(), bin_path.c_str()) != 0)
         fail("EXPORT_WEIGHTS_RENAME_FAILED");
 
-    // manifest.json — config copied verbatim from --config-from so every
-    // engine-side field (backend preference, rope, kv quant, …) survives.
+    // manifest.json ??config copied verbatim from --config-from so every
+    // engine-side field (backend preference, rope, kv quant, ?? survives.
     std::string cfg_canon;
     {
         // Serialize config through the JsonValue tree (engine only reads
@@ -1863,62 +1999,77 @@ int mode_export_bundle(const Args& a) {
         cfg_canon = gptbridge::jsonlite::json_serialize(cfg_copy);
     }
     std::string ckpt_sha = sha256_file(ckpt);
+    // Checkpoint contract version read straight from the XCN1 header so
+    // the bundle manifest carries the same contract identity as the
+    // source artifact (unified 禮10 checkpoint/bundle contract).
+    uint32_t ckpt_ver = 0;
+    {
+        std::ifstream ch(ckpt, std::ios::binary);
+        char hdr[8] = {};
+        if (ch.read(hdr, 8) &&
+            hdr[0] == 'X' && hdr[1] == 'C' && hdr[2] == 'N' && hdr[3] == '1')
+            std::memcpy(&ckpt_ver, hdr + 4, 4);
+    }
+    // Architecture generation declared by the shipped config (present
+    // for canonical-generation jobs such as xc-fused-1).
+    std::string arch_gen;
+    {
+        const JsonValue* g = cfg->get("generation");
+        if (g && g->type == JsonValue::Type::String) arch_gen = g->string;
+        if (arch_gen.empty()) {
+            const JsonValue* g2 = src_manifest.get("architecture_generation");
+            if (g2 && g2->type == JsonValue::Type::String)
+                arch_gen = g2->string;
+        }
+    }
     int64_t now = (int64_t)std::chrono::duration_cast<std::chrono::seconds>(
                       std::chrono::system_clock::now().time_since_epoch())
                       .count();
-    // Lifecycle metadata (architecture-convergence contract): the bundle
-    // records which architecture profile it carries, which checkpoint
-    // contract produced it and the governed runtime lineage — distinct
-    // from the deployment active_generation, which lives in the C#
-    // generation state.
-    uint32_t ckpt_ver = 0;
-    {
-        std::ifstream hdr(ckpt, std::ios::binary);
-        char magic[4] = {0, 0, 0, 0};
-        if (hdr.read(magic, 4) && std::memcmp(magic, "XCN1", 4) == 0) {
-            unsigned char vb[4] = {0, 0, 0, 0};
-            if (hdr.read((char*)vb, 4))
-                ckpt_ver = (uint32_t)vb[0] | ((uint32_t)vb[1] << 8) |
-                           ((uint32_t)vb[2] << 16) | ((uint32_t)vb[3] << 24);
-        }
-    }
-    const bool arch_xc_fused1 =
-        !c.is_gemma4() && c.full_attention_interval == 4 &&
-        c.attn_output_gate && c.qk_norm &&
-        std::fabs(c.partial_rotary - 0.5f) < 1e-6f &&
-        c.moe_router_sigmoid && c.moe_top_k == 2 &&
-        c.moe_layer_interval == 1 && c.moe_experts >= 8 &&
-        c.moe_shared_experts >= 1 && c.shared_expert_gate &&
-        std::fabs(c.moe_aux_w - 0.001f) < 1e-7f &&
-        !c.moe_auxfree_balance && c.moe_lb_bias_rate == 0.0f &&
-        c.mtp_depth >= 1 && c.mtp_loss_w >= 0.1f && c.use_vision &&
-        c.vision_patch_dim >= 16 && c.vision_max_patches >= 64 &&
-        c.yarn_factor >= 2.0f && c.kv_lora_rank == 0 &&
-        c.q_lora_rank == 0 && c.csa_ratio == 0;
+    // 禮25 bundle provenance: resolve + hash the tokenizer up-front so the
+    // manifest can ship the full evidence block (hash -> signature ->
+    // generation -> architecture -> checkpoint -> shape -> runtime
+    // compatibility -> load; provenance-check enforces it fail-closed).
+    fs::path tk_src = resolve_tokenizer_path(tokenizer);
+    const std::string tk_sha = sha256_file(tk_src.string());
     std::ostringstream mf;
     mf << "{\"checkpoint_sha256\":\"" << ckpt_sha << "\""
-       << ",\"architecture_generation\":\""
-       << (arch_xc_fused1 ? "xc-fused-1" : "current-compatible-profile")
-       << "\""
-       << ",\"checkpoint_version\":\"XCN1 v" << ckpt_ver << "\""
-       << ",\"runtime_version\":\"xc-native-cpp23\""
-       << ",\"capability_training_frozen\":true"
-       << ",\"lineage\":{\"source_checkpoint\":\""
-       << gptbridge::jsonlite::json_escape(ckpt)
-       << "\",\"source_ckpt_sha256\":\"" << ckpt_sha << "\"}"
-       << ",\"config\":" << cfg_canon
+       << ",\"checkpoint_version\":" << ckpt_ver;
+    if (!arch_gen.empty())
+        mf << ",\"architecture_generation\":\""
+           << gptbridge::jsonlite::json_escape(arch_gen) << "\"";
+    mf << ",\"config\":" << cfg_canon
        << ",\"created_by\":\"xc-modeltool\""
        << ",\"created_at\":" << now
        << ",\"schema_version\":\"star-native-inference-bundle/v1\""
        << ",\"source_checkpoint\":\""
        << gptbridge::jsonlite::json_escape(ckpt) << "\""
        << ",\"source_ckpt_sha256\":\"" << ckpt_sha << "\""
+       << ",\"lineage\":{\"source_checkpoint\":\""
+       << gptbridge::jsonlite::json_escape(ckpt)
+       << "\",\"source_ckpt_sha256\":\"" << ckpt_sha
+       << "\",\"checkpoint_version\":" << ckpt_ver << "}"
        << ",\"tensors\":" << tensors_json.str()
        << ",\"weights_file\":\"weights.bin\""
        << ",\"weights_sha256\":\"" << weights_sha << "\""
        << ",\"param_count\":" << param_count
        << ",\"quantized_tensors\":" << quantized_tensors
-       << ",\"quantization\":\"" << quant << "\"}";
+       << ",\"quantization\":\"" << quant << "\""
+       << ",\"tokenizer_sha256\":\"" << tk_sha << "\""
+       << ",\"provenance\":{\"format\":\"star-bundle-provenance/v1\","
+       << "\"build_id\":\"xc-modeltool/" << __DATE__ << "\","
+       << "\"runtime_compatibility\":"
+          "\"star-native-inference-engine/v1\","
+       << "\"generation\":\""
+       << gptbridge::jsonlite::json_escape(
+              arch_gen.empty() ? std::string("unversioned") : arch_gen)
+       << "\",\"xcn_version\":" << ckpt_ver
+       << ",\"manifest_core_sha256\":\"";
+    // manifest_core_sha256 covers everything before the provenance
+    // block ??the hash is computed over the mf prefix already streamed.
+    std::string core_sha = sha256_bytes(
+        reinterpret_cast<const unsigned char*>(mf.str().data()),
+        mf.str().size());
+    mf << core_sha << "\"}}";
     std::string mf_path = (out_dir / "manifest.json").string();
     std::string mf_tmp = mf_path + ".tmp";
     {
@@ -1929,7 +2080,6 @@ int mode_export_bundle(const Args& a) {
     if (std::rename(mf_tmp.c_str(), mf_path.c_str()) != 0)
         fail("EXPORT_MANIFEST_RENAME_FAILED");
 
-    fs::path tk_src = resolve_tokenizer_path(tokenizer);
     fs::copy_file(tk_src, out_dir / "tokenizer.json",
                   fs::copy_options::overwrite_existing);
 
@@ -2160,7 +2310,7 @@ double block_perplexity(NativeInferenceEngine& engine,
     int64_t block = std::min<int64_t>(64, (int64_t)ids.size() - 1);
     double total = 0.0;
     int64_t batches = 0;
-    // range(0, len(ids) - block, block) — non-overlapping windows.
+    // range(0, len(ids) - block, block) ??non-overlapping windows.
     for (size_t start = 0; start + (size_t)block < ids.size();
          start += (size_t)block) {
         std::vector<int64_t> w(ids.begin() + (ptrdiff_t)start,
@@ -2299,7 +2449,7 @@ int mode_capability(const Args& a) {
         }
         try {
             if (kind == "router_health") {
-                // The C++ engine exposes no router-metrics surface —
+                // The C++ engine exposes no router-metrics surface ??
                 // same outcome as the Python lane on a metrics-less
                 // checkpoint: skipped, excluded from pass_rate.
                 d << ",\"passed\":false,\"skipped\":\"no-moe-metrics-surface\"}";
@@ -2308,7 +2458,7 @@ int mode_capability(const Args& a) {
             }
             {
                 // 300M P10: non-text modality items (vision suite) can
-                // only pass through a real image adapter — a text-only
+                // only pass through a real image adapter ??a text-only
                 // replay would be fake evidence, so they fail closed.
                 std::string modality = jget_str(item, "modality");
                 if (!modality.empty() && modality != "text") {
@@ -2480,7 +2630,7 @@ int mode_capability(const Args& a) {
     }
     engine.unload();
 
-    // categories rollup — same shape as star-capability-eval/v1.
+    // categories rollup ??same shape as star-capability-eval/v1.
     std::ostringstream cats;
     cats << '{';
     bool first_cat = true;
@@ -2605,13 +2755,13 @@ int mode_capability(const Args& a) {
 }
 
 // -------------------------------------------------------- mtp-draft-probe --
-// 300M §21-§23: real draft/verify against the exported MTP head. The
-// trainer's mtp_fwd is re-derived here in fp64 against bundle tensors —
+// 300M 禮21-禮23: real draft/verify against the exported MTP head. The
+// trainer's mtp_fwd is re-derived here in fp64 against bundle tensors ??
 // cin = [rmsnorm(h_t;norm_h) | rmsnorm(e_{t+1};norm_e)] -> w_proj ->
 // norm1 -> full-rope(YaRN) causal attention over the MTP module's own
 // K/V -> wo -> +res -> norm2 -> gated FFN -> +res -> norm_out -> shared
 // lm_head. Greedy argmax verification: a draft is accepted iff it equals
-// the trunk argmax — emitted tokens are identical to plain greedy by
+// the trunk argmax ??emitted tokens are identical to plain greedy by
 // construction, so `output_parity` is guaranteed, not claimed.
 // draft_length=1 evidence only: the engine-side NativeMtpDrafter
 // production dispatch remains P8; this mode reports measured acceptance,
@@ -2696,7 +2846,7 @@ struct MtpDraft {
         return 0.5 * x * (1.0 + std::tanh(u));
     }
     // Trainer rope convention for the MTP block: interleaved pairs
-    // (2p, 2p+1) over the FULL head_dim with the YaRN-blended table —
+    // (2p, 2p+1) over the FULL head_dim with the YaRN-blended table ??
     // deliberately not the trunk's rotate-half partial rope.
     void rope_pos(double* v, int64_t nh, int64_t pos) const {
         const int64_t hd = c->head_dim;
@@ -2737,7 +2887,7 @@ struct MtpDraft {
         }
     }
 
-    // z_t = w_proj [rmsnorm(h) | rmsnorm(e_next)] — the shared head of
+    // z_t = w_proj [rmsnorm(h) | rmsnorm(e_next)] ??the shared head of
     // every MTP position. Returns z; k/v appended separately.
     std::vector<double> z_of(const double* h_t, const double* e_next) const {
         const int64_t H = c->hidden_size;
@@ -2944,7 +3094,7 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"mtp_kv_positions\":%lld,"
         "\"emitted_tokens\":%lld,"
         "\"accept_log\":%s,"
-        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE — engine-side "
+        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE ??engine-side "
         "NativeMtpDrafter dispatch is not bound (P8); SPECULATIVE_"
         "DECODER_DISABLED remains in effect for production\","
         "\"speedup\":null}\n",
@@ -3001,7 +3151,7 @@ std::string serve_render_chat(const JsonValue& messages) {
 
 // Governed GPU-admission probe: reports CUDA capability + free VRAM
 // without loading the engine. The stub (non-CUDA build) reports
-// available=0 — capability lives in the CUDA TU, the decision above.
+// available=0 ??capability lives in the CUDA TU, the decision above.
 extern "C" int xcuda_probe(long long* free_bytes, long long* total_bytes,
                            int* cc_major, int* cc_minor);
 // NVML instantaneous sensors: bitmask bit0 = gpu util %, bit1 = power mW.
@@ -3027,8 +3177,8 @@ int mode_probe_cuda() {
     return 0;
 }
 
-// §19 cuda-parity-all: every CUDA compute lane verified against the
-// CPU fp64 reference — a kernel that compiles is not a kernel that is
+// 禮19 cuda-parity-all: every CUDA compute lane verified against the
+// CPU fp64 reference ??a kernel that compiles is not a kernel that is
 // correct. Absent lanes report "not_run" rather than PASS; a built
 // lane that diverges is a hard failure.
 extern "C" int xcuda_available();
@@ -3222,9 +3372,9 @@ int mode_cuda_parity_all(const Args&) {
     return all ? 0 : 1;
 }
 
-// ------------------------------------------------ batch-2 probes (§7/§10/§12/§13/§27/§29)
+// ------------------------------------------------ batch-2 probes (禮7/禮10/禮12/禮13/禮27/禮29)
 
-// §7.1 sparse-attention-probe: synthetic KV block index + centroid
+// 禮7.1 sparse-attention-probe: synthetic KV block index + centroid
 // selector + gather plan; recall measured against full attention.
 int mode_sparse_probe(const Args& a) {
     int64_t tokens = std::stoll(a.get("tokens", "8192"));
@@ -3251,7 +3401,7 @@ int mode_sparse_probe(const Args& a) {
     return 0;
 }
 
-// §7.2 kv-outer-gather-probe: operator prototype on synthetic tensors.
+// 禮7.2 kv-outer-gather-probe: operator prototype on synthetic tensors.
 int mode_kv_gather_probe(const Args& a) {
     int64_t tokens = std::stoll(a.get("tokens", "4096"));
     int dim = std::stoi(a.get("dim", "64"));
@@ -3277,7 +3427,7 @@ int mode_kv_gather_probe(const Args& a) {
     return sane ? 0 : 1;
 }
 
-// §10 sched-smoke: unified recurrent/attention state lifecycle —
+// 禮10 sched-smoke: unified recurrent/attention state lifecycle ??
 // prepare -> run -> commit advances state; rollback restores it.
 int mode_sched_smoke(const Args&) {
     xcm2::SequenceLayerScheduler s;
@@ -3303,7 +3453,7 @@ int mode_sched_smoke(const Args&) {
     return ok ? 0 : 1;
 }
 
-// §12 state-drift: FP64 reference vs BF16/FP16 recurrent state over the
+// 禮12 state-drift: FP64 reference vs BF16/FP16 recurrent state over the
 // 1K..16K token ladder; FP8 deliberately excluded.
 int mode_state_drift(const Args& a) {
     int64_t max_tok = std::stoll(a.get("tokens", "16384"));
@@ -3333,7 +3483,7 @@ int mode_state_drift(const Args& a) {
     return 0;
 }
 
-// §13 spec-probe: speculative-decode runtime metrics schema — the
+// 禮13 spec-probe: speculative-decode runtime metrics schema ??the
 // infrastructure exists, production speculation stays disabled.
 int mode_spec_probe(const Args&) {
     xcm2::SpeculativeDecoder s;
@@ -3347,8 +3497,8 @@ int mode_spec_probe(const Args&) {
     return 0;
 }
 
-// §27 hw-caps: hardware capability registry — detection only; a
-// precision profile is never enabled by env-var fiat (§27 last rule).
+// 禮27 hw-caps: hardware capability registry ??detection only; a
+// precision profile is never enabled by env-var fiat (禮27 last rule).
 int mode_hw_caps(const Args&) {
     xcm2::HardwareCapabilityRegistry r;
     r.detect_cpu();
@@ -3358,8 +3508,8 @@ int mode_hw_caps(const Args&) {
     r.vram_free_mb = fb / (1024 * 1024);
     r.vram_total_mb = tb / (1024 * 1024);
     r.cuda_cc_major = ccm; r.cuda_cc_minor = ccn;
-    // CUDA arch hints for low-precision lanes — capability detection,
-    // not enablement (parity certification gates use, §27/§28).
+    // CUDA arch hints for low-precision lanes ??capability detection,
+    // not enablement (parity certification gates use, 禮27/禮28).
     if (r.cuda_available) {
         r.fp8 = ccm >= 9 || (ccm == 8 && ccn >= 9);  // sm_89+/sm_90+
         r.bf16 = r.bf16 || ccm >= 8;                  // sm_80+ bf16 hw
@@ -3372,7 +3522,7 @@ int mode_hw_caps(const Args&) {
         "\"vram_free_mb\":%lld,\"vram_total_mb\":%lld,"
         "\"fp8_hw\":%s,\"fp4_hw\":%s},"
         "\"system_ram_mb\":%lld,"
-        "\"note\":\"detection only — promotion needs quant-cert\"}\n",
+        "\"note\":\"detection only ??promotion needs quant-cert\"}\n",
         r.avx2 ? "true" : "false", r.fma ? "true" : "false",
         r.avx512f ? "true" : "false", r.bf16 ? "true" : "false",
         r.fp16 ? "true" : "false",
@@ -3384,8 +3534,8 @@ int mode_hw_caps(const Args&) {
     return 0;
 }
 
-// §29/§14-15 state2-smoke: star-native-state/v2 seal/verify + the
-// typed binding gate — every mismatch class must return its §15 code.
+// 禮29/禮14-15 state2-smoke: star-native-state/v2 seal/verify + the
+// typed binding gate ??every mismatch class must return its 禮15 code.
 int mode_state2_smoke(const Args&) {
     xcm2::NativeStateHeader h;
     h.generation = "gen-2-consolidated";
@@ -3490,6 +3640,12 @@ void emit_moe_trace(std::ostringstream& o,
     o << "]}";
 }
 
+// Runtime-capability integration headers: shared helpers first
+// (xcm_runtime.h), probe modes second (xcm_integration.h consumes
+// them) ??both serve ops below and main() dispatch use these.
+#include "xcm_runtime.h"
+#include "xcm_integration.h"
+
 int mode_serve(const Args& a) {
     std::string bundle = a.get("bundle");
     if (bundle.empty()) fail("SERVE_ARGS_MISSING");
@@ -3518,7 +3674,7 @@ int mode_serve(const Args& a) {
     std::string line;
     line.reserve(4096);
     while (true) {
-        // Bounded line read — a peer writing past the cap is a protocol
+        // Bounded line read ??a peer writing past the cap is a protocol
         // violation, not a reason to grow memory without bound.
         line.clear();
         int ch;
@@ -3615,23 +3771,97 @@ int mode_serve(const Args& a) {
                 }
                 if (!engine.loaded()) engine.load(bundle);
                 SamplingConfig sc;
-                sc.do_sample = serve_bool(req, "do_sample", false);
-                sc.temperature = serve_num(req, "temperature", 1.0);
+                // 禮34 sampling profile presets (creative mode surface):
+                // a named profile seeds the knobs; explicit fields
+                // always win. Profiles are style-only ??safety/tool/
+                // data authority never rides on them.
+                std::string profile = jget_str(req, "sampling_profile");
+                double p_temp = 1.0, p_topp = 1.0, p_rep = 1.0;
+                if (profile == "precise") {
+                    p_temp = 0.2; p_topp = 0.9; p_rep = 1.05;
+                } else if (profile == "balanced") {
+                    p_temp = 0.7; p_topp = 0.95; p_rep = 1.1;
+                } else if (profile == "creative") {
+                    p_temp = 0.9; p_topp = 0.95; p_rep = 1.1;
+                } else if (profile == "roleplay") {
+                    p_temp = 0.85; p_topp = 0.95; p_rep = 1.1;
+                } else if (profile == "story") {
+                    p_temp = 0.9; p_topp = 0.95; p_rep = 1.15;
+                } else if (profile == "brainstorm") {
+                    p_temp = 1.0; p_topp = 0.99; p_rep = 1.1;
+                } else if (!profile.empty() && profile != "neutral") {
+                    err_obj("SAMPLING_PROFILE_INVALID");
+                    continue;
+                }
+                sc.do_sample = serve_bool(req, "do_sample",
+                                          !profile.empty());
+                sc.temperature = serve_num(req, "temperature", p_temp);
                 sc.top_k = (int64_t)serve_num(req, "top_k", 0);
-                sc.top_p = serve_num(req, "top_p", 1.0);
+                sc.top_p = serve_num(req, "top_p", p_topp);
                 sc.repetition_penalty =
-                    serve_num(req, "repetition_penalty", 1.0);
+                    serve_num(req, "repetition_penalty", p_rep);
                 sc.seed = (uint64_t)serve_num(req, "seed", 0);
                 int64_t max_new = (int64_t)serve_num(
                     req, "max_new_tokens", 192);
                 if (max_new <= 0) max_new = 1;
                 if (max_new > 2048) max_new = 2048;
 
+                // 禮34 persona/context envelope: bounded structured
+                // state (persona fields + narrative facts + factuality
+                // marker) materialised once as prompt prefix ??never a
+                // raw transcript replay. FICTIONAL mode tags the
+                // context so generated content can be tracked as
+                // fictional by the C# claim/memory layer.
+                {
+                    std::string persona = jget_str(req, "persona");
+                    std::string narrative = jget_str(req, "narrative");
+                    std::string factuality =
+                        jget_str(req, "factuality");
+                    if (!persona.empty() || !narrative.empty() ||
+                        !factuality.empty()) {
+                        if (!factuality.empty() &&
+                            factuality != "FACTUAL_STRICT" &&
+                            factuality != "GROUNDED" &&
+                            factuality != "GENERAL" &&
+                            factuality != "FICTIONAL") {
+                            err_obj("FACTUALITY_MODE_INVALID");
+                            continue;
+                        }
+                        std::string env =
+                            "<|context_envelope|>{\"factuality\":\"" +
+                            (factuality.empty() ? "GENERAL" : factuality)
+                            + "\"";
+                        if (factuality == "FICTIONAL")
+                            env += ",\"fictional_context\":true";
+                        if (!persona.empty())
+                            env += ",\"persona\":" +
+                                   gptbridge::jsonlite::json_escape(
+                                       persona);
+                        if (!narrative.empty())
+                            env += ",\"narrative_state\":" +
+                                   gptbridge::jsonlite::json_escape(
+                                       narrative);
+                        env += "}<|end_context_envelope|>\n";
+                        prompt = env + prompt;
+                    }
+                }
+
+                // 禮22 prefix scope isolation: callers pass a scope id
+                // (typically the RAG manifest hash); entries from other
+                // scopes are never served to this request.
+                std::string pscope = jget_str(req, "prefix_scope");
+                if (!pscope.empty()) engine.set_prefix_scope(pscope);
+
                 std::vector<int64_t> pids = engine.encode(prompt, true, false);
                 // Two-level MoE trace (opt-in per request): router-level
                 // decisions + expert-level dispatch for this generation.
                 const bool want_moe_trace = serve_bool(req, "moe_trace", false);
                 engine.set_moe_trace_enabled(want_moe_trace);
+                // 禮16 opt-in two-level MoE trace: per-request router
+                // evidence, record-and-analyse only.
+                const bool want_trace =
+                    serve_bool(req, "router_trace", false);
+                engine.set_router_trace(want_trace);
                 auto t0 = std::chrono::steady_clock::now();
                 std::vector<int64_t> out =
                     engine.generate(pids, max_new, sc);
@@ -3648,7 +3878,7 @@ int mode_serve(const Args& a) {
 
                 // Surface the model-native tool call: a trained-in
                 // <tool_call>{json}</tool_call> block is split per
-                // star-inference-output/v1 — cleaned text stays in
+                // star-inference-output/v1 ??cleaned text stays in
                 // "text", the parsed call JSON rides in "tool_call".
                 // A malformed/unclosed call degrades to a
                 // tool_call_error field instead of failing the
@@ -3687,6 +3917,72 @@ int mode_serve(const Args& a) {
                     o << out[i];
                 }
                 o << ']';
+                if (want_trace) {
+                    // router_layers[] ??the star-capability-trace/v1
+                    // inner layer: unique selected neural experts per
+                    // MoE layer plus shared-expert usage.
+                    o << ",\"router_layers\":[";
+                    bool first_l = true;
+                    for (const auto& tr : engine.router_trace()) {
+                        if (!first_l) o << ',';
+                        first_l = false;
+                        std::vector<int64_t> uniq(tr.expert_ids);
+                        std::sort(uniq.begin(), uniq.end());
+                        uniq.erase(
+                            std::unique(uniq.begin(), uniq.end()),
+                            uniq.end());
+                        o << "{\"layer_id\":" << tr.layer_id
+                          << ",\"router_type\":\"" << tr.router_type
+                          << "\",\"selected_neural_experts\":[";
+                        for (size_t ei = 0; ei < uniq.size(); ++ei)
+                            o << (ei ? "," : "") << uniq[ei];
+                        o << "],\"shared_expert_used\":"
+                          << (tr.shared_experts > 0 ? "true" : "false")
+                          << ",\"shared_expert_gated\":"
+                          << (tr.shared_expert_gated ? "true" : "false")
+                          << ",\"top_k\":" << tr.top_k
+                          << ",\"token_count\":" << tr.token_count
+                          << '}';
+                    }
+                    o << ']';
+                    engine.set_router_trace(false);
+                }
+                // 禮34 claim-boundary metadata: opt-in sentence spans
+                // the C# claim-extraction layer consumes verbatim ??
+                // the engine marks boundaries, it never judges truth.
+                if (serve_bool(req, "mark_claims", false)) {
+                    o << ",\"claim_spans\":[";
+                    bool first_span = true;
+                    size_t begin = 0;
+                    for (size_t i = 0; i < text.size(); ++i) {
+                        unsigned char ch = (unsigned char)text[i];
+                        bool boundary =
+                            ch == '.' || ch == '!' || ch == '?' ||
+                            ch == ';' || ch == '\n' ||
+                            (ch == 0xE3 && i + 2 < text.size() &&
+                             (unsigned char)text[i + 1] == 0x80 &&
+                             (unsigned char)text[i + 2] == 0x82) ||  // ??
+                            (ch == 0xEF && i + 2 < text.size() &&
+                             (unsigned char)text[i + 1] == 0xBC &&
+                             ((unsigned char)text[i + 2] == 0x81 ||
+                              (unsigned char)text[i + 2] == 0x9F ||
+                              (unsigned char)text[i + 2] == 0x9B)); // 嚗?嚗?
+                        bool last = i + 1 == text.size();
+                        if (!boundary && !last) continue;
+                        size_t end = i + 1;
+                        if (boundary && (ch == 0xE3 || ch == 0xEF))
+                            end = i + 3;  // include the 3-byte punct
+                        if (end > begin + 1) {
+                            if (!first_span) o << ',';
+                            first_span = false;
+                            o << "{\"begin\":" << begin
+                              << ",\"end\":" << end << '}';
+                        }
+                        begin = end;
+                        if (ch == 0xE3 || ch == 0xEF) i += 2;
+                    }
+                    o << ']';
+                }
                 o << ",\"generated_tokens\":" << (int64_t)out.size()
                   << ",\"latency_ms\":" << elapsed * 1000.0
                   << ",\"model_id\":\"xingcheng-native-transformer\""
@@ -3705,7 +4001,7 @@ int mode_serve(const Args& a) {
             if (op == "think") {
                 // Native Thinking: latent continuous-thought steps then
                 // parallel hypothesis branches ranked by model confidence
-                // (latent CoVe) — no textual chain-of-thought is produced.
+                // (latent CoVe) ??no textual chain-of-thought is produced.
                 std::string prompt = jget_str(req, "prompt");
                 const JsonValue* messages = req.get("messages");
                 if (prompt.empty() && messages &&
@@ -3779,6 +4075,248 @@ int mode_serve(const Args& a) {
                 emit(o.str());
                 continue;
             }
+            if (op == "memplan") {
+                // InferenceMemoryPlanner report: typed budget breakdown
+                // + prefill/decode high-water marks.
+                if (!engine.loaded()) engine.load(bundle);
+                const auto r = engine.memory_report();
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":"
+                     "\"star-inference-memory-report/v1\""
+                  << ",\"weight_bytes\":" << r.weight_bytes
+                  << ",\"kv_bytes\":" << r.kv_bytes
+                  << ",\"prefix_cache_bytes\":" << r.prefix_cache_bytes
+                  << ",\"recurrent_state_bytes\":"
+                  << r.recurrent_state_bytes
+                  << ",\"vision_bytes\":" << r.vision_bytes
+                  << ",\"workspace_bytes\":" << r.workspace_bytes
+                  << ",\"prefill_peak_bytes\":" << r.prefill_peak_bytes
+                  << ",\"decode_peak_bytes\":" << r.decode_peak_bytes
+                  << ",\"kv_limit_bytes\":"
+                  << "null,\"note\":\"budgets via "
+                     "set_kv_memory_limit/prefix limits\"}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "depth") {
+                // Depth telemetry (Kimi-K3 lesson): per-layer residual
+                // RMS + per-module norms + recurrent-state norms.
+                if (!engine.loaded()) engine.load(bundle);
+                std::string prompt = jget_str(req, "prompt");
+                if (prompt.empty()) prompt = "1 2 3";
+                std::vector<int64_t> ids =
+                    engine.encode(prompt, true, false);
+                std::vector<double> layer =
+                    engine.layer_metrics(ids);
+                std::vector<double> mod =
+                    engine.module_metrics(ids);
+                std::vector<double> rec =
+                    engine.recurrent_state_norms();
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":"
+                     "\"star-depth-telemetry/v1\""
+                  << ",\"layer_representation_norm\":[";
+                for (size_t i = 0; i < layer.size(); ++i)
+                    o << (i ? "," : "") << layer[i];
+                o << "],\"module_output_norm\":[";
+                for (size_t i = 0; i < mod.size(); ++i)
+                    o << (i ? "," : "") << mod[i];
+                o << "],\"recurrent_state_norm\":[";
+                for (size_t i = 0; i < rec.size(); ++i)
+                    o << (i ? "," : "") << rec[i];
+                o << "]}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "moe-analyze") {
+                // MoERoutingAnalyzer: quantile routing analysis +
+                // ROUTER_* diagnoses over a prompt forward.
+                if (!engine.loaded()) engine.load(bundle);
+                std::string prompt = jget_str(req, "prompt");
+                if (prompt.empty()) prompt = "1 2 3";
+                engine.set_router_trace(true);
+                engine.logits(engine.encode(prompt, true, false));
+                std::string rep =
+                    xcm_moe_analyze_json(engine.router_trace());
+                engine.set_router_trace(false);
+                emit(std::string("{\"ok\":true,") +
+                     "\"analysis\":" + rep + "}");
+                continue;
+            }
+            if (op == "fim") {
+                // star-fim/v1 runtime envelope ??control tokens are
+                // literal text; tokenizer assets unchanged.
+                std::string prefix = jget_str(req, "prefix");
+                std::string suffix = jget_str(req, "suffix");
+                if (!engine.loaded()) engine.load(bundle);
+                SamplingConfig sc;
+                sc.do_sample = serve_bool(req, "do_sample", false);
+                sc.seed = (uint64_t)serve_num(req, "seed", 0);
+                int64_t max_new = (int64_t)serve_num(
+                    req, "max_new_tokens", 96);
+                std::string enveloped =
+                    xcm_fim_envelope(prefix, suffix);
+                std::vector<int64_t> ids =
+                    engine.encode(enveloped, true, false);
+                std::vector<int64_t> out =
+                    engine.generate(ids, max_new, sc);
+                if (out.size() > ids.size() &&
+                    std::equal(ids.begin(), ids.end(), out.begin()))
+                    out.erase(out.begin(), out.begin() +
+                              (ptrdiff_t)ids.size());
+                std::string text = engine.decode(out, true);
+                size_t eot = text.find("<|eot|>");
+                if (eot != std::string::npos) text.erase(eot);
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":\"star-fim/v1\","
+                  << "\"envelope\":\"runtime-literal\","
+                  << "\"insertion\":\""
+                  << gptbridge::jsonlite::json_escape(text)
+                  << "\",\"generated_tokens\":"
+                  << (int64_t)out.size() << "}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "state-save") {
+                // DeltaStateSnapshot -> base64-free: writes raw blob to
+                // the given path; reports sha256 + bytes.
+                if (!engine.loaded()) engine.load(bundle);
+                std::string path = jget_str(req, "path");
+                std::string gen = jget_str(req, "generation");
+                if (path.empty() || gen.empty()) {
+                    err_obj("STATE_SNAPSHOT_ARGS_MISSING");
+                    continue;
+                }
+                std::string blob = engine.snapshot_delta_state(gen);
+                std::ofstream f(path, std::ios::binary | std::ios::trunc);
+                f.write(blob.data(), (std::streamsize)blob.size());
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":\"star-delta-state/v1\","
+                  << "\"path\":\""
+                  << gptbridge::jsonlite::json_escape(path) << "\","
+                  << "\"bytes\":" << (int64_t)blob.size()
+                  << ",\"sha256\":\""
+                  << NativeInferenceEngine::delta_state_sha256(blob)
+                  << "\"}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "state-restore") {
+                if (!engine.loaded()) engine.load(bundle);
+                std::string path = jget_str(req, "path");
+                std::string gen = jget_str(req, "generation");
+                if (path.empty() || gen.empty()) {
+                    err_obj("STATE_SNAPSHOT_ARGS_MISSING");
+                    continue;
+                }
+                std::ifstream f(path, std::ios::binary | std::ios::ate);
+                if (!f) { err_obj("SEQUENCE_STATE_INVALID:open");
+                          continue; }
+                std::string blob((size_t)f.tellg(), '\0');
+                f.seekg(0);
+                f.read(blob.data(), (std::streamsize)blob.size());
+                engine.restore_delta_state(blob, gen);
+                emit("{\"ok\":true,\"restored\":true}");
+                continue;
+            }
+            // -------- inference efficiency plane ops ----------------
+            if (op == "prefix-scope") {
+                // 禮22: bind subsequent requests to an isolation scope.
+                engine.set_prefix_scope(jget_str(req, "scope"));
+                std::ostringstream o;
+                o << "{\"ok\":true,\"prefix_scope\":\""
+                  << gptbridge::jsonlite::json_escape(
+                         engine.prefix_scope())
+                  << "\"}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "prefix-invalidate") {
+                // 禮19: drop a scope's prefix entries (document revision
+                // / chunk hash / index revision changed).
+                int64_t removed = engine.invalidate_prefix_scope(
+                    jget_str(req, "scope"));
+                std::ostringstream o;
+                o << "{\"ok\":true,\"invalidated\":" << removed << "}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "prefill") {
+                // 禮25/禮26 star-prefill-artifact/v1: run the PREFILL
+                // role and write the binary handoff artifact.
+                std::string prompt = jget_str(req, "prompt");
+                std::string out_path = jget_str(req, "out");
+                if (prompt.empty() || out_path.empty()) {
+                    err_obj("PREFILL_ARTIFACT_INVALID:args");
+                    continue;
+                }
+                if (!engine.loaded()) engine.load(bundle);
+                std::string pscope = jget_str(req, "prefix_scope");
+                if (!pscope.empty()) engine.set_prefix_scope(pscope);
+                std::vector<int64_t> pids =
+                    engine.encode(prompt, true, false);
+                auto t0 = std::chrono::steady_clock::now();
+                std::string artifact = engine.prefill_artifact(
+                    pids, jget_str(req, "request_id"));
+                double prefill_ms = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t0).count()
+                    * 1000.0;
+                std::ofstream f(out_path,
+                                std::ios::binary | std::ios::trunc);
+                if (!f) { err_obj("PREFILL_ARTIFACT_INVALID:out");
+                          continue; }
+                f.write(artifact.data(),
+                        (std::streamsize)artifact.size());
+                std::ostringstream o;
+                o << "{\"ok\":true,\"artifact\":\""
+                  << gptbridge::jsonlite::json_escape(out_path) << "\","
+                  << "\"format\":\"star-prefill-artifact/v1\","
+                  << "\"bytes\":" << (int64_t)artifact.size()
+                  << ",\"tokens\":" << (int64_t)pids.size()
+                  << ",\"prefill_ms\":" << prefill_ms << "}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "decode-artifact") {
+                // 禮27: DECODE role ??verify bindings fail-closed,
+                // restore state, decode. Prefill never re-runs.
+                std::string path = jget_str(req, "artifact");
+                if (path.empty()) {
+                    err_obj("PREFILL_ARTIFACT_INVALID:args");
+                    continue;
+                }
+                if (!engine.loaded()) engine.load(bundle);
+                std::ifstream f(path, std::ios::binary | std::ios::ate);
+                if (!f) { err_obj("PREFILL_ARTIFACT_INVALID:open");
+                          continue; }
+                std::string artifact((size_t)f.tellg(), '\0');
+                f.seekg(0);
+                f.read(artifact.data(),
+                       (std::streamsize)artifact.size());
+                int64_t max_new = (int64_t)serve_num(
+                    req, "max_new_tokens", 192);
+                if (max_new <= 0) max_new = 1;
+                if (max_new > 2048) max_new = 2048;
+                SamplingConfig sc;
+                auto t0 = std::chrono::steady_clock::now();
+                std::vector<int64_t> out =
+                    engine.generate_from_artifact(
+                        artifact, max_new, sc);
+                double decode_s = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t0).count();
+                std::string text = engine.decode(out, true);
+                size_t eot = text.find("<|eot|>");
+                if (eot != std::string::npos) text.erase(eot);
+                std::ostringstream o;
+                o << "{\"ok\":true,\"text\":\""
+                  << gptbridge::jsonlite::json_escape(text) << "\","
+                  << "\"generated_tokens\":" << (int64_t)out.size()
+                  << ",\"decode_s\":" << decode_s
+                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true"
+                  << ",\"role\":\"decode\"}";
+                emit(o.str());
+                continue;
+            }
             err_obj("SERVE_UNKNOWN_OP");
         } catch (const std::exception& e) {
             std::string msg = e.what();
@@ -3792,1065 +4330,143 @@ int mode_serve(const Args& a) {
 }
 
 #include "xcm_corpus.h"
-#include "xcm_capability.h"
+#include "xcm_efficiency.h"
+// NativeScaleEfficiencyPlane: scale metrics, mapped expert store,
+// prefetch, delta-state precision, low-resource + candidate sims.
+#include "xcm_scale.h"
+// Laya/MiMo capability plane native lanes: System-1 decision head +
+// MTP drafter benchmarks (contract plane lives in C#).
+#include "xcm_system1.h"
+// NativeMemoryCudaPlane: unified CUDA memory manager, pools, arenas,
+// pressure ladder, telemetry.
+#include "xcm_memplane.h"
+// NativeSiliconEfficiencyPlane: runtime owner, artifact dedup, CPU
+// topology/profile probes, silicon routing, expert granularity,
+// parameter efficiency, NPU probe-first discovery.
+#include "xcm_silicon.h"
+// 禮58 BF16 production certification: FP64 CPU oracle vs cuBLAS-fp64
+// and the NVRTC bf16 GEMM lane on deterministic shapes.
+#include "xcm_bf16cert.h"
 
-// ------------------------------------------- capability modes (P3-P7) ----
+}  // namespace
 
-int mode_memory_plan(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("MEMORY_PLAN_ARGS_MISSING");
-    xingcheng::inference::WeightBundle wb = xingcheng::inference::
-        WeightBundle::load((fs::path(bundle) / "manifest.json").string());
-    int64_t ctx = a.has("context")
-        ? (int64_t)std::stoll(a.get("context")) : 0;
-    int64_t batch = a.has("batch")
-        ? (int64_t)std::stoll(a.get("batch")) : 1;
-    std::string kv = a.get("kv", "fp64");
-    int64_t vp = a.has("vision-patches")
-        ? (int64_t)std::stoll(a.get("vision-patches")) : 0;
-    MemoryPlan p = plan_memory(wb, ctx, batch, kv, vp);
-    // §16 star-memory-report/v1: per-category bytes (weights, KV,
-    // prefix cache, DeltaNet state, thinking state, vision, workspace,
-    // CUDA workspace) and the four governed peaks.
-    std::printf(
-        "{\"ok\":true,\"format\":\"star-memory-report/v1\","
-        "\"weight_bytes\":%lld,\"kv_bytes\":%lld,"
-        "\"prefix_cache_bytes\":%lld,\"recurrent_state_bytes\":%lld,"
-        "\"vision_bytes\":%lld,\"workspace_bytes\":%lld,"
-        "\"thinking_state_bytes\":%lld,\"cuda_workspace_bytes\":%lld,"
-        "\"idle_bytes\":%lld,"
-        "\"prefill_peak_bytes\":%lld,\"decode_peak_bytes\":%lld,"
-        "\"thinking_peak_bytes\":%lld,"
-        "\"context_tokens\":%lld,\"batch\":%lld,\"kv_mode\":\"%s\","
-        "\"cuda_available\":%s,"
-        "\"hybrid\":%s,\"prefix_reconstructs_state\":%s}\n",
-        (long long)p.weight_bytes, (long long)p.kv_bytes,
-        (long long)p.prefix_cache_bytes,
-        (long long)p.recurrent_state_bytes,
-        (long long)p.vision_bytes, (long long)p.workspace_bytes,
-        (long long)p.thinking_state_bytes,
-        (long long)p.cuda_workspace_bytes,
-        (long long)p.idle_bytes,
-        (long long)p.prefill_peak_bytes,
-        (long long)p.decode_peak_bytes,
-        (long long)p.thinking_peak_bytes,
-        (long long)p.context_tokens, (long long)p.batch,
-        gptbridge::jsonlite::json_escape(p.kv_mode).c_str(),
-        p.cuda_available ? "true" : "false",
-        p.hybrid ? "true" : "false",
-        p.prefix_reconstructs_state ? "true" : "false");
-    return 0;
-}
-
-// §23 state snapshot probe: prefill a slot, snapshot, extend, restore,
-// and verify the DeltaNet state comes back byte-identical (the engine
-// validates geometry + the envelope validates generation/model hash).
-int mode_state_snapshot(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("STATE_SNAPSHOT_ARGS_MISSING");
-    NativeInferenceEngine engine;
-    engine.load(bundle);
-    if (!engine.has_delta_state()) {
-        std::printf("{\"ok\":true,\"format\":\"%s\",\"delta_state\":false,"
-                    "\"note\":\"dense model — no recurrent state\"}\n",
-                    DeltaStateSnapshot::kFormat);
-        return 0;
-    }
-    JsonValue manifest =
-        parse_json_file((fs::path(bundle) / "manifest.json").string());
-    const JsonValue* mcfg = manifest.get("config");
-    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
-    if (vocab < 4) fail("STATE_SNAPSHOT_BAD_CONFIG");
-    std::mt19937_64 rng(7);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    std::vector<int64_t> ids(24);
-    for (auto& t : ids) t = tok(rng);
-    SamplingConfig sc;
-    sc.temperature = 0.0;
-    // Warm the slot, snapshot, extend, restore, verify. generate()
-    // allocates slot 0 and appends KV + DeltaNet state; logits() is the
-    // cache-free probe path and would leave lin_states_ empty.
-    (void)engine.generate(ids, 4, sc);
-    std::vector<char> blob_a;
-    if (!engine.delta_state_save(0, blob_a)) fail("STATE_SNAPSHOT_SAVE");
-    std::vector<int64_t> ext(8);
-    for (auto& t : ext) t = tok(rng);
-    (void)engine.generate(ext, 4, sc);   // advances the recurrence
-    if (!engine.delta_state_restore(0, blob_a.data(),
-                                    (int64_t)blob_a.size())) {
-        fail("STATE_SNAPSHOT_RESTORE");
-    }
-    std::vector<char> blob_b;
-    if (!engine.delta_state_save(0, blob_b)) fail("STATE_SNAPSHOT_SAVE2");
-    const bool identical = blob_a == blob_b;
-    DeltaStateSnapshot env =
-        delta_snapshot_save(engine, 0, "xc-fused-1");
-    // Generation mismatch must fail closed.
-    bool gen_reject = false;
-    {
-        DeltaStateSnapshot bad = env;
-        bad.generation = "gen-x-other";
-        gen_reject = delta_snapshot_restore(engine, bad) != nullptr;
-    }
-    // A bad hash must fail closed too.
-    bool hash_reject = false;
-    {
-        DeltaStateSnapshot bad = env;
-        bad.state_sha256 = "00";
-        hash_reject = delta_snapshot_restore(engine, bad) != nullptr;
-    }
-    const bool ok = identical && gen_reject && hash_reject;
-    std::printf(
-        "{\"ok\":%s,\"format\":\"%s\",\"version\":%lld,"
-        "\"delta_state\":true,\"slot\":0,\"state_bytes\":%lld,"
-        "\"state_sha256\":\"%s\",\"restore_identical\":%s,"
-        "\"generation_mismatch_rejected\":%s,"
-        "\"hash_mismatch_rejected\":%s,"
-        "\"generation\":\"%s\"}\n",
-        ok ? "true" : "false",
-        DeltaStateSnapshot::kFormat,
-        (long long)DeltaStateSnapshot::kVersion,
-        (long long)env.state_bytes,
-        env.state_sha256.c_str(),
-        identical ? "true" : "false",
-        gen_reject ? "true" : "false",
-        hash_reject ? "true" : "false",
-        gptbridge::jsonlite::json_escape(env.generation).c_str());
-    return ok ? 0 : 1;
-}
-
-// §7–§9 Native Thinking evaluation lane — emits star-native-thinking/v1
-// run records (§8) plus a thinking summary. Records keep only the
-// evaluable telemetry (steps/branches/scores/latency/memory); no
-// private reasoning text is stored. --quick runs one MEDIUM probe
-// (release-gate smoke); the full ladder runs OFF/LOW/MEDIUM/HIGH.
-int mode_native_thinking_eval(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("THINKING_ARGS_MISSING");
-    std::string prompt = a.get("prompt");
-    if (prompt.empty()) prompt = "說明：1+1 為什麼等於 2？";
-    int64_t max_new = 32;
-    if (a.has("max-new")) {
-        try { max_new = std::stoll(a.get("max-new")); }
-        catch (...) { fail("THINKING_BAD_MAX_NEW"); }
-    }
-    if (max_new < 1 || max_new > 512) fail("THINKING_BAD_MAX_NEW");
-    bool quick = a.has("quick");
-
-    NativeInferenceEngine engine;
-    try { engine.load(bundle); }
-    catch (const std::exception& e) {
-        fail(std::string("THINKING_LOAD_FAILED:") + e.what());
-    }
-    JsonValue manifest =
-        parse_json_file((fs::path(bundle) / "manifest.json").string());
-    std::string generation;
-    if (const JsonValue* pv = manifest.get("provenance"))
-        if (const JsonValue* g = pv->get("generation"))
-            if (g->type == JsonValue::Type::String)
-                generation = g->string;
-    const std::string bundle_hash =
-        sha256_file((fs::path(bundle) / "manifest.json").string());
-    const std::string request_id =
-        "think-" + sha256_text(prompt + bundle).substr(0, 12);
-    std::vector<int64_t> pids = engine.encode(prompt, true, false);
-    if (pids.empty()) fail("THINKING_EMPTY_PROMPT");
-    SamplingConfig sc;
-    sc.do_sample = false;
-    sc.temperature = 0.0;
-
-    struct Level { const char* name; int64_t steps; int64_t branches; };
-    static const Level kLevels[] = {
-        {"off", 0, 1}, {"low", 2, 1}, {"medium", 4, 4},
-        {"high", 8, 4},
-    };
-    const size_t n_level = quick ? 1 : 4;
-    const Level* levels = quick ? kLevels + 2 : kLevels;
-
-    std::ostringstream runs;
-    runs << '[';
-    double off_latency_ms = -1.0;
-    bool all_ok = true;
-    for (size_t li = 0; li < n_level; ++li) {
-        const Level& lv = levels[li];
-        auto t0 = std::chrono::steady_clock::now();
-        NativeInferenceEngine::ThinkingResult res;
-        std::vector<int64_t> out_ids;
-        int64_t steps_used = 0;
-        int64_t chosen = -1;
-        std::vector<double> scores;
-        if (lv.steps <= 0) {
-            out_ids = engine.generate(pids, max_new, sc);
-        } else {
-            res = engine.generate_thinking(
-                pids, lv.steps, lv.branches, max_new, sc);
-            out_ids = res.answer_ids;
-            steps_used = res.think_steps;
-            chosen = res.chosen_branch;
-            scores = res.branch_scores;
-        }
-        double lat_ms = 1e3 * std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - t0).count();
-        if (lv.steps <= 0) off_latency_ms = lat_ms;
-        bool run_ok = !out_ids.empty();
-        if (lv.steps > 0)
-            run_ok = run_ok && steps_used > 0 && steps_used <= 32
-                     && chosen >= 0 && chosen < lv.branches
-                     && (int64_t)scores.size() == lv.branches;
-        if (!run_ok) all_ok = false;
-        std::ostringstream ids_hash;
-        // §8: persist the answer hash, not the text.
-        std::string ans_sha;
-        {
-            std::ostringstream b;
-            for (int64_t id : out_ids) b << id << ',';
-            ans_sha = sha256_text(b.str());
-        }
-        if (li) runs << ',';
-        runs << "{\"format\":\"star-native-thinking/v1\""
-             << ",\"request_id\":\"" << request_id << "-" << lv.name
-             << "\",\"level\":\"" << lv.name
-             << "\",\"generation\":\""
-             << gptbridge::jsonlite::json_escape(generation)
-             << "\",\"bundle_hash\":\"sha256:" << bundle_hash
-             << "\",\"think_steps_requested\":" << lv.steps
-             << ",\"think_steps_used\":" << steps_used
-             << ",\"branches_requested\":" << lv.branches
-             << ",\"branches_used\":" << (int64_t)scores.size()
-             << ",\"branch_scores\":[";
-        for (size_t i = 0; i < scores.size(); ++i) {
-            if (i) runs << ',';
-            runs << scores[i];
-        }
-        runs << "],\"selected_branch\":" << chosen
-             << ",\"thinking_latency_ms\":" << lat_ms
-             << ",\"thinking_memory_bytes\":"
-             << (long long)engine.kv_memory_bytes()
-             << ",\"output_tokens\":" << (int64_t)out_ids.size()
-             << ",\"answer_sha256\":\"sha256:" << ans_sha
-             << "\",\"fallback_reason\":null"
-             << ",\"ok\":" << (run_ok ? "true" : "false") << '}';
-    }
-    runs << ']';
-    std::printf(
-        "{\"ok\":%s,\"format\":\"star-native-thinking-eval/v1\","
-        "\"bundle\":\"%s\",\"quick\":%s,"
-        "\"baseline_latency_ms\":%.1f,\"runs\":%s,"
-        "\"thinking_gain\":{\"basis\":"
-        "\"latency + branch self-confidence only — no ground-truth "
-        "suite bound; AUTO default stays OFF per §9\","
-        "\"value\":null}}\n",
-        all_ok ? "true" : "false",
-        gptbridge::jsonlite::json_escape(bundle).c_str(),
-        quick ? "true" : "false",
-        off_latency_ms, runs.str().c_str());
-    return all_ok ? 0 : 1;
-}
-
-// §23 sequence-state benchmark: state/kv bytes per token, prefill/decode
-// throughput, stream duration, snapshot restore time.
-int mode_state_bench(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("STATE_BENCH_ARGS_MISSING");
-    int64_t prefill = a.has("prefill")
-        ? (int64_t)std::stoll(a.get("prefill")) : 64;
-    int64_t decode = a.has("decode")
-        ? (int64_t)std::stoll(a.get("decode")) : 16;
-    NativeInferenceEngine engine;
-    engine.load(bundle);
-    JsonValue manifest =
-        parse_json_file((fs::path(bundle) / "manifest.json").string());
-    const JsonValue* mcfg = manifest.get("config");
-    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
-    if (vocab < 4) fail("STATE_BENCH_BAD_CONFIG");
-    std::mt19937_64 rng(5);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    std::vector<int64_t> ids((size_t)prefill);
-    for (auto& t : ids) t = tok(rng);
-    SamplingConfig sc;
-    sc.temperature = 0.0;
-    auto t0 = std::chrono::steady_clock::now();
-    (void)engine.logits(ids);
-    auto t1 = std::chrono::steady_clock::now();
-    std::vector<int64_t> gen = engine.generate(ids, decode, sc);
-    auto t2 = std::chrono::steady_clock::now();
-    std::vector<char> blob;
-    const bool have_state = engine.delta_state_save(0, blob);
-    std::vector<char> copy = blob;
-    auto t3 = std::chrono::steady_clock::now();
-    bool restored = false;
-    if (have_state)
-        restored = engine.delta_state_restore(
-            0, copy.data(), (int64_t)copy.size());
-    auto t4 = std::chrono::steady_clock::now();
-    const double prefill_s =
-        std::chrono::duration<double>(t1 - t0).count();
-    const double decode_s =
-        std::chrono::duration<double>(t2 - t1).count();
-    const double restore_s =
-        std::chrono::duration<double>(t4 - t3).count();
-    const int64_t kv_bytes = engine.kv_memory_bytes();
-    const int64_t st_bytes = engine.delta_state_bytes(0);
-    const int64_t total = prefill + (int64_t)gen.size();
-    std::printf(
-        "{\"ok\":true,\"format\":\"star-sequence-state-bench/v1\","
-        "\"state_bytes_session\":%lld,\"kv_bytes\":%lld,"
-        "\"delta_state_bytes\":%lld,"
-        "\"state_bytes_token\":%.1f,\"kv_bytes_token\":%.1f,"
-        "\"prefill_tps\":%.1f,\"decode_tps\":%.1f,"
-        "\"stream_duration_s\":%.4f,\"state_restore_time_s\":%.6f,"
-        "\"state_restore_ok\":%s,\"has_delta_state\":%s}\n",
-        (long long)(kv_bytes + st_bytes), (long long)kv_bytes,
-        (long long)st_bytes,
-        total > 0 ? (double)(kv_bytes + st_bytes) / total : 0.0,
-        total > 0 ? (double)kv_bytes / total : 0.0,
-        prefill_s > 0 ? prefill / prefill_s : 0.0,
-        decode_s > 0 ? (double)gen.size() / decode_s : 0.0,
-        prefill_s + decode_s, restore_s,
-        restored ? "true" : "false",
-        engine.has_delta_state() ? "true" : "false");
-    return 0;
-}
-
-// ---------------------------------------------------------- hw-baseline ----
-//
-// §66 300M Hardware Baseline (star-hardware-baseline-300m/v1): a single
-// measured record every later optimization compares against (§67/§68).
-// Loads the bundle, runs a timed prefill + decode, and reports the full
-// §66 field set — VRAM delta via the CUDA probe when a device exists,
-// process RAM peak via psapi, CPU utilization from process times over
-// the bench window, prefill/decode TPS, TTFT (prefill + first decode
-// step) and ITL (per-token decode latency). GPU utilization and power
-// come from NVML sampled on a 50ms cadence across the bench window
-// (peak values); a host without NVML emits null rather than a
-// fabricated value. --train-report <file.json> supplies the
-// trainer-side tokens_per_sec from a governed train report.
-//
-//   xc_modeltool hw-baseline --bundle <dir> [--prefill N] [--decode N]
-//       [--train-report <report.json>]
-
-static double filetime_s(const FILETIME& ft) {
-    ULARGE_INTEGER u;
-    u.LowPart = ft.dwLowDateTime; u.HighPart = ft.dwHighDateTime;
-    return (double)u.QuadPart * 1e-7;
-}
-
-int mode_hw_baseline(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("HW_BASELINE_ARGS_MISSING");
-    int64_t prefill = a.has("prefill")
-        ? (int64_t)std::stoll(a.get("prefill")) : 512;
-    int64_t decode = a.has("decode")
-        ? (int64_t)std::stoll(a.get("decode")) : 64;
-
-    // Device VRAM before load — baseline is the delta the model+KV adds.
-    long long vb0 = -1, vt0 = -1, vb1 = -1, vt1 = -1;
-    int ccmaj = 0, ccmin = 0;
-    const bool cuda = xcuda_probe(&vb0, &vt0, &ccmaj, &ccmin) != 0;
-    // NVML init on the main thread before the bench: the sampler thread
-    // below may only query already-bound sensors — nvmlInit racing the
-    // engine's first cuBLAS/NVRTC init crashes the driver.
-    bool nvml_ready = false;
-    if (cuda) {
-        unsigned u = 0, p = 0;
-        nvml_ready = xcuda_gpu_stats(&u, &p) != 0;
-    }
-
-    NativeInferenceEngine engine;
-    auto tl0 = std::chrono::steady_clock::now();
-    engine.load(bundle);
-    auto tl1 = std::chrono::steady_clock::now();
-
-    JsonValue manifest =
-        parse_json_file((fs::path(bundle) / "manifest.json").string());
-    const JsonValue* mcfg = manifest.get("config");
-    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
-    if (vocab < 4) fail("HW_BASELINE_BAD_CONFIG");
-    std::mt19937_64 rng(11);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    std::vector<int64_t> ids((size_t)prefill);
-    for (auto& t : ids) t = tok(rng);
-    SamplingConfig sc;
-    sc.temperature = 0.0;
-
-    // CPU% is measured over the bench window only — the FILETIME pair
-    // must align with t0/t2 or the engine load inflates the numerator.
-    // NVML sampling runs concurrently on a 50ms cadence so a short
-    // decode still catches the working utilization/power rather than a
-    // post-idle read. Missing sensors stay unmeasured (null below).
-    std::atomic<bool> sample_run{true};
-    std::atomic<unsigned> util_max{0}, power_max{0};
-    std::atomic<int> util_seen{0}, power_seen{0};
-    std::thread sampler;
-    if (nvml_ready) {
-        sampler = std::thread([&] {
-            while (sample_run.load()) {
-                unsigned u = 0, p = 0;
-                const int m = xcuda_gpu_stats(&u, &p);
-                if (m & 1) {
-                    util_seen.fetch_add(1);
-                    unsigned cur = util_max.load();
-                    while (u > cur &&
-                           !util_max.compare_exchange_weak(cur, u)) {}
-                }
-                if (m & 2) {
-                    power_seen.fetch_add(1);
-                    unsigned cur = power_max.load();
-                    while (p > cur &&
-                           !power_max.compare_exchange_weak(cur, p)) {}
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }
-        });
-    }
-    FILETIME c0{}, e0{}, k0{}, u0{};
-    GetProcessTimes(GetCurrentProcess(), &c0, &e0, &k0, &u0);
-    auto t0 = std::chrono::steady_clock::now();
-    (void)engine.logits(ids);                    // prefill
-    auto t1 = std::chrono::steady_clock::now();
-    std::vector<int64_t> gen = engine.generate(ids, decode, sc);
-    auto t2 = std::chrono::steady_clock::now();
-    sample_run.store(false);
-    if (sampler.joinable()) sampler.join();
-
-    FILETIME c1{}, e1{}, k1{}, u1{};
-    GetProcessTimes(GetCurrentProcess(), &c1, &e1, &k1, &u1);
-    PROCESS_MEMORY_COUNTERS pmc{};
-    int64_t ram_peak = 0;
-    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
-        ram_peak = (int64_t)pmc.PeakWorkingSetSize;
-    if (cuda) (void)xcuda_probe(&vb1, &vt1, &ccmaj, &ccmin);
-
-    const double prefill_s =
-        std::chrono::duration<double>(t1 - t0).count();
-    const double decode_s =
-        std::chrono::duration<double>(t2 - t1).count();
-    const double load_s =
-        std::chrono::duration<double>(tl1 - tl0).count();
-    const double wall_s =
-        std::chrono::duration<double>(t2 - t0).count();
-    const double cpu_s =
-        (filetime_s(k1) + filetime_s(u1)) -
-        (filetime_s(k0) + filetime_s(u0));
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    const double cpu_util =
-        wall_s > 0 && si.dwNumberOfProcessors > 0
-            ? cpu_s / (wall_s * (double)si.dwNumberOfProcessors) : 0.0;
-    const double itl_ms = gen.size() > 0
-        ? decode_s * 1000.0 / (double)gen.size() : 0.0;
-    // TTFT = prefill + one decode step.
-    const double ttft_ms = prefill_s * 1000.0 + itl_ms;
-    const int64_t vram_used =
-        (cuda && vb0 >= 0 && vb1 >= 0) ? (vb0 - vb1) : -1;
-
-    // §66 training side: tokens/sec comes from a governed train report,
-    // not from this inference process — pass it in explicitly.
-    double train_tps = -1.0;
-    if (a.has("train-report")) {
-        JsonValue rep = parse_json_file(a.get("train-report"));
-        const JsonValue* v = rep.get("tokens_per_sec");
-        if (v && v->type == JsonValue::Type::Number)
-            train_tps = v->number;
-    }
-    char vram_buf[24] = "null", tps_buf[32] = "null";
-    char gpu_buf[24] = "null", pwr_buf[24] = "null";
-    if (vram_used >= 0)
-        std::snprintf(vram_buf, sizeof(vram_buf), "%lld", vram_used);
-    if (train_tps >= 0.0)
-        std::snprintf(tps_buf, sizeof(tps_buf), "%.2f", train_tps);
-    // §66: NVML reports util in whole %; normalize to the same 0-1
-    // fraction as cpu_utilization. Power is milliwatts -> watts.
-    // Unread sensors keep "null" — never fabricated.
-    if (util_seen.load() > 0)
-        std::snprintf(gpu_buf, sizeof(gpu_buf), "%.4f",
-                      util_max.load() / 100.0);
-    if (power_seen.load() > 0)
-        std::snprintf(pwr_buf, sizeof(pwr_buf), "%.1f",
-                      power_max.load() / 1000.0);
-
-    std::printf(
-        "{\"ok\":true,\"format\":\"star-hardware-baseline-300m/v1\","
-        "\"model_scale\":\"300m\",\"bundle\":\"%s\","
-        "\"weights_sha256\":\"%s\","
-        "\"vram_peak_bytes\":%s,\"ram_peak_bytes\":%lld,"
-        "\"cpu_utilization\":%.4f,\"gpu_utilization\":%s,"
-        "\"prefill_tps\":%.1f,\"decode_tps\":%.1f,"
-        "\"ttft_ms\":%.2f,\"itl_ms\":%.2f,"
-        "\"training_tokens_per_sec\":%s,\"power_watts\":%s,"
-        "\"prefill_tokens\":%lld,\"decode_tokens\":%lld,"
-        "\"load_s\":%.3f,\"kv_bytes\":%lld,"
-        "\"cuda_available\":%s}\n",
-        gptbridge::jsonlite::json_escape(bundle).c_str(),
-        engine.bundle() ? engine.bundle()->weights_sha256().c_str() : "",
-        vram_buf,
-        (long long)ram_peak, cpu_util, gpu_buf,
-        prefill_s > 0 ? prefill / prefill_s : 0.0,
-        decode_s > 0 ? (double)gen.size() / decode_s : 0.0,
-        ttft_ms, itl_ms, tps_buf, pwr_buf,
-        (long long)prefill, (long long)gen.size(),
-        load_s, (long long)engine.kv_memory_bytes(),
-        cuda ? "true" : "false");
-    return 0;
-}
-
-// §8 router analyzer: generate with the MoE trace armed and emit the
-// per-layer quantiles + ROUTER_* diagnostics.
-int mode_router_analyze(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("ROUTER_ARGS_MISSING");
-    NativeInferenceEngine engine;
-    engine.load(bundle);
-    JsonValue manifest =
-        parse_json_file((fs::path(bundle) / "manifest.json").string());
-    const JsonValue* mcfg = manifest.get("config");
-    if (!mcfg || xct::j_num(mcfg, "moe_num_experts", 0) <= 0)
-        fail("ROUTER_NOT_MOE");
-    int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
-    std::mt19937_64 rng(3);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    std::vector<int64_t> ids(32);
-    for (auto& t : ids) t = tok(rng);
-    SamplingConfig sc;
-    sc.temperature = 0.0;
-    engine.set_moe_trace_enabled(true);
-    (void)engine.generate(ids, 16, sc);
-    const auto& tr = engine.moe_trace();
-    // §20/§21 unified emission — the single star-moe-trace/v1 record:
-    // per-layer trace (router type, score summary, bounded per-token
-    // selection+weight sample, dispatch histogram, shared gate weight)
-    // fused with the analyzer fields (utilization, affinity, overlap,
-    // hotspot, starvation, shared dependency, entropy, quantiles).
-    // Observability only — no router-weight updates while capability
-    // training is frozen.
-    std::ostringstream o;
-    o << "{\"ok\":true,\"format\":\"star-moe-trace/v1\","
-         "\"forwards\":" << tr.forwards << ",\"layers\":[";
-    bool any_flag = false;
-    for (size_t i = 0; i < tr.layers.size(); ++i) {
-        const auto& tl = tr.layers[i];
-        Quantiles q;
-        RouterDiagnosis d = analyze_router(tl, q);
-        const double routed =
-            std::max<double>(tl.tokens_routed, 1);
-        if (i) o << ',';
-        o << "{\"layer_id\":" << tl.layer_id
-          << ",\"router_type\":\"" << tl.router_type << "\""
-          << ",\"top_k\":" << tl.top_k
-          << ",\"tokens_routed\":" << tl.tokens_routed
-          << ",\"router_score_summary\":{\"min\":"
-          << (tl.score_n ? tl.score_min : 0.0)
-          << ",\"max\":" << (tl.score_n ? tl.score_max : 0.0)
-          << ",\"mean\":"
-          << (tl.score_n ? tl.score_sum / tl.score_n : 0.0) << "}"
-          << ",\"selected_experts\":[";
-        for (size_t s = 0; s < tl.selected.size(); ++s) {
-            if (s) o << ',';
-            o << '[';
-            for (size_t k = 0; k < tl.selected[s].size(); ++k) {
-                if (k) o << ',';
-                o << tl.selected[s][k];
-            }
-            o << ']';
-        }
-        o << "],\"normalized_weights\":[";
-        for (size_t s = 0; s < tl.weights.size(); ++s) {
-            if (s) o << ',';
-            o << '[';
-            for (size_t k = 0; k < tl.weights[s].size(); ++k) {
-                if (k) o << ',';
-                o << tl.weights[s][k];
-            }
-            o << ']';
-        }
-        o << "],\"shared_expert_weight\":"
-          << (tl.tokens_routed ? tl.shared_weight_sum / routed : 0.0)
-          << ",\"dispatch_histogram\":[";
-        for (size_t e = 0; e < tl.expert_counts.size(); ++e) {
-            if (e) o << ',';
-            o << tl.expert_counts[e];
-        }
-        o << "],\"expert_utilization\":[";
-        const double disp_total = std::max<double>(
-            std::accumulate(tl.expert_counts.begin(),
-                            tl.expert_counts.end(), int64_t{0}), 1);
-        for (size_t e = 0; e < tl.expert_counts.size(); ++e) {
-            if (e) o << ',';
-            o << tl.expert_counts[e] / disp_total;
-        }
-        o << "],\"router_entropy\":" << d.router_entropy
-          << ",\"router_quantiles\":{"
-          << "\"p01\":" << q.p01 << ",\"p05\":" << q.p05
-          << ",\"p25\":" << q.p25 << ",\"p50\":" << q.p50
-          << ",\"p75\":" << q.p75 << ",\"p95\":" << q.p95
-          << ",\"p99\":" << q.p99 << "}"
-          << ",\"expert_affinity\":" << d.expert_affinity
-          << ",\"expert_overlap\":" << d.expert_overlap
-          << ",\"expert_hotspot\":{\"expert\":" << d.hotspot_expert
-          << ",\"share\":" << d.top_share << "}"
-          << ",\"expert_starvation\":" << d.starved
-          << ",\"shared_expert_dependency\":"
-          << d.shared_expert_dependency
-          << ",\"instability\":" << d.instability
-          << ",\"shared_expert_used\":"
-          << (tl.shared_expert_used ? "true" : "false")
-          << ",\"diagnostics\":[";
-        for (size_t f = 0; f < d.flags.size(); ++f) {
-            if (f) o << ',';
-            o << '"' << d.flags[f] << '"';
-            any_flag = true;
-        }
-        o << "]}";
-    }
-    o << "],\"any_diagnostic\":" << (any_flag ? "true" : "false")
-      << ",\"capability_training_frozen\":true}\n";
-    std::fputs(o.str().c_str(), stdout);
-    return 0;
-}
-
-// §20 vision budget controller (EXPERIMENTAL): resolves a patch plan;
-// without parity evidence always falls back to FULL.
-int mode_vision_budget(const Args& a) {
-    int64_t raw = a.has("patches")
-        ? (int64_t)std::stoll(a.get("patches")) : 0;
-    if (raw <= 0) fail("VISION_BUDGET_ARGS_MISSING");
-    int64_t maxp = a.has("max-patches")
-        ? (int64_t)std::stoll(a.get("max-patches")) : 0;
-    int64_t mem = a.has("mem-bytes")
-        ? (int64_t)std::stoll(a.get("mem-bytes")) : 0;
-    int64_t pb = a.has("patch-bytes")
-        ? (int64_t)std::stoll(a.get("patch-bytes")) : 4096;
-    std::string profile = a.get("profile", "FULL");
-    std::string task = a.get("task", "general");
-    // parity evidence latch — real suites wire this through the eval
-    // plane; standalone probes pass --parity-ok only with evidence.
-    bool parity = a.has("parity-ok");
-    VisionBudgetPlan v =
-        plan_vision_budget(profile, raw, maxp, task, mem, pb, parity);
-    std::printf(
-        "{\"ok\":true,\"format\":\"star-vision-budget/v1\","
-        "\"profile\":\"%s\",\"requested_profile\":\"%s\","
-        "\"raw_patch_count\":%lld,\"selected_patch_count\":%lld,"
-        "\"compression_mode\":\"%s\",\"task_class\":\"%s\","
-        "\"experimental\":true,\"parity_status\":\"%s\""
-        "%s%s%s}\n",
-        v.profile.c_str(),
-        gptbridge::jsonlite::json_escape(profile).c_str(),
-        (long long)v.raw_patch_count,
-        (long long)v.selected_patch_count,
-        v.compression_mode.c_str(),
-        gptbridge::jsonlite::json_escape(v.task_class).c_str(),
-        v.parity_status.c_str(),
-        v.fallback_reason.empty() ? "" : ",\"fallback_reason\":\"",
-        v.fallback_reason.empty() ? "" : v.fallback_reason.c_str(),
-        v.fallback_reason.empty() ? "" : "\"");
-    return 0;
-}
-
-// §6/§11/§13 speculative-decoder probe: the full NativeSpeculativeDecoder
-// contract (PrepareDraft -> DraftTokens -> VerifyTokens -> AcceptPrefix
-// -> RejectFrom -> CommitState / RollbackState) on a synthetic drafter.
-// Production stays structurally disabled — no drafter is ever bound
-// outside this probe (MTP heads are dropped at export).
-int mode_spec_verify(const Args&) {
-    NativeSpeculativeDecoder dec;
-    bool disabled_ok =
-        dec.PrepareDraft({1, 2}, 4)
-            != nullptr && std::string(
-                dec.PrepareDraft({1, 2}, 4))
-                == "SPECULATIVE_DECODER_DISABLED";
-    SyntheticDrafter d;
-    dec.BindDrafter(&d);
-    bool ok = disabled_ok && dec.enabled();
-    std::vector<int64_t> ctx{5, 6, 7, 8};
-    ok &= dec.PrepareDraft(ctx, 4) == nullptr;
-    auto pending = dec.DraftTokens();
-    ok &= pending.size() == 4;
-    // Scripted target continuation: first two match, rest diverge.
-    std::vector<int64_t> target{pending[0], pending[1], 99, 98};
-    const int64_t acc = dec.VerifyTokens(target);
-    ok &= acc == 2;
-    auto committed = dec.AcceptPrefix(acc);
-    ok &= committed.size() == 2;
-    dec.RejectFrom(acc);
-    dec.CommitState();
-    // Second round exercises RollbackState.
-    ok &= dec.PrepareDraft(dec.context(), 4) == nullptr;
-    (void)dec.DraftTokens();
-    dec.RollbackState();
-    ok &= dec.context().size() == ctx.size() + 2;
-    const auto& m = dec.metrics();
-    ok &= m.draft_tokens == 8 && m.accepted_tokens == 2
-          && m.rejected_tokens == 6 && m.rollback_count == 2;
-    std::printf(
-        "{\"ok\":%s,\"format\":\"star-speculative-decoder/v1\","
-        "\"enabled\":false,\"production_enabled\":false,"
-        "\"reason\":\"MTP heads are dropped at export — no production "
-        "drafter exists; contract + verification + metrics only\","
-        "\"api\":[\"PrepareDraft\",\"DraftTokens\",\"VerifyTokens\","
-        "\"AcceptPrefix\",\"RejectFrom\",\"CommitState\","
-        "\"RollbackState\"],"
-        "\"synthetic\":{\"accepted\":%lld,\"rejected\":%lld,"
-        "\"acceptance_rate\":%.4f,\"draft_latency_ms\":%.3f,"
-        "\"verify_latency_ms\":%.3f,\"rollback_count\":%lld,"
-        "\"net_tps_gain\":%.4f,\"net_latency_gain\":%.3f}}\n",
-        ok ? "true" : "false",
-        (long long)m.accepted_tokens, (long long)m.rejected_tokens,
-        m.acceptance_rate, m.draft_latency_ms, m.verify_latency_ms,
-        (long long)m.rollback_count, m.net_tps_gain,
-        m.net_latency_gain);
-    return ok ? 0 : 1;
-}
-
-// §24 parameter-reuse probe — research evidence only.
-int mode_param_reuse(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("REUSE_ARGS_MISSING");
-    xingcheng::inference::WeightBundle wb = xingcheng::inference::
-        WeightBundle::load((fs::path(bundle) / "manifest.json").string());
-    ReuseProbeResult r = probe_parameter_reuse(wb);
-    std::printf(
-        "{\"ok\":true,\"format\":\"star-parameter-reuse-probe/v1\","
-        "\"sink\":\"FutureArchitectureResearch\","
-        "\"weights_bytes\":%lld,\"weights_saved_bytes\":%lld,"
-        "\"weights_saved_frac\":%.4f,"
-        "\"quality_risk\":\"%s\",\"routing_complexity\":\"%s\","
-        "\"checkpoint_complexity\":\"%s\"}\n",
-        (long long)r.weights_bytes,
-        (long long)r.weights_saved_bytes, r.weights_saved_frac,
-        gptbridge::jsonlite::json_escape(r.quality_risk).c_str(),
-        gptbridge::jsonlite::json_escape(r.routing_complexity).c_str(),
-        gptbridge::jsonlite::json_escape(r.checkpoint_complexity)
-            .c_str());
-    return 0;
-}
-
-// §26 precision parity: REFERENCE_FP64 baseline vs PRODUCTION_BF16
-// candidate. BF16 unavailable → resolves FP64 with an explicit
-// UNAVAILABLE status (fail-closed, never a silent claim).
-// §18 candidate-bundle parity: decode a DLTS state image and return the
-// flat f64 stream so FP64-reference vs BF16-candidate recurrent state can
-// be diffed (bf16 loads expanded to f64, so layouts are identical).
-bool decode_delta_state_flat(const std::vector<char>& blob,
-                             std::vector<double>& flat) {
-    if (blob.size() < 24) return false;
-    auto u32 = [&](size_t o) {
-        return (uint32_t)(uint8_t)blob[o] |
-               ((uint32_t)(uint8_t)blob[o + 1] << 8) |
-               ((uint32_t)(uint8_t)blob[o + 2] << 16) |
-               ((uint32_t)(uint8_t)blob[o + 3] << 24);
-    };
-    auto i64 = [&](size_t o) {
-        uint64_t v = 0;
-        for (int i = 0; i < 8; ++i)
-            v |= (uint64_t)(uint8_t)blob[o + i] << (8 * i);
-        return (int64_t)v;
-    };
-    if (u32(0) != 0x53544C44u || u32(4) != 1) return false;
-    const int64_t layers = i64(16);   // magic|ver|slot|layers header
-    size_t p = 24;
-    for (int64_t l = 0; l < layers; ++l) {
-        if (p + 1 > blob.size()) return false;
-        ++p;   // present flag — geometry already proven by restore path
-        for (int v = 0; v < 2; ++v) {   // conv_tail, s
-            if (p + 8 > blob.size()) return false;
-            int64_t n = i64(p);
-            p += 8;
-            if (n < 0 || p + (size_t)n * 8 > blob.size()) return false;
-            for (int64_t i = 0; i < n; ++i) {
-                double d;
-                std::memcpy(&d, blob.data() + p + (size_t)i * 8, 8);
-                flat.push_back(d);
-            }
-            p += (size_t)n * 8;
-        }
-        if (p + 8 > blob.size()) return false;
-        p += 8;   // tokens
-    }
-    return p == blob.size();
-}
-
-// §18: FP64 active bundle -> BF16 conversion -> parity evaluation.
-// Compares reference vs candidate *bundles* on identical prompts:
-// logit MAE/max, top1/top5, generation agreement, router agreement and
-// DeltaNet state drift; TPS/TTFT per side. FP64 stays the production
-// reference — this mode only produces evidence, it never promotes.
-int parity_bundle_vs_bundle(const std::string& ref_bundle,
-                            const std::string& cand_bundle) {
-    JsonValue manifest =
-        parse_json_file((fs::path(ref_bundle) / "manifest.json").string());
-    const JsonValue* mcfg = manifest.get("config");
-    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
-    if (vocab < 4) fail("PRECISION_BAD_CONFIG");
-    std::mt19937_64 rng(9);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    std::vector<int64_t> ids(16);
-    for (auto& t : ids) t = tok(rng);
-    SamplingConfig sc;
-    sc.temperature = 0.0;
-
-    struct Side {
-        std::vector<double> logits;
-        std::vector<int64_t> gen;
-        std::vector<char> state;
-        xingcheng::inference::MoeTrace trace;
-        double ttft = 0, gen_s = 0;
-        bool has_state = false;
-    };
-    auto run_side = [&](const std::string& b, Side& s) {
-        NativeInferenceEngine e;
-        e.load(b);
-        auto t0 = std::chrono::steady_clock::now();
-        s.logits = e.logits(ids);
-        s.ttft = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - t0).count();
-        e.set_moe_trace_enabled(true);
-        t0 = std::chrono::steady_clock::now();
-        s.gen = e.generate(ids, 16, sc);
-        s.gen_s = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - t0).count();
-        s.trace = e.moe_trace();
-        s.has_state = e.delta_state_save(0, s.state);
-    };
-    Side r, c;
-    run_side(ref_bundle, r);
-    run_side(cand_bundle, c);
-
-    const size_t n = std::min(r.logits.size(), c.logits.size());
-    if (n == 0) fail("PRECISION_EMPTY_LOGITS");
-    double mae = 0.0, max_diff = 0.0;
-    for (size_t i = 0; i < n; ++i) {
-        const double d = std::abs(r.logits[i] - c.logits[i]);
-        mae += d;
-        max_diff = std::max(max_diff, d);
-    }
-    mae /= n;
-    auto topk = [](const std::vector<double>& v, int k) {
-        std::vector<int64_t> ord(v.size());
-        std::iota(ord.begin(), ord.end(), 0);
-        std::partial_sort(ord.begin(), ord.begin() + k, ord.end(),
-                          [&](int64_t x, int64_t y) {
-                              return v[(size_t)x] > v[(size_t)y];
-                          });
-        ord.resize(k);
-        return ord;
-    };
-    const auto r5 = topk(r.logits, 5), c5 = topk(c.logits, 5);
-    const bool top1 = r5[0] == c5[0];
-    int64_t top5_hits = 0;
-    for (int64_t x : c5)
-        if (std::find(r5.begin(), r5.end(), x) != r5.end()) ++top5_hits;
-    const double top5 = top5_hits / 5.0;
-    const bool gen_agree = r.gen == c.gen;
-
-    int64_t router_same = 0, router_total = 0;
-    for (size_t li = 0;
-         li < r.trace.layers.size() && li < c.trace.layers.size();
-         ++li) {
-        const auto& rs = r.trace.layers[li].selected;
-        const auto& cs = c.trace.layers[li].selected;
-        for (size_t i = 0; i < rs.size() && i < cs.size(); ++i) {
-            ++router_total;
-            if (rs[i] == cs[i]) ++router_same;
-        }
-    }
-    const double router_agree =
-        router_total ? (double)router_same / router_total : 1.0;
-
-    double state_drift = 0.0;
-    bool state_eval = false;
-    if (r.has_state && c.has_state) {
-        std::vector<double> rf, cf;
-        if (decode_delta_state_flat(r.state, rf) &&
-            decode_delta_state_flat(c.state, cf) &&
-            rf.size() == cf.size()) {
-            state_eval = true;
-            for (size_t i = 0; i < rf.size(); ++i)
-                state_drift = std::max(state_drift,
-                                       std::abs(rf[i] - cf[i]));
-        }
-    }
-
-    const bool pass = max_diff < 0.05 && mae < 0.02 && top1 &&
-                      top5 >= 0.8 && gen_agree && router_agree >= 0.9;
-    std::printf(
-        "{\"ok\":%s,\"format\":\"star-precision-parity/v1\","
-        "\"lane\":\"bundle-vs-bundle\","
-        "\"resolved_precision\":\"%s\","
-        "\"logit_mae\":%.6g,\"logit_max_abs_diff\":%.6g,"
-        "\"top1_agreement\":%s,\"top5_agreement\":%.4g,"
-        "\"generation_agreement\":%s,\"router_agreement\":%.4g,"
-        "\"state_drift_evaluated\":%s,\"state_drift_max\":%.6g,"
-        "\"ref_ttft_s\":%.4f,\"cand_ttft_s\":%.4f,"
-        "\"ref_tps\":%.4f,\"cand_tps\":%.4f,"
-        "\"capability_training_frozen\":true,"
-        "\"threshold\":{\"logit_max_abs_diff\":0.05,"
-        "\"logit_mae\":0.02,\"top5\":0.8,\"router\":0.9}}\n",
-        pass ? "true" : "false",
-        pass ? "CANDIDATE_PASSES" : "REFERENCE_FP64",
-        mae, max_diff,
-        top1 ? "true" : "false", top5,
-        gen_agree ? "true" : "false", router_agree,
-        state_eval ? "true" : "false", state_drift,
-        r.ttft, c.ttft,
-        r.gen_s > 0 ? 16.0 / r.gen_s : 0.0,
-        c.gen_s > 0 ? 16.0 / c.gen_s : 0.0);
-    return pass ? 0 : 1;
-}
-
-int mode_precision_parity(const Args& a) {
-    std::string bundle = a.get("bundle");
-    if (bundle.empty()) fail("PRECISION_ARGS_MISSING");
-    const std::string ref_bundle = a.get("ref-bundle");
-    if (!ref_bundle.empty()) {
-        return parity_bundle_vs_bundle(ref_bundle, bundle);
-    }
-    JsonValue manifest =
-        parse_json_file((fs::path(bundle) / "manifest.json").string());
-    const JsonValue* mcfg = manifest.get("config");
-    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
-    if (vocab < 4) fail("PRECISION_BAD_CONFIG");
-    std::mt19937_64 rng(9);
-    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
-    std::vector<int64_t> ids(16);
-    for (auto& t : ids) t = tok(rng);
-    SamplingConfig sc;
-    sc.temperature = 0.0;
-
-    std::vector<double> ref;
-    std::vector<int64_t> ref_gen;
-    double ref_s = 0.0;
-    {
-        NativeInferenceEngine e;
-        e.load(bundle);
-        auto t0 = std::chrono::steady_clock::now();
-        ref = e.logits(ids);
-        ref_gen = e.generate(ids, 8, sc);
-        ref_s = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - t0).count();
-    }
-
-#ifdef _WIN32
-    _putenv_s("XINGCHENG_CPP_CUDA", "1");
-    _putenv_s("XINGCHENG_CPP_CUDA_BF16", "1");
-#else
-    setenv("XINGCHENG_CPP_CUDA", "1", 1);
-    setenv("XINGCHENG_CPP_CUDA_BF16", "1", 1);
-#endif
-    std::vector<double> cand;
-    std::vector<int64_t> cand_gen;
-    double cand_s = 0.0;
-    std::string cand_status;
-    try {
-        NativeInferenceEngine e;
-        e.load(bundle);
-        auto t0 = std::chrono::steady_clock::now();
-        cand = e.logits(ids);
-        cand_gen = e.generate(ids, 8, sc);
-        cand_s = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - t0).count();
-        cand_status = "CANDIDATE";
-    } catch (const std::exception&) {
-        cand_status = "UNAVAILABLE";   // e.g. CUDA_BF16_UNAVAILABLE
-    }
-#ifdef _WIN32
-    _putenv_s("XINGCHENG_CPP_CUDA", "");
-    _putenv_s("XINGCHENG_CPP_CUDA_BF16", "");
-#endif
-
-    if (cand_status == "UNAVAILABLE") {
-        std::printf(
-            "{\"ok\":true,\"format\":\"star-precision-parity/v1\","
-            "\"candidate\":\"PRODUCTION_BF16\",\"status\":\"UNAVAILABLE\","
-            "\"resolved_precision\":\"REFERENCE_FP64\","
-            "\"fail_closed\":true}\n");
-        return 0;
-    }
-    double max_diff = 0.0;
-    int64_t top1_agree = 0;
-    for (size_t i = 0; i < ref.size() && i < cand.size(); ++i) {
-        max_diff = std::max(max_diff, std::abs(ref[i] - cand[i]));
-    }
-    if (!ref.empty() && !cand.empty()) {
-        auto argmax = [](const std::vector<double>& v) {
-            return (int64_t)std::distance(
-                v.begin(), std::max_element(v.begin(), v.end()));
-        };
-        top1_agree = argmax(ref) == argmax(cand) ? 1 : 0;
-    }
-    const bool gen_agree = ref_gen == cand_gen;
-    const bool pass = max_diff < 0.05 && top1_agree == 1 && gen_agree;
-    std::printf(
-        "{\"ok\":%s,\"format\":\"star-precision-parity/v1\","
-        "\"candidate\":\"PRODUCTION_BF16\",\"status\":\"%s\","
-        "\"resolved_precision\":\"%s\","
-        "\"logit_max_abs_diff\":%.6g,\"top1_agreement\":%lld,"
-        "\"generation_agreement\":%s,"
-        "\"ref_time_s\":%.4f,\"cand_time_s\":%.4f,"
-        "\"threshold\":{\"logit_max_abs_diff\":0.05}}\n",
-        pass ? "true" : "false", cand_status.c_str(),
-        pass ? "PRODUCTION_BF16" : "REFERENCE_FP64",
-        max_diff, (long long)top1_agree,
-        gen_agree ? "true" : "false", ref_s, cand_s);
-    return pass ? 0 : 1;
-}
-
-// ------------------------------------ §37 mode registry -------------
-// Every mode carries a category (MODEL|DATA|EVAL|RUNTIME|DIAGNOSTIC).
-// Dispatch goes through this table — a mode without a category cannot
-// be reached, so the tool cannot grow past the registry.
+// ModelToolModeRegistry ??the governed dispatch table. Every mode
+// belongs to exactly one category; unregistered names resolve to
+// MODE_NOT_REGISTERED rather than a free-form error. New capability
+// should prefer a subcommand/option on an existing mode over a new
+// registry row (mode count is not a success metric).
 struct ModeEntry {
     const char* name;
-    const char* category;
+    const char* category;  // MODEL|TRAINING|STATE|CACHE|PRECISION|
+                           // CUDA|EXPERT|SCALE|RAG|EVAL|PROVENANCE
     int (*fn)(const Args&);
 };
 
-int probe_cuda_entry(const Args&) { return mode_probe_cuda(); }
-
-const ModeEntry kModeRegistry[] = {
-    {"tokenize",             "MODEL",       mode_tokenize},
-    {"import-bundle",        "MODEL",       mode_import_bundle},
-    {"export-bundle",        "MODEL",       mode_export_bundle},
-    {"distill-init",         "MODEL",       mode_distill_init},
-    {"corpus",               "DATA",        mode_corpus},
-    {"eval",                 "EVAL",        mode_eval},
-    {"capability",           "EVAL",        mode_capability},
-    {"native-thinking-eval", "EVAL",        mode_native_thinking_eval},
-    {"precision-parity",     "EVAL",        mode_precision_parity},
-    {"parity",               "EVAL",        mode_parity},
-    {"spec-verify",          "EVAL",        mode_spec_verify},
-    {"vision-smoke",         "RUNTIME",     mode_vision_smoke},
-    {"cache-smoke",          "RUNTIME",     mode_cache_smoke},
-    {"serve",                "RUNTIME",     mode_serve},
-    {"memory-plan",          "RUNTIME",     mode_memory_plan},
-    {"state-snapshot",       "RUNTIME",     mode_state_snapshot},
-    {"state-bench",          "RUNTIME",     mode_state_bench},
-    {"state-drift",          "RUNTIME",     mode_state_drift},
-    {"hw-baseline",          "RUNTIME",     mode_hw_baseline},
-    {"state2-smoke",         "RUNTIME",     mode_state2_smoke},
-    {"sched-smoke",          "RUNTIME",     mode_sched_smoke},
-    {"vision-budget",        "RUNTIME",     mode_vision_budget},
-    {"router-analyze",       "DIAGNOSTIC",  mode_router_analyze},
-    {"probe-cuda",           "DIAGNOSTIC",  probe_cuda_entry},
-    {"cuda-parity-all",      "DIAGNOSTIC",  mode_cuda_parity_all},
-    {"param-reuse-probe",    "DIAGNOSTIC",  mode_param_reuse},
-    {"sparse-probe",         "DIAGNOSTIC",  mode_sparse_probe},
-    {"kv-gather-probe",      "DIAGNOSTIC",  mode_kv_gather_probe},
-    {"spec-probe",           "DIAGNOSTIC",  mode_spec_probe},
-    {"mtp-draft-probe",      "DIAGNOSTIC",  mode_mtp_draft_probe},
-    {"hw-caps",              "DIAGNOSTIC",  mode_hw_caps},
+static const ModeEntry kModeRegistry[] = {
+    {"tokenize",              "MODEL",      mode_tokenize},
+    {"corpus",                "TRAINING",   mode_corpus},
+    {"import-bundle",         "MODEL",      mode_import_bundle},
+    {"distill-init",          "TRAINING",   mode_distill_init},
+    {"export-bundle",         "MODEL",      mode_export_bundle},
+    {"eval",                  "EVAL",       mode_eval},
+    {"capability",            "EVAL",       mode_capability},
+    {"vision-smoke",          "EVAL",       mode_vision_smoke},
+    {"cache-smoke",           "CACHE",      mode_cache_smoke},
+    {"parity",                "PRECISION",  mode_parity},
+    {"precision",             "PRECISION",  mode_precision},
+    {"memplan",               "STATE",      mode_memplan},
+    {"statebench",            "STATE",      mode_statebench},
+    {"spec-probe",            "EVAL",       mode_spec_probe},
+    {"vision-budget",         "EVAL",       mode_vision_budget},
+    {"context-probe",         "CACHE",      mode_context_probe},
+    {"reuse-probe",           "CACHE",      mode_reuse_probe},
+    {"serve",                 "MODEL",      mode_serve},
+    {"probe-cuda",            "CUDA",
+        [](const Args&) -> int { return mode_probe_cuda(); }},
+    {"provenance-check",      "PROVENANCE", mode_provenance_check},
+    {"depth-probe",           "EVAL",       mode_depth_probe},
+    {"moe-analyze",           "EXPERT",     mode_moe_analyze},
+    // Native Inference Efficiency Plane
+    {"expert-residency",      "EXPERT",     mode_expert_residency},
+    {"expert-offload-bench",  "EXPERT",     mode_expert_offload_bench},
+    {"hybrid-prefix-smoke",   "CACHE",      mode_hybrid_prefix_smoke},
+    {"prefix-invalidation",   "CACHE",      mode_prefix_invalidation},
+    {"rag-prefix-bench",      "RAG",        mode_rag_prefix_bench},
+    {"pd-pipeline-bench",     "SCALE",      mode_pd_bench},
+    {"pd-transfer-smoke",     "SCALE",      mode_pd_transfer_smoke},
+    {"delta-prefix-restore",  "CACHE",      mode_delta_prefix_restore},
+    {"expert-quant-parity",   "EXPERT",     mode_expert_quant_parity},
+    // NativeScaleEfficiencyPlane
+    {"scale-metrics",         "SCALE",      mode_scale_metrics},
+    {"expert-store-build",    "EXPERT",     mode_expert_store_build},
+    {"expert-store-read",     "EXPERT",     mode_expert_store_read},
+    {"prefetch-probe",        "EXPERT",     mode_prefetch_probe},
+    {"delta-precision-probe", "PRECISION",  mode_delta_precision_probe},
+    {"low-resource-sim",      "SCALE",      mode_low_resource_sim},
+    {"scale-sim",             "SCALE",      mode_scale_sim},
+    {"scale-status",          "SCALE",      mode_scale_status},
+    {"future-scale-probe",    "SCALE",      mode_future_scale_probe},
+    // Laya/MiMo capability plane ??native fast path.
+    {"system1-head",          "EVAL",       mode_system1_head},
+    {"mtp-runtime",           "MODEL",      mode_mtp_runtime},
+    {"mtp-speedup",           "EVAL",       mode_mtp_speedup},
+    {"mtp-precision-parity",  "PRECISION",  mode_mtp_precision_parity},
+    // NativeMemoryCudaPlane ??unified memory manager probes.
+    {"memplane-probe",        "STATE",      mode_memplane_probe},
+    {"memplane-telemetry",    "STATE",      mode_memplane_telemetry},
+    // NativeSiliconEfficiencyPlane ??measured surfaces.
+    {"npu-discovery",         "SCALE",      mode_npu_discovery},
+    {"cpu-affinity-probe",    "SCALE",      mode_cpu_affinity_probe},
+    {"cpu-bf16-bench",        "PRECISION",  mode_cpu_bf16_bench},
+    {"system-reuse-probe",    "SCALE",      mode_system_reuse_probe},
+    {"single-runtime-owner",  "PROVENANCE", mode_single_runtime_owner},
+    {"artifact-dedup",        "PROVENANCE", mode_artifact_dedup},
+    {"shared-routed-isolation","EXPERT",    mode_shared_routed_isolation},
+    {"expert-granularity-probe","EXPERT",   mode_expert_granularity_probe},
+    {"parameter-freeze-probe","TRAINING",   mode_parameter_freeze_probe},
+    {"parameter-efficiency-report","SCALE", mode_parameter_efficiency},
+    {"silicon-routing-bench", "SCALE",      mode_silicon_routing_bench},
+    {"npu-system1-bench",     "EVAL",
+        [](const Args& a) { return mode_npu_bench("npu-system1-bench", a); }},
+    {"npu-embedding-bench",   "EVAL",
+        [](const Args& a) { return mode_npu_bench("npu-embedding-bench", a); }},
+    {"npu-prefill-bench",     "EVAL",
+        [](const Args& a) { return mode_npu_bench("npu-prefill-bench", a); }},
+    {"sparse-optimizer-probe","TRAINING",   mode_parameter_freeze_probe},
+    {"npu-ep-enum",           "SCALE",      mode_npu_ep_enum},
+    {"npu-duplicate-cost",    "SCALE",      mode_npu_duplicate_cost},
+    {"capacity-metrics",      "SCALE",      mode_capacity_metrics},
+    // 禮58 BF16 production certification (FP64 oracle comparison).
+    {"bf16-cert",             "PRECISION",  mode_bf16_cert},
+    {"bf16-drift",            "PRECISION",  mode_bf16_drift},
 };
 
-}  // namespace
+static int mode_registry_emit() {
+    std::ostringstream o;
+    o << "{\"ok\":true,\"format\":\"star-mode-registry/v1\","
+      << "\"count\":"
+      << (sizeof(kModeRegistry) / sizeof(kModeRegistry[0]))
+      << ",\"modes\":[";
+    bool first = true;
+    for (const auto& e : kModeRegistry) {
+        o << (first ? "" : ",") << "{\"name\":\"" << e.name
+          << "\",\"category\":\"" << e.category << "\"}";
+        first = false;
+    }
+    o << "]}\n";
+    std::printf("%s", o.str().c_str());
+    return 0;
+}
 
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
-            "xc_modeltool <mode> [args]   (modes: see 'modes')\n");
+            "xc_modeltool <mode> [args] ??'mode-registry' lists the "
+            "governed mode table (star-mode-registry/v1)\n");
         return 2;
     }
     std::string mode = argv[1];
-    // §37 registry listing — self-describing surface for the release
+    // 禮37 registry listing ??self-describing surface for the release
     // gate and operators.
     if (mode == "modes") {
         std::printf("{\"ok\":true,\"format\":\"star-mode-registry/v1\","
@@ -4868,8 +4484,9 @@ int main(int argc, char** argv) {
         return 0;
     }
     Args a = parse_args(argc, argv);
+    if (mode == "mode-registry") return mode_registry_emit();
     try {
-        for (const ModeEntry& e : kModeRegistry)
+        for (const auto& e : kModeRegistry)
             if (mode == e.name) return e.fn(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
@@ -4882,6 +4499,9 @@ int main(int argc, char** argv) {
         std::printf("{\"ok\":false,\"error\":\"UNHANDLED\"}\n");
         return 1;
     }
-    std::fprintf(stderr, "unknown mode: %s\n", mode.c_str());
+    std::fprintf(stderr, "MODE_NOT_REGISTERED: %s\n", mode.c_str());
+    std::printf("{\"ok\":false,\"error\":\"MODE_NOT_REGISTERED\","
+                "\"mode\":\"%s\"}\n",
+                gptbridge::jsonlite::json_escape(mode).c_str());
     return 2;
 }

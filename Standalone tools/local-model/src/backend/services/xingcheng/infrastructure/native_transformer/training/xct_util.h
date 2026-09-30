@@ -508,7 +508,7 @@ static ModelConfig parse_model(const JsonValue* o) {
         c.moe_auxfree_balance = false;
         c.moe_lb_bias_rate = 0.0f;
         c.moe_aux_w = 0.001f;
-        if (c.moe_shared_experts < 1) c.moe_shared_experts = 1;
+        if (c.moe_shared_experts <= 0) c.moe_shared_experts = 1;
         c.shared_expert_gate = true;
         // MTP stack (XCN10): depth >= 1, stack loss weight >= 0.1.
         if (c.mtp_depth < 1) c.mtp_depth = 1;
@@ -524,10 +524,16 @@ static ModelConfig parse_model(const JsonValue* o) {
             c.yarn_beta_fast = 32.0f;
             c.yarn_beta_slow = 1.0f;
         }
-        // Not part of this generation.
+        // Not part of this generation. KV-sharing is a gemma4-family
+        // mechanism and is canonically absent — the field is cleared so
+        // the canonical config cannot silently carry a shared-KV tail
+        // (which XCN also would not serialize for non-gemma4 saves).
         c.csa_ratio = 0; c.csa_topk = 0; c.csa_window = 0;
         c.csa_rope_theta = 0.0f; c.csa_group = 0; c.csa_reindex = false;
         c.csa_indexer = false; c.csa_indexer_w = 0.0f;
+        c.num_kv_shared_layers = 0;
+        c.use_double_wide_mlp = false;
+        c.ple_hidden = 0; c.ple_vocab = 0;
     }
     if (c.csa_ratio > 0 && c.csa_ratio < 2)
         throw "model: csa_compress_ratio must be >=2";

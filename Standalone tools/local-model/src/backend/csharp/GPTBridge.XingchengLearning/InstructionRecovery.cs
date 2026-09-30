@@ -2179,15 +2179,25 @@ internal static class InstructionRecovery
                 stageParityScore = ScoreOf(pe);
             }
 
-            // router health — collapse stops the lane.
+            // router health — collapse stops the lane. Main's mode is
+            // moe-analyze (star-moe-routing-analysis/v1): a layer with a
+            // non-empty diagnoses[] is a router diagnostic.
             var router = ParseJsonStdout(
                 NativeTools.Run(
                     NativeTools.ModelToolExe(toolRoot),
-                    new[] { "router-analyze", "--bundle", stageBundle },
+                    new[] { "moe-analyze", "--bundle", stageBundle },
                     toolRoot, stderrLog, timeoutS: 1800),
                 "RECOVERY_ROUTER_FAILED");
-            bool routerBad = TransformerTrainingRepository.Truthy(
-                router.GetValueOrDefault("any_diagnostic"));
+            bool routerBad = false;
+            if (router.TryGetValue("analysis", out var an) &&
+                an is Dictionary<string, object?> and_ &&
+                and_.TryGetValue("layers", out var ly) &&
+                ly is List<object?> layers)
+                foreach (var l in layers)
+                    if (l is Dictionary<string, object?> ld &&
+                        ld.TryGetValue("diagnoses", out var dg) &&
+                        dg is List<object?> dl && dl.Count > 0)
+                        routerBad = true;
 
             // regression gate at each regression_every boundary.
             bool regOk = true;
@@ -2302,11 +2312,16 @@ internal static class InstructionRecovery
             smoke = cacheSmoke.GetValueOrDefault("ok");
             gates["cache_smoke"] = TransformerTrainingRepository
                 .Truthy(smoke);
+            // statebench = the delta-state snapshot/restore contract
+            // probe on the real candidate bundle.
             var stateSmoke = ParseJsonStdout(
                 NativeTools.Run(
                     NativeTools.ModelToolExe(toolRoot),
-                    new[] { "state2-smoke" },
-                    toolRoot, stderrLog, timeoutS: 300),
+                    new[] { "statebench", "--bundle", bestBundleDir,
+                            "--generation",
+                            BundleGeneration(bestBundleDir),
+                            "--tokens", "32" },
+                    toolRoot, stderrLog, timeoutS: 1800),
                 "RECOVERY_STATE_SMOKE_FAILED");
             gates["state_smoke"] = TransformerTrainingRepository.Truthy(
                 stateSmoke.GetValueOrDefault("ok"));
@@ -2486,6 +2501,33 @@ internal static class InstructionRecovery
             File.Copy(f, Path.Combine(dst, Path.GetFileName(f)), true);
         foreach (var d in Directory.GetDirectories(src))
             CopyDir(d, Path.Combine(dst, Path.GetFileName(d)));
+    }
+
+    /// <summary>Resolve a bundle's lineage generation for statebench —
+    /// manifest architecture_generation -> generation -> config fields.</summary>
+    private static string BundleGeneration(string bundle)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(bundle, "manifest.json")));
+            var root = doc.RootElement;
+            foreach (var k in new[] { "architecture_generation",
+                                      "generation" })
+                if (root.TryGetProperty(k, out var g) &&
+                    g.ValueKind == JsonValueKind.String &&
+                    (g.GetString() ?? "").Length > 0)
+                    return g.GetString()!;
+            if (root.TryGetProperty("config", out var c) &&
+                c.ValueKind == JsonValueKind.Object)
+                foreach (var k in new[] { "generation", "architecture" })
+                    if (c.TryGetProperty(k, out var cg) &&
+                        cg.ValueKind == JsonValueKind.String &&
+                        (cg.GetString() ?? "").Length > 0)
+                        return cg.GetString()!;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException) { }
+        return "gen-2-consolidated";
     }
 
     private static long EstimateTokens(string idsPath, int steps, int maxLen)

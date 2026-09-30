@@ -435,6 +435,13 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
     if (std::filesystem::exists(tokenizer_path)) {
         tokenizer_ = std::make_unique<ByteLevelBPETokenizer>(
             ByteLevelBPETokenizer::load(tokenizer_path.string()));
+        const std::string tok_bytes =
+            read_text(tokenizer_path, 64 * 1024 * 1024);
+        tokenizer_sha256_ = sha256_hex(
+            reinterpret_cast<const unsigned char*>(tok_bytes.data()),
+            tok_bytes.size());
+    } else {
+        tokenizer_sha256_.clear();
     }
     } catch (...) {
         // A refused load must leave zero partial state: bundle_/kv_pool_/
@@ -467,6 +474,9 @@ void NativeInferenceEngine::unload() {
     kv_device_active_ = false;
     layers_.clear();
     prefix_cache_.clear();
+    prefix_scope_ = "default";
+    prefix_ctx_sha256_.clear();
+    tokenizer_sha256_.clear();
     prefix_tick_ = 0;
     prefix_hits_ = 0;
     prefix_misses_ = 0;
@@ -497,9 +507,10 @@ void NativeInferenceEngine::validate_supported() const {
          cfg.moe_shared_intermediate_size < 0)) {
         throw InferenceError("MOE_CONFIG_UNSUPPORTED");
     }
-    // Quantization whitelist: the writer emits none|int8|int4_packed|
-    // bf16 (bf16 and int8/int4 weights are dequantized to fp64 at
-    // load — the marker records storage, not a different math lane).
+    // Accepted manifest quantizations: none / int8 / int4(_packed —
+    // the exporter's exact string) / bf16 (PRODUCTION_BF16 candidate);
+    // bf16 and int8/int4 weights are dequantized to fp64 at load — the
+    // marker records storage, not a different math lane.
     if (cfg.quantization != "none" && cfg.quantization != "int8" &&
         cfg.quantization != "int4" && cfg.quantization != "int4_packed" &&
         cfg.quantization != "bf16") {
@@ -809,6 +820,8 @@ void NativeInferenceEngine::reset_cache() {
     // reset (kv_alloc_slot returns the first inactive slot → slot 0).
     kv_alloc_slot();
     sequence_.clear();
+    mem_prefill_peak_ = 0;
+    mem_decode_peak_ = 0;
 }
 
 std::vector<double> NativeInferenceEngine::logits(const std::vector<int64_t>& input_ids) {
@@ -819,6 +832,37 @@ std::vector<double> NativeInferenceEngine::logits(const std::vector<int64_t>& in
 std::vector<double> NativeInferenceEngine::forward_all_hidden(
     const std::vector<int64_t>& input_ids) {
     if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return forward_hidden(input_ids, 0, false);
+}
+
+// §49 decision-head binding accessors — an unloaded engine exposes no
+// identity, so every accessor fails closed instead of returning "".
+const std::string& NativeInferenceEngine::model_sha256() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return bundle_->weights_sha256();
+}
+const std::string& NativeInferenceEngine::generation() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return bundle_->architecture_generation();
+}
+const std::string& NativeInferenceEngine::tokenizer_sha256() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return tokenizer_sha256_;
+}
+int64_t NativeInferenceEngine::hidden_size() const {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    return bundle_->config().hidden_size;
+}
+std::vector<double> NativeInferenceEngine::prefill_hidden(
+    const std::vector<int64_t>& input_ids) {
+    if (!loaded()) throw InferenceError("ENGINE_NOT_LOADED");
+    if (input_ids.empty()) throw InferenceError("PREFILL_EMPTY_INPUT");
+    // Pure feedforward — a decision writes no KV/DeltaNet state
+    // (append_cache needs an active decode slot, which the no-decode
+    // path never allocates). Prefix-cache reuse applies when the
+    // decision rides on a generative prefill that populated the cache
+    // (§14); the standalone fast path simply never pays for state it
+    // will not use.
     return forward_hidden(input_ids, 0, false);
 }
 
@@ -900,4 +944,18 @@ std::vector<double> NativeInferenceEngine::forward_hidden(
     span.position_offset = position_offset;
     span.append_cache = append_cache;
     return forward_batch_hidden({span}, layer_rms, module_rms);
+}
+
+// §58 governed lane switch for certification probes. The CUDA
+// request flags are atomics consulted per matmul call, so toggling
+// between forwards lets one process compare lanes without respawning.
+// Production admission stays env-gated (XINGCHENG_CPP_CUDA*); this is
+// a probe hook on the same atomics, not a second admission path.
+extern "C" void xengine_cuda_lane(int cuda_requested, int bf16_requested) {
+    g_cuda_requested.store(cuda_requested != 0);
+    g_cuda_bf16_requested.store(bf16_requested != 0);
+}
+extern "C" int xengine_cuda_lane_state() {
+    return (g_cuda_requested.load() ? 1 : 0) |
+           (g_cuda_bf16_requested.load() ? 2 : 0);
 }

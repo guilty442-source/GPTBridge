@@ -390,7 +390,191 @@ $X = "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearnin
 
 Implementation: `GPTBridge.XingchengLearning/GenerationMigration.cs`;
 directory artifacts (native bundles) hash via manifest/weights digest
-in `Lifecycle.cs::ArtifactHashDir`.
+in `Lifecycle.cs::ArtifactHashDir`. `--gen-promote` runs §18
+post-activation verification (pin → active artifact, lifecycle active
+weights, independent native inference) before reporting PROMOTED — a
+failure rolls back pin + lifecycle active version + generation state;
+`--gen-purge --apply` stamps a `lineage` block (predecessor identity,
+hashes, activation/retirement times, carried-record counts) that
+survives the deleted runtime.
+
+## 星澄 Capability Trace (`star-capability-trace/v1` / `star-capability-result/v1`)
+
+> Convergence freeze (capability_training_frozen=true): two-level
+> observability only — records never feed a trainer job.
+
+- Level 2 request trace (`xingcheng/runtime/logs/capability-trace.jsonl`):
+  `request_id`, `intent`, `service_expert`, `model_generation`,
+  `architecture_generation`, `router_layers[]`
+  (`layer_id`/`router_type`/`selected_neural_experts`/`shared_expert_used`),
+  `tool_used`, `rag_used`, `final_result`, `capability_eval`.
+- Level 1 expert result
+  (`xingcheng/runtime/logs/capability-results.jsonl`):
+  `capability`, `status` (pass/fail/degraded/skipped), `evidence`,
+  `confidence`, `source`, `failure`, `fallback`, `trace_id`.
+
+```powershell
+& $X --tool-root "Standalone tools\local-model" --trace-record --trace <file.json>
+& $X --tool-root "Standalone tools\local-model" --cap-record --result <file.json>
+& $X --tool-root "Standalone tools\local-model" --trace-status
+```
+
+Implementation: `GPTBridge.XingchengLearning/CapabilityTrace.cs`
+(append-only JSONL; generation identity auto-stamps from the active
+generation state).
+
+## 星澄 Model Core Axis (`star-model-core/v1` / `star-architecture-taxonomy/v1`)
+
+星澄只有**一個**模型核心：**HybridCausalDecoder** —— 單向因果、自回歸、
+decoder-only，內部交錯 DeltaNet recurrent layers（`DELTA_RECURRENT`）與
+週期性 Full Attention layers（`FULL_ATTENTION`，canonical `xc-fused-1`
+為 interval=4 → `D D D A` 重複）。**不得**再使用「多核心軸」「多模型核心」
+的表述；DeltaNet 與 Full Attention 是同一核心的兩種 layer type，不是兩顆核心。
+
+其他全部是正交軸，每個 feature 恰有一個 `primary_axis`：
+
+- `MODEL_COMPONENT`（GQA/QKNorm/AttentionGate/RMSNorm/SwiGLU/Embedding/LMHead）
+- `EXPERT_AXIS`（MoE/Router/SharedExpert — 模型側）
+- `POSITION_AXIS`（RoPE/PartialRoPE/YaRN）
+- `MODALITY_AXIS`（Vision early fusion 餵同一核心；audio/video contract-only）
+- `TRAINING_AXIS`（MTP 是 training auxiliary，不是 inference core）
+- `STATE_AXIS`（KV/PagedKV/KV-INT8/PrefixCache/DeltaState…，唯一 owner 為
+  state manager；PrefixCache = STATE_AXIS + runtime_optimization tag）
+- `RUNTIME_OPTIMIZATION_AXIS`（ExpertOffloading/Prefill-Decode/CUDA/
+  Speculative… — 永不改變模型語意，也不產生新 architecture generation）
+- `PRECISION_AXIS`（FP64/BF16/INT8… — runtime/storage policy，非世代身份）
+- `CAPABILITY_AXIS`（RAG/Thinking/Persona/Roleplay/Agent… — 能做什麼，
+  不是架構）
+- `GOVERNANCE_AXIS`（XCN10/Lifecycle/Migration/Audit… — 不進 forward path）
+- `EXPERIMENTAL_ARCHITECTURE`（MLA/CSA/Gemma4/KDA/Mamba/RWKV/AttnRes/
+  LatentMoE/MSA — 永不列入 canonical core）
+
+Version 維度分開：`architecture_generation` / `weight_version` /
+`runtime_version` / `state_contract_version` / `bundle_version` /
+`capability_version` / `evaluation_version` — 不得再用單一編號混表。
+`architecture_contract_hash`（star-model-core/v1 canonical JSON 的 sha256）
+在 job/checkpoint/bundle/runtime 必須一致，否則
+`ARCHITECTURE_CONTRACT_DRIFT` fail-closed。
+
+```powershell
+& $X --tool-root "Standalone tools\local-model" --taxonomy          # 軸表
+& $X --tool-root "Standalone tools\local-model" --core-contract    # star-model-core/v1
+& $X --tool-root "Standalone tools\local-model" --axis-checks      # §42 電池
+& $X --tool-root "Standalone tools\local-model" --version-dimensions
+```
+
+Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
+`AxisChecks.cs`；feature registry 的 `primary_axis` 由
+`FeatureCatalog.FeatureDict` 經 taxonomy `Classify` 派生。
+
+## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
+
+同一 **HybridCausalDecoder** 提供兩條能力路徑 —— System-1 不是第二顆
+模型，是用同一 weights / tokenizer / prefix cache 的**決策層**：
+
+- **SYSTEM_1 fast path**：prefill → `NativeSystemOneHead` →
+  `star-typed-decision/v1`（BOOLEAN / CHOICE / ORDINAL_SCORE /
+  CONFIDENCE）→ DONE，**永不進 autoregressive decode**
+  （`decode_tokens = 0`）。第一批只服務 RAG_REQUIRED / TOOL_REQUIRED /
+  TOOL_CLASS / CONTINUE_STOP 等已驗證域；未驗證域 fail-closed
+  `SYSTEM1_DOMAIN_UNCERTIFIED`。
+- **Calibration**：softmax 機率不等於信心 —
+  `DecisionCalibrationLayer`（temperature + per-option-count），
+  `star-decision-calibration/v1` 報 ECE/Brier/NLL/histogram；
+  `calibrated_confidence` 低於門檻 → `ABSTAIN` → fallback SYSTEM_2。
+- **Head artifact**：`decision-head.bin`（`star-system1-head/v1`）
+  綁定 model_hash + generation + hidden_size；不相容 → fallback，
+  主模型永遠能啟動。本階段**不**升 XCN11。
+- **Decision trace**：每次 fast decision 寫
+  `xingcheng/runtime/logs/decision-trace.jsonl`（probabilities /
+  confidence / latency / model hash / generation）。
+- **MiMo router stability**：`RouterStabilityPolicy` —
+  PRETRAIN=TRAINABLE、SFT/BASELINE_RECOVERY=GOVERNED、
+  LARGE_AGENT_RL=**FROZEN_BY_DEFAULT**（RL 不許漂移 routing
+  distribution）；`RouterStabilityGate` 監 entropy/utilization/
+  drift，超限 `ROUTER_DRIFT_EXCEEDED`。
+- **Agent learning（schema-only，RL 未解凍）**：
+  `star-agent-trajectory/v1` 是唯一 trajectory schema；
+  `HarnessRegistry` 多 harness + seen/unseen → `HARNESS_OVERFIT`；
+  `GroupwiseTrajectoryEvaluator` 先排 incorrect 再比
+  cost/path；`RewardIntegrityGate` grader→verifier→consistency→
+  adversarial，單一 grader 永不直接定 reward
+  （`REWARD_VERIFIER_MISMATCH` / `REWARD_SUSPECT`）。
+- **MTP**：`NativeMtpDrafter` = RUNTIME_OPTIMIZATION +
+  TRAINING auxiliary，非第二核心；drafter 可用更激進 precision
+  （main verify 保證語意）；speedup ≤ 0 自動關閉。
+- **RL 解凍順序**（§33）：100M capability parity → System-1
+  supervised calibration → trajectory collection → self-correction
+  SFT → DPO → bounded GRPO。目前只到 schema/evaluator。
+
+```powershell
+& $X --tool-root "Standalone tools\local-model" --system1-checks     # §44 電池
+& $X --tool-root "Standalone tools\local-model" --typed-decision-validate --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --cognition-route --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --router-stability --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --trajectory-validate --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --reward-gate --file <f.json>
+```
+
+Implementation: `GPTBridge.XingchengLearning/SystemOne.cs`
+（typed decision / calibration / abstention / cognition router /
+trace / head binding）、`AgentLearning.cs`（trajectory / harness /
+groupwise / reward integrity / self-correction）、
+`RouterStability.cs`（stage policy + drift gate）、
+`LayaMiMoChecks.cs`（20-check §44 battery）。
+
+## 星澄 NativeMemoryCudaPlane（memory/CUDA directive）
+
+**唯一** CUDA 記憶體平面 —— 所有 device/pinned 配置走
+`UnifiedCudaMemoryManager`；hot path（decode / layer forward /
+MoE dispatch / KV append / Delta update / MTP verify / training
+microstep）**永不** cudaMalloc/cudaFree。
+
+- **Tiers**：`PINNED_PERMANENT`（common weights/router/shared
+  expert）、`SESSION_PERSISTENT`（KV/Delta state/hot experts）、
+  `TOKEN_PERSISTENT`、`LAYER_TEMP`、`KERNEL_SCRATCH` ——
+  不重疊生命週期 alias 同一物理記憶體。
+- **CudaDevicePool**：`cudaMallocAsync` mempool，
+  release threshold = high-water —— 只有 memory pressure /
+  unload / generation switch / 明確維護才 trim。
+- **Budget**：VRAM hard budget 永留 emergency headroom；
+  記憶體不足走 8 步 **pressure ladder**（cold prefix → warm
+  prefix → routed expert → hotset → batch → prefill chunk →
+  spill → reject），**不得 OOM**。
+- **PinnedHostPool**：固定 ring buffer，上限
+  `max_pinned_host_bytes`；普通 metadata/corpus 用 pageable。
+- **Streams**：固定 lane（DECODE_HIGH / PREFILL / EXPERT_PREFETCH /
+  H2D / D2H / TRAIN），decode 最高優先權；日常同步用 event，
+  不用 cudaDeviceSynchronize。
+- **Precision（sm_86）**：production = BF16（Tensor Core），
+  router/norm accumulate = FP32，KV = INT8，
+  **FP64 = Oracle only**（gradcheck/parity/certification），
+  **FP8/FP4 = DISABLED_BY_HARDWARE**。
+- **Telemetry**：`star-cuda-memory-telemetry/v1`（pool
+  used/peak、workspace_peak、per-tier bytes、h2d/d2h/d2d
+  bytes、pinned、ladder events）。
+- **整個 plane 屬 RUNTIME_OPTIMIZATION_AXIS** —— 不改模型語意、
+  權重語意、XCN10、HybridCausalDecoder，不產生新 generation。
+
+```powershell
+# native probe（真 GPU 執行 pool/arena/ladder 檢查；無 GPU 回報 simulated）
+& xc_modeltool.exe memplane-probe --budget 2147483648 --pinned 33554432
+& xc_modeltool.exe memplane-telemetry
+# 合約層電池（原生 probe + 政策檢查）
+& xc-learning.exe --tool-root "Standalone tools\local-model" --cuda-plane-checks
+& xc-learning.exe --tool-root "Standalone tools\local-model" --precision-policy
+```
+
+Implementation：`tools/xcm_memplane.h`（manager/pool/arena/
+pinned/ladder/telemetry，real CUDA runtime API）、
+`GPTBridge.XingchengLearning/MemoryCudaPlane.cs`（precision
+policy / ladder / prefill-chunk / telemetry schema / alignment）、
+`CudaPlaneChecks.cs`（11-check battery）。
+
+未落地（P1–P10，依優先序排程）：BF16 production GEMM 切換、
+CUDA Graph decode/prefill/training、kernel fusion、fused AdamW、
+activation/gradient arena、autotune —— 目前僅契約與 catalog
+狀態；FP8/FP4 production kernel **不做**。
 
 ## 星澄 Data Residency (`xingcheng-internal`)
 

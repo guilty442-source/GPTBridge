@@ -42,8 +42,9 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // (1 = g4 fields follow, 0 = non-gemma4 at ver 10+).
     // Canonical contract: every new checkpoint is XCN10 — all versioned
     // header blocks are always serialized (absent axes write zeros /
-    // marker 0), so the fingerprint is version-stable. v1..v9 files
-    // still load for backward compatibility.
+    // marker 0), so the fingerprint is version-stable; readers v1..v10
+    // stay backward compatible (absent fields default to the Qwen-style
+    // fused behaviour).
     const uint32_t ver = 10;
     f.write("XCN1", 4); u32(f, ver);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);

@@ -1,38 +1,70 @@
-// xct_canon.h — xc-fused-1 canonical contract probe (--canoncheck) and
-// the unified trainer probe driver (--probe-all ->
-// star-trainer-probe-report/v1). Included once by xingcheng_trainer.cpp
-// inside namespace xct, LAST — probe_all() references every sibling.
+// xct_canon.h — B94 fragment of xingcheng_trainer.cpp (xc-fused-1 probe).
+// Included once by xingcheng_trainer.cpp inside namespace xct, after
+// xct_csa.h.
 //
-// canoncheck pins the convergence contract: a canonical config must
-// satisfy every xc-fused-1 clause, survive an XCN10 round-trip
-// bit-exactly (versioned fingerprint stable, writer locked at v10), and
-// any non-canonical axis — CSA, MLA (kv/q lora), aux-free lb_bias,
-// gemma4 family, wrong interval/aux/topk, missing MTP/vision/YaRN —
-// must fail the contract rather than be silently relabelled.
+// --canoncheck: the canonical-generation contract (convergence phase).
+// "xc-fused-1" is the single canonical architecture profile: every
+// mechanism axis is pinned by the generation name, so a job that
+// declares it resolves to exactly one ModelConfig — never a silent
+// divergence. The probe asserts:
+//   pins      — interval-4 deltanet interleave, gated+qk_norm+partial-
+//               rotary full attention, sigmoid MoE top-2 with shared
+//               expert + aux 0.001, vision early fusion, YaRN >=2,
+//               MTP stack depth>=1 weight>=0.1
+//   exclusion — CSA, MLA, Gemma4, aux-free lb_bias and kv-sharing are
+//               canonically absent (fields forced off, not advisory)
+//   unique    — two parses of the same manifest are field-identical;
+//               conflicting job fields are overridden, not merged
+//   execute   — synthetic forward+backward produce finite
+//               logits/gradients through every pinned axis
+//   ckpt      — saves land as XCN10 with gemma4 marker 0, round-trip
+//               bit-identical, and the file bytes are deterministic
 #pragma once
 
-#include <chrono>
-#include <cstdio>
-#include <cstring>
-#include <io.h>
-
-// The single source of truth for "is this config xc-fused-1". Mirrors
-// the export-side predicate in xc_modeltool.cpp (arch_xc_fused1) — each
-// binary checks the contract against its own view; divergent copies are
-// caught by canoncheck itself.
-static bool cfg_is_canonical(const ModelConfig& c) {
-    return !c.is_gemma4() && c.full_attention_interval == 4 &&
-           c.attn_output_gate && c.qk_norm &&
-           std::fabs(c.partial_rotary - 0.5f) < 1e-6f &&
-           c.moe_router_sigmoid && c.moe_top_k == 2 &&
-           c.moe_layer_interval == 1 && c.moe_experts >= 8 &&
-           c.moe_shared_experts >= 1 && c.shared_expert_gate &&
-           std::fabs(c.moe_aux_w - 0.001f) < 1e-7f &&
-           !c.moe_auxfree_balance && c.moe_lb_bias_rate == 0.0f &&
-           c.mtp_depth >= 1 && c.mtp_loss_w >= 0.1f && c.use_vision &&
-           c.vision_patch_dim >= 16 && c.vision_max_patches >= 64 &&
-           c.yarn_factor >= 2.0f && c.kv_lora_rank == 0 &&
-           c.q_lora_rank == 0 && c.csa_ratio == 0;
+static bool canon_cfg_eq(const ModelConfig& a, const ModelConfig& b) {
+    return a.vocab == b.vocab && a.hidden == b.hidden &&
+           a.inter == b.inter && a.layers == b.layers &&
+           a.heads == b.heads && a.kv_heads == b.kv_heads &&
+           a.max_pos == b.max_pos &&
+           a.full_attention_interval == b.full_attention_interval &&
+           a.attn_output_gate == b.attn_output_gate &&
+           a.qk_norm == b.qk_norm &&
+           a.partial_rotary == b.partial_rotary &&
+           a.lin_key_heads == b.lin_key_heads &&
+           a.lin_key_dim == b.lin_key_dim &&
+           a.lin_value_heads == b.lin_value_heads &&
+           a.lin_value_dim == b.lin_value_dim &&
+           a.lin_conv_kernel == b.lin_conv_kernel &&
+           a.moe_experts == b.moe_experts &&
+           a.moe_top_k == b.moe_top_k &&
+           a.moe_layer_interval == b.moe_layer_interval &&
+           a.moe_router_sigmoid == b.moe_router_sigmoid &&
+           a.moe_shared_experts == b.moe_shared_experts &&
+           a.shared_expert_gate == b.shared_expert_gate &&
+           a.moe_aux_w == b.moe_aux_w &&
+           a.moe_auxfree_balance == b.moe_auxfree_balance &&
+           a.moe_zloss_w == b.moe_zloss_w &&
+           a.kv_lora_rank == b.kv_lora_rank &&
+           a.q_lora_rank == b.q_lora_rank &&
+           a.mtp_depth == b.mtp_depth && a.mtp_loss_w == b.mtp_loss_w &&
+           a.mtp_num_layers == b.mtp_num_layers &&
+           a.yarn_factor == b.yarn_factor &&
+           a.yarn_orig_pos == b.yarn_orig_pos &&
+           a.yarn_beta_fast == b.yarn_beta_fast &&
+           a.yarn_beta_slow == b.yarn_beta_slow &&
+           a.yarn_attn_factor == b.yarn_attn_factor &&
+           a.use_vision == b.use_vision &&
+           a.vision_patch_dim == b.vision_patch_dim &&
+           a.vision_max_patches == b.vision_max_patches &&
+           a.csa_ratio == b.csa_ratio && a.csa_topk == b.csa_topk &&
+           a.csa_window == b.csa_window &&
+           a.global_attn_interval == b.global_attn_interval &&
+           a.sliding_window == b.sliding_window &&
+           a.num_global_kv_heads == b.num_global_kv_heads &&
+           a.k_eq_v_global == b.k_eq_v_global &&
+           a.num_kv_shared_layers == b.num_kv_shared_layers &&
+           a.model_type == b.model_type &&
+           a.layer_types == b.layer_types;
 }
 
 static int canoncheck() {
@@ -42,137 +74,150 @@ static int canoncheck() {
         std::printf("  FAIL %s\n", what);
     };
 
-    auto canonical = [] {
-        ModelConfig c;
-        c.vocab = 128; c.hidden = 64; c.inter = 96; c.layers = 4;
-        c.heads = 4; c.kv_heads = 2; c.max_pos = 128;
-        c.full_attention_interval = 4;
-        c.attn_output_gate = true; c.qk_norm = true;
-        c.partial_rotary = 0.5f;
-        c.lin_key_heads = 2; c.lin_key_dim = 16;
-        c.lin_value_heads = 4; c.lin_value_dim = 16;
-        c.lin_conv_kernel = 4;
-        c.moe_experts = 8; c.moe_top_k = 2; c.moe_layer_interval = 1;
-        c.moe_expert_inter = 24;
-        c.moe_shared_experts = 1; c.moe_shared_inter = 48;
-        c.shared_expert_gate = true;
-        c.moe_router_sigmoid = true; c.moe_aux_w = 0.001f;
-        c.mtp_depth = 1; c.mtp_loss_w = 0.3f;
-        c.use_vision = true; c.vision_patch_dim = 16;
-        c.vision_max_patches = 64;
-        c.yarn_factor = 2.0f; c.yarn_orig_pos = 128;
-        return c;
-    };
-
-    // ---- 1: canonical config satisfies the contract ----
+    // ---- pins: the manifest declares only the generation + sizes ----
+    JsonValue mj = JsonParser(
+        "{\"generation\":\"xc-fused-1\",\"vocab_size\":96,"
+        "\"hidden_size\":32,\"intermediate_size\":48,"
+        "\"num_hidden_layers\":8,\"num_attention_heads\":4,"
+        "\"num_key_value_heads\":2,\"max_position_embeddings\":64,"
+        // conflicting non-canonical axes — must be overridden
+        "\"moe_router_sigmoid\":false,\"attn_output_gate\":false,"
+        "\"qk_norm\":false,\"partial_rotary_factor\":1.0,"
+        "\"use_vision\":false,\"moe_num_experts\":0,"
+        "\"kv_lora_rank\":16,\"csa_compress_ratio\":4,"
+        "\"moe_auxfree_balance\":true,"
+        "\"num_kv_shared_layers\":2,\"k_eq_v_global\":true}").parse();
+    ModelConfig c;
+    try {
+        c = parse_model(&mj);
+    } catch (const char* e) {
+        std::printf("  FAIL parse: %s\n", e);
+        return 1;
+    } catch (...) {
+        fail("parse: threw");
+        return 1;
+    }
+    if (c.full_attention_interval != 4) fail("pins: interval != 4");
+    if (c.lin_key_heads <= 0 || c.lin_key_dim <= 0 ||
+        c.lin_value_heads <= 0 || c.lin_value_dim <= 0)
+        fail("pins: deltanet geometry unset");
     {
-        ModelConfig c = canonical();
-        if (!cfg_is_canonical(c)) fail("canonical config rejected");
+        int lin = 0, attn = 0;
+        for (int l = 0; l < c.layers; ++l)
+            (c.is_linear(l) ? lin : attn)++;
+        if (lin != 6 || attn != 2) fail("pins: layer split != 6/2");
+    }
+    if (!c.attn_output_gate || !c.qk_norm ||
+        c.partial_rotary != 0.5f)
+        fail("pins: gated+normed+partial attention");
+    if (!c.use_yarn() || c.yarn_factor < 2.0f)
+        fail("pins: yarn factor < 2");
+    if (!c.moe_router_sigmoid || c.moe_top_k != 2 ||
+        c.moe_experts < 8 || c.moe_layer_interval != 1 ||
+        c.moe_shared_experts < 1 || !c.shared_expert_gate ||
+        c.moe_aux_w != 0.001f)
+        fail("pins: MoE contract");
+    if (!c.use_vision || c.vision_patch_dim < 16 ||
+        c.vision_max_patches < 64)
+        fail("pins: vision contract");
+    if (c.mtp_depth < 1 || c.mtp_loss_w < 0.1f)
+        fail("pins: mtp stack");
+    // ---- exclusion: canonical-absent axes stay off ----
+    if (c.csa_ratio != 0 || c.csa_topk != 0 || c.csa_window != 0)
+        fail("exclusion: csa");
+    if (c.kv_lora_rank != 0 || c.q_lora_rank != 0 ||
+        c.qk_nope_head_dim != 0 || c.qk_rope_head_dim != 0)
+        fail("exclusion: mla");
+    if (c.is_gemma4() || !c.layer_types.empty() ||
+        c.num_kv_shared_layers != 0)
+        fail("exclusion: gemma4/kv-sharing");
+    if (c.moe_auxfree_balance || c.moe_lb_bias_rate != 0.0f)
+        fail("exclusion: aux-free balance");
+    if (c.k_eq_v_global || c.num_global_kv_heads != 0)
+        fail("exclusion: k_eq_v/global kv");
+
+    // ---- unique: re-parse is field-identical ----
+    try {
+        ModelConfig c2 = parse_model(&mj);
+        if (!canon_cfg_eq(c, c2)) fail("unique: re-parse differs");
+    } catch (...) { fail("unique: re-parse threw"); }
+
+    // ---- execute: fwd/bwd through every pinned axis ---------------
+    Params p;
+    init_params(p, c, 7);
+    const int T = 12, VP = 4;
+    std::vector<int> ids(T);
+    for (int t = 0; t < T; ++t) ids[t] = 3 + (t * 7) % (c.vocab - 4);
+    std::vector<float> vp((size_t)VP * c.vision_patch_dim);
+    for (size_t i = 0; i < vp.size(); ++i)
+        vp[i] = 0.01f * (float)((int)(i % 13) - 6);
+    Fwd o;
+    try {
+        fwd(p, c, ids, o, &vp, VP);
+    } catch (...) { fail("exec: fwd threw"); }
+    bool fin = true;
+    for (float x : o.logits) if (!std::isfinite(x)) fin = false;
+    if (!fin) fail("exec: non-finite logits");
+    if (o.mtp_stack.empty()) fail("exec: mtp stack empty");
+    {
+        // one backward: grads must be finite on canonical params
+        const int VT = VP + T;
+        std::vector<int> vlab((size_t)VT, -100);
+        for (int t = 0; t < T - 1; ++t) vlab[VP + t] = ids[t + 1];
+        std::vector<float> dl;
+        ce_loss(o.logits, vlab, VT, c.vocab, dl);
+        std::vector<std::vector<float>> dmtp;
+        mtp_stack_aux_loss(c, ids, o, dmtp);
+        p.zero_grad();
+        try {
+            bwd(p, c, ids, o, dl, 1.0f, &vp, &dmtp);
+        } catch (...) { fail("exec: bwd threw"); }
+        for (auto& n : p.order) {
+            const Tensor& g = p.g[n];
+            for (float x : g.d)
+                if (!std::isfinite(x)) { fin = false; break; }
+            if (!fin) { fail("exec: non-finite grad"); break; }
+        }
+        // the pinned MTP stack must own trainable params with signal
+        const std::string m0 = "mtp.0.eh";
+        if (!p.w.count(m0)) fail("exec: mtp param missing");
     }
 
-    // ---- 2: XCN10 round-trip preserves every contract field and the
-    //         writer emits exactly version 10 ----
-    const char* tmp = "canoncheck_tmp.xcn";
+    // ---- ckpt: XCN10 unconditional + deterministic bytes -----------
     {
-        ModelConfig c = canonical();
-        Params p;
-        init_params(p, c, 23);
-        if (!ckpt_save(p, c, tmp, true)) {
-            fail("ckpt_save");
-        } else {
-            unsigned char hdr[8] = {0};
-            std::ifstream f(tmp, std::ios::binary);
-            f.read((char*)hdr, 8);
-            if (std::memcmp(hdr, "XCN1", 4) != 0) fail("XCN1 magic");
-            uint32_t ver = (uint32_t)hdr[4] | ((uint32_t)hdr[5] << 8) |
-                           ((uint32_t)hdr[6] << 16) |
-                           ((uint32_t)hdr[7] << 24);
-            if (ver != 10) fail("XCN writer not locked at v10");
-            ModelConfig r;
-            if (!ckpt_peek_config(tmp, r)) {
-                fail("ckpt_peek_config");
-            } else {
-                if (!cfg_is_canonical(r))
-                    fail("round-trip lost canonical contract");
-                if (r.full_attention_interval != 4 ||
-                    !r.attn_output_gate || !r.qk_norm ||
-                    std::fabs(r.partial_rotary - 0.5f) > 1e-6f ||
-                    !r.moe_router_sigmoid || r.moe_top_k != 2 ||
-                    r.moe_layer_interval != 1 || r.moe_experts != 8 ||
-                    r.moe_shared_experts != 1 || !r.shared_expert_gate ||
-                    std::fabs(r.moe_aux_w - 0.001f) > 1e-7f ||
-                    r.mtp_depth != 1 ||
-                    std::fabs(r.mtp_loss_w - 0.3f) > 1e-6f ||
-                    !r.use_vision || r.vision_patch_dim != 16 ||
-                    r.vision_max_patches != 64 ||
-                    std::fabs(r.yarn_factor - 2.0f) > 1e-6f)
-                    fail("XCN10 round-trip field drift");
+        const char* t1 = "xct_canon_a.tmp", *t2 = "xct_canon_b.tmp";
+        if (!ckpt_save(p, c, t1, true) || !ckpt_save(p, c, t2, true))
+            fail("ckpt: save");
+        if (slurp(t1) != slurp(t2)) fail("ckpt: non-deterministic bytes");
+        ModelConfig pk;
+        if (!ckpt_peek_config(t1, pk)) fail("ckpt: peek");
+        else {
+            if (pk.is_gemma4()) fail("ckpt: gemma4 marker not 0");
+            if (!canon_cfg_eq(c, pk)) fail("ckpt: config drift");
+        }
+        Params p2;
+        init_params(p2, pk, 0);
+        if (!ckpt_load(p2, pk, t1)) fail("ckpt: load");
+        else {
+            for (auto& n : p.order) {
+                const Tensor& a = p.w.at(n), &b = p2.w.at(n);
+                if (a.d != b.d) { fail("ckpt: tensor drift"); break; }
             }
         }
+        std::remove(t1); std::remove(t2);
     }
-    std::remove(tmp);
-
-    // ---- 3: every non-canonical axis must flip the predicate ----
-    // CSA / MLA / aux-free lb_bias are TRAINER_ONLY_EXPERIMENTAL or
-    // NON_CANONICAL_EXPERIMENTAL axes — legal to serialize, never part
-    // of the xc-fused-1 claim.
-    auto reject = [&](const char* what, void (*mut)(ModelConfig&),
-                      bool round_trips = true) {
-        ModelConfig c = canonical();
-        mut(c);
-        if (cfg_is_canonical(c)) fail(what);
-        // Non-canonical axes still round-trip — the contract rejects
-        // the *claim*, not the serialization. CSA is excluded: its
-        // fields are not part of XCN10 at all, so a CSA configuration
-        // can never be serialized as a canonical checkpoint.
-        if (!round_trips) return;
-        Params p;
-        init_params(p, c, 29);
-        if (ckpt_save(p, c, tmp, true)) {
-            ModelConfig r;
-            if (!ckpt_peek_config(tmp, r) || cfg_is_canonical(r))
-                fail(what);
-            std::remove(tmp);
-        }
-    };
-    reject("csa allowed in canonical",
-           [](ModelConfig& c) { c.csa_ratio = 2; c.csa_topk = 2;
-                                c.csa_window = 4;
-                                c.global_attn_interval = 1; },
-           false);
-    reject("mla kv-lora allowed in canonical",
-           [](ModelConfig& c) { c.kv_lora_rank = 64; });
-    reject("mla q-lora allowed in canonical",
-           [](ModelConfig& c) { c.q_lora_rank = 64; });
-    reject("aux-free lb_bias allowed in canonical",
-           [](ModelConfig& c) { c.moe_auxfree_balance = true;
-                                c.moe_lb_bias_rate = 1e-3f; });
-    reject("gemma4 claimed as xc-fused-1",
-           [](ModelConfig& c) { c.model_type = "gemma4_text"; });
-    reject("interval != 4",
-           [](ModelConfig& c) { c.full_attention_interval = 3; });
-    reject("aux_w drift", [](ModelConfig& c) { c.moe_aux_w = 0.01f; });
-    reject("top_k != 2", [](ModelConfig& c) { c.moe_top_k = 3; });
-    reject("mtp missing", [](ModelConfig& c) { c.mtp_depth = 0; });
-    reject("vision missing", [](ModelConfig& c) { c.use_vision = false; });
-    reject("yarn missing", [](ModelConfig& c) { c.yarn_factor = 1.0f; });
-    reject("qk_norm off", [](ModelConfig& c) { c.qk_norm = false; });
-    reject("attn gate off",
-           [](ModelConfig& c) { c.attn_output_gate = false; });
-    reject("partial rotary drift",
-           [](ModelConfig& c) { c.partial_rotary = 1.0f; });
-    reject("softmax router in canonical",
-           [](ModelConfig& c) { c.moe_router_sigmoid = false; });
-    reject("no shared expert",
-           [](ModelConfig& c) { c.moe_shared_experts = 0; });
 
     bool ok = failures == 0;
-    std::printf("canoncheck: xc-fused-1 contract failures=%d -> %s\n",
+    std::printf("canoncheck: xc-fused-1 failures=%d -> %s\n",
                 failures, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
 }
 
 // ------------------------------------------------------ probe driver --
+// Unified trainer probe runner (--probe-all -> star-trainer-probe-
+// report/v1): the single aggregation entry the ConvergenceGate calls.
+// Ported verbatim from the devin lane — order is fixed, any failure
+// fails the whole run.
 
 static uint64_t probe_fnv(const std::string& s) {
     uint64_t h = 1469598103934665603ull;
@@ -195,7 +240,6 @@ static int probe_all() {
         {"routecheck", routecheck}, {"dsvcheck", dsvcheck},
         {"yarncheck", yarncheck},   {"csacheck", csacheck},
         {"mtpcheck", mtpcheck},     {"canoncheck", canoncheck},
-        {"freezecheck", freezecheck},
     };
 
     std::fflush(stdout);

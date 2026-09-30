@@ -29,6 +29,12 @@
 #include <string>
 #include <unordered_map>
 
+// NativeMemoryCudaPlane §3: every device allocation routes through the
+// single UnifiedCudaMemoryManager — no naked cudaMalloc/cudaFree here.
+#include "cuda_memplane.h"
+
+namespace mp = xcm_memplane;
+
 namespace {
 
 // cuBLAS via dynamic binding — cublas64_12.dll ships with the toolkit,
@@ -43,6 +49,7 @@ struct CublasApi {
     HMODULE dll = nullptr;
     cublasStatus_t (*create)(cublasHandle_t*) = nullptr;
     cublasStatus_t (*destroy)(cublasHandle_t) = nullptr;
+    cublasStatus_t (*set_stream)(cublasHandle_t, cudaStream_t) = nullptr;
     cublasStatus_t (*dgemm)(cublasHandle_t, cublasOperation_t,
                             cublasOperation_t, int, int, int,
                             const double*, const double*, int,
@@ -76,10 +83,12 @@ bool cublas_ready() {
         GetProcAddress(dll, "cublasCreate_v2"));
     g_cublas.destroy = reinterpret_cast<decltype(g_cublas.destroy)>(
         GetProcAddress(dll, "cublasDestroy_v2"));
+    g_cublas.set_stream = reinterpret_cast<decltype(g_cublas.set_stream)>(
+        GetProcAddress(dll, "cublasSetStream_v2"));
     g_cublas.dgemm = reinterpret_cast<decltype(g_cublas.dgemm)>(
         GetProcAddress(dll, "cublasDgemm_v2"));
     if (g_cublas.create == nullptr || g_cublas.destroy == nullptr ||
-        g_cublas.dgemm == nullptr) {
+        g_cublas.dgemm == nullptr || g_cublas.set_stream == nullptr) {
         g_cublas.dll = nullptr;
         return false;
     }
@@ -90,14 +99,15 @@ bool cublas_ready() {
 // Weight pointers are stable for the engine lifetime (bundle storage /
 // owned dequantized tensors) and never mutate after load, so a cached
 // device copy stays valid. Released via xcuda_release_weights() on
-// engine unload.
+// engine unload. Allocations route through the unified memory manager
+// (§3) — PINNED_PERMANENT tier.
 std::mutex g_mu;
-std::unordered_map<const void*, void*> g_dev_weights;
+std::unordered_map<const void*, std::pair<void*, size_t>> g_dev_weights;
 cublasHandle_t g_handle = nullptr;
 
-// Transient activation buffers, pooled engine-lifetime-wide. cudaMalloc/
-// cudaFree per GEMM call was the dominant per-token overhead (cudaFree also
-// implies a device sync); grow-on-demand keeps allocation off the hot path.
+// Transient activation buffers, pooled engine-lifetime-wide through the
+// manager (LAYER_TEMP tier). Grow-on-demand keeps allocation off the hot
+// path; growth is a load-time event, not a per-token one.
 struct DevBuf {
     void* ptr = nullptr;
     size_t cap = 0;
@@ -106,18 +116,21 @@ DevBuf g_dev_a, g_dev_c;
 
 void* dev_get(DevBuf& buf, size_t bytes) {
     if (buf.cap >= bytes) return buf.ptr;
-    void* next = nullptr;
-    if (cudaMalloc(&next, bytes) != cudaSuccess) return nullptr;
-    if (buf.ptr) cudaFree(buf.ptr);
+    void* next = mp::mgr().alloc(
+        mp::Tier::LAYER_TEMP, (int64_t)bytes,
+        mp::StreamLane::PREFILL_NORMAL);
+    if (next == nullptr) return nullptr;
+    if (buf.ptr) mp::mgr().free(buf.ptr, mp::StreamLane::PREFILL_NORMAL);
     buf.ptr = next;
     buf.cap = bytes;
     return buf.ptr;
 }
 
-// Pinned host staging: pageable H2D/D2H copies are staged through a driver
-// bounce buffer; pinned memory makes both directions direct (still
-// synchronous — no behaviour change). Optional: a failed pinned alloc falls
-// back to the direct pageable copy below.
+// Pinned host staging through the manager's bounded pool (§13/§14):
+// pageable H2D/D2H copies stage through pinned memory so both
+// directions go direct on the transfer lanes. A failed pinned alloc
+// falls back to the direct pageable copy below — pageable is legal,
+// unmanaged pinning is not.
 struct HostBuf {
     double* ptr = nullptr;
     size_t cap = 0;  // elements
@@ -126,37 +139,71 @@ HostBuf g_pin_a, g_pin_c;
 
 double* host_get(HostBuf& buf, size_t elems) {
     if (buf.cap >= elems) return buf.ptr;
-    double* next = nullptr;
-    if (cudaHostAlloc(
-            reinterpret_cast<void**>(&next), elems * sizeof(double),
-            cudaHostAllocDefault) != cudaSuccess) {
-        return nullptr;
-    }
-    if (buf.ptr) cudaFreeHost(buf.ptr);
+    double* next = static_cast<double*>(mp::mgr().pinned_alloc(
+        (int64_t)(elems * sizeof(double))));
+    if (next == nullptr) return nullptr;
     buf.ptr = next;
     buf.cap = elems;
     return buf.ptr;
 }
 
 cublasHandle_t get_handle() {
-    if (g_handle == nullptr &&
-        (!cublas_ready() ||
-         g_cublas.create(&g_handle) != kCublasSuccess)) {
-        return nullptr;
+    if (g_handle == nullptr) {
+        if (!mp::mgr().ensure() || !cublas_ready() ||
+            g_cublas.create(&g_handle) != kCublasSuccess) {
+            return nullptr;
+        }
+        // §16-§17: GEMM work rides the PREFILL lane, never the legacy
+        // default stream — cross-lane ordering is by event, so a D2H
+        // copy can never read a buffer the GEMM is still writing.
+        if (g_cublas.set_stream(
+                g_handle, mp::mgr().stream(
+                              mp::StreamLane::PREFILL_NORMAL)) !=
+                kCublasSuccess) {
+            g_cublas.destroy(g_handle);
+            g_handle = nullptr;
+            return nullptr;
+        }
     }
     return g_handle;
 }
 
+// Event chain for H2D -> compute -> D2H ordering across lanes.
+// Non-blocking streams never synchronize with the legacy default
+// stream; explicit events are the contract (§16).
+cudaEvent_t g_ev_in = nullptr, g_ev_out = nullptr;
+
+bool ensure_events() {
+    if (g_ev_in == nullptr &&
+        cudaEventCreateWithFlags(&g_ev_in, cudaEventDisableTiming)
+            != cudaSuccess)
+        return false;
+    if (g_ev_out == nullptr &&
+        cudaEventCreateWithFlags(&g_ev_out, cudaEventDisableTiming)
+            != cudaSuccess)
+        return false;
+    return true;
+}
+
 void* device_weight(const double* host, size_t bytes) {
     auto it = g_dev_weights.find(host);
-    if (it != g_dev_weights.end()) return it->second;
-    void* dev = nullptr;
-    if (cudaMalloc(&dev, bytes) != cudaSuccess) return nullptr;
-    if (cudaMemcpy(dev, host, bytes, cudaMemcpyHostToDevice) != cudaSuccess) {
-        cudaFree(dev);
+    if (it != g_dev_weights.end()) return it->second.first;
+    // §3/§7 PINNED_PERMANENT + §15 async H2D on the transfer lane;
+    // the stream-scoped sync keeps first-use semantics without a
+    // device-wide barrier (§16).
+    void* dev = mp::mgr().alloc(
+        mp::Tier::PINNED_PERMANENT, (int64_t)bytes,
+        mp::StreamLane::H2D);
+    if (dev == nullptr) return nullptr;
+    cudaStream_t s = mp::mgr().stream(mp::StreamLane::H2D);
+    if (cudaMemcpyAsync(dev, host, bytes, cudaMemcpyHostToDevice, s)
+            != cudaSuccess ||
+        cudaStreamSynchronize(s) != cudaSuccess) {
+        mp::mgr().free(dev, mp::StreamLane::H2D);
         return nullptr;
     }
-    g_dev_weights.emplace(host, dev);
+    mp::mgr().h2d_bytes += (int64_t)bytes;
+    g_dev_weights.emplace(host, std::make_pair(dev, bytes));
     return dev;
 }
 
@@ -213,24 +260,29 @@ int xcuda_available() {
     int count = 0;
     if (cudaGetDeviceCount(&count) != cudaSuccess) return 0;
     // The base CUDA path is cuBLAS Dgemm — without the toolkit dll the
-    // capability is absent, not partially present.
-    return count > 0 && cublas_ready() ? 1 : 0;
+    // capability is absent, not partially present. The memory plane is
+    // initialised lazily here so pool/streams exist before first use.
+    return count > 0 && cublas_ready() &&
+           mp::mgr().ensure() ? 1 : 0;
 }
 
 // Free every cached device weight and the shared cuBLAS handle. Called by
 // the engine on unload so a stale pointer can never alias a new tensor.
+// Device bytes release through the memory plane (§3/§6 maintenance trim).
 int xcuda_release_weights() {
     std::lock_guard<std::mutex> lk(g_mu);
-    for (auto& kv : g_dev_weights) cudaFree(kv.second);
+    for (auto& kv : g_dev_weights)
+        mp::mgr().free(kv.second.first, mp::StreamLane::H2D);
     g_dev_weights.clear();
-    if (g_dev_a.ptr) cudaFree(g_dev_a.ptr);
-    if (g_dev_c.ptr) cudaFree(g_dev_c.ptr);
+    if (g_dev_a.ptr) mp::mgr().free(g_dev_a.ptr, mp::StreamLane::H2D);
+    if (g_dev_c.ptr) mp::mgr().free(g_dev_c.ptr, mp::StreamLane::H2D);
     g_dev_a = DevBuf{};
     g_dev_c = DevBuf{};
-    if (g_pin_a.ptr) cudaFreeHost(g_pin_a.ptr);
-    if (g_pin_c.ptr) cudaFreeHost(g_pin_c.ptr);
+    mp::mgr().pinned_release_all();
     g_pin_a = HostBuf{};
     g_pin_c = HostBuf{};
+    if (g_ev_in) { cudaEventDestroy(g_ev_in); g_ev_in = nullptr; }
+    if (g_ev_out) { cudaEventDestroy(g_ev_out); g_ev_out = nullptr; }
     if (g_handle != nullptr) {
         g_cublas.destroy(g_handle);
         g_handle = nullptr;
@@ -302,17 +354,28 @@ int xcuda_matmul_f64(
         }
         double* ha = host_get(g_pin_a, a_elems);
         double* hc = host_get(g_pin_c, c_elems);
+        cudaStream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+        cudaStream_t prefill =
+            mp::mgr().stream(mp::StreamLane::PREFILL_NORMAL);
+        cudaStream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
+        if (!ensure_events()) return 3;
+        // §15/§16: H2D on the transfer lane -> event -> GEMM on the
+        // compute lane -> event -> D2H. The only host wait is the
+        // final D2H completion; no default-stream semantics involved.
         if (ha != nullptr) {
             std::memcpy(ha, a, a_bytes);
-            if (cudaMemcpy(da, ha, a_bytes, cudaMemcpyHostToDevice) !=
-                cudaSuccess) {
+            if (cudaMemcpyAsync(da, ha, a_bytes,
+                    cudaMemcpyHostToDevice, h2d) != cudaSuccess)
                 return 3;
-            }
         } else if (
-            cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) !=
-            cudaSuccess) {
+            cudaMemcpyAsync(da, a, a_bytes,
+                cudaMemcpyHostToDevice, h2d) != cudaSuccess) {
             return 3;
         }
+        mp::mgr().h2d_bytes += (int64_t)a_bytes;
+        if (cudaEventRecord(g_ev_in, h2d) != cudaSuccess ||
+            cudaStreamWaitEvent(prefill, g_ev_in, 0) != cudaSuccess)
+            return 3;
         {
             const double alpha = 1.0;
             const double beta = 0.0;
@@ -326,17 +389,23 @@ int xcuda_matmul_f64(
                 return 3;
             }
         }
+        if (cudaEventRecord(g_ev_out, prefill) != cudaSuccess ||
+            cudaStreamWaitEvent(d2h, g_ev_out, 0) != cudaSuccess)
+            return 3;
         if (hc != nullptr) {
-            if (cudaMemcpy(hc, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-                cudaSuccess) {
+            if (cudaMemcpyAsync(hc, dc, c_bytes,
+                    cudaMemcpyDeviceToHost, d2h) != cudaSuccess ||
+                cudaStreamSynchronize(d2h) != cudaSuccess) {
                 return 3;
             }
             std::memcpy(out, hc, c_bytes);
         } else if (
-            cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-            cudaSuccess) {
+            cudaMemcpyAsync(out, dc, c_bytes,
+                cudaMemcpyDeviceToHost, d2h) != cudaSuccess ||
+            cudaStreamSynchronize(d2h) != cudaSuccess) {
             return 3;
         }
+        mp::mgr().d2h_bytes += (int64_t)c_bytes;
         rc = 0;
     }
     return rc;
@@ -384,17 +453,26 @@ int xcuda_matmul_f64_grouped(
     if (handle == nullptr || da == nullptr || dc == nullptr) return 3;
     double* ha = host_get(g_pin_a, a_elems);
     double* hc = host_get(g_pin_c, c_elems);
+    cudaStream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+    cudaStream_t prefill =
+        mp::mgr().stream(mp::StreamLane::PREFILL_NORMAL);
+    cudaStream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
+    if (!ensure_events()) return 3;
     if (ha != nullptr) {
         std::memcpy(ha, a, a_bytes);
-        if (cudaMemcpy(da, ha, a_bytes, cudaMemcpyHostToDevice) !=
-            cudaSuccess) {
+        if (cudaMemcpyAsync(da, ha, a_bytes, cudaMemcpyHostToDevice,
+                h2d) != cudaSuccess) {
             return 3;
         }
     } else if (
-        cudaMemcpy(da, a, a_bytes, cudaMemcpyHostToDevice) !=
-        cudaSuccess) {
+        cudaMemcpyAsync(da, a, a_bytes, cudaMemcpyHostToDevice,
+            h2d) != cudaSuccess) {
         return 3;
     }
+    mp::mgr().h2d_bytes += (int64_t)a_bytes;
+    if (cudaEventRecord(g_ev_in, h2d) != cudaSuccess ||
+        cudaStreamWaitEvent(prefill, g_ev_in, 0) != cudaSuccess)
+        return 3;
     {
         const double alpha = 1.0;
         const double beta = 0.0;
@@ -420,17 +498,23 @@ int xcuda_matmul_f64_grouped(
             off += m_g;
         }
     }
+    if (cudaEventRecord(g_ev_out, prefill) != cudaSuccess ||
+        cudaStreamWaitEvent(d2h, g_ev_out, 0) != cudaSuccess)
+        return 3;
     if (hc != nullptr) {
-        if (cudaMemcpy(hc, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-            cudaSuccess) {
+        if (cudaMemcpyAsync(hc, dc, c_bytes, cudaMemcpyDeviceToHost,
+                d2h) != cudaSuccess ||
+            cudaStreamSynchronize(d2h) != cudaSuccess) {
             return 3;
         }
         std::memcpy(out, hc, c_bytes);
     } else if (
-        cudaMemcpy(out, dc, c_bytes, cudaMemcpyDeviceToHost) !=
-        cudaSuccess) {
+        cudaMemcpyAsync(out, dc, c_bytes, cudaMemcpyDeviceToHost,
+            d2h) != cudaSuccess ||
+        cudaStreamSynchronize(d2h) != cudaSuccess) {
         return 3;
     }
+    mp::mgr().d2h_bytes += (int64_t)c_bytes;
     return 0;
 }
 

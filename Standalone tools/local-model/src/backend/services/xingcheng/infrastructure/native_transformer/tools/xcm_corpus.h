@@ -7,6 +7,7 @@
 //          --tokenizer <path-or-dir> --out <dir>
 //          [--max-len N=1024] [--val-ratio PCT=5] [--max-docs N=20000]
 //          [--max-doc-chars N=1000000] [--max-tokens N=50000000]
+//          [--jobs N=min(8,hw)]
 //
 // The eleven mandated elements land as: registry-gated source list
 // (corpus registry), content-addressed dataset_version, per-document
@@ -134,20 +135,6 @@ uint64_t corpus_mix(uint64_t x) {
     x ^= x >> 30; x *= 0xBF58476D1CE4E5B9ULL;
     x ^= x >> 27; x *= 0x94D049BB133111EBULL;
     return x ^ (x >> 31);
-}
-
-// Band keys for a 64-lane signature (16 bands of 4) — the exact keys the
-// near-duplicate gate consumes, stored in the incremental scan-state so
-// unchanged files never need re-signature.
-std::vector<uint64_t> corpus_band_keys(const std::vector<uint64_t>& sig) {
-    std::vector<uint64_t> keys(16);
-    for (int b = 0; b < 16; ++b) {
-        keys[(size_t)b] = corpus_mix(
-            sig[(size_t)(b * 4)] ^ sig[(size_t)(b * 4 + 1)] ^
-            (sig[(size_t)(b * 4 + 2)] << 1) ^
-            (sig[(size_t)(b * 4 + 3)] >> 1) ^ (uint64_t)b);
-    }
-    return keys;
 }
 
 // 64-lane MinHash signature over whitespace word 5-grams; band width 4
@@ -285,232 +272,259 @@ int mode_corpus(const Args& a) {
               [](const Cand& x, const Cand& y) { return x.rel < y.rel; });
     scanned_files = (int64_t)cands.size();
 
-    // ---- incremental scan-state (changed-files detection) ------------
-    // Per-file cache keyed by repo-relative path: size+mtime act as the
-    // freshness token — a hit means the file is byte-identical (same
-    // size AND same write time), so every derived artifact (hashes,
-    // NFC flag, language, MinHash band keys, token ids) is reused
-    // without re-reading or re-tokenizing. A size/mtime miss re-runs the
-    // full per-document pipeline for that file only. The cache is
-    // invalidated wholesale when the tokenizer or doc-length limit
-    // changes (ids would otherwise be stale).
-    struct FileRec {
-        uint64_t size = 0, mtime = 0;
-        int status = 0;  // 0 ok, 1 empty, 2 unreadable, 3 binary
+    // ---- per-document pipeline (elements 3/6/7/8/9/10) ---------------
+    // §22 incremental scan: a content-hash file cache under out_dir
+    // (corpus-cache.jsonl, star-corpus-file-cache/v1) lets unchanged
+    // files skip re-parse entirely — stat size+mtime must match the
+    // cached record AND the raw-content sha is reused verbatim. Changed
+    // or uncached files go through the full pipeline on a bounded worker
+    // pool (--jobs N, default min(8, hw)); results merge back in sorted
+    // relpath order so output stays bit-deterministic.
+    struct FileCacheRec {
+        bool present = false, skip = false;
+        int64_t size = 0, mtime = 0;
         CorpusDoc doc;
-        std::vector<uint64_t> bands;  // 16 MinHash band keys
+        std::vector<uint64_t> band_keys;
     };
-    const std::string tk_sha = sha256_file(tk_path);
-    std::unordered_map<std::string, FileRec> cache;
-    const fs::path state_path = out_dir / "scan-state.json";
-    bool cache_valid = false;
-    if (fs::exists(state_path)) {
-        try {
-            JsonValue st = parse_json_file(state_path.string());
-            const JsonValue* tk2 = st.get("tokenizer_sha256");
-            const JsonValue* mdc = st.get("max_doc_chars");
-            cache_valid =
-                tk2 && tk2->type == JsonValue::Type::String &&
-                tk2->string == tk_sha && mdc &&
-                mdc->type == JsonValue::Type::Number &&
-                (int64_t)mdc->number == max_doc_chars;
-            if (cache_valid) {
-                const JsonValue* files = st.get("files");
-                if (files && files->type == JsonValue::Type::Object) {
-                    for (const auto& kv : files->object) {
-                        const JsonValue& r = kv.second;
-                        if (r.type != JsonValue::Type::Object) continue;
-                        FileRec fr;
-                        // mtime/size ride as strings — int64 timestamps
-                        // overflow double's 53-bit mantissa and would
-                        // never match the freshly-stat'ed value.
-                        try {
-                            fr.size = (uint64_t)std::stoull(
-                                jget_str(r, "size"));
-                            fr.mtime = (uint64_t)std::stoull(
-                                jget_str(r, "mtime"));
-                        } catch (...) { continue; }
-                        fr.status = (int)xct::j_num(&r, "status", 0);
-                        fr.doc.source_id = jget_str(r, "source_id");
-                        fr.doc.sha_raw = jget_str(r, "sha256_raw");
-                        fr.doc.sha_nfc = jget_str(r, "sha256_nfc");
-                        fr.doc.overlap_sha = jget_str(r, "overlap_sha");
-                        fr.doc.language = jget_str(r, "language");
-                        if (const JsonValue* nb = r.get("nfc_changed"))
-                            fr.doc.nfc_changed =
-                                nb->type == JsonValue::Type::Bool &&
-                                nb->boolean;
-                        if (const JsonValue* ids = r.get("ids"))
-                            for (const auto& v : ids->array)
-                                fr.doc.ids.push_back((int64_t)v.number);
-                        if (const JsonValue* bk = r.get("bands"))
-                            for (const auto& v : bk->array) {
-                                // uint64 band keys are serialized as
-                                // strings (double can't hold them).
-                                try {
-                                    fr.bands.push_back((uint64_t)
-                                        std::stoull(v.string));
-                                } catch (...) {}
+    std::unordered_map<std::string, FileCacheRec> fcache;
+    {
+        const fs::path cp = out_dir / "corpus-cache.jsonl";
+        std::ifstream cf(cp, std::ios::binary);
+        if (cf) {
+            std::string line;
+            while (std::getline(cf, line)) {
+                if (line.empty()) continue;
+                JsonValue v;
+                try { JsonParser p(line); v = p.parse(); }
+                catch (...) { continue; }
+                const JsonValue* fv = v.get("format");
+                if (!fv || fv->type != JsonValue::Type::String ||
+                    fv->string != "star-corpus-file-cache/v1")
+                    continue;
+                const JsonValue* rv = v.get("rel");
+                if (!rv || rv->type != JsonValue::Type::String) continue;
+                FileCacheRec r;
+                r.present = true;
+                r.size = (int64_t)xct::j_num(&v, "size", -1);
+                // mtime is stored as a string: file-time ticks exceed
+                // double precision and must round-trip exactly.
+                const JsonValue* mv = v.get("mtime");
+                if (mv && mv->type == JsonValue::Type::String)
+                    r.mtime = std::atoll(mv->string.c_str());
+                else if (mv && mv->type == JsonValue::Type::Number)
+                    r.mtime = (int64_t)mv->number;
+                const JsonValue* sv = v.get("status");
+                r.skip = sv && sv->type == JsonValue::Type::String &&
+                         sv->string == "skip";
+                if (!r.skip) {
+                    auto js = [&](const char* k) -> std::string {
+                        const JsonValue* x = v.get(k);
+                        return x && x->type == JsonValue::Type::String
+                                   ? x->string : "";
+                    };
+                    r.doc.source_id = js("source_id");
+                    r.doc.relpath = rv->string;
+                    r.doc.sha_raw = js("sha_raw");
+                    r.doc.sha_nfc = js("sha_nfc");
+                    r.doc.overlap_sha = js("overlap_sha");
+                    r.doc.language = js("language");
+                    r.doc.split = js("split");
+                    const JsonValue* nc = v.get("nfc_changed");
+                    r.doc.nfc_changed =
+                        nc && nc->type == JsonValue::Type::Bool &&
+                        nc->boolean;
+                    const JsonValue* bk = v.get("band_keys");
+                    if (bk && bk->type == JsonValue::Type::Array) {
+                        for (const auto& h : bk->array) {
+                            if (h.type == JsonValue::Type::String) {
+                                uint64_t u = 0;
+                                std::from_chars(
+                                    h.string.data(),
+                                    h.string.data() + h.string.size(),
+                                    u, 16);
+                                r.band_keys.push_back(u);
                             }
-                        cache[kv.first] = std::move(fr);
+                        }
+                    }
+                    const JsonValue* iv = v.get("ids");
+                    if (iv && iv->type == JsonValue::Type::Array) {
+                        r.doc.ids.reserve(iv->array.size());
+                        for (const auto& t : iv->array)
+                            if (t.type == JsonValue::Type::Number)
+                                r.doc.ids.push_back((int64_t)t.number);
                     }
                 }
+                fcache[rv->string] = std::move(r);
             }
-        } catch (...) {
-            cache.clear();
-            cache_valid = false;
         }
     }
 
-    // ---- per-document pipeline (elements 3/6/7/8/9/10) ---------------
-    // Stage 1: stat every candidate; a size+mtime cache hit skips the
-    // file entirely (no read, no hash, no tokenize).
-    std::vector<FileRec> recs(cands.size());
-    std::vector<int64_t> stale;
-    stale.reserve(cands.size());
-    int64_t cache_hits = 0;
+    int64_t jobs = 0;
+    {
+        const std::string js = a.get("jobs");
+        if (!js.empty()) jobs = std::atoll(js.c_str());
+    }
+    if (jobs <= 0)
+        jobs = std::min<int64_t>(
+            8, (int64_t)std::thread::hardware_concurrency());
+    if (jobs < 1) jobs = 1;
+
+    struct ScanResult {
+        enum class Kind { Pending, Cached, Doc, Skip } kind =
+            Kind::Pending;
+        CorpusDoc doc;
+        std::vector<uint64_t> band_keys;
+        FileCacheRec rec;          // record to persist into new cache
+        bool cache_hit = false;
+        bool cache_drop = false;   // deduped — persist no cache record
+        int skip_why = -1;         // 0 unreadable, 1 empty, 2 binary
+    };
+    std::vector<ScanResult> results(cands.size());
+    int64_t cache_hits = 0, reparsed = 0;
+
+    // Stage 1 (metadata gate): unchanged files reuse the cached derived
+    // record — no read, no BPE, no NFC.
+    std::vector<size_t> work;
     for (size_t i = 0; i < cands.size(); ++i) {
         std::error_code ec;
-        const uint64_t sz =
-            (uint64_t)fs::file_size(cands[i].abs, ec);
-        const uint64_t mt = ec ? 0 : (uint64_t)std::chrono::
-            duration_cast<std::chrono::nanoseconds>(
-                fs::last_write_time(cands[i].abs, ec)
-                    .time_since_epoch()).count();
-        auto it = cache.find(cands[i].rel);
-        if (it != cache.end() && !ec && it->second.size == sz &&
+        const int64_t sz = (int64_t)fs::file_size(cands[i].abs, ec);
+        if (ec) { results[i].kind = ScanResult::Kind::Skip; continue; }
+        const int64_t mt = (int64_t)fs::last_write_time(cands[i].abs, ec)
+                               .time_since_epoch()
+                               .count();
+        if (ec) { results[i].kind = ScanResult::Kind::Skip; continue; }
+        auto it = fcache.find(cands[i].rel);
+        if (it != fcache.end() && it->second.size == sz &&
             it->second.mtime == mt) {
-            recs[i] = it->second;
-            recs[i].doc.relpath = cands[i].rel;
-            recs[i].doc.source_id = cands[i].src->id;
+            results[i].kind = it->second.skip ? ScanResult::Kind::Skip
+                                              : ScanResult::Kind::Cached;
+            results[i].doc = it->second.doc;
+            results[i].band_keys = it->second.band_keys;
+            results[i].cache_hit = true;
             ++cache_hits;
             continue;
         }
-        recs[i].size = sz;
-        recs[i].mtime = mt;
-        recs[i].doc.relpath = cands[i].rel;
-        recs[i].doc.source_id = cands[i].src->id;
-        stale.push_back((int64_t)i);
+        work.push_back(i);
     }
+    reparsed = (int64_t)work.size();
 
-    // Stage 2: bounded parallel re-parse of stale files only. Each
-    // worker owns its slot — join order is the candidate index, so the
-    // merged result is identical regardless of thread scheduling.
+    // Stage 2 (bounded parallel): full parse for new/changed files.
+    // Workers own disjoint result slots; tokenizers read immutable
+    // tables so encode() is safe to share.
     {
-        const unsigned nt = std::max(
-            1u, std::min(8u, std::thread::hardware_concurrency()));
-        std::atomic<int64_t> next{0};
+        std::atomic<size_t> next{0};
         auto worker = [&]() {
-            for (;;) {
-                const int64_t si =
-                    next.fetch_add(1, std::memory_order_relaxed);
-                if (si >= (int64_t)stale.size()) break;
-                FileRec& fr = recs[(size_t)stale[(size_t)si]];
-                const Cand& c = cands[(size_t)stale[(size_t)si]];
+            while (true) {
+                const size_t w = next.fetch_add(1);
+                if (w >= work.size()) break;
+                const size_t i = work[w];
+                const Cand& c = cands[i];
+                ScanResult& R = results[i];
+                std::error_code ec;
+                R.rec.size = (int64_t)fs::file_size(c.abs, ec);
+                R.rec.mtime = (int64_t)fs::last_write_time(c.abs, ec)
+                                  .time_since_epoch()
+                                  .count();
                 std::ifstream f(c.abs, std::ios::binary);
-                if (!f) { fr.status = 2; continue; }
+                if (!f) { R.kind = ScanResult::Kind::Skip;
+                          R.skip_why = 0; R.rec.skip = true; continue; }
                 std::ostringstream ss; ss << f.rdbuf();
                 std::string raw = ss.str();
-                if (raw.empty()) { fr.status = 1; continue; }
+                if (raw.empty()) { R.kind = ScanResult::Kind::Skip;
+                                   R.skip_why = 1; R.rec.skip = true;
+                                   continue; }
                 if ((int64_t)raw.size() > max_doc_chars)
                     raw.resize((size_t)max_doc_chars);
                 if (raw.find('\0', 0) != std::string::npos) {
-                    fr.status = 3;
+                    R.kind = ScanResult::Kind::Skip;
+                    R.skip_why = 2; R.rec.skip = true;
                     continue;
                 }
-                fr.doc.sha_raw = sha256_text(raw);
+                CorpusDoc d;
+                d.source_id = c.src->id;
+                d.relpath = c.rel;
+                d.sha_raw = sha256_text(raw);
                 std::string norm = nfc(raw);
-                fr.doc.nfc_changed = norm != raw;
-                fr.doc.sha_nfc = sha256_text(norm);
-                fr.bands = corpus_band_keys(corpus_sig(norm));
-                fr.doc.language = corpus_lang(
+                d.nfc_changed = norm != raw;
+                d.sha_nfc = sha256_text(norm);
+                d.language = corpus_lang(
                     norm, fs::path(c.rel).extension().string());
-                fr.doc.overlap_sha = norm_text_sha(norm);
-                fr.doc.ids = tk.encode(norm, true, false);
-                if (eos_id >= 0) fr.doc.ids.push_back(eos_id);
-                fr.status = fr.doc.ids.empty() ? 1 : 0;
+                d.overlap_sha = norm_text_sha(norm);
+                d.ids = tk.encode(norm, true, false);
+                if (eos_id >= 0) d.ids.push_back(eos_id);
+                if (d.ids.empty()) {
+                    R.kind = ScanResult::Kind::Skip;
+                    R.skip_why = 1; R.rec.skip = true;
+                    continue;
+                }
+                uint64_t kh = corpus_fnv(d.source_id + ":" + d.relpath);
+                d.split = (kh % 1000 < (uint64_t)(val_pct * 10))
+                              ? "valid" : "train";
+                const std::vector<uint64_t> sig = corpus_sig(norm);
+                for (int b = 0; b < 16; ++b) {
+                    R.band_keys.push_back(corpus_mix(
+                        sig[(size_t)(b * 4)] ^ sig[(size_t)(b * 4 + 1)] ^
+                        (sig[(size_t)(b * 4 + 2)] << 1) ^
+                        (sig[(size_t)(b * 4 + 3)] >> 1) ^ (uint64_t)b));
+                }
+                R.doc = std::move(d);
+                R.rec.doc = R.doc;
+                R.rec.band_keys = R.band_keys;
+                R.kind = ScanResult::Kind::Doc;
             }
         };
-        std::vector<std::thread> pool;
-        for (unsigned t = 0; t < nt; ++t) pool.emplace_back(worker);
-        for (auto& th : pool) th.join();
-    }
-
-    // Persist the refreshed scan-state BEFORE stage 3 moves the docs out
-    // of `recs` (drops files that vanished, adds newly parsed ones).
-    // Auxiliary artifact — not part of the dataset integrity manifest.
-    {
-        std::ostringstream st;
-        st << "{\"schema\":\"star-corpus-scan-state/v1\""
-           << ",\"tokenizer_sha256\":\"" << tk_sha << "\""
-           << ",\"max_doc_chars\":" << max_doc_chars << ",\"files\":{";
-        bool first = true;
-        for (size_t i = 0; i < cands.size(); ++i) {
-            const FileRec& fr = recs[i];
-            if (fr.status == 2) continue;  // retry unreadable next run
-            if (!first) st << ',';
-            first = false;
-            st << '"' << gptbridge::jsonlite::json_escape(cands[i].rel)
-               << "\":{\"size\":\"" << fr.size << "\",\"mtime\":\""
-               << fr.mtime << "\",\"status\":" << fr.status
-               << ",\"source_id\":\""
-               << gptbridge::jsonlite::json_escape(fr.doc.source_id)
-               << "\",\"sha256_raw\":\"" << fr.doc.sha_raw
-               << "\",\"sha256_nfc\":\"" << fr.doc.sha_nfc
-               << "\",\"overlap_sha\":\"" << fr.doc.overlap_sha
-               << "\",\"language\":\"" << fr.doc.language
-               << "\",\"nfc_changed\":"
-               << (fr.doc.nfc_changed ? "true" : "false")
-               << ",\"bands\":[";
-            for (size_t b = 0; b < fr.bands.size(); ++b) {
-                if (b) st << ',';
-                st << '"' << fr.bands[b] << '"';
-            }
-            st << "],\"ids\":[";
-            for (size_t k = 0; k < fr.doc.ids.size(); ++k) {
-                if (k) st << ',';
-                st << fr.doc.ids[k];
-            }
-            st << "]}";
+        if (work.empty()) {
+            // all cached
+        } else if (jobs <= 1) {
+            worker();
+        } else {
+            std::vector<std::thread> pool;
+            for (int64_t t = 0; t < jobs; ++t) pool.emplace_back(worker);
+            for (auto& t : pool) t.join();
         }
-        st << "}}";
-        fs::create_directories(out_dir);
-        std::ofstream sfo(state_path, std::ios::binary | std::ios::trunc);
-        sfo << st.str();
     }
 
-    // Stage 3: deterministic sequential merge — dedup and packing see
-    // the records in sorted relpath order, identical to a cold scan.
+    // Stage 3 (deterministic merge): exact + MinHash dedup in sorted
+    // relpath order — identical to the serial pipeline's semantics.
     std::vector<CorpusDoc> docs;
     std::unordered_set<std::string> seen_sha;
     std::unordered_map<uint64_t, std::vector<int64_t>> bands;
     int64_t exact_dup = 0, near_dup = 0, empty_docs = 0,
             unreadable = 0, total_tokens = 0;
     std::unordered_map<std::string, int64_t> lang_counts;
-    for (FileRec& fr : recs) {
+    for (size_t i = 0; i < cands.size(); ++i) {
+        ScanResult& R = results[i];
+        if (R.kind == ScanResult::Kind::Skip) {
+            if (R.skip_why == 0) ++unreadable;
+            else if (R.skip_why == 1) ++empty_docs;
+            continue;
+        }
         if ((int64_t)docs.size() >= max_docs ||
             total_tokens >= max_tokens)
             break;
-        if (fr.status == 2) { ++unreadable; continue; }
-        if (fr.status != 0) { ++empty_docs; continue; }  // empty/binary
-        if (!seen_sha.insert(fr.doc.sha_nfc).second) {
+        if (!seen_sha.insert(R.doc.sha_nfc).second) {
             ++exact_dup;
+            // Deduped losers get no cache record: if the winner is
+            // removed later, this file must re-parse on the next run.
+            R.kind = ScanResult::Kind::Skip;
+            R.cache_drop = true;
             continue;
         }
         bool dup = false;
-        for (uint64_t key : fr.bands) {
+        for (uint64_t key : R.band_keys)
             if (bands.count(key)) { dup = true; break; }
+        if (dup) {
+            ++near_dup;
+            R.kind = ScanResult::Kind::Skip;
+            R.cache_drop = true;
+            continue;
         }
-        if (dup) { ++near_dup; continue; }
-        for (uint64_t key : fr.bands)
+        for (uint64_t key : R.band_keys)
             bands[key].push_back((int64_t)docs.size());
-        total_tokens += (int64_t)fr.doc.ids.size();
-        uint64_t kh =
-            corpus_fnv(fr.doc.source_id + ":" + fr.doc.relpath);
-        fr.doc.split =
-            (kh % 1000 < (uint64_t)(val_pct * 10)) ? "valid" : "train";
-        lang_counts[fr.doc.language]++;
-        docs.push_back(std::move(fr.doc));
+        total_tokens += (int64_t)R.doc.ids.size();
+        lang_counts[R.doc.language]++;
+        docs.push_back(std::move(R.doc));
+        if (R.cache_hit) R.rec = fcache[cands[i].rel];  // keep verbatim
     }
 
     // ---- emit (elements 2/8/9/11): packed ids + records + manifest ---
@@ -575,6 +589,61 @@ int mode_corpus(const Args& a) {
     train.close(); valid.close(); drec.close();
     trec.close(); vrec.close();
 
+    // Persist the incremental file cache (star-corpus-file-cache/v1):
+    // one line per candidate — doc records carry the derived fields and
+    // band keys so unchanged files need zero re-parse next run; skip
+    // records carry only metadata. Deduped files are never recorded.
+    {
+        std::ofstream cc(out_dir / "corpus-cache.jsonl",
+                         std::ios::binary | std::ios::trunc);
+        if (!cc) fail("CORPUS_OUT_UNWRITABLE");
+        for (size_t i = 0; i < cands.size(); ++i) {
+            const ScanResult& R = results[i];
+            if (R.cache_drop) continue;
+            if (R.kind == ScanResult::Kind::Skip && !R.rec.skip)
+                continue;  // transient stat failure — not cacheable
+            if (R.kind != ScanResult::Kind::Doc &&
+                R.kind != ScanResult::Kind::Cached &&
+                R.kind != ScanResult::Kind::Skip)
+                continue;
+            const FileCacheRec& rec = R.rec;
+            cc << "{\"format\":\"star-corpus-file-cache/v1\""
+               << ",\"rel\":\""
+               << gptbridge::jsonlite::json_escape(cands[i].rel)
+               << "\",\"source_id\":\""
+               << gptbridge::jsonlite::json_escape(rec.doc.source_id)
+               << "\",\"size\":" << rec.size
+               << ",\"mtime\":\"" << rec.mtime << "\"";
+            if (R.kind == ScanResult::Kind::Skip) {
+                cc << ",\"status\":\"skip\"}\n";
+                continue;
+            }
+            cc << ",\"status\":\"doc\""
+               << ",\"sha_raw\":\"" << rec.doc.sha_raw
+               << "\",\"sha_nfc\":\"" << rec.doc.sha_nfc
+               << "\",\"overlap_sha\":\"" << rec.doc.overlap_sha
+               << "\",\"language\":\"" << rec.doc.language
+               << "\",\"split\":\"" << rec.doc.split
+               << "\",\"nfc_changed\":"
+               << (rec.doc.nfc_changed ? "true" : "false")
+               << ",\"band_keys\":[";
+            for (size_t b = 0; b < rec.band_keys.size(); ++b) {
+                if (b) cc << ',';
+                char hx[17];
+                std::snprintf(hx, sizeof(hx), "%016llx",
+                              (unsigned long long)rec.band_keys[b]);
+                cc << '"' << hx << '"';
+            }
+            cc << "],\"ids\":[";
+            for (size_t t = 0; t < rec.doc.ids.size(); ++t) {
+                if (t) cc << ',';
+                cc << rec.doc.ids[t];
+            }
+            cc << "]}\n";
+        }
+        if (!cc) fail("CORPUS_OUT_UNWRITABLE");
+    }
+
     std::string docs_sha = sha256_file(docs_path.string());
     std::ostringstream mf;
     mf << "{\"schema_version\":\"star-pretrain-corpus/v1\""
@@ -588,8 +657,9 @@ int mode_corpus(const Args& a) {
        << ",\"counts\":{\"sources_allowed\":" << (int64_t)allowed.size()
        << ",\"sources_rejected\":" << (int64_t)rejected_sources.size()
        << ",\"files_scanned\":" << scanned_files
-       << ",\"files_cached\":" << cache_hits
-       << ",\"files_reparsed\":" << (int64_t)stale.size()
+       << ",\"cache_hits\":" << cache_hits
+       << ",\"files_reparsed\":" << reparsed
+       << ",\"scan_jobs\":" << jobs
        << ",\"paths_denied\":" << denied_paths
        << ",\"docs_kept\":" << (int64_t)docs.size()
        << ",\"exact_duplicates\":" << exact_dup

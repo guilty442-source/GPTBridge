@@ -421,6 +421,14 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
         cfg.use_double_wide_mlp = v->boolean;
     }
 
+    if (const JsonValue* v =
+            json_optional(manifest, "architecture_generation")) {
+        if (v->type != JsonValue::Type::String)
+            throw InferenceError(
+                "JSON_STRING_EXPECTED:architecture_generation");
+        bundle.architecture_generation_ = v->string;
+    }
+
     const std::string weights_name = json_string(manifest, "weights_file");
     bundle.weights_sha256_ = json_string(manifest, "weights_sha256");
     // Lifecycle label (architecture-convergence manifest field); absent on
@@ -509,53 +517,57 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             view.data = reinterpret_cast<const double*>(
                 bundle.blob_->data + item.offset);
         } else {
-            // Weight-only per-tensor quantization: dequantize once at
-            // load into owned fp64 storage so every downstream GEMM is
-            // unchanged. bf16 is unscaled (IEEE bf16 = top 16 bits of
-            // fp32); int8/int4 are symmetric and carry "scale".
             const unsigned char* raw = bundle.blob_->data + item.offset;
             bundle.owned_tensors_.emplace_back(
                 static_cast<size_t>(elements));
             std::vector<double>& dst = bundle.owned_tensors_.back();
             if (dtype == "bf16") {
-                const auto* u16 =
-                    reinterpret_cast<const uint16_t*>(raw);
+                // PRODUCTION_BF16 candidate: brain-float16 storage
+                // (fp32 exponent, truncated mantissa) widened exactly to
+                // fp64 at load — no scale, decode is bit placement.
                 for (int64_t i = 0; i < elements; ++i) {
-                    const uint32_t f32 =
-                        static_cast<uint32_t>(u16[i]) << 16;
-                    float f;
-                    std::memcpy(&f, &f32, sizeof(f));
-                    dst[static_cast<size_t>(i)] =
-                        static_cast<double>(f);
+                    const uint16_t b =
+                        reinterpret_cast<const uint16_t*>(raw)[i];
+                    const uint32_t bits = (uint32_t)b << 16;
+                    float fv;
+                    std::memcpy(&fv, &bits, 4);
+                    dst[static_cast<size_t>(i)] = (double)fv;
                 }
             } else {
-            const JsonValue* scale_v = json_optional(info, "scale");
-            if (scale_v == nullptr ||
-                scale_v->type != JsonValue::Type::Number ||
-                !(scale_v->number > 0.0)) {
-                throw InferenceError("TENSOR_SCALE_INVALID:" + name);
-            }
-            const double scale = scale_v->number;
-            if (dtype == "int8") {
-                for (int64_t i = 0; i < elements; ++i) {
-                    dst[static_cast<size_t>(i)] =
-                        static_cast<double>(
-                            reinterpret_cast<const int8_t*>(raw)[i]) * scale;
+                // Weight-only per-tensor symmetric quantization (mirrors
+                // kernels/quant.py): dequantize once at load into owned
+                // fp64 storage so every downstream GEMM is unchanged.
+                const JsonValue* scale_v = json_optional(info, "scale");
+                if (scale_v == nullptr ||
+                    scale_v->type != JsonValue::Type::Number ||
+                    !(scale_v->number > 0.0)) {
+                    throw InferenceError("TENSOR_SCALE_INVALID:" + name);
                 }
-            } else {
-                // int4_packed: two 4-bit values per byte along the last dim
-                // (low nibble = even index, high nibble = odd), shifted +8.
-                const int64_t last = item.shape.back();
-                const int64_t rows = elements / last;
-                const int64_t packed_row = (last + 1) / 2;
-                for (int64_t r = 0; r < rows; ++r) {
-                    const unsigned char* prow = raw + r * packed_row;
-                    double* drow = dst.data() + r * last;
-                    for (int64_t c = 0; c < last; ++c) {
-                        const unsigned char byte = prow[c / 2];
-                        const int64_t nibble =
-                            (c % 2 == 0) ? (byte & 0x0F) : (byte >> 4);
-                        drow[c] = static_cast<double>(nibble - 8) * scale;
+                const double scale = scale_v->number;
+                if (dtype == "int8") {
+                    for (int64_t i = 0; i < elements; ++i) {
+                        dst[static_cast<size_t>(i)] =
+                            static_cast<double>(
+                                reinterpret_cast<const int8_t*>(raw)[i]) *
+                            scale;
+                    }
+                } else {
+                    // int4_packed: two 4-bit values per byte along the
+                    // last dim (low nibble = even index, high nibble =
+                    // odd), shifted +8.
+                    const int64_t last = item.shape.back();
+                    const int64_t rows = elements / last;
+                    const int64_t packed_row = (last + 1) / 2;
+                    for (int64_t r = 0; r < rows; ++r) {
+                        const unsigned char* prow = raw + r * packed_row;
+                        double* drow = dst.data() + r * last;
+                        for (int64_t c = 0; c < last; ++c) {
+                            const unsigned char byte = prow[c / 2];
+                            const int64_t nibble =
+                                (c % 2 == 0) ? (byte & 0x0F) : (byte >> 4);
+                            drow[c] =
+                                static_cast<double>(nibble - 8) * scale;
+                        }
                     }
                 }
             }

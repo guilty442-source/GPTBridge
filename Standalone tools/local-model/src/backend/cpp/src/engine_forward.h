@@ -65,6 +65,8 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
 
     std::vector<double>& hidden = fs_.hidden;
     hidden.resize(static_cast<size_t>(total_tokens * hidden_size));
+    // Router trace accumulates across a request's decode steps; the
+    // buffer is reset when tracing is (re)enabled via set_router_trace.
     for (size_t i = 0; i < spans.size(); ++i) {
         const BatchSpan& span = spans[i];
         const int64_t seq = static_cast<int64_t>(span.ids->size());
@@ -863,6 +865,25 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                     top_w[static_cast<size_t>(s * top_k + k)] = row[e] / selected;
                 }
             }
+            if (router_trace_enabled_) {
+                // §16 router-level evidence: the layer's router family,
+                // the deterministic top-k selection and the renormalized
+                // mixing weights (level 1); grouped dispatch below is the
+                // expert-level execution the record refers to.
+                RouterLayerTrace tr;
+                tr.layer_id = layer_idx;
+                tr.router_type = cfg.moe_router_sigmoid
+                                     ? "sigmoid_topk" : "softmax_topk";
+                tr.top_k = top_k;
+                tr.token_count = total_tokens;
+                tr.expert_ids = top_idx;
+                tr.weights = top_w;
+                tr.shared_experts =
+                    static_cast<int64_t>(layer.shared_gate.size());
+                tr.shared_expert_gated =
+                    !layer.shared_expert_gate_t.empty();
+                router_trace_.push_back(std::move(tr));
+            }
             // R5 residual: grouped GEMM — each token's top-k expert rows are
             // gathered once into a single contiguous buffer (expert-major,
             // token order preserved inside each group, matching the former
@@ -1149,5 +1170,6 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     if (module_rms != nullptr) {
         module_rms->push_back(hidden_rms(normed, total_tokens, hidden_size));
     }
+    mem_note(total_tokens);
     return normed;
 }

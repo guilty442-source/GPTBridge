@@ -85,12 +85,10 @@ internal sealed class SelfLearningPolicy
     // runs evaluation gates, but the weight-changing stages (SFT/DPO/
     // pretrain jobs and candidate activation) never fire. Defaults true
     // — fail-closed; unfreezing requires an explicit policy edit.
+    // SINGLE_CAPABILITY_RECOVERY lane (star-single-capability-recovery/v1):
+    // "FROZEN" seals every weight-mutating job; "SINGLE_CAPABILITY_RECOVERY"
+    // admits exactly one SFT lane whose capability == ActiveCapability.
     public bool CapabilityTrainingFrozen = true;
-    // Single-capability recovery lane (star-single-capability-recovery/v1):
-    // when CapabilityTrainingFrozen holds AND this mode reads
-    // "SINGLE_CAPABILITY_RECOVERY", exactly one SFT job whose declared
-    // capability equals ActiveCapability may run; any other capability or
-    // non-SFT kind is still denied. Default "FROZEN" keeps the full freeze.
     public string CapabilityTrainingMode = "FROZEN";
     public string ActiveCapability = "";
 
@@ -225,17 +223,12 @@ internal sealed class SelfLearningPolicy
             policy.DpoEnabled = Get(root, "dpo_enabled", policy.DpoEnabled);
             policy.DpoMinNewPairs = Get(root, "dpo_min_new_pairs", policy.DpoMinNewPairs);
             policy.DpoBeta = Get(root, "dpo_beta", policy.DpoBeta);
-            policy.CapabilityTrainingFrozen = Get(
-                root, "capability_training_frozen",
-                policy.CapabilityTrainingFrozen);
-            if (root.TryGetProperty("capability_training_mode",
-                    out var ctm) && ctm.ValueKind == JsonValueKind.String)
-                policy.CapabilityTrainingMode = ctm.GetString() ??
-                                                policy.CapabilityTrainingMode;
-            if (root.TryGetProperty("active_capability",
-                    out var ac) && ac.ValueKind == JsonValueKind.String)
-                policy.ActiveCapability = ac.GetString() ??
-                                          policy.ActiveCapability;
+            policy.CapabilityTrainingFrozen = Get(root, "capability_training_frozen",
+                                                  policy.CapabilityTrainingFrozen);
+            policy.CapabilityTrainingMode = Get(root, "capability_training_mode",
+                                                policy.CapabilityTrainingMode);
+            policy.ActiveCapability = Get(root, "active_capability",
+                                          policy.ActiveCapability);
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

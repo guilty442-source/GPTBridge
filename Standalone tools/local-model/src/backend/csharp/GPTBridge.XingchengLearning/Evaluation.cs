@@ -232,6 +232,9 @@ internal static class Evaluation
             passed: passed,
             evaluatedBy: evaluatedBy,
             suiteSha256: suiteSha);
+        if (!passed)
+            RecordFailures(repo.ToolRoot, suiteId, candidateBundle,
+                           adapterMetrics);
         return new Dictionary<string, object?>
         {
             ["ok"] = true,
@@ -241,6 +244,56 @@ internal static class Evaluation
             ["comparison"] = comparison,
             ["evaluation"] = evaluation,
         };
+    }
+
+    /// <summary>Every failed suite run feeds the capability failure
+    /// pool — per category where the report carries them, one generic
+    /// record otherwise. Recording never throws (bounded pool).</summary>
+    private static void RecordFailures(
+        string toolRoot, string suiteId, string candidateBundle,
+        Dictionary<string, object?> adapterMetrics)
+    {
+        string generation = "";
+        try
+        {
+            string mp = Path.Combine(candidateBundle, "manifest.json");
+            if (File.Exists(mp))
+            {
+                using var doc =
+                    System.Text.Json.JsonDocument.Parse(
+                        File.ReadAllText(mp));
+                if (doc.RootElement.TryGetProperty(
+                        "architecture_generation", out var g))
+                    generation = g.GetString() ?? "";
+            }
+        }
+        catch (Exception) { }
+        var cats = Child(adapterMetrics, "categories");
+        int recorded = 0;
+        foreach (var kv in cats)
+        {
+            if (kv.Value is not Dictionary<string, object?> c) continue;
+            double rate = 1.0;
+            if (c.TryGetValue("pass_rate", out var pr))
+                rate = Convert.ToDouble(pr);
+            else if (c.TryGetValue("passed", out var p) &&
+                     c.TryGetValue("evaluated", out var e) &&
+                     Convert.ToDouble(e) > 0)
+                rate = Convert.ToDouble(p) / Convert.ToDouble(e);
+            if (rate >= 1.0) continue;
+            FailurePool.Record(
+                toolRoot, $"suite:{suiteId}/{kv.Key}", generation,
+                FailurePool.ClassForSuite(kv.Key), "category pass",
+                $"pass_rate={rate:0.###}", candidateBundle,
+                "medium", reproducible: true);
+            ++recorded;
+        }
+        if (recorded == 0)
+            FailurePool.Record(
+                toolRoot, $"suite:{suiteId}", generation,
+                FailurePool.ClassForSuite(suiteId), "suite pass",
+                "SUITE_FAILED", candidateBundle,
+                "medium", reproducible: true);
     }
 
     private static Dictionary<string, object?> Fail(

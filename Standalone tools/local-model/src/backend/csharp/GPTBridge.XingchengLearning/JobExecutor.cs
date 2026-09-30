@@ -135,6 +135,7 @@ internal sealed class TrainingJobExecutor
             Maturation300M.GuardSequence(_toolRoot,
                                          (string)cfg["capability"]!);
 
+
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
         if (initRaw != null && initRaw.ToString() is { Length: > 0 } initStr)
         {
@@ -799,10 +800,14 @@ internal sealed class TrainingJobExecutor
     public Dictionary<string, object?> RunJob(string jobId)
     {
         // Capability-training freeze: every queued job here mutates model
-        // weights, so the whole stage is sealed while frozen. Queueing /
+        // weights, so the stage is sealed while frozen. Queueing /
         // dataset registration stay open — only execution is gated.
+        // SINGLE_CAPABILITY_RECOVERY opens the queue for jobs whose
+        // declared capability matches active_capability; GuardJob in
+        // NormalizeConfiguration denies everything else.
         var freezePolicy = SelfLearningPolicy.Load(_toolRoot);
-        if (freezePolicy.CapabilityTrainingFrozen)
+        if (freezePolicy.CapabilityTrainingFrozen &&
+            !CapabilityFreeze.RecoveryLaneOpen(freezePolicy))
             throw new ExecutorError("EXECUTOR_TRAINING_FROZEN",
                 $"capability training is frozen; job {jobId} stays queued");
         var row = _repo.JobRow(jobId)
@@ -825,9 +830,7 @@ internal sealed class TrainingJobExecutor
             // dataset is a multi-capability job and is denied.
             {
                 var pol = SelfLearningPolicy.Load(_toolRoot);
-                if (string.Equals(pol.CapabilityTrainingMode,
-                                  "SINGLE_CAPABILITY_RECOVERY",
-                                  StringComparison.OrdinalIgnoreCase))
+                if (CapabilityFreeze.RecoveryLaneOpen(pol))
                 {
                     foreach (var d in trainDocs.Concat(valDocs))
                     {

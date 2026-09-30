@@ -55,6 +55,19 @@ internal static class SftDataset
                 TransformerTrainingRepository.Int(example, "revision"),
             ["quality_score"] =
                 TransformerTrainingRepository.Num(example, "quality_score"),
+            // §5 freeze-phase provenance: every kept record carries the
+            // producing generation/model/version context so it can be
+            // replayed after capability training unfreezes — without the
+            // producing generation still existing.
+            ["generation"] =
+                TransformerTrainingRepository.Str(example, "generation") ?? "",
+            ["model_version"] =
+                TransformerTrainingRepository.Str(example, "model_version") ?? "",
+            ["failure_type"] =
+                TransformerTrainingRepository.Str(example, "failure_type") ?? "",
+            ["collected_at"] =
+                TransformerTrainingRepository.Str(example, "collected_at") ?? "",
+            ["validation_state"] = "collected",
         };
     }
 
@@ -64,7 +77,9 @@ internal static class SftDataset
     public static Dictionary<string, object?> BuildSftDataset(
         string outputPath,
         IReadOnlyDictionary<string, List<Dictionary<string, object?>>> examplesByScope,
-        int valPermille = 50)
+        int valPermille = 50,
+        string generation = "",
+        string modelVersion = "")
     {
         string target = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -81,6 +96,12 @@ internal static class SftDataset
             foreach (var example in examples)
             {
                 var record = SerializeSftExample(example);
+                if (generation.Length > 0 &&
+                    (string?)record["generation"] == "")
+                    record["generation"] = generation;
+                if (modelVersion.Length > 0 &&
+                    (string?)record["model_version"] == "")
+                    record["model_version"] = modelVersion;
                 string hash = (string)record["sha256"]!;
                 if (!seen.Add(hash))
                     continue;
@@ -101,6 +122,8 @@ internal static class SftDataset
                     ["content_sha256"] = hash,
                     ["source_type"] = record["source"],
                     ["quality_score"] = record["quality_score"],
+                    ["generation"] = record["generation"],
+                    ["model_version"] = record["model_version"],
                 });
             }
         }
@@ -174,7 +197,9 @@ internal static class SftDataset
     public static Dictionary<string, object?> BuildPairsSnapshot(
         IReadOnlyList<Dictionary<string, object?>> pairs,
         string outputPath,
-        int valPermille = 200)
+        int valPermille = 200,
+        string generation = "",
+        string modelVersion = "")
     {
         string target = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -213,6 +238,20 @@ internal static class SftDataset
                     TransformerTrainingRepository.Str(pair, "intent") ?? "preference",
                 ["quality_score"] = PairQuality,
                 ["split"] = split,
+                // §5 provenance — see SerializeSftExample.
+                ["generation"] =
+                    TransformerTrainingRepository.Str(pair, "generation")
+                    ?? generation,
+                ["model_version"] =
+                    TransformerTrainingRepository.Str(pair, "model_version")
+                    ?? modelVersion,
+                ["failure_type"] =
+                    TransformerTrainingRepository.Str(pair, "failure_type")
+                    ?? "",
+                ["collected_at"] =
+                    TransformerTrainingRepository.Str(pair, "collected_at")
+                    ?? "",
+                ["validation_state"] = "collected",
             });
         }
         if (records.Count == 0)
@@ -248,7 +287,9 @@ internal static class SftDataset
         IReadOnlyDictionary<string, object?> manifest,
         string ownerModelId = "star-main-native-model",
         string databaseScope = "main",
-        string createdBy = "star-main-native-model")
+        string createdBy = "star-main-native-model",
+        string generation = "",
+        string modelVersion = "")
     {
         var data = manifest;
         if ((string?)data.GetValueOrDefault("format_version") !=
@@ -284,6 +325,12 @@ internal static class SftDataset
                 ["content_sha256"] = recordHash,
                 ["source_type"] = PreferenceSourceType,
                 ["quality_score"] = PairQuality,
+                ["generation"] =
+                    doc.RootElement.TryGetProperty("generation", out var g)
+                        ? g.GetString() ?? generation : generation,
+                ["model_version"] =
+                    doc.RootElement.TryGetProperty("model_version", out var mv)
+                        ? mv.GetString() ?? modelVersion : modelVersion,
             });
         }
         string contentSha256 = TransformerTrainingRepository.Sha256Text(

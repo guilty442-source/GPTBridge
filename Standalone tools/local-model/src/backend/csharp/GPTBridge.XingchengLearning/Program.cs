@@ -1,4 +1,4 @@
-// Program.cs — governed entry points for the xingcheng learning lane.
+// Program.cs ??governed entry points for the xingcheng learning lane.
 //
 // CLI surface preserves the retired Python module's contract:
 //   --status              policy + state + training-window snapshot
@@ -14,6 +14,7 @@
 // All output is JSON on stdout (same contract as the Python lane); exit
 // code is 0 unless the top-level result carries ok=false.
 
+using System.Globalization;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
@@ -175,6 +176,926 @@ internal static class Program
                 return Emit(GenerationMigration.Status(
                     toolRoot,
                     opts.TryGetValue("manifest", out string? sm) ? sm : ""));
+            if (flags.Contains("trace-record"))
+                return Emit(CapabilityTrace.RecordTrace(
+                    toolRoot,
+                    opts.TryGetValue("trace", out string? tf) &&
+                        tf.Length > 0 ? tf
+                    : opts.TryGetValue("file", out string? tf2)
+                        ? tf2 : ""));
+            if (flags.Contains("cap-record"))
+                return Emit(CapabilityTrace.RecordResult(
+                    toolRoot,
+                    opts.TryGetValue("result", out string? rf) &&
+                        rf.Length > 0 ? rf
+                    : opts.TryGetValue("file", out string? rf2)
+                        ? rf2 : ""));
+            if (flags.Contains("trace-status"))
+                return Emit(CapabilityTrace.Status(toolRoot));
+            // ---- long-horizon tasks (§5 checkpoint/compact/resume)
+            if (flags.Contains("task-create"))
+                return Emit(LongHorizonTasks.Create(
+                    toolRoot,
+                    opts.TryGetValue("goal", out string? tg) ? tg : "",
+                    opts.TryGetValue("constraints", out string? tc)
+                        ? tc : ""));
+            if (flags.Contains("task-plan"))
+                return Emit(LongHorizonTasks.SetPlan(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tp1) ? tp1 : "",
+                    (opts.TryGetValue("steps", out string? tps)
+                        ? tps : "").Split(';',
+                        StringSplitOptions.RemoveEmptyEntries)));
+            if (flags.Contains("task-step"))
+                return Emit(LongHorizonTasks.RecordStep(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? ts1) ? ts1 : "",
+                    opts.TryGetValue("step", out string? ts2) ? ts2 : "",
+                    opts.TryGetValue("tool-result", out string? ttr)
+                        ? ttr : "",
+                    opts.TryGetValue("evidence", out string? tev)
+                        ? tev : ""));
+            if (flags.Contains("task-checkpoint"))
+                return Emit(LongHorizonTasks.Checkpoint(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tc1)
+                        ? tc1 : ""));
+            if (flags.Contains("task-compact"))
+                return Emit(LongHorizonTasks.Compact(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tc2)
+                        ? tc2 : ""));
+            if (flags.Contains("task-resume"))
+                return Emit(LongHorizonTasks.Resume(
+                    toolRoot,
+                    opts.TryGetValue("checkpoint", out string? trc)
+                        ? trc : ""));
+            if (flags.Contains("task-revalidate"))
+                return Emit(LongHorizonTasks.Revalidate(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? trv)
+                        ? trv : ""));
+            if (flags.Contains("task-transition"))
+                return Emit(LongHorizonTasks.Transition(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tt1)
+                        ? tt1 : "",
+                    opts.TryGetValue("to", out string? tt2)
+                        ? tt2 : "",
+                    opts.TryGetValue("reason", out string? ttr2)
+                        ? ttr2 : ""));
+            if (flags.Contains("task-status"))
+                return Emit(LongHorizonTasks.Status(toolRoot));
+            // ---- coding lane
+            if (flags.Contains("code-task-validate"))
+                return Emit(CodeAgent.ValidateTask(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ct)
+                            ? ct : "",
+                        "CODE_TASK_INVALID")));
+            if (flags.Contains("fim-validate"))
+                return Emit(CodeAgent.ValidateFim(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ff)
+                            ? ff : "",
+                        "FIM_CONTRACT_INVALID")));
+            if (flags.Contains("harness-validate"))
+                return Emit(CodeAgent.ValidateHarness(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hvf)
+                            ? hvf : "",
+                        "REPO_TASK_SCOPE_INVALID")));
+            // ---- modality + teacher lineage
+            if (flags.Contains("modality-validate"))
+                return Emit(Modality.ValidateProvenance(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mf)
+                            ? mf : "", "MODALITY_RECORD_INVALID")));
+            if (flags.Contains("teacher-validate"))
+                return Emit(Modality.ValidateTeacher(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tlf)
+                            ? tlf : "", "TEACHER_LINEAGE_INVALID")));
+            // ---- dataset quality
+            if (flags.Contains("dataset-quality"))
+                return Emit(DataQuality.Evaluate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? dq)
+                            ? dq : "", "DQ_RECORD_INVALID")));
+            // ---- evaluation plane + arch gate + provenance
+            if (flags.Contains("eval-result"))
+                return Emit(EvalCoordinator.ValidateResult(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? erf)
+                            ? erf : "", "EVAL_RESULT_INVALID")));
+            if (flags.Contains("eval-status"))
+                return Emit(EvalCoordinator.SuitesStatus());
+            // ---- two-level routing trace
+            if (flags.Contains("routing-record"))
+                return Emit(RoutingAnalysis.Record(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rrf)
+                            ? rrf : "", "ROUTING_TRACE_INVALID")));
+            if (flags.Contains("routing-aggregate"))
+                return Emit(RoutingAnalysis.Aggregate(toolRoot));
+            if (flags.Contains("arch-gate"))
+                return Emit(ArchitectureGate.Evaluate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? agf)
+                            ? agf : "",
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+            if (flags.Contains("provenance-check"))
+                return Emit(BundleProvenance.Check(
+                    toolRoot,
+                    opts.TryGetValue("bundle", out string? pb)
+                        ? pb : ""));
+            if (flags.Contains("catalog-emit"))
+                return Emit(FeatureCatalog.Emit(toolRoot));
+            if (flags.Contains("catalog-validate"))
+                return Emit(FeatureCatalog.Validate(
+                    opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- repo-level convergence battery: platform invariants
+            // (single runtime owner, canonical contract, frozen
+            // training, supported axes). star-convergence-checks/v1.
+            if (flags.Contains("converge-check"))
+                return Emit(ConvergenceChecks.Run(toolRoot));
+            // ---- single-capability recovery lane
+            //      (star-single-capability-recovery/v1): armed by policy
+            //      capability_training_mode=SINGLE_CAPABILITY_RECOVERY +
+            //      active_capability; every stage is fail-closed.
+            if (flags.Contains("recovery-dataset-build"))
+            {
+                if (opts.TryGetValue("capability", out string? rcp) &&
+                    rcp.Length > 0)
+                    InstructionRecovery.Capability = rcp;
+                return Emit(InstructionRecovery.BuildDataset(
+                    opts.TryGetValue("out", out string? rdo)
+                        ? rdo : "",
+                    opts.TryGetValue("count", out string? rc) &&
+                        int.TryParse(rc, out int rcv) ? rcv : 2800,
+                    opts.TryGetValue("seed", out string? rsd) &&
+                        int.TryParse(rsd, out int rsv) ? rsv : 42));
+            }
+            if (flags.Contains("recovery-eval"))
+                return Emit(InstructionRecovery.EvalBundle(
+                    toolRoot,
+                    opts.TryGetValue("bundle", out string? reb)
+                        ? reb : "",
+                    opts.TryGetValue("suite", out string? res)
+                        ? res : "",
+                    opts.TryGetValue("out", out string? reo)
+                        ? reo : null));
+            if (flags.Contains("recovery-run"))
+                return Emit(InstructionRecovery.Run(
+                    toolRoot,
+                    opts.TryGetValue("plan", out string? rpp)
+                        ? rpp : ""));
+            // ---- XingchengConvergenceGate: the single release gate.
+            // Ordered steps; any critical FAIL -> PROMOTION_BLOCKED.
+            if (flags.Contains("release-gate"))
+                return Emit(ConvergenceGate.Run(toolRoot,
+                    opts.TryGetValue("bundle", out string? gb) &&
+                    gb.Length > 0 ? gb : null,
+                    runBuilds: !flags.Contains("no-builds"),
+                    suite: opts.TryGetValue("suite", out string? gs) &&
+                    gs.Length > 0 ? gs : null));
+            // ---- runtime capability plane (star-runtime-capabilities/v1)
+            if (flags.Contains("caps-status"))
+                return Emit(RuntimeCapabilities.Status(toolRoot));
+            if (flags.Contains("caps-validate"))
+                return Emit(RuntimeCapabilities.Validate(
+                    opts.TryGetValue("file", out string? cvf)
+                        ? cvf : ""));
+            // ---- grounded RAG plane (Command-R lessons)
+            if (flags.Contains("grounded-v2-validate"))
+                return Emit(GroundedRag.ValidateClaimV2(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? g2)
+                            ? g2 : "", "GROUNDING_UNSUPPORTED_CLAIM")));
+            if (flags.Contains("graph-add-node"))
+                return Emit(GroundedRag.GraphAddNode(
+                    toolRoot,
+                    opts.TryGetValue("graph", out string? gn)
+                        ? gn : "default",
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("node", out string? gnn)
+                            ? gnn : "", "EVIDENCE_GRAPH_INVALID")));
+            if (flags.Contains("graph-add-edge"))
+                return Emit(GroundedRag.GraphAddEdge(
+                    toolRoot,
+                    opts.TryGetValue("graph", out string? ge)
+                        ? ge : "default",
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("edge", out string? gee)
+                            ? gee : "", "EVIDENCE_GRAPH_INVALID")));
+            if (flags.Contains("graph-query"))
+                return Emit(GroundedRag.GraphQuery(
+                    toolRoot,
+                    opts.TryGetValue("graph", out string? gq)
+                        ? gq : "default",
+                    opts.TryGetValue("subject", out string? gs)
+                        ? gs : ""));
+            if (flags.Contains("grounding-gate"))
+                return Emit(GroundedRag.Gate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gg)
+                            ? gg : "", "GROUNDING_UNAVAILABLE")));
+            if (flags.Contains("rag-decide"))
+                return Emit(GroundedRag.Decide(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rd)
+                            ? rd : "", "RETRIEVAL_DECISION_INVALID")));
+            if (flags.Contains("citation-metrics"))
+                return Emit(GroundedRag.CitationMetrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cm)
+                            ? cm : "", "CITATION_METRICS_INVALID")));
+            // ---- inference efficiency plane
+            if (flags.Contains("eff-tier-plan"))
+                return Emit(EfficiencyRuntime.TierPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? etp)
+                            ? etp : "", "RUNTIME_CAPS_INVALID")));
+            if (flags.Contains("rag-prefix-manifest"))
+                return Emit(EfficiencyRuntime.RagPrefixManifest(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rpm)
+                            ? rpm : "", "PREFIX_STATE_INCOMPATIBLE")));
+            if (flags.Contains("evidence-cache"))
+                return Emit(EfficiencyRuntime.EvidenceCacheOp(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? eoc)
+                            ? eoc : "", "PREFIX_STATE_INCOMPATIBLE")));
+            if (flags.Contains("eff-policy"))
+                return Emit(EfficiencyRuntime.ResolvePolicy(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ep)
+                            ? ep : "", "RUNTIME_CAPS_INVALID")));
+            // ---- NativeScaleEfficiencyPlane (scale directive)
+            if (flags.Contains("scale-profile-validate"))
+                return Emit(ScaleHardwareGate.ValidateProfile(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? spv)
+                            ? spv : "", "SCALE_PROFILE_INVALID")));
+            if (flags.Contains("scale-precision-map"))
+                return Emit(ScaleHardwareGate.ValidatePrecisionMap(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? spm)
+                            ? spm : "", "PRECISION_MAP_INVALID")));
+            if (flags.Contains("scale-hardware-gate"))
+                return Emit(ScaleHardwareGate.Evaluate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? shg)
+                            ? shg : "", "SCALE_HARDWARE_INSUFFICIENT")));
+            if (flags.Contains("scale-resource-cert"))
+                return Emit(ScaleHardwareGate.ResourceCert(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? src)
+                            ? src : "", "RESOURCE_CERT_INVALID")));
+            if (flags.Contains("scale-promotion-gate"))
+                return Emit(ScaleHardwareGate.PromotionGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? spg)
+                            ? spg : "", "SCALE_PROMOTION_INVALID")));
+            // ---- model-efficiency directive contract layer
+            //      (Liquid/Solar/OLMo/Arctic/Arctic-Embed absorption)
+            if (flags.Contains("hardware-scale-search"))
+                return Emit(ScaleSearch.Search(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hss)
+                            ? hss : "", "SCALE_SHAPE_INEFFICIENT")));
+            if (flags.Contains("scale-scorecard"))
+                return Emit(ScaleSearch.ScoreCandidate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ssc)
+                            ? ssc : "", "SCALE_SHAPE_INEFFICIENT")));
+            if (flags.Contains("depth-plan"))
+                return Emit(DepthScale.Plan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dp)
+                            ? dp : "", "DEPTH_INHERITANCE_INVALID")));
+            if (flags.Contains("depth-inheritance-validate"))
+                return Emit(DepthScale.ValidateInheritance(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? div)
+                            ? div : "", "DEPTH_INHERITANCE_INVALID")));
+            if (flags.Contains("depth-scale-probe"))
+                return Emit(DepthScale.ProbeVerdict(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dsp)
+                            ? dsp : "", "DEPTH_SCALE_REGRESSION")));
+            if (flags.Contains("depth-efficiency"))
+                return Emit(DepthScale.Efficiency(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? de)
+                            ? de : "", "DEPTH_INHERITANCE_INVALID")));
+            if (flags.Contains("curriculum-stage-policy"))
+                return Emit(Curriculum.StagePolicy(
+                    opts.TryGetValue("stage", out string? cst)
+                        ? cst : ""));
+            if (flags.Contains("curriculum-stage-check"))
+                return Emit(Curriculum.ValidateStage(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? csc)
+                            ? csc : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("training-mixture"))
+                return Emit(Curriculum.Mixture(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tm)
+                            ? tm : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("training-repro"))
+                return Emit(Curriculum.ReproRecord(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? trp)
+                            ? trp : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("data-order-probe"))
+                return Emit(Curriculum.DataOrderProbe(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dop)
+                            ? dop : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("expert-scale-validate"))
+                return Emit(ExpertPolicy.ValidateScale(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? esv)
+                            ? esv : "", "EXPERT_GRANULARITY_INEFFICIENT")));
+            if (flags.Contains("expert-granularity-compare"))
+                return Emit(ExpertPolicy.CompareGranularity(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? egc)
+                            ? egc : "", "EXPERT_GRANULARITY_INEFFICIENT")));
+            if (flags.Contains("expert-specialization"))
+                return Emit(ExpertPolicy.Specialization(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? esp)
+                            ? esp : "", "EXPERT_SPECIALIZATION_COLLAPSE")));
+            if (flags.Contains("expert-residency-plan"))
+                return Emit(ExpertPolicy.ResidencyPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? erp)
+                            ? erp : "", "EXPERT_GRANULARITY_INEFFICIENT")));
+            if (flags.Contains("adaptive-embedding"))
+                return Emit(AdaptiveRetrieval.Embedding(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ae)
+                            ? ae : "", "EMBEDDING_COMPRESSION_REGRESSION")));
+            if (flags.Contains("vector-tier-policy"))
+                return Emit(AdaptiveRetrieval.TierPolicy());
+            if (flags.Contains("two-stage-retrieval"))
+                return Emit(AdaptiveRetrieval.TwoStage(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tsr)
+                            ? tsr : "", "RETRIEVAL_RECALL_REGRESSION")));
+            if (flags.Contains("retrieval-compression-gate"))
+                return Emit(AdaptiveRetrieval.Gate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rcg)
+                            ? rcg : "", "RETRIEVAL_RECALL_REGRESSION")));
+            if (flags.Contains("retrieval-efficiency"))
+                return Emit(AdaptiveRetrieval.Metrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rem)
+                            ? rem : "", "RETRIEVAL_RECALL_REGRESSION")));
+            // ---- product scale tiers (1B STANDARD / 20B EXTREME) ----
+            if (flags.Contains("scale-tiers"))
+                return Emit(ProductScale.Tiers());
+            if (flags.Contains("scale-profile-seed"))
+                return Emit(ProductScale.SeedProfiles(toolRoot));
+            if (flags.Contains("model-identity"))
+                return Emit(ProductScale.Identity(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mi)
+                            ? mi : "", "SCALE_PROFILE_INVALID")));
+            if (flags.Contains("active-compute-gate"))
+                return Emit(ProductScale.ActiveGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? acg)
+                            ? acg : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("scale-tier-validate"))
+                return Emit(ProductScale.ValidateTier(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? stv)
+                            ? stv : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("residency-plan"))
+                return Emit(ProductScale.ResidencyPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rp)
+                            ? rp : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("trainable-budget"))
+                return Emit(ProductScale.TrainableBudget(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tbg)
+                            ? tbg : "", "SCALE_TIER_INVALID")));
+            if (flags.Contains("thinking-levels"))
+                return Emit(ProductScale.ThinkingContract());
+            // ---- capacity & active-parameter formal spec
+            //      (capacity directive §0-§57)
+            if (flags.Contains("capacity-checks"))
+                return Emit(CapacityChecks.Run(toolRoot));
+            if (flags.Contains("capacity-ceiling"))
+                return Emit(CapacityPlane.CeilingReport(
+                    opts.TryGetValue("total-ceiling", out string? tc)
+                        ? long.Parse(tc, CultureInfo.InvariantCulture)
+                        : CapacityPlane.DefaultTotalCeiling));
+            if (flags.Contains("common-floor-gate"))
+                return Emit(CapacityPlane.CommonFloorGate(
+                    long.Parse(opts.TryGetValue("common", out string? cc)
+                                   ? cc : "0",
+                               CultureInfo.InvariantCulture),
+                    long.Parse(opts.TryGetValue("shared", out string? csh)
+                                   ? csh : "0",
+                               CultureInfo.InvariantCulture)));
+            if (flags.Contains("capacity-validate"))
+                return Emit(CapacityPlane.ValidateMetrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cv)
+                            ? cv : "", "ACTIVE_PARAMS_MISSING")));
+            if (flags.Contains("effective-compute"))
+                return Emit(CapacityPlane.EffectiveCompute(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ec)
+                            ? ec : "", "ACTIVE_PARAMS_MISSING")));
+            if (flags.Contains("distillation-contract"))
+                return Emit(CapacityPlane.DistillationContract());
+            if (flags.Contains("reasoning-compression"))
+                return Emit(CapacityPlane.ReasoningCompression(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rcf)
+                            ? rcf : "",
+                        "THINKING_COMPRESSION_REGRESSION")));
+            if (flags.Contains("quantization-validate"))
+                return Emit(CapacityPlane.ValidatePrecision(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? qvf)
+                            ? qvf : "", "QUANTIZATION_REGRESSION")));
+            if (flags.Contains("expert-lifecycle-gate"))
+                return Emit(CapacityPlane.ExpertLifecycle(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? elf)
+                            ? elf : "", "EXPERT_PRUNING_REGRESSION")));
+            if (flags.Contains("promotion-gate"))
+                return Emit(CapacityPlane.PromotionGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? pgf)
+                            ? pgf : "", "PROMOTION_BLOCKED")));
+            if (flags.Contains("capacity-kpis"))
+                return Emit(CapacityPlane.KpiReport(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ck)
+                            ? ck : "", "ACTIVE_PARAMS_MISSING")));
+            // ---- NativeTrainingAccelerationPlane (§0-§74) — the KPI
+            //      is TIME_TO_QUALIFIED_MODEL, not step/s.
+            if (flags.Contains("training-telemetry-validate"))
+                return Emit(TrainingAcceleration.ValidateTelemetry(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ttv)
+                            ? ttv : "", "TELEMETRY_INCOMPLETE")));
+            if (flags.Contains("bottleneck-classify"))
+                return Emit(TrainingAcceleration.BottleneckClassify(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? bc)
+                            ? bc : "", "TELEMETRY_INCOMPLETE")));
+            if (flags.Contains("eval-tier-policy"))
+                return Emit(TrainingAcceleration.EvalTiers(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? etp)
+                            ? etp : "", "EVAL_TIERS_INVALID")));
+            if (flags.Contains("training-pilot"))
+                return Emit(TrainingAcceleration.PilotLadder(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tp)
+                            ? tp : "", "PILOT_INVALID")));
+            if (flags.Contains("training-batch-plan"))
+                return Emit(TrainingAcceleration.BatchPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tbp)
+                            ? tbp : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("sequence-buckets"))
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = true,
+                    ["format"] = "star-sequence-buckets/v1",
+                    ["buckets"] = TrainingAcceleration.SeqBuckets
+                        .Cast<object?>().ToList(),
+                    ["rule"] = "same bucket = same tensor shape = " +
+                               "CUDA-graphable (§7/§31-§32)",
+                });
+            if (flags.Contains("training-precision-policy"))
+                return Emit(TrainingAcceleration.PrecisionPolicy());
+            if (flags.Contains("distill-artifact-validate"))
+                return Emit(TrainingAcceleration
+                    .ValidateDistillArtifact(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dav)
+                            ? dav : "", "DISTILL_ARTIFACT_INVALID")));
+            if (flags.Contains("time-to-quality"))
+                return Emit(TrainingAcceleration.TimeToQuality(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? t2q)
+                            ? t2q : "", "TRAINING_STAGE_INVALID")));
+            if (flags.Contains("speed-gate"))
+                return Emit(TrainingAcceleration.SpeedGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? sg)
+                            ? sg : "", "TRAINING_STAGE_INVALID")));
+            // ---- XC-1B Mature Standard (maturity directive §1-§40)
+            if (flags.Contains("maturity-checks"))
+                return Emit(MaturityChecks.Run(toolRoot));
+            if (flags.Contains("maturity-baseline"))
+                return Emit(MaturityStandard.SeedBaseline(toolRoot));
+            if (flags.Contains("maturity-registry"))
+                return Emit(MaturityStandard.BaselineRegistry(toolRoot));
+            if (flags.Contains("capability-floor-gate"))
+            {
+                var fg = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? fgf)
+                        ? fgf : "",
+                    "MATURITY_CAPABILITY_FLOOR_FAILED");
+                var scores = new Dictionary<string, double>();
+                var floors = new Dictionary<string, double>();
+                foreach (var p in fg.GetProperty("scores")
+                                      .EnumerateObject())
+                    scores[p.Name] = p.Value.GetDouble();
+                foreach (var p in fg.GetProperty("floors")
+                                      .EnumerateObject())
+                    floors[p.Name] = p.Value.GetDouble();
+                return Emit(MaturityStandard.FloorGate(
+                    scores, floors,
+                    fg.TryGetProperty("layer", out var ly)
+                        ? ly.GetString() ?? "BASE_MODEL"
+                        : "BASE_MODEL"));
+            }
+            if (flags.Contains("retention-gate"))
+            {
+                var rt = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? rtf)
+                        ? rtf : "", "POST_COMPRESSION_REGRESSION");
+                Dictionary<string, double> Map(string k)
+                {
+                    var m = new Dictionary<string, double>();
+                    if (rt.TryGetProperty(k, out var o))
+                        foreach (var p in o.EnumerateObject())
+                            m[p.Name] = p.Value.GetDouble();
+                    return m;
+                }
+                return Emit(MaturityStandard.RetentionGate(
+                    rt.TryGetProperty("phase", out var ph)
+                        ? ph.GetString() ?? "compress" : "compress",
+                    Map("pre"), Map("post"), Map("min_retention")));
+            }
+            if (flags.Contains("golden-gate"))
+                return Emit(MaturityStandard.GoldenGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gg)
+                            ? gg : "", "GOLDEN_USABILITY_FAILED")));
+            if (flags.Contains("certification-gate"))
+            {
+                var cg = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? cgf)
+                        ? cgf : "", "MATURITY_CAPABILITY_FLOOR_FAILED");
+                var certs = new Dictionary<string, bool>();
+                foreach (var p in cg.EnumerateObject())
+                    if (p.Value.ValueKind is JsonValueKind.True or
+                            JsonValueKind.False)
+                        certs[p.Name] = p.Value.ValueKind ==
+                            JsonValueKind.True;
+                return Emit(MaturityStandard.Certification(certs));
+            }
+            if (flags.Contains("maturity-promotion"))
+            {
+                var mp = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? mpf)
+                        ? mpf : "", "MATURITY_CAPABILITY_FLOOR_FAILED");
+                var conds = new Dictionary<string, bool>();
+                foreach (var p in mp.EnumerateObject())
+                    if (p.Value.ValueKind is JsonValueKind.True or
+                            JsonValueKind.False)
+                        conds[p.Name] = p.Value.ValueKind ==
+                            JsonValueKind.True;
+                return Emit(MaturityStandard.PromotionDecision(conds));
+            }
+            // ---- persona / style / steerability (Hermes lessons)
+            if (flags.Contains("persona-validate"))
+                return Emit(PersonaRuntime.ValidatePersona(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? pv)
+                            ? pv : "", "PERSONA_INVALID")));
+            if (flags.Contains("persona-get"))
+                return Emit(PersonaRuntime.GetPersona(
+                    toolRoot,
+                    opts.TryGetValue("id", out string? pgid)
+                        ? pgid : ""));
+            if (flags.Contains("style-profile"))
+                return Emit(PersonaRuntime.StyleProfile(
+                    opts.TryGetValue("style", out string? spn)
+                        ? spn : "neutral"));
+            if (flags.Contains("steer"))
+                return Emit(PersonaRuntime.Steer(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? stf)
+                            ? stf : "", "STEER_INVALID")));
+            if (flags.Contains("conflict-resolve"))
+                return Emit(PersonaRuntime.ResolveConflict(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cf)
+                            ? cf : "", "INSTRUCTION_CONFLICT_INVALID")));
+            if (flags.Contains("injection-guard"))
+                return Emit(PersonaRuntime.GuardInjection(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ig)
+                            ? ig : "", "PERSONA_INJECTION_GUARD")));
+            // ---- creative runtime
+            if (flags.Contains("creative-profile"))
+                return Emit(CreativeRuntime.CreativeProfile(
+                    opts.TryGetValue("profile", out string? cp)
+                        ? cp : "BALANCED"));
+            if (flags.Contains("factuality"))
+                return Emit(CreativeRuntime.FactualityResolve(
+                    opts.TryGetValue("mode", out string? fq)
+                        ? fq : "GENERAL"));
+            if (flags.Contains("memory-write"))
+                return Emit(CreativeRuntime.MemoryWrite(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? mw)
+                            ? mw : "", "NARRATIVE_MEMORY_INVALID")));
+            if (flags.Contains("memory-read"))
+                return Emit(CreativeRuntime.MemoryRead(
+                    toolRoot,
+                    opts.TryGetValue("namespace", out string? mns)
+                        ? mns : "NARRATIVE_MEMORY",
+                    opts.TryGetValue("key", out string? mk)
+                        ? mk : ""));
+            if (flags.Contains("memory-isolation"))
+                return Emit(CreativeRuntime.MemoryIsolationCheck(
+                    toolRoot));
+            if (flags.Contains("roleplay-create"))
+                return Emit(CreativeRuntime.SessionCreate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rc)
+                            ? rc : "", "ROLEPLAY_SESSION_INVALID")));
+            if (flags.Contains("roleplay-event"))
+                return Emit(CreativeRuntime.SessionEvent(
+                    toolRoot,
+                    opts.TryGetValue("session", out string? re)
+                        ? re : "",
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("event", out string? rev)
+                            ? rev : "", "ROLEPLAY_SESSION_INVALID")));
+            if (flags.Contains("roleplay-compact"))
+                return Emit(CreativeRuntime.SessionCompact(
+                    toolRoot,
+                    opts.TryGetValue("session", out string? rpc)
+                        ? rpc : ""));
+            if (flags.Contains("refusal-decide"))
+                return Emit(CreativeRuntime.RefusalDecide(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rfd)
+                            ? rfd : "", "REFUSAL_DECISION_INVALID")));
+            if (flags.Contains("refusal-eval"))
+                return Emit(CreativeRuntime.RefusalEval(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? rfe)
+                            ? rfe : "", "REFUSAL_EVAL_INVALID")));
+            if (flags.Contains("roleplay-eval"))
+                return Emit(CreativeRuntime.RoleplayEval(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rpe)
+                            ? rpe : "", "ROLEPLAY_EVAL_INVALID")));
+            if (flags.Contains("route-mode"))
+                return Emit(CreativeRuntime.Route(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rm)
+                            ? rm : "", "INTERACTION_ROUTE_INVALID")));
+            // ---- training-future metadata
+            if (flags.Contains("module-sensitivity"))
+                return Emit(ModuleSensitivity.Record(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? ms)
+                            ? ms : "", "MODULE_SENSITIVITY_INVALID")));
+            if (flags.Contains("model-merge"))
+                return Emit(ModuleSensitivity.MergeRequest(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mm)
+                            ? mm : "", "MODEL_MERGE_DISABLED")));
+            // ---- tool decision gate + contracts (§16/§17/§18)
+            if (flags.Contains("tool-validate"))
+            {
+                string kind = opts.TryGetValue("kind", out string? tvk)
+                    ? tvk : "request";
+                var el = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? tvf)
+                        ? tvf : "",
+                    "TOOL_SCHEMA_INVALID");
+                return Emit(kind == "result"
+                    ? ToolContracts.ValidateResult(el)
+                    : ToolContracts.ValidateCall(el));
+            }
+            if (flags.Contains("tool-gate"))
+            {
+                var decided = ToolContracts.Decide(
+                    toolRoot,
+                    opts.TryGetValue("tool", out string? tgt) ? tgt : "",
+                    opts.TryGetValue("requirement", out string? tgr)
+                        ? tgr : "optional",
+                    opts.TryGetValue("reason", out string? tre)
+                        ? tre : "");
+                if (opts.TryGetValue("outcome-status", out string? tos))
+                    decided["outcome"] = ToolContracts.RecordOutcome(
+                        toolRoot,
+                        (string)decided["decision"]!,
+                        schemaValid: !flags.Contains("schema-invalid"),
+                        status: tos);
+                return Emit(decided);
+            }
+            if (flags.Contains("tool-metrics"))
+                return Emit(ToolContracts.MetricsPayload(toolRoot));
+            if (flags.Contains("grounded-validate"))
+                return Emit(ToolContracts.ValidateGrounded(
+                    toolRoot,
+                    opts.TryGetValue("file", out string? gvf)
+                        ? gvf : ""));
+            if (flags.Contains("structured-validate"))
+            {
+                string output =
+                    opts.TryGetValue("output", out string? svo)
+                        ? svo : "";
+                var schema = ToolContracts.ReadJson(
+                    opts.TryGetValue("schema", out string? svs)
+                        ? svs : "",
+                    "STRUCTURED_SCHEMA_FAILED");
+                if (!File.Exists(output))
+                    throw new ExecutorError(
+                        "STRUCTURED_PARSE_FAILED",
+                        "output file missing");
+                return Emit(StructuredOutput.Validate(
+                    File.ReadAllText(output), schema,
+                    repairOnce: flags.Contains("repair")));
+            }
+            if (flags.Contains("langcheck"))
+                return Emit(LangCheck.Scan(toolRoot));
+            // §16/§17 tool contracts
+            if (flags.Contains("tool-call-validate"))
+                return Emit(ToolContracts.ValidateCall(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tc)
+                            ? tc : "", "TOOL_SCHEMA_INVALID")));
+            if (flags.Contains("tool-result-validate"))
+                return Emit(ToolContracts.ValidateResult(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? trr)
+                            ? trr : "", "TOOL_SCHEMA_INVALID")));
+            if (flags.Contains("tool-gate"))
+                return Emit(ToolContracts.Gate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("call", out string? gc)
+                            ? gc : "", "TOOL_SCHEMA_INVALID"),
+                    (opts.TryGetValue("tools", out string? ta)
+                        ? ta : "").Split(',', StringSplitOptions
+                            .RemoveEmptyEntries |
+                            StringSplitOptions.TrimEntries),
+                    opts.TryGetValue("budget", out string? gb) &&
+                        int.TryParse(gb, out int gbv) ? gbv : -1,
+                    flags.Contains("confirmed"),
+                    flags.Contains("needed")));
+            if (flags.Contains("tool-metrics"))
+                return Emit(ToolContracts.Metrics(toolRoot));
+            if (flags.Contains("grounded-validate"))
+                return Emit(ToolContracts.ValidateGrounded(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gv)
+                            ? gv : "", "GROUNDING_UNSUPPORTED_CLAIM")));
+            // §18 structured output
+            if (flags.Contains("structured-validate"))
+            {
+                string outFile =
+                    opts.TryGetValue("file", out string? of) ? of : "";
+                if (!File.Exists(outFile))
+                    throw new ExecutorError(
+                        "STRUCTURED_PARSE_FAILED", "output file missing");
+                var schema = ToolContracts.ReadJson(
+                    opts.TryGetValue("schema", out string? sf2)
+                        ? sf2 : "", "STRUCTURED_SCHEMA_FAILED");
+                return Emit(StructuredOutput.Validate(
+                    File.ReadAllText(outFile), schema,
+                    !flags.Contains("no-repair")));
+            }
+            // §5 long-horizon tasks
+            if (flags.Contains("task-create"))
+                return Emit(LongHorizonTasks.Create(
+                    toolRoot,
+                    opts.TryGetValue("goal", out string? g2) ? g2 : "",
+                    opts.TryGetValue("constraints", out string? c2)
+                        ? c2 : ""));
+            if (flags.Contains("task-plan"))
+                return Emit(LongHorizonTasks.SetPlan(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tp) ? tp : "",
+                    (opts.TryGetValue("steps", out string? st2)
+                        ? st2 : "").Split(',', StringSplitOptions
+                            .RemoveEmptyEntries |
+                            StringSplitOptions.TrimEntries)));
+            if (flags.Contains("task-step"))
+                return Emit(LongHorizonTasks.RecordStep(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? ts) ? ts : "",
+                    opts.TryGetValue("step", out string? ss) ? ss : "",
+                    opts.TryGetValue("result", out string? sr) ? sr : "",
+                    opts.TryGetValue("evidence", out string? se)
+                        ? se : ""));
+            if (flags.Contains("task-checkpoint"))
+                return Emit(LongHorizonTasks.Checkpoint(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? ck) ? ck : ""));
+            if (flags.Contains("task-compact"))
+                return Emit(LongHorizonTasks.Compact(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? cp) ? cp : ""));
+            if (flags.Contains("task-resume"))
+                return Emit(LongHorizonTasks.Resume(
+                    toolRoot,
+                    opts.TryGetValue("checkpoint", out string? rc)
+                        ? rc : ""));
+            if (flags.Contains("task-revalidate"))
+                return Emit(LongHorizonTasks.Revalidate(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? rv) ? rv : ""));
+            if (flags.Contains("task-transition"))
+                return Emit(LongHorizonTasks.Transition(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tt) ? tt : "",
+                    opts.TryGetValue("to", out string? to2) ? to2 : "",
+                    opts.TryGetValue("reason", out string? re)
+                        ? re : ""));
+            if (flags.Contains("task-status"))
+                return Emit(LongHorizonTasks.Status(toolRoot));
+            // §10/§11/§22 coding + FIM contracts
+            if (flags.Contains("code-task-validate"))
+                return Emit(CodeAgent.ValidateTask(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cd)
+                            ? cd : "", "REPO_TASK_SCOPE_INVALID")));
+            if (flags.Contains("fim-validate"))
+                return Emit(CodeAgent.ValidateFim(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? fm)
+                            ? fm : "", "FIM_CONTRACT_INVALID")));
+            if (flags.Contains("harness-validate"))
+                return Emit(CodeAgent.ValidateHarness(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hv)
+                            ? hv : "", "REPO_TASK_SCOPE_INVALID")));
+            // §12 modality + teacher lineage schemas
+            if (flags.Contains("modality-validate"))
+                return Emit(Modality.ValidateProvenance(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mv)
+                            ? mv : "", "VISION_FALLBACK_FAILED")));
+            if (flags.Contains("teacher-validate"))
+                return Emit(Modality.ValidateTeacher(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tv)
+                            ? tv : "", "BUNDLE_PROVENANCE_INVALID")));
+            // §15 architecture change gate
+            if (flags.Contains("arch-gate"))
+                return Emit(ArchitectureGate.Evaluate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ag)
+                            ? ag : "", "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+            // §14/§19 dataset quality
+            if (flags.Contains("data-quality"))
+                return Emit(DataQuality.Evaluate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dq)
+                            ? dq : "", "DATA_QUALITY_INVALID"),
+                    opts.TryGetValue("min-quality", out string? mq) &&
+                        double.TryParse(mq, out double mqv)
+                            ? mqv : 0.0));
+            // §29 routing trace
+            if (flags.Contains("routing-record"))
+                return Emit(RoutingAnalysis.Record(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rr)
+                            ? rr : "", "MOE_TRACE_INVALID")));
+            if (flags.Contains("routing-status"))
+                return Emit(RoutingAnalysis.Aggregate(toolRoot));
+            // §30 eval plane
+            if (flags.Contains("eval-result-validate"))
+                return Emit(EvalCoordinator.ValidateResult(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ev)
+                            ? ev : "", "EVAL_RESULT_INVALID")));
+            if (flags.Contains("eval-suites"))
+                return Emit(EvalCoordinator.SuitesStatus());
             if (flags.Contains("queue-job"))
                 return Emit(QueueJob(
                     toolRoot,
@@ -281,33 +1202,6 @@ internal static class Program
                         ? pg : "",
                     opts.TryGetValue("architecture", out string? pa)
                         ? pa : "xc-fused-1"));
-            if (flags.Contains("recovery-dataset-build"))
-            {
-                if (opts.TryGetValue("capability", out string? rcp) &&
-                    rcp.Length > 0)
-                    InstructionRecovery.Capability = rcp;
-                return Emit(InstructionRecovery.BuildDataset(
-                    opts.TryGetValue("out", out string? rdo)
-                        ? rdo : "",
-                    opts.TryGetValue("count", out string? rc) &&
-                        int.TryParse(rc, out int rcv) ? rcv : 2800,
-                    opts.TryGetValue("seed", out string? rsd) &&
-                        int.TryParse(rsd, out int rsv) ? rsv : 42));
-            }
-            if (flags.Contains("recovery-eval"))
-                return Emit(InstructionRecovery.EvalBundle(
-                    toolRoot,
-                    opts.TryGetValue("bundle", out string? reb)
-                        ? reb : "",
-                    opts.TryGetValue("suite", out string? res)
-                        ? res : "",
-                    opts.TryGetValue("out", out string? reo)
-                        ? reo : null));
-            if (flags.Contains("recovery-run"))
-                return Emit(InstructionRecovery.Run(
-                    toolRoot,
-                    opts.TryGetValue("plan", out string? rpp)
-                        ? rpp : ""));
             if (flags.Contains("provenance-compute"))
                 return Emit(BundleProvenance.Compute(
                     opts.TryGetValue("bundle", out string? cb)
@@ -324,6 +1218,190 @@ internal static class Program
                         ? crt : "xc-native-cpp23",
                     opts.TryGetValue("lineage", out string? cl)
                         ? cl : ""));
+            // §36 community-fine-tune acceptance battery
+            if (flags.Contains("community-checks"))
+                return Emit(CommunityChecks.Run(toolRoot));
+            // single-core-axis contracts (taxonomy / core / drift)
+            if (flags.Contains("taxonomy"))
+                return Emit(ArchitectureTaxonomy.Emit());
+            if (flags.Contains("core-contract"))
+                return Emit(ArchitectureTaxonomy.CoreContract(
+                    opts.TryGetValue("architecture", out string? acn)
+                        ? acn : ArchitectureTaxonomy.CanonicalArchitecture,
+                    opts.TryGetValue("layers", out string? lc) &&
+                        long.TryParse(lc, out long lcv) ? lcv : 12,
+                    opts.TryGetValue("hidden", out string? hd) &&
+                        long.TryParse(hd, out long hdv) ? hdv : 768,
+                    opts.TryGetValue("heads", out string? qh) &&
+                        long.TryParse(qh, out long qhv) ? qhv : 12,
+                    opts.TryGetValue("kv-heads", out string? kvh) &&
+                        long.TryParse(kvh, out long kvhv) ? kvhv : 4));
+            if (flags.Contains("drift-gate"))
+                return Emit(ArchitectureTaxonomy.DriftGate(
+                    opts.TryGetValue("job-hash", out string? jh)
+                        ? jh : "",
+                    opts.TryGetValue("checkpoint-hash", out string? ch)
+                        ? ch : "",
+                    opts.TryGetValue("bundle-hash", out string? bh)
+                        ? bh : "",
+                    opts.TryGetValue("runtime-hash", out string? rh)
+                        ? rh : ""));
+            if (flags.Contains("version-dimensions"))
+                return Emit(ArchitectureTaxonomy.VersionDimensions(
+                    toolRoot));
+            // §42 acceptance battery
+            if (flags.Contains("axis-checks"))
+                return Emit(AxisChecks.Run(toolRoot));
+            // ---- Laya + MiMo-V2.6 capability plane (contract level)
+            if (flags.Contains("typed-decision-validate"))
+                return Emit(SystemOne.ValidateDecision(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? td)
+                            ? td : "", "SYSTEM1_SCHEMA_INVALID")));
+            if (flags.Contains("decision-calibrate"))
+                return Emit(SystemOne.Calibrate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("probs", out string? pb)
+                            ? pb : "", "SYSTEM1_UNCALIBRATED")
+                        .EnumerateArray()
+                        .Select(p => p.GetDouble()).ToArray(),
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("profile", out string? pf)
+                            ? pf : "", "SYSTEM1_UNCALIBRATED")));
+            if (flags.Contains("decision-metrics"))
+                return Emit(SystemOne.CalibrationMetrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dm)
+                            ? dm : "", "SYSTEM1_UNCALIBRATED")));
+            if (flags.Contains("cognition-route"))
+                return Emit(SystemOne.Route(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cr)
+                            ? cr : "", "SYSTEM1_SCHEMA_INVALID")));
+            if (flags.Contains("decision-trace"))
+                return Emit(SystemOne.RecordTrace(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dtf)
+                            ? dtf : "", "SYSTEM1_SCHEMA_INVALID")));
+            if (flags.Contains("router-stability"))
+            {
+                var sp = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? rs)
+                        ? rs : "", "ROUTER_STABILITY_INVALID");
+                if (sp.TryGetProperty("stage", out var st) &&
+                    st.ValueKind == JsonValueKind.String)
+                    return Emit(RouterStability.Policy(
+                        st.GetString()!));
+                return Emit(RouterStability.Gate(sp));
+            }
+            if (flags.Contains("trajectory-validate"))
+                return Emit(AgentLearning.ValidateTrajectory(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? tv)
+                            ? tv : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("harness-register"))
+                return Emit(AgentLearning.HarnessRegister(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? hr)
+                            ? hr : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("harness-outcome"))
+                return Emit(AgentLearning.HarnessOutcome(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ho)
+                            ? ho : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("groupwise-eval"))
+                return Emit(AgentLearning.GroupwiseEval(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gw)
+                            ? gw : "", "TRAJECTORY_INVALID")));
+            if (flags.Contains("reward-gate"))
+                return Emit(AgentLearning.RewardGate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rg)
+                            ? rg : "", "REWARD_SUSPECT")));
+            if (flags.Contains("correction-validate"))
+                return Emit(AgentLearning.ValidateCorrection(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cv)
+                            ? cv : "", "TRAJECTORY_INVALID")));
+            // §44 acceptance battery
+            if (flags.Contains("system1-checks"))
+                return Emit(LayaMiMoChecks.Run(toolRoot));
+            // ---- NativeMemoryCudaPlane (memory/CUDA directive)
+            if (flags.Contains("precision-policy"))
+                return Emit(MemoryCudaPlane.PrecisionReport());
+            if (flags.Contains("prefill-chunk"))
+            {
+                var pc = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? pcf)
+                        ? pcf : "", "MEMPLANE_BUDGET_EXCEEDED");
+                return Emit(MemoryCudaPlane.PrefillChunkPlan(
+                    pc.GetProperty("free_vram_bytes").GetInt64(),
+                    pc.GetProperty("bytes_per_token").GetInt64(),
+                    pc.TryGetProperty("active_decode_kbs", out var adk)
+                        ? adk.GetInt64() : 0));
+            }
+            if (flags.Contains("memplane-telemetry-validate"))
+                return Emit(MemoryCudaPlane.ValidateTelemetry(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mtv)
+                            ? mtv : "", "MEMPLANE_TELEMETRY_INVALID")));
+            // memory/CUDA acceptance battery
+            if (flags.Contains("cuda-plane-checks"))
+                return Emit(CudaPlaneChecks.Run(toolRoot));
+            // ---- NativeSiliconEfficiencyPlane (silicon directive)
+            if (flags.Contains("runtime-host-acquire"))
+                return Emit(SiliconRuntime.AcquireHost(
+                    toolRoot,
+                    opts.TryGetValue("owner", out string? ow)
+                        ? ow : "xc-learning"));
+            if (flags.Contains("artifact-register"))
+                return Emit(SiliconRuntime.RegisterArtifact(toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? arf)
+                            ? arf : "", "ARTIFACT_DUPLICATE_LOAD")));
+            if (flags.Contains("silicon-route"))
+            {
+                var sr = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? srf)
+                        ? srf : "", "SILICON_ROUTE_UNCERTIFIED");
+                var avail = new HashSet<string>(
+                    sr.TryGetProperty("available", out var av) &&
+                    av.ValueKind == JsonValueKind.Array
+                        ? av.EnumerateArray()
+                            .Select(x => x.GetString() ?? "")
+                        : Array.Empty<string>(),
+                    StringComparer.OrdinalIgnoreCase);
+                return Emit(SiliconRuntime.Route(
+                    sr.TryGetProperty("op", out var op)
+                        ? op.GetString() ?? "" : "",
+                    avail,
+                    sr.TryGetProperty("qos", out var q)
+                        ? q.GetString() ?? "NORMAL" : "NORMAL"));
+            }
+            if (flags.Contains("cpu-plan"))
+                return Emit(SiliconRuntime.CpuPlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cpf)
+                            ? cpf : "", "CPU_AFFINITY_INVALID")));
+            if (flags.Contains("freeze-map-validate"))
+                return Emit(SiliconRuntime.ValidateFreezeMap(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? fmf)
+                            ? fmf : "", "PARAMETER_FREEZE_VIOLATION")));
+            if (flags.Contains("param-efficiency"))
+                return Emit(SiliconRuntime.EfficiencyReport(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? pef)
+                            ? pef : "", "EFFICIENCY_INPUT_INVALID")));
+            if (flags.Contains("lifetime-plan"))
+                return Emit(SiliconRuntime.LifetimePlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? lpf)
+                            ? lpf : "", "LIFETIME_PLAN_INVALID")));
+            // silicon acceptance battery
+            if (flags.Contains("silicon-checks"))
+                return Emit(SiliconChecks.Run(toolRoot));
             return Usage();
         }
         catch (Exception exc)
@@ -334,6 +1412,10 @@ internal static class Program
                 ["error"] = exc.Message.Length > 500
                     ? exc.Message[..500] : exc.Message,
                 ["error_type"] = exc.GetType().Name,
+                // §36 fail-closed taxonomy — the code is contract
+                // surface, never swallowed into free text.
+                ["error_code"] = exc is ExecutorError ee
+                    ? ee.ErrorCode : "INTERNAL",
             });
         }
     }
@@ -384,9 +1466,49 @@ internal static class Program
             "--provenance-verify --bundle <dir> --provenance <file.json> " +
             "[--generation <gen>] [--architecture <arch>] | " +
             "--provenance-compute --bundle <dir> [...] | " +
-            "--recovery-dataset-build --out <dir> [--count N] [--seed N] | " +
-            "--recovery-eval --bundle <dir> --suite <file> [--out <file>] | " +
-            "--recovery-run --plan <plan.json>)");
+            "--trace-record --trace <file.json> | " +
+            "--cap-record --result <file.json> | --trace-status | " +
+            "--caps-status | --caps-validate --file <f.json> | " +
+            "--catalog-emit | --catalog-validate --file <f.json> | " +
+            "--tool-validate --file <f.json> --kind <request|result> | " +
+            "--tool-gate [--tool <name>] [--requirement <req>] " +
+            "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +
+            "--tool-metrics | --grounded-validate --file <f.json> | " +
+            "--structured-validate --output <f.json> --schema <f.json> | " +
+            "--langcheck | --community-checks | " +
+            "--taxonomy | --core-contract [--architecture <a>] " +
+            "[--layers N] [--hidden N] [--heads N] [--kv-heads N] | " +
+            "--drift-gate --job-hash <h> --checkpoint-hash <h> " +
+            "--bundle-hash <h> --runtime-hash <h> | " +
+            "--version-dimensions | --axis-checks | " +
+            "--typed-decision-validate --file <f.json> | " +
+            "--decision-calibrate --probs <a.json> --profile <p.json> | " +
+            "--decision-metrics --file <f.json> | " +
+            "--cognition-route --file <f.json> | " +
+            "--decision-trace --file <f.json> | " +
+            "--router-stability --file <f.json> | " +
+            "--trajectory-validate --file <f.json> | " +
+            "--harness-register --file <f.json> | " +
+            "--harness-outcome --file <f.json> | " +
+            "--groupwise-eval --file <f.json> | " +
+            "--reward-gate --file <f.json> | " +
+            "--correction-validate --file <f.json> | " +
+            "--system1-checks | --precision-policy | " +
+            "--prefill-chunk --file <f.json> | " +
+            "--memplane-telemetry-validate --file <f.json> | " +
+            "--cuda-plane-checks | " +
+            "--runtime-host-acquire [--owner <name>] | " +
+            "--artifact-register --file <f.json> | " +
+            "--silicon-route --file <f.json> | " +
+            "--cpu-plan --file <f.json> | " +
+            "--freeze-map-validate --file <f.json> | " +
+            "--param-efficiency --file <f.json> | " +
+            "--lifetime-plan --file <f.json> | --silicon-checks | " +
+            "--capacity-checks | " +
+            "--recovery-dataset-build --out <dir> [--count N] " +
+            "[--seed N] [--capability <id>] | " +
+            "--recovery-eval --bundle <dir> --suite <file> " +
+            "[--out <file>] | --recovery-run --plan <plan.json>)");
         return 2;
     }
 
@@ -573,7 +1695,7 @@ internal static class Program
     /// <summary>Registers a completed job's exported bundle as an adapter
     /// candidate and runs the governed native evaluation (capability or
     /// eval suite) against an optional baseline bundle. Records the full
-    /// result row in the repository — the same gate self-learning uses.
+    /// result row in the repository ??the same gate self-learning uses.
     /// --chat measures the deployed chat surface.</summary>
     private static Dictionary<string, object?> Evaluate(
         string toolRoot, string jobId, string bundle, string suitePath,
@@ -921,7 +2043,7 @@ internal static class Program
                 ["job"] = report.GetValueOrDefault("job"),
             };
 
-        // Lifecycle smoke against a scratch directory — production
+        // Lifecycle smoke against a scratch directory ??production
         // lifecycle roots are never touched.
         string bundleDir = Path.GetDirectoryName(
             report["output_path"]!.ToString()!)!;
@@ -998,8 +2120,8 @@ internal static class Program
         var reloaded = ModelLifecycle.Load(lcDir);
         if (reloaded.ActiveWeightsVersion != 2)
             throw new InvalidOperationException("lifecycle reload mismatch");
-        // 世代繼任契約：v2 啟用時自動攜入 v1 完整記錄 —— 刪除前代後其
-        // 資料仍保留在新代 metadata.succeeded_from 內。
+        // 世代繼任契�?：v2 ?�用?�自?��???v1 完整記�? ?��??�除?�代後其
+        // 資�?仍�??�在?�代 metadata.succeeded_from ?��?
         bool successionRecorded = false;
         if (reloaded.Artifacts.TryGetValue("weights", out var wg) &&
             wg.TryGetValue("versions", out object? wv) &&

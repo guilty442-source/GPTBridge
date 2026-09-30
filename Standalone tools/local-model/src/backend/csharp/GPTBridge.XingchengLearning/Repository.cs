@@ -68,7 +68,7 @@ internal sealed class TransformerTrainingRepository
 
         CREATE TABLE IF NOT EXISTS transformer_training_dataset (
             dataset_id TEXT PRIMARY KEY,
-            content_sha256 TEXT NOT NULL UNIQUE,
+            content_sha256 TEXT NOT NULL,
             format_version TEXT NOT NULL,
             base_model_id TEXT NOT NULL,
             runtime_model_id TEXT NOT NULL,
@@ -88,8 +88,23 @@ internal sealed class TransformerTrainingRepository
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL,
             CHECK(example_count =
-                  training_example_count + validation_example_count)
+                  training_example_count + validation_example_count),
+            UNIQUE (content_sha256, snapshot_sha256)
         );
+
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'transformer_training_dataset_content_sha256_key'
+            ) THEN
+                ALTER TABLE transformer_training_dataset
+                    DROP CONSTRAINT transformer_training_dataset_content_sha256_key;
+                ALTER TABLE transformer_training_dataset
+                    ADD CONSTRAINT transformer_training_dataset_snapshot_key
+                    UNIQUE (content_sha256, snapshot_sha256);
+            END IF;
+        END $$;
 
         CREATE TABLE IF NOT EXISTS transformer_training_dataset_example (
             dataset_id TEXT NOT NULL,
@@ -501,7 +516,12 @@ internal sealed class TransformerTrainingRepository
             throw new ArgumentException("transformer training snapshot SHA-256 mismatch");
         var normalized = NormalizeDatasetExamples(examples);
         var (trainCount, validationCount) = DatasetExampleCounts(normalized);
-        string datasetId = $"star-transformer-dataset-{contentDigest[..24]}";
+        // Dataset identity is (content_sha256, snapshot_sha256): identical
+        // content re-exported with different bytes (e.g. after a snapshot
+        // serialization change) registers a new row instead of colliding
+        // with an unrecoverable stale one.
+        string datasetId = $"star-transformer-dataset-" +
+            Sha256Text(contentDigest + ":" + snapshotDigest)[..24];
         string manifestJson = CanonicalJson.CanonicalDict(sourceManifest);
         string createdAt = Now();
 
@@ -509,9 +529,51 @@ internal sealed class TransformerTrainingRepository
         {
             var existing = db.QueryOne(
                 $"SELECT {DatasetColumns} FROM transformer_training_dataset " +
-                "WHERE content_sha256 = $1", contentDigest);
+                "WHERE content_sha256 = $1 AND snapshot_sha256 = $2",
+                contentDigest, snapshotDigest);
             if (existing != null)
+            {
+                // Snapshot columns are immutable
+                // (TRANSFORMER_DATASET_SNAPSHOT_IMMUTABLE), so a pruned file
+                // can only be repaired by restoring identical bytes at the
+                // stored path — guaranteed possible since the digest in the
+                // row equals the digest of the file just verified.
+                string storedPath = (string?)existing["snapshot_path"] ?? "";
+                string storedSha = (string?)existing["snapshot_sha256"] ?? "";
+                bool usable = storedPath.Length > 0 &&
+                              File.Exists(storedPath) &&
+                              Sha256File(storedPath) == storedSha;
+                if (!usable)
+                {
+                    string restored = Path.IsPathRooted(storedPath)
+                        ? storedPath
+                        : Path.Combine(ToolRoot, storedPath);
+                    restored = Path.GetFullPath(restored);
+                    if (!restored.StartsWith(
+                            ToolRoot + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal))
+                        throw new UnauthorizedAccessException(
+                            "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
+                    string? parentDir = Path.GetDirectoryName(restored);
+                    if (parentDir != null && !Directory.Exists(parentDir))
+                        Directory.CreateDirectory(parentDir);
+                    File.Copy(snapshotFile, restored, overwrite: true);
+                    if (Sha256File(restored) != storedSha)
+                        throw new InvalidOperationException(
+                            "transformer training snapshot restore failed");
+                    AppendAudit(db,
+                        eventType: "dataset-snapshot-restored",
+                        entityType: "training-dataset",
+                        entityId: (string)existing["dataset_id"]!,
+                        payload: new Dictionary<string, object?>
+                        {
+                            ["content_sha256"] = contentDigest,
+                            ["snapshot_sha256"] = storedSha,
+                            ["snapshot_path"] = restored,
+                        });
+                }
                 return (existing, false);
+            }
             db.Execute(
                 """
                 INSERT INTO transformer_training_dataset(
@@ -565,6 +627,16 @@ internal sealed class TransformerTrainingRepository
             throw new InvalidOperationException("transformer training dataset was not created");
         row["inserted"] = inserted;
         return row;
+    }
+
+    /// <summary>Every registered dataset's snapshot_path — the rows are
+    /// immutable, so retention must never prune a referenced file.</summary>
+    public List<string> DatasetSnapshotPaths()
+    {
+        using var db = Pg.Connect(Schema);
+        return db.Query(
+                "SELECT snapshot_path FROM transformer_training_dataset")
+            .Select(r => (string)r["snapshot_path"]!).ToList();
     }
 
     public Dictionary<string, object?>? DatasetById(string datasetId)
@@ -1280,6 +1352,19 @@ internal sealed class TransformerTrainingRepository
             double d => (int)d,
             _ => int.TryParse(v.ToString(), NumberStyles.Integer,
                               CultureInfo.InvariantCulture, out int i) ? i : 0,
+        };
+    }
+
+    internal static long Int64(IReadOnlyDictionary<string, object?> map, string key)
+    {
+        if (!map.TryGetValue(key, out object? v) || v == null) return 0;
+        return v switch
+        {
+            long l => l,
+            int i => i,
+            double d => (long)d,
+            _ => long.TryParse(v.ToString(), NumberStyles.Integer,
+                               CultureInfo.InvariantCulture, out long l) ? l : 0,
         };
     }
 

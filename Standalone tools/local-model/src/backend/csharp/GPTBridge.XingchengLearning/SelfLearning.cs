@@ -1071,6 +1071,13 @@ internal static class SelfLearning
         Directory.CreateDirectory(snapshotDir);
         string snapshotPath = Path.Combine(snapshotDir,
             $"sft-{DateTime.UtcNow:yyyyMMdd-HHmmss}.jsonl");
+        // §5 provenance: stamp the producing generation + active weights
+        // version on every collected record.
+        string sftGeneration = GenerationMigration.CurrentGeneration(tool);
+        string sftModelVersion =
+            $"w{ModelLifecycle.LoadOrCreate(
+                Path.Combine(tool, XcPaths.LifecycleRel),
+                XcPaths.ModelId).ActiveWeightsVersion}";
         Dictionary<string, object?>? snapshot = null;
         Exception? lastError = null;
         foreach (int permille in new[]
@@ -1083,7 +1090,9 @@ internal static class SelfLearning
                 snapshot = SftDataset.BuildSftDataset(
                     outputPath: snapshotPath,
                     examplesByScope: examples,
-                    valPermille: permille);
+                    valPermille: permille,
+                    generation: sftGeneration,
+                    modelVersion: sftModelVersion);
                 break;
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -1147,6 +1156,10 @@ internal static class SelfLearning
         string initRelative = Path.GetRelativePath(repositoryRoot, activePath)
             .Replace(Path.DirectorySeparatorChar, '/');
 
+        if (FrozenResult(resolvedPolicy, tool, state, dataset,
+                         total, newExamples) is { } frozenSft)
+            return frozenSft;
+
         var job = repository.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
             configuration: new Dictionary<string, object?>
@@ -1196,6 +1209,34 @@ internal static class SelfLearning
         return merged;
     }
 
+    /// <summary>Architecture-convergence freeze gate: when
+    /// <c>capability_training_frozen</c> is set the cycle keeps its
+    /// collect/sanitize/dedup/register work (the dataset snapshot above
+    /// is already registered) but must not create a trainer job or
+    /// touch active weights. Returns null when not frozen.</summary>
+    private static Dictionary<string, object?>? FrozenResult(
+        SelfLearningPolicy policy, string tool,
+        Dictionary<string, object?> state,
+        IReadOnlyDictionary<string, object?> dataset,
+        int total, int newCount)
+    {
+        if (!policy.CapabilityTrainingFrozen) return null;
+        SelfLearningState.Save(tool, new Dictionary<string, object?>(state)
+        {
+            ["last_run_at"] = IsoNow(),
+            ["last_action"] = "frozen",
+        });
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["action"] = "frozen",
+            ["reason"] = "capability-training-frozen",
+            ["dataset_id"] = dataset["dataset_id"],
+            ["total_examples"] = total,
+            ["new_examples"] = newCount,
+        };
+    }
+
     private static Dictionary<string, object?> RunDpoCycle(
         string tool, SelfLearningPolicy policy,
         Dictionary<string, object?> state,
@@ -1233,7 +1274,9 @@ internal static class SelfLearning
         try
         {
             manifest = SftDataset.BuildPairsSnapshot(
-                pairs, snapshotPath, valPermille: policy.ValPermille);
+                pairs, snapshotPath, valPermille: policy.ValPermille,
+                generation: GenerationMigration.CurrentGeneration(tool),
+                modelVersion: $"w{lifecycle.ActiveWeightsVersion}");
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
@@ -1246,13 +1289,18 @@ internal static class SelfLearning
             };
         }
         var dataset = SftDataset.RegisterPairsSnapshot(
-            repository, manifest, createdBy: "star-self-learning");
+            repository, manifest, createdBy: "star-self-learning",
+            generation: GenerationMigration.CurrentGeneration(tool),
+            modelVersion: $"w{lifecycle.ActiveWeightsVersion}");
 
         int pairsTotal = pairs.Count;
         int newPairs = Math.Max(0, pairsTotal -
             TransformerTrainingRepository.Int(state, "trained_pair_total"));
         string initRelative = Path.GetRelativePath(repositoryRoot, activePath)
             .Replace(Path.DirectorySeparatorChar, '/');
+        if (FrozenResult(policy, tool, state, dataset,
+                         pairsTotal, newPairs) is { } frozenDpo)
+            return frozenDpo;
         var job = repository.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
             configuration: new Dictionary<string, object?>

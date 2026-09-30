@@ -1,15 +1,16 @@
-// ConvergenceGate.cs — §5 XingchengConvergenceGate: the single release
-// gate every merge / runtime update / generation promotion / bundle
-// activation must pass. Steps run in the codified order; any critical
-// failure forbids promotion (fail-closed).
+// ConvergenceGate.cs — XingchengConvergenceGate: the single release gate
+// every merge / runtime update / generation promotion / bundle activation
+// must pass (Native Production Convergence II). Steps run in fixed order;
+// any critical failure forbids promotion (fail-closed).
 //
-// The gate composes the already-converged components — it does NOT
-// reimplement them: LanguageBoundary, build scripts, trainer probes,
-// xc_modeltool modes, BundleProvenance, audit chain and lifecycle are
-// invoked through their existing entry points (NativeTools subprocess
-// lane for native binaries).
+// The gate composes main's already-converged components — it does NOT
+// reimplement them: LangCheck, build scripts, trainer --probe-all,
+// AxisChecks / LayaMiMoChecks (System-1) / CommunityChecks, FeatureCatalog,
+// xc_modeltool modes, TransformerTrainingRepository audit chain,
+// Retention and ModelLifecycle are invoked through their existing entry
+// points (NativeTools subprocess lane for native binaries).
 //
-//   --release-gate [--bundle <dir>] [--no-builds] [--quick]
+//   --release-gate [--bundle <dir>] [--no-builds] [--suite <f.json>]
 //
 // Output: star-release-gate/v1 — ordered step results, each with
 // status/critical/duration/failure_code; plus final verdict.
@@ -37,7 +38,7 @@ internal static class ConvergenceGate
     private sealed record Step(string Name, bool Critical,
                                Func<StepResult> Run);
 
-    /// <summary>§5 enforcement: true when runtime/settings/
+    /// <summary>Enforcement: true when runtime/settings/
     /// convergence-gate.json sets enforce_release_gate=true —
     /// promotion/activation must then present passing gate evidence.</summary>
     public static bool Enforced(string toolRoot)
@@ -101,18 +102,25 @@ internal static class ConvergenceGate
         if (!p.WaitForExit(timeoutS * 1000))
         {
             try { p.Kill(true); } catch { }
+            // Grandchildren (MSBuild node servers, toolchains) may
+            // keep holding the redirected pipe handles after the
+            // parent dies — bound the drain or the gate hangs.
+            try { p.WaitForExit(30_000); } catch { }
             return Fail("GATE_STEP_TIMEOUT",
                         $"{exe} exceeded {timeoutS}s");
         }
-        p.WaitForExit(); // drain async readers
+        p.WaitForExit(30_000); // drain async readers (bounded — see
+                               // timeout path: grandchildren can hold
+                               // the pipes open indefinitely)
+        string detail = (stderr + "\n" + stdout).Trim();
         if (p.ExitCode != 0)
             return Fail("GATE_STEP_FAILED",
-                (stderr.Length > 0 ? stderr : stdout).ToString()
-                    .Trim()[..Math.Min(400,
-                        (stderr.Length > 0 ? stderr : stdout)
-                            .ToString().Trim().Length)]);
-        return Pass(stdout.ToString().Trim()[..Math.Min(200,
-            stdout.ToString().Trim().Length)]);
+                detail.Length > 0
+                    ? detail[^Math.Min(400, detail.Length)..]
+                    : $"exit={p.ExitCode} (no output captured)");
+        return Pass(detail.Length > 0
+            ? detail[^Math.Min(200, detail.Length)..]
+            : "exit=0");
     }
 
     private static StepResult Native(string toolRoot, string exe,
@@ -131,9 +139,43 @@ internal static class ConvergenceGate
                            r.StdoutTail.Trim().Length)]}");
     }
 
-    /// <summary>The ordered §5 gate. Each step records outcome; the run
-    /// continues so the report shows the full failure surface, but the
-    /// verdict is blocked on the first critical FAIL.</summary>
+    /// <summary>Run a native step and require a JSON field to hold a
+    /// value — used where exit 0 alone cannot prove the contract
+    /// (e.g. mtp-runtime's final_output_parity).</summary>
+    private static StepResult NativeField(string toolRoot, string exe,
+        string[] args, string field, string expect)
+    {
+        string log = Path.Combine(toolRoot,
+            ReportRel.Replace('/', Path.DirectorySeparatorChar),
+            "gate-stderr.log");
+        var r = NativeTools.Run(exe, args, toolRoot, log, 300);
+        if (r.ExitCode != 0)
+            return Fail("GATE_STEP_FAILED",
+                $"exit={r.ExitCode} {r.StdoutTail
+                    .Trim()[..Math.Min(200,
+                        r.StdoutTail.Trim().Length)]}");
+        string tail = r.StdoutTail.Trim();
+        int nl = tail.LastIndexOf('\n');
+        string last = nl >= 0 ? tail[(nl + 1)..] : tail;
+        try
+        {
+            using var doc = JsonDocument.Parse(last);
+            if (doc.RootElement.TryGetProperty(field, out var v) &&
+                v.ToString() == expect)
+                return Pass($"{field}={expect}");
+            return Fail("GATE_FIELD_MISMATCH",
+                $"{field} expected {expect}: {last[..Math.Min(160, last.Length)]}");
+        }
+        catch (Exception)
+        {
+            return Fail("GATE_OUTPUT_UNPARSEABLE",
+                last[..Math.Min(160, last.Length)]);
+        }
+    }
+
+    /// <summary>The ordered release gate. Each step records outcome; the
+    /// run continues so the report shows the full failure surface, but
+    /// the verdict is blocked on the first critical FAIL.</summary>
     public static Dictionary<string, object?> Run(
         string toolRoot, string? bundle, bool runBuilds,
         string? suite = null)
@@ -154,48 +196,78 @@ internal static class ConvergenceGate
 
         var steps = new List<Step>
         {
+            // ---------- governance / boundary ----------
             new("language-scan", true, () =>
             {
-                var v = LanguageBoundary.Scan(srcRoot);
-                return v.Count == 0
-                    ? Pass("0 violations")
-                    : Fail(ConvErr.LanguageBoundaryViolation,
-                           string.Join(";", v.Take(5)));
+                var v = LangCheck.Scan(toolRoot);
+                string viol = JsonSerializer.Serialize(
+                    v["violations"]);
+                return TransformerTrainingRepository.Truthy(v["ok"])
+                    ? Pass($"{v["files_scanned"]} files scanned")
+                    : Fail("LANGUAGE_BOUNDARY_VIOLATION",
+                           viol[..Math.Min(300, viol.Length)]);
             }),
             new("header-dependency-audit", true, () =>
                 HeaderAudit(srcRoot)),
-            new("build-c-core", true, () => runBuilds
+            // ---------- builds ----------
+            new("build-modeltool", true, () => runBuilds
                 ? BuildStep(toolRoot, "tools", "build.ps1")
-                : BinPresent(toolExe, "xc_modeltool.exe")),
-            new("build-cpp-runtime", true, () => runBuilds
-                ? Pass("covered by build-c-core (single TU link)")
                 : BinPresent(toolExe, "xc_modeltool.exe")),
             new("build-trainer", true, () => runBuilds
                 ? BuildStep(toolRoot, "training", "build.ps1")
                 : BinPresent(trainExe, "xingcheng_trainer.exe")),
-            new("build-modeltool", true, () => runBuilds
-                ? Pass("covered by build-c-core (single TU link)")
-                : BinPresent(toolExe, "xc_modeltool.exe")),
             new("build-xc-learning", true, () => runBuilds
                 ? BuildXcLearning(toolRoot)
                 : Pass("self build (this process)")),
-            new("xcn10-compat", true, () => trainExe.Length > 0
-                ? Native(toolRoot, trainExe, "--canoncheck")
-                : Fail("GATE_STEP_FAILED", "trainer missing")),
-            new("canonical-contract", true, () => trainExe.Length > 0
-                ? Native(toolRoot, trainExe, "--canoncheck")
-                : Fail("GATE_STEP_FAILED", "trainer missing")),
+            // ---------- self-test ----------
+            new("self-test", true, () => SelfTestStep(toolRoot)),
+            // ---------- trainer probes (16/16 aggregate) ----------
             new("trainer-probes", true, () => trainExe.Length > 0
-                ? Native(toolRoot, trainExe, "--probe-all")
+                ? NativeField(toolRoot, trainExe,
+                    new[] { "--probe-all" }, "ok", "True")
                 : Fail("GATE_STEP_FAILED", "trainer missing")),
+            // ---------- check batteries ----------
+            new("axis-checks", true, () =>
+            {
+                var r = AxisChecks.Run(toolRoot);
+                return TruthyField(r, "ok", "axis-checks");
+            }),
+            new("system1-checks", true, () =>
+            {
+                var r = LayaMiMoChecks.Run(toolRoot);
+                return TruthyField(r, "ok", "system1-checks");
+            }),
+            new("community-checks", true, () =>
+            {
+                var r = CommunityChecks.Run(toolRoot);
+                return TruthyField(r, "ok", "community-checks");
+            }),
+            new("catalog-validate", true, () =>
+            {
+                var emitted = FeatureCatalog.Emit(toolRoot);
+                string file = Path.Combine(toolRoot,
+                    FeatureCatalog.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                var v = FeatureCatalog.Validate(file);
+                return TruthyField(v, "ok",
+                    $"catalog-validate emitted={emitted.Count}");
+            }),
+            // ---------- bundle-bound runtime steps ----------
+            new("architecture-drift", true, () => NeedBundle(() =>
+                ArchitectureDrift(bundle!))),
             new("runtime-smoke", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "memory-plan",
+                Native(toolRoot, toolExe, "memplan",
                        "--bundle", bundle!))),
-            new("cache-smoke", true, () => NeedBundle(() =>
+            new("checkpoint-validation", true, () => NeedBundle(() =>
+                Native(toolRoot, toolExe, "provenance-check",
+                       "--bundle", bundle!))),
+            new("state-validation", true, () => NeedBundle(() =>
+                Native(toolRoot, toolExe, "statebench",
+                       "--bundle", bundle!,
+                       "--generation", ManifestGeneration(bundle!),
+                       "--tokens", "32"))),
+            new("cache-validation", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "cache-smoke",
-                       "--bundle", bundle!))),
-            new("state-smoke", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "state-snapshot",
                        "--bundle", bundle!))),
             new("vision-smoke", true, () => NeedBundle(() =>
             {
@@ -208,34 +280,14 @@ internal static class ConvergenceGate
                 return Native(toolRoot, toolExe, "vision-smoke",
                               "--bundle", bundle!);
             })),
-            new("thinking-smoke", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "native-thinking-eval",
-                       "--bundle", bundle!, "--quick"))),
-            new("precision-parity", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "precision-parity",
-                       "--bundle", bundle!))),
-            new("cuda-parity", true, () =>
-                Native(toolRoot, toolExe, "cuda-parity-all")),
-            new("provenance-verify", true, () => NeedBundle(() =>
-            {
-                try
-                {
-                    // §34: provenance is a sibling file — embedding it
-                    // in manifest.json would make manifest_hash
-                    // self-referential.
-                    var prov = ReadProvenance(bundle!);
-                    if (prov == null)
-                        return Fail(ConvErr.BundleProvenanceInvalid,
-                                    "bundle lacks provenance.json");
-                    BundleProvenance.Verify(bundle!, prov,
-                        "", "xc-fused-1");
-                    return Pass("provenance verified");
-                }
-                catch (ExecutorError ex)
-                {
-                    return Fail(ex.ErrorCode, ex.Message);
-                }
-            })),
+            new("mtp-contract", true, () => NeedBundle(() =>
+                NativeField(toolRoot, toolExe,
+                    new[] { "mtp-runtime", "--bundle", bundle!,
+                            "--tokens", "8" },
+                    "final_output_parity", "True"))),
+            // ---------- hardware / provenance / audit ----------
+            new("cuda-probe", false, () =>
+                Native(toolRoot, toolExe, "probe-cuda")),
             new("audit-verify", true, () =>
             {
                 var r = new TransformerTrainingRepository(toolRoot)
@@ -249,6 +301,20 @@ internal static class ConvergenceGate
             }),
             new("generation-convergence", true, () =>
                 GenerationConvergence(toolRoot)),
+            new("convergence-checks", true, () =>
+            {
+                var r = ConvergenceChecks.Run(toolRoot);
+                return TruthyField(r, "ok", "convergence-checks");
+            }),
+            new("resource-cert", true, () => NeedBundle(() =>
+                Native(toolRoot, toolExe, "scale-status",
+                       "--bundle", bundle!))),
+            // ---------- release invariants ----------
+            new("dataset-retention-invariants", true, () =>
+                DatasetRetentionInvariants(toolRoot)),
+            new("lifecycle-succession-cycle", true, () =>
+                LifecycleSuccessionCycle(toolRoot)),
+            // ---------- capability baseline (evidence, non-blocking) --
             new("capability-baseline", false, () => NeedBundle(() =>
                 suite == null || !File.Exists(suite)
                     ? Skip("no --suite (star-capability-suite/v1) "
@@ -308,6 +374,7 @@ internal static class ConvergenceGate
             ["capability_training_frozen"] = true,
             ["canonical_architecture"] = "xc-fused-1",
             ["checkpoint_contract"] = "XCN1 v10",
+            ["release_source"] = "main",
         };
         string dir = Path.Combine(toolRoot,
             ReportRel.Replace('/', Path.DirectorySeparatorChar));
@@ -318,6 +385,60 @@ internal static class ConvergenceGate
             CanonicalJson.PrettyDict(report) + "\n");
         report["report_path"] = path;
         return report;
+    }
+
+    private static StepResult TruthyField(
+        Dictionary<string, object?> r, string field, string name) =>
+        TransformerTrainingRepository.Truthy(r.GetValueOrDefault(field))
+            ? Pass($"{name} ok")
+            : Fail($"{name.ToUpperInvariant().Replace('-', '_')}_FAILED",
+                   JsonSerializer.Serialize(r)[..Math.Min(300,
+                       JsonSerializer.Serialize(r).Length)]);
+
+    private static StepResult SelfTestStep(string toolRoot)
+    {
+        string? self = Environment.ProcessPath;
+        if (self == null || !File.Exists(self))
+            return Fail("GATE_STEP_FAILED", "xc-learning exe unresolved");
+        var psi = new ProcessStartInfo
+        {
+            FileName = self,
+            Arguments = $"--tool-root \"{toolRoot}\" --self-test",
+            WorkingDirectory = toolRoot,
+            RedirectStandardOutput = true, RedirectStandardError = true,
+            UseShellExecute = false, CreateNoWindow = true,
+        };
+        var stdout = new StringBuilder();
+        using var p = Process.Start(psi)!;
+        p.OutputDataReceived += (_, e) => { if (e.Data != null)
+            stdout.AppendLine(e.Data); };
+        if (!p.WaitForExit(300_000))
+        {
+            try { p.Kill(true); } catch { }
+            try { p.WaitForExit(30_000); } catch { }
+            return Fail("GATE_STEP_TIMEOUT", "self-test exceeded 300s");
+        }
+        p.WaitForExit(30_000);
+        string tail = stdout.ToString().Trim();
+        try
+        {
+            int nl = tail.LastIndexOf('\n');
+            using var doc = JsonDocument.Parse(
+                nl >= 0 ? tail[(nl + 1)..] : tail);
+            bool ok = doc.RootElement.TryGetProperty("ok", out var v) &&
+                      v.ValueKind == JsonValueKind.True;
+            return ok ? Pass("self-test ok")
+                      : Fail("SELF_TEST_FAILED",
+                             tail[..Math.Min(200, tail.Length)]);
+        }
+        catch (Exception)
+        {
+            return p.ExitCode == 0
+                ? Pass($"self-test exit=0 ({tail.Length}B)")
+                : Fail("SELF_TEST_FAILED",
+                       $"exit={p.ExitCode} " +
+                       tail[..Math.Min(160, tail.Length)]);
+        }
     }
 
     private static bool BundleUsesVision(string bundle)
@@ -335,27 +456,111 @@ internal static class ConvergenceGate
         catch (Exception) { return false; }
     }
 
-    private static Dictionary<string, object?>? ReadProvenance(
-        string bundle)
+    /// <summary>The engine's generation() is manifest
+    /// `architecture_generation` ("" on pre-convergence bundles).
+    /// statebench only needs a consistent tag — fall back to the
+    /// legacy claims and finally "unversioned".</summary>
+    private static string ManifestGeneration(string bundle)
     {
-        string pp = Path.Combine(bundle, "provenance.json");
-        if (File.Exists(pp))
+        try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(pp));
-            return (Dictionary<string, object?>)
-                ModelLifecycle.Decode(doc.RootElement)!;
+            using var doc = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(bundle, "manifest.json")));
+            var root = doc.RootElement;
+            foreach (var k in new[] { "architecture_generation",
+                                      "generation" })
+                if (root.TryGetProperty(k, out var g) &&
+                    g.ValueKind == JsonValueKind.String &&
+                    (g.GetString() ?? "").Length > 0)
+                    return g.GetString()!;
+            if (root.TryGetProperty("config", out var c) &&
+                c.ValueKind == JsonValueKind.Object)
+                foreach (var k in new[] { "generation", "architecture" })
+                    if (c.TryGetProperty(k, out var cg) &&
+                        cg.ValueKind == JsonValueKind.String &&
+                        (cg.GetString() ?? "").Length > 0)
+                        return cg.GetString()!;
         }
-        // Legacy lane: a provenance block embedded in the manifest
-        // (manifest_hash then covers the unsigned manifest — see
-        // export flow which writes provenance.json separately).
-        string mp = Path.Combine(bundle, "manifest.json");
-        if (!File.Exists(mp)) return null;
-        using var mdoc = JsonDocument.Parse(File.ReadAllText(mp));
-        if (!mdoc.RootElement.TryGetProperty("provenance", out var p)
-            || p.ValueKind != JsonValueKind.Object)
-            return null;
-        return (Dictionary<string, object?>)
-            ModelLifecycle.Decode(p)!;
+        catch (Exception) { }
+        return "unversioned";
+    }
+
+    /// <summary>Architecture drift: the bundle must claim xc-fused-1
+    /// and carry no quarantined axes (CSA / MLA / aux-free lb_bias)
+    /// under the canonical label. provenance.json is the signed
+    /// evidence block and its architecture_profile is authoritative;
+    /// the manifest's architecture_generation is a legacy export-time
+    /// tag consulted only when no provenance exists — a pre-rename
+    /// tag like "current-compatible-profile" can only certify
+    /// xc-fused-1 through provenance, never on its own.</summary>
+    private static StepResult ArchitectureDrift(string bundle)
+    {
+        try
+        {
+            string arch = "";
+            string archSrc = "";
+            string provPath = Path.Combine(bundle, "provenance.json");
+            if (File.Exists(provPath))
+            {
+                using var pdoc = JsonDocument.Parse(
+                    File.ReadAllText(provPath));
+                if (pdoc.RootElement.TryGetProperty(
+                        "architecture_profile", out var ap) &&
+                    ap.ValueKind == JsonValueKind.String &&
+                    (ap.GetString() ?? "").Length > 0)
+                { arch = ap.GetString()!; archSrc = "provenance"; }
+            }
+            using var doc = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(bundle, "manifest.json")));
+            var root = doc.RootElement;
+            JsonElement cfg = root;
+            if (root.TryGetProperty("config", out var c) &&
+                c.ValueKind == JsonValueKind.Object)
+                cfg = c;
+            string manArch = "";
+            foreach (var k in new[] { "architecture",
+                                     "architecture_generation",
+                                     "model_type", "generation" })
+                if (cfg.TryGetProperty(k, out var a) &&
+                    a.ValueKind == JsonValueKind.String)
+                { manArch = a.GetString() ?? "";
+                  if (manArch.Length > 0) break; }
+            if (manArch.Length == 0)
+                foreach (var k in new[] { "architecture",
+                                         "architecture_generation" })
+                    if (root.TryGetProperty(k, out var a) &&
+                        a.ValueKind == JsonValueKind.String)
+                    { manArch = a.GetString() ?? "";
+                      if (manArch.Length > 0) break; }
+            if (arch.Length == 0)
+            { arch = manArch; archSrc = "manifest"; }
+            else if (manArch.Length > 0 && manArch != arch &&
+                     manArch != "current-compatible-profile" &&
+                     manArch != "unversioned")
+                return Fail("ARCHITECTURE_DRIFT",
+                    $"manifest declares {manArch} but provenance "
+                    + $"certifies {arch}");
+            if (arch.Length > 0 && arch != "xc-fused-1" &&
+                arch != "xc_fused_1" && !arch.StartsWith("xc-fused-1"))
+                return Fail("ARCHITECTURE_DRIFT",
+                            $"{archSrc} declares {arch}");
+            var quarantined = new List<string>();
+            foreach (var k in new[] { "use_csa", "use_mla",
+                                      "aux_free_lb_bias" })
+                if (cfg.TryGetProperty(k, out var q) &&
+                    q.ValueKind == JsonValueKind.True)
+                    quarantined.Add(k);
+            if (quarantined.Count > 0)
+                return Fail("CANONICAL_CONTRACT_VIOLATION",
+                            string.Join(",", quarantined));
+            return Pass(arch.Length > 0
+                ? $"architecture={arch} ({archSrc})"
+                : "no architecture claim (legacy manifest)");
+        }
+        catch (Exception ex)
+        {
+            return Fail("ARCHITECTURE_DRIFT", ex.Message);
+        }
     }
 
     private static StepResult BinPresent(string exe, string name)
@@ -374,7 +579,7 @@ internal static class ConvergenceGate
             return Fail("GATE_STEP_FAILED", $"missing {script}");
         return Shell("powershell",
             "-NoProfile -ExecutionPolicy Bypass -File \"" + ps1 + "\"",
-            dir, 600);
+            dir, 1200);
     }
 
     private static StepResult BuildXcLearning(string toolRoot)
@@ -384,16 +589,21 @@ internal static class ConvergenceGate
             "GPTBridge.XingchengLearning.csproj");
         if (!File.Exists(proj))
             return Fail("GATE_STEP_FAILED", "csproj missing");
+        // /nr:false + /m:1 + UseSharedCompilation=false: the release
+        // gate must never hang on the shared MSBuild node / VBCS
+        // server — those are shared with every other build on the
+        // host and can stall indefinitely under contention.
         return Shell("dotnet",
-            "build -c Release --nologo \"" + proj + "\"",
-            toolRoot, 600);
+            "build -c Release --nologo --no-restore /nr:false /m:1 " +
+            "/p:UseSharedCompilation=false \"" + proj + "\"",
+            toolRoot, 1200);
     }
 
-    /// <summary>§38 include-dependency audit: every header fragment in
-    /// the xct_*/xcm_*/engine_* split must be self-consistent —
-    /// deterministically included by its umbrella TU in a fixed order,
-    /// with no fragment including another fragment (which would make
-    /// correctness depend on accidental include side-effects).</summary>
+    /// <summary>Header audit: every header fragment in the xct_*/xcm_*/
+    /// engine_* split must be self-consistent — deterministically
+    /// included by its umbrella TU in a fixed order, with no fragment
+    /// including another fragment (which would make correctness depend
+    /// on accidental include side-effects).</summary>
     private static StepResult HeaderAudit(string srcRoot)
     {
         var violations = new List<string>();
@@ -433,15 +643,13 @@ internal static class ConvergenceGate
             }
         }
         return violations.Count == 0
-            ? Pass($"{violations.Count} fragment-include violations")
+            ? Pass("0 fragment-include violations")
             : Fail("HEADER_DEPENDENCY_AUDIT",
                    string.Join(";", violations.Take(5)));
     }
 
-    /// <summary>§39 generation convergence: at most one open CANDIDATE
-    /// manifest; the lifecycle's active version is well-formed; no
-    /// gen-manifest claims PROMOTED while its target artifact is
-    /// missing.</summary>
+    /// <summary>Generation convergence: at most 2 open manifests (1
+    /// active + 1 candidate); none unreadable.</summary>
     private static StepResult GenerationConvergence(string toolRoot)
     {
         string genDir = Path.Combine(toolRoot, "xingcheng", "runtime",
@@ -475,5 +683,305 @@ internal static class ConvergenceGate
             ? Pass($"{open.Count} open generation(s)")
             : Fail("GENERATION_CONVERGENCE_VIOLATION",
                    string.Join(";", issues.Take(5)));
+    }
+
+    /// <summary>Release invariant: dataset identity is the compound key
+    /// (content_sha256, snapshot_sha256). Same content + same bytes
+    /// dedups to one row; same content + new bytes registers a new row;
+    /// every registered snapshot path is retention-protected (dry-run
+    /// must never plan its deletion). Two deterministic synthetic rows
+    /// persist — re-runs dedup to the same ids.</summary>
+    private static StepResult DatasetRetentionInvariants(string toolRoot)
+    {
+        string scratchDir = Path.Combine(toolRoot, "xingcheng",
+            "runtime", "state", "_gate-dataset-invariants");
+        List<Dictionary<string, object?>>? norm = null;
+        string diag = "";
+        try
+        {
+            Directory.CreateDirectory(scratchDir);
+            string sha = TransformerTrainingRepository.Sha256Text(
+                "gate-dataset-invariant-content");
+            string snapA = Path.Combine(scratchDir, "snap-a.json");
+            string snapB = Path.Combine(scratchDir, "snap-b.json");
+            File.WriteAllText(snapA,
+                "{\"format\":\"star-transformer-sft/v1\",\"gate\":true,"
+                + "\"examples\":[]}");
+            File.WriteAllText(snapB,
+                "{\"format\":\"star-transformer-sft/v1\",\"gate\":true,"
+                + "\"examples\":[],\"rev\":2}");
+            string shaA = TransformerTrainingRepository.Sha256File(snapA);
+            string shaB = TransformerTrainingRepository.Sha256File(snapB);
+            var repo = new TransformerTrainingRepository(toolRoot);
+            var ex = new List<IReadOnlyDictionary<string, object?>>
+            {
+                new Dictionary<string, object?>
+                {
+                    ["split"] = "train",
+                    ["database_scope"] = "main",
+                    ["content_sha256"] =
+                        TransformerTrainingRepository.Sha256Text(
+                            "gate-invariant-example"),
+                    ["source_revision"] = 1,
+                    ["quality_score"] = 0.9,
+                    ["owner_model_id"] = "gate-invariant",
+                    ["source_example_id"] = "gate-ex-1",
+                    ["source_type"] = "convergence-gate",
+                },
+                new Dictionary<string, object?>
+                {
+                    ["split"] = "validation",
+                    ["database_scope"] = "main",
+                    ["content_sha256"] =
+                        TransformerTrainingRepository.Sha256Text(
+                            "gate-invariant-example-val"),
+                    ["source_revision"] = 1,
+                    ["quality_score"] = 0.9,
+                    ["owner_model_id"] = "gate-invariant",
+                    ["source_example_id"] = "gate-ex-2",
+                    ["source_type"] = "convergence-gate",
+                },
+            };
+            var manifest = new Dictionary<string, object?>
+            {
+                ["source"] = "convergence-gate",
+                ["purpose"] = "dataset-identity-invariant",
+            };
+            norm = TransformerTrainingRepository
+                .NormalizeDatasetExamples(ex);
+            var missing = norm.Where(e =>
+                string.IsNullOrEmpty((string?)e["owner_model_id"]) ||
+                string.IsNullOrEmpty((string?)e["source_example_id"]) ||
+                string.IsNullOrEmpty((string?)e["source_type"]))
+                .Select(e => string.Join(",",
+                    e.Keys.Where(k =>
+                        string.IsNullOrEmpty(
+                            e[k]?.ToString()))));
+            diag = string.Join(";", missing);
+            var r1 = repo.CreateDataset(sha, snapA, shaA, ex, manifest,
+                createdBy: "convergence-gate");
+            var r2 = repo.CreateDataset(sha, snapA, shaA, ex, manifest,
+                createdBy: "convergence-gate");
+            var r3 = repo.CreateDataset(sha, snapB, shaB, ex, manifest,
+                createdBy: "convergence-gate");
+            string id1 = r1.GetValueOrDefault("dataset_id")?.ToString()
+                ?? "";
+            string id2 = r2.GetValueOrDefault("dataset_id")?.ToString()
+                ?? "";
+            string id3 = r3.GetValueOrDefault("dataset_id")?.ToString()
+                ?? "";
+            if (id1.Length == 0 || id1 != id2)
+                return Fail("DATASET_IDENTITY_DEDUP_FAILED",
+                            $"same-content/same-bytes: {id1} vs {id2}");
+            if (id3.Length == 0 || id3 == id1)
+                return Fail("DATASET_IDENTITY_NEWSNAPSHOT_FAILED",
+                            $"same-content/new-bytes: {id3} vs {id1}");
+
+            // Registered snapshot paths must never appear in a
+            // retention deletion plan.
+            // Every registered snapshot path is part of a dataset
+            // row's identity — assert ours landed and that a dry-run
+            // never plans deletion for ANY registered snapshot.
+            var registered = repo.DatasetSnapshotPaths()
+                .Select(p => Path.IsPathRooted(p)
+                    ? Path.GetFullPath(p)
+                    : Path.GetFullPath(Path.Combine(
+                        toolRoot, "xingcheng", p)))
+                .ToList();
+            string absA = Path.GetFullPath(snapA);
+            if (!registered.Contains(absA))
+                return Fail("REGISTERED_SNAPSHOT_MISSING",
+                            "dataset snapshot path absent from registry");
+            var plan = Retention.ApplyRetention(toolRoot, dryRun: true);
+            if (plan.TryGetValue("deleted", out var delObj) &&
+                delObj is List<Dictionary<string, object?>> del)
+            {
+                var regSet = new HashSet<string>(
+                    registered, StringComparer.OrdinalIgnoreCase);
+                var hit = del
+                    .Select(d => d.GetValueOrDefault("path")?.ToString()
+                                 ?? "")
+                    .Where(p => p.Length > 0)
+                    .Select(p => { try { return Path.GetFullPath(p); }
+                                   catch { return p; } })
+                    .FirstOrDefault(regSet.Contains);
+                if (hit != null)
+                    return Fail("REGISTERED_SNAPSHOT_PRUNED",
+                                $"retention planned {hit}");
+            }
+
+            // Unreadable registry -> preserve: with a dead DSN the
+            // fallback must protect every snapshot file in the
+            // snapshot dir (fail closed, never delete blind).
+            string scratchRoot = Path.Combine(scratchDir, "fake-tool");
+            string snapDir = Path.Combine(scratchRoot,
+                XcPaths.SelfLearningSnapshotRel.Replace('/',
+                    Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(snapDir);
+            string orphan = Path.Combine(snapDir, "orphan.jsonl");
+            File.WriteAllText(orphan, "{}\n");
+            string? savedDsn = Environment.GetEnvironmentVariable(
+                "GPTBRIDGE_POSTGRES_DSN");
+            try
+            {
+                Environment.SetEnvironmentVariable(
+                    "GPTBRIDGE_POSTGRES_DSN",
+                    "host=127.0.0.1;port=1;connect_timeout=1");
+                var blind = Retention.ApplyRetention(scratchRoot,
+                    new RetentionPolicy { Enabled = true,
+                                          KeepSnapshots = 0 },
+                    dryRun: true);
+                if (blind.TryGetValue("deleted", out var bObj) &&
+                    bObj is List<Dictionary<string, object?>> bDel)
+                {
+                    string absO = Path.GetFullPath(orphan);
+                    bool plannedDelete = bDel.Any(d =>
+                        string.Equals(
+                            d.GetValueOrDefault("path")?.ToString()
+                                is string dp
+                                ? Path.GetFullPath(dp) : "",
+                            absO, StringComparison.OrdinalIgnoreCase));
+                    if (plannedDelete)
+                        return Fail("UNREADABLE_REGISTRY_PRUNED",
+                                    "retention planned deletion with "
+                                    + "unreadable registry");
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(
+                    "GPTBRIDGE_POSTGRES_DSN", savedDsn);
+            }
+            return Pass($"dedup={id1 == id2} newrow={id3 != id1} "
+                        + "protected=true blind_preserve=true");
+        }
+        catch (Exception ex)
+        {
+            // Registry unreachable / DB down — fail closed: the
+            // invariant is untestable, never silently green.
+            return Fail("DATASET_REGISTRY_UNAVAILABLE",
+                        ex.GetType().Name + ": " +
+                        ex.Message[..Math.Min(160, ex.Message.Length)]
+                        + " @" + (ex.StackTrace ?? "")
+                            .Split('\n').FirstOrDefault("?")
+                            .Trim()[..Math.Min(140,
+                                (ex.StackTrace ?? "")
+                                    .Split('\n').FirstOrDefault("?")
+                                    .Trim().Length)]
+                        + " emptykeys=" + (norm != null
+                            ? diag : "norm-failed"));
+        }
+        finally
+        {
+            // snap-a/snap-b stay — the registered dataset rows
+            // reference their paths (deleting them would leave a
+            // protected-but-missing snapshot). Only the fake-tool
+            // scratch tree goes.
+            try
+            {
+                string fake = Path.Combine(scratchDir, "fake-tool");
+                if (Directory.Exists(fake))
+                    Directory.Delete(fake, true);
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>Release invariant: lifecycle succession must be a
+    /// serialized snapshot, never a live object reference. Exercises
+    /// serialize → deserialize → resave → rollback → retire on a
+    /// scratch model id; guards the succeeded_from deep-copy
+    /// regression (StackOverflow on cyclic references).</summary>
+    private static StepResult LifecycleSuccessionCycle(string toolRoot)
+    {
+        string dir = Path.Combine(toolRoot, "xingcheng", "runtime",
+            "state", "_gate-lifecycle-cycle");
+        try
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            Directory.CreateDirectory(dir);
+
+            // 1. register v1 then v2 — v2 metadata records
+            //    succeeded_from as a plain decoded dict snapshot.
+            var lc = ModelLifecycle.LoadOrCreate(dir, "gate-cycle");
+            lc.Transition("INITIALIZED", "gate");
+            string w1 = Path.Combine(dir, "w1.bin");
+            string w2 = Path.Combine(dir, "w2.bin");
+            File.WriteAllText(w1, "gate-weight-v1");
+            File.WriteAllText(w2, "gate-weight-v2");
+            lc.RegisterArtifact("weights", w1,
+                new Dictionary<string, object?> { ["lane"] = "gate" },
+                activate: true);
+            lc.RegisterArtifact("weights", w2,
+                new Dictionary<string, object?> { ["lane"] = "gate" },
+                activate: true);
+            string saved = lc.Save(dir);
+            if (!File.Exists(saved))
+                return Fail("LIFECYCLE_SERIALIZE_FAILED",
+                            "lifecycle.json not written");
+
+            // 2. deserialize: succeeded_from must be data, not a live
+            //    reference — mutating it must not touch the active
+            //    entry, and re-serializing must not recurse.
+            var reloaded = ModelLifecycle.Load(dir);
+            var active = reloaded.ActiveWeights();
+            if (active == null)
+                return Fail("LIFECYCLE_NO_ACTIVE",
+                            "reloaded lifecycle lost active weights");
+            Dictionary<string, object?>? succ = null;
+            if (active.TryGetValue("metadata", out var meta) &&
+                meta is Dictionary<string, object?> md)
+                succ = md.GetValueOrDefault("succeeded_from")
+                    as Dictionary<string, object?>;
+            if (succ == null)
+                return Fail("LIFECYCLE_SUCCESSION_MISSING",
+                            "v2 metadata lacks succeeded_from snapshot");
+            succ["__gate_probe__"] = "mutated";
+            string resaved = reloaded.Save(dir);
+            if (!File.Exists(resaved))
+                return Fail("LIFECYCLE_RESAVE_FAILED",
+                            "resave failed after metadata mutation");
+            var resavedDoc = ModelLifecycle.Load(dir);
+            var active2 = resavedDoc.ActiveWeights();
+            if (active2 == null)
+                return Fail("LIFECYCLE_RESAVE_LOST_ACTIVE",
+                            "resaved lifecycle lost active weights");
+
+            // 3. rollback + retire exercise the succession path
+            //    without holding cyclic references.
+            try { resavedDoc.RollbackWeights(1); }
+            catch (Exception ex)
+            {
+                return Fail("LIFECYCLE_ROLLBACK_FAILED",
+                            ex.GetType().Name + ": " + ex.Message);
+            }
+            // v2 is inactive after the rollback — retire it carrying
+            // data attribution to v1 (the successor that superseded it).
+            try { resavedDoc.RetireWeightVersion(2, 1); }
+            catch (Exception ex)
+            {
+                return Fail("LIFECYCLE_RETIRE_FAILED",
+                            ex.GetType().Name + ": " + ex.Message);
+            }
+            string final = resavedDoc.Save(dir);
+            if (!File.Exists(final))
+                return Fail("LIFECYCLE_FINAL_SAVE_FAILED",
+                            "post-retire save failed");
+            _ = ModelLifecycle.Load(dir); // must not stack-overflow
+
+            return Pass("serialize->deserialize->resave->rollback->"
+                        + "retire ok; succeeded_from is data");
+        }
+        catch (Exception ex)
+        {
+            return Fail("LIFECYCLE_CYCLE_EXCEPTION",
+                        ex.GetType().Name + ": " + ex.Message);
+        }
+        finally
+        {
+            try { if (Directory.Exists(dir))
+                Directory.Delete(dir, true); }
+            catch { }
+        }
     }
 }

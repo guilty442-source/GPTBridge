@@ -32,13 +32,16 @@ internal static class FailurePool
     /// the suite vocabulary is closed, so this mapping is total.</summary>
     public static string ClassForSuite(string suite) => suite switch
     {
-        "tool-decision" => "tool-call",
+        "tool-decision" or "tool_call_format" => "tool-call",
         "structured-output" or "fim" => "structured-output",
         "vision" => "vision",
-        "moe-routing" => "routing",
+        "moe-routing" or "expert_routing" => "routing",
         "citation" or "rag" => "grounding",
-        "coding" => "coding",
-        "long-context" => "context",
+        "code" or "coding" => "coding",
+        "math" => "math",
+        "reading" => "reading",
+        "long-context" or "context_tracking" or "multi_turn"
+            => "context",
         "runtime-parity" or "precision-parity" or "kv-cache"
             or "recurrent-state" or "generation-migration"
             or "bundle-provenance" => "reasoning",
