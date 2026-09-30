@@ -26,12 +26,15 @@ internal static class NativePrecisionLab
     public const string ExperimentalFp8 = "EXPERIMENTAL_FP8";
     public const string ExperimentalFp4 = "EXPERIMENTAL_FP4";
 
-    /// <summary>All lab profiles — production first, then
-    /// experimental.</summary>
+    /// <summary>All lab profiles — production names live in
+    /// PrecisionProfiles (RuntimeCapabilities.cs); experimental
+    /// profiles are defined here so production resolution stays
+    /// closed.</summary>
     public static readonly string[] Profiles =
         { PrecisionProfiles.ReferenceFp64,
           PrecisionProfiles.ProductionBf16,
-          PrecisionProfiles.CandidateBf16,
+          PrecisionProfiles.CompactFp8,
+          PrecisionProfiles.EdgeInt8,
           ExperimentalFp8, ExperimentalFp4 };
 
     /// <summary>Abstract precision vocab (§3.1) — FP4 is "4-bit weight
@@ -135,12 +138,15 @@ internal static class PrecisionRoadmap
         (4, "hardware-specific optimized format"),
     };
 
-    /// <summary>Stage for a profile — experimental FP8=2, FP4=3.</summary>
+    /// <summary>Stage for a profile — production INT8 lane (kv/edge)
+    /// sits at stage 1 alongside the BF16 candidate lane; experimental
+    /// FP8=2, FP4=3, hardware-specific=4.</summary>
     public static int StageOf(string profile) => profile switch
     {
         PrecisionProfiles.ReferenceFp64 => 0,
         PrecisionProfiles.ProductionBf16 => 1,
-        PrecisionProfiles.CandidateBf16 => 1,
+        PrecisionProfiles.EdgeInt8 => 1,
+        PrecisionProfiles.CompactFp8 => 2,
         NativePrecisionLab.ExperimentalFp8 => 2,
         NativePrecisionLab.ExperimentalFp4 => 3,
         _ => -1,

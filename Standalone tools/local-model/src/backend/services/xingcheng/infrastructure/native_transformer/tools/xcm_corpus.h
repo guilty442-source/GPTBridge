@@ -321,8 +321,15 @@ int mode_corpus(const Args& a) {
                         const JsonValue& r = kv.second;
                         if (r.type != JsonValue::Type::Object) continue;
                         FileRec fr;
-                        fr.size = (uint64_t)xct::j_num(&r, "size", 0);
-                        fr.mtime = (uint64_t)xct::j_num(&r, "mtime", 0);
+                        // mtime/size ride as strings — int64 timestamps
+                        // overflow double's 53-bit mantissa and would
+                        // never match the freshly-stat'ed value.
+                        try {
+                            fr.size = (uint64_t)std::stoull(
+                                jget_str(r, "size"));
+                            fr.mtime = (uint64_t)std::stoull(
+                                jget_str(r, "mtime"));
+                        } catch (...) { continue; }
                         fr.status = (int)xct::j_num(&r, "status", 0);
                         fr.doc.source_id = jget_str(r, "source_id");
                         fr.doc.sha_raw = jget_str(r, "sha256_raw");
@@ -337,8 +344,14 @@ int mode_corpus(const Args& a) {
                             for (const auto& v : ids->array)
                                 fr.doc.ids.push_back((int64_t)v.number);
                         if (const JsonValue* bk = r.get("bands"))
-                            for (const auto& v : bk->array)
-                                fr.bands.push_back((uint64_t)v.number);
+                            for (const auto& v : bk->array) {
+                                // uint64 band keys are serialized as
+                                // strings (double can't hold them).
+                                try {
+                                    fr.bands.push_back((uint64_t)
+                                        std::stoull(v.string));
+                                } catch (...) {}
+                            }
                         cache[kv.first] = std::move(fr);
                     }
                 }
@@ -472,8 +485,8 @@ int mode_corpus(const Args& a) {
             if (!first) st << ',';
             first = false;
             st << '"' << gptbridge::jsonlite::json_escape(cands[i].rel)
-               << "\":{\"size\":" << fr.size << ",\"mtime\":" << fr.mtime
-               << ",\"status\":" << fr.status
+               << "\":{\"size\":\"" << fr.size << "\",\"mtime\":\""
+               << fr.mtime << "\",\"status\":" << fr.status
                << ",\"source_id\":\""
                << gptbridge::jsonlite::json_escape(fr.doc.source_id)
                << "\",\"sha256_raw\":\"" << fr.doc.sha_raw
@@ -485,7 +498,7 @@ int mode_corpus(const Args& a) {
                << ",\"bands\":[";
             for (size_t b = 0; b < fr.bands.size(); ++b) {
                 if (b) st << ',';
-                st << fr.bands[b];
+                st << '"' << fr.bands[b] << '"';
             }
             st << "],\"ids\":[";
             for (size_t k = 0; k < fr.doc.ids.size(); ++k) {

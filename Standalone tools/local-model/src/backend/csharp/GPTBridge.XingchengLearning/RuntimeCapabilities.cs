@@ -77,8 +77,14 @@ internal sealed class ReasoningPolicy
     public static ReasoningPolicy For(string mode)
     {
         var p = new ReasoningPolicy();
-        switch ((mode ?? "NORMAL").ToUpperInvariant())
+        // Batch-2 aliases (§2.1): OFF is the canonical name for NONE,
+        // MEDIUM for NORMAL; AUTO defers strategy choice to
+        // ReasoningRuntime and resolves here as the default lane.
+        switch ((mode ?? "MEDIUM").ToUpperInvariant())
         {
+            case "OFF": goto case "NONE";
+            case "MEDIUM": goto case "NORMAL";
+            case "AUTO": goto case "NORMAL";
             case "NONE":
                 p.Mode = ReasoningMode.NONE;
                 p.TokenBudget = 1024;
@@ -311,6 +317,8 @@ internal sealed class RuntimeCapabilityRequest
     public string CodingMode = "";                 // §10 star-code-task
     public string Deployment =                     // §13
         DeploymentProfile.Balanced;
+    /// <summary>§16 AUTO input — optional typed task assessment.</summary>
+    public TaskAssessment? Assessment;
 
     public static RuntimeCapabilityRequest Parse(
         Dictionary<string, object?> req)
