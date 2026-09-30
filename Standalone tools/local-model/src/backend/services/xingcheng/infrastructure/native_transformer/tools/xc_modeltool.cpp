@@ -1705,6 +1705,10 @@ int mode_export_bundle(const Args& a) {
     std::vector<std::pair<std::string, std::string>> pairs;
     pairs.reserve(p.order.size());
     for (const auto& n : p.order) {
+        // MTP (next-n predict / mtp-stack) tensors are training-time
+        // auxiliary heads; the serving contract drops them like
+        // DeepSeek-style MTP checkpoints.
+        if (n.compare(0, 4, "mtp.") == 0) continue;
         std::string b = xct_to_bundle(n, c.is_gemma4());
         if (b.empty()) fail("EXPORT_UNMAPPED_TENSOR:" + n);
         pairs.emplace_back(b, n);

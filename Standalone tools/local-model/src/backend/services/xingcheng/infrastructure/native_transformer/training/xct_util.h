@@ -452,15 +452,19 @@ static ModelConfig parse_model(const JsonValue* o) {
         (float)j_num(o, "csa_indexer_loss_weight", c.csa_indexer_w);
     // Canonical single-generation contract ("xc-fused-1"): one named
     // generation pins every fused mechanism axis — hybrid DeltaNet
-    // interleave, MLA on the full-attention layers, sigmoid-router MoE
-    // with aux-free balancing and the shared-expert gate, the MTP stack,
-    // vision early-fusion and YaRN long-context. Dimensional sizes still
-    // come from the job; mechanism flags are canonical, so a job field
-    // that conflicts with the generation contract is overridden
-    // deterministically (never a silently different architecture).
-    // CSA (csa_*) is outside this generation — its compressed-KV path
-    // is mutually exclusive with MLA's latent path (fail-closed below)
-    // — and the gemma4 family is a separate model_type.
+    // interleave, gated+normed full attention with partial rotary,
+    // sigmoid-router MoE with aux-free balancing and the shared-expert
+    // gate, the MTP stack, vision early-fusion and YaRN long-context.
+    // Dimensional sizes still come from the job; mechanism flags are
+    // canonical, so a job field that conflicts with the generation
+    // contract is overridden deterministically (never a silently
+    // different architecture).
+    // CSA (csa_*) and MLA (kv_lora_rank/q_lora_rank/qk_*_head_dim) are
+    // outside this generation: their compressed/latent KV paths replace
+    // the canonical gated full-attention contract and are mutually
+    // exclusive with it (fail-closed below) — and the serving engine
+    // only implements the fused gated path. The gemma4 family is a
+    // separate model_type.
     const std::string gen = j_str(o, "generation", "");
     if (!gen.empty()) {
         if (gen != "xc-fused-1") throw "model: unknown generation";
@@ -474,26 +478,34 @@ static ModelConfig parse_model(const JsonValue* o) {
         c.lin_value_heads = c.lin_key_heads * 2;
         c.lin_value_dim = hd;
         c.lin_conv_kernel = 4;
-        // MLA on full-attention layers; the alternate non-MLA attention
-        // knobs (attn gate / qk_norm / kv-sharing) are MLA-exclusive and
-        // stay off in the canonical contract.
-        const int kr = std::max(8, (hd / 4) & ~1);
-        c.qk_rope_head_dim = kr;
-        c.qk_nope_head_dim = hd - kr > 0 ? hd - kr : hd;
-        c.kv_lora_rank = std::max(16, c.hidden / 8);
-        c.q_lora_rank = std::max(16, c.hidden / 4);
-        c.attn_output_gate = false;
-        c.qk_norm = false;
+        // Full-attention layers use the canonical gated+normed
+        // attention (output gate, per-head Q/K norm, partial rotary).
+        // MLA's latent-KV path and CSA's compressed-KV path are
+        // mutually exclusive with this path (fail-closed below) and the
+        // serving engine only implements the fused gated contract, so
+        // both stay off in this generation.
+        c.attn_output_gate = true;
+        c.qk_norm = true;
+        c.partial_rotary = 0.5f;
+        c.kv_lora_rank = 0;
+        c.q_lora_rank = 0;
+        c.qk_rope_head_dim = 0;
+        c.qk_nope_head_dim = 0;
         c.k_eq_v_global = false;
         c.num_global_kv_heads = 0;
-        // MoE: fused sigmoid router + aux-free balancing + shared expert.
+        // MoE: fused sigmoid router + aux-loss balancing + shared
+        // expert. Aux-free balancing (lb_bias) is a valid job-level
+        // option but outside this generation: the serving engine has no
+        // lb_bias inference path, so it must never be silently dropped
+        // at export time.
         if (c.moe_experts <= 0) c.moe_experts = 8;
         if (c.moe_top_k <= 0 || c.moe_top_k > c.moe_experts)
             c.moe_top_k = 2;
         if (c.moe_layer_interval <= 0) c.moe_layer_interval = 1;
         c.moe_router_sigmoid = true;
-        c.moe_auxfree_balance = true;
-        if (c.moe_lb_bias_rate <= 0.0f) c.moe_lb_bias_rate = 0.001f;
+        c.moe_auxfree_balance = false;
+        c.moe_lb_bias_rate = 0.0f;
+        if (c.moe_aux_w <= 0.0f) c.moe_aux_w = 0.001f;
         if (c.moe_shared_experts <= 0) c.moe_shared_experts = 1;
         c.shared_expert_gate = true;
         // MTP stack (XCN10): depth-1 fusion module.
