@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	goruntime "runtime"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/wailsapp/go-webview2/pkg/edge"
+	"github.com/wailsapp/go-webview2/webviewloader"
 )
 
 const (
@@ -72,6 +74,11 @@ type BrowserManager struct {
 	jobs  chan func()
 	tid   uintptr
 	ready chan struct{}
+
+	envMu      sync.Mutex
+	envStarted bool
+	env        *edge.ICoreWebView2Environment
+	envErr     error
 }
 
 func NewBrowserManager(pid uint32, title, toolRoot string,
@@ -172,6 +179,119 @@ func navCompletionStatus(
 	return ok != 0, status
 }
 
+// WebView2 topology: one environment per manager, one controller per
+// session.  Environments must NOT be shared beyond the pump thread that
+// created them, and once the last controller on an environment is
+// closed the browser process exits and the env goes zombie — a new
+// controller then fails with 0x802A000C.  On that failure the env is
+// discarded and recreated (env creation itself is repeatable; only
+// go-webview2's Chromium.Embed path was unsafe because it checks
+// GetLastError instead of the HRESULT).
+type envCreateHandler struct {
+	m *BrowserManager
+}
+
+func (h envCreateHandler) EnvironmentCompleted(code webviewloader.HRESULT,
+	e *webviewloader.ICoreWebView2Environment) webviewloader.HRESULT {
+	h.m.envMu.Lock()
+	defer h.m.envMu.Unlock()
+	if e != nil {
+		// the loader Releases the env after this callback — keep ours.
+		e.AddRef()
+		h.m.env = (*edge.ICoreWebView2Environment)(unsafe.Pointer(e))
+	} else {
+		h.m.envErr = fmt.Errorf("webview2 environment failed: %08x",
+			uint32(code))
+	}
+	return 0
+}
+
+// kickEnv starts environment creation for this manager.  Must run on
+// the pump thread — the completion callback is dispatched through that
+// thread's message queue.
+func (m *BrowserManager) kickEnv() {
+	m.envMu.Lock()
+	if m.envStarted {
+		m.envMu.Unlock()
+		return
+	}
+	m.envStarted = true
+	m.envMu.Unlock()
+	_ = os.MkdirAll(m.dataDir, 0o755)
+	webviewloader.CreateCoreWebView2EnvironmentWithOptions(
+		envCreateHandler{m},
+		webviewloader.WithUserDataFolder(m.dataDir))
+}
+
+// waitEnv blocks a non-pump goroutine until this manager's environment
+// is ready; the pump thread keeps dispatching meanwhile.
+func (m *BrowserManager) waitEnv(timeout time.Duration) (*edge.ICoreWebView2Environment, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		m.envMu.Lock()
+		env, err := m.env, m.envErr
+		m.envMu.Unlock()
+		if env != nil || err != nil {
+			return env, err
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	return nil, errors.New("WEBVIEW2_ENV_TIMEOUT")
+}
+
+// invalidateEnv drops a zombie environment so the next session creates
+// a fresh one.  Call when CreateCoreWebView2Controller rejects.
+func (m *BrowserManager) invalidateEnv() {
+	m.envMu.Lock()
+	m.env = nil
+	m.envErr = nil
+	m.envStarted = false
+	m.envMu.Unlock()
+}
+
+// setChromiumHwnd fills the unexported Chromium.hwnd (Resize and
+// PutParentWindow read it; the field layout is stable in go-webview2
+// v1.0.16).
+func setChromiumHwnd(cr *edge.Chromium, hwnd uintptr) {
+	f := reflect.ValueOf(cr).Elem().FieldByName("hwnd")
+	reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).
+		Elem().SetUint(uint64(hwnd))
+}
+
+// attachController replicates Chromium.EnvironmentCompleted —
+// env.AddRef + CreateCoreWebView2Controller(hwnd, handler) — but checks
+// the returned HRESULT instead of GetLastError.  go-webview2 tests
+// `err` (last-error) after every COM call, so a stale win32 error from
+// an earlier call kills the process via errorCallback → os.Exit even
+// though controller creation succeeded (verified live: hr==S_OK).
+func attachController(cr *edge.Chromium,
+	env *edge.ICoreWebView2Environment, hwnd uintptr) error {
+	type envVtbl struct {
+		qi               uintptr
+		addRef           uintptr
+		release          uintptr
+		createController uintptr
+	}
+	obj := (*struct{ vtbl *envVtbl })(unsafe.Pointer(env))
+	if obj == nil || obj.vtbl == nil || obj.vtbl.createController == 0 {
+		return errors.New("WEBVIEW2_ENV_VTBL_INVALID")
+	}
+	// IUnknown::AddRef — EnvironmentCompleted does the same so the env
+	// outlives this Chromium.
+	_, _, _ = syscall.Syscall(obj.vtbl.addRef, 1,
+		uintptr(unsafe.Pointer(env)), 0, 0)
+	// Chromium.controllerCompleted is unexported — fetch the ready-made
+	// COM handler via the struct field (stable layout, v1.0.16).
+	hv := reflect.ValueOf(cr).Elem().FieldByName("controllerCompleted")
+	handler := *(*unsafe.Pointer)(unsafe.Pointer(hv.UnsafeAddr()))
+	hr, _, _ := syscall.SyscallN(obj.vtbl.createController,
+		uintptr(unsafe.Pointer(env)), hwnd, uintptr(handler))
+	if int32(hr) < 0 {
+		return fmt.Errorf("WEBVIEW2_CONTROLLER_FAILED %08x", uint32(hr))
+	}
+	return nil
+}
+
 // ensureSession creates the session webview on the pump thread when
 // absent, waits for the controller, and navigates to url when given.
 func (m *BrowserManager) ensureSession(id, owner, url string,
@@ -184,64 +304,90 @@ func (m *BrowserManager) ensureSession(id, owner, url string,
 	}
 	var err error
 	var s *session
+	var hw uintptr
+	cr := edge.NewChromium()
 	m.run(func() {
 		parent, perr := m.findParent()
 		if perr != nil {
 			err = perr
 			return
 		}
-		hw, herr := createChildWindow(parent,
+		hw, err = createChildWindow(parent,
 			scaleCoord(parent, b.X), scaleCoord(parent, b.Y),
 			scaleCoord(parent, b.W), scaleCoord(parent, b.H))
-		if herr != nil {
-			err = herr
+		if err != nil {
 			return
 		}
-		cr := edge.NewChromium()
-		_ = os.MkdirAll(m.dataDir, 0o755)
-		cr.DataPath = m.dataDir
-		s = &session{id: id, owner: owner, hwnd: hw, chromium: cr, bounds: b,
-			navWait:  make(chan bool, 1),
-			execWait: map[uint64]chan execResult{}}
-		cr.MessageCallback = func(message string) {
-			m.onWebMessage(s, message)
-		}
-		cr.NavigationCompletedCallback = func(_ *edge.ICoreWebView2,
-			args *edge.ICoreWebView2NavigationCompletedEventArgs) {
-			ok, status := navCompletionStatus(args)
-			s.loading = false
-			select {
-			case s.navWait <- ok:
-			default:
-			}
-			if ok {
-				m.emitEvent(id, "loading-stop", nil)
-				m.emitEvent(id, "navigate", map[string]any{"url": s.url})
-			} else {
-				m.emitEvent(id, "load-failed", map[string]any{
-					"error":     "navigation failed",
-					"errorCode": status,
-				})
-			}
-		}
-		cr.SetErrorCallback(func(error) {})
-		if !cr.Embed(hw) {
-			destroyWindow(hw)
-			err = errors.New("WEBVIEW2_EMBED_FAILED")
-			s = nil
-			return
-		}
-		m.mu.Lock()
-		m.sessions[id] = s
-		m.mu.Unlock()
+		m.kickEnv()
 	})
 	if err != nil {
 		return nil, err
 	}
+	env, err := m.waitEnv(embedTimeout)
+	if err != nil {
+		m.run(func() { destroyWindow(hw) })
+		return nil, err
+	}
+	s = &session{id: id, owner: owner, hwnd: hw, chromium: cr, bounds: b,
+		navWait:  make(chan bool, 1),
+		execWait: map[uint64]chan execResult{}}
+	cr.MessageCallback = func(message string) {
+		m.onWebMessage(s, message)
+	}
+	cr.NavigationCompletedCallback = func(_ *edge.ICoreWebView2,
+		args *edge.ICoreWebView2NavigationCompletedEventArgs) {
+		ok, status := navCompletionStatus(args)
+		s.loading = false
+		select {
+		case s.navWait <- ok:
+		default:
+		}
+		if ok {
+			m.emitEvent(id, "loading-stop", nil)
+			m.emitEvent(id, "navigate", map[string]any{"url": s.url})
+		} else {
+			m.emitEvent(id, "load-failed", map[string]any{
+				"error":     "navigation failed",
+				"errorCode": status,
+			})
+		}
+	}
+	cr.SetErrorCallback(func(err error) {
+		fmt.Fprintf(os.Stderr, "webview2 error (session %s): %v\n", id, err)
+	})
+	// If the previous session closed the environment's last controller,
+	// the browser process exits and the env goes zombie
+	// (0x802A000C) — discard it, create a fresh env, retry once.
+	for attempt := 0; attempt < 2; attempt++ {
+		m.run(func() {
+			setChromiumHwnd(cr, hw)
+			err = attachController(cr, env, hw)
+		})
+		if err == nil {
+			break
+		}
+		m.invalidateEnv()
+		m.run(func() { m.kickEnv() })
+		env, err = m.waitEnv(embedTimeout)
+		if err != nil {
+			break
+		}
+	}
+	if err != nil {
+		m.run(func() { destroyWindow(hw) })
+		return nil, err
+	}
+	m.mu.Lock()
+	m.sessions[id] = s
+	m.mu.Unlock()
 	if !m.waitReady(s) {
 		m.closeSession(id)
 		return nil, errors.New("WEBVIEW2_INIT_TIMEOUT")
 	}
+	m.post(func() {
+		cr.Init("window.external={invoke:s=>window.chrome.webview.postMessage(s)}")
+		cr.Resize()
+	})
 	if b.valid {
 		m.applyBounds(s, b)
 		m.post(func() {
@@ -336,7 +482,30 @@ func (m *BrowserManager) closeSession(id string) {
 	if s == nil {
 		return
 	}
-	m.post(func() { destroyWindow(s.hwnd) })
+	m.post(func() {
+		closeController(s.chromium.GetController())
+		destroyWindow(s.hwnd)
+	})
+}
+
+// closeController invokes ICoreWebView2Controller::Close through the
+// COM vtbl (go-webview2 does not export it — index 23 in the stable
+// COM ABI).  Without Close the browser resources stay attached to the
+// destroyed window and the webview keeps a dead host.
+func closeController(c *edge.ICoreWebView2Controller) {
+	if c == nil {
+		return
+	}
+	type vtbl struct {
+		_     [23]uintptr // IUnknown + members preceding Close
+		close uintptr
+	}
+	obj := (*struct{ vtbl *vtbl })(unsafe.Pointer(c))
+	if obj == nil || obj.vtbl == nil || obj.vtbl.close == 0 {
+		return
+	}
+	_, _, _ = syscall.Syscall(obj.vtbl.close, 1,
+		uintptr(unsafe.Pointer(c)), 0, 0)
 }
 
 // Shutdown destroys every session (window teardown → process exit).
