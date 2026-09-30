@@ -3280,6 +3280,134 @@ int mode_state_snapshot(const Args& a) {
     return ok ? 0 : 1;
 }
 
+// §7–§9 Native Thinking evaluation lane — emits star-native-thinking/v1
+// run records (§8) plus a thinking summary. Records keep only the
+// evaluable telemetry (steps/branches/scores/latency/memory); no
+// private reasoning text is stored. --quick runs one MEDIUM probe
+// (release-gate smoke); the full ladder runs OFF/LOW/MEDIUM/HIGH.
+int mode_native_thinking_eval(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("THINKING_ARGS_MISSING");
+    std::string prompt = a.get("prompt");
+    if (prompt.empty()) prompt = "說明：1+1 為什麼等於 2？";
+    int64_t max_new = 32;
+    if (a.has("max-new")) {
+        try { max_new = std::stoll(a.get("max-new")); }
+        catch (...) { fail("THINKING_BAD_MAX_NEW"); }
+    }
+    if (max_new < 1 || max_new > 512) fail("THINKING_BAD_MAX_NEW");
+    bool quick = a.has("quick");
+
+    NativeInferenceEngine engine;
+    try { engine.load(bundle); }
+    catch (const std::exception& e) {
+        fail(std::string("THINKING_LOAD_FAILED:") + e.what());
+    }
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    std::string generation;
+    if (const JsonValue* pv = manifest.get("provenance"))
+        if (const JsonValue* g = pv->get("generation"))
+            if (g->type == JsonValue::Type::String)
+                generation = g->string;
+    const std::string bundle_hash =
+        sha256_file((fs::path(bundle) / "manifest.json").string());
+    const std::string request_id =
+        "think-" + sha256_text(prompt + bundle).substr(0, 12);
+    std::vector<int64_t> pids = engine.encode(prompt, true, false);
+    if (pids.empty()) fail("THINKING_EMPTY_PROMPT");
+    SamplingConfig sc;
+    sc.do_sample = false;
+    sc.temperature = 0.0;
+
+    struct Level { const char* name; int64_t steps; int64_t branches; };
+    static const Level kLevels[] = {
+        {"off", 0, 1}, {"low", 2, 1}, {"medium", 4, 4},
+        {"high", 8, 4},
+    };
+    const size_t n_level = quick ? 1 : 4;
+    const Level* levels = quick ? kLevels + 2 : kLevels;
+
+    std::ostringstream runs;
+    runs << '[';
+    double off_latency_ms = -1.0;
+    bool all_ok = true;
+    for (size_t li = 0; li < n_level; ++li) {
+        const Level& lv = levels[li];
+        auto t0 = std::chrono::steady_clock::now();
+        NativeInferenceEngine::ThinkingResult res;
+        std::vector<int64_t> out_ids;
+        int64_t steps_used = 0;
+        int64_t chosen = -1;
+        std::vector<double> scores;
+        if (lv.steps <= 0) {
+            out_ids = engine.generate(pids, max_new, sc);
+        } else {
+            res = engine.generate_thinking(
+                pids, lv.steps, lv.branches, max_new, sc);
+            out_ids = res.answer_ids;
+            steps_used = res.think_steps;
+            chosen = res.chosen_branch;
+            scores = res.branch_scores;
+        }
+        double lat_ms = 1e3 * std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        if (lv.steps <= 0) off_latency_ms = lat_ms;
+        bool run_ok = !out_ids.empty();
+        if (lv.steps > 0)
+            run_ok = run_ok && steps_used > 0 && steps_used <= 32
+                     && chosen >= 0 && chosen < lv.branches
+                     && (int64_t)scores.size() == lv.branches;
+        if (!run_ok) all_ok = false;
+        std::ostringstream ids_hash;
+        // §8: persist the answer hash, not the text.
+        std::string ans_sha;
+        {
+            std::ostringstream b;
+            for (int64_t id : out_ids) b << id << ',';
+            ans_sha = sha256_text(b.str());
+        }
+        if (li) runs << ',';
+        runs << "{\"format\":\"star-native-thinking/v1\""
+             << ",\"request_id\":\"" << request_id << "-" << lv.name
+             << "\",\"level\":\"" << lv.name
+             << "\",\"generation\":\""
+             << gptbridge::jsonlite::json_escape(generation)
+             << "\",\"bundle_hash\":\"sha256:" << bundle_hash
+             << "\",\"think_steps_requested\":" << lv.steps
+             << ",\"think_steps_used\":" << steps_used
+             << ",\"branches_requested\":" << lv.branches
+             << ",\"branches_used\":" << (int64_t)scores.size()
+             << ",\"branch_scores\":[";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            if (i) runs << ',';
+            runs << scores[i];
+        }
+        runs << "],\"selected_branch\":" << chosen
+             << ",\"thinking_latency_ms\":" << lat_ms
+             << ",\"thinking_memory_bytes\":"
+             << (long long)engine.kv_memory_bytes()
+             << ",\"output_tokens\":" << (int64_t)out_ids.size()
+             << ",\"answer_sha256\":\"sha256:" << ans_sha
+             << "\",\"fallback_reason\":null"
+             << ",\"ok\":" << (run_ok ? "true" : "false") << '}';
+    }
+    runs << ']';
+    std::printf(
+        "{\"ok\":%s,\"format\":\"star-native-thinking-eval/v1\","
+        "\"bundle\":\"%s\",\"quick\":%s,"
+        "\"baseline_latency_ms\":%.1f,\"runs\":%s,"
+        "\"thinking_gain\":{\"basis\":"
+        "\"latency + branch self-confidence only — no ground-truth "
+        "suite bound; AUTO default stays OFF per §9\","
+        "\"value\":null}}\n",
+        all_ok ? "true" : "false",
+        gptbridge::jsonlite::json_escape(bundle).c_str(),
+        quick ? "true" : "false",
+        off_latency_ms, runs.str().c_str());
+    return all_ok ? 0 : 1;
+}
+
 // §23 sequence-state benchmark: state/kv bytes per token, prefill/decode
 // throughput, stream duration, snapshot restore time.
 int mode_state_bench(const Args& a) {
@@ -3612,6 +3740,8 @@ int main(int argc, char** argv) {
         if (mode == "probe-cuda") return mode_probe_cuda();
         if (mode == "memory-plan") return mode_memory_plan(a);
         if (mode == "state-snapshot") return mode_state_snapshot(a);
+    if (mode == "native-thinking-eval")
+        return mode_native_thinking_eval(a);
         if (mode == "state-bench") return mode_state_bench(a);
         if (mode == "router-analyze") return mode_router_analyze(a);
         if (mode == "vision-budget") return mode_vision_budget(a);

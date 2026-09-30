@@ -135,7 +135,8 @@ internal static class ConvergenceGate
     /// continues so the report shows the full failure surface, but the
     /// verdict is blocked on the first critical FAIL.</summary>
     public static Dictionary<string, object?> Run(
-        string toolRoot, string? bundle, bool runBuilds)
+        string toolRoot, string? bundle, bool runBuilds,
+        string? suite = null)
     {
         string toolExe = File.Exists(NativeTools.ResolveExe(
             toolRoot, "tools", "xc_modeltool.exe"))
@@ -188,7 +189,7 @@ internal static class ConvergenceGate
                 ? Native(toolRoot, trainExe, "--probe-all")
                 : Fail("GATE_STEP_FAILED", "trainer missing")),
             new("runtime-smoke", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "capability",
+                Native(toolRoot, toolExe, "memory-plan",
                        "--bundle", bundle!))),
             new("cache-smoke", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "cache-smoke",
@@ -197,8 +198,16 @@ internal static class ConvergenceGate
                 Native(toolRoot, toolExe, "state-snapshot",
                        "--bundle", bundle!))),
             new("vision-smoke", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "vision-smoke",
-                       "--bundle", bundle!))),
+            {
+                // §2 vision is canonical, but a bundle without fused
+                // vision weights legitimately skips — the smoke is a
+                // no-op against a text-only manifest.
+                if (!BundleUsesVision(bundle!))
+                    return Skip("bundle has no vision fusion "
+                                + "(config.use_vision!=true)");
+                return Native(toolRoot, toolExe, "vision-smoke",
+                              "--bundle", bundle!);
+            })),
             new("thinking-smoke", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "native-thinking-eval",
                        "--bundle", bundle!, "--quick"))),
@@ -236,8 +245,12 @@ internal static class ConvergenceGate
             new("generation-convergence", true, () =>
                 GenerationConvergence(toolRoot)),
             new("capability-baseline", false, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "capability",
-                       "--bundle", bundle!))),
+                suite == null || !File.Exists(suite)
+                    ? Skip("no --suite (star-capability-suite/v1) "
+                           + "supplied")
+                    : Native(toolRoot, toolExe, "capability",
+                             "--bundle", bundle!,
+                             "--suite", suite))),
         };
 
         var results = new List<object?>();
@@ -300,6 +313,21 @@ internal static class ConvergenceGate
             CanonicalJson.PrettyDict(report) + "\n");
         report["report_path"] = path;
         return report;
+    }
+
+    private static bool BundleUsesVision(string bundle)
+    {
+        string mp = Path.Combine(bundle, "manifest.json");
+        if (!File.Exists(mp)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(mp));
+            return doc.RootElement.TryGetProperty("config", out var c)
+                && c.ValueKind == JsonValueKind.Object
+                && c.TryGetProperty("use_vision", out var v)
+                && v.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception) { return false; }
     }
 
     private static Dictionary<string, object?>? ReadProvenance(

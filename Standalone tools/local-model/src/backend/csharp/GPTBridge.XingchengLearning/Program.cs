@@ -70,7 +70,9 @@ internal static class Program
                     toolRoot,
                     opts.TryGetValue("bundle", out string? gb)
                         ? gb : null,
-                    !flags.Contains("no-builds")));
+                    !flags.Contains("no-builds"),
+                    opts.TryGetValue("suite", out string? gs)
+                        ? gs : null));
             if (flags.Contains("verify-audit"))
                 return Emit(new TransformerTrainingRepository(toolRoot)
                     .VerifyAuditChain());
@@ -311,7 +313,8 @@ internal static class Program
             "(--status | --run-once [--force] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
             "--job <id> | --self-test | --converge-check | " +
-            "--release-gate [--bundle <dir>] [--no-builds] | " +
+            "--release-gate [--bundle <dir>] [--suite <file>] " +
+            "[--no-builds] | " +
             "--verify-audit | --db-status | " +
             "--migrate | --teacher-collect [--dry-run] | " +
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +

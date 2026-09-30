@@ -743,7 +743,7 @@ internal static class InstructionRecovery
         {
             string h = TransformerTrainingRepository.Sha256Text(
                 "val:" + row.Prompt);
-            (Convert.ToInt32(h[..8], 16) % 1000 < 180 ? val : train)
+            (Convert.ToInt64(h[..8], 16) % 1000 < 180 ? val : train)
                 .Add(row);
         }
 
