@@ -21,21 +21,16 @@ use crate::webview_host;
 
 const SHUTDOWN_DEADLINE_MS: u64 = 15_000;
 
-/// The main dashboard runs as a governed native egui surface
-/// (``gptbridge-egui.exe --main-window``); the shell keeps supervising
-/// backend + tool windows without hosting a WebView2 main window.
-/// Escape hatch for renderer development: ``GPTBRIDGE_RENDERER_DEV_URL``
-/// or ``GPTBRIDGE_MAIN_UI=webview`` restores the webview path.
+/// The main dashboard runs inside the Tauri shell's ``main`` window —
+/// a WebView2 surface rendering the governed ``dist-ui`` bundle.  The
+/// native egui surface (``gptbridge-egui.exe --main-window``) remains
+/// available as an opt-in via ``GPTBRIDGE_MAIN_UI=native``.
 fn native_main_ui() -> bool {
-    if std::env::var("GPTBRIDGE_RENDERER_DEV_URL")
-        .ok()
-        .filter(|v| !v.trim().is_empty())
-        .is_some()
-    {
-        return false;
-    }
-    !std::env::var("GPTBRIDGE_MAIN_UI")
-        .map(|v| v.trim().eq_ignore_ascii_case("webview"))
+    std::env::var("GPTBRIDGE_MAIN_UI")
+        .map(|v| {
+            let v = v.trim();
+            v.eq_ignore_ascii_case("native") || v.eq_ignore_ascii_case("egui")
+        })
         .unwrap_or(false)
 }
 
@@ -134,8 +129,8 @@ fn spawn_native_main_ui(app: &tauri::AppHandle) -> Result<(), String> {
             return;
         }
         app::report("main-ui.native-exited", serde_json::json!({}));
-        // Main window closed by the user — drive the governed shutdown
-        // exactly like the webview CloseRequested path did.
+        // Native surface closed by the user — drive the governed
+        // shutdown exactly like the webview CloseRequested path does.
         shutdown_application(&handle);
         handle.exit(0);
     });

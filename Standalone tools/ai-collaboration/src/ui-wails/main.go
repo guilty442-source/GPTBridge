@@ -9,6 +9,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -72,6 +73,11 @@ func main() {
 		Title: title, ToolRoot: toolRoot}
 
 	handler := newAssetHandler(toolRoot, workspaceRoot)
+	if dbg := strings.TrimSpace(os.Getenv("AICOLLAB_DEBUG_HTTP")); dbg != "" {
+		go func() {
+			_ = http.ListenAndServe("127.0.0.1:"+dbg, handler)
+		}()
+	}
 	err := wails.Run(&options.App{
 		Title:     title,
 		Width:     envInt("GPTBRIDGE_SOURCE_UI_WIDTH", 1280),
