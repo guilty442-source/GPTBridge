@@ -388,8 +388,15 @@ void NativeInferenceEngine::restore_prefix_state(
 std::vector<int64_t> NativeInferenceEngine::decode_continue(
     std::vector<double> next_logits, int64_t max_new_tokens,
     const SamplingConfig& sampling, uint64_t rng_state,
-    std::vector<int64_t>& generated) {
+    std::vector<int64_t>& generated, std::vector<double> last_hidden) {
     const ModelConfig& cfg = bundle_->config();
+    // Greedy + bound MTP drafter: the verified speculative loop owns
+    // the decode (it bootstraps a missing last_hidden itself).
+    if (mtp_.bound && !sampling.do_sample) {
+        return decode_continue_spec(
+            std::move(next_logits), std::move(last_hidden),
+            max_new_tokens, generated);
+    }
     // Byte-spelled turn end: SFT weights terminate turns by emitting the
     // literal text "<|eot|>" (the bundle vocab carries no dedicated
     // token), so the token-id EOS alone never fires. Governed callers
