@@ -629,7 +629,7 @@ internal static class InstructionRecovery
                 });
             else
             {
-                int k = r.Next(n);
+                int k = r.Next(items.Length);
                 Add(new Row
                 {
                     Prompt = Ctx(list, Ack(),
@@ -1511,7 +1511,9 @@ internal static class InstructionRecovery
             });
 
         // ── dataset ───────────────────────────────────────────────────
-        string dataDir = Path.Combine(outDir, "dataset");
+        string dataDir =
+            TransformerTrainingRepository.Str(plan, "dataset_dir")
+            ?? Path.Combine(outDir, "dataset");
         Dictionary<string, object?> manifest;
         if (File.Exists(Path.Combine(dataDir, "manifest.json")))
         {
