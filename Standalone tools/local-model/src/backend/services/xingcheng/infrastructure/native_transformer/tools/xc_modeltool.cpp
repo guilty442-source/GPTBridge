@@ -1959,9 +1959,41 @@ int mode_serve(const Args& a) {
                 size_t eot = text.find("<|eot|>");
                 if (eot != std::string::npos) text.erase(eot);
 
+                // Surface the model-native tool call: a trained-in
+                // <tool_call>{json}</tool_call> block is split per
+                // star-inference-output/v1 — cleaned text stays in
+                // "text", the parsed call JSON rides in "tool_call".
+                // A malformed/unclosed call degrades to a
+                // tool_call_error field instead of failing the
+                // inference (the generation itself is still valid).
+                std::string tool_call_json;
+                std::string tool_call_error;
+                if (text.find("<tool_call>") != std::string::npos) {
+                    try {
+                        JsonValue parsed = JsonParser(
+                            xingcheng::inference::parse_generated_output(
+                                text, 0)).parse();
+                        if (const JsonValue* t = parsed.get("text");
+                            t && t->type == JsonValue::Type::String)
+                            text = t->string;
+                        if (const JsonValue* tc = parsed.get("tool_call");
+                            tc && tc->type != JsonValue::Type::Null)
+                            tool_call_json =
+                                gptbridge::jsonlite::json_serialize(*tc);
+                    } catch (const std::exception& parseEx) {
+                        tool_call_error = parseEx.what();
+                    }
+                }
+
                 std::ostringstream o;
                 o << "{\"ok\":true,\"text\":\""
                   << gptbridge::jsonlite::json_escape(text) << "\"";
+                o << ",\"tool_call\":"
+                  << (tool_call_json.empty() ? "null" : tool_call_json);
+                if (!tool_call_error.empty())
+                    o << ",\"tool_call_error\":\""
+                      << gptbridge::jsonlite::json_escape(tool_call_error)
+                      << "\"";
                 o << ",\"token_ids\":[";
                 for (size_t i = 0; i < out.size(); ++i) {
                     if (i) o << ',';

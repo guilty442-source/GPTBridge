@@ -23,8 +23,11 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // bits (attn_output_gate | qk_norm | shared_expert_gate), partial
     // rotary fraction, linear-attention geometry (k heads/dim, v
     // heads/dim, conv kernel).
-    // v1/v2 checkpoints still load: absent fields default to dense.
-    f.write("XCN1", 4); u32(f, 3);
+    // XCN4 = XCN3 + vision early-fusion block: use_vision, vision
+    // patch_dim, vision max_patches.
+    // v1/v2/v3 checkpoints still load: absent fields default to dense /
+    // text-only.
+    f.write("XCN1", 4); u32(f, 4);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
     u32(f, (uint32_t)c.heads); u32(f, (uint32_t)c.kv_heads);
@@ -42,6 +45,9 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     u32(f, (uint32_t)c.lin_key_heads); u32(f, (uint32_t)c.lin_key_dim);
     u32(f, (uint32_t)c.lin_value_heads); u32(f, (uint32_t)c.lin_value_dim);
     u32(f, (uint32_t)c.lin_conv_kernel);
+    u32(f, c.use_vision ? 1u : 0u);
+    u32(f, (uint32_t)c.vision_patch_dim);
+    u32(f, (uint32_t)c.vision_max_patches);
     u32(f, (uint32_t)p.order.size());
     for (auto& n : p.order) {
         const Tensor& t = p.w.at(n);

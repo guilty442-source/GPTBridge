@@ -5,8 +5,17 @@
 // -------------------------------------------------------------- backward --
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
-                Fwd& o, const std::vector<float>& dlogits, float aux_scale) {
-    const int T = (int)ids.size();
+                Fwd& o, const std::vector<float>& dlogits, float aux_scale,
+                const std::vector<float>* vision = nullptr) {
+    const int PT = (int)ids.size();
+    // Vision prefix rows (P) were prepended by fwd; caches/logits carry T.
+    const int P = o.vision_patches;
+    if (P < 0 || (P == 0) != (vision == nullptr))
+        throw "vision: fwd/bwd prefix mismatch";
+    if (P > 0 && ((int)o.vision_in.size() != P * c.vision_patch_dim ||
+                  (int)vision->size() != P * c.vision_patch_dim))
+        throw "vision: fwd/bwd prefix mismatch";
+    const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;
     std::vector<float> dh((size_t)T * H, 0.0f);
@@ -494,10 +503,17 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     L.rms1.data(), dx_in2.data(), p.g[ln(l, "norm1")].d.data(), T, H);
         for (size_t i = 0; i < dx.size(); ++i) dx[i] = dx_attn_in[i] + dx_in2[i];
     }
-    // embedding backward
-    for (int t = 0; t < T; ++t) {
+    // embedding backward (text rows start after the P prefix rows)
+    for (int t = 0; t < PT; ++t) {
         float* ger = p.g["embed"].d.data() + (size_t)ids[t] * H;
-        for (int i = 0; i < H; ++i) ger[i] += dx[(size_t)t * H + i];
+        for (int i = 0; i < H; ++i) ger[i] += dx[(size_t)(P + t) * H + i];
+    }
+    if (P > 0) {
+        // vision projection grad; patch-side dx is discarded (input).
+        linear_bwd(dx.data(), o.vision_in.data(),
+                   p.w.at("vision.patch_proj"), nullptr,
+                   p.g["vision.patch_proj"].d.data(),
+                   P, c.vision_patch_dim, H);
     }
 }
 
