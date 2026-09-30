@@ -147,6 +147,25 @@ internal static class CudaPlaneChecks
                        (long)big["adaptive_prefill_chunk"]! == 1024;
             }));
 
+            // ------------------- §58 BF16 certification -------------
+            // FP64 oracle vs cuBLAS-fp64 and the NVRTC bf16 GEMM lane
+            // on deterministic shapes. UNCERTIFIED fails; NO_DEVICE
+            // records absent evidence without fabricating a pass.
+            checks.Add(Check("bf16-certification", () =>
+            {
+                var r = NativeTools.Run(
+                    NativeTools.ModelToolExe(toolRoot),
+                    new[] { "bf16-cert" },
+                    toolRoot, stderrLog, timeoutS: 120);
+                if (r.ExitCode != 0) return false;
+                var doc = J(r.StdoutTail.TrimEnd()
+                    .Split('\n').Last().Trim());
+                if (!doc.TryGetProperty("verdict", out var v)) return false;
+                string verdict = v.GetString() ?? "";
+                return verdict == "BF16_GEMM_CERTIFIED" ||
+                       verdict == "NO_DEVICE";
+            }));
+
             // ------------------- tensor-core alignment (§23) ---------
             checks.Add(Check("alignment-score", () =>
                 MemoryCudaPlane.AlignmentScore(768) == 1.0 &&

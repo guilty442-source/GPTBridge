@@ -155,13 +155,15 @@ static int mode_bf16_cert(const Args& a) {
           << ",\"max_abs_err\":" << ef.max_abs
           << ",\"rms_rel_err\":" << ef.rms_rel
           << ",\"max_rel_sig\":" << ef.max_rel_sig
-          << ",\"argmax\":" << ef.argmax_match << "/" << ef.rows
+          << ",\"argmax_match\":" << ef.argmax_match
+          << ",\"argmax_rows\":" << ef.rows
           << ",\"pass\":" << (f_ok ? "true" : "false") << "}"
           << ",\"bf16\":{\"ran\":" << (have_b ? "true" : "false")
           << ",\"max_abs_err\":" << eb.max_abs
           << ",\"rms_rel_err\":" << eb.rms_rel
           << ",\"max_rel_sig\":" << eb.max_rel_sig
-          << ",\"argmax\":" << eb.argmax_match << "/" << eb.rows
+          << ",\"argmax_match\":" << eb.argmax_match
+          << ",\"argmax_rows\":" << eb.rows
           << ",\"pass\":" << (b_ok ? "true" : "false") << "}}";
     }
     const char* verdict = !ok ? "BF16_GEMM_UNCERTIFIED"
