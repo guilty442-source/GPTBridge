@@ -2011,6 +2011,83 @@ int mode_serve(const Args& a) {
                 emit(o.str());
                 continue;
             }
+            if (op == "think") {
+                // Native Thinking: latent continuous-thought steps then
+                // parallel hypothesis branches ranked by model confidence
+                // (latent CoVe) — no textual chain-of-thought is produced.
+                std::string prompt = jget_str(req, "prompt");
+                const JsonValue* messages = req.get("messages");
+                if (prompt.empty() && messages &&
+                    messages->type == JsonValue::Type::Array) {
+                    prompt = serve_render_chat(*messages);
+                }
+                if (prompt.empty()) {
+                    err_obj("SERVE_INFER_PROMPT_REQUIRED");
+                    continue;
+                }
+                if (!engine.loaded()) engine.load(bundle);
+                SamplingConfig sc;
+                sc.do_sample = serve_bool(req, "do_sample", true);
+                sc.temperature = serve_num(req, "temperature", 1.0);
+                sc.top_k = (int64_t)serve_num(req, "top_k", 0);
+                sc.top_p = serve_num(req, "top_p", 1.0);
+                sc.repetition_penalty =
+                    serve_num(req, "repetition_penalty", 1.0);
+                sc.seed = (uint64_t)serve_num(req, "seed", 0);
+                int64_t max_new = (int64_t)serve_num(
+                    req, "max_new_tokens", 128);
+                if (max_new <= 0) max_new = 1;
+                if (max_new > 2048) max_new = 2048;
+                int64_t think_steps = (int64_t)serve_num(
+                    req, "think_steps", 4);
+                int64_t branches = (int64_t)serve_num(
+                    req, "branches", 4);
+
+                std::vector<int64_t> pids =
+                    engine.encode(prompt, true, false);
+                auto t0 = std::chrono::steady_clock::now();
+                auto res = engine.generate_thinking(
+                    pids, think_steps, branches, max_new, sc);
+                double elapsed = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t0).count();
+                std::string text = engine.decode(res.answer_ids, true);
+                size_t eot = text.find("<|eot|>");
+                if (eot != std::string::npos) text.erase(eot);
+
+                std::ostringstream o;
+                o << "{\"ok\":true,\"text\":\""
+                  << gptbridge::jsonlite::json_escape(text) << "\"";
+                o << ",\"token_ids\":[";
+                for (size_t i = 0; i < res.answer_ids.size(); ++i) {
+                    if (i) o << ',';
+                    o << res.answer_ids[i];
+                }
+                o << ']';
+                o << ",\"generated_tokens\":"
+                  << (int64_t)res.answer_ids.size()
+                  << ",\"thinking\":{\"think_steps\":" << res.think_steps
+                  << ",\"branches\":" << branches
+                  << ",\"chosen_branch\":" << res.chosen_branch
+                  << ",\"verify\":\"confidence\""
+                  << ",\"branch_scores\":[";
+                for (size_t i = 0; i < res.branch_scores.size(); ++i) {
+                    if (i) o << ',';
+                    o << res.branch_scores[i];
+                }
+                o << "],\"branch_lengths\":[";
+                for (size_t i = 0; i < res.branch_ids.size(); ++i) {
+                    if (i) o << ',';
+                    o << (int64_t)res.branch_ids[i].size();
+                }
+                o << "]}";
+                o << ",\"latency_ms\":" << elapsed * 1000.0
+                  << ",\"model_id\":\"xingcheng-native-transformer\""
+                  << ",\"model_version\":\""
+                  << gptbridge::jsonlite::json_escape(model_version) << "\""
+                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true}";
+                emit(o.str());
+                continue;
+            }
             err_obj("SERVE_UNKNOWN_OP");
         } catch (const std::exception& e) {
             std::string msg = e.what();

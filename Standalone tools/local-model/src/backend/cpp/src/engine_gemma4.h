@@ -85,6 +85,11 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden_gemma4(
             throw InferenceError("INPUT_EMPTY");
         }
         const int64_t seq = static_cast<int64_t>(span.ids->size());
+        if (span.embed_override != nullptr &&
+            static_cast<int64_t>(span.embed_override->size()) !=
+                seq * hidden_size) {
+            throw InferenceError("EMBED_OVERRIDE_DIM_MISMATCH");
+        }
         if (span.position_offset < 0 ||
             span.position_offset + seq > cfg.max_position_embeddings) {
             throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
@@ -112,12 +117,21 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden_gemma4(
         const int64_t seq = static_cast<int64_t>(span.ids->size());
         const int64_t base = starts[i];
         for (int64_t s = 0; s < seq; ++s) {
+            double* dst =
+                hidden.data() + static_cast<size_t>((base + s) * hidden_size);
+            if (span.embed_override != nullptr) {
+                // Latent rows arrive already normed — the Gemma embedding
+                // scale applies to token embeddings only.
+                std::copy_n(
+                    span.embed_override->data() +
+                        static_cast<size_t>(s * hidden_size),
+                    hidden_size, dst);
+                continue;
+            }
             const int64_t token = (*span.ids)[static_cast<size_t>(s)];
             if (token < 0 || token >= cfg.vocab_size) {
                 throw InferenceError("TOKEN_ID_OUT_OF_RANGE");
             }
-            double* dst =
-                hidden.data() + static_cast<size_t>((base + s) * hidden_size);
             std::copy_n(
                 embedding_.data + token * hidden_size, hidden_size, dst);
             if (emb_scale != 1.0) {
@@ -146,6 +160,11 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden_gemma4(
             const int64_t seq = static_cast<int64_t>(span.ids->size());
             const int64_t base = starts[i];
             for (int64_t s = 0; s < seq; ++s) {
+                if (span.embed_override != nullptr) {
+                    // Latent tokens have no vocab row: the PLE identity
+                    // term stays zero and only the context term flows.
+                    continue;
+                }
                 const int64_t token = (*span.ids)[static_cast<size_t>(s)];
                 if (token >= cfg.vocab_size_per_layer_input) {
                     throw InferenceError("PLE_TOKEN_ID_OUT_OF_RANGE");

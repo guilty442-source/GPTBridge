@@ -87,6 +87,53 @@ static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
 
 static inline float silu_f(float x) { return x / (1.0f + std::exp(-x)); }
 
+// --------------------------------------------------------- RL sampling ----
+// Categorical sample over a softmax(logits/temp) row — temperature <= 0
+// falls back to argmax (greedy).
+static int sample_cat(const float* logits, int V, float temp,
+                      std::mt19937& rng) {
+    const float mx = *std::max_element(logits, logits + V);
+    if (temp <= 0.0f) {
+        return (int)(std::max_element(logits, logits + V) - logits);
+    }
+    std::vector<float> pr((size_t)V);
+    float sum = 0.0f;
+    for (int i = 0; i < V; ++i) {
+        pr[(size_t)i] = std::exp((logits[i] - mx) / temp);
+        sum += pr[(size_t)i];
+    }
+    std::uniform_real_distribution<float> dist(0.0f, sum);
+    float u = dist(rng);
+    for (int i = 0; i < V; ++i) {
+        u -= pr[(size_t)i];
+        if (u <= 0.0f) return i;
+    }
+    return V - 1;
+}
+
+// log p(y | logits row) — numerically stable log-softmax element.
+static float tok_logprob_row(const float* lr, int V, int y) {
+    const float mx = *std::max_element(lr, lr + V);
+    float sum = 0.0f;
+    for (int i = 0; i < V; ++i) sum += std::exp(lr[i] - mx);
+    return (lr[y] - mx) - std::log(sum);
+}
+
+// d(-lp)/dz row: (softmax - onehot[y]) * scale — identical to the DPO
+// soft_grad convention so policy-gradient losses reuse bwd unchanged.
+static void soft_grad_row(const float* lr, int V, int y, float scale,
+                          float* dl) {
+    const float mx = *std::max_element(lr, lr + V);
+    float sum = 0.0f;
+    for (int i = 0; i < V; ++i) {
+        dl[i] = std::exp(lr[i] - mx);
+        sum += dl[i];
+    }
+    const float inv = scale / sum;
+    for (int i = 0; i < V; ++i) dl[i] *= inv;
+    dl[y] -= scale;
+}
+
 // gelu_pytorch_tanh (HF ACT2FN name used by Gemma4 hidden_activation).
 static inline float gelu_tanh_f(float x) {
     constexpr float c = 0.7978845608028654f;   // sqrt(2/pi)

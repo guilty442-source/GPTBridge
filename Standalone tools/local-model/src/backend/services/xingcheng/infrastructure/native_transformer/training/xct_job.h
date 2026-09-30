@@ -31,6 +31,16 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             e.rej_ids = j_ids(rj, "input_ids");
             e.rej_labels = j_ids(rj, "labels");
             if (e.rej_labels.empty()) e.rej_labels = e.rej_ids;
+        } else if (fmt == "grpo") {
+            // {"prompt_ids": [...], "completion_ids": [...]} — the
+            // completion is the verifiable target the sampled rollouts
+            // are rewarded against.
+            e.ids = j_ids(&row, "prompt_ids");
+            e.labels = j_ids(&row, "completion_ids");
+            if (!e.ids.empty() && !e.labels.empty()) {
+                out.push_back(std::move(e));
+            }
+            continue;
         } else {
             e.ids = j_ids(&row, "input_ids");
             if (fmt == "sft") {

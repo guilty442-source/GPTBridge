@@ -250,6 +250,27 @@ public:
         int64_t max_new_tokens,
         const SamplingConfig& sampling);
 
+    // Native thinking (latent-space reasoning): after the prompt prefill the
+    // engine runs `think_steps` continuous-thought iterations — each feeds
+    // the last hidden state back as the next input embedding — then
+    // decodes `branches` parallel hypothesis continuations on private KV
+    // slots, self-verifies them by mean token logprob (model confidence,
+    // the latent Chain-of-Verification signal), and returns the winning
+    // branch's tokens. Bounded: think_steps<=32, branches<=8.
+    struct ThinkingResult {
+        std::vector<int64_t> answer_ids;
+        int64_t chosen_branch = -1;
+        int64_t think_steps = 0;
+        std::vector<double> branch_scores;
+        std::vector<std::vector<int64_t>> branch_ids;
+    };
+    ThinkingResult generate_thinking(
+        const std::vector<int64_t>& prompt_ids,
+        int64_t think_steps,
+        int64_t branches,
+        int64_t max_new_tokens,
+        const SamplingConfig& sampling);
+
     int64_t memory_bytes() const;
     int64_t kv_memory_bytes() const;
     std::string describe() const;
@@ -331,6 +352,12 @@ private:
         const std::vector<int64_t>* ids = nullptr;
         int64_t position_offset = 0;
         bool append_cache = false;
+        // Latent-thinking input (COCONUT-style continuous thought): when
+        // non-null it must hold seq*hidden_size doubles that replace the
+        // token-embedding rows verbatim — a previous hidden state is fed
+        // straight back into hidden space without detokenizing. ids still
+        // bound the span length; the token ids themselves are ignored.
+        const std::vector<double>* embed_override = nullptr;
     };
     static constexpr int64_t kMaxBatchSeqs = 64;
 
@@ -410,6 +437,15 @@ private:
         const std::vector<int64_t>& input_ids,
         int64_t position_offset,
         bool append_cache);
+    // Slot-addressed variants used by the thinking/branching lane (slot 0
+    // is the single-sequence namespace; branch slots are private).
+    std::vector<double> forward_hidden_span(
+        const BatchSpan& span);
+    std::vector<double> forward_last_logits_span(
+        const BatchSpan& span);
+    // Deep-copy `count` positions of KV rows between slots (branch
+    // forking): every layer/head row, fp64 path only.
+    void kv_copy_slot(int64_t dst, int64_t src, int64_t count);
     std::vector<double> forward_batch_hidden(
         const std::vector<BatchSpan>& spans,
         std::vector<double>* layer_rms = nullptr,

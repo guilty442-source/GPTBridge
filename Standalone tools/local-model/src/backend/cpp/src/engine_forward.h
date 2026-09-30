@@ -22,6 +22,11 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             throw InferenceError("INPUT_EMPTY");
         }
         const int64_t seq = static_cast<int64_t>(span.ids->size());
+        if (span.embed_override != nullptr &&
+            static_cast<int64_t>(span.embed_override->size()) !=
+                seq * hidden_size) {
+            throw InferenceError("EMBED_OVERRIDE_DIM_MISMATCH");
+        }
         if (span.position_offset < 0 ||
             span.position_offset + seq > cfg.max_position_embeddings) {
             throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
@@ -48,14 +53,22 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         const int64_t seq = static_cast<int64_t>(span.ids->size());
         const int64_t base = starts[i];
         for (int64_t s = 0; s < seq; ++s) {
+            double* dst =
+                hidden.data() + static_cast<size_t>((base + s) * hidden_size);
+            if (span.embed_override != nullptr) {
+                std::copy_n(
+                    span.embed_override->data() +
+                        static_cast<size_t>(s * hidden_size),
+                    hidden_size, dst);
+                continue;
+            }
             const int64_t token = (*span.ids)[static_cast<size_t>(s)];
             if (token < 0 || token >= cfg.vocab_size) {
                 throw InferenceError("TOKEN_ID_OUT_OF_RANGE");
             }
             std::copy_n(
                 embedding_.data + token * hidden_size,
-                hidden_size,
-                hidden.data() + static_cast<size_t>((base + s) * hidden_size));
+                hidden_size, dst);
             if (cfg.position_embedding_type == "learned") {
                 const TensorView& pos = bundle_->tensor("model.embeddings.position_embeddings.weight");
                 const int64_t position = span.position_offset + s;
