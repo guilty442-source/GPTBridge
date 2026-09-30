@@ -41,6 +41,9 @@ internal sealed class LocalModelExecutor
     private readonly string _bundleDir;
     private readonly JsonObject _samplingDefaults;
     private readonly int _cpuThreads;
+    private readonly bool _cuda;
+    private readonly bool _cudaKv;
+    private readonly string _cudaPrecision;
 
     private readonly SemaphoreSlim _childLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
@@ -61,8 +64,8 @@ internal sealed class LocalModelExecutor
             env.ToolRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
-        (_bundleDir, _samplingDefaults, _cpuThreads) =
-            ResolveBundle(env.ToolRoot);
+        (_bundleDir, _samplingDefaults, _cpuThreads, _cuda, _cudaKv,
+            _cudaPrecision) = ResolveBundle(env.ToolRoot);
     }
 
     /// <summary>
@@ -73,8 +76,15 @@ internal sealed class LocalModelExecutor
     /// cpu_threads feeds the native core's striped-GEMM stripe count via
     /// GPTBRIDGE_MATMUL_THREADS on the worker process; absent/<=1 leaves
     /// the core's auto default.
+    /// cuda/cuda_kv request the CUDA compute / device-KV paths via
+    /// XINGCHENG_CPP_CUDA{,_KV}; cuda_precision ("none"|"bf16"|"fp8")
+    /// selects the opt-in reduced-precision GEMM domain. All default to
+    /// off/CPU; requesting CUDA without device+toolkit fails closed in
+    /// the worker (CUDA_*_UNAVAILABLE), and a bad precision value fails
+    /// closed here.
     /// </summary>
-    private static (string Bundle, JsonObject Defaults, int CpuThreads)
+    private static (string Bundle, JsonObject Defaults, int CpuThreads,
+        bool Cuda, bool CudaKv, string CudaPrecision)
         ResolveBundle(string toolRoot)
     {
         var settingsPath = Path.Combine(
@@ -112,11 +122,23 @@ internal sealed class LocalModelExecutor
             && ct.ValueKind == JsonValueKind.Number
                 ? ct.GetInt32()
                 : 0;
+        var cuda = root.TryGetProperty("cuda", out var cu)
+            && cu.ValueKind == JsonValueKind.True;
+        var cudaKv = root.TryGetProperty("cuda_kv", out var ck)
+            && ck.ValueKind == JsonValueKind.True;
+        var cudaPrecision =
+            root.TryGetProperty("cuda_precision", out var cpr)
+            && cpr.ValueKind == JsonValueKind.String
+                ? (cpr.GetString() ?? "none")
+                : "none";
+        if (cudaPrecision is not ("none" or "bf16" or "fp8"))
+            throw new InvalidOperationException("XC_CUDA_PRECISION_INVALID");
 
         // Pinned bundle directory (current contract).
         if (Directory.Exists(checkpointPath)
             && IsBundleDir(checkpointPath))
-            return (checkpointPath, defaults, cpuThreads);
+            return (checkpointPath, defaults, cpuThreads, cuda, cudaKv,
+                    cudaPrecision);
 
         // Legacy contract: checkpoint is the source .pt; find its bundle.
         if (File.Exists(checkpointPath))
