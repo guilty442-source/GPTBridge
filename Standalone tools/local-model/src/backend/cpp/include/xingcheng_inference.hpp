@@ -885,6 +885,12 @@ private:
         const double* h_last, int64_t next_token, int64_t pos);
     std::vector<double> mtp_z_of(
         const double* h_t, const double* e_next) const;
+    // Append a committed pair's K/V into the drafter cache, in order.
+    void mtp_append_kv(const std::vector<double>& z, int64_t pos);
+    // Commit a pair (h_pos, e_{pos+1}) without drafting — prompt
+    // seeding and the second token of an accepted pair.
+    void mtp_commit_pair(
+        const double* h_t, int64_t next_token, int64_t pos);
     // Speculative decode loop for the greedy path — shares
     // decode_continue's caller contract (stop tokens, max_new, <|eot|>).
     std::vector<int64_t> decode_continue_spec(
