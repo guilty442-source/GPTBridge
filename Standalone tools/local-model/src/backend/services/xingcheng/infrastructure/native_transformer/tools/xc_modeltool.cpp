@@ -3476,6 +3476,9 @@ int main(int argc, char** argv) {
             return mode_npu_bench("npu-prefill-bench", a);
         if (mode == "sparse-optimizer-probe")
             return mode_parameter_freeze_probe(a);
+        if (mode == "npu-ep-enum") return mode_npu_ep_enum(a);
+        if (mode == "npu-duplicate-cost")
+            return mode_npu_duplicate_cost(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

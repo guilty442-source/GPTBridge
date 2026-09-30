@@ -650,6 +650,8 @@ internal static class ConvergenceGate
     {
         string scratchDir = Path.Combine(toolRoot, "xingcheng",
             "runtime", "state", "_gate-dataset-invariants");
+        List<Dictionary<string, object?>>? norm = null;
+        string diag = "";
         try
         {
             Directory.CreateDirectory(scratchDir);
@@ -700,6 +702,17 @@ internal static class ConvergenceGate
                 ["source"] = "convergence-gate",
                 ["purpose"] = "dataset-identity-invariant",
             };
+            norm = TransformerTrainingRepository
+                .NormalizeDatasetExamples(ex);
+            var missing = norm.Where(e =>
+                string.IsNullOrEmpty((string?)e["owner_model_id"]) ||
+                string.IsNullOrEmpty((string?)e["source_example_id"]) ||
+                string.IsNullOrEmpty((string?)e["source_type"]))
+                .Select(e => string.Join(",",
+                    e.Keys.Where(k =>
+                        string.IsNullOrEmpty(
+                            e[k]?.ToString()))));
+            string diag = string.Join(";", missing);
             var r1 = repo.CreateDataset(sha, snapA, shaA, ex, manifest,
                 createdBy: "convergence-gate");
             var r2 = repo.CreateDataset(sha, snapA, shaA, ex, manifest,
@@ -803,13 +816,15 @@ internal static class ConvergenceGate
             // invariant is untestable, never silently green.
             return Fail("DATASET_REGISTRY_UNAVAILABLE",
                         ex.GetType().Name + ": " +
-                        ex.Message[..Math.Min(200, ex.Message.Length)]
+                        ex.Message[..Math.Min(160, ex.Message.Length)]
                         + " @" + (ex.StackTrace ?? "")
                             .Split('\n').FirstOrDefault("?")
-                            .Trim()[..Math.Min(180,
+                            .Trim()[..Math.Min(140,
                                 (ex.StackTrace ?? "")
                                     .Split('\n').FirstOrDefault("?")
-                                    .Trim().Length)]);
+                                    .Trim().Length)]
+                        + " emptykeys=" + (norm != null
+                            ? diag : "norm-failed"));
         }
         finally
         {

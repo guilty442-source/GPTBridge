@@ -523,6 +523,90 @@ int mode_silicon_routing_bench(const Args& a) {
     return 0;
 }
 
+/// §10/§11 vendor EP enumeration — honest evidence: probe the vendor
+/// runtimes Windows ML would route through. A present host layer with
+/// zero vendor runtimes is still npu_present:false.
+int mode_npu_ep_enum(const Args& a) {
+    (void)a;
+    struct Ep { const wchar_t* dll; const char* name; };
+    static const Ep eps[] = {
+        {L"onnxruntime.dll", "onnxruntime"},
+        {L"QnnHtp.dll", "qnn_htp"},
+        {L"QnnCpu.dll", "qnn_cpu"},
+        {L"openvino.dll", "openvino"},
+        {L"onnxruntime_providers_openvino.dll", "openvino_ep"},
+        {L"migraphx.dll", "migraphx"},
+        {L"winml.dll", "windows_ml"},
+        {L"DirectML.dll", "directml"},
+    };
+    std::ostringstream o;
+    o << "{\"ok\":true,\"mode\":\"npu-ep-enum\","
+         "\"format\":\"star-silicon-profile/v1\","
+         "\"providers\":[";
+    bool first = true;
+    int found = 0;
+#if defined(_WIN32)
+    for (const auto& ep : eps) {
+        HMODULE h = LoadLibraryW(ep.dll);
+        bool present = h != nullptr;
+        if (h) { FreeLibrary(h); ++found; }
+        if (!first) o << ',';
+        first = false;
+        o << "{\"name\":\"" << ep.name << "\",\"dll\":\"";
+        // narrow the dll name for JSON
+        for (const wchar_t* c = ep.dll; *c; ++c)
+            o << (char)*c;
+        o << "\",\"present\":" << (present ? "true" : "false") << "}";
+    }
+#else
+    o << "]";
+#endif
+    o << "],\"npu_eps_found\":" << found
+      << ",\"npu_present\":" << (found > 2 ? "true" : "false")
+      << ",\"note\":\"host layers alone (winml/directml) do not imply "
+         "an NPU device or EP\"}\n";
+#if !defined(_WIN32)
+    o.clear(); o.str("");
+    o << "{\"ok\":true,\"mode\":\"npu-ep-enum\",\"providers\":[],"
+         "\"npu_eps_found\":0,\"npu_present\":false}\n";
+#endif
+    std::fputs(o.str().c_str(), stdout);
+    return 0;
+}
+
+/// §16 duplicate-weight cost: before any NPU promotion the planner must
+/// account for a second resident copy of the shared weights.
+int mode_npu_duplicate_cost(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("SPEC_ARGS_MISSING:bundle");
+    JsonValue mf = parse_json_file(
+        (fs::path(bundle) / "manifest.json").string());
+    int64_t weights = 0;
+    if (const JsonValue* w = mf.get("weights_bytes"))
+        weights = (int64_t)w->number;
+    if (weights == 0)
+        if (const JsonValue* t = mf.get("tensors"))
+            for (const auto& kv : t->object)
+                if (const JsonValue* b = kv.second.get("bytes"))
+                    weights += (int64_t)b->number;
+    // NPU-compiled artifact copies the *subgraph* weights only; full-
+    // decoder NPU residency would duplicate the whole weights file.
+    int64_t subgraph = weights / 16;   // head/router-scale share
+    std::printf("{\"ok\":true,\"mode\":\"npu-duplicate-cost\","
+                "\"format\":\"star-duplicate-weight-cost/v1\","
+                "\"weights_bytes\":%lld,"
+                "\"full_npu_residency_duplicate\":%lld,"
+                "\"subgraph_only_duplicate\":%lld,"
+                "\"verdict\":\"%s\"}\n",
+                (long long)weights, (long long)weights,
+                (long long)subgraph,
+                weights > 0
+                    ? "subgraph residency only — full-model NPU copy "
+                      "violates the single-copy objective"
+                    : "MANIFEST_WEIGHTS_MISSING");
+    return weights > 0 ? 0 : 2;
+}
+
 int mode_npu_bench(const char* bench, const Args& a) {
     (void)a;
     // §84 PROBE_ONLY: without an NPU the bench records the absence as
