@@ -223,7 +223,8 @@ internal static class Program
             if (flags.Contains("task-resume"))
                 return Emit(LongHorizonTaskCoordinator.Resume(
                     toolRoot,
-                    opts.TryGetValue("task", out string? tr) ? tr : "",
+                    opts.TryGetValue("task", out string? trm)
+                        ? trm : "",
                     opts.TryGetValue("generation", out string? rg)
                         ? rg : ""));
             if (flags.Contains("task-step"))

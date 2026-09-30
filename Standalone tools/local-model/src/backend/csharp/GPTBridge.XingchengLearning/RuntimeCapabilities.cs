@@ -352,7 +352,7 @@ internal static class RuntimeCapabilityLayer
     {
         var req = RuntimeCapabilityRequest.Parse(request);
         var policy = ReasoningPolicy.For(req.Reasoning);
-        var profile = DeploymentProfile.For(req.DeploymentProfile);
+        var profile = DeploymentProfile.For(req.Deployment);
 
         if (!PrecisionProfiles.IsKnown(req.PrecisionProfile))
             throw new ExecutorError(
