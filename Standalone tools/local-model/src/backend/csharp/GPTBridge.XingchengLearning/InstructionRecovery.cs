@@ -2947,6 +2947,11 @@ internal static class InstructionRecovery
                     ["init_checkpoint"] = curCkpt,
                     ["emit_checkpoint"] = emitCkpt,
                     ["overwrite"] = true,
+                    // §41-§45 ParameterFreezeMap: plan "freeze" is a
+                    // bounded pattern list; frozen params never get
+                    // Adam moments (sparse optimizer) — the
+                    // extreme-low-resource lane.
+                    ["freeze"] = PlanFreeze(plan),
                 },
                 ["data"] = new Dictionary<string, object?>
                 {
