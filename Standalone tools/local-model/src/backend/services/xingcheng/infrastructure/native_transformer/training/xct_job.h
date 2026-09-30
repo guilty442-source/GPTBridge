@@ -194,6 +194,97 @@ static JsonValue run_job(const JsonValue& job) {
                 bwd(p, c, ex.ids, fw, dl_c, 0.0f);
                 Fwd fr2 = std::move(fr);        // reuse caches for rej backward
                 bwd(p, c, ex.rej_ids, fr2, dl_r, 0.0f);
+            } else if (task == "grpo") {
+                // Native Thinking RL: sample G parallel rollouts from the
+                // current policy, score them with a verifiable reward,
+                // group-normalize into advantages, then take one policy-
+                // gradient step with a KL pull toward the reference.
+                const int G = tc.group_size, M = tc.max_new;
+                const int P = (int)ex.ids.size();
+                struct Rollout {
+                    std::vector<int> toks;
+                    float reward = 0.0f, adv = 0.0f;
+                };
+                std::vector<Rollout> ro((size_t)G);
+                float rsum = 0.0f;
+                for (auto& r : ro) {
+                    std::vector<int> seq = ex.ids;
+                    for (int m = 0; m < M; ++m) {
+                        fw.layers.clear(); fw.moe_aux = 0.0f;
+                        fwd(p, c, seq, fw);
+                        const float* lr = fw.logits.data() +
+                            ((size_t)seq.size() - 1) * c.vocab;
+                        seq.push_back(
+                            sample_cat(lr, c.vocab, tc.temperature, rng));
+                    }
+                    r.toks.assign(seq.begin() + P, seq.end());
+                    // Verifiable reward against the gold completion.
+                    if (tc.reward == "exact") {
+                        r.reward = r.toks == ex.labels ? 1.0f : 0.0f;
+                    } else {  // prefix: matched-prefix fraction
+                        int m = 0;
+                        while (m < (int)r.toks.size() &&
+                               m < (int)ex.labels.size() &&
+                               r.toks[(size_t)m] == ex.labels[(size_t)m]) ++m;
+                        r.reward = ex.labels.empty()
+                            ? 0.0f : (float)m / (float)ex.labels.size();
+                    }
+                    rsum += r.reward;
+                    ++grpo_rollouts;
+                }
+                const float mean = rsum / (float)G;
+                float var = 0.0f;
+                for (auto& r : ro) var += (r.reward - mean) * (r.reward - mean);
+                const float std_dev = std::sqrt(var / (float)G);
+                for (auto& r : ro) {
+                    r.adv = std_dev > 1e-4f ? (r.reward - mean) / std_dev : 0.0f;
+                }
+                grpo_reward_sum += rsum;
+                float step_loss = 0.0f;
+                for (auto& r : ro) {
+                    if (r.adv == 0.0f && tc.kl_coef <= 0.0f) continue;
+                    std::vector<int> full = ex.ids;
+                    full.insert(full.end(), r.toks.begin(), r.toks.end());
+                    const int T = (int)full.size();
+                    // Completion labels: logits[t] predicts full[t+1] over
+                    // positions P-1..T-2; prompt positions stay -100.
+                    std::vector<int> lab((size_t)T - 1, -100);
+                    for (int t = P - 1; t < T - 1; ++t) {
+                        lab[(size_t)t] = full[(size_t)t + 1];
+                    }
+                    fw.layers.clear(); fw.moe_aux = 0.0f;
+                    fwd(p, c, std::vector<int>(full.begin(), full.end() - 1),
+                        fw);
+                    Fwd rf;
+                    fwd(ref, c, std::vector<int>(full.begin(), full.end() - 1),
+                        rf);
+                    const float lp_p = seq_logprob(
+                        fw.logits, lab, T - 1, c.vocab);
+                    const float lp_r = seq_logprob(
+                        rf.logits, lab, T - 1, c.vocab);
+                    const int ntok = T - P;  // completion positions scored
+                    const float kl = (lp_p - lp_r) / (float)ntok;
+                    step_loss +=
+                        (-r.adv * lp_p + tc.kl_coef * (lp_p - lp_r)) /
+                            (float)ntok;
+                    grpo_kl_sum += kl;
+                    // dL/dz = (A - kl_c)/ntok * (softmax - 1[y]) over the
+                    // completion positions only.
+                    std::vector<float> dl(fw.logits.size(), 0.0f);
+                    const float scale = (r.adv - tc.kl_coef) / (float)ntok;
+                    for (int t = P - 1; t < T - 1; ++t) {
+                        const int y = full[(size_t)t + 1];
+                        if (y < 0 || y >= c.vocab) continue;
+                        soft_grad_row(
+                            fw.logits.data() + (size_t)t * c.vocab,
+                            c.vocab, y, scale,
+                            dl.data() + (size_t)t * c.vocab);
+                    }
+                    bwd(p, c,
+                        std::vector<int>(full.begin(), full.end() - 1),
+                        fw, dl, 0.0f);
+                }
+                loss = step_loss / (float)G;
             } else {
                 std::vector<int> lab = ex.labels;
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
