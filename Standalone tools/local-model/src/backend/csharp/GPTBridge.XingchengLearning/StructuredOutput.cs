@@ -29,7 +29,13 @@ internal static class StructuredOutput
         JsonElement? parsed = TryParse(rawOutput);
         if (parsed is null && repairOnce)
         {
+            // §18 SchemaRepair: one controlled repair, full evidence.
             record["repair_attempted"] = true;
+            record["original_invalid_output"] =
+                rawOutput.Length > 512
+                    ? rawOutput[..512] + "…" : rawOutput;
+            record["validation_error"] = "json_parse";
+            record["repair_action"] = "extract_balanced_json";
             string? repaired = ExtractJson(rawOutput);
             if (repaired is not null)
                 parsed = TryParse(repaired);
@@ -37,6 +43,7 @@ internal static class StructuredOutput
             {
                 record["ok"] = false;
                 record["error"] = "STRUCTURED_REPAIR_FAILED";
+                record["final_validation"] = "failed";
                 return record;
             }
         }
@@ -53,12 +60,19 @@ internal static class StructuredOutput
         {
             // schema-level repair: fill missing required scalars once
             record["repair_attempted"] = true;
+            record["original_invalid_output"] =
+                rawOutput.Length > 512
+                    ? rawOutput[..512] + "…" : rawOutput;
+            record["validation_error"] =
+                "schema:" + string.Join(",", failures);
+            record["repair_action"] = "fill_required_scalars";
             parsed = RepairRequired(parsed.Value, schema);
             if (parsed is null)
             {
                 record["ok"] = false;
                 record["error"] = "STRUCTURED_REPAIR_FAILED";
                 record["schema_failures"] = failures;
+                record["final_validation"] = "failed";
                 return record;
             }
             failures = CheckSchema(parsed.Value, schema, "");
@@ -68,8 +82,12 @@ internal static class StructuredOutput
             record["ok"] = false;
             record["error"] = "STRUCTURED_SCHEMA_FAILED";
             record["schema_failures"] = failures;
+            if (Convert.ToBoolean(record["repair_attempted"]))
+                record["final_validation"] = "failed";
             return record;
         }
+        if (Convert.ToBoolean(record["repair_attempted"]))
+            record["final_validation"] = "passed";
         record["ok"] = true;
         record["value"] =
             ModelLifecycle.Decode(parsed.Value);

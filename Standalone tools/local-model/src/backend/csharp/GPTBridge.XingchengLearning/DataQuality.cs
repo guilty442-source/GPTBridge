@@ -65,18 +65,34 @@ internal static class DataQuality
         double quality = Num(rec, "quality", 0.0);
         double difficulty = Num(rec, "difficulty", 0.0);
 
-        // §19 self-curation metadata -> training_priority (metadata
-        // only; never reaches the trainer while the freeze holds).
+        // §19 self-curation + §20 SampleUtilityScore (Storm lesson):
+        // nine-dimension utility, metadata only — never reaches the
+        // trainer while the freeze holds.
         double informativeness = Num(rec, "informativeness", quality);
         double novelty = Num(rec, "novelty", 0.5);
         double capValue = Num(rec, "capability_value", quality);
         double dupDensity = Num(rec, "duplicate_density",
             duplicate ? 1.0 : 0.0);
         double failureRel = Num(rec, "failure_relevance", 0.0);
+        var utility = new Dictionary<string, object?>
+        {
+            ["educational_value"] = Num(rec, "educational_value", capValue),
+            ["difficulty"] = difficulty,
+            ["clarity"] = Num(rec, "clarity", quality),
+            ["novelty"] = novelty,
+            ["reasoning_value"] = Num(rec, "reasoning_value", 0.5),
+            ["instruction_value"] = Num(rec, "instruction_value", 0.5),
+            ["creative_value"] = Num(rec, "creative_value", 0.0),
+            ["tool_value"] = Num(rec, "tool_value", 0.0),
+            ["grounding_value"] = Num(rec, "grounding_value", 0.0),
+        };
+        rec["sample_utility_score"] = utility;
+        double uAvg = utility.Values.Average(v => (double)v!);
         double priority = 0.30 * informativeness + 0.20 * novelty +
             0.25 * capValue + 0.15 * failureRel +
             0.10 * difficulty - 0.50 * dupDensity;
-        rec["training_priority"] = Math.Round(priority, 6);
+        rec["training_priority"] =
+            Math.Round(0.6 * priority + 0.4 * uAvg, 6);
 
         bool accept = licensePass && sensitivePass && !duplicate &&
             !contaminated && quality >= minQuality;

@@ -285,6 +285,158 @@ internal static class Program
                 return Emit(RuntimeCapabilities.Validate(
                     opts.TryGetValue("file", out string? cvf)
                         ? cvf : ""));
+            // ---- grounded RAG plane (Command-R lessons)
+            if (flags.Contains("grounded-v2-validate"))
+                return Emit(GroundedRag.ValidateClaimV2(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? g2)
+                            ? g2 : "", "GROUNDING_UNSUPPORTED_CLAIM")));
+            if (flags.Contains("graph-add-node"))
+                return Emit(GroundedRag.GraphAddNode(
+                    toolRoot,
+                    opts.TryGetValue("graph", out string? gn)
+                        ? gn : "default",
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("node", out string? gnn)
+                            ? gnn : "", "EVIDENCE_GRAPH_INVALID")));
+            if (flags.Contains("graph-add-edge"))
+                return Emit(GroundedRag.GraphAddEdge(
+                    toolRoot,
+                    opts.TryGetValue("graph", out string? ge)
+                        ? ge : "default",
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("edge", out string? gee)
+                            ? gee : "", "EVIDENCE_GRAPH_INVALID")));
+            if (flags.Contains("graph-query"))
+                return Emit(GroundedRag.GraphQuery(
+                    toolRoot,
+                    opts.TryGetValue("graph", out string? gq)
+                        ? gq : "default",
+                    opts.TryGetValue("subject", out string? gs)
+                        ? gs : ""));
+            if (flags.Contains("grounding-gate"))
+                return Emit(GroundedRag.Gate(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gg)
+                            ? gg : "", "GROUNDING_UNAVAILABLE")));
+            if (flags.Contains("rag-decide"))
+                return Emit(GroundedRag.Decide(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rd)
+                            ? rd : "", "RETRIEVAL_DECISION_INVALID")));
+            if (flags.Contains("citation-metrics"))
+                return Emit(GroundedRag.CitationMetrics(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cm)
+                            ? cm : "", "CITATION_METRICS_INVALID")));
+            // ---- persona / style / steerability (Hermes lessons)
+            if (flags.Contains("persona-validate"))
+                return Emit(PersonaRuntime.ValidatePersona(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? pv)
+                            ? pv : "", "PERSONA_INVALID")));
+            if (flags.Contains("persona-get"))
+                return Emit(PersonaRuntime.GetPersona(
+                    toolRoot,
+                    opts.TryGetValue("id", out string? pgid)
+                        ? pgid : ""));
+            if (flags.Contains("style-profile"))
+                return Emit(PersonaRuntime.StyleProfile(
+                    opts.TryGetValue("style", out string? spn)
+                        ? spn : "neutral"));
+            if (flags.Contains("steer"))
+                return Emit(PersonaRuntime.Steer(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? stf)
+                            ? stf : "", "STEER_INVALID")));
+            if (flags.Contains("conflict-resolve"))
+                return Emit(PersonaRuntime.ResolveConflict(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? cf)
+                            ? cf : "", "INSTRUCTION_CONFLICT_INVALID")));
+            if (flags.Contains("injection-guard"))
+                return Emit(PersonaRuntime.GuardInjection(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ig)
+                            ? ig : "", "PERSONA_INJECTION_GUARD")));
+            // ---- creative runtime
+            if (flags.Contains("creative-profile"))
+                return Emit(CreativeRuntime.CreativeProfile(
+                    opts.TryGetValue("profile", out string? cp)
+                        ? cp : "BALANCED"));
+            if (flags.Contains("factuality"))
+                return Emit(CreativeRuntime.FactualityResolve(
+                    opts.TryGetValue("mode", out string? fq)
+                        ? fq : "GENERAL"));
+            if (flags.Contains("memory-write"))
+                return Emit(CreativeRuntime.MemoryWrite(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? mw)
+                            ? mw : "", "NARRATIVE_MEMORY_INVALID")));
+            if (flags.Contains("memory-read"))
+                return Emit(CreativeRuntime.MemoryRead(
+                    toolRoot,
+                    opts.TryGetValue("namespace", out string? mns)
+                        ? mns : "NARRATIVE_MEMORY",
+                    opts.TryGetValue("key", out string? mk)
+                        ? mk : ""));
+            if (flags.Contains("memory-isolation"))
+                return Emit(CreativeRuntime.MemoryIsolationCheck(
+                    toolRoot));
+            if (flags.Contains("roleplay-create"))
+                return Emit(CreativeRuntime.SessionCreate(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rc)
+                            ? rc : "", "ROLEPLAY_SESSION_INVALID")));
+            if (flags.Contains("roleplay-event"))
+                return Emit(CreativeRuntime.SessionEvent(
+                    toolRoot,
+                    opts.TryGetValue("session", out string? re)
+                        ? re : "",
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("event", out string? rev)
+                            ? rev : "", "ROLEPLAY_SESSION_INVALID")));
+            if (flags.Contains("roleplay-compact"))
+                return Emit(CreativeRuntime.SessionCompact(
+                    toolRoot,
+                    opts.TryGetValue("session", out string? rpc)
+                        ? rpc : ""));
+            if (flags.Contains("refusal-decide"))
+                return Emit(CreativeRuntime.RefusalDecide(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rfd)
+                            ? rfd : "", "REFUSAL_DECISION_INVALID")));
+            if (flags.Contains("refusal-eval"))
+                return Emit(CreativeRuntime.RefusalEval(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? rfe)
+                            ? rfe : "", "REFUSAL_EVAL_INVALID")));
+            if (flags.Contains("roleplay-eval"))
+                return Emit(CreativeRuntime.RoleplayEval(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rpe)
+                            ? rpe : "", "ROLEPLAY_EVAL_INVALID")));
+            if (flags.Contains("route-mode"))
+                return Emit(CreativeRuntime.Route(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? rm)
+                            ? rm : "", "INTERACTION_ROUTE_INVALID")));
+            // ---- training-future metadata
+            if (flags.Contains("module-sensitivity"))
+                return Emit(ModuleSensitivity.Record(
+                    toolRoot,
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("record", out string? ms)
+                            ? ms : "", "MODULE_SENSITIVITY_INVALID")));
+            if (flags.Contains("model-merge"))
+                return Emit(ModuleSensitivity.MergeRequest(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mm)
+                            ? mm : "", "MODEL_MERGE_DISABLED")));
             // ---- tool decision gate + contracts (§16/§17/§18)
             if (flags.Contains("tool-validate"))
             {
