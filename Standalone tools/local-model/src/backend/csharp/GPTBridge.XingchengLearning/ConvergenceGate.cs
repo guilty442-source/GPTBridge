@@ -365,7 +365,7 @@ internal static class ConvergenceGate
                 {
                     var r = NativeTools.Run(toolExe,
                         new[] { "mtp-draft-probe", "--bundle", b,
-                                "--prompt", "星澄 native draft probe",
+                                "--prompt", "a",
                                 "--max-new", "4" },
                         toolRoot, log, 300);
                     string tail = r.StdoutTail.Trim();

@@ -26,8 +26,10 @@
 //                 (paged-KV / prefix-cache determinism probe)
 //   mtp-draft-probe --bundle <dir> --prompt <text> [--max-new N]
 //                 (draft-length-1 acceptance evidence vs the exported
-//                  MTP head; SPECULATIVE_DECODER_DISABLED stays in
-//                  effect ??no production dispatch is bound)
+//                  MTP head plus production-dispatch evidence: engine
+//                  generate() engages the bound drafter on the greedy
+//                  path; parity is checked against teacher-forced
+//                  greedy replay, sampling never dispatches)
 //
 // Tokenize row shapes (star SFT/DPO/pretrain contracts):
 //   {"prompt","completion"}      -> {"input_ids","labels"}  (masked prompt)
