@@ -206,17 +206,41 @@ struct Fwd {
     std::vector<float> rmsf;     // [T]
     std::vector<LayerCache> layers;
     float moe_aux = 0.0f;
+    // Vision early-fusion: raw prefix patches + count. T (all row counts
+    // above) includes these P rows when present; labels carry -100 there.
+    std::vector<float> vision_in;  // [P*D]
+    int vision_patches = 0;
 };
 
 static void fwd(const Params& p, const ModelConfig& c,
-                const std::vector<int>& ids, Fwd& o) {
-    const int T = (int)ids.size();
+                const std::vector<int>& ids, Fwd& o,
+                const std::vector<float>* vision = nullptr,
+                int vision_count = 0) {
+    const int PT = (int)ids.size();
+    int P = 0;
+    if (vision != nullptr) {
+        if (!c.use_vision) throw "vision: model has use_vision=false";
+        P = vision_count;
+        if (P <= 0 || P > c.vision_max_patches) throw "vision: bad patch count";
+        if ((int)vision->size() != P * c.vision_patch_dim)
+            throw "vision: bad patch data";
+    }
+    const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;
     std::vector<float> x((size_t)T * H);
-    for (int t = 0; t < T; ++t) {
+    if (P > 0) {
+        linear_fwd(vision->data(), p.w.at("vision.patch_proj"),
+                   x.data(), P, c.vision_patch_dim, H);
+        o.vision_in = *vision;
+        o.vision_patches = P;
+    } else {
+        o.vision_in.clear();
+        o.vision_patches = 0;
+    }
+    for (int t = 0; t < PT; ++t) {
         const float* er = p.w.at("embed").d.data() + (size_t)ids[t] * H;
-        std::copy(er, er + H, x.data() + (size_t)t * H);
+        std::copy(er, er + H, x.data() + (size_t)(P + t) * H);
     }
     o.layers.resize(c.layers);
     for (int l = 0; l < c.layers; ++l) {

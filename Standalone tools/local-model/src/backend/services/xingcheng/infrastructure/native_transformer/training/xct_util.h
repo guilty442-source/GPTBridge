@@ -71,6 +71,11 @@ struct ModelConfig {
     int lin_value_dim = 0;              // deltanet: value head dim
     int lin_conv_kernel = 4;            // depthwise causal conv width
     bool shared_expert_gate = false;    // sigmoid gate on shared expert out
+    // Native vision early-fusion (v1): optional linear patch projection.
+    // use_vision=false (default) keeps text-only behaviour bit-identical.
+    bool use_vision = false;
+    int vision_patch_dim = 0;
+    int vision_max_patches = 0;
     int expert_inter() const {
         return moe_expert_inter > 0 ? moe_expert_inter : inter;
     }
@@ -116,6 +121,11 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.lin_value_dim = j_int(o, "linear_value_head_dim", c.lin_value_dim);
     c.lin_conv_kernel = j_int(o, "linear_conv_kernel_dim", c.lin_conv_kernel);
     c.shared_expert_gate = j_bool(o, "shared_expert_gate", c.shared_expert_gate);
+    c.use_vision = j_bool(o, "use_vision", c.use_vision);
+    c.vision_patch_dim = j_int(o, "vision_patch_dim", c.vision_patch_dim);
+    c.vision_max_patches = j_int(o, "vision_max_patches", c.vision_max_patches);
+    if (c.use_vision && (c.vision_patch_dim <= 0 || c.vision_max_patches <= 0))
+        throw "model: bad vision geometry";
     if (c.kv_heads <= 0) c.kv_heads = c.heads;
     if (c.heads <= 0 || c.hidden % c.heads) throw "model: bad head geometry";
     if (c.full_attention_interval > 0 &&
@@ -176,6 +186,8 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
     int hd = c.hidden / c.heads;
     fill(p.add("embed", {c.vocab, c.hidden}));
     fill(p.add("lm_head", {c.vocab, c.hidden}));
+    if (c.use_vision)
+        fill(p.add("vision.patch_proj", {c.hidden, c.vision_patch_dim}));
     for (int l = 0; l < c.layers; ++l) {
         auto& n1 = p.add(ln(l, "norm1"), {c.hidden});
         std::fill(n1.d.begin(), n1.d.end(), 1.0f);
