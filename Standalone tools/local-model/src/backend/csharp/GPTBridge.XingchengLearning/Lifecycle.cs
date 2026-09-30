@@ -236,6 +236,18 @@ internal sealed class ModelLifecycle
         return null;
     }
 
+    /// <summary>Absolute paths of every registered weights version
+    /// (used by generation purge to enumerate prior artifacts).</summary>
+    public List<string> WeightVersionPaths()
+    {
+        var paths = new List<string>();
+        foreach (var entry in WeightVersions())
+            if (entry.TryGetValue("path", out object? p) &&
+                p is string s && s.Length > 0)
+                paths.Add(s);
+        return paths;
+    }
+
     public List<Dictionary<string, object?>> RetireWeights(
         int keepLatest = 1, HashSet<string>? extraKeepPaths = null)
     {

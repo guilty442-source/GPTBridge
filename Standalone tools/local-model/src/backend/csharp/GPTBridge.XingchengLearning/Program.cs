@@ -87,6 +87,57 @@ internal static class Program
                     opts.TryGetValue("suite", out string? es) ? es : "",
                     opts.TryGetValue("baseline", out string? bl) ? bl : null,
                     flags.Contains("chat")));
+            if (flags.Contains("gen-begin"))
+                return Emit(GenerationMigration.Begin(
+                    toolRoot,
+                    opts.TryGetValue("target", out string? gt) ? gt : "",
+                    opts.TryGetValue("weights", out string? gw) ? gw : "",
+                    opts.TryGetValue("weight-method", out string? wm)
+                        ? wm : "",
+                    source: opts.TryGetValue("source", out string? gs)
+                        ? gs : "",
+                    tokenizer: opts.TryGetValue("tokenizer", out string? tk)
+                        ? tk : "",
+                    schemaFrom: opts.TryGetValue("schema-from",
+                        out string? sf) ? sf : "",
+                    schemaTo: opts.TryGetValue("schema-to", out string? st)
+                        ? st : "",
+                    expertLineage: opts.TryGetValue("expert-lineage",
+                        out string? el) ? el : "",
+                    notes: opts.TryGetValue("notes", out string? nt)
+                        ? nt : ""));
+            if (flags.Contains("gen-record"))
+                return Emit(GenerationMigration.Record(
+                    toolRoot,
+                    opts.TryGetValue("manifest", out string? rm) ? rm : "",
+                    opts.TryGetValue("domain", out string? rd) ? rd : "",
+                    opts.TryGetValue("status", out string? rs) ? rs : "",
+                    opts.TryGetValue("migrated", out string? mig) &&
+                        long.TryParse(mig, out long mv) ? mv : 0,
+                    opts.TryGetValue("transformed", out string? tr2) &&
+                        long.TryParse(tr2, out long tv) ? tv : 0,
+                    opts.TryGetValue("rejected", out string? rej) &&
+                        long.TryParse(rej, out long rv) ? rv : 0,
+                    opts.TryGetValue("note", out string? rn) ? rn : ""));
+            if (flags.Contains("gen-certify"))
+                return Emit(GenerationMigration.Certify(
+                    toolRoot,
+                    opts.TryGetValue("manifest", out string? cm) ? cm : "",
+                    suitePath: opts.TryGetValue("suite", out string? cs)
+                        ? cs : ""));
+            if (flags.Contains("gen-promote"))
+                return Emit(GenerationMigration.Promote(
+                    toolRoot,
+                    opts.TryGetValue("manifest", out string? pm) ? pm : ""));
+            if (flags.Contains("gen-purge"))
+                return Emit(GenerationMigration.Purge(
+                    toolRoot,
+                    opts.TryGetValue("manifest", out string? pu) ? pu : "",
+                    apply: flags.Contains("apply")));
+            if (flags.Contains("gen-status"))
+                return Emit(GenerationMigration.Status(
+                    toolRoot,
+                    opts.TryGetValue("manifest", out string? sm) ? sm : ""));
             if (flags.Contains("queue-job"))
                 return Emit(QueueJob(
                     toolRoot,
@@ -120,7 +171,18 @@ internal static class Program
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
             "[--include-collected] [--val-permille N] | " +
             "--evaluate --job-id <id> --bundle <dir> --suite <suite.json> " +
-            "[--baseline <dir>] [--chat])");
+            "[--baseline <dir>] [--chat] | " +
+            "--gen-begin --target <gen> --weights <path> " +
+            "--weight-method <direct|partial|distill> [--source <gen>] " +
+            "[--tokenizer <path>] [--schema-from <s>] [--schema-to <s>] " +
+            "[--expert-lineage <file.json>] [--notes <text>] | " +
+            "--gen-record --manifest <id> --domain <name> " +
+            "--status <s> [--migrated N] [--transformed N] " +
+            "[--rejected N] [--note <text>] | " +
+            "--gen-certify --manifest <id> [--suite <suite.json>] | " +
+            "--gen-promote --manifest <id> | " +
+            "--gen-purge --manifest <id> [--apply] | " +
+            "--gen-status [--manifest <id>])");
         return 2;
     }
 
