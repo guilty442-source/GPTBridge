@@ -429,11 +429,14 @@ static int mtpcheck() {
         std::vector<float> dl;
         double l = ce_loss(f.logits, lab, PT, c.vocab, dl) + f.moe_aux +
                    f.moe_zloss;
-        const MtpCache& M = f.mtp[0];
-        std::vector<int> ml((size_t)M.rows);
-        for (int t = 0; t < M.rows; ++t) ml[(size_t)t] = idv[t + 2];
-        std::vector<float> dml;
-        l += c.mtp_loss_w * ce_loss(M.logits, ml, M.rows, c.vocab, dml);
+        for (int d = 0; d < (int)f.mtp.size(); ++d) {
+            const MtpCache& M = f.mtp[(size_t)d];
+            if (M.rows <= 0) continue;
+            std::vector<int> ml((size_t)M.rows);
+            for (int t = 0; t < M.rows; ++t) ml[(size_t)t] = idv[t + d + 2];
+            std::vector<float> dml;
+            l += c.mtp_loss_w * ce_loss(M.logits, ml, M.rows, c.vocab, dml);
+        }
         return l;
     };
     {

@@ -107,16 +107,9 @@ struct ModelConfig {
     int lin_value_dim = 0;              // deltanet: value head dim
     int lin_conv_kernel = 4;            // depthwise causal conv width
     bool shared_expert_gate = false;    // sigmoid gate on shared expert out
-    // v29 Qwen3.8-Max signatures (default-off; fused lane only, the gemma4
-    // replica keeps its own dense contract):
-    float moe_zloss_w = 0.0f;           // router z-loss weight (B133)
-    // MTP head (Qwen3-Next/Max multi-token prediction): depth-d module fuses
-    // rms(hidden[t]) ‖ rms(embed[ids[t+d+1]]) → proj(2H→H) → causal decoder
-    // block → norm → shared lm_head, predicting ids[t+d+2]. The aux loss
-    // densifies per-token supervision and the head doubles as the
-    // speculative-decoding draft substrate.
-    int mtp_depth = 0;
-    float mtp_loss_w = 0.1f;
+    // v29 Qwen3.8-Max signature (default-off; fused lane only): router
+    // z-loss on the raw gate logits — the B133 companion to load-balance.
+    float moe_zloss_w = 0.0f;
     // Gemma 4 26B A4B signatures (all default-off; zero/false keeps the
     // Qwen-style fused behaviour bit-identical):
     int global_attn_interval = 0;  // >0: non-linear layers with
@@ -348,11 +341,8 @@ static ModelConfig parse_model(const JsonValue* o) {
     c.lin_value_dim = j_int(o, "linear_value_head_dim", c.lin_value_dim);
     c.lin_conv_kernel = j_int(o, "linear_conv_kernel_dim", c.lin_conv_kernel);
     c.shared_expert_gate = j_bool(o, "shared_expert_gate", c.shared_expert_gate);
-    // v29 Qwen3.8-Max: router z-loss + multi-token prediction head
+    // v29 router z-loss (B133)
     c.moe_zloss_w = (float)j_num(o, "moe_z_loss_weight", c.moe_zloss_w);
-    c.mtp_depth = j_int(o, "num_nextn_predict_layers",
-                    j_int(o, "mtp_depth", c.mtp_depth));
-    c.mtp_loss_w = (float)j_num(o, "mtp_loss_weight", c.mtp_loss_w);
     // Gemma 4 A4B fields (gm.nn.Gemma4_26B_A4B naming where applicable)
     c.global_attn_interval = j_int(o, "global_attention_interval",
                                    c.global_attn_interval);
@@ -658,28 +648,29 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
             std::fill(pn.d.begin(), pn.d.end(), 1.0f);
         }
     }
-    // v29 MTP modules (Qwen3.8-Max multi-token prediction): eh/et fusion
-    // norms + 2H→H projection + one causal decoder block + out norm; the
-    // lm_head and embed tables are shared with the trunk.
-    for (int d = 0; d < c.mtp_depth; ++d) {
-        const std::string b = "mtp." + std::to_string(d) + ".";
-        auto one = [&](const char* n) {
-            Tensor& t = p.add(b + n, {c.hidden});
-            std::fill(t.d.begin(), t.d.end(), 1.0f);
-        };
-        one("eh"); one("et"); one("norm1"); one("norm2"); one("norm_o");
-        fill(p.add(b + "proj", {c.hidden, 2 * c.hidden}));
-        const int64_t qq = (int64_t)c.heads * hd;
-        const int64_t kk = (int64_t)c.kv_heads * hd;
-        fill(p.add(b + "wq", {qq, c.hidden}));
-        fill(p.add(b + "wk", {kk, c.hidden}));
-        fill(p.add(b + "wv", {kk, c.hidden}));
-        fill(p.add(b + "wo", {c.hidden, qq}));
-        fill(p.add(b + "w1", {c.inter, c.hidden}));
-        fill(p.add(b + "w3", {c.inter, c.hidden}));
-        fill(p.add(b + "w2", {c.hidden, c.inter}));
-    }
     auto& nf = p.add("norm_f", {c.hidden});
     std::fill(nf.d.begin(), nf.d.end(), 1.0f);
+    if (c.mtp_num_layers > 0) {
+        // DeepSeek MTP module (depth-1): projected [norm(h)|norm(emb)]
+        // through one decoder block (plain causal attention + dense FFN)
+        // and the shared embed/lm_head.
+        const int kvh = c.kv_heads;
+        auto one = [&](const char* s) {
+            auto& t = p.add(std::string("mtp.") + s, {c.hidden});
+            std::fill(t.d.begin(), t.d.end(), 1.0f);
+        };
+        one("norm_h"); one("norm_e");
+        fill(p.add("mtp.w_proj", {c.hidden, (int64_t)c.hidden * 2}));
+        one("norm1");
+        fill(p.add("mtp.wq", {(int64_t)c.heads * hd, c.hidden}));
+        fill(p.add("mtp.wk", {(int64_t)kvh * hd, c.hidden}));
+        fill(p.add("mtp.wv", {(int64_t)kvh * hd, c.hidden}));
+        fill(p.add("mtp.wo", {c.hidden, (int64_t)c.heads * hd}));
+        one("norm2");
+        fill(p.add("mtp.w1", {c.inter, c.hidden}));
+        fill(p.add("mtp.w3", {c.inter, c.hidden}));
+        fill(p.add("mtp.w2", {c.hidden, c.inter}));
+        one("norm_out");
+    }
     p.alloc_adam();
 }
