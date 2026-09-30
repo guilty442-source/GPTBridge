@@ -4147,6 +4147,14 @@ int mode_hw_baseline(const Args& a) {
     long long vb0 = -1, vt0 = -1, vb1 = -1, vt1 = -1;
     int ccmaj = 0, ccmin = 0;
     const bool cuda = xcuda_probe(&vb0, &vt0, &ccmaj, &ccmin) != 0;
+    // NVML init on the main thread before the bench: the sampler thread
+    // below may only query already-bound sensors — nvmlInit racing the
+    // engine's first cuBLAS/NVRTC init crashes the driver.
+    bool nvml_ready = false;
+    if (cuda) {
+        unsigned u = 0, p = 0;
+        nvml_ready = xcuda_gpu_stats(&u, &p) != 0;
+    }
 
     NativeInferenceEngine engine;
     auto tl0 = std::chrono::steady_clock::now();
@@ -4174,7 +4182,7 @@ int mode_hw_baseline(const Args& a) {
     std::atomic<unsigned> util_max{0}, power_max{0};
     std::atomic<int> util_seen{0}, power_seen{0};
     std::thread sampler;
-    if (cuda) {
+    if (nvml_ready) {
         sampler = std::thread([&] {
             while (sample_run.load()) {
                 unsigned u = 0, p = 0;
