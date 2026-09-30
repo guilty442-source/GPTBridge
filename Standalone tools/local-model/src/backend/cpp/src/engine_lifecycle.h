@@ -88,6 +88,20 @@ void NativeInferenceEngine::load(const std::string& bundle_dir) {
             std::sqrt(static_cast<double>(cfg.hidden_size));
     }
 
+    // Vision early-fusion projection [hidden x patch_dim]. Required when
+    // use_vision; absent otherwise (text-only bundles never carry it).
+    if (cfg.use_vision) {
+        if (!bundle_->has_tensor("vision.patch_proj.weight"))
+            throw InferenceError("VISION_WEIGHT_MISSING");
+        vision_patch_proj_ =
+            bundle_->tensor("vision.patch_proj.weight");
+        if (vision_patch_proj_.shape.size() != 2 ||
+            vision_patch_proj_.shape[0] != cfg.hidden_size ||
+            vision_patch_proj_.shape[1] != cfg.vision_patch_dim)
+            throw InferenceError("VISION_WEIGHT_SHAPE_MISMATCH");
+        vision_patch_proj_t_ = transpose_matrix(vision_patch_proj_);
+    }
+
     layers_.assign(static_cast<size_t>(cfg.num_hidden_layers), LayerWeights{});
     for (int64_t i = 0; i < cfg.num_hidden_layers; ++i) {
         LayerWeights& layer = layers_[static_cast<size_t>(i)];
@@ -435,6 +449,10 @@ void NativeInferenceEngine::validate_supported() const {
             throw InferenceError("MODEL_SHAPE_UNSUPPORTED");
         }
         return;
+    }
+    if (cfg.use_vision &&
+        (cfg.vision_patch_dim <= 0 || cfg.vision_max_patches <= 0)) {
+        throw InferenceError("VISION_CONFIG_UNSUPPORTED");
     }
     if (!cfg.use_swiglu || cfg.hidden_act != "silu") {
         throw InferenceError("MLP_TYPE_UNSUPPORTED");

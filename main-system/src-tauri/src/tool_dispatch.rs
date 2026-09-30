@@ -17,7 +17,7 @@ use gptbridge_core::native::paths::is_path_inside;
 
 /// Preload whitelist parity — identical to source-tool-ui-host
 /// preload.cjs ``allowedInvokeChannels``.
-pub const TOOL_ALLOWED_CHANNELS: [&str; 21] = [
+pub const TOOL_ALLOWED_CHANNELS: [&str; 22] = [
     "app:ensure-backend-started",
     "app:get-backend-session",
     "app:open-path",
@@ -26,6 +26,7 @@ pub const TOOL_ALLOWED_CHANNELS: [&str; 21] = [
     "dialog:create-file",
     "dialog:open-file",
     "embedded-browser:create",
+    "embedded-browser:dom-op",
     "embedded-browser:navigate",
     "embedded-browser:execute",
     "embedded-browser:show",
@@ -249,6 +250,87 @@ pub async fn dispatch(app: AppHandle, channel: &str, args: serde_json::Value) ->
             "ok": true,
             "closed": embedded::close_module_sessions(&app, &str_arg(args, "ownerModule"))
         }),
+        "embedded-browser:dom-op" => dom_op(&app, args),
         _ => serde_json::json!({"ok": false, "message": format!("Blocked IPC channel: {channel}")}),
+    }
+}
+
+/// Backend-delegated DOM op — composite ``embedded-browser:dom-op``
+/// channel consumed by the ai-collaboration window app's
+/// ``ai_collab_browser_op`` handler.  Maps the governed op vocabulary
+/// (``create``/``navigate``/``exec``/``url``/``close``) onto the
+/// webview_host session primitives; result/error shapes mirror the
+/// Wails ``BrowserManager.DOMOp`` contract so the Go host's ``opsOK``
+/// gate reads either backend identically.
+fn dom_op_fail(code: &str, message: &str) -> serde_json::Value {
+    serde_json::json!({"ok": false, "error_code": code, "message": message})
+}
+
+fn dom_op(app: &AppHandle, args: &serde_json::Value) -> serde_json::Value {
+    let op = str_arg(args, "op");
+    let sid = str_arg(args, "session_id");
+    let url = str_arg(args, "url");
+    let script = str_arg(args, "script");
+    if sid.is_empty() {
+        return dom_op_fail("SESSION_REQUIRED", "session_id is required");
+    }
+    match op.as_str() {
+        "create" => {
+            // Backend-delegated sessions stay unbounded until the
+            // owning UI shows/resizes them through the regular
+            // embedded-browser channels.
+            let res = embedded::create_session(
+                app,
+                sid.clone(),
+                tool_window::tool_config().tool_id.clone(),
+                url,
+                None,
+            );
+            if res["ok"].as_bool().unwrap_or(false) {
+                serde_json::json!({"ok": true, "id": sid, "backend": "tauri-webview2"})
+            } else {
+                dom_op_fail(
+                    "SESSION_CREATE_FAILED",
+                    res["message"].as_str().unwrap_or("session create failed"),
+                )
+            }
+        }
+        "navigate" => {
+            if url.is_empty() {
+                return dom_op_fail("INVALID_URL", "url is required");
+            }
+            let res = embedded::navigate_session(app, &sid, &url);
+            if res["ok"].as_bool().unwrap_or(false) {
+                serde_json::json!({
+                    "ok": true,
+                    "url": embedded::session_url(app, &sid).unwrap_or_default(),
+                })
+            } else {
+                dom_op_fail(
+                    res["message"].as_str().unwrap_or("NAVIGATE_FAILED"),
+                    res["message"].as_str().unwrap_or("navigation failed"),
+                )
+            }
+        }
+        "exec" => {
+            if script.is_empty() {
+                return dom_op_fail("INVALID_SCRIPT", "script is required");
+            }
+            match embedded::execute_script(app, &sid, &script) {
+                Ok(result) => serde_json::json!({"ok": true, "result": result}),
+                Err(message) => dom_op_fail(&message, &message),
+            }
+        }
+        "url" => match embedded::session_url(app, &sid) {
+            Some(live) => serde_json::json!({"ok": true, "url": live}),
+            None => dom_op_fail("SESSION_NOT_FOUND", "session not found"),
+        },
+        "close" => {
+            if embedded::session_url(app, &sid).is_none() {
+                return dom_op_fail("SESSION_NOT_FOUND", "session not found");
+            }
+            embedded::close_session(app, &sid)
+        }
+        _ => dom_op_fail("UNSUPPORTED_OP", &format!("unsupported op: {op}")),
     }
 }

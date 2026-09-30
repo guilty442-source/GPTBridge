@@ -3,18 +3,22 @@
 // ai-collab-ui — Go + Wails tool window for ai-collaboration.
 // The main window renders the governed src/ui renderer on WebView2;
 // each provider browser session is a WebView2 child HWND managed by
-// BrowserManager (browser.go).  Launch contract: governed launcher
-// injects GPTBRIDGE_SOURCE_UI_* and passes --tool-window --tool-id=<id>.
+// BrowserManager (browser.go).  Launch contract mirrors the governed
+// tool-window host (main-system/src-tauri tool_window): the launcher
+// injects GPTBRIDGE_SOURCE_UI_* and the process fails closed without it.
 package main
 
 import (
 	"fmt"
-	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+	"unicode/utf16"
+	"unsafe"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -27,7 +31,12 @@ const toolID = "ai-collaboration"
 
 var traceFile = filepath.Join(os.TempDir(), "aicollab-ui-trace.log")
 
+var traceOn = os.Getenv("AICOLLAB_TRACE") == "1"
+
 func trace(msg string) {
+	if !traceOn {
+		return
+	}
 	f, err := os.OpenFile(traceFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
@@ -45,9 +54,68 @@ func envInt(key string, fallback int) int {
 
 func pid() int { return os.Getpid() }
 
+func isHex(s string) bool {
+	for _, c := range s {
+		if !('0' <= c && c <= '9') && !('a' <= c && c <= 'f') &&
+			!('A' <= c && c <= 'F') {
+			return false
+		}
+	}
+	return true
+}
+
+// validateWSURL — Electron validateConfiguration parity: loopback ws://,
+// port 1024-65535, 64-hex session token, 24-hex workspace instance id.
+func validateWSURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "ws" || u.Hostname() != "127.0.0.1" ||
+		u.User != nil {
+		return fmt.Errorf("websocket url must be loopback ws://")
+	}
+	port, err := strconv.Atoi(u.Port())
+	if err != nil || port < 1024 || port > 65535 {
+		return fmt.Errorf("websocket port invalid")
+	}
+	tok, inst := u.Query().Get("token"), u.Query().Get("instance")
+	if len(tok) != 64 || !isHex(tok) || len(inst) != 24 || !isHex(inst) {
+		return fmt.Errorf("websocket token/instance invalid")
+	}
+	return nil
+}
+
+func inside(root, child string) bool {
+	abs, err := filepath.Abs(child)
+	if err != nil {
+		return false
+	}
+	r := filepath.Clean(root)
+	return strings.HasPrefix(strings.ToLower(abs),
+		strings.ToLower(r)+string(filepath.Separator))
+}
+
+// acquireToolMutex — per-tool single instance parity
+// (Local\gptbridge-tool-window-<id>).
+func acquireToolMutex(id string) bool {
+	name := "Local\\gptbridge-tool-window-" + id
+	u16 := utf16.Encode([]rune(name + "\x00"))
+	h, _, _ := syscall.NewLazyDLL("kernel32.dll").
+		NewProc("CreateMutexW").Call(0, 0,
+		uintptr(unsafe.Pointer(&u16[0])))
+	if h == 0 {
+		return true
+	}
+	_, e, _ := syscall.NewLazyDLL("kernel32.dll").
+		NewProc("GetLastError").Call()
+	const errorAlreadyExists = 183
+	return e != errorAlreadyExists
+}
+
 func main() {
 	// Governed launch contract: tool-window mode requires the injected
-	// source-UI environment; fail closed when it is absent.
+	// source-UI environment; fail closed when it is absent or invalid.
 	toolRoot := strings.TrimSpace(os.Getenv("GPTBRIDGE_SOURCE_UI_TOOL_ROOT"))
 	workspaceRoot := strings.TrimSpace(
 		os.Getenv("GPTBRIDGE_SOURCE_UI_WORKSPACE_ROOT"))
@@ -70,44 +138,58 @@ func main() {
 			"CONFIG_INVALID: tool id %q != %q\n", envToolID, toolID)
 		os.Exit(2)
 	}
-	if !strings.HasPrefix(wsURL, "ws://127.0.0.1:") {
+	if !inside(workspaceRoot, toolRoot) {
 		fmt.Fprintln(os.Stderr,
-			"CONFIG_INVALID: websocket url must be loopback")
+			"CONFIG_INVALID: tool root outside workspace")
 		os.Exit(2)
+	}
+	if err := validateWSURL(wsURL); err != nil {
+		fmt.Fprintln(os.Stderr, "CONFIG_INVALID:", err)
+		os.Exit(2)
+	}
+	if !acquireToolMutex(toolID) {
+		fmt.Fprintln(os.Stderr, "instance.duplicate:", toolID)
+		os.Exit(0)
 	}
 	title := strings.TrimSpace(os.Getenv("GPTBRIDGE_SOURCE_UI_TITLE"))
 	if title == "" {
 		title = "AI 協作 · GPTBridge"
 	}
+	version := strings.TrimSpace(os.Getenv("GPTBRIDGE_SOURCE_UI_VERSION"))
+	if version == "" {
+		version = "1.0.0"
+	}
+	cacheRoot := strings.TrimSpace(os.Getenv("GPTBRIDGE_TOOL_CACHE_ROOT"))
+	if cacheRoot == "" {
+		cacheRoot = filepath.Join(toolRoot, "runtime", "cache")
+	}
+	_ = os.MkdirAll(cacheRoot, 0o755)
 
 	app := NewApp()
-	app.session = &uiSession{WebsocketURL: wsURL, Version: "1.0.0",
-		Title: title, ToolRoot: toolRoot}
+	app.workspaceRoot = workspaceRoot
+	app.session = &uiSession{WebsocketURL: wsURL, Token: wsToken(wsURL),
+		Version: version, Title: title, ToolRoot: toolRoot}
 
 	handler := newAssetHandler(toolRoot, workspaceRoot)
 	trace("before wails.Run")
-	if dbg := strings.TrimSpace(os.Getenv("AICOLLAB_DEBUG_HTTP")); dbg != "" {
-		go func() {
-			_ = http.ListenAndServe("127.0.0.1:"+dbg, handler)
-		}()
-	}
 	err := wails.Run(&options.App{
-		Title:     title,
-		Width:     envInt("GPTBRIDGE_SOURCE_UI_WIDTH", 1280),
-		Height:    envInt("GPTBRIDGE_SOURCE_UI_HEIGHT", 840),
-		MinWidth:  envInt("GPTBRIDGE_SOURCE_UI_MIN_WIDTH", 960),
-		MinHeight: envInt("GPTBRIDGE_SOURCE_UI_MIN_HEIGHT", 600),
+		Title:       title,
+		Width:       envInt("GPTBRIDGE_SOURCE_UI_WIDTH", 1440),
+		Height:      envInt("GPTBRIDGE_SOURCE_UI_HEIGHT", 920),
+		MinWidth:    envInt("GPTBRIDGE_SOURCE_UI_MIN_WIDTH", 1120),
+		MinHeight:   envInt("GPTBRIDGE_SOURCE_UI_MIN_HEIGHT", 760),
+		StartHidden: os.Getenv("GPTBRIDGE_START_HIDDEN") == "1",
 		AssetServer: &assetserver.Options{
 			Handler: handler,
 		},
 		Bind:               []interface{}{app},
 		OnStartup:          app.Startup,
 		OnShutdown:         app.Shutdown,
-		LogLevel:           logger.DEBUG,
-		LogLevelProduction: logger.DEBUG,
+		LogLevel:           logger.WARNING,
+		LogLevelProduction: logger.WARNING,
 		Windows: &wailswindows.Options{
 			WebviewUserDataPath: filepath.Join(
-				toolRoot, "runtime", "webview2", "shell"),
+				cacheRoot, "source-ui-user-data"),
 		},
 	})
 	trace(fmt.Sprintf("after wails.Run err=%v", err))

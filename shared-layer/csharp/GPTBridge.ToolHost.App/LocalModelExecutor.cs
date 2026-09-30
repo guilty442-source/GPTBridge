@@ -40,6 +40,8 @@ internal sealed class LocalModelExecutor
     private readonly string _modeltoolExe;
     private readonly string _bundleDir;
     private readonly JsonObject _samplingDefaults;
+    private readonly int _cpuThreads;
+    private readonly bool _cppCuda;
 
     private readonly SemaphoreSlim _childLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
@@ -60,7 +62,8 @@ internal sealed class LocalModelExecutor
             env.ToolRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
-        (_bundleDir, _samplingDefaults) = ResolveBundle(env.ToolRoot);
+        (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda) =
+            ResolveBundle(env.ToolRoot);
     }
 
     /// <summary>
@@ -68,9 +71,16 @@ internal sealed class LocalModelExecutor
     /// inference bundle. The checkpoint value may point at a bundle dir
     // directly or at a source .pt whose exported bundle is matched by
     /// source_checkpoint + size (parity with ModelServiceLocator).
+    /// cpu_threads feeds the native core's striped-GEMM stripe count via
+    /// GPTBRIDGE_MATMUL_THREADS on the worker process; absent/<=1 leaves
+    /// the core's auto default.
+    /// cpp_cuda is the governed GPU opt-in flag (native-engine.json):
+    /// true requests the CUDA fp64 path after a device+VRAM admission
+    /// probe; denial is CPU fail-soft, never a load failure.
     /// </summary>
-    private static (string Bundle, JsonObject Defaults) ResolveBundle(
-        string toolRoot)
+    private static (string Bundle, JsonObject Defaults, int CpuThreads,
+        bool CppCuda)
+        ResolveBundle(string toolRoot)
     {
         var settingsPath = Path.Combine(
             toolRoot, "runtime", "settings", "native-engine.json");
@@ -102,11 +112,18 @@ internal sealed class LocalModelExecutor
             throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_UNPINNED");
         var checkpointPath = Path.GetFullPath(Path.IsPathRooted(checkpoint)
             ? checkpoint : Path.Combine(toolRoot, checkpoint));
+        var cpuThreads =
+            root.TryGetProperty("cpu_threads", out var ct)
+            && ct.ValueKind == JsonValueKind.Number
+                ? ct.GetInt32()
+                : 0;
+        var cppCuda = root.TryGetProperty("cpp_cuda", out var cu)
+            && cu.ValueKind == JsonValueKind.True;
 
         // Pinned bundle directory (current contract).
         if (Directory.Exists(checkpointPath)
             && IsBundleDir(checkpointPath))
-            return (checkpointPath, defaults);
+            return (checkpointPath, defaults, cpuThreads, cppCuda);
 
         // Legacy contract: checkpoint is the source .pt; find its bundle.
         if (File.Exists(checkpointPath))
@@ -140,7 +157,8 @@ internal sealed class LocalModelExecutor
                         if (mr.TryGetProperty("source_size", out var sz)
                             && sz.GetInt64() != size)
                             continue;
-                        if (IsBundleDir(dir)) return (dir, defaults);
+                        if (IsBundleDir(dir))
+                            return (dir, defaults, cpuThreads, cppCuda);
                     }
                     catch (JsonException) { /* skip unreadable bundle */ }
                 }
@@ -153,6 +171,48 @@ internal sealed class LocalModelExecutor
         File.Exists(Path.Combine(dir, "manifest.json"))
         && File.Exists(Path.Combine(dir, "weights.bin"))
         && File.Exists(Path.Combine(dir, "tokenizer.json"));
+
+    // Governed GPU admission (cpp_cuda contract): device + toolkit must be
+    // present and free VRAM must cover the resident fp64 weight set plus
+    // workspace headroom. Any probe failure means denial → the worker is
+    // spawned without the CUDA env and runs the CPU path (fail-soft).
+    private const long GpuAdmissionFreeMb = 3400;
+
+    private bool GpuAdmitted()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = _modeltoolExe,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = new UTF8Encoding(false),
+            };
+            psi.ArgumentList.Add("probe-cuda");
+            using var probe = Process.Start(psi);
+            if (probe == null) return false;
+            var stdout = probe.StandardOutput.ReadToEnd();
+            if (!probe.WaitForExit(15000))
+            {
+                try { probe.Kill(); } catch { }
+                return false;
+            }
+            if (probe.ExitCode != 0) return false;
+            using var doc = JsonDocument.Parse(stdout);
+            var cuda = doc.RootElement.GetProperty("cuda");
+            return cuda.TryGetProperty("available", out var av)
+                && av.ValueKind == JsonValueKind.True
+                && cuda.TryGetProperty("vram_free_mb", out var fm)
+                && fm.GetInt64() >= GpuAdmissionFreeMb;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Bind the loopback listener and publish the descriptor. Called by
@@ -493,6 +553,14 @@ internal sealed class LocalModelExecutor
         psi.ArgumentList.Add("serve");
         psi.ArgumentList.Add("--bundle");
         psi.ArgumentList.Add(_bundleDir);
+        if (_cpuThreads > 0)
+            psi.Environment["GPTBRIDGE_MATMUL_THREADS"] =
+                _cpuThreads.ToString();
+        if (_cppCuda && GpuAdmitted())
+        {
+            psi.Environment["XINGCHENG_CPP_CUDA"] = "1";
+            psi.Environment["XINGCHENG_CPP_CUDA_KV"] = "1";
+        }
         var child = Process.Start(psi)
             ?? throw new InvalidOperationException("MODEL_WORKER_SPAWN_FAILED");
         _ = Task.Run(async () =>

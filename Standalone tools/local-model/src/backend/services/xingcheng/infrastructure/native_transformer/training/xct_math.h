@@ -86,6 +86,91 @@ static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
 }
 
 static inline float silu_f(float x) { return x / (1.0f + std::exp(-x)); }
+static inline float softplus_f(float x) {
+    return x > 20.0f ? x : std::log1p(std::exp(x));
+}
+static inline float sigmoid_f(float x) { return 1.0f / (1.0f + std::exp(-x)); }
+
+// HF rotate_half convention over the first `rd` channels only (partial
+// rotary). rd must be even; channels >= rd pass through. inverse runs the
+// transpose (backward / inverse rotation).
+static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
+                            float theta, bool inverse) {
+    const int half = rd / 2;
+    for (int t = 0; t < T; ++t)
+        for (int h = 0; h < nh; ++h) {
+            float* r = v + ((size_t)t * nh + h) * hd;
+            for (int i = 0; i < half; ++i) {
+                float fr = std::pow(theta, -(float)(2 * i) / (float)rd);
+                float c = std::cos(t * fr), s = std::sin(t * fr);
+                if (inverse) s = -s;
+                float a = r[i], b = r[i + half];
+                r[i] = a * c - b * s;
+                r[i + half] = a * s + b * c;
+            }
+        }
+}
+
+// Depthwise causal conv1d (kernel K, no bias) + SiLU over flat [T, D]
+// activations; out_pre keeps the pre-activation for backward.
+static void conv1d_causal_fwd(const float* x, const float* w, float* y,
+                              float* y_pre, int T, int D, int K) {
+    for (int t = 0; t < T; ++t)
+        for (int c = 0; c < D; ++c) {
+            float s = 0.0f;
+            for (int j = 0; j < K && t - j >= 0; ++j)
+                s += w[(size_t)c * K + j] * x[(size_t)(t - j) * D + c];
+            float v = silu_f(s);
+            if (y_pre) y_pre[(size_t)t * D + c] = s;
+            y[(size_t)t * D + c] = v;
+        }
+}
+
+static void conv1d_causal_bwd(const float* dy, const float* y_pre,
+                              const float* x, const float* w,
+                              float* dx, float* dw, int T, int D, int K) {
+    std::vector<float> dpre((size_t)T * D);
+    for (size_t i = 0; i < (size_t)T * D; ++i) {
+        float s = sigmoid_f(y_pre[i]);
+        dpre[i] = dy[i] * s * (1.0f + y_pre[i] * (1.0f - s));
+    }
+    for (int t = 0; t < T; ++t)
+        for (int c = 0; c < D; ++c) {
+            float d = dpre[(size_t)t * D + c];
+            for (int j = 0; j < K && t - j >= 0; ++j) {
+                dw[(size_t)c * K + j] += d * x[(size_t)(t - j) * D + c];
+                dx[(size_t)(t - j) * D + c] += d * w[(size_t)c * K + j];
+            }
+        }
+}
+
+static void l2norm_fwd(float* v, int rows, int dim, float eps,
+                       float* norms_out) {
+    for (int t = 0; t < rows; ++t) {
+        float* r = v + (size_t)t * dim;
+        float ss = 0.0f;
+        for (int i = 0; i < dim; ++i) ss += r[i] * r[i];
+        float n = std::sqrt(ss + eps);
+        if (norms_out) norms_out[t] = n;
+        float inv = 1.0f / n;
+        for (int i = 0; i < dim; ++i) r[i] *= inv;
+    }
+}
+
+// L2-norm backward: y = x/||x|| → dx = (dy − ŷ(ŷ·dy)) / ||x||.
+// norms holds the forward ||x|| per row.
+static void l2norm_bwd(const float* dy, const float* x_normed,
+                       const float* norms, float* dx, int rows, int dim) {
+    for (int t = 0; t < rows; ++t) {
+        const float* xr = x_normed + (size_t)t * dim;
+        const float* dr = dy + (size_t)t * dim;
+        float dot = 0.0f;
+        for (int i = 0; i < dim; ++i) dot += xr[i] * dr[i];
+        float inv = 1.0f / norms[t];
+        for (int i = 0; i < dim; ++i)
+            dx[(size_t)t * dim + i] = (dr[i] - xr[i] * dot) * inv;
+    }
+}
 
 // --------------------------------------------------------- RL sampling ----
 // Categorical sample over a softmax(logits/temp) row — temperature <= 0
@@ -162,7 +247,27 @@ static inline float act_d(const ModelConfig& c, float x) {
 struct LayerCache {
     std::vector<float> x_in, n1, rms1;       // attention block
     std::vector<float> q, k, v, probs, attn_out, x_res;
+    std::vector<float> attn_gate;            // [T*Hq] raw gate logits (attn_output_gate)
+    std::vector<float> attn_gated;           // [T*Hq] sigmoid(gate) ⊙ attn_out
+    std::vector<float> qk_qraw, qk_kraw;     // pre qk_norm q/k (for bwd)
+    std::vector<float> qk_qrms, qk_krms;     // per (t,h) rms factors
+    // gated deltanet (linear attention) caches
+    std::vector<float> lin_conv_in;          // [T*conv_dim] flat q|k|v pre-conv
+    std::vector<float> lin_conv_pre;         // [T*conv_dim] pre-SiLU
+    std::vector<float> lin_qn, lin_kn;       // post-l2norm q,k [T*vh*kd] (v-head expanded)
+    std::vector<float> lin_qrms, lin_krms;   // [T*kh] pre-norm lengths
+    std::vector<float> lin_v;                // [T*vh*vd]
+    std::vector<float> lin_a_raw;            // [T*vh] a + dt_bias (pre-softplus)
+    std::vector<float> lin_b_raw;            // [T*vh] pre-sigmoid beta arg
+    std::vector<float> lin_z;                // [T*vh*vd] pre-SiLU gate
+    std::vector<float> lin_on;               // gated output (out_proj input) [T*vh*vd]
+    std::vector<float> lin_onorm;            // pre-gate rmsnorm output [T*vh*vd]
+    std::vector<float> lin_orms;             // [T*vh] per (t,h) rms factors
+    std::vector<float> lin_o;                // pre-norm scan output [T*vh*vd]
+    std::vector<float> lin_S;                // [(T+1)*vh*kd*vd] state snapshots
+    std::vector<float> lin_decay;            // [T*vh] exp(g_t) per step
     std::vector<float> n2, rms2;             // ffn block
+    std::vector<float> shared_gate_sig;      // [T] sigmoid(shared_gate@n2)
     // dense ffn caches (single buffer) or MoE per-slot caches
     std::vector<float> fa, fb, fh;
     std::vector<int> moe_idx;                // [T*K]
@@ -199,21 +304,49 @@ struct Fwd {
     // ple_in[T,L,ple] inputs, ctx_norm input + rms for the proj-norm bwd.
     std::vector<float> g4_x0, g4_ple_in, g4_ctx_in, g4_ctx_rms;
     float moe_aux = 0.0f;
+    // Vision early-fusion: raw prefix patches + count. T (all row counts
+    // above) includes these P rows when present; labels carry -100 there.
+    std::vector<float> vision_in;  // [P*D]
+    int vision_patches = 0;
 };
 
 static void fwd_g4(const Params& p, const ModelConfig& c,
                    const std::vector<int>& ids, Fwd& o);
 
 static void fwd(const Params& p, const ModelConfig& c,
-                const std::vector<int>& ids, Fwd& o) {
-    if (c.is_gemma4()) { fwd_g4(p, c, ids, o); return; }
-    const int T = (int)ids.size();
+                const std::vector<int>& ids, Fwd& o,
+                const std::vector<float>* vision = nullptr,
+                int vision_count = 0) {
+    if (c.is_gemma4()) {
+        if (vision != nullptr) throw "vision: gemma4 has no vision path";
+        fwd_g4(p, c, ids, o);
+        return;
+    }
+    const int PT = (int)ids.size();
+    int P = 0;
+    if (vision != nullptr) {
+        if (!c.use_vision) throw "vision: model has use_vision=false";
+        P = vision_count;
+        if (P <= 0 || P > c.vision_max_patches) throw "vision: bad patch count";
+        if ((int)vision->size() != P * c.vision_patch_dim)
+            throw "vision: bad patch data";
+    }
+    const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd, Hkv = c.kv_heads * hd;
     std::vector<float> x((size_t)T * H);
-    for (int t = 0; t < T; ++t) {
+    if (P > 0) {
+        linear_fwd(vision->data(), p.w.at("vision.patch_proj"),
+                   x.data(), P, c.vision_patch_dim, H);
+        o.vision_in = *vision;
+        o.vision_patches = P;
+    } else {
+        o.vision_in.clear();
+        o.vision_patches = 0;
+    }
+    for (int t = 0; t < PT; ++t) {
         const float* er = p.w.at("embed").d.data() + (size_t)ids[t] * H;
-        std::copy(er, er + H, x.data() + (size_t)t * H);
+        std::copy(er, er + H, x.data() + (size_t)(P + t) * H);
     }
     o.layers.resize(c.layers);
     for (int l = 0; l < c.layers; ++l) {
@@ -222,42 +355,238 @@ static void fwd(const Params& p, const ModelConfig& c,
         L.n1.resize((size_t)T * H); L.rms1.resize(T);
         rmsnorm_fwd(x.data(), p.w.at(ln(l, "norm1")).d.data(),
                     L.n1.data(), L.rms1.data(), T, H, c.rms_eps);
-        L.q.resize((size_t)T * Hq); L.k.resize((size_t)T * Hkv); L.v.resize((size_t)T * Hkv);
-        linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")), L.q.data(), T, H, Hq);
-        linear_fwd(L.n1.data(), p.w.at(ln(l, "wk")), L.k.data(), T, H, Hkv);
-        linear_fwd(L.n1.data(), p.w.at(ln(l, "wv")), L.v.data(), T, H, Hkv);
-        rope(L.q.data(), T, c.heads, hd, c.rope_theta, false);
-        rope(L.k.data(), T, c.kv_heads, hd, c.rope_theta, false);
-        int group = c.heads / c.kv_heads;
-        float scale = 1.0f / std::sqrt((float)hd);
-        L.probs.assign((size_t)c.heads * T * T, 0.0f);
-        L.attn_out.assign((size_t)T * Hq, 0.0f);
-        for (int h = 0; h < c.heads; ++h) {
-            int kh = h / group;
+        std::vector<float> proj((size_t)T * H);
+        if (c.is_linear(l)) {
+            // ----- Qwen3.5 gated deltanet (linear attention) -----
+            const int kd = c.lin_key_dim, vd = c.lin_value_dim;
+            const int kh = c.lin_key_heads, vh = c.lin_value_heads;
+            const int ratio = vh / kh;
+            const int key_dim = kh * kd, val_dim = vh * vd;
+            const int conv_dim = key_dim * 2 + val_dim;
+            const int group_sz = 2 * kd + vd * ratio;
+            const std::string lb = ln(l, "lin.");
+            // in_proj_qkv rows are grouped per key head [q|k|v-group];
+            // unpack into flat conv layout [q_flat | k_flat | v_flat].
+            std::vector<float> qkvz((size_t)T * kh * group_sz);
+            linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_qkv"),
+                       qkvz.data(), T, H, kh * group_sz);
+            L.lin_conv_in.resize((size_t)T * conv_dim);
             for (int t = 0; t < T; ++t) {
-                float* pr = L.probs.data() + ((size_t)h * T + t) * T;
-                float mx = -1e30f;
-                const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
-                for (int s = 0; s <= t; ++s) {
-                    const float* kr = L.k.data() + ((size_t)s * c.kv_heads + kh) * hd;
-                    float dot = 0.0f;
-                    for (int i = 0; i < hd; ++i) dot += qr[i] * kr[i];
-                    pr[s] = dot * scale;
-                    mx = std::max(mx, pr[s]);
-                }
-                float sum = 0.0f;
-                for (int s = 0; s <= t; ++s) { pr[s] = std::exp(pr[s] - mx); sum += pr[s]; }
-                float inv = 1.0f / sum;
-                float* ao = L.attn_out.data() + ((size_t)t * c.heads + h) * hd;
-                for (int s = 0; s <= t; ++s) {
-                    pr[s] *= inv;
-                    const float* vr = L.v.data() + ((size_t)s * c.kv_heads + kh) * hd;
-                    for (int i = 0; i < hd; ++i) ao[i] += pr[s] * vr[i];
+                const float* src = qkvz.data() + (size_t)t * kh * group_sz;
+                float* dst = L.lin_conv_in.data() + (size_t)t * conv_dim;
+                for (int g = 0; g < kh; ++g) {
+                    const float* gr = src + (size_t)g * group_sz;
+                    std::copy(gr, gr + kd, dst + (size_t)g * kd);
+                    std::copy(gr + kd, gr + 2 * kd,
+                              dst + key_dim + (size_t)g * kd);
+                    std::copy(gr + 2 * kd, gr + group_sz,
+                              dst + key_dim * 2 + (size_t)g * (vd * ratio));
                 }
             }
+            L.lin_conv_pre.resize((size_t)T * conv_dim);
+            std::vector<float> conv_out((size_t)T * conv_dim);
+            conv1d_causal_fwd(L.lin_conv_in.data(),
+                              p.w.at(lb + "conv1d").d.data(), conv_out.data(),
+                              L.lin_conv_pre.data(), T, conv_dim,
+                              c.lin_conv_kernel);
+            // split conv output → per-v-head-expanded q,k / v
+            L.lin_qn.resize((size_t)T * vh * kd);
+            L.lin_kn.resize((size_t)T * vh * kd);
+            L.lin_v.resize((size_t)T * vd * vh);
+            std::vector<float> qraw((size_t)T * vh * kd),
+                               kraw((size_t)T * vh * kd);
+            for (int t = 0; t < T; ++t) {
+                const float* cr = conv_out.data() + (size_t)t * conv_dim;
+                for (int g = 0; g < kh; ++g) {
+                    for (int r = 0; r < ratio; ++r) {
+                        int h = g * ratio + r;
+                        std::copy(cr + (size_t)g * kd, cr + (size_t)(g + 1) * kd,
+                                  qraw.data() + ((size_t)t * vh + h) * kd);
+                        std::copy(cr + key_dim + (size_t)g * kd,
+                                  cr + key_dim + (size_t)(g + 1) * kd,
+                                  kraw.data() + ((size_t)t * vh + h) * kd);
+                    }
+                }
+                std::copy(cr + key_dim * 2, cr + conv_dim,
+                          L.lin_v.data() + (size_t)t * val_dim);
+            }
+            L.lin_qrms.resize((size_t)T * vh); L.lin_krms.resize((size_t)T * vh);
+            std::copy(qraw.begin(), qraw.end(), L.lin_qn.begin());
+            std::copy(kraw.begin(), kraw.end(), L.lin_kn.begin());
+            l2norm_fwd(L.lin_qn.data(), T * vh, kd, 1e-6f, L.lin_qrms.data());
+            l2norm_fwd(L.lin_kn.data(), T * vh, kd, 1e-6f, L.lin_krms.data());
+            const float qscale = 1.0f / std::sqrt((float)kd);
+            for (auto& x : L.lin_qn) x *= qscale;
+            L.lin_z.resize((size_t)T * val_dim);
+            linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_z"),
+                       L.lin_z.data(), T, H, val_dim);
+            L.lin_a_raw.resize((size_t)T * vh);
+            L.lin_b_raw.resize((size_t)T * vh);
+            linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_a"),
+                       L.lin_a_raw.data(), T, H, vh);
+            linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_b"),
+                       L.lin_b_raw.data(), T, H, vh);
+            const float* A_log = p.w.at(lb + "A_log").d.data();
+            const float* dt_bias = p.w.at(lb + "dt_bias").d.data();
+            L.lin_decay.resize((size_t)T * vh);
+            std::vector<float> beta((size_t)T * vh);
+            for (int t = 0; t < T; ++t)
+                for (int h = 0; h < vh; ++h) {
+                    float ar = L.lin_a_raw[(size_t)t * vh + h] + dt_bias[h];
+                    L.lin_a_raw[(size_t)t * vh + h] = ar;
+                    float g = -std::exp(A_log[h]) * softplus_f(ar);
+                    L.lin_decay[(size_t)t * vh + h] = std::exp(g);
+                    beta[(size_t)t * vh + h] =
+                        sigmoid_f(L.lin_b_raw[(size_t)t * vh + h]);
+                }
+            // recurrent scan (fp32 state, HF torch_recurrent_gated_delta_rule)
+            L.lin_S.assign((size_t)(T + 1) * vh * kd * vd, 0.0f);
+            L.lin_o.resize((size_t)T * vh * vd);
+            const size_t ssz = (size_t)kd * vd;
+            for (int h = 0; h < vh; ++h)
+                for (int t = 0; t < T; ++t) {
+                    float* S = L.lin_S.data() + ((size_t)t * vh + h) * ssz;
+                    float* Sp = L.lin_S.data() + ((size_t)(t + 1) * vh + h) * ssz;
+                    float dec = L.lin_decay[(size_t)t * vh + h];
+                    const float* kr = L.lin_kn.data() + ((size_t)t * vh + h) * kd;
+                    const float* vr = L.lin_v.data() + ((size_t)t * vh + h) * vd;
+                    const float* qr = L.lin_qn.data() + ((size_t)t * vh + h) * kd;
+                    float bt = beta[(size_t)t * vh + h];
+                    for (size_t i = 0; i < ssz; ++i) Sp[i] = S[i] * dec;
+                    std::vector<float> u(vd);
+                    for (int i = 0; i < vd; ++i) {
+                        float kv = 0.0f;
+                        for (int d = 0; d < kd; ++d)
+                            kv += Sp[(size_t)d * vd + i] * kr[d];
+                        u[i] = (vr[i] - kv) * bt;
+                    }
+                    for (int d = 0; d < kd; ++d)
+                        for (int i = 0; i < vd; ++i)
+                            Sp[(size_t)d * vd + i] += kr[d] * u[i];
+                    float* orow = L.lin_o.data() + ((size_t)t * vh + h) * vd;
+                    for (int i = 0; i < vd; ++i) {
+                        float s = 0.0f;
+                        for (int d = 0; d < kd; ++d)
+                            s += Sp[(size_t)d * vd + i] * qr[d];
+                        orow[i] = s;
+                    }
+                }
+            // gated RMSNorm per v-head then SiLU(z) gate
+            L.lin_on.resize((size_t)T * val_dim);
+            L.lin_onorm.resize((size_t)T * val_dim);
+            L.lin_orms.resize((size_t)T * vh);
+            for (int t = 0; t < T; ++t)
+                for (int h = 0; h < vh; ++h) {
+                    const float* or_ = L.lin_o.data() + ((size_t)t * vh + h) * vd;
+                    float* on = L.lin_onorm.data() + ((size_t)t * vh + h) * vd;
+                    float rms;
+                    rmsnorm_fwd(or_, p.w.at(lb + "norm").d.data(), on, &rms,
+                                1, vd, c.rms_eps);
+                    L.lin_orms[(size_t)t * vh + h] = rms;
+                    const float* zr = L.lin_z.data() + ((size_t)t * vh + h) * vd;
+                    float* og = L.lin_on.data() + ((size_t)t * vh + h) * vd;
+                    for (int i = 0; i < vd; ++i) og[i] = on[i] * silu_f(zr[i]);
+                }
+            linear_fwd(L.lin_on.data(), p.w.at(lb + "out_proj"),
+                       proj.data(), T, val_dim, H);
+        } else {
+            // ----- full attention (optional qk_norm / output gate /
+            // partial rotary — all three gate Qwen3.5 parity) -----
+            const int qmul = c.attn_output_gate ? 2 : 1;
+            std::vector<float> qfused;
+            if (c.attn_output_gate) {
+                qfused.resize((size_t)T * Hq * 2);
+                linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")),
+                           qfused.data(), T, H, Hq * 2);
+                L.q.resize((size_t)T * Hq);
+                L.attn_gate.resize((size_t)T * Hq);
+                for (int t = 0; t < T; ++t)
+                    for (int h = 0; h < c.heads; ++h) {
+                        const float* fr = qfused.data() +
+                            ((size_t)t * c.heads + h) * (size_t)hd * 2;
+                        std::copy(fr, fr + hd,
+                                  L.q.data() + ((size_t)t * c.heads + h) * hd);
+                        std::copy(fr + hd, fr + 2 * hd,
+                                  L.attn_gate.data() +
+                                      ((size_t)t * c.heads + h) * hd);
+                    }
+            } else {
+                L.q.resize((size_t)T * Hq);
+                linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")),
+                           L.q.data(), T, H, Hq);
+            }
+            L.k.resize((size_t)T * Hkv); L.v.resize((size_t)T * Hkv);
+            linear_fwd(L.n1.data(), p.w.at(ln(l, "wk")), L.k.data(), T, H, Hkv);
+            linear_fwd(L.n1.data(), p.w.at(ln(l, "wv")), L.v.data(), T, H, Hkv);
+            if (c.qk_norm) {
+                L.qk_qraw = L.q; L.qk_kraw = L.k;
+                L.qk_qrms.resize((size_t)T * c.heads);
+                L.qk_krms.resize((size_t)T * c.kv_heads);
+                for (int t = 0; t < T; ++t) {
+                    for (int h = 0; h < c.heads; ++h) {
+                        float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
+                        float rms;
+                        rmsnorm_fwd(qr, p.w.at(ln(l, "q_norm")).d.data(), qr,
+                                    &rms, 1, hd, c.rms_eps);
+                        L.qk_qrms[(size_t)t * c.heads + h] = rms;
+                    }
+                    for (int h = 0; h < c.kv_heads; ++h) {
+                        float* kr = L.k.data() + ((size_t)t * c.kv_heads + h) * hd;
+                        float rms;
+                        rmsnorm_fwd(kr, p.w.at(ln(l, "k_norm")).d.data(), kr,
+                                    &rms, 1, hd, c.rms_eps);
+                        L.qk_krms[(size_t)t * c.kv_heads + h] = rms;
+                    }
+                }
+            }
+            const int rd = c.rotary_dim();
+            if (rd < hd) {
+                rope_hf_partial(L.q.data(), T, c.heads, hd, rd,
+                                c.rope_theta, false);
+                rope_hf_partial(L.k.data(), T, c.kv_heads, hd, rd,
+                                c.rope_theta, false);
+            } else {
+                rope(L.q.data(), T, c.heads, hd, c.rope_theta, false);
+                rope(L.k.data(), T, c.kv_heads, hd, c.rope_theta, false);
+            }
+            int group = c.heads / c.kv_heads;
+            float scale = 1.0f / std::sqrt((float)hd);
+            L.probs.assign((size_t)c.heads * T * T, 0.0f);
+            L.attn_out.assign((size_t)T * Hq, 0.0f);
+            for (int h = 0; h < c.heads; ++h) {
+                int kh2 = h / group;
+                for (int t = 0; t < T; ++t) {
+                    float* pr = L.probs.data() + ((size_t)h * T + t) * T;
+                    float mx = -1e30f;
+                    const float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
+                    for (int s = 0; s <= t; ++s) {
+                        const float* kr = L.k.data() + ((size_t)s * c.kv_heads + kh2) * hd;
+                        float dot = 0.0f;
+                        for (int i = 0; i < hd; ++i) dot += qr[i] * kr[i];
+                        pr[s] = dot * scale;
+                        mx = std::max(mx, pr[s]);
+                    }
+                    float sum = 0.0f;
+                    for (int s = 0; s <= t; ++s) { pr[s] = std::exp(pr[s] - mx); sum += pr[s]; }
+                    float inv = 1.0f / sum;
+                    float* ao = L.attn_out.data() + ((size_t)t * c.heads + h) * hd;
+                    for (int s = 0; s <= t; ++s) {
+                        pr[s] *= inv;
+                        const float* vr = L.v.data() + ((size_t)s * c.kv_heads + kh2) * hd;
+                        for (int i = 0; i < hd; ++i) ao[i] += pr[s] * vr[i];
+                    }
+                }
+            }
+            const float* wo_in = L.attn_out.data();
+            if (c.attn_output_gate) {
+                L.attn_gated.resize(L.attn_out.size());
+                for (size_t i = 0; i < L.attn_out.size(); ++i)
+                    L.attn_gated[i] =
+                        L.attn_out[i] * sigmoid_f(L.attn_gate[i]);
+                wo_in = L.attn_gated.data();
+            }
+            linear_fwd(wo_in, p.w.at(ln(l, "wo")), proj.data(), T, Hq, H);
         }
-        std::vector<float> proj((size_t)T * H);
-        linear_fwd(L.attn_out.data(), p.w.at(ln(l, "wo")), proj.data(), T, Hq, H);
         L.x_res.resize((size_t)T * H);
         for (size_t i = 0; i < (size_t)T * H; ++i) L.x_res[i] = x[i] + proj[i];
         L.n2.resize((size_t)T * H); L.rms2.resize(T);
@@ -290,7 +619,13 @@ static void fwd(const Params& p, const ModelConfig& c,
                 std::vector<int> idx(E);
                 std::iota(idx.begin(), idx.end(), 0);
                 std::partial_sort(idx.begin(), idx.begin() + K, idx.end(),
-                                  [&](int a, int b) { return gp[a] > gp[b]; });
+                                  [&](int a, int b) {
+                                      // Deterministic tie-break mirrors the
+                                      // inference engine (stable_sort, ties
+                                      // keep lower expert index first).
+                                      if (gp[a] != gp[b]) return gp[a] > gp[b];
+                                      return a < b;
+                                  });
                 float wsum = 0.0f;
                 for (int s = 0; s < K; ++s) wsum += gp[idx[s]];
                 const float* xr = L.n2.data() + (size_t)t * H;
@@ -315,7 +650,17 @@ static void fwd(const Params& p, const ModelConfig& c,
             }
             // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
             // the engine's `output + shared(x)` residual contribution.
+            // v27: optional sigmoid gate on the shared output
+            // (Qwen3.5 `shared_expert_gate`): proj += sigmoid(Wx) * shared.
             const int SI = c.shared_inter();
+            if (c.shared_expert_gate && c.moe_shared_experts > 0) {
+                L.shared_gate_sig.resize((size_t)T);
+                std::vector<float> sg((size_t)T);
+                linear_fwd(L.n2.data(), p.w.at(ln(l, "shared_gate")),
+                           sg.data(), T, H, 1);
+                for (int t = 0; t < T; ++t)
+                    L.shared_gate_sig[(size_t)t] = sigmoid_f(sg[(size_t)t]);
+            }
             L.sfa.resize((size_t)c.moe_shared_experts);
             L.sfb.resize((size_t)c.moe_shared_experts);
             L.sfh.resize((size_t)c.moe_shared_experts);
@@ -331,7 +676,14 @@ static void fwd(const Params& p, const ModelConfig& c,
                 for (size_t i = 0; i < fh.size(); ++i) fh[i] = silu_f(fa[i]) * fb[i];
                 std::vector<float> so((size_t)T * H);
                 linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
-                for (size_t i = 0; i < so.size(); ++i) proj[i] += so[i];
+                if (L.shared_gate_sig.empty())
+                    for (size_t i = 0; i < so.size(); ++i) proj[i] += so[i];
+                else
+                    for (int t = 0; t < T; ++t) {
+                        float g = L.shared_gate_sig[(size_t)t];
+                        for (int i = 0; i < H; ++i)
+                            proj[(size_t)t * H + i] += g * so[(size_t)t * H + i];
+                    }
             }
             o.moe_aux += c.moe_aux_w * c.moe_experts * aux / std::max(1, T);
         }

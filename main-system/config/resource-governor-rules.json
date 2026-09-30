@@ -1,189 +1,105 @@
 {
-  "version": "star-resource-governor-rules/v1",
-  "description": "Per-program resource rules for the Process Lasso-inspired governor tier. 'mode' selects a preset bundle from 'modes' (sleep / low / medium / high); explicit 'defaults' keys override the selected preset, and --no-* / numeric CLI flags override both. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core). worker_* keys are the aggregate worker-plane budget/cap; cpu_busy/cpu_extreme are per-core percent; sustain/extreme_sustain are consecutive samples. auto_mode=true enables demand-driven advisor (預設自動); power_saving_schedule.enabled=true forces nightly 22:00-07:00 sleep mode (睡眠/省電深眠 CPU 5% strict / RAM 30% / VRAM disabled) when auto_mode is active.",
-  "mode": "medium",
-  "modes": {
-    "sleep": {
-      "description": "Sleep/睡眠省電深眠: CPU strict 5% hard cap, RAM 30%, VRAM disabled (CPU-only, no GPU).",
-      "probalance": true,
-      "cpu_limiter": true,
-      "background_mode": true,
-      "ecoqos": true,
-      "limiter_percent": 5.0,
-      "resp_strain_ratio": 1.2,
-      "worker_job_cap": true,
-      "worker_cpu_budget": 5.0,
-      "worker_ram_budget": 30.0,
-      "worker_job_percent": 5.0,
-      "worker_job_memory_percent": 30.0,
-      "worker_job_process_limit": 32,
-      "cpu_busy": 5.0,
-      "cpu_extreme": 10.0,
-      "sustain": 2,
-      "extreme_sustain": 4,
-      "mem_trim_mb": 600.0,
-      "affinity": true,
-      "gpu_enabled": false,
-      "vram_budget_percent": 0
-    },
-    "low": {
-      "description": "Quiet/battery-first: workers yield aggressively.",
-      "probalance": true,
-      "cpu_limiter": true,
-      "background_mode": true,
-      "ecoqos": true,
-      "limiter_percent": 5.0,
-      "resp_strain_ratio": 1.4,
-      "worker_job_cap": true,
-      "worker_cpu_budget": 5.0,
-      "worker_ram_budget": 20.0,
-      "worker_job_percent": 5.0,
-      "worker_job_memory_percent": 20.0,
-      "worker_job_process_limit": 48,
-      "cpu_busy": 8.0,
-      "cpu_extreme": 15.0,
-      "sustain": 3,
-      "extreme_sustain": 6,
-      "mem_trim_mb": 800.0,
-      "affinity": true
-    },
-    "medium": {
-      "description": "Balanced default.",
-      "probalance": true,
-      "cpu_limiter": true,
-      "background_mode": true,
-      "ecoqos": true,
-      "limiter_percent": 10.0,
-      "resp_strain_ratio": 1.8,
-      "worker_job_cap": true,
-      "worker_cpu_budget": 10.0,
-      "worker_ram_budget": 30.0,
-      "worker_job_percent": 10.0,
-      "worker_job_memory_percent": 40.0,
-      "worker_job_process_limit": 96,
-      "cpu_busy": 10.0,
-      "cpu_extreme": 20.0,
-      "sustain": 3,
-      "extreme_sustain": 6,
-      "mem_trim_mb": 1500.0,
-      "affinity": true
-    },
-    "high": {
-      "description": "Throughput-first: workers get larger budgets; no QoS demotion on the worker plane.",
-      "probalance": true,
-      "cpu_limiter": true,
-      "background_mode": false,
-      "ecoqos": false,
-      "limiter_percent": 30.0,
-      "resp_strain_ratio": 2.5,
-      "worker_job_cap": true,
-      "worker_cpu_budget": 30.0,
-      "worker_ram_budget": 50.0,
-      "worker_job_percent": 30.0,
-      "worker_job_memory_percent": 50.0,
-      "worker_job_process_limit": 192,
-      "cpu_busy": 25.0,
-      "cpu_extreme": 50.0,
-      "sustain": 6,
-      "extreme_sustain": 12,
-      "mem_trim_mb": 3000.0,
-      "affinity": true
-    }
-  },
+  "auto_mode": false,
   "defaults": {
     "concurrency_budget": true,
-    "concurrency_interactive_share": 0.25,
-    "concurrency_interactive_min": 2
+    "concurrency_interactive_min": 2,
+    "concurrency_interactive_share": 0.25
   },
-  "programs": {
-    "cl.exe": {
-      "exclude": true
+  "description": "Per-program resource rules for the Process Lasso-inspired governor tier. 'mode' selects a preset bundle from 'modes' (sleep / low / medium / high); explicit 'defaults' keys override the selected preset, and --no-* / numeric CLI flags override both. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core). worker_* keys are the aggregate worker-plane budget/cap; cpu_busy/cpu_extreme are per-core percent; sustain/extreme_sustain are consecutive samples. auto_mode=true enables demand-driven advisor (預設自動); power_saving_schedule.enabled=true forces nightly 22:00-07:00 sleep mode (睡眠/省電深眠 CPU 5% strict / RAM 30% / VRAM disabled) when auto_mode is active.",
+  "mode": "sleep",
+  "modes": {
+    "high": {
+      "affinity": true,
+      "background_mode": false,
+      "cpu_busy": 25.0,
+      "cpu_extreme": 50.0,
+      "cpu_limiter": true,
+      "description": "Throughput-first: workers get larger budgets; no QoS demotion on the worker plane.",
+      "ecoqos": false,
+      "extreme_sustain": 12,
+      "limiter_percent": 30.0,
+      "mem_trim_mb": 3000.0,
+      "probalance": true,
+      "resp_strain_ratio": 2.5,
+      "sustain": 6,
+      "worker_cpu_budget": 30.0,
+      "worker_job_cap": true,
+      "worker_job_memory_percent": 50.0,
+      "worker_job_percent": 30.0,
+      "worker_job_process_limit": 192,
+      "worker_ram_budget": 50.0
     },
-    "link.exe": {
-      "exclude": true
+    "low": {
+      "affinity": true,
+      "background_mode": true,
+      "cpu_busy": 8.0,
+      "cpu_extreme": 15.0,
+      "cpu_limiter": true,
+      "description": "Quiet/battery-first: workers yield aggressively.",
+      "ecoqos": true,
+      "extreme_sustain": 6,
+      "limiter_percent": 5.0,
+      "mem_trim_mb": 800.0,
+      "probalance": true,
+      "resp_strain_ratio": 1.4,
+      "sustain": 3,
+      "worker_cpu_budget": 5.0,
+      "worker_job_cap": true,
+      "worker_job_memory_percent": 20.0,
+      "worker_job_percent": 5.0,
+      "worker_job_process_limit": 48,
+      "worker_ram_budget": 20.0
     },
-    "lib.exe": {
-      "exclude": true
+    "medium": {
+      "affinity": true,
+      "background_mode": true,
+      "cpu_busy": 10.0,
+      "cpu_extreme": 20.0,
+      "cpu_limiter": true,
+      "description": "Balanced default.",
+      "ecoqos": true,
+      "extreme_sustain": 6,
+      "limiter_percent": 10.0,
+      "mem_trim_mb": 1500.0,
+      "probalance": true,
+      "resp_strain_ratio": 1.8,
+      "sustain": 3,
+      "worker_cpu_budget": 10.0,
+      "worker_job_cap": true,
+      "worker_job_memory_percent": 40.0,
+      "worker_job_percent": 10.0,
+      "worker_job_process_limit": 96,
+      "worker_ram_budget": 30.0
     },
-    "mt.exe": {
-      "exclude": true
-    },
-    "rc.exe": {
-      "exclude": true
-    },
-    "nvcc.exe": {
-      "exclude": true
-    },
-    "cicc.exe": {
-      "exclude": true
-    },
-    "ptxas.exe": {
-      "exclude": true
-    },
-    "cudafe++.exe": {
-      "exclude": true
-    },
-    "vectord.exe": {
-      "exclude": true,
-      "pool": "compute"
-    },
-    "testhost.exe": {
-      "exclude": true,
-      "pool": "background"
-    },
-    "searchd.exe": {
-      "exclude": true,
-      "pool": "io"
+    "sleep": {
+      "affinity": true,
+      "background_mode": true,
+      "cpu_busy": 5.0,
+      "cpu_extreme": 10.0,
+      "cpu_limiter": true,
+      "description": "Sleep/睡眠省電深眠: CPU strict 5% hard cap, RAM 30%, VRAM disabled (CPU-only, no GPU).",
+      "ecoqos": true,
+      "extreme_sustain": 4,
+      "gpu_enabled": false,
+      "limiter_percent": 5.0,
+      "mem_trim_mb": 600.0,
+      "probalance": true,
+      "resp_strain_ratio": 1.2,
+      "sustain": 2,
+      "vram_budget_percent": 0,
+      "worker_cpu_budget": 5.0,
+      "worker_job_cap": true,
+      "worker_job_memory_percent": 30.0,
+      "worker_job_percent": 5.0,
+      "worker_job_process_limit": 32,
+      "worker_ram_budget": 30.0
     }
   },
   "pools": {
-    "enabled": true,
-    "description": "Pool lanes under the sole governor (second attribution axis beside plane). Members join a per-pool shared Job Object with bounded cpu/memory/process envelopes; 'members' are lowercase substrings matched against exe path + cmdline. Governance plane is never pooled; excluded programs keep pool attribution for telemetry but join no job. Pool members supersede the generic worker-plane job (a process may hold only one Job).",
-    "interactive": {
-      "description": "Rust/C/C++ interactive work: UI IPC, RAG query, commands, control.",
-      "cpu_limit_percent": 40.0,
-      "memory_percent": 25.0,
-      "process_limit": 64,
-      "members": [
-        "gptbridge-shell",
-        "gptbridge.exe",
-        "msedgewebview2",
-        "webview",
-        "tool-window"
-      ]
-    },
-    "compute": {
-      "description": "C++/Rust heavy compute: inference, vector, audit, native compute.",
-      "cpu_limit_percent": 50.0,
-      "memory_percent": 45.0,
-      "process_limit": 32,
-      "members": [
-        "xingcheng",
-        "local-model",
-        "inference",
-        "vector",
-        "native_transformer"
-      ]
-    },
-    "io": {
-      "description": "Go/Rust IO-bound work: network, file I/O, download, batch.",
-      "cpu_limit_percent": 15.0,
-      "memory_percent": 15.0,
-      "process_limit": 32,
-      "members": [
-        "searchd",
-        "download",
-        "filewatch",
-        "network",
-        "batch"
-      ]
-    },
     "background": {
-      "description": "C#/F#/Julia workflow and analysis; deprioritized but never starved (bounded floor via job, not zero).",
-      "cpu_limit_percent": 8.0,
-      "memory_percent": 15.0,
-      "process_limit": 16,
       "background": true,
+      "cpu_limit_percent": 8.0,
+      "description": "C#/F#/Julia workflow and analysis; deprioritized but never starved (bounded floor via job, not zero).",
       "ecoqos": true,
       "members": [
         "dotnet",
@@ -191,14 +107,98 @@
         "fsharp",
         "workflow",
         "analysis"
-      ]
+      ],
+      "memory_percent": 15.0,
+      "process_limit": 16
+    },
+    "compute": {
+      "cpu_limit_percent": 50.0,
+      "description": "C++/Rust heavy compute: inference, vector, audit, native compute.",
+      "members": [
+        "xingcheng",
+        "local-model",
+        "inference",
+        "vector",
+        "native_transformer"
+      ],
+      "memory_percent": 45.0,
+      "process_limit": 32
+    },
+    "description": "Pool lanes under the sole governor (second attribution axis beside plane). Members join a per-pool shared Job Object with bounded cpu/memory/process envelopes; 'members' are lowercase substrings matched against exe path + cmdline. Governance plane is never pooled; excluded programs keep pool attribution for telemetry but join no job. Pool members supersede the generic worker-plane job (a process may hold only one Job).",
+    "enabled": true,
+    "interactive": {
+      "cpu_limit_percent": 40.0,
+      "description": "Rust/C/C++ interactive work: UI IPC, RAG query, commands, control.",
+      "members": [
+        "gptbridge-shell",
+        "gptbridge.exe",
+        "msedgewebview2",
+        "webview",
+        "tool-window"
+      ],
+      "memory_percent": 25.0,
+      "process_limit": 64
+    },
+    "io": {
+      "cpu_limit_percent": 15.0,
+      "description": "Go/Rust IO-bound work: network, file I/O, download, batch.",
+      "members": [
+        "searchd",
+        "download",
+        "filewatch",
+        "network",
+        "batch"
+      ],
+      "memory_percent": 15.0,
+      "process_limit": 32
     }
   },
-  "auto_mode": true,
   "power_saving_schedule": {
     "enabled": true,
-    "start": "22:00",
     "end": "07:00",
-    "mode": "sleep"
-  }
+    "mode": "sleep",
+    "start": "22:00"
+  },
+  "programs": {
+    "cicc.exe": {
+      "exclude": true
+    },
+    "cl.exe": {
+      "exclude": true
+    },
+    "cudafe++.exe": {
+      "exclude": true
+    },
+    "lib.exe": {
+      "exclude": true
+    },
+    "link.exe": {
+      "exclude": true
+    },
+    "mt.exe": {
+      "exclude": true
+    },
+    "nvcc.exe": {
+      "exclude": true
+    },
+    "ptxas.exe": {
+      "exclude": true
+    },
+    "rc.exe": {
+      "exclude": true
+    },
+    "searchd.exe": {
+      "exclude": true,
+      "pool": "io"
+    },
+    "testhost.exe": {
+      "exclude": true,
+      "pool": "background"
+    },
+    "vectord.exe": {
+      "exclude": true,
+      "pool": "compute"
+    }
+  },
+  "version": "star-resource-governor-rules/v1"
 }

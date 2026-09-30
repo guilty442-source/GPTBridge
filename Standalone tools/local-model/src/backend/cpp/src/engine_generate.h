@@ -13,7 +13,8 @@ std::vector<std::vector<double>> NativeInferenceEngine::forward_batch_last_logit
     last_rows.reserve(static_cast<size_t>(spans.size() * hidden_size));
     int64_t base = 0;
     for (const BatchSpan& span : spans) {
-        const int64_t seq = static_cast<int64_t>(span.ids->size());
+        const int64_t seq = static_cast<int64_t>(span.ids->size()) +
+            span.vision_num_patches;
         const double* last =
             hidden.data() + static_cast<size_t>((base + seq - 1) * hidden_size);
         last_rows.insert(last_rows.end(), last, last + hidden_size);
@@ -85,20 +86,47 @@ int64_t NativeInferenceEngine::sample_next(
         }
     }
     if (sampling.top_p > 0.0 && sampling.top_p < 1.0) {
+        // Progressive exact-semantics top-p: grow a sorted candidate
+        // prefix (nth_element partition + prefix sort) until cumulative
+        // mass reaches top_p. Typical runs order ~10² entries instead of
+        // the full vocab's O(V log V) sort; the keep set and cumulative
+        // sum order are identical to sorting the entire order descending.
+        // The comparator's index tie-break makes equal-valued entries
+        // deterministic regardless of partitioning.
         std::vector<size_t> order(adjusted.size());
         for (size_t i = 0; i < order.size(); ++i) order[i] = i;
-        std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-            return adjusted[a] > adjusted[b];
-        });
+        const auto by_value_desc = [&](size_t a, size_t b) {
+            return adjusted[a] > adjusted[b] ||
+                   (adjusted[a] == adjusted[b] && a < b);
+        };
         const double max_value = *std::max_element(adjusted.begin(), adjusted.end());
-        double cumulative = 0.0;
         double total = 0.0;
         for (const double value : adjusted) total += std::exp(value - max_value);
         std::vector<bool> keep(adjusted.size(), false);
-        for (const size_t index : order) {
-            keep[index] = true;
-            cumulative += std::exp(adjusted[index] - max_value) / total;
-            if (cumulative >= sampling.top_p) break;
+        double cumulative = 0.0;
+        size_t consumed = 0;
+        size_t window = std::min<size_t>(order.size(), 64);
+        bool reached = false;
+        while (true) {
+            std::nth_element(
+                order.begin(),
+                order.begin() + static_cast<std::ptrdiff_t>(window - 1),
+                order.end(), by_value_desc);
+            std::sort(order.begin(),
+                      order.begin() + static_cast<std::ptrdiff_t>(window),
+                      by_value_desc);
+            for (; consumed < window; ++consumed) {
+                keep[order[consumed]] = true;
+                cumulative +=
+                    std::exp(adjusted[order[consumed]] - max_value) / total;
+                if (cumulative >= sampling.top_p) {
+                    ++consumed;
+                    reached = true;
+                    break;
+                }
+            }
+            if (reached || window >= order.size()) break;
+            window = std::min(order.size(), window * 4);
         }
         for (size_t i = 0; i < adjusted.size(); ++i) {
             if (!keep[i]) adjusted[i] = -std::numeric_limits<double>::infinity();

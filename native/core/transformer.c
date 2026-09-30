@@ -35,6 +35,7 @@
  * ------------------------------------------------------------------ */
 #ifdef _WIN32
 #include <intrin.h>
+#include <windows.h>
 #else
 #include <cpuid.h>
 #endif

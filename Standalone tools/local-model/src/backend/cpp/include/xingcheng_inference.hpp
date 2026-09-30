@@ -59,6 +59,14 @@ struct ModelConfig {
     int64_t moe_num_shared_experts = 0;
     int64_t moe_expert_intermediate_size = 0;
     int64_t moe_shared_intermediate_size = 0;
+    // Native vision early-fusion (v1): optional linear patch projection.
+    // When use_vision, each span may carry vision_num_patches rows of
+    // vision_patch_dim floats; they are projected to hidden_size and
+    // prepended to the text embeddings (single decoder stream, causal).
+    // Default off: text-only behaviour is bit-identical.
+    bool use_vision = false;
+    int64_t vision_patch_dim = 0;
+    int64_t vision_max_patches = 0;
     std::string quantization = "none";
     // Gemma4 profile (architecture="gemma4"): hybrid sliding/full
     // attention with per-layer-type head_dim and RoPE, QK-norm,
@@ -347,6 +355,10 @@ private:
     };
 
     // R9: one span = one sequence's tokens inside a packed forward call.
+    // Vision early-fusion: vision_patches (flat vision_num_patches x
+    // ModelConfig::vision_patch_dim, row-major) is projected and prepended
+    // to the text embeddings. Prefix-cache paths never attach vision, so a
+    // vision span always recomputes (no false prefix hits by construction).
     struct BatchSpan {
         int64_t slot = 0;
         const std::vector<int64_t>* ids = nullptr;
@@ -358,6 +370,8 @@ private:
         // straight back into hidden space without detokenizing. ids still
         // bound the span length; the token ids themselves are ignored.
         const std::vector<double>* embed_override = nullptr;
+        const std::vector<double>* vision_patches = nullptr;
+        int64_t vision_num_patches = 0;
     };
     static constexpr int64_t kMaxBatchSeqs = 64;
 
@@ -379,6 +393,10 @@ private:
     TensorView ple_model_projection_;
     TensorView ple_projection_norm_;
     std::vector<double> ple_model_projection_t_;
+    // Vision early-fusion: raw [hidden x patch_dim] view plus transposed
+    // [patch_dim x hidden] GEMM operand. Empty unless use_vision.
+    TensorView vision_patch_proj_;
+    std::vector<double> vision_patch_proj_t_;
     // R6 paged KV: shared block table maps logical position blocks to
     // physical blocks covering all layers; blocks allocate on demand and
     // return to kv_free_blocks_ on reset_cache (bounded, audited via
@@ -414,6 +432,62 @@ private:
         const int8_t* q8 = nullptr;
         double scale = 1.0;
     };
+
+    // Forward-scratch arena: per-layer temporaries live in persistent
+    // buffers whose capacity survives across layers and decode steps —
+    // the layer loop performs zero per-layer heap allocation once warm
+    // (resize() keeps capacity).  Buffers are write-through temporaries:
+    // contents never carry meaning across forward calls, so reusing them
+    // is bit-identical.  The engine is single-threaded per call chain
+    // (kv state is mutable), so member scratch needs no isolation.
+    struct ForwardScratch {
+        std::vector<double> hidden;
+        std::vector<double> normed;
+        std::vector<double> qkv;
+        std::vector<double> q_flat;
+        std::vector<double> k_flat;
+        std::vector<double> v_flat;
+        std::vector<double> q_heads;
+        std::vector<double> k_heads;
+        std::vector<double> v_heads;
+        std::vector<double> q_rope;
+        std::vector<double> k_rope;
+        std::vector<double> attn_flat;
+        std::vector<double> attn_out;
+        std::vector<KvSrc> k_srcs;
+        std::vector<KvSrc> v_srcs;
+        std::vector<double> tile_scores;
+        std::vector<double> acc;
+        std::vector<double> gate_up;
+        std::vector<double> mlp_in;
+        std::vector<double> mlp_out;
+        // MoE-only lanes (dense models never touch these).
+        std::vector<double> moe_probs;
+        std::vector<int64_t> moe_order;
+        std::vector<int64_t> moe_top_idx;
+        std::vector<double> moe_top_w;
+        std::vector<int64_t> moe_group_count;
+        std::vector<int64_t> moe_group_offset;
+        std::vector<int64_t> moe_group_fill;
+        std::vector<double> moe_grouped_in;
+        std::vector<int64_t> moe_row_token;
+        std::vector<double> moe_row_weight;
+        std::vector<double> moe_gate_up;
+        std::vector<double> moe_act;
+        std::vector<double> moe_grouped_out;
+        std::vector<double> moe_mlp_out;
+        // Always-on shared experts.
+        std::vector<double> shared_sgu;
+        std::vector<double> shared_sg;
+        std::vector<double> shared_sd;
+        // Vision early-fusion prefix projection output.
+        std::vector<double> vision_prefix;
+    };
+    ForwardScratch fs_;
+    // RoPE frequency-base cache (dim/theta keyed): pow() once per model.
+    std::vector<double> rope_base_;
+    int64_t rope_base_dim_ = 0;
+    double rope_base_theta_ = 0.0;
 
     void validate_supported() const;
     void reset_cache();

@@ -76,6 +76,25 @@ internal static class Program
                     ["migrated"] =
                         new TransformerTrainingRepository(toolRoot).Maintain(),
                 });
+            if (flags.Contains("teacher-collect"))
+                return Emit(TeacherCollect.Collect(
+                    toolRoot, dryRun: flags.Contains("dry-run")));
+            if (flags.Contains("evaluate"))
+                return Emit(Evaluate(
+                    toolRoot,
+                    opts.TryGetValue("job-id", out string? ej) ? ej : "",
+                    opts.TryGetValue("bundle", out string? eb) ? eb : "",
+                    opts.TryGetValue("suite", out string? es) ? es : "",
+                    opts.TryGetValue("baseline", out string? bl) ? bl : null,
+                    flags.Contains("chat")));
+            if (flags.Contains("queue-job"))
+                return Emit(QueueJob(
+                    toolRoot,
+                    opts.TryGetValue("rows", out string? rows) ? rows : "",
+                    opts.TryGetValue("config", out string? cfg) ? cfg : "",
+                    opts.TryGetValue("val-permille", out string? vp) &&
+                    int.TryParse(vp, out int vpv) ? vpv : 50,
+                    flags.Contains("include-collected")));
             return Usage();
         }
         catch (Exception exc)
@@ -97,7 +116,11 @@ internal static class Program
             "(--status | --run-once [--force] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
             "--job <id> | --self-test | --verify-audit | --db-status | " +
-            "--migrate)");
+            "--migrate | --teacher-collect [--dry-run] | " +
+            "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
+            "[--include-collected] [--val-permille N] | " +
+            "--evaluate --job-id <id> --bundle <dir> --suite <suite.json> " +
+            "[--baseline <dir>] [--chat])");
         return 2;
     }
 
@@ -183,6 +206,152 @@ internal static class Program
     {
         var repo = new TransformerTrainingRepository(toolRoot);
         return new TrainingJobExecutor(repo, toolRoot).RunJob(jobId);
+    }
+
+    /// <summary>Registers a completed job's exported bundle as an adapter
+    /// candidate and runs the governed native evaluation (capability or
+    /// eval suite) against an optional baseline bundle. Records the full
+    /// result row in the repository — the same gate self-learning uses.
+    /// --chat measures the deployed chat surface.</summary>
+    private static Dictionary<string, object?> Evaluate(
+        string toolRoot, string jobId, string bundle, string suitePath,
+        string? baseline, bool chat)
+    {
+        if (string.IsNullOrWhiteSpace(jobId) ||
+            string.IsNullOrWhiteSpace(bundle) ||
+            string.IsNullOrWhiteSpace(suitePath))
+            throw new ArgumentException(
+                "evaluate requires --job-id <id> --bundle <dir> " +
+                "--suite <suite.json>");
+        var repo = new TransformerTrainingRepository(toolRoot);
+        var adapter = repo.RegisterAdapterCandidate(
+            jobId, bundle,
+            new Dictionary<string, object?>
+            {
+                ["origin"] = "queue-job-evaluate",
+                ["prompt_mode"] = chat ? "chat" : "verbatim",
+            });
+        var eval = Evaluation.RunEvaluation(
+            repo, (string)adapter["adapter_id"]!, bundle, suitePath,
+            baselineArtifact: baseline,
+            evaluatedBy: "queue-job-evaluate", chat: chat);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = TransformerTrainingRepository.Truthy(
+                eval.GetValueOrDefault("ok")),
+            ["adapter_id"] = adapter["adapter_id"],
+            ["evaluation"] = eval,
+        };
+    }
+
+    /// <summary>Governed queue entry for externally prepared SFT rows:
+    /// rows.jsonl (input_text/target_text/intent/source_type/
+    /// quality_score/example_id/revision[/scope]) -> snapshot -> dataset
+    /// -> queued job; execution stays behind the same audited job lane as
+    /// self-learning. The configuration file carries the training
+    /// configuration dictionary verbatim (model arch, init_checkpoint,
+    /// weight_quant, budgets).</summary>
+    private static Dictionary<string, object?> QueueJob(
+        string toolRoot, string rowsPath, string configPath,
+        int valPermille, bool includeCollected)
+    {
+        if (string.IsNullOrWhiteSpace(configPath) ||
+            (string.IsNullOrWhiteSpace(rowsPath) && !includeCollected))
+            throw new ArgumentException(
+                "queue-job requires --config <json> and --rows <jsonl> " +
+                "or --include-collected");
+        var byScope =
+            new Dictionary<string, List<Dictionary<string, object?>>>(
+                StringComparer.OrdinalIgnoreCase);
+        int lineno = 0;
+        if (!string.IsNullOrWhiteSpace(rowsPath))
+            foreach (var line in File.ReadLines(rowsPath))
+            {
+                ++lineno;
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                Dictionary<string, object?> row;
+                try
+                {
+                    row = (Dictionary<string, object?>)ModelLifecycle.Decode(
+                        JsonDocument.Parse(line).RootElement)!;
+                }
+                catch (Exception parseEx)
+                    when (parseEx is JsonException or InvalidCastException)
+                {
+                    throw new ArgumentException(
+                        $"rows.jsonl line {lineno}: invalid JSON");
+                }
+                string scope =
+                    (TransformerTrainingRepository.Str(row, "scope") ?? "main")
+                    .Trim();
+                if (!byScope.TryGetValue(scope, out var list))
+                    byScope[scope] = list =
+                        new List<Dictionary<string, object?>>();
+                list.Add(row);
+            }
+        int collected = 0;
+        if (includeCollected)
+            foreach (var (scope, rows) in
+                     Collectors.CollectVerifiedExamples(toolRoot))
+            {
+                if (!byScope.TryGetValue(scope, out var list))
+                    byScope[scope] = list =
+                        new List<Dictionary<string, object?>>();
+                list.AddRange(rows);
+                collected += rows.Count;
+            }
+        if (byScope.Count == 0)
+            throw new ArgumentException("queue-job produced no examples");
+
+        Dictionary<string, object?> configuration;
+        try
+        {
+            configuration = (Dictionary<string, object?>)
+                ModelLifecycle.Decode(
+                    JsonDocument.Parse(
+                        File.ReadAllText(configPath)).RootElement)!;
+        }
+        catch (Exception cfgEx) when (cfgEx is JsonException or IOException
+                                          or InvalidCastException)
+        {
+            throw new ArgumentException("config file unreadable or invalid");
+        }
+
+        string snapshotPath = Path.Combine(
+            toolRoot, XcPaths.SelfLearningSnapshotRel,
+            $"queue-job-{DateTime.UtcNow:yyyyMMdd-HHmmss}.jsonl");
+        var snapshot = SftDataset.BuildSftDataset(
+            snapshotPath, byScope, valPermille);
+        var repo = new TransformerTrainingRepository(toolRoot);
+        var dataset = repo.CreateDataset(
+            contentSha256: (string)snapshot["content_sha256"]!,
+            snapshotPath: (string)snapshot["snapshot_path"]!,
+            snapshotSha256: (string)snapshot["snapshot_sha256"]!,
+            examples: (List<Dictionary<string, object?>>)snapshot["examples"]!,
+            sourceManifest: new Dictionary<string, object?>
+            {
+                ["format"] = SftDataset.SftFormatVersion,
+                ["origin"] = "queue-job",
+                ["rows_source"] = string.IsNullOrWhiteSpace(rowsPath)
+                    ? null : Path.GetFileName(rowsPath),
+                ["include_collected"] = includeCollected,
+                ["collected_examples"] = collected,
+            },
+            createdBy: "queue-job");
+        var job = repo.CreateTrainingJob(
+            datasetId: (string)dataset["dataset_id"]!,
+            configuration: configuration,
+            requestedBy: "queue-job");
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["dataset_id"] = dataset["dataset_id"],
+            ["dataset_inserted"] = dataset.GetValueOrDefault("inserted"),
+            ["job_id"] = job["job_id"],
+            ["snapshot_path"] = snapshot["snapshot_path"],
+            ["examples"] = snapshot["examples"] is
+                List<Dictionary<string, object?>> exList ? exList.Count : 0,
+        };
     }
 
     /// <summary>Governed end-to-end smoke of the native lane: synthetic

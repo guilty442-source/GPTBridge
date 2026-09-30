@@ -5,24 +5,85 @@
 // pointer is stable for the engine lifetime, so it is uploaded once and
 // cached by pointer; activations stay transient per call.
 //
-// Host-API only (no device kernels), so it compiles as plain C++ — this
-// also sidesteps nvcc's MSVC-version ceiling; custom kernels will need a
-// compatible nvcc/MSVC pair or a precompiled cubin.
+// Host-API only; device kernels live in cuda_kernels.cpp, which compiles
+// them through NVRTC at run time (nvcc needs an MSVC release it no longer
+// supports, so a precompiled cubin is not an option on this toolchain).
+// cuBLAS is resolved via LoadLibrary instead of an import lib, so the
+// built binary keeps zero CUDA dll dependencies: on a host without the
+// toolkit every probe returns 0 and the governed request paths fail
+// closed rather than failing to start.
 //
 // Governance: the engine only calls into this when XINGCHENG_CPP_CUDA=1 is
-// set by the governed Python layer after GPU coordination — capability
-// lives here, the decision stays above.
+// set by the governed layer — capability lives here, the decision stays
+// above.
 
 #ifdef XINGCHENG_CUDA
 
-#include <cublas_v2.h>
+#include <windows.h>
+
 #include <cuda_runtime.h>
 
 #include <cstring>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 namespace {
+
+// cuBLAS via dynamic binding — cublas64_12.dll ships with the toolkit,
+// not the driver, so it must never be an import dependency of the exe.
+typedef void* cublasHandle_t;
+typedef int cublasStatus_t;
+typedef int cublasOperation_t;
+constexpr cublasStatus_t kCublasSuccess = 0;
+constexpr cublasOperation_t kCublasOpN = 0;
+
+struct CublasApi {
+    HMODULE dll = nullptr;
+    cublasStatus_t (*create)(cublasHandle_t*) = nullptr;
+    cublasStatus_t (*destroy)(cublasHandle_t) = nullptr;
+    cublasStatus_t (*dgemm)(cublasHandle_t, cublasOperation_t,
+                            cublasOperation_t, int, int, int,
+                            const double*, const double*, int,
+                            const double*, int, const double*, double*,
+                            int) = nullptr;
+};
+
+CublasApi g_cublas;
+bool g_cublas_tried = false;
+
+bool cublas_ready() {
+    if (g_cublas_tried) return g_cublas.dll != nullptr;
+    g_cublas_tried = true;
+    HMODULE dll = LoadLibraryA("cublas64_12.dll");
+    if (dll == nullptr) {
+        const char* cp = getenv("CUDA_PATH");
+        if (cp != nullptr && *cp != '\0') {
+            std::string p = std::string(cp) +
+                "\\bin\\cublas64_12.dll";
+            dll = LoadLibraryA(p.c_str());
+        }
+    }
+    if (dll == nullptr) {
+        dll = LoadLibraryA(
+            "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\"
+            "v12.0\\bin\\cublas64_12.dll");
+    }
+    if (dll == nullptr) return false;
+    g_cublas.dll = dll;
+    g_cublas.create = reinterpret_cast<decltype(g_cublas.create)>(
+        GetProcAddress(dll, "cublasCreate_v2"));
+    g_cublas.destroy = reinterpret_cast<decltype(g_cublas.destroy)>(
+        GetProcAddress(dll, "cublasDestroy_v2"));
+    g_cublas.dgemm = reinterpret_cast<decltype(g_cublas.dgemm)>(
+        GetProcAddress(dll, "cublasDgemm_v2"));
+    if (g_cublas.create == nullptr || g_cublas.destroy == nullptr ||
+        g_cublas.dgemm == nullptr) {
+        g_cublas.dll = nullptr;
+        return false;
+    }
+    return true;
+}
 
 // Device-resident weight cache: host weight pointer -> device buffer.
 // Weight pointers are stable for the engine lifetime (bundle storage /
@@ -78,7 +139,8 @@ double* host_get(HostBuf& buf, size_t elems) {
 
 cublasHandle_t get_handle() {
     if (g_handle == nullptr &&
-        cublasCreate(&g_handle) != CUBLAS_STATUS_SUCCESS) {
+        (!cublas_ready() ||
+         g_cublas.create(&g_handle) != kCublasSuccess)) {
         return nullptr;
     }
     return g_handle;
@@ -102,8 +164,8 @@ void* device_weight(const double* host, size_t bytes) {
 extern "C" {
 
 #if defined(XINGCHENG_CUDA_KERNELS)
-// Provided by src/kernels/*.cu when the nvcc toolchain is available at
-// build time (build_cpp.py sets XINGCHENG_CUDA_KERNELS).
+// Provided by cuda_kernels.cpp (NVRTC + Driver API) when the CUDA build
+// flag XINGCHENG_CUDA_KERNELS is set.
 int xcuda_bf16_kernel_probe();
 int xcuda_bf16_release_weights();
 int xcuda_fp8_kernel_probe();
@@ -142,12 +204,15 @@ int xcuda_kv_attention(long long, const double*, long long, long long,
                        long long) {
     return 1;
 }
+int xcuda_probe(long long*, long long*, int*, int*) { return 0; }
 #endif
 
 int xcuda_available() {
     int count = 0;
     if (cudaGetDeviceCount(&count) != cudaSuccess) return 0;
-    return count > 0 ? 1 : 0;
+    // The base CUDA path is cuBLAS Dgemm — without the toolkit dll the
+    // capability is absent, not partially present.
+    return count > 0 && cublas_ready() ? 1 : 0;
 }
 
 // Free every cached device weight and the shared cuBLAS handle. Called by
@@ -165,7 +230,7 @@ int xcuda_release_weights() {
     g_pin_a = HostBuf{};
     g_pin_c = HostBuf{};
     if (g_handle != nullptr) {
-        cublasDestroy(g_handle);
+        g_cublas.destroy(g_handle);
         g_handle = nullptr;
     }
 #if defined(XINGCHENG_CUDA_KERNELS)
@@ -249,13 +314,13 @@ int xcuda_matmul_f64(
         {
             const double alpha = 1.0;
             const double beta = 0.0;
-            if (cublasDgemm(
-                    handle, CUBLAS_OP_N, CUBLAS_OP_N,
+            if (g_cublas.dgemm(
+                    handle, kCublasOpN, kCublasOpN,
                     static_cast<int>(n), static_cast<int>(m),
                     static_cast<int>(k),
                     &alpha, db, static_cast<int>(n),
                     da, static_cast<int>(k), &beta,
-                    dc, static_cast<int>(n)) != CUBLAS_STATUS_SUCCESS) {
+                    dc, static_cast<int>(n)) != kCublasSuccess) {
                 return 3;
             }
         }

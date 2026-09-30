@@ -159,6 +159,23 @@ WeightBundle WeightBundle::load(const std::string& manifest_path) {
             throw InferenceError("JSON_INT_EXPECTED:moe_shared_intermediate_size");
         cfg.moe_shared_intermediate_size = static_cast<int64_t>(v->number);
     }
+    // Vision early-fusion fields — optional; absent means text-only
+    // (use_vision=false), so pre-vision bundles load unchanged.
+    if (const JsonValue* v = json_optional(config_json, "use_vision")) {
+        if (v->type != JsonValue::Type::Bool)
+            throw InferenceError("JSON_BOOL_EXPECTED:use_vision");
+        cfg.use_vision = v->boolean;
+    }
+    if (const JsonValue* v = json_optional(config_json, "vision_patch_dim")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:vision_patch_dim");
+        cfg.vision_patch_dim = static_cast<int64_t>(v->number);
+    }
+    if (const JsonValue* v = json_optional(config_json, "vision_max_patches")) {
+        if (v->type != JsonValue::Type::Number)
+            throw InferenceError("JSON_INT_EXPECTED:vision_max_patches");
+        cfg.vision_max_patches = static_cast<int64_t>(v->number);
+    }
     cfg.quantization = json_string(config_json, "quantization");
     // Gemma4 profile — every field optional; the profile activates
     // when layer_types is present (per-layer-type attention) or the

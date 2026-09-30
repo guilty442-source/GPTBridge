@@ -138,7 +138,9 @@ void split_columns(
     int64_t n_total = 0;
     for (const auto& part : parts) {
         n_total += part.first;
-        part.second->assign(static_cast<size_t>(rows * part.first), 0.0);
+        // resize (not zero-assign): the copy below overwrites every
+        // element, and persistent scratch keeps its capacity.
+        part.second->resize(static_cast<size_t>(rows * part.first));
     }
     for (int64_t r = 0; r < rows; ++r) {
         const double* src = fused.data() + static_cast<size_t>(r * n_total);
@@ -171,12 +173,12 @@ extern "C" int xcuda_bf16_available();
 extern "C" int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
-// P1-1③ residual: fp8 (e4m3) weight-storage GEMM (kernels/matmul_fp8.cu).
+// P1-1③ residual: fp8 (e4m3) weight-storage GEMM (cuda_kernels.cpp).
 extern "C" int xcuda_fp8_available();
 extern "C" int xcuda_matmul_fp8(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
-// P1-1② device-resident KV + online-softmax attention (kernels/kv_attention.cu).
+// P1-1② device-resident KV + online-softmax attention (cuda_kernels.cpp).
 extern "C" int xcuda_kv_available();
 extern "C" int xcuda_kv_alloc(
     long long layers, long long kv_heads, long long head_dim,
@@ -189,4 +191,8 @@ extern "C" int xcuda_kv_attention(
     long long layer, const double* q, long long heads, long long seq,
     long long kv_heads, long long head_dim, long long position_offset,
     double* out, long long out_stride);
+// Governed admission probe: device + free VRAM, no kernel compile.
+extern "C" int xcuda_probe(
+    long long* free_bytes, long long* total_bytes, int* cc_major,
+    int* cc_minor);
 #endif

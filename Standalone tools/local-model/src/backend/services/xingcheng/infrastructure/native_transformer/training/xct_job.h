@@ -7,6 +7,9 @@
 struct Example {
     std::vector<int> ids, labels;              // sft/pretrain
     std::vector<int> rej_ids, rej_labels;      // dpo
+    std::vector<float> vision;                 // early-fusion patches (flat P*D)
+    int vision_patches = 0;
+    int vision_dim = 0;
 };
 
 static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt,
@@ -25,6 +28,9 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             const JsonValue* ch = row.get("chosen");
             const JsonValue* rj = row.get("rejected");
             if (!ch || !rj) continue;
+            if (row.get("vision_patches") || ch->get("vision_patches") ||
+                rj->get("vision_patches"))
+                throw "data: vision unsupported for dpo";
             e.ids = j_ids(ch, "input_ids");
             e.labels = j_ids(ch, "labels");
             if (e.labels.empty()) e.labels = e.ids;
@@ -49,6 +55,12 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             } else {
                 e.labels = e.ids;              // pretrain: shifted CE
             }
+            // Optional early-fusion patches; malformed grids throw inside
+            // j_patch_grid (never silently partial).
+            if (j_patch_grid(&row, "vision_patches", e.vision,
+                             e.vision_patches, e.vision_dim) &&
+                (int)e.vision.size() != e.vision_patches * e.vision_dim)
+                throw "data: VISION_DATA_SIZE";
         }
         if ((int)e.ids.size() > max_len) { e.ids.resize(max_len); e.labels.resize(max_len); }
         if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
@@ -129,6 +141,9 @@ static JsonValue run_job(const JsonValue& job) {
     if (!tc.init_ckpt.empty()) {
         if (!ckpt_load(p, file_cfg, tc.init_ckpt))
             throw "init_checkpoint: unreadable or shape mismatch";
+        if (file_cfg.use_vision != c.use_vision ||
+            file_cfg.vision_patch_dim != c.vision_patch_dim)
+            throw "init_checkpoint: vision config mismatch";
     }
     // DPO/GRPO reference: frozen copy of the initial weights
     Params ref;
@@ -292,10 +307,28 @@ static JsonValue run_job(const JsonValue& job) {
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
                     shift_labels(lab);
                 fw.layers.clear(); fw.moe_aux = 0.0f;
-                fwd(p, c, ex.ids, fw);
-                loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
-                       + fw.moe_aux;
-                bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                if (!ex.vision.empty()) {
+                    // Vision early-fusion: prefix rows carry -100 labels
+                    // (ce_loss skips them; loss normalizes over text only).
+                    if (!c.use_vision)
+                        throw "data: vision patches but model use_vision=false";
+                    if (ex.vision_dim != c.vision_patch_dim)
+                        throw "data: vision dim mismatch";
+                    if (ex.vision_patches > c.vision_max_patches)
+                        throw "data: too many vision patches";
+                    std::vector<int> vlab((size_t)ex.vision_patches, -100);
+                    vlab.insert(vlab.end(), lab.begin(), lab.end());
+                    const int T = ex.vision_patches + (int)ex.ids.size();
+                    fwd(p, c, ex.ids, fw, &ex.vision, ex.vision_patches);
+                    loss = ce_loss(fw.logits, vlab, T, c.vocab, dlogits)
+                           + fw.moe_aux;
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
+                } else {
+                    fwd(p, c, ex.ids, fw);
+                    loss = ce_loss(fw.logits, lab, (int)ex.ids.size(), c.vocab, dlogits)
+                           + fw.moe_aux;
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                }
             }
             // grad clip (global norm)
             double gnorm = 0.0f;
@@ -370,6 +403,124 @@ static JsonValue run_job(const JsonValue& job) {
     }
     put("elapsed_s", num(now_s() - t0));
     return r;
+}
+
+// ------------------------------------------------------------- gradcheck --
+
+// Central finite-difference check of analytic gradients on a tiny hybrid
+// (deltanet + gated attention + gated-MoE) model. fp32 limits accuracy, so
+// the pass bar is a loose relative tolerance — this catches sign/order
+// bugs, not last-ulp drift.
+static int gradcheck() {
+    ModelConfig c;
+    c.vocab = 64; c.hidden = 32; c.inter = 48; c.layers = 2;
+    c.heads = 2; c.kv_heads = 1; c.max_pos = 64;
+    c.full_attention_interval = 2;          // layer 0 deltanet, layer 1 attn
+    c.attn_output_gate = true;
+    c.qk_norm = true;
+    c.partial_rotary = 0.5f;
+    c.lin_key_heads = 1; c.lin_key_dim = 32;
+    c.lin_value_heads = 2; c.lin_value_dim = 32;
+    c.lin_conv_kernel = 4;
+    c.moe_experts = 2; c.moe_top_k = 1; c.moe_layer_interval = 1;
+    c.moe_expert_inter = 24; c.moe_shared_experts = 1;
+    c.moe_shared_inter = 24; c.shared_expert_gate = true;
+    if (const char* e = std::getenv("XCT_GC_E")) c.moe_experts = std::atoi(e);
+    if (const char* k = std::getenv("XCT_GC_K")) c.moe_top_k = std::atoi(k);
+    if (const char* s = std::getenv("XCT_GC_SHARED"))
+        c.moe_shared_experts = std::atoi(s);
+    if (const char* i = std::getenv("XCT_GC_INT"))
+        c.full_attention_interval = std::atoi(i);
+    if (const char* z = std::getenv("XCT_GC_PLAIN")) {
+        c.attn_output_gate = false; c.qk_norm = false;
+        c.partial_rotary = 1.0f;
+    }
+    Params p;
+    // Vision leg: the same numeric sweep also covers vision.patch_proj
+    // and the prefix path (deterministic synthetic patches; prefix labels
+    // masked). Text-only behaviour is pinned by --smoke instead.
+    c.use_vision = true; c.vision_patch_dim = 8; c.vision_max_patches = 4;
+    init_params(p, c, 7);
+    std::vector<int> ids = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
+    std::vector<int> labels = {-100, 5, 7, 11, 13, 17, 19, 23, 29, 31};
+    const int VP = 3, VD = 8;
+    std::vector<float> vpatches((size_t)VP * VD);
+    {
+        std::mt19937 vrng(11);
+        std::uniform_real_distribution<float> vd(-0.5f, 0.5f);
+        for (auto& x : vpatches) x = vd(vrng);
+    }
+    std::vector<int> vlabels((size_t)VP, -100);
+    vlabels.insert(vlabels.end(), labels.begin(), labels.end());
+    const int VT = VP + (int)ids.size();
+    auto loss_of = [&]() {
+        Fwd fw;
+        fwd(p, c, ids, fw, &vpatches, VP);
+        std::vector<float> dl;
+        return (double)ce_loss(fw.logits, vlabels, VT, c.vocab,
+                               dl) + fw.moe_aux;
+    };
+    p.zero_grad();
+    Fwd fw;
+    fwd(p, c, ids, fw, &vpatches, VP);
+    std::vector<float> dl;
+    double loss0 = ce_loss(fw.logits, vlabels, VT, c.vocab, dl)
+                   + fw.moe_aux;
+    bwd(p, c, ids, fw, dl, 1.0f, &vpatches);
+    const double eps = 4e-3;   // lift true signal above fp32 ulp noise in loss
+    double worst_rel = 0.0, worst_abs = 0.0;
+    std::string worst_name;
+    int checked = 0, failed = 0;
+    for (const auto& n : p.order) {
+        Tensor& w = p.w[n];
+        Tensor& g = p.g[n];
+        // stride to keep the check bounded but cover every tensor kind
+        size_t total = w.d.size();
+        size_t stride = total > 8 ? total / 8 : 1;
+        for (size_t i = 0; i < total; i += stride) {
+            // Sparse top-k routing makes the loss piecewise in router
+            // weights: finite differences straddle selection flips and
+            // measure the jump, not the gradient. Skip ".gate" tensors.
+            if (n.size() >= 5 && n.compare(n.size() - 5, 5, ".gate") == 0)
+                continue;
+            float orig = w.d[i];
+            w.d[i] = orig + (float)eps; double lp = loss_of();
+            w.d[i] = orig - (float)eps; double lm = loss_of();
+            w.d[i] = orig;
+            double num = (lp - lm) / (2.0 * eps);
+            double ana = g.d[i];
+            double abs_err = std::fabs(num - ana);
+            double rel = abs_err / std::max(1e-4, std::fabs(num));
+            // multi-step probe on suspicious elements: slope stable across
+            // step sizes => real gradient mismatch, jittery => fp32 noise
+            if (rel > 0.05 && abs_err > 1e-3) {
+                std::printf("  probe %s[%zu]: ana=%.6f |", n.c_str(), i, ana);
+                for (double e2 : {1e-3, 4e-3, 1.6e-2, 6.4e-2}) {
+                    w.d[i] = orig + (float)e2; double lp2 = loss_of();
+                    w.d[i] = orig - (float)e2; double lm2 = loss_of();
+                    w.d[i] = orig;
+                    std::printf(" e=%.3f:%.6f", e2, (lp2 - lm2) / (2.0 * e2));
+                }
+                std::printf("\n");
+            }
+            ++checked;
+            if (rel > 0.10 && abs_err > 3e-3) {
+                ++failed;
+                std::printf("  FAIL %s[%zu]: ana=%.6f num=%.6f rel=%.3f abs=%.6f\n",
+                            n.c_str(), i, ana, num, rel, abs_err);
+                if (rel > worst_rel) {
+                    worst_rel = rel; worst_abs = abs_err;
+                    worst_name = n + "[" + std::to_string(i) + "]";
+                }
+            }
+        }
+    }
+    bool ok = failed == 0;
+    std::printf("gradcheck: loss=%.5f checked=%d failed=%d worst=%s "
+                "rel=%.4f abs=%.6f -> %s\n", loss0, checked, failed,
+                worst_name.c_str(), worst_rel, worst_abs,
+                ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
 }
 
 // ------------------------------------------------------------------ smoke --

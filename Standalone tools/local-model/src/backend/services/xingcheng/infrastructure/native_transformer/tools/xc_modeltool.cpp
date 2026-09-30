@@ -736,6 +736,7 @@ std::string bundle_to_xct(const std::string& b, bool g4 = false) {
                        : m[2].str() == "up" ? "w3" : "w2";
         return base + m[1].str() + "." + w;
     }
+    if (b == "vision.patch_proj.weight") return "vision.patch_proj";
     return "";
 }
 
@@ -807,6 +808,7 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
                        : m[2].str() == "2" ? "down" : "up";
         return base + m[1].str() + ".mlp." + w + "_proj.weight";
     }
+    if (n == "vision.patch_proj") return "vision.patch_proj.weight";
     return "";
 }
 
@@ -831,6 +833,16 @@ xct::ModelConfig config_from_manifest(const JsonValue& cfg) {
     if (c.is_gemma4() &&
         (use_moe || xct::j_bool(&cfg, "enable_moe_block", false)))
         fail("CONFIG_GEMMA4_MOE_UNSUPPORTED");
+    bool use_vision = false;
+    const JsonValue* uv = cfg.get("use_vision");
+    if (uv && uv->type == JsonValue::Type::Bool) use_vision = uv->boolean;
+    if (use_vision) {
+        c.use_vision = true;
+        c.vision_patch_dim = (int)xct::j_num(&cfg, "vision_patch_dim", 0);
+        c.vision_max_patches = (int)xct::j_num(&cfg, "vision_max_patches", 0);
+        if (c.vision_patch_dim <= 0 || c.vision_max_patches <= 0)
+            fail("IMPORT_VISION_GEOMETRY");
+    }
     return c;
 }
 
@@ -987,29 +999,30 @@ int mode_distill_init(const Args& a) {
     std::vector<int> dense_layers;
     for (int l = 0; l < tc.layers; ++l)
         if (tp.w.count(xct::ln(l, "w1"))) dense_layers.push_back(l);
+    if (dense_layers.empty())
+        fail("DISTILL_NO_DENSE_MLP: teacher has no dense MLP layer");
+    auto nearest_dense = [&](int tl) {
+        int best = dense_layers[0];
+        for (int d : dense_layers)
+            if (std::abs(d - tl) < std::abs(best - tl)) best = d;
+        return best;
+    };
     int dense_cursor = 0;
     std::ostringstream layer_map;
     layer_map << '[';
     for (int l = 0; l < sc.layers; ++l) {
-        // Spread teacher layers across the student depth.
-        int tl = sc.layers > 1
-                     ? (int)std::lround((double)l * (tc.layers - 1) /
-                                        (sc.layers - 1))
-                     : 0;
-        // G4 extras are copied only when both sides carry them (the
-        // shape check already fails closed on generic/G4 mixing).
+        // Positional transplant: student layer l inherits teacher layer l
+        // when in range (no representational drift); extra student depth
+        // reuses whole teacher dense layers (attn+MLP stay coherent).
+        int tl = l < tc.layers ? l
+                               : dense_layers[(size_t)dense_cursor++ %
+                                              dense_layers.size()];
+        int ml = tp.w.count(xct::ln(tl, "w1")) ? tl : nearest_dense(tl);
         for (const char* t :
              {"norm1", "wq", "wk", "wv", "wo", "norm2", "q_norm",
               "k_norm", "norm_attn", "norm_ffn", "ple_gate", "ple_proj",
               "ple_post"})
             copy(xct::ln(l, t), xct::ln(tl, t));
-        int ml = tl;
-        if (!tp.w.count(xct::ln(tl, "w1"))) {
-            if (dense_layers.empty())
-                fail("DISTILL_NO_DENSE_MLP: teacher has no dense MLP layer");
-            ml = dense_layers[(size_t)dense_cursor++ %
-                              dense_layers.size()];
-        }
         for (const char* t : {"w1", "w2", "w3"})
             copy(xct::ln(l, t), xct::ln(ml, t));
         if (l) layer_map << ',';
@@ -1066,6 +1079,16 @@ int mode_export_bundle(const Args& a) {
         (int)xct::j_num(cfg, "hidden_size", -1) != c.hidden ||
         (int)xct::j_num(cfg, "num_hidden_layers", -1) != c.layers)
         fail("EXPORT_CONFIG_MISMATCH");
+    {
+        bool cfg_vision = false;
+        const JsonValue* uv = cfg->get("use_vision");
+        if (uv && uv->type == JsonValue::Type::Bool) cfg_vision = uv->boolean;
+        if (cfg_vision != c.use_vision ||
+            (c.use_vision &&
+             ((int)xct::j_num(cfg, "vision_patch_dim", -1) != c.vision_patch_dim ||
+              (int)xct::j_num(cfg, "vision_max_patches", -1) != c.vision_max_patches)))
+            fail("EXPORT_VISION_MISMATCH");
+    }
 
     fs::create_directories(out_dir);
     // Deterministic tensor order: sorted bundle names.
@@ -1831,6 +1854,25 @@ std::string serve_render_chat(const JsonValue& messages) {
     return p;
 }
 
+// Governed GPU-admission probe: reports CUDA capability + free VRAM
+// without loading the engine. The stub (non-CUDA build) reports
+// available=0 — capability lives in the CUDA TU, the decision above.
+extern "C" int xcuda_probe(long long* free_bytes, long long* total_bytes,
+                           int* cc_major, int* cc_minor);
+
+int mode_probe_cuda() {
+    long long fb = 0, tb = 0;
+    int ccm = 0, ccn = 0;
+    const int ok = xcuda_probe(&fb, &tb, &ccm, &ccn);
+    std::printf(
+        "{\"ok\":true,\"cuda\":{\"available\":%s,"
+        "\"vram_free_mb\":%lld,\"vram_total_mb\":%lld,"
+        "\"cc_major\":%d,\"cc_minor\":%d}}\n",
+        ok ? "true" : "false", fb / (1024 * 1024), tb / (1024 * 1024),
+        ccm, ccn);
+    return 0;
+}
+
 double serve_num(const JsonValue& o, const char* k, double d) {
     const JsonValue* v = o.get(k);
     return (v && v->type == JsonValue::Type::Number) ? v->number : d;
@@ -1993,9 +2035,41 @@ int mode_serve(const Args& a) {
                 size_t eot = text.find("<|eot|>");
                 if (eot != std::string::npos) text.erase(eot);
 
+                // Surface the model-native tool call: a trained-in
+                // <tool_call>{json}</tool_call> block is split per
+                // star-inference-output/v1 — cleaned text stays in
+                // "text", the parsed call JSON rides in "tool_call".
+                // A malformed/unclosed call degrades to a
+                // tool_call_error field instead of failing the
+                // inference (the generation itself is still valid).
+                std::string tool_call_json;
+                std::string tool_call_error;
+                if (text.find("<tool_call>") != std::string::npos) {
+                    try {
+                        JsonValue parsed = JsonParser(
+                            xingcheng::inference::parse_generated_output(
+                                text, 0)).parse();
+                        if (const JsonValue* t = parsed.get("text");
+                            t && t->type == JsonValue::Type::String)
+                            text = t->string;
+                        if (const JsonValue* tc = parsed.get("tool_call");
+                            tc && tc->type != JsonValue::Type::Null)
+                            tool_call_json =
+                                gptbridge::jsonlite::json_serialize(*tc);
+                    } catch (const std::exception& parseEx) {
+                        tool_call_error = parseEx.what();
+                    }
+                }
+
                 std::ostringstream o;
                 o << "{\"ok\":true,\"text\":\""
                   << gptbridge::jsonlite::json_escape(text) << "\"";
+                o << ",\"tool_call\":"
+                  << (tool_call_json.empty() ? "null" : tool_call_json);
+                if (!tool_call_error.empty())
+                    o << ",\"tool_call_error\":\""
+                      << gptbridge::jsonlite::json_escape(tool_call_error)
+                      << "\"";
                 o << ",\"token_ids\":[";
                 for (size_t i = 0; i < out.size(); ++i) {
                     if (i) o << ',';
@@ -2119,6 +2193,7 @@ int main(int argc, char** argv) {
         if (mode == "eval") return mode_eval(a);
         if (mode == "capability") return mode_capability(a);
         if (mode == "serve") return mode_serve(a);
+        if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

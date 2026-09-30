@@ -9,6 +9,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -60,24 +61,24 @@ var mimeTypes = map[string]string{
 }
 
 func (h *assetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := filepath.ToSlash(filepath.Clean("/" + r.URL.Path))
-	trace("http " + r.URL.Path + " -> " + path)
+	urlPath := path.Clean("/" + r.URL.Path)
+	trace("http " + r.URL.Path + " -> " + urlPath)
 	switch {
-	case path == "/" || path == "/index.html":
+	case urlPath == "/" || urlPath == "/index.html":
 		h.serveIndex(w)
 		return
-	case path == "/wails-bridge.js":
+	case urlPath == "/wails-bridge.js":
 		w.Header().Set("Content-Type", mimeTypes[".js"])
 		_, _ = w.Write([]byte(bridgeJS))
 		return
 	}
 	// /shared-layer/... → workspace shared-layer tree (toolWindow only).
-	if rest, ok := strings.CutPrefix(path, "/shared-layer/src/ui/toolWindow/"); ok {
-		h.serveFile(w, r, h.sharedDir, rest)
+	if rest, ok := strings.CutPrefix(urlPath, "/shared-layer/src/ui/toolWindow/"); ok {
+		h.serveFile(w, r, h.sharedDir, rest, urlPath)
 		return
 	}
 	// Everything else resolves inside src/ui (flat module paths).
-	h.serveFile(w, r, h.uiDir, strings.TrimPrefix(path, "/"))
+	h.serveFile(w, r, h.uiDir, strings.TrimPrefix(urlPath, "/"), urlPath)
 }
 
 func (h *assetHandler) serveIndex(w http.ResponseWriter) {
@@ -97,28 +98,26 @@ func (h *assetHandler) serveIndex(w http.ResponseWriter) {
 	_, _ = w.Write([]byte(html))
 }
 
-// serveFile streams one whitelisted file.  A .css fetch coming from a
-// module import (Sec-Fetch-Dest: script/empty) gets the link-injection
-// shim so `import "./x.css"` stays legal in native ESM.
+// serveFile streams one whitelisted file.  A .css fetch without the
+// ?as=link marker is an ES-module import and gets the link-injection
+// shim (the shim's <link> re-fetches the same URL with the marker, so
+// stylesheet bytes are only ever served to a real stylesheet fetch) —
+// `import "./x.css"` stays legal in native ESM without header sniffing.
 func (h *assetHandler) serveFile(w http.ResponseWriter, r *http.Request,
-	dir, name string) {
+	dir, name, urlPath string) {
 	if !safeName.MatchString(name) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	full := filepath.Join(dir, name)
 	ext := strings.ToLower(filepath.Ext(name))
-	if ext == ".css" {
-		dest := r.Header.Get("Sec-Fetch-Dest")
-		if dest == "script" || dest == "empty" || strings.Contains(
-			r.Header.Get("Accept"), "javascript") {
-			w.Header().Set("Content-Type", mimeTypes[".js"])
-			_, _ = w.Write([]byte(
-				`const l=document.createElement("link");l.rel="stylesheet";l.href=` +
-					strconv.Quote("/"+name) +
-					`;document.head.appendChild(l);export default null;`))
-			return
-		}
+	if ext == ".css" && r.URL.Query().Get("as") != "link" {
+		w.Header().Set("Content-Type", mimeTypes[".js"])
+		_, _ = w.Write([]byte(
+			`const l=document.createElement("link");l.rel="stylesheet";l.href=` +
+				strconv.Quote(urlPath+"?as=link") +
+				`;document.head.appendChild(l);export default null;`))
+		return
 	}
 	data, err := os.ReadFile(full)
 	if err != nil {

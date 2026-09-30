@@ -31,6 +31,7 @@ internal sealed class ModelDialogueExecutor
         "star_chat_status",
         "star_chat_models",
         "star_chat_send_message",
+        "star_chat_agent_task",
         "star_chat_codex_alignment",
         "star_chat_architecture_sync",
     };
@@ -71,6 +72,9 @@ internal sealed class ModelDialogueExecutor
                 .ConfigureAwait(false),
             "star_chat_models" => ModelsResult(),
             "star_chat_send_message" => await SendMessage(
+                    payload, requestId, emitProgress, cancellationToken)
+                .ConfigureAwait(false),
+            "star_chat_agent_task" => await AgentTask(
                     payload, requestId, emitProgress, cancellationToken)
                 .ConfigureAwait(false),
             "star_chat_codex_alignment" => CodexAlignmentResult(),
@@ -565,6 +569,525 @@ internal sealed class ModelDialogueExecutor
             ["route"] = "xingcheng-first",
         };
     }
+
+    // --------------------------------------------------------- agent --
+
+    /// Agentic lane (星澄底層工具調用): the model's trained-in
+    /// &lt;tool_call&gt;{json}&lt;/tool_call&gt; output — surfaced by the
+    /// serve worker as a parsed ``tool_call`` field — drives governed
+    /// embedded-browser ops through the loopback bridge (token-guarded
+    /// ``embedded-browser-bridge.json``, the same seam the retired
+    /// embedded_browser_client used). Each op's observation loops back
+    /// as a user turn until the model answers in plain text or calls
+    /// ``task_done``. Bounded by max_steps (default 8, hard cap 24);
+    /// every step is recorded in the returned ``steps`` transcript.
+    private async Task<JsonObject> AgentTask(
+        JsonObject payload,
+        string requestId,
+        Func<JsonObject, Task>? emitProgress,
+        CancellationToken ct)
+    {
+        var task = payload["task"]?.GetValue<string>()?.Trim() ?? "";
+        if (task.Length == 0)
+            return new JsonObject
+            {
+                ["ok"] = false, ["tool_id"] = _env.ToolId,
+                ["error_code"] = "TASK_EMPTY",
+                ["message"] = "任務內容為空。",
+            };
+        var maxSteps = Math.Clamp(
+            payload["max_steps"]?.GetValue<int>() ?? 8, 1, 24);
+        var startUrl = payload["start_url"]?.GetValue<string>()
+            ?.Trim() ?? "";
+
+        var ready = await EnsureModelService(emitProgress, ct)
+            .ConfigureAwait(false);
+        if (!ready)
+            return new JsonObject
+            {
+                ["ok"] = false, ["tool_id"] = _env.ToolId,
+                ["error_code"] = "MODEL_SERVICE_UNAVAILABLE",
+                ["message"] = "本地模型服務無法啟動或未在時限內就緒。",
+            };
+        var endpoint = DiscoverService()
+            ?? throw new InvalidOperationException(
+                "MODEL_SERVICE_DESCRIPTOR_LOST");
+        var bridge = DiscoverBridge();
+        if (bridge is null)
+            return new JsonObject
+            {
+                ["ok"] = false, ["tool_id"] = _env.ToolId,
+                ["error_code"] = "EMBEDDED_BROWSER_BRIDGE_UNAVAILABLE",
+                ["message"] = "內嵌瀏覽器橋接不可用（主系統桌面殼未運行）。",
+            };
+
+        var sessionId = "md-agent-" + SanitizeId(requestId);
+        var messages = new JsonArray
+        {
+            new JsonObject
+            {
+                ["role"] = "system",
+                ["content"] = AgentSystemPrompt,
+            },
+            new JsonObject
+            {
+                ["role"] = "user", ["content"] = task,
+            },
+        };
+        var steps = new JsonArray();
+        var budget = Math.Clamp(
+            payload["context_budget_characters"]
+                ?.GetValue<int>() ?? 20000, 2000, 200000);
+        var maxNew = Math.Clamp(
+            payload["max_output_tokens"]?.GetValue<int>() ?? 512, 1, 1024);
+        string? finalText = null;
+        var finished = false;
+        var opsExecuted = 0;
+
+        try
+        {
+            if (startUrl.Length > 0)
+            {
+                var open = await AgentBrowserOp(
+                        bridge, "embedded-browser:create",
+                        new JsonObject
+                        {
+                            ["id"] = sessionId,
+                            ["ownerModule"] = _env.ToolId,
+                            ["url"] = startUrl,
+                        }, ct)
+                    .ConfigureAwait(false);
+                steps.Add(StepRecord(steps.Count + 1,
+                    "browser_open", new JsonObject { ["url"] = startUrl },
+                    open));
+                messages.Add(new JsonObject
+                {
+                    ["role"] = "user",
+                    ["content"] =
+                        $"[tool_result:browser_open] {open.ToJsonString()}",
+                });
+            }
+
+            for (var step = steps.Count + 1;
+                 step <= maxSteps && !finished;
+                 ++step)
+            {
+                ct.ThrowIfCancellationRequested();
+                var inferBody = new JsonObject
+                {
+                    ["messages"] = messages.DeepClone(),
+                    ["max_new_tokens"] = maxNew,
+                    ["intent"] = "agent",
+                };
+                var reply = await InferAsync(endpoint, inferBody, ct)
+                    .ConfigureAwait(false);
+                if (reply["ok"]?.GetValue<bool>() != true)
+                    return AgentFail(steps,
+                        reply["error_code"]?.GetValue<string>()
+                            ?? "MODEL_INFERENCE_FAILED");
+
+                var text = reply["text"]?.GetValue<string>() ?? "";
+                var toolCall = reply["tool_call"] as JsonObject;
+                var toolErr =
+                    reply["tool_call_error"]?.GetValue<string>();
+                if (toolErr is { Length: > 0 })
+                {
+                    messages.Add(new JsonObject
+                    {
+                        ["role"] = "assistant", ["content"] = text,
+                    });
+                    messages.Add(new JsonObject
+                    {
+                        ["role"] = "user",
+                        ["content"] =
+                            $"[tool_call_error] {toolErr}；請重新輸出合法的工具呼叫。",
+                    });
+                    steps.Add(StepRecord(step, "tool_call_error",
+                        null, new JsonObject { ["error"] = toolErr }));
+                    continue;
+                }
+                if (toolCall is null)
+                {
+                    finalText = text.Trim();
+                    finished = true;
+                    break;
+                }
+                var name =
+                    toolCall["name"]?.GetValue<string>()?.Trim() ?? "";
+                var toolArgs = toolCall["arguments"] as JsonObject
+                    ?? new JsonObject();
+                messages.Add(new JsonObject
+                {
+                    ["role"] = "assistant",
+                    ["content"] = text
+                        + "<tool_call>" + toolCall.ToJsonString()
+                        + "</tool_call>",
+                });
+                if (name == "task_done")
+                {
+                    finalText = toolArgs["answer"]?.GetValue<string>()
+                        ?.Trim() ?? "";
+                    steps.Add(StepRecord(step, name, toolArgs,
+                        new JsonObject { ["ok"] = true }));
+                    finished = true;
+                    break;
+                }
+                await Emit(emitProgress, new JsonObject
+                {
+                    ["phase"] = "agent-step",
+                    ["step"] = step,
+                    ["tool"] = name,
+                }).ConfigureAwait(false);
+                var observation = await DispatchAgentTool(
+                        bridge, sessionId, name, toolArgs, ct)
+                    .ConfigureAwait(false);
+                if (observation["ok"]?.GetValue<bool>() == true)
+                    ++opsExecuted;
+                steps.Add(StepRecord(step, name, toolArgs, observation));
+                messages.Add(new JsonObject
+                {
+                    ["role"] = "user",
+                    ["content"] =
+                        $"[tool_result:{name}] {observation.ToJsonString()}",
+                });
+                // Keep the transcript inside the context budget —
+                // oldest tool turns drop first, system+task stay.
+                while (messages.Count > 3
+                       && messages.ToJsonString().Length > budget)
+                    messages.RemoveAt(2);
+            }
+        }
+        finally
+        {
+            if (payload["keep_session"]?.GetValue<bool>() != true
+                && bridge is not null)
+            {
+                try
+                {
+                    await AgentBrowserOp(
+                            bridge, "embedded-browser:close",
+                            new JsonObject { ["id"] = sessionId }, ct)
+                        .ConfigureAwait(false);
+                }
+                catch { /* session teardown is best-effort */ }
+            }
+        }
+
+        if (finalText is null)
+            return AgentFail(steps, "AGENT_STEP_BUDGET_EXHAUSTED");
+        return new JsonObject
+        {
+            ["ok"] = true,
+            ["tool_id"] = _env.ToolId,
+            ["response"] =
+                finalText.Length > 0 ? finalText : "（模型未產生內容）",
+            ["steps"] = steps,
+            ["steps_used"] = steps.Count,
+            ["ops_executed"] = opsExecuted,
+            ["session_id"] = sessionId,
+            ["model"] = ModelName,
+            ["generation"] = new JsonObject
+            {
+                ["model"] = ModelName,
+                ["decoder"] = "native-cpp",
+                ["cpp_runtime"] = true,
+            },
+            ["native_runtime"] = SelectableModels(),
+            ["route"] = "xingcheng-first-agentic",
+        };
+    }
+
+    private JsonObject AgentFail(JsonArray steps, string code) =>
+        new()
+        {
+            ["ok"] = false,
+            ["tool_id"] = _env.ToolId,
+            ["error_code"] = code,
+            ["steps"] = steps,
+            ["message"] = "代理任務未完成。",
+        };
+
+    private static JsonObject StepRecord(
+        int step, string tool, JsonObject? args, JsonObject observation) =>
+        new()
+        {
+            ["step"] = step,
+            ["tool"] = tool,
+            ["arguments"] = args?.DeepClone(),
+            ["observation"] = observation.DeepClone(),
+        };
+
+    private static string SanitizeId(string raw)
+    {
+        var chars = raw.Select(
+            c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        var id = new string(chars).Trim('-');
+        return id.Length > 48 ? id[..48] : id;
+    }
+
+    // -------------------------------------------------- bridge client --
+
+    private sealed record BridgeEndpoint(string InvokeUrl, string Token);
+
+    /// ``embedded-browser-bridge.json`` — published per-launch by the
+    /// main shell's loopback bridge (loopback.rs). The token is a
+    /// workspace-local credential under runtime/state, same trust
+    /// domain as the IPC session token.
+    private BridgeEndpoint? DiscoverBridge()
+    {
+        var state = Path.Combine(
+            _env.ProjectRoot, "main-system", "runtime", "state",
+            "embedded-browser-bridge.json");
+        if (!File.Exists(state)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(state));
+            var root = doc.RootElement;
+            var port = root.TryGetProperty("port", out var p)
+                ? p.GetInt32() : 0;
+            var token = root.TryGetProperty("token", out var t)
+                ? t.GetString() : null;
+            if (port < 1 || port > 65535
+                || string.IsNullOrWhiteSpace(token)) return null;
+            return new BridgeEndpoint(
+                $"http://127.0.0.1:{port}/invoke", token!);
+        }
+        catch { return null; }
+    }
+
+    private async Task<JsonObject> AgentBrowserOp(
+        BridgeEndpoint bridge, string channel, JsonObject args,
+        CancellationToken ct)
+    {
+        var body = new JsonObject
+        {
+            ["channel"] = channel,
+            ["args"] = args,
+        };
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, bridge.InvokeUrl)
+        {
+            Content = new ByteArrayContent(
+                Encoding.UTF8.GetBytes(body.ToJsonString())),
+        };
+        request.Content.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(
+                "application/json");
+        request.Headers.Add("x-gptbridge-bridge-token", bridge.Token);
+        using var timeout = CancellationTokenSource
+            .CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
+        try
+        {
+            using var response = await _http
+                .SendAsync(request, timeout.Token).ConfigureAwait(false);
+            return JsonNode.Parse(
+                await response.Content
+                    .ReadAsStringAsync(timeout.Token)
+                    .ConfigureAwait(false)) as JsonObject
+                ?? new JsonObject { ["ok"] = false };
+        }
+        catch (Exception ex)
+        {
+            return new JsonObject
+            {
+                ["ok"] = false,
+                ["error_code"] = "BROWSER_OP_FAILED",
+                ["message"] = ex.Message.Length > 200
+                    ? ex.Message[..200] : ex.Message,
+            };
+        }
+    }
+
+    // ------------------------------------------------- tool dispatch --
+
+    /// Model-facing browser vocabulary → governed loopback channels.
+    /// ``browser_read`` returns a DOM digest of visible interactive
+    /// elements (buttons, inputs, links) indexed for click/fill — the
+    /// trained-in "native perception" surface: the model refers to
+    /// elements by index instead of guessing selectors.
+    private async Task<JsonObject> DispatchAgentTool(
+        BridgeEndpoint bridge, string sessionId, string name,
+        JsonObject args, CancellationToken ct)
+    {
+        switch (name)
+        {
+            case "browser_open":
+            case "browser_navigate":
+            {
+                var url = args["url"]?.GetValue<string>()?.Trim() ?? "";
+                if (url.Length == 0)
+                    return OpFail("INVALID_URL", "url is required");
+                if (name == "browser_open")
+                    return await AgentBrowserOp(
+                            bridge, "embedded-browser:create",
+                            new JsonObject
+                            {
+                                ["id"] = sessionId,
+                                ["ownerModule"] = _env.ToolId,
+                                ["url"] = url,
+                            }, ct)
+                        .ConfigureAwait(false);
+                return await AgentBrowserOp(
+                        bridge, "embedded-browser:navigate",
+                        new JsonObject
+                        {
+                            ["id"] = sessionId, ["url"] = url,
+                        }, ct)
+                    .ConfigureAwait(false);
+            }
+            case "browser_read":
+                return await AgentBrowserOp(
+                        bridge, "embedded-browser:execute",
+                        new JsonObject
+                        {
+                            ["id"] = sessionId,
+                            ["script"] = DomDigestScript,
+                        }, ct)
+                    .ConfigureAwait(false);
+            case "browser_click":
+                return await AgentBrowserOp(
+                        bridge, "embedded-browser:execute",
+                        new JsonObject
+                        {
+                            ["id"] = sessionId,
+                            ["script"] = ClickScript(
+                                args["index"]?.GetValue<int>() ?? -1),
+                        }, ct)
+                    .ConfigureAwait(false);
+            case "browser_fill":
+                return await AgentBrowserOp(
+                        bridge, "embedded-browser:execute",
+                        new JsonObject
+                        {
+                            ["id"] = sessionId,
+                            ["script"] = FillScript(
+                                args["index"]?.GetValue<int>() ?? -1,
+                                args["value"]?.GetValue<string>() ?? ""),
+                        }, ct)
+                    .ConfigureAwait(false);
+            case "browser_eval":
+            {
+                var script =
+                    args["script"]?.GetValue<string>()?.Trim() ?? "";
+                if (script.Length == 0)
+                    return OpFail("INVALID_SCRIPT", "script is required");
+                return await AgentBrowserOp(
+                        bridge, "embedded-browser:execute",
+                        new JsonObject
+                        {
+                            ["id"] = sessionId, ["script"] = script,
+                        }, ct)
+                    .ConfigureAwait(false);
+            }
+            case "browser_close":
+                return await AgentBrowserOp(
+                        bridge, "embedded-browser:close",
+                        new JsonObject { ["id"] = sessionId }, ct)
+                    .ConfigureAwait(false);
+            default:
+                return OpFail("UNSUPPORTED_OP", $"unsupported op: {name}");
+        }
+    }
+
+    private static JsonObject OpFail(string code, string message) =>
+        new()
+        {
+            ["ok"] = false,
+            ["error_code"] = code,
+            ["message"] = message,
+        };
+
+    /// Shared infer call for the agent lane — same contract as
+    /// SendMessage's /v1/infer POST (the reply carries ``text``,
+    /// ``tool_call`` and ``tool_call_error``).
+    private async Task<JsonObject> InferAsync(
+        ServiceEndpoint endpoint, JsonObject inferBody,
+        CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post, endpoint.Endpoint + "/v1/infer")
+        {
+            Content = new ByteArrayContent(
+                Encoding.UTF8.GetBytes(inferBody.ToJsonString())),
+        };
+        request.Content.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(
+                "application/json");
+        request.Headers.Add(
+            "X-GPTBridge-Session-Token", endpoint.SessionToken);
+        using var inferTimeout = CancellationTokenSource
+            .CreateLinkedTokenSource(ct);
+        inferTimeout.CancelAfter(InferTimeout);
+        using var response = await _http
+            .SendAsync(request, inferTimeout.Token)
+            .ConfigureAwait(false);
+        return JsonNode.Parse(
+            await response.Content
+                .ReadAsStringAsync(inferTimeout.Token)
+                .ConfigureAwait(false)) as JsonObject
+            ?? new JsonObject { ["ok"] = false };
+    }
+
+    // ------------------------------------------------- agent scripts --
+
+    // Interactive-element inventory: visible a/button/input/select/
+    // textarea/role=button/link/clickable nodes, index-addressed so the
+    // model perceives the page as a numbered action surface.
+    private const string ElementQuery =
+        "[...document.querySelectorAll('a,button,input,select,textarea," +
+        "[role=\"button\"],[role=\"link\"],[onclick]," +
+        "[contenteditable=\"true\"]')].filter(e=>{" +
+        "const r=e.getBoundingClientRect();" +
+        "return r.width>0&&r.height>0&&e.offsetParent!==null;})" +
+        ".slice(0,120)";
+
+    private const string DomDigestScript =
+        "(()=>{const els=" + ElementQuery + ";" +
+        "const items=els.map((el,i)=>({i," +
+        "tag:el.tagName.toLowerCase()," +
+        "type:(el.type||el.getAttribute('role')||'').toLowerCase()," +
+        "text:(el.innerText||el.value||el.getAttribute('aria-label')||" +
+        "el.getAttribute('placeholder')||'')" +
+        ".replace(/\\s+/g,' ').trim().slice(0,80)," +
+        "id:el.id||'',name:el.name||''," +
+        "href:el.tagName==='A'?el.href:''}));" +
+        "return {url:location.href,title:document.title," +
+        "elements:items};})()";
+
+    private static string ClickScript(int index) =>
+        "(()=>{const els=" + ElementQuery + ";" +
+        $"const el=els[{index}];" +
+        "if(!el)return {ok:false,error:'ELEMENT_NOT_FOUND'};" +
+        "el.scrollIntoView({block:'center'});el.click();" +
+        "return {ok:true,tag:el.tagName.toLowerCase()," +
+        "text:(el.innerText||el.value||'').trim().slice(0,80)};})()";
+
+    private static string FillScript(int index, string value) =>
+        "(()=>{const els=" + ElementQuery + ";" +
+        $"const el=els[{index}];" +
+        "if(!el)return {ok:false,error:'ELEMENT_NOT_FOUND'};" +
+        $"el.focus();el.value={JsonSerializer.Serialize(value)};" +
+        "el.dispatchEvent(new Event('input',{bubbles:true}));" +
+        "el.dispatchEvent(new Event('change',{bubbles:true}));" +
+        "return {ok:true,tag:el.tagName.toLowerCase()," +
+        "value:(el.value||'').slice(0,80)};})()";
+
+    private const string AgentSystemPrompt =
+        "你是星澄（本地代理），可以直接操作內嵌瀏覽器完成使用者的網頁任務。" +
+        "當需要操作網頁時，只輸出一行工具呼叫：" +
+        "<tool_call>{\"name\":\"<工具>\",\"arguments\":{...}}</tool_call>" +
+        "可用工具：" +
+        "browser_open {\"url\":\"...\"} 開啟網頁；" +
+        "browser_navigate {\"url\":\"...\"} 前往網址；" +
+        "browser_read {} 讀取頁面可互動元件（回傳編號清單）；" +
+        "browser_click {\"index\":N} 點擊第 N 號元件；" +
+        "browser_fill {\"index\":N,\"value\":\"...\"} 在第 N 號輸入框填入文字；" +
+        "browser_eval {\"script\":\"...\"} 執行 JavaScript；" +
+        "browser_close {} 關閉瀏覽器；" +
+        "task_done {\"answer\":\"...\"} 回報最終答案。" +
+        "每次只輸出一個 tool_call；看到 [tool_result] 後再決定下一步；" +
+        "不再需要操作時直接輸出答案文字或呼叫 task_done。";
 
     // ----------------------------------------------------- diagnostics --
 

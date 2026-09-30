@@ -185,6 +185,13 @@ pub fn get(payload: &Value) -> Value {
     json!({"ok": true, "resource_mode": governor_mode()})
 }
 
+/// Status-push accessor — the retired ``startup_status`` embedded the
+/// governor snapshot as ``resource_mode`` on every push; the drawer's
+/// mode row reads that field without a round-trip.
+pub fn snapshot() -> Value {
+    governor_mode()
+}
+
 /// ``app:set-resource-mode`` — ``mode`` = sleep/low/medium/high (or a custom
 /// ``modes`` key) selects the preset; ``auto`` re-enables the advisor.
 pub fn set(payload: &Value) -> Value {

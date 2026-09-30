@@ -272,6 +272,12 @@ pub fn evaluate() -> Readiness {
 /// ``/health`` payload — wire-compatible with the Python server.
 pub fn health_payload(level: &str) -> Value {
     let readiness = evaluate();
+    // Retired-parity projections of the governed pending-action queue and
+    // automation-switch store (file contracts under runtime/state).  The
+    // drawer surfaces render these on every status push.
+    let pending = crate::pending_actions::actionable_pending_actions();
+    let pending_cardinality =
+        crate::pending_actions::pending_action_cardinality(&pending);
     json!({
         "ok": readiness.ok,
         "version": gptbridge_core::app::PRODUCT_VERSION,
@@ -293,7 +299,52 @@ pub fn health_payload(level: &str) -> Value {
         "dependencies": readiness.dependencies,
         "services": {},
         "capabilities": {},
+        // Retired-contract parity: the renderer's 星澄 indicator reads
+        // xingcheng_native_model_runtime.{running,available} on every
+        // status push.  The successor reports governed-runtime truth —
+        // `running` means the local-model tool runtime is live in this
+        // backend's registry, `available` means its native entry is
+        // installed.  A stopped tool is "stopped", never "unavailable".
+        "xingcheng_native_model_runtime": native_model_status(),
+        // Retired-parity: runtime_status_push carried ``resource_mode``
+        // (resource_governor_signal's governor_mode snapshot); the
+        // drawer reads it off the push rather than polling the command.
+        "resource_mode": crate::resource_mode::snapshot(),
+        // auto_action_policy parity: actionable queue items only — terminal
+        // and reconciled records stay durable evidence, never surface.
+        "pending_actions": pending,
+        "pending_action_cardinality": pending_cardinality,
+        "automation_switches": crate::pending_actions::automation_switches(),
         "health_level": level,
+    })
+}
+
+/// Successor of the retired ``native_model_status``: the first-party
+/// 星澄 model runs inside the governed local-model tool runtime, so
+/// liveness follows the tool registry and availability follows the
+/// launchable native entry.
+pub(crate) fn native_model_status() -> Value {
+    let running = crate::tools::governed_tool_running("local-model");
+    let available =
+        running || crate::tools::governed_tool_launchable("local-model");
+    json!({
+        "model_id": "star-main-native-model",
+        "state": if running {
+            "ready"
+        } else if available {
+            "stopped"
+        } else {
+            "unavailable"
+        },
+        "running": running,
+        "available": available,
+        "checked_at": gptbridge_core::app::iso_now(),
+        "message": if running || available {
+            ""
+        } else {
+            "local-model runtime not installed"
+        },
+        "third_party_weights_used": false,
     })
 }
 

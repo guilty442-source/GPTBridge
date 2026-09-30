@@ -29,24 +29,30 @@ var (
 	procDefWindowProcW           = user32.NewProc("DefWindowProcW")
 	procGetModuleHandleW         = kernel32.NewProc("GetModuleHandleW")
 	procGetMessageW              = user32.NewProc("GetMessageW")
+	procPeekMessageW             = user32.NewProc("PeekMessageW")
 	procTranslateMessage         = user32.NewProc("TranslateMessage")
 	procDispatchMessageW         = user32.NewProc("DispatchMessageW")
 	procPostThreadMessageW       = user32.NewProc("PostThreadMessageW")
 	procGetCurrentThreadId       = kernel32.NewProc("GetCurrentThreadId")
 	procCoInitializeEx           = ole32.NewProc("CoInitializeEx")
 	procCoUninitialize           = ole32.NewProc("CoUninitialize")
+	procGetDpiForWindow          = user32.NewProc("GetDpiForWindow")
 )
 
 const (
-	wsChild         = 0x40000000
-	wsVisible       = 0x10000000
-	wsClipChild     = 0x02000000
-	swHide          = 0
-	swShow          = 5
-	pmRemove        = 0x0001
-	wmQuit          = 0x0012
-	wmRunJob        = 0x0400 + 0x42
-	coinitApartment = 0
+	wsChild     = 0x40000000
+	wsVisible   = 0x10000000
+	wsClipChild = 0x02000000
+	swHide      = 0
+	swShow      = 5
+	pmRemove    = 0x0001
+	pmNoRemove  = 0x0000
+	wmQuit      = 0x0012
+	wmUser      = 0x0400
+	wmRunJob    = 0x0400 + 0x42
+	// COINIT_APARTMENTTHREADED — WebView2 callbacks are delivered
+	// through the creating thread's message loop.
+	coinitApartment = 0x2
 )
 
 type wndClassExW struct {
@@ -161,6 +167,20 @@ func createChildWindow(parent uintptr, x, y, w, h int32) (uintptr, error) {
 	return r, nil
 }
 
+// scaleCoord converts renderer CSS-pixel coordinates into physical
+// window coordinates — the process is system-DPI-aware (wails calls
+// SetProcessDPIAware), so CSS px map 1:1 onto device px × DPI/96.
+func scaleCoord(hwnd uintptr, css int32) int32 {
+	if hwnd == 0 {
+		return css
+	}
+	dpi, _, _ := procGetDpiForWindow.Call(hwnd)
+	if dpi <= 96 {
+		return css
+	}
+	return int32((int64(css)*int64(dpi) + 48) / 96)
+}
+
 func moveWindow(hwnd uintptr, x, y, w, h int32) {
 	_, _, _ = procMoveWindow.Call(hwnd,
 		uintptr(int64(x)), uintptr(int64(y)),
@@ -181,6 +201,14 @@ func destroyWindow(hwnd uintptr) {
 
 func postThreadJob(tid uintptr) {
 	_, _, _ = procPostThreadMessageW.Call(tid, wmRunJob, 0, 0)
+}
+
+// forceMessageQueue materialises the calling thread's message queue —
+// PostThreadMessage fails silently until the queue exists.
+func forceMessageQueue() {
+	var m msg
+	_, _, _ = procPeekMessageW.Call(uintptr(unsafe.Pointer(&m)), 0,
+		wmUser, wmUser, pmNoRemove)
 }
 
 // pumpLoop is the session thread's message loop: WM_RUN_JOB drains the

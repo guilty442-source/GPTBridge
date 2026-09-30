@@ -62,6 +62,58 @@ std::vector<double> linear(
     return matmul(input.data(), rows, in_features, transposed_weight.data(), out_features);
 }
 
+// Caller-buffered variants: identical computation writing into reusable
+// scratch storage — the forward loop keeps one arena alive across layers
+// and decode steps instead of a fresh heap block per projection.
+void matmul_into(
+    const double* a,
+    int64_t m,
+    int64_t k,
+    const double* b,
+    int64_t n,
+    double* out) {
+#if defined(XINGCHENG_CUDA)
+    if (g_cuda_requested.load()) {
+        if (g_cuda_bf16_requested.load()) {
+            if (xcuda_matmul_bf16(a, m, k, b, n, out) != 0) {
+                throw InferenceError("CUDA_BF16_MATMUL_FAILED");
+            }
+            return;
+        }
+        if (g_cuda_fp8_requested.load()) {
+            if (xcuda_matmul_fp8(a, m, k, b, n, out) != 0) {
+                throw InferenceError("CUDA_FP8_MATMUL_FAILED");
+            }
+            return;
+        }
+        if (xcuda_matmul_f64(a, m, k, b, n, out) != 0) {
+            throw InferenceError("CUDA_MATMUL_FAILED");
+        }
+        return;
+    }
+#else
+    if (g_cuda_requested.load()) {
+        throw InferenceError("CUDA_UNAVAILABLE");
+    }
+#endif
+    checked_c_call(
+        gptbridge_native_transformer_matmul(a, m, k, b, k, n, out),
+        "matmul");
+}
+
+void linear_into(
+    const std::vector<double>& input,
+    int64_t rows,
+    int64_t in_features,
+    const std::vector<double>& transposed_weight,
+    int64_t out_features,
+    std::vector<double>& out) {
+    out.resize(static_cast<size_t>(rows * out_features));
+    matmul_into(
+        input.data(), rows, in_features,
+        transposed_weight.data(), out_features, out.data());
+}
+
 // R5 grouped GEMM: a holds the groups' row-blocks concatenated
 // ([sum(group_rows) x k]); b_list[g] is group g's [k x n] weight; the
 // concatenated [sum x n] outputs come back in group order. One C dispatch
@@ -112,6 +164,55 @@ std::vector<double> matmul_grouped(
             out.data()),
         "matmul-grouped");
     return out;
+}
+
+// Caller-buffered grouped GEMM — same dispatch (CUDA per-group fallback
+// included), writing into reusable scratch instead of a fresh vector.
+void matmul_grouped_into(
+    const std::vector<double>& a,
+    const std::vector<int64_t>& group_rows,
+    const std::vector<const double*>& b_list,
+    int64_t k,
+    int64_t n,
+    std::vector<double>& out) {
+    int64_t total_rows = 0;
+    for (const int64_t rows : group_rows) total_rows += rows;
+    out.resize(static_cast<size_t>(total_rows * n));
+    if (g_cuda_requested.load()) {
+#if defined(XINGCHENG_CUDA)
+        int64_t a_off = 0;
+        int64_t c_off = 0;
+        for (size_t g = 0; g < group_rows.size(); ++g) {
+            const int64_t m_g = group_rows[g];
+            if (m_g == 0) continue;
+            const int rc = g_cuda_bf16_requested.load()
+                ? xcuda_matmul_bf16(
+                      a.data() + a_off, m_g, k, b_list[g], n,
+                      out.data() + c_off)
+                : g_cuda_fp8_requested.load()
+                ? xcuda_matmul_fp8(
+                      a.data() + a_off, m_g, k, b_list[g], n,
+                      out.data() + c_off)
+                : xcuda_matmul_f64(
+                      a.data() + a_off, m_g, k, b_list[g], n,
+                      out.data() + c_off);
+            if (rc != 0) {
+                throw InferenceError("CUDA_MATMUL_FAILED");
+            }
+            a_off += m_g * k;
+            c_off += m_g * n;
+        }
+        return;
+#else
+        throw InferenceError("CUDA_UNAVAILABLE");
+#endif
+    }
+    checked_c_call(
+        gptbridge_native_transformer_matmul_grouped(
+            a.data(), group_rows.data(),
+            static_cast<int64_t>(group_rows.size()), b_list.data(), k, n,
+            out.data()),
+        "matmul-grouped");
 }
 
 // ── W1 attention kernels ───────────────────────────────────────────────
@@ -253,11 +354,48 @@ std::vector<double> rmsnorm(
     return out;
 }
 
+void rmsnorm_into(
+    const std::vector<double>& input,
+    int64_t rows,
+    int64_t cols,
+    const TensorView& weight,
+    double eps,
+    std::vector<double>& out) {
+    out.resize(input.size());
+    checked_c_call(
+        gptbridge_native_transformer_rmsnorm(
+            input.data(), rows, cols, weight.data, eps, out.data()),
+        "rmsnorm");
+}
+
+// RoPE frequency bases: base[i] = pow(theta, -2i/dim) depends only on
+// (dim, theta), so it is computed once per model instead of per token —
+// every produced angle (position * base[i]) keeps identical operands and
+// is bit-identical to the per-call pow() form.
+const std::vector<double>& rope_bases(
+    int64_t dim, double theta,
+    std::vector<double>& cache,
+    int64_t& cache_dim,
+    double& cache_theta) {
+    if (cache_dim != dim || cache_theta != theta ||
+        static_cast<int64_t>(cache.size()) != dim / 2) {
+        cache.assign(static_cast<size_t>(dim / 2), 0.0);
+        for (int64_t i = 0; i < dim / 2; ++i) {
+            const double exponent =
+                -2.0 * static_cast<double>(i) / static_cast<double>(dim);
+            cache[static_cast<size_t>(i)] = std::pow(theta, exponent);
+        }
+        cache_dim = dim;
+        cache_theta = theta;
+    }
+    return cache;
+}
+
 void rope_tables(
     int64_t seq_len,
     int64_t offset,
     int64_t dim,
-    double theta,
+    const std::vector<double>& bases,
     std::vector<double>& cos_out,
     std::vector<double>& sin_out) {
     cos_out.assign(static_cast<size_t>(seq_len * dim), 0.0);
@@ -266,8 +404,7 @@ void rope_tables(
     for (int64_t s = 0; s < seq_len; ++s) {
         const double position = static_cast<double>(offset + s);
         for (int64_t i = 0; i < half; ++i) {
-            const double exponent = -2.0 * static_cast<double>(i) / static_cast<double>(dim);
-            const double angle = position * std::pow(theta, exponent);
+            const double angle = position * bases[static_cast<size_t>(i)];
             cos_out[static_cast<size_t>(s * dim + i)] = std::cos(angle);
             cos_out[static_cast<size_t>(s * dim + i + half)] = std::cos(angle);
             sin_out[static_cast<size_t>(s * dim + i)] = std::sin(angle);

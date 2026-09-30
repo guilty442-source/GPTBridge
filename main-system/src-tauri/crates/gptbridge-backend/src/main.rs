@@ -11,6 +11,7 @@ mod channel_host;
 mod fault;
 mod health;
 mod outbox;
+mod pending_actions;
 mod pg;
 mod permission_host;
 mod pipeline_host;
@@ -124,6 +125,94 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
             saga::handle(command, payload)
         }
         "app:get-fault-analysis" => fault::handle(payload),
+        // Retired contract (xingcheng_handler._handle_native_model_enabled):
+        // apply the transition, verify the resulting state, and report the
+        // status fields.  The first-party model lives inside the governed
+        // local-model runtime, so enable = governed start / disable = stop.
+        // Retired parity (xingcheng_handler._handle_set_release): the
+        // update switch persists user intent; the repair switch was
+        // retired — autonomous repair runs under the system-audit flow.
+        "xingcheng-set-update-release" => match payload["enabled"].as_bool() {
+            None => json!({
+                "ok": false,
+                "error_code": "MISSING_ENABLED_STATE",
+                "message": "enabled (boolean) is required",
+            }),
+            Some(enabled) => json!({
+                "ok": true,
+                "switches": pending_actions::set_automatic_update(enabled),
+            }),
+        },
+        "xingcheng-set-repair-release" => json!({
+            "ok": false,
+            "error_code": "SWITCH_RETIRED",
+            "message": "repair_release was retired: autonomous repair runs under the system-audit flow",
+        }),
+        // Confirmation-service commands have no native sovereign successor
+        // yet — fail closed instead of fabricating queue mutations.
+        "xingcheng-confirm-automatic-repair"
+        | "xingcheng-confirm-automatic-update"
+        | "xingcheng-revoke-automatic-repair-confirmation"
+        | "xingcheng-revoke-automatic-update-confirmation"
+        | "xingcheng-deny-pending-action"
+        | "sync-execute-approved-automatic-repair"
+        | "sync-execute-approved-automatic-update" => json!({
+            "ok": false,
+            "error_code": "CONFIRMATION_SOVEREIGN_UNAVAILABLE",
+            "message": "confirmation sovereign not started",
+        }),
+        // Retired parity (third_party_handler): the manager lived under
+        // automation_sovereign and has no native successor — the retired
+        // path itself returned this exact denial when it was absent.
+        "app:get-third-party-status"
+        | "app:probe-third-party-versions"
+        | "app:check-third-party-updates"
+        | "app:update-third-party-tool"
+        | "app:auto-update-third-party-tools" => json!({
+            "ok": false,
+            "error_code": "THIRD_PARTY_MANAGER_UNAVAILABLE",
+            "message": "PERMISSION_DENIED",
+        }),
+        "xingcheng-set-native-model-enabled" => {
+            match payload["enabled"].as_bool() {
+                None => json!({
+                    "ok": false,
+                    "error_code": "MISSING_ENABLED_STATE",
+                    "message": "enabled (boolean) is required",
+                }),
+                Some(enabled) => {
+                    let already =
+                        tools::governed_tool_running("local-model") == enabled;
+                    let transition = if already {
+                        json!({ "ok": true })
+                    } else if enabled {
+                        tools::start_tool("local-model")
+                    } else {
+                        tools::stop_tool("local-model")
+                    };
+                    let mut result = health::native_model_status();
+                    if transition["ok"].as_bool() != Some(true) {
+                        result["ok"] = json!(false);
+                        result["error_code"] =
+                            json!(transition["error_code"].as_str().unwrap_or("NATIVE_MODEL_TRANSITION_FAILED"));
+                        result["message"] =
+                            json!(transition["message"].as_str().unwrap_or(""));
+                    } else {
+                        let verified =
+                            result["running"].as_bool() == Some(enabled);
+                        result["ok"] = json!(verified);
+                        result["error_code"] =
+                            json!(if verified { "" } else { "NATIVE_MODEL_STATE_MISMATCH" });
+                        result["message"] = json!(if verified {
+                            ""
+                        } else {
+                            "native model state verification failed"
+                        });
+                    }
+                    result
+                }
+            }
+        }
         _ => json!({
             "ok": false,
             "error": format!("COMMAND_UNKNOWN:{command}"),
@@ -172,7 +261,15 @@ fn session_command(
             }
         }),
         _ => Some({
-            let result = dispatch_command(command, payload);
+            let mut result = dispatch_command(command, payload);
+            // The renderer correlates command results by `request_id`
+            // (retired-session contract): echo it back verbatim so
+            // waitForIpcEvent predicates can match their frame.
+            if let (Some(obj), Some(id)) =
+                (result.as_object_mut(), payload.get("request_id"))
+            {
+                obj.insert("request_id".to_string(), id.clone());
+            }
             json!({"event": format!("{command}_result"), "payload": result})
         }),
     }
