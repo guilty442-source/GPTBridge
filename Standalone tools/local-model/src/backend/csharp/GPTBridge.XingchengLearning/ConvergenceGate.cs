@@ -279,6 +279,53 @@ internal static class ConvergenceGate
                 if (i8.Status != "PASS") return i8;
                 return Pass("kv fp64 + int8 lanes green");
             })),
+            new("pd-cache-plane", true, () => NeedBundle(() =>
+            {
+                // P6-P7: prefill/RAG prefix-cache + P/D split planes —
+                // every contract-bearing native mode must emit its
+                // typed report and satisfy its parity/hit invariant.
+                // (mode, required field tokens in stdout tail)
+                string log = Path.Combine(toolRoot,
+                    ReportRel.Replace('/', Path.DirectorySeparatorChar),
+                    "gate-stderr.log");
+                int Clip(string s, int n) => Math.Min(n, s.Length);
+                foreach (var (mode, reqs) in new (string, string[])[]
+                {
+                    ("pd-pipeline-bench",
+                     new[] { "star-pd-bench/v1",
+                             "\"decode_bit_identical\":true" }),
+                    ("pd-transfer-smoke",
+                     new[] { "PREFILL_ARTIFACT_INVALID" }),
+                    ("rag-prefix-bench",
+                     new[] { "star-rag-prefix-bench/v1",
+                             "\"full_hit_ms\"" }),
+                    ("prefix-invalidation",
+                     new[] { "\"invalidated\":1",
+                             "\"other_scope_untouched\":0" }),
+                    ("hybrid-prefix-smoke",
+                     new[] { "star-prefix-smoke/v1",
+                             "\"hit_bit_identical\":true" }),
+                    ("delta-prefix-restore",
+                     new[] {
+                         "\"restored_continuation_identical\":true" }),
+                })
+                {
+                    var r = NativeTools.Run(toolExe,
+                        new[] { mode, "--bundle", bundle! },
+                        toolRoot, log, 600);
+                    string tail = r.StdoutTail.Trim();
+                    if (r.ExitCode != 0)
+                        return Fail("PD_CACHE_PLANE_FAILED",
+                            mode + ": " + tail[..Clip(tail, 160)]);
+                    foreach (var req in reqs)
+                        if (!tail.Contains(req,
+                                StringComparison.Ordinal))
+                            return Fail("PD_CACHE_PLANE_CONTRACT",
+                                mode + " missing '" + req + "' in "
+                                + tail[..Clip(tail, 160)]);
+                }
+                return Pass("P/D + prefix/RAG cache invariants green");
+            })),
             new("vision-smoke", true, () => NeedBundle(() =>
             {
                 // §2 vision is canonical, but a bundle without fused
