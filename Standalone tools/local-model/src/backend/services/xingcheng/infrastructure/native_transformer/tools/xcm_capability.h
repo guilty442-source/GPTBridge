@@ -339,10 +339,11 @@ public:
 };
 
 // §11/§12/§13 NativeSpeculativeDecoder — the formal runtime contract.
-// The decoder is enabled only while a drafter is bound; production
-// never binds one (XCN10 exports drop the MTP heads, and no speculative
-// claim may be made until the format carries a governed drafter), so
-// `enabled` is structurally false outside the synthetic probe lane.
+// The decoder is enabled only while a drafter is bound; since the 300M
+// §22 export fix the bundle carries model.mtp.* tensors, but no
+// production drafter binding exists yet — a governed NativeMtpDrafter
+// must still land before `enabled` can be true outside the synthetic
+// probe lane.
 // Every entry point fails closed with SPECULATIVE_DECODER_DISABLED when
 // unbound. Metrics follow §13: only net_tps_gain>0 AND generation
 // parity could ever justify a later enablement review.
