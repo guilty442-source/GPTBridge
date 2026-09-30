@@ -567,7 +567,7 @@ internal static class ConvergenceGate
             return Fail("GATE_STEP_FAILED", $"missing {script}");
         return Shell("powershell",
             "-NoProfile -ExecutionPolicy Bypass -File \"" + ps1 + "\"",
-            dir, 600);
+            dir, 1200);
     }
 
     private static StepResult BuildXcLearning(string toolRoot)
@@ -578,8 +578,9 @@ internal static class ConvergenceGate
         if (!File.Exists(proj))
             return Fail("GATE_STEP_FAILED", "csproj missing");
         return Shell("dotnet",
-            "build -c Release --nologo \"" + proj + "\"",
-            toolRoot, 600);
+            "build -c Release --nologo --no-restore /nr:false \"" +
+            proj + "\"",
+            toolRoot, 1200);
     }
 
     /// <summary>Header audit: every header fragment in the xct_*/xcm_*/
