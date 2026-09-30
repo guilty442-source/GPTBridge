@@ -726,6 +726,31 @@ internal static class FeatureCatalog
             "INTEGRATED_GOVERNANCE", false, true, false,
             "csharp-runtime",
             new[] { "cuda-language-check" }),
+        new("f-cuda-training-plane", "cuda directive",
+            "star-cuda-training-plane/v1 — precision map, stream " +
+            "lanes, arenas, graph key, phases, prohibitions " +
+            "(training acceleration §0-§72)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "cuda-training-plane" }),
+        new("f-train-precision-map", "cuda directive",
+            "star-train-precision-map/v1 — BF16 compute / FP32 " +
+            "sensitive / FP64 oracle-only per tensor class (§2-§3)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "training-precision-map" }),
+        new("f-cuda-graph-key", "cuda directive",
+            "star-cuda-training-graph-key/v1 — bucket+microbatch+" +
+            "precision+hashes key validation (§30-§32)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "graph-key-validate" }),
+        new("f-fused-adamw", "cuda directive",
+            "star-fused-adamw/v1 — NativeCudaFusedAdamW kernel " +
+            "certified vs trainer scalar AdamW (§26)",
+            "EXPERIMENTAL_TRAINING", false, true, false,
+            "training",
+            new[] { "fused-adamw-status" }),
     };
 
     /// <summary>Devin-lane rows (batch-1 + batch-2 §30), kept in the

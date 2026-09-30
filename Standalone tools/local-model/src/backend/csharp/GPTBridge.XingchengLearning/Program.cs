@@ -707,6 +707,24 @@ internal static class Program
                 return Emit(CudaLanguage.Policy());
             if (flags.Contains("cuda-language-check"))
                 return Emit(CudaLanguage.Check(toolRoot));
+            // ---- NativeCudaTrainingPlane (§0-§72): device-side
+            //      contracts — precision map, stream lanes, arenas,
+            //      graph-cache key, fused-AdamW status.
+            if (flags.Contains("cuda-training-plane"))
+                return Emit(CudaTrainingPlane.Contract());
+            if (flags.Contains("training-precision-map"))
+                return Emit(CudaTrainingPlane.PrecisionMap(
+                    opts.TryGetValue("file", out string? tpm)
+                        ? ToolContracts.ReadJson(tpm,
+                            "TRAIN_PRECISION_INVALID")
+                        : default));
+            if (flags.Contains("graph-key-validate"))
+                return Emit(CudaTrainingPlane.GraphKey(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? gkv)
+                            ? gkv : "", "GRAPH_KEY_INVALID")));
+            if (flags.Contains("fused-adamw-status"))
+                return Emit(CudaTrainingPlane.FusedAdamWStatus());
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
             if (flags.Contains("maturity-checks"))
                 return Emit(MaturityChecks.Run(toolRoot));

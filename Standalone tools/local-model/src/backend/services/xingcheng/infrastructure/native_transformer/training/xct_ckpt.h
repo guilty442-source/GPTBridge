@@ -9,44 +9,11 @@ static void u64(std::ofstream& f, uint64_t x) { f.write((char*)&x, 8); }
 static uint32_t r32(std::ifstream& f) { uint32_t x; f.read((char*)&x, 4); return x; }
 static uint64_t r64(std::ifstream& f) { uint64_t x; f.read((char*)&x, 8); return x; }
 
-static bool ckpt_save(const Params& p, const ModelConfig& c,
-                      const std::string& path, bool overwrite) {
-    std::ifstream chk(path, std::ios::binary);
-    if (chk && !overwrite) return false;   // never silently overwrite weights
-    chk.close();
-    std::string tmp = path + ".tmp";
-    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
-    if (!f) return false;
-    // XCN2 = XCN1 header + three u32 MoE dimension fields (expert inter,
-    // shared experts, shared inter) appended before the tensor table.
-    // XCN3 = XCN2 + hybrid-attention block: full_attention_interval, flag
-    // bits (attn_output_gate | qk_norm | shared_expert_gate), partial
-    // rotary fraction, linear-attention geometry (k heads/dim, v
-    // heads/dim, conv kernel).
-    // XCN4 = XCN3 + vision early-fusion block: use_vision, vision
-    // patch_dim, vision max_patches.
-    // XCN5 = XCN4 + Gemma A4B block: global_attention_interval,
-    // sliding_window, num_global_kv_heads, flag bits (k_eq_v_global |
-    // post_attn_norm | post_ffw_norm | ffn_act), local/global rope
-    // proportions and base frequencies, final_logit_softcap.
-    // XCN6 = XCN5 + fused-router flag: moe_router_sigmoid (u32 bool).
-    // XCN7 = XCN6 + DeepSeek V4-Pro block: MLA dims (kv_lora_rank,
-    // q_lora_rank, qk_nope/qk_rope head dims), aux-free balance flag +
-    // bias rate, MTP depth + loss weight.
-    // XCN8 = XCN7 + Qwen3-Coder YaRN block: extension factor, original
-    // context length, beta_fast/beta_slow band bounds, attention factor.
-    // XCN9 = XCN8 + Gemma4 header block (marker u32, dims, rope/softcap
-    // floats, layer_types + hidden_act strings) — gemma4 only.
-    // XCN10 = XCN9 + v29 MTP-stack block: mtp_depth (u32) + mtp_loss_w
-    // (float). At ver >= 9 the gemma4 marker u32 is always present
-    // (1 = g4 fields follow, 0 = non-gemma4 at ver 10+).
-    // Canonical contract: every new checkpoint is XCN10 — all versioned
-    // header blocks are always serialized (absent axes write zeros /
-    // marker 0), so the fingerprint is version-stable; readers v1..v10
-    // stay backward compatible (absent fields default to the Qwen-style
-    // fused behaviour).
-    const uint32_t ver = 10;
-    f.write("XCN1", 4); u32(f, ver);
+// Writes the versioned config block (everything after "XCN1"+ver and
+// before the tensor table). Extracted so the governed repack lane can
+// emit the canonical header without routing tensors through Params.
+static void ckpt_write_config(std::ofstream& f, uint32_t ver,
+                              const ModelConfig& c) {
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
     u32(f, (uint32_t)c.heads); u32(f, (uint32_t)c.kv_heads);
@@ -122,6 +89,47 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
         u32(f, (uint32_t)c.mtp_depth);
         f.write((char*)&c.mtp_loss_w, 4);
     }
+}
+
+static bool ckpt_save(const Params& p, const ModelConfig& c,
+                      const std::string& path, bool overwrite) {
+    std::ifstream chk(path, std::ios::binary);
+    if (chk && !overwrite) return false;   // never silently overwrite weights
+    chk.close();
+    std::string tmp = path + ".tmp";
+    std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+    if (!f) return false;
+    // XCN2 = XCN1 header + three u32 MoE dimension fields (expert inter,
+    // shared experts, shared inter) appended before the tensor table.
+    // XCN3 = XCN2 + hybrid-attention block: full_attention_interval, flag
+    // bits (attn_output_gate | qk_norm | shared_expert_gate), partial
+    // rotary fraction, linear-attention geometry (k heads/dim, v
+    // heads/dim, conv kernel).
+    // XCN4 = XCN3 + vision early-fusion block: use_vision, vision
+    // patch_dim, vision max_patches.
+    // XCN5 = XCN4 + Gemma A4B block: global_attention_interval,
+    // sliding_window, num_global_kv_heads, flag bits (k_eq_v_global |
+    // post_attn_norm | post_ffw_norm | ffn_act), local/global rope
+    // proportions and base frequencies, final_logit_softcap.
+    // XCN6 = XCN5 + fused-router flag: moe_router_sigmoid (u32 bool).
+    // XCN7 = XCN6 + DeepSeek V4-Pro block: MLA dims (kv_lora_rank,
+    // q_lora_rank, qk_nope/qk_rope head dims), aux-free balance flag +
+    // bias rate, MTP depth + loss weight.
+    // XCN8 = XCN7 + Qwen3-Coder YaRN block: extension factor, original
+    // context length, beta_fast/beta_slow band bounds, attention factor.
+    // XCN9 = XCN8 + Gemma4 header block (marker u32, dims, rope/softcap
+    // floats, layer_types + hidden_act strings) — gemma4 only.
+    // XCN10 = XCN9 + v29 MTP-stack block: mtp_depth (u32) + mtp_loss_w
+    // (float). At ver >= 9 the gemma4 marker u32 is always present
+    // (1 = g4 fields follow, 0 = non-gemma4 at ver 10+).
+    // Canonical contract: every new checkpoint is XCN10 — all versioned
+    // header blocks are always serialized (absent axes write zeros /
+    // marker 0), so the fingerprint is version-stable; readers v1..v10
+    // stay backward compatible (absent fields default to the Qwen-style
+    // fused behaviour).
+    const uint32_t ver = 10;
+    f.write("XCN1", 4); u32(f, ver);
+    ckpt_write_config(f, ver, c);
     u32(f, (uint32_t)p.order.size());
     for (auto& n : p.order) {
         const Tensor& t = p.w.at(n);
@@ -168,13 +176,10 @@ static bool ckpt_read_g4(std::ifstream& f, ModelConfig& c) {
     return (bool)f;
 }
 
-static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) return false;
-    char magic[4]; f.read(magic, 4);
-    if (std::memcmp(magic, "XCN1", 4) != 0) return false;
-    const uint32_t ver = r32(f);
-    if (ver < 1 || ver > 10) return false;
+// Reads the versioned config block after magic+ver were consumed.
+// Shared by peek/load/list so the three readers can never drift.
+static bool ckpt_read_config(std::ifstream& f, uint32_t ver,
+                             ModelConfig& c) {
     c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
     c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
     c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
@@ -247,6 +252,16 @@ static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
     return (bool)f;
 }
 
+static bool ckpt_peek_config(const std::string& path, ModelConfig& c) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    char magic[4]; f.read(magic, 4);
+    if (std::memcmp(magic, "XCN1", 4) != 0) return false;
+    const uint32_t ver = r32(f);
+    if (ver < 1 || ver > 10) return false;
+    return ckpt_read_config(f, ver, c);
+}
+
 static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return false;
@@ -254,75 +269,7 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
     if (std::memcmp(magic, "XCN1", 4) != 0) return false;
     const uint32_t ver = r32(f);
     if (ver < 1 || ver > 10) return false;
-    c.vocab = (int)r32(f); c.hidden = (int)r32(f); c.inter = (int)r32(f);
-    c.layers = (int)r32(f); c.heads = (int)r32(f); c.kv_heads = (int)r32(f);
-    c.max_pos = (int)r32(f); c.moe_experts = (int)r32(f);
-    c.moe_top_k = (int)r32(f); c.moe_layer_interval = (int)r32(f);
-    f.read((char*)&c.rope_theta, 4); f.read((char*)&c.rms_eps, 4);
-    f.read((char*)&c.moe_aux_w, 4);
-    if (ver >= 2) {
-        c.moe_expert_inter = (int)r32(f);
-        c.moe_shared_experts = (int)r32(f);
-        c.moe_shared_inter = (int)r32(f);
-    }
-    if (ver >= 3) {
-        c.full_attention_interval = (int)r32(f);
-        uint32_t fl = r32(f);
-        c.attn_output_gate = (fl & 1u) != 0;
-        c.qk_norm = (fl & 2u) != 0;
-        c.shared_expert_gate = (fl & 4u) != 0;
-        f.read((char*)&c.partial_rotary, 4);
-        c.lin_key_heads = (int)r32(f); c.lin_key_dim = (int)r32(f);
-        c.lin_value_heads = (int)r32(f); c.lin_value_dim = (int)r32(f);
-        c.lin_conv_kernel = (int)r32(f);
-    }
-    if (ver >= 4) {
-        c.use_vision = r32(f) != 0;
-        c.vision_patch_dim = (int)r32(f);
-        c.vision_max_patches = (int)r32(f);
-    }
-    if (ver >= 5) {
-        c.global_attn_interval = (int)r32(f);
-        c.sliding_window = (int)r32(f);
-        c.num_global_kv_heads = (int)r32(f);
-        uint32_t fl = r32(f);
-        c.k_eq_v_global = (fl & 1u) != 0;
-        c.post_attn_norm = (fl & 2u) != 0;
-        c.post_ffw_norm = (fl & 4u) != 0;
-        c.ffn_act = (fl & 8u) != 0 ? 1 : 0;
-        f.read((char*)&c.local_rope_proportion, 4);
-        f.read((char*)&c.global_rope_proportion, 4);
-        f.read((char*)&c.rope_theta_local, 4);
-        f.read((char*)&c.rope_theta_global, 4);
-        f.read((char*)&c.final_logit_softcap, 4);
-    }
-    if (ver >= 6) c.moe_router_sigmoid = r32(f) != 0;
-    if (ver >= 7) {
-        c.kv_lora_rank = (int)r32(f); c.q_lora_rank = (int)r32(f);
-        c.qk_nope_head_dim = (int)r32(f);
-        c.qk_rope_head_dim = (int)r32(f);
-        c.moe_auxfree_balance = r32(f) != 0;
-        f.read((char*)&c.moe_lb_bias_rate, 4);
-        c.mtp_num_layers = (int)r32(f);
-        f.read((char*)&c.mtp_loss_weight, 4);
-    }
-    if (ver >= 8) {
-        f.read((char*)&c.yarn_factor, 4);
-        c.yarn_orig_pos = (int)r32(f);
-        f.read((char*)&c.yarn_beta_fast, 4);
-        f.read((char*)&c.yarn_beta_slow, 4);
-        f.read((char*)&c.yarn_attn_factor, 4);
-    }
-    if (ver >= 9) {
-        const uint32_t g4m = r32(f);
-        if (g4m == 1) {
-            if (!ckpt_read_g4(f, c)) return false;
-        } else if (g4m != 0) return false;
-    }
-    if (ver >= 10) {
-        c.mtp_depth = (int)r32(f);
-        f.read((char*)&c.mtp_loss_w, 4);
-    }
+    if (!ckpt_read_config(f, ver, c)) return false;
     uint32_t nt = r32(f);
     for (uint32_t i = 0; i < nt; ++i) {
         uint32_t nl = r32(f);
@@ -338,6 +285,43 @@ static bool ckpt_load(Params& p, ModelConfig& c, const std::string& path) {
         } else {
             f.seekg((std::streamoff)cnt * 4, std::ios::cur);
         }
+    }
+    return (bool)f;
+}
+
+// Tensor-table entry metadata (no payload).
+struct CkptTensorEntry {
+    std::string name;
+    std::vector<int64_t> shape;
+    uint64_t count = 0;
+};
+
+// Lists the tensor table without loading payloads — the governed
+// repack lane proves name/shape/count coverage before any conversion
+// writes a single weight.
+static bool ckpt_list_tensors(const std::string& path, ModelConfig& c,
+                              std::vector<CkptTensorEntry>& out) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    char magic[4]; f.read(magic, 4);
+    if (std::memcmp(magic, "XCN1", 4) != 0) return false;
+    const uint32_t ver = r32(f);
+    if (ver < 1 || ver > 10) return false;
+    if (!ckpt_read_config(f, ver, c)) return false;
+    uint32_t nt = r32(f);
+    out.clear();
+    out.reserve(nt);
+    for (uint32_t i = 0; i < nt; ++i) {
+        uint32_t nl = r32(f);
+        CkptTensorEntry e;
+        e.name.assign(nl, '\0'); f.read(e.name.data(), nl);
+        uint32_t nd = r32(f);
+        e.shape.assign(nd, 0);
+        for (auto& s : e.shape) s = (int64_t)r64(f);
+        e.count = r64(f);
+        f.seekg((std::streamoff)e.count * 4, std::ios::cur);
+        if (!f) return false;
+        out.push_back(std::move(e));
     }
     return (bool)f;
 }

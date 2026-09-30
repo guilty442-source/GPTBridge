@@ -1437,3 +1437,158 @@ int mode_precision_parity(const Args& a) {
         gen_agree ? "true" : "false", ref_s, cand_s);
     return pass ? 0 : 1;
 }
+// ------------------------------------------ checkpoint convergence -----
+// ckpt-converge — governed checkpoint-format convergence onto the
+// canonical writer (always XCN10). Streams the source: the config block
+// is re-emitted by xct::ckpt_write_config and every tensor row
+// (name|shape|count|payload) is copied byte-for-byte — nothing is
+// re-quantized, regenerated, or fabricated; fields the source format
+// predates carry their contract defaults (a v8 artifact lands marker-0
+// plus a zeroed MTP-stack block, honest because its tensor table holds
+// no mtp.* rows). Proof: the tensor-table digest (sha256 over every
+// byte from the table-count field to EOF) must be identical between
+// src and dst, and the dst header must re-read cleanly. dst must not
+// exist; the write goes through <dst>.tmp + rename.
+// Identity: the caller picks --dst; the report stamps created_utc —
+// no generation or version label is minted here.
+
+static std::string utc_now_iso() {
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+    gmtime_s(&tm, &t);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
+    return buf;
+}
+
+// sha256 over file bytes [off, EOF) — used for the tensor-table digest.
+static std::string sha256_file_tail(const std::string& path,
+                                    std::streamoff off) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) fail("FILE_UNREADABLE:" + path);
+    f.seekg(off);
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    if (BCryptOpenAlgorithmProvider(
+            &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) != 0) {
+        fail("SHA256_PROVIDER_UNAVAILABLE");
+    }
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    unsigned char digest[32];
+    std::vector<char> buf(1 << 20);
+    bool ok = BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr,
+                               0, 0) == 0;
+    while (ok && f) {
+        f.read(buf.data(), (std::streamsize)buf.size());
+        std::streamsize n = f.gcount();
+        if (n > 0) {
+            ok = BCryptHashData(hash, (unsigned char*)buf.data(),
+                                (ULONG)n, 0) == 0;
+        }
+    }
+    std::string out;
+    if (ok && BCryptFinishHash(hash, digest, sizeof(digest), 0) == 0) {
+        static const char* hexd = "0123456789abcdef";
+        out.reserve(64);
+        for (unsigned char b : digest) {
+            out += hexd[b >> 4];
+            out += hexd[b & 15];
+        }
+    }
+    if (hash) BCryptDestroyHash(hash);
+    BCryptCloseAlgorithmProvider(algorithm, 0);
+    if (out.empty()) fail("SHA256_HASH_FAILED");
+    return out;
+}
+
+int mode_ckpt_converge(const Args& a) {
+    std::string src = a.get("src");
+    std::string dst = a.get("dst");
+    if (src.empty() || dst.empty()) fail("CKPT_CONVERGE_ARGS_MISSING");
+    if (fs::exists(dst)) fail("CKPT_CONVERGE_DST_EXISTS");
+
+    // Read the source header + tensor-table metadata.
+    xct::ModelConfig c;
+    std::vector<xct::CkptTensorEntry> entries;
+    if (!xct::ckpt_list_tensors(src, c, entries))
+        fail("CKPT_CONVERGE_SRC_UNREADABLE");
+    std::ifstream in(src, std::ios::binary);
+    char magic[4]; in.read(magic, 4);
+    const uint32_t sver = xct::r32(in);
+    {
+        xct::ModelConfig scratch;
+        if (!xct::ckpt_read_config(in, sver, scratch))
+            fail("CKPT_CONVERGE_SRC_HEADER");
+    }
+    const std::streamoff table_off = in.tellg();
+    const std::string src_sha = sha256_file(src);
+    const std::string src_table_sha =
+        sha256_file_tail(src, table_off);
+
+    // Emit dst: canonical header via ckpt_write_config, then the source
+    // tensor table bytes verbatim.
+    const std::string tmp = dst + ".tmp";
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        if (!out) fail("CKPT_CONVERGE_DST_UNWRITABLE");
+        out.write("XCN1", 4);
+        xct::u32(out, 10);
+        xct::ckpt_write_config(out, 10, c);
+        std::vector<char> buf(1 << 20);
+        while (in) {
+            in.read(buf.data(), (std::streamsize)buf.size());
+            std::streamsize n = in.gcount();
+            if (n > 0) out.write(buf.data(), n);
+        }
+        out.close();
+        if (!out) { std::remove(tmp.c_str());
+                    fail("CKPT_CONVERGE_WRITE_FAILED"); }
+    }
+    if (std::rename(tmp.c_str(), dst.c_str()) != 0) {
+        std::remove(tmp.c_str());
+        fail("CKPT_CONVERGE_RENAME_FAILED");
+    }
+
+    // Verify: dst header re-reads cleanly at v10 and its tensor-table
+    // digest equals the source's.
+    xct::ModelConfig c2;
+    if (!xct::ckpt_peek_config(dst, c2)) {
+        std::remove(dst.c_str());
+        fail("CKPT_CONVERGE_DST_UNREADABLE");
+    }
+    std::ifstream dv(dst, std::ios::binary);
+    dv.read(magic, 4);
+    const uint32_t dver = xct::r32(dv);
+    if (dver != 10) { std::remove(dst.c_str());
+                      fail("CKPT_CONVERGE_BAD_VERSION"); }
+    {
+        xct::ModelConfig scratch;
+        if (!xct::ckpt_read_config(dv, dver, scratch)) {
+            std::remove(dst.c_str());
+            fail("CKPT_CONVERGE_DST_HEADER");
+        }
+    }
+    const std::streamoff dtable_off = dv.tellg();
+    const std::string dst_table_sha =
+        sha256_file_tail(dst, dtable_off);
+    const bool parity = (src_table_sha == dst_table_sha);
+    const std::string dst_sha = sha256_file(dst);
+    const uint64_t created =
+        (uint64_t)std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    if (!parity) { std::remove(dst.c_str());
+                   fail("CKPT_CONVERGE_PARITY_MISMATCH"); }
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-ckpt-converge/v1\","
+        "\"src\":\"%s\",\"dst\":\"%s\",\"src_format_version\":%u,"
+        "\"tensor_count\":%u,\"table_sha256\":\"%s\","
+        "\"table_parity\":true,"
+        "\"src_sha256\":\"%s\",\"dst_sha256\":\"%s\","
+        "\"created_utc\":\"%s\",\"created_epoch\":%llu,"
+        "\"mtp_stack\":\"zeroed\"}\n",
+        gptbridge::jsonlite::json_escape(src).c_str(),
+        gptbridge::jsonlite::json_escape(dst).c_str(),
+        sver, (unsigned)entries.size(), src_table_sha.c_str(),
+        src_sha.c_str(), dst_sha.c_str(), utc_now_iso().c_str(),
+        (unsigned long long)created);
+    return 0;
+}

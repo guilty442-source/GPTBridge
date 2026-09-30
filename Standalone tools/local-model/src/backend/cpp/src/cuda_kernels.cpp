@@ -56,6 +56,8 @@ typedef void* CUmodule_t;
 typedef void* CUfunction_t;
 typedef unsigned long long CUdevptr_t;
 typedef unsigned long long CUstream_t;
+typedef void* CUgraph_t;
+typedef void* CUgraphExec_t;
 typedef void* nvrtcProgram_t;
 typedef int nvrtcResult_t;
 
@@ -90,6 +92,20 @@ struct DriverApi {
                                 unsigned int, unsigned int, CUstream_t,
                                 void**, void**) = nullptr;
     CUresult_t (*mem_get_info)(size_t*, size_t*) = nullptr;
+    // §37 graph/stream plane — optional: absent symbols only mean
+    // graph_ready()==0, never a failure of the base CUDA lane.
+    CUresult_t (*stream_sync)(CUstream_t) = nullptr;
+    CUresult_t (*memcpy_htod_async)(CUdevptr_t, const void*, size_t,
+                                    CUstream_t) = nullptr;
+    CUresult_t (*memcpy_dtoh_async)(void*, CUdevptr_t, size_t,
+                                    CUstream_t) = nullptr;
+    CUresult_t (*stream_begin_capture)(CUstream_t, int) = nullptr;
+    CUresult_t (*stream_end_capture)(CUstream_t, CUgraph_t*) = nullptr;
+    CUresult_t (*graph_instantiate)(CUgraphExec_t*, CUgraph_t,
+                                    unsigned long long) = nullptr;
+    CUresult_t (*graph_launch)(CUgraphExec_t, CUstream_t) = nullptr;
+    CUresult_t (*graph_exec_destroy)(CUgraphExec_t) = nullptr;
+    CUresult_t (*graph_destroy)(CUgraph_t) = nullptr;
 };
 
 struct NvrtcApi {
@@ -197,6 +213,25 @@ bool api_init() {
     ok &= resolve(g_drv.dll, &g_drv.mem_get_info, "cuMemGetInfo_v2",
                   "cuMemGetInfo");
     if (!ok) { XCK_DBG("driver resolve fail"); return false; }
+    // §37 graph capture is optional evidence, not an admission gate:
+    // missing symbols leave graph_api_ready()==false and callers keep
+    // the synchronous lane.
+    resolve(g_drv.dll, &g_drv.stream_sync, "cuStreamSynchronize",
+            nullptr);
+    resolve(g_drv.dll, &g_drv.memcpy_htod_async, "cuMemcpyHtoDAsync_v2",
+            "cuMemcpyHtoDAsync");
+    resolve(g_drv.dll, &g_drv.memcpy_dtoh_async, "cuMemcpyDtoHAsync_v2",
+            "cuMemcpyDtoHAsync");
+    resolve(g_drv.dll, &g_drv.stream_begin_capture,
+            "cuStreamBeginCapture_v2", "cuStreamBeginCapture");
+    resolve(g_drv.dll, &g_drv.stream_end_capture, "cuStreamEndCapture",
+            nullptr);
+    resolve(g_drv.dll, &g_drv.graph_instantiate,
+            "cuGraphInstantiateWithFlags", "cuGraphInstantiate_v2");
+    resolve(g_drv.dll, &g_drv.graph_launch, "cuGraphLaunch", nullptr);
+    resolve(g_drv.dll, &g_drv.graph_exec_destroy, "cuGraphExecDestroy_v2",
+            "cuGraphExecDestroy");
+    resolve(g_drv.dll, &g_drv.graph_destroy, "cuGraphDestroy", nullptr);
 
     const char* cp = getenv("CUDA_PATH");
     std::vector<std::string> nvrtc_names = {"nvrtc64_120_0.dll"};
@@ -690,17 +725,31 @@ bool ensure_module() {
     return true;
 }
 
-// Launch helper: kernel params are passed by address.
+// Launch helper: kernel params are passed by address. launch_s takes an
+// explicit stream — required by graph capture, whose nodes must be
+// recorded on a real stream (the legacy stream is not capturable).
+bool launch_s(CUfunction_t f, unsigned int gx, unsigned int gy,
+              unsigned int bx, unsigned int by, unsigned int shmem,
+              void** params, CUstream_t stream) {
+    return g_drv.launch_kernel(f, gx, gy, 1, bx, by, 1, shmem, stream,
+                               params, nullptr) == kCudaSuccess;
+}
+
 bool launch(CUfunction_t f, unsigned int gx, unsigned int gy,
             unsigned int bx, unsigned int by, unsigned int shmem,
             void** params) {
-    return g_drv.launch_kernel(f, gx, gy, 1, bx, by, 1, shmem, 0, params,
-                               nullptr) == kCudaSuccess;
+    return launch_s(f, gx, gy, bx, by, shmem, params, 0);
 }
 
 // -------------------------------------------------- bf16 / fp8 domains --
 
 constexpr long long kConvThreads = 256;
+// Skinny-m threshold mirroring XC_GEMV_MAX_M in the device source.
+constexpr long long kGemvMaxM = 16;
+constexpr long long kGemvThreads = 256;
+// Split-k factor: widens the launch so decode-size shapes still cover
+// enough SMs to hide memory latency (fixed → deterministic reduce order).
+constexpr long long kGemvKSplit = 8;
 
 std::mutex g_bf16_mu;
 std::unordered_map<const void*, CUdevptr_t> g_bf16_weights;
@@ -815,16 +864,193 @@ std::vector<float> g_bf16_c_host;
 DevPool g_fp8_a_stage, g_fp8_da, g_fp8_dc, g_fp8_part;
 std::vector<float> g_fp8_c_host;
 
-// Skinny-m threshold mirroring XC_GEMV_MAX_M in the device source.
-constexpr long long kGemvMaxM = 16;
-constexpr long long kGemvThreads = 256;
-// Split-k factor: widens the launch so decode-size shapes still cover
-// enough SMs to hide memory latency (fixed → deterministic reduce order).
-constexpr long long kGemvKSplit = 8;
+// ------------------------------------------------- decode graph plane --
+// §37 DecodeCudaGraph: capture one fixed-shape bf16 GEMM unit (H2D
+// activation -> f64->bf16 convert -> gemv/gemm(+reduce) -> D2H result)
+// per (m,k,n,db) and replay it. Host buffers are pinned staging at fixed
+// addresses so the captured copy nodes re-read the same location on
+// every replay; device buffers are entry-owned (never DevPool-grown,
+// baked pointers must stay valid). Everything records on the manager's
+// DECODE_HIGH lane — a real non-blocking stream; the legacy stream is
+// not capturable. Fail-closed: missing API, allocation miss or a
+// capture error drops the call back to the synchronous path.
+
+CUstream_t decode_stream() {
+    return static_cast<CUstream_t>(reinterpret_cast<uintptr_t>(
+        mp::mgr().stream(mp::StreamLane::DECODE_HIGH)));
+}
+
+bool graph_api_ready() {
+    return g_drv.stream_sync != nullptr &&
+           g_drv.memcpy_htod_async != nullptr &&
+           g_drv.memcpy_dtoh_async != nullptr &&
+           g_drv.stream_begin_capture != nullptr &&
+           g_drv.stream_end_capture != nullptr &&
+           g_drv.graph_instantiate != nullptr &&
+           g_drv.graph_launch != nullptr &&
+           g_drv.graph_exec_destroy != nullptr &&
+           g_drv.graph_destroy != nullptr;
+}
+
+// -1 unread / 0 off / 1 on. Env-gated (XINGCHENG_CPP_CUDA_GRAPH) plus a
+// governed extern switch for the parity probe; never a silent default.
+int g_graph_flag = -1;
+bool graph_wanted() {
+    if (g_graph_flag < 0)
+        g_graph_flag =
+            std::getenv("XINGCHENG_CPP_CUDA_GRAPH") != nullptr ? 1 : 0;
+    return g_graph_flag != 0;
+}
+
+struct Bf16Graph {
+    CUdevptr_t db = 0;
+    long long m = 0, k = 0, n = 0;
+    CUdevptr_t a_stage = 0, da = 0, dc = 0, part = 0;
+    double* a_host = nullptr;
+    float* c_host = nullptr;
+    CUgraphExec_t exec = nullptr;
+};
+
+std::vector<Bf16Graph> g_bf16_graphs;
+constexpr size_t kMaxBf16Graphs = 256;
+
+void graph_entry_release(Bf16Graph& g) {
+    if (g.exec != nullptr) g_drv.graph_exec_destroy(g.exec);
+    g.exec = nullptr;
+    if (g.a_stage != 0) dev_free(g.a_stage);
+    if (g.da != 0) dev_free(g.da);
+    if (g.dc != 0) dev_free(g.dc);
+    if (g.part != 0) dev_free(g.part);
+    // Pinned host buffers stay manager-owned until pinned_release_all —
+    // they are lifecycle, not per-request, resources.
+    g.a_stage = g.da = g.dc = g.part = 0;
+    g.a_host = nullptr;
+    g.c_host = nullptr;
+}
+
+// Returns 0 replayed, -1 fall back to the synchronous path, 3 failure.
+int run_bf16_graph(const double* a, long long m, long long k,
+                   CUdevptr_t db, long long n, double* out) {
+    if (!graph_api_ready() || !mp::mgr().ensure()) return -1;
+    const long long a_elems = m * k;
+    const long long c_elems = m * n;
+    const bool skinny = m <= kGemvMaxM;
+
+    Bf16Graph* e = nullptr;
+    for (auto& g : g_bf16_graphs) {
+        if (g.db == db && g.m == m && g.k == k && g.n == n) {
+            e = &g;
+            break;
+        }
+    }
+
+    const size_t ab = static_cast<size_t>(a_elems) * sizeof(double);
+    const size_t cb = static_cast<size_t>(c_elems) * sizeof(float);
+    if (e == nullptr) {
+        if (g_bf16_graphs.size() >= kMaxBf16Graphs) return -1;
+        Bf16Graph g;
+        g.db = db; g.m = m; g.k = k; g.n = n;
+        g.a_stage = dev_alloc(ab, mp::Tier::KERNEL_SCRATCH);
+        g.da = dev_alloc(static_cast<size_t>(a_elems) * 2,
+                         mp::Tier::KERNEL_SCRATCH);
+        g.dc = dev_alloc(cb, mp::Tier::KERNEL_SCRATCH);
+        if (skinny)
+            g.part = dev_alloc(static_cast<size_t>(kGemvKSplit * m * n) *
+                                   sizeof(float),
+                               mp::Tier::KERNEL_SCRATCH);
+        g.a_host = static_cast<double*>(
+            mp::mgr().pinned_alloc(static_cast<int64_t>(ab)));
+        g.c_host = static_cast<float*>(
+            mp::mgr().pinned_alloc(static_cast<int64_t>(cb)));
+        bool ok = g.a_stage != 0 && g.da != 0 && g.dc != 0 &&
+                  g.a_host != nullptr && g.c_host != nullptr &&
+                  (!skinny || g.part != 0);
+        CUgraph_t graph = nullptr;
+        const CUstream_t s = decode_stream();
+        if (ok && g_drv.stream_begin_capture(s, 0) != kCudaSuccess)
+            ok = false;
+        if (ok) {
+            ok = g_drv.memcpy_htod_async(g.a_stage, g.a_host, ab, s) ==
+                 kCudaSuccess;
+            {
+                long long ne = a_elems;
+                void* cp[] = {&g.a_stage, &g.da, &ne};
+                ok &= launch_s(
+                    g_f_conv_bf16,
+                    static_cast<unsigned int>(
+                        (a_elems + kConvThreads - 1) / kConvThreads),
+                    1, static_cast<unsigned int>(kConvThreads), 1, 0, cp,
+                    s);
+            }
+            int mi = static_cast<int>(m), ki = static_cast<int>(k),
+                ni = static_cast<int>(n);
+            if (skinny) {
+                int ksi = static_cast<int>(kGemvKSplit);
+                int kci = static_cast<int>(
+                    (k + kGemvKSplit - 1) / kGemvKSplit);
+                void* pp[] = {&g.da, &g.db, &g.part, &mi, &ki, &ni,
+                              &ksi, &kci};
+                ok &= launch_s(
+                    g_f_gemv_bf16,
+                    static_cast<unsigned int>(
+                        (n + kGemvThreads - 1) / kGemvThreads),
+                    static_cast<unsigned int>(ksi),
+                    static_cast<unsigned int>(kGemvThreads), 1, 0, pp,
+                    s);
+                void* rp[] = {&g.part, &g.dc, &mi, &ni, &ksi};
+                ok &= launch_s(
+                    g_f_gemv_reduce,
+                    static_cast<unsigned int>(
+                        (n + kGemvThreads - 1) / kGemvThreads),
+                    1, static_cast<unsigned int>(kGemvThreads), 1, 0, rp,
+                    s);
+            } else {
+                void* pp[] = {&g.da, &g.db, &g.dc, &mi, &ki, &ni};
+                ok &= launch_s(
+                    g_f_gemm_bf16,
+                    static_cast<unsigned int>((n + 15) / 16),
+                    static_cast<unsigned int>((m + 15) / 16), 16, 16, 0,
+                    pp, s);
+            }
+            ok &= g_drv.memcpy_dtoh_async(g.c_host, g.dc, cb, s) ==
+                  kCudaSuccess;
+            ok &= g_drv.stream_end_capture(s, &graph) == kCudaSuccess &&
+                  graph != nullptr;
+        }
+        if (ok) {
+            ok = g_drv.graph_instantiate(&g.exec, graph,
+                                         0ull) == kCudaSuccess &&
+                 g.exec != nullptr;
+            g_drv.graph_destroy(graph);
+        }
+        if (!ok) {
+            graph_entry_release(g);
+            return -1;
+        }
+        g_bf16_graphs.push_back(g);
+        e = &g_bf16_graphs.back();
+    }
+
+    // Replay: stage A into the pinned buffer the captured H2D node
+    // reads, launch the whole unit as one graph, sync the lane.
+    std::memcpy(e->a_host, a, ab);
+    const CUstream_t s = decode_stream();
+    if (g_drv.graph_launch(e->exec, s) != kCudaSuccess) return 3;
+    if (g_drv.stream_sync(s) != kCudaSuccess) return 3;
+    for (long long i = 0; i < c_elems; ++i)
+        out[i] = static_cast<double>(e->c_host[static_cast<size_t>(i)]);
+    mp::mgr().h2d_bytes += static_cast<int64_t>(ab);
+    mp::mgr().d2h_bytes += static_cast<int64_t>(cb);
+    return 0;
+}
 
 // Shared GEMM body: a (host f64) x db (device bf16) → out (host f64).
 int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
              long long n, double* out) {
+    if (graph_wanted()) {
+        const int gr = run_bf16_graph(a, m, k, db, n, out);
+        if (gr >= 0) return gr;
+    }
     const long long a_elems = m * k;
     const long long c_elems = m * n;
     int rc = 3;
@@ -1101,6 +1327,16 @@ int xcuda_bf16_kernel_probe() {
     return device_ready() && ensure_module() ? 1 : 0;
 }
 
+// §37 DecodeCudaGraph switch: governed opt-in — env
+// XINGCHENG_CPP_CUDA_GRAPH for production admission, or this call for
+// the certification probe. Same role as xengine_cuda_lane: a test hook,
+// never a second admission path. state() reports live graph count.
+void xcuda_graph_enable(int on) { g_graph_flag = on != 0 ? 1 : 0; }
+int xcuda_graph_state() {
+    std::lock_guard<std::mutex> lk(g_bf16_mu);
+    return static_cast<int>(g_bf16_graphs.size());
+}
+
 int xcuda_fp8_kernel_probe() {
     return device_ready() && ensure_module() ? 1 : 0;
 }
@@ -1186,6 +1422,8 @@ int xcuda_gpu_stats(unsigned* gpu_util_pct, unsigned* power_mw) {
 
 int xcuda_bf16_release_weights() {
     std::lock_guard<std::mutex> lk(g_bf16_mu);
+    for (auto& g : g_bf16_graphs) graph_entry_release(g);
+    g_bf16_graphs.clear();
     for (auto& kv : g_bf16_weights) dev_free(kv.second);
     g_bf16_weights.clear();
     dev_pool_release(g_bf16_a_stage);

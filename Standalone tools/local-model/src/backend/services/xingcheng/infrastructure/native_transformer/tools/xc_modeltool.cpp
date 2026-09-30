@@ -4000,6 +4000,7 @@ static const ModeEntry kModeRegistry[] = {
     // §58 BF16 production certification (FP64 oracle comparison).
     {"bf16-cert",             "PRECISION",  mode_bf16_cert},
     {"bf16-drift",            "PRECISION",  mode_bf16_drift},
+{"decode-graph-parity",   "CUDA",       mode_graph_parity},
     // §31-§35 blockwise quantization certification (§67 probe name is
     // blockwise-quant-probe; both resolve to the same lane).
     {"quant-cert",            "PRECISION",  mode_quant_cert},
@@ -4021,6 +4022,9 @@ static const ModeEntry kModeRegistry[] = {
     {"sparse-probe",          "CACHE",     mode_sparse_probe},
     {"kv-gather-probe",       "CACHE",     mode_kv_gather_probe},
     {"hw-caps",               "SCALE",     mode_hw_caps},
+    // Checkpoint-format convergence onto the canonical writer
+    // (byte-exact tensor table, zeroed MTP-stack block).
+    {"ckpt-converge",         "MODEL",     mode_ckpt_converge},
 };
 
 static int mode_registry_emit() {

@@ -22,6 +22,8 @@ int xcuda_matmul_bf16(const double* a, long long m, long long k,
 int xcuda_release_weights();
 void xengine_cuda_lane(int cuda_requested, int bf16_requested);
 int xengine_cuda_lane_state();
+void xcuda_graph_enable(int on);
+int xcuda_graph_state();
 }
 
 static void bf16cert_oracle(const std::vector<double>& a,
@@ -265,6 +267,81 @@ int mode_bf16_drift(const Args& a) {
         }
     } catch (const std::exception& ex) {
         w.kv("error", ex.what()).kv("verdict", "BF16_E2E_ERROR")
+         .kv("ok", false);
+    }
+    w.end();
+    emit_line(w.str());
+    return 0;
+}
+
+// ---------------- (section)37 decode-graph parity: replay vs sync lane --
+// The captured graph replays the same kernels in the same order on the
+// same weights — output must be bit-identical to the synchronous path;
+// any divergence is an enqueue bug, not numeric drift. Evidence for
+// f-cuda-graph-decode; admission stays env-gated.
+int mode_graph_parity(const Args& a) {
+    const std::string bundle = a.get("bundle", "");
+    const int prefill = (int)a.num_arg("--prefill", 64);
+    const int decode = (int)a.num_arg("--decode", 32);
+    const int64_t seed = a.num_arg("--seed", 7);
+    JsonWriter w;
+    w.begin().kv("schema", "star-decode-graph-parity/v1")
+            .kv("bundle", bundle).kv("prefill", prefill)
+            .kv("decode", decode).kv("seed", seed);
+    if (bundle.empty()) {
+        w.kv("verdict", "NO_BUNDLE").kv("ok", false).end();
+        emit_line(w.str());
+        return 0;
+    }
+    try {
+        NativeInferenceEngine e;
+        e.load(bundle);
+        std::vector<int64_t> ids(static_cast<size_t>(prefill));
+        for (int i = 0; i < prefill; ++i)
+            ids[static_cast<size_t>(i)] = seed + i;
+
+        SamplingConfig sc;
+        sc.temperature = 0.0;
+        std::vector<double> ln, lg;
+        std::vector<int64_t> gn, gg;
+        std::string errn, errg;
+
+        xengine_cuda_lane(1, 1);          // bf16 lane, graph off
+        xcuda_graph_enable(0);
+        try { ln = e.logits(ids); gn = e.generate(ids, decode, sc); }
+        catch (const std::exception& ex) { errn = ex.what(); }
+
+        xcuda_graph_enable(1);            // same lane, graph replay
+        try { lg = e.logits(ids); gg = e.generate(ids, decode, sc); }
+        catch (const std::exception& ex) { errg = ex.what(); }
+        xcuda_graph_enable(0);
+        xengine_cuda_lane(0, 0);
+
+        const int graphs = xcuda_graph_state();
+        w.kv("plain_lane_ok", errn.empty())
+         .kv("graph_lane_ok", errg.empty())
+         .kv("graphs_captured", graphs);
+        if (!errn.empty()) w.kv("plain_error", errn);
+        if (!errg.empty()) w.kv("graph_error", errg);
+        if (errn.empty() && errg.empty() && ln.size() == lg.size()) {
+            bool bit = true;
+            for (size_t i = 0; i < ln.size(); ++i)
+                bit = bit && ln[i] == lg[i];
+            const bool gen_same = gn == gg;
+            bool finite = true;
+            for (double v : lg) finite = finite && std::isfinite(v);
+            w.kv("logits_bit_identical", bit)
+             .kv("gen_identical", gen_same)
+             .kv("logits_finite", finite);
+            const bool pass = bit && gen_same && finite && graphs > 0;
+            w.kv("verdict",
+                 pass ? "GRAPH_DECODE_PARITY" : "GRAPH_DECODE_DRIFT")
+             .kv("ok", true);
+        } else {
+            w.kv("verdict", "GRAPH_LANE_UNAVAILABLE").kv("ok", true);
+        }
+    } catch (const std::exception& ex) {
+        w.kv("error", ex.what()).kv("verdict", "GRAPH_PARITY_ERROR")
          .kv("ok", false);
     }
     w.end();
