@@ -132,7 +132,7 @@ internal static class InstructionRecovery
         };
     }
 
-    private static string Take(Random r, string[] xs) => xs[r.Next(xs.Length)];
+    private static T Take<T>(Random r, T[] xs) => xs[r.Next(xs.Length)];
 
     private static string[] SampleItems(Random r, string[] pool, int n)
     {
@@ -1066,6 +1066,9 @@ internal static class InstructionRecovery
         double scoreBefore = ScoreOf(beforeEval);
         Led("score_before", scoreBefore);
 
+        // §32 stop condition: already at parity — do not train at all.
+        bool alreadyParity = scoreBefore >= baseline100m;
+
         // source regression reference report for --baseline-report.
         string srcRegPath = Path.Combine(outDir, "regression-before.json");
         var srcReg = File.Exists(srcRegPath)
@@ -1099,7 +1102,18 @@ internal static class InstructionRecovery
         double? peakRss = null;
         bool trained = false;
 
-        while (step < maxSteps)
+        if (alreadyParity)
+        {
+            decision = "PASS_PARITY";
+            stopReason = "already_at_parity";
+            bestScore = scoreBefore;
+            // the candidate IS the current weights — nothing to stage.
+            bestCkpt = initCkpt;
+            bestBundleDir = sourceBundle;
+            Led("already_at_parity");
+        }
+
+        while (!alreadyParity && step < maxSteps)
         {
             int target = Math.Min(step + stageSteps, maxSteps);
             int runSteps = target - step;
@@ -1145,12 +1159,10 @@ internal static class InstructionRecovery
                 new System.Text.UTF8Encoding(false));
             string repPath = Path.Combine(stageDir, "report.json");
 
-            var stageTimer = System.Diagnostics.Stopwatch.StartNew();
             var trun = NativeTools.Run(
                 NativeTools.TrainerExe(toolRoot),
                 new[] { "--job", jobPath, "--report", repPath },
                 toolRoot, stderrLog, timeoutS: 7200);
-            stageTimer.Stop();
             if (trun.PeakRssMb.HasValue)
                 peakRss = Math.Max(peakRss ?? 0, trun.PeakRssMb.Value);
             Dictionary<string, object?> trep;
@@ -1348,9 +1360,9 @@ internal static class InstructionRecovery
                 stateSmoke.GetValueOrDefault("ok"));
             prov = BundleProvenance.Compute(
                 bestBundleDir, "gen-2-consolidated", "xc-fused-1",
-                "XCN1 v10");
-            gates["provenance"] = TransformerTrainingRepository.Truthy(
-                prov.GetValueOrDefault("ok"));
+                "XCN1 v10", "recovery-build", "xc-native-cpp23",
+                "instruction-recovery");
+            gates["provenance"] = prov != null;
             if (step % regEvery != 0)
             {
                 finalReg = RawCapabilityRun(

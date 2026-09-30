@@ -2339,18 +2339,22 @@ int mode_capability(const Args& a) {
                 // count non-empty lines matching optional `line_pattern`;
                 // pass iff count == expected (exact-count instructions).
                 int64_t want = (int64_t)xct::j_num(&item, "expected", -1);
+                int64_t totalWant =
+                    (int64_t)xct::j_num(&item, "total_lines", -1);
                 std::string lp = jget_str(item, "line_pattern");
-                int64_t cnt = 0;
+                int64_t cnt = 0, total = 0;
                 std::istringstream iss(reply);
                 std::string line;
                 while (std::getline(iss, line)) {
                     std::string t = py_strip(line);
                     if (t.empty()) continue;
+                    ++total;
                     if (!lp.empty() &&
                         !std::regex_search(t, std::regex(lp))) continue;
                     ++cnt;
                 }
-                pass = want >= 0 && cnt == want;
+                pass = want >= 0 && cnt == want &&
+                       (totalWant < 0 || total == totalWant);
             } else if (kind == "json_valid") {
                 // structural JSON gate: reply (optionally fenced) must parse
                 // as an object carrying `required_fields`; `exact_fields`
