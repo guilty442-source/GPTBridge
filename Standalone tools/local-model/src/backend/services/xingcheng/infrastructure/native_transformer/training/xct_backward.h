@@ -7,10 +7,16 @@
 static void mtp_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o, float aux_scale,
                     std::vector<float>& dh);
+// v29 MTP stack — defined in xct_mtp.h (included after this header)
+static void mtp_stack_bwd(Params& p, const ModelConfig& c,
+                        const std::vector<int>& ids, Fwd& o,
+                        const std::vector<std::vector<float>>& dmtp,
+                        float* dh_main);
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale,
-                const std::vector<float>* vision = nullptr) {
+                const std::vector<float>* vision = nullptr,
+                const std::vector<std::vector<float>>* dmtp = nullptr) {
     if (c.is_gemma4()) {
         (void)aux_scale;
         (void)vision;
@@ -49,6 +55,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     // embed and the trunk hidden states (dh rows over text positions).
     // aux_scale==0 (DPO) keeps MTP out of the preference gradient.
     mtp_bwd(p, c, ids, o, aux_scale, dh);
+    // v29 MTP stack: folds its dh contribution onto the trunk hidden rows
+    // (post-final-norm input) before the norm_f backward, and accumulates
+    // the shared embed/lm_head + mtp.* parameter grads.
+    if (dmtp != nullptr && !dmtp->empty() && c.mtp_depth > 0)
+        mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data());
     std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx_fin.data(), p.g["norm_f"].d.data(), T, H);

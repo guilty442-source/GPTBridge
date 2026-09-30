@@ -425,6 +425,28 @@ struct MtpCache {
     float loss = 0.0f;               // lambda-weighted CE contribution
 };
 
+// v29 MTP stack caches (Qwen3.8-Max multi-token prediction). Depth-d
+// module reads prev-hidden rows at text positions t and embeds of
+// ids[t+d+1], predicts ids[t+d+2]; rows = PT-2-d (text positions only —
+// vision prefix rows never reach the MTP stack). Independent of the
+// DeepSeek depth-1 module above; gated by ModelConfig::mtp_depth.
+struct MtpStackCache {
+    int rows = 0;
+    std::vector<float> eh_in, ee_in;   // [R,H] pre-norm fusion inputs
+    std::vector<float> eh_rms, ee_rms; // [R]
+    std::vector<float> cat;            // [R,2H] normed concat (proj input)
+    std::vector<float> u;              // [R,H] fusion proj output
+    std::vector<float> n1, rms1;       // block norm1
+    std::vector<float> q, k, v;        // [R,Hq],[R,Hkv],[R,Hkv] post-rope
+    std::vector<float> probs;          // [heads*R*R]
+    std::vector<float> attn_out;       // [R,Hq]
+    std::vector<float> x1;             // [R,H] post-attn residual
+    std::vector<float> n2, rms2, fa, fb, fh;  // block norm2 + SwiGLU
+    std::vector<float> x2;             // [R,H] block output (next-depth in)
+    std::vector<float> hn, hrms;       // norm_o(x2)
+    std::vector<float> logits;         // [R,V] shared lm_head
+};
+
 struct Fwd {
     std::vector<float> logits;   // [T,V] post-softcap
     std::vector<float> logits_pre;   // [T,V] pre-softcap (bwd jacobian)
@@ -440,6 +462,7 @@ struct Fwd {
     float moe_zloss = 0.0f;      // v29 router z-loss (B133)
     float csa_idx = 0.0f;        // CSA2 indexer alignment CE (aux)
     MtpCache mtp;                    // DeepSeek MTP module caches
+    std::vector<MtpStackCache> mtp_stack;   // v29 MTP stack head caches
     // Vision early-fusion: raw prefix patches + count. T (all row counts
     // above) includes these P rows when present; labels carry -100 there.
     std::vector<float> vision_in;  // [P*D]
@@ -450,6 +473,18 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                    const std::vector<int>& ids, Fwd& o);
 static void mtp_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o);
+// v29 MTP stack lives in xct_mtp.h (included last); xct_job.h and
+// xct_backward.h call the aux-loss/backward entry points, so they need
+// forward declarations here.
+static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
+                          const std::vector<int>& ids, Fwd& o);
+static float mtp_stack_aux_loss(const ModelConfig& c,
+                                const std::vector<int>& ids, const Fwd& fw,
+                                std::vector<std::vector<float>>& dmtp);
+static void mtp_stack_bwd(Params& p, const ModelConfig& c,
+                          const std::vector<int>& ids, Fwd& o,
+                          const std::vector<std::vector<float>>& dm,
+                          float* dh_main);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,
@@ -1275,6 +1310,8 @@ static void fwd(const Params& p, const ModelConfig& c,
         });
     }
     if (c.mtp_num_layers > 0) mtp_fwd(p, c, ids, o);
+    // v29 MTP stack: consumes the trunk hidden rows (post final norm).
+    mtp_stack_fwd(p, c, ids, o);
 }
 
 // ------------------------------------------------------ DeepSeek MTP -----

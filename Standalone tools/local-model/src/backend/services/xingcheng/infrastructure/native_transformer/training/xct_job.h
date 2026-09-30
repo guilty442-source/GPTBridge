@@ -230,6 +230,7 @@ static JsonValue run_job(const JsonValue& job) {
     Fwd fw;
     std::vector<float> dlogits;
     float mtp_last = 0.0f;
+    float mtp_stack_last = 0.0f;
     int64_t grpo_rollouts = 0;
     double grpo_reward_sum = 0.0, grpo_kl_sum = 0.0;
 
@@ -394,7 +395,10 @@ static JsonValue run_job(const JsonValue& job) {
                            + fw.moe_aux + fw.moe_zloss + fw.csa_idx
                            + fw.mtp.loss;
                     mtp_last = fw.mtp.loss;
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision);
+                    std::vector<std::vector<float>> dmtp;
+                    loss += mtp_stack_last =
+                        mtp_stack_aux_loss(c, ex.ids, fw, dmtp);
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, &ex.vision, &dmtp);
                 } else {
                     fwd(p, c, ex.ids, fw);
                     lb_bias_step(p, c, fw);
@@ -402,7 +406,10 @@ static JsonValue run_job(const JsonValue& job) {
                            + fw.moe_aux + fw.moe_zloss + fw.csa_idx
                            + fw.mtp.loss;
                     mtp_last = fw.mtp.loss;
-                    bwd(p, c, ex.ids, fw, dlogits, 1.0f);
+                    std::vector<std::vector<float>> dmtp;
+                    loss += mtp_stack_last =
+                        mtp_stack_aux_loss(c, ex.ids, fw, dmtp);
+                    bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
             }
             // grad clip (global norm)
@@ -476,6 +483,8 @@ static JsonValue run_job(const JsonValue& job) {
         put("csa_idx_last", num(fw.csa_idx));
     // DeepSeek MTP observability: weighted aux CE of the last example.
     if (c.mtp_num_layers > 0) put("mtp_loss_last", num(mtp_last));
+    // v29 MTP stack observability: weighted aux CE of the last example.
+    if (c.mtp_depth > 0) put("mtp_stack_loss_last", num(mtp_stack_last));
     if (task == "grpo") {
         put("rollouts", num((double)grpo_rollouts));
         const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;

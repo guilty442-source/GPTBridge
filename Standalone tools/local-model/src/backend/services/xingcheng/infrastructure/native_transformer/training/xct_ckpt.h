@@ -39,7 +39,8 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // floats, layer_types + hidden_act strings) — gemma4 only.
     // v1..v8 checkpoints still load: absent fields default to the
     // Qwen-style fused behaviour.
-    const uint32_t ver = c.is_gemma4() ? 9 : 8;
+    const uint32_t ver =
+        c.mtp_depth > 0 ? 10 : (c.is_gemma4() ? 9 : 8);
     f.write("XCN1", 4); u32(f, ver);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);
@@ -85,9 +86,10 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     f.write((char*)&c.yarn_beta_fast, 4);
     f.write((char*)&c.yarn_beta_slow, 4);
     f.write((char*)&c.yarn_attn_factor, 4);
-    // XCN9 Gemma4 block — only for gemma4 configs.
+    // XCN9 Gemma4 block — marker is always written at ver >= 9 so a
+    // non-gemma4 XCN10 file stays unambiguous (marker 0, no g4 fields).
     if (ver >= 9) {
-        u32(f, 1);                                   // gemma4 marker
+        u32(f, c.is_gemma4() ? 1u : 0u);             // gemma4 marker
         u32(f, (uint32_t)c.head_dim);
         u32(f, (uint32_t)c.global_head_dim);
         u32(f, (uint32_t)c.sliding_window);

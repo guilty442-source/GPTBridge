@@ -148,6 +148,12 @@ struct ModelConfig {
                                  // (t+1))] through one decoder block and
                                  // the shared head; loss weight below.
     float mtp_loss_weight = 0.0f;      // lambda on the MTP CE (V3: 0.3)
+    // v29 Qwen3.8-Max MTP stack (default-off; independent of the depth-1
+    // module above): mtp_depth chained fusion modules, depth d reads the
+    // previous stream plus Emb(ids[t+d+1]) and predicts ids[t+d+2];
+    // mtp_loss_w weights the shared-head aux CE. Params: mtp.{d}.*.
+    int mtp_depth = 0;
+    float mtp_loss_w = 0.0f;
     // Qwen3-Coder-480B YaRN context extension (default-off): per-channel
     // blend of raw and factor-interpolated rope inv-freqs (beta_fast /
     // beta_slow band boundaries) plus attention-factor mscale. Enabled
@@ -417,6 +423,9 @@ static ModelConfig parse_model(const JsonValue* o) {
                              c.mtp_num_layers);
     c.mtp_loss_weight =
         (float)j_num(o, "mtp_loss_weight", c.mtp_loss_weight);
+    c.mtp_depth = j_int(o, "mtp_stack_depth", c.mtp_depth);
+    c.mtp_loss_w =
+        (float)j_num(o, "mtp_stack_loss_weight", c.mtp_loss_w);
     // Qwen3-Coder YaRN (rope_scaling.yarn flattened).
     c.yarn_factor = (float)j_num(o, "yarn_factor", c.yarn_factor);
     c.yarn_orig_pos = j_int(o, "yarn_original_max_position_embeddings",
@@ -521,6 +530,10 @@ static ModelConfig parse_model(const JsonValue* o) {
         throw "model: MLA dims need kv_lora_rank";
     if (c.moe_auxfree_balance && c.moe_lb_bias_rate < 0.0f)
         throw "model: bad moe_lb_bias_rate";
+    if (c.mtp_depth < 0 || c.mtp_depth > 8)
+        throw "model: bad mtp_stack_depth";
+    if (c.mtp_depth > 0 && c.mtp_loss_w <= 0.0f)
+        throw "model: mtp stack needs mtp_stack_loss_weight";
     if (c.mtp_num_layers < 0 || c.mtp_num_layers > 1)
         throw "model: mtp_num_layers >1 not supported";
     if (c.mtp_num_layers > 0 && c.mtp_loss_weight <= 0.0f)
@@ -797,6 +810,28 @@ static void init_params(Params& p, const ModelConfig& c, uint64_t seed) {
         fill(p.add("mtp.w3", {c.inter, c.hidden}));
         fill(p.add("mtp.w2", {c.hidden, c.inter}));
         one("norm_out");
+    }
+    for (int d = 0; d < c.mtp_depth; ++d) {
+        // v29 MTP stack module d: rmsnorm fusion [h|emb] -> proj (2H->H)
+        // -> one decoder block -> norm_o -> shared lm_head.
+        const int kvh = std::max(1, c.kv_heads);
+        const std::string b = "mtp." + std::to_string(d) + ".";
+        auto one = [&](const char* s) {
+            auto& t = p.add(b + s, {c.hidden});
+            std::fill(t.d.begin(), t.d.end(), 1.0f);
+        };
+        one("eh"); one("et");
+        fill(p.add(b + "proj", {c.hidden, (int64_t)c.hidden * 2}));
+        one("norm1");
+        fill(p.add(b + "wq", {(int64_t)c.heads * hd, c.hidden}));
+        fill(p.add(b + "wk", {(int64_t)kvh * hd, c.hidden}));
+        fill(p.add(b + "wv", {(int64_t)kvh * hd, c.hidden}));
+        fill(p.add(b + "wo", {c.hidden, (int64_t)c.heads * hd}));
+        one("norm2");
+        fill(p.add(b + "w1", {c.inter, c.hidden}));
+        fill(p.add(b + "w3", {c.inter, c.hidden}));
+        fill(p.add(b + "w2", {c.hidden, c.inter}));
+        one("norm_o");
     }
     p.alloc_adam();
 }
