@@ -299,10 +299,10 @@ internal sealed class TrainingJobExecutor
         return map;
     }
 
-    /// <summary>Read the XCN1..XCN4 header into a trainer ``model``
+    /// <summary>Read the XCN1..XCN5 header into a trainer ``model``
     /// config dict (XCN2 MoE widths, XCN3 hybrid-attention geometry,
-    /// XCN4 vision early-fusion block — field names match
-    /// ``xct_util.parse_model``).</summary>
+    /// XCN4 vision early-fusion block, XCN5 Gemma A4B axis — field names
+    /// match ``xct_util.parse_model``).</summary>
     private static Dictionary<string, object?> XcnConfig(string ckptPath)
     {
         using var f = new FileStream(ckptPath, FileMode.Open, FileAccess.Read);
@@ -312,7 +312,7 @@ internal sealed class TrainingJobExecutor
             magic[0] != 'X' || magic[1] != 'C' || magic[2] != 'N' || magic[3] != '1')
             throw new ExecutorError("EXECUTOR_CKPT_BAD_MAGIC", ckptPath);
         uint ver = r.ReadUInt32();
-        if (ver < 1 || ver > 4)
+        if (ver < 1 || ver > 5)
             throw new ExecutorError("EXECUTOR_CKPT_VERSION", $"v{ver}");
         uint vocab = r.ReadUInt32();
         uint hidden = r.ReadUInt32();
@@ -368,6 +368,25 @@ internal sealed class TrainingJobExecutor
             cfg["use_vision"] = r.ReadUInt32() != 0u;
             cfg["vision_patch_dim"] = (long)r.ReadUInt32();
             cfg["vision_max_patches"] = (long)r.ReadUInt32();
+        }
+        if (ver >= 5)
+        {
+            // XCN5 Gemma A4B block (see xct_ckpt.h write order):
+            // global_attention_interval, sliding_window, num_global_kv_heads,
+            // flag bits, rope proportions/base frequencies, softcap.
+            cfg["global_attention_interval"] = (long)r.ReadUInt32();
+            cfg["sliding_window_size"] = (long)r.ReadUInt32();
+            cfg["num_global_kv_heads"] = (long)r.ReadUInt32();
+            uint gflags = r.ReadUInt32();
+            cfg["k_eq_v_global"] = (gflags & 1u) != 0;
+            cfg["use_post_attn_norm"] = (gflags & 2u) != 0;
+            cfg["use_post_ffw_norm"] = (gflags & 4u) != 0;
+            if ((gflags & 8u) != 0) cfg["ffn_activation"] = "gelu_tanh";
+            cfg["local_rope_proportion"] = (double)r.ReadSingle();
+            cfg["global_rope_proportion"] = (double)r.ReadSingle();
+            cfg["local_base_frequency"] = (double)r.ReadSingle();
+            cfg["global_base_frequency"] = (double)r.ReadSingle();
+            cfg["final_logit_softcap"] = (double)r.ReadSingle();
         }
         return cfg;
     }
