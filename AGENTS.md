@@ -467,6 +467,62 @@ Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
 `AxisChecks.cs`；feature registry 的 `primary_axis` 由
 `FeatureCatalog.FeatureDict` 經 taxonomy `Classify` 派生。
 
+## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
+
+同一 **HybridCausalDecoder** 提供兩條能力路徑 —— System-1 不是第二顆
+模型，是用同一 weights / tokenizer / prefix cache 的**決策層**：
+
+- **SYSTEM_1 fast path**：prefill → `NativeSystemOneHead` →
+  `star-typed-decision/v1`（BOOLEAN / CHOICE / ORDINAL_SCORE /
+  CONFIDENCE）→ DONE，**永不進 autoregressive decode**
+  （`decode_tokens = 0`）。第一批只服務 RAG_REQUIRED / TOOL_REQUIRED /
+  TOOL_CLASS / CONTINUE_STOP 等已驗證域；未驗證域 fail-closed
+  `SYSTEM1_DOMAIN_UNCERTIFIED`。
+- **Calibration**：softmax 機率不等於信心 —
+  `DecisionCalibrationLayer`（temperature + per-option-count），
+  `star-decision-calibration/v1` 報 ECE/Brier/NLL/histogram；
+  `calibrated_confidence` 低於門檻 → `ABSTAIN` → fallback SYSTEM_2。
+- **Head artifact**：`decision-head.bin`（`star-system1-head/v1`）
+  綁定 model_hash + generation + hidden_size；不相容 → fallback，
+  主模型永遠能啟動。本階段**不**升 XCN11。
+- **Decision trace**：每次 fast decision 寫
+  `xingcheng/runtime/logs/decision-trace.jsonl`（probabilities /
+  confidence / latency / model hash / generation）。
+- **MiMo router stability**：`RouterStabilityPolicy` —
+  PRETRAIN=TRAINABLE、SFT/BASELINE_RECOVERY=GOVERNED、
+  LARGE_AGENT_RL=**FROZEN_BY_DEFAULT**（RL 不許漂移 routing
+  distribution）；`RouterStabilityGate` 監 entropy/utilization/
+  drift，超限 `ROUTER_DRIFT_EXCEEDED`。
+- **Agent learning（schema-only，RL 未解凍）**：
+  `star-agent-trajectory/v1` 是唯一 trajectory schema；
+  `HarnessRegistry` 多 harness + seen/unseen → `HARNESS_OVERFIT`；
+  `GroupwiseTrajectoryEvaluator` 先排 incorrect 再比
+  cost/path；`RewardIntegrityGate` grader→verifier→consistency→
+  adversarial，單一 grader 永不直接定 reward
+  （`REWARD_VERIFIER_MISMATCH` / `REWARD_SUSPECT`）。
+- **MTP**：`NativeMtpDrafter` = RUNTIME_OPTIMIZATION +
+  TRAINING auxiliary，非第二核心；drafter 可用更激進 precision
+  （main verify 保證語意）；speedup ≤ 0 自動關閉。
+- **RL 解凍順序**（§33）：100M capability parity → System-1
+  supervised calibration → trajectory collection → self-correction
+  SFT → DPO → bounded GRPO。目前只到 schema/evaluator。
+
+```powershell
+& $X --tool-root "Standalone tools\local-model" --system1-checks     # §44 電池
+& $X --tool-root "Standalone tools\local-model" --typed-decision-validate --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --cognition-route --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --router-stability --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --trajectory-validate --file <f.json>
+& $X --tool-root "Standalone tools\local-model" --reward-gate --file <f.json>
+```
+
+Implementation: `GPTBridge.XingchengLearning/SystemOne.cs`
+（typed decision / calibration / abstention / cognition router /
+trace / head binding）、`AgentLearning.cs`（trajectory / harness /
+groupwise / reward integrity / self-correction）、
+`RouterStability.cs`（stage policy + drift gate）、
+`LayaMiMoChecks.cs`（20-check §44 battery）。
+
 ## 星澄 Data Residency (`xingcheng-internal`)
 
 > Human-governor directive 2026-09-28: 星澄資料只能保留在星澄內部。

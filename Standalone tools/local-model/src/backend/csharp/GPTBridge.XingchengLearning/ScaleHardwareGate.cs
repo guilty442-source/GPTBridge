@@ -263,7 +263,7 @@ internal static class ScaleHardwareGate
             // §26 training working set: peak, not full size.
             var ws = WorkingSet(el, weightBytes, actBytes,
                                 context, trainable);
-            long wsPeak = (long)(double)ws["peak_working_set_bytes"]!;
+            long wsPeak = (long)ws["peak_working_set_bytes"]!;
             ws["hardware_headroom_bytes"] =
                 residentBudget > 0 ? residentBudget - wsPeak : -1;
             bool trainFits = caps.VramBytes <= 0 ||
