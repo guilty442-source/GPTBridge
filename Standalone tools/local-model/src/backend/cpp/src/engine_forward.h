@@ -702,6 +702,27 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                 }
                 const double* q_head =
                     q_attn->data() + static_cast<size_t>(h * seq * cfg.head_dim);
+                if (dbg_fwd && layer_idx == 0 && h == 0) {
+                    uint64_t hh = 1469598103934665603ULL;
+                    for (int64_t t = 0; t < total_len; ++t) {
+                        const KvSrc& ks = k_srcs[static_cast<size_t>(t)];
+                        if (ks.q8 != nullptr) {
+                            for (int64_t d = 0; d < cfg.head_dim; ++d) {
+                                double x = ks.q8[d] * ks.scale;
+                                uint64_t u; std::memcpy(&u, &x, 8);
+                                hh ^= u; hh *= 1099511628211ULL;
+                            }
+                        } else {
+                            for (int64_t d = 0; d < cfg.head_dim; ++d) {
+                                uint64_t u; std::memcpy(&u, &ks.fp[d], 8);
+                                hh ^= u; hh *= 1099511628211ULL;
+                            }
+                        }
+                    }
+                    std::fprintf(stderr,
+                        "[dbg] L0 h0 deqK=%llx tl=%lld\n",
+                        (unsigned long long)hh, (long long)total_len);
+                }
                 for (int64_t s = 0; s < seq; ++s) {
                     const double* q_row = q_head + s * cfg.head_dim;
                     double* out = attn_flat.data() +
