@@ -147,6 +147,8 @@ static JsonValue run_job(const JsonValue& job) {
     bool deadline_hit = false;
     Fwd fw;
     std::vector<float> dlogits;
+    int64_t grpo_rollouts = 0;
+    double grpo_reward_sum = 0.0, grpo_kl_sum = 0.0;
 
     while (step < tc.max_steps) {
         for (auto& ex : data) {
@@ -360,6 +362,12 @@ static JsonValue run_job(const JsonValue& job) {
         for (size_t i = st; i < losses.size(); ++i) tail.array.push_back(num(losses[i]));
         put("loss_tail", tail);
     }
+    if (task == "grpo") {
+        put("rollouts", num((double)grpo_rollouts));
+        const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;
+        put("reward_mean", num(grpo_reward_sum / seen));
+        put("kl_mean", num(grpo_kl_sum / seen));
+    }
     put("elapsed_s", num(now_s() - t0));
     return r;
 }
@@ -445,6 +453,49 @@ static int smoke() {
                 g0, g1, (int)r4.get("params_finite")->boolean,
                 ok4 ? "PASS" : "FAIL");
     ok = ok && ok4;
+
+    // GRPO leg (Native Thinking RL): 4 prompts with gold completions,
+    // group_size=4 on-policy rollouts, prefix reward, KL-to-ref step.
+    // Asserts the lane runs end-to-end with finite params/loss and a
+    // recorded reward signal.
+    std::string jobg = R"({
+        "task":"grpo",
+        "model":{"vocab_size":64,"hidden_size":32,"intermediate_size":64,
+                 "num_hidden_layers":2,"num_attention_heads":4,
+                 "num_key_value_heads":2,"max_position_embeddings":48},
+        "train":{"lr":0.01,"max_steps":6,"grad_clip":1.0,"seed":7,
+                 "lr_decay":"constant","group_size":4,"max_new_tokens":6,
+                 "temperature":1.2,"kl_coef":0.02,"reward":"prefix"},
+        "data":{"path":"","format":"grpo","max_rows":4,"max_len":16}
+    })";
+    {
+        std::ofstream f(tmp, std::ios::trunc);
+        std::mt19937 rng(11);
+        std::uniform_int_distribution<int> tok(3, 63);
+        for (int i = 0; i < 4; ++i) {
+            f << "{\"prompt_ids\":[";
+            for (int t = 0; t < 4; ++t) f << (t ? "," : "") << tok(rng);
+            f << "],\"completion_ids\":[";
+            for (int t = 0; t < 6; ++t) f << (t ? "," : "") << tok(rng);
+            f << "]}\n";
+        }
+    }
+    std::string::size_type pg = jobg.find("\"path\":\"\"");
+    jobg.replace(pg, 9, "\"path\":\"" + tmp + "\"");
+    JsonValue jg = JsonParser(jobg).parse();
+    JsonValue rg = run_job(jg);
+    std::remove(tmp.c_str());
+    const bool okg = rg.get("params_finite")->boolean &&
+        rg.get("rollouts")->number > 0 &&
+        std::isfinite(rg.get("reward_mean")->number) &&
+        std::isfinite(rg.get("loss_last")->number);
+    std::printf("smoke-grpo: rollouts=%.0f reward_mean=%.4f loss_last=%.4f "
+                "finite=%d -> %s\n",
+                rg.get("rollouts")->number,
+                rg.get("reward_mean")->number,
+                rg.get("loss_last")->number,
+                (int)rg.get("params_finite")->boolean, okg ? "PASS" : "FAIL");
+    ok = ok && okg;
     std::fputs(gptbridge::jsonlite::json_serialize(r).c_str(), stdout);
     std::fputc('\n', stdout);
     return ok ? 0 : 1;
