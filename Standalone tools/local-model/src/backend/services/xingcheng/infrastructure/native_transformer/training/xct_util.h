@@ -644,9 +644,36 @@ static Tensor mk(std::initializer_list<int64_t> s) {
     return t;
 }
 
+// ParameterFreezeMap (300M §41-§43): a param whose name matches any
+// freeze pattern is training-frozen — it keeps its weight and gradient
+// slots (frozen params still participate in forward/backward so shared
+// compute is correct) but gets NO Adam moments (sparse optimizer: a
+// frozen parameter never allocates m/v) and is skipped by adamw_step.
+// Patterns support a trailing or leading '*' wildcard ("layers.0.",
+// "*.experts.", "embed"); exact names match too.
 struct Params {
     std::unordered_map<std::string, Tensor> w, g, m, v;
     std::vector<std::string> order;
+    std::vector<std::string> freeze_patterns;
+    std::unordered_set<std::string> frozen;   // resolved at alloc_adam
+
+    static bool pat_match(const std::string& pat,
+                          const std::string& n) {
+        if (pat.empty()) return false;
+        bool pre = pat.front() == '*', suf = pat.back() == '*';
+        std::string core = pat.substr(pre ? 1 : 0,
+            pat.size() - (pre ? 1 : 0) - (suf ? 1 : 0));
+        if (pre && suf) return n.find(core) != std::string::npos;
+        if (pre) return n.size() >= core.size() &&
+                  n.compare(n.size() - core.size(), core.size(), core) == 0;
+        if (suf) return n.compare(0, core.size(), core) == 0;
+        return n == pat;
+    }
+    bool is_frozen(const std::string& n) const {
+        for (const auto& pat : freeze_patterns)
+            if (pat_match(pat, n)) return true;
+        return false;
+    }
     Tensor& add(const std::string& n, std::initializer_list<int64_t> s) {
         w[n] = mk(s);
         g[n] = mk(s);
@@ -655,9 +682,20 @@ struct Params {
     }
     void alloc_adam() {
         for (auto& n : order) {
+            if (is_frozen(n)) { frozen.insert(n); continue; }
             m[n] = mk({}); m[n].shape = w[n].shape; m[n].d.assign(w[n].numel(), 0.0f);
             v[n] = m[n];
         }
+    }
+    int64_t trainable_params() const {
+        int64_t t = 0;
+        for (auto& n : order) if (!frozen.count(n)) t += w.at(n).numel();
+        return t;
+    }
+    int64_t frozen_params() const {
+        int64_t t = 0;
+        for (auto& n : order) if (frozen.count(n)) t += w.at(n).numel();
+        return t;
     }
     void zero_grad() {
         for (auto& n : order) std::fill(g[n].d.begin(), g[n].d.end(), 0.0f);

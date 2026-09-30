@@ -108,7 +108,17 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         // this guard decoupled weight decay would pull it to zero.
         if (n.size() >= 7 && n.compare(n.size() - 7, 7, "lb_bias") == 0)
             continue;
+        // §41 ParameterFreezeMap: frozen params own no Adam moments
+        // (sparse optimizer) and are never updated.
+        if (p.frozen.count(n)) continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
+        // §44 gradient sparsity: a param whose gradient is exactly zero
+        // (e.g. a routed expert no token selected this step) gets no
+        // gradient update AND no optimizer update — decoupled weight
+        // decay would otherwise silently shrink dormant experts.
+        bool nz = false;
+        for (float x : g.d) if (x != 0.0f) { nz = true; break; }
+        if (!nz) continue;
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
         tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
             float gi = g.d[(size_t)i] * gscale;
@@ -203,6 +213,14 @@ static JsonValue run_job(const JsonValue& job) {
     int max_len = j_int(dj, "max_len", c.max_pos);
 
     Params p;
+    // §41 ParameterFreezeMap: train.freeze = ["layers.*.experts.",
+    // "embed", ...] — resolved at alloc_adam inside init_params, so
+    // frozen params never allocate Adam moments (§43 sparse optimizer).
+    if (const JsonValue* fj = tj ? tj->get("freeze") : nullptr)
+        if (fj->type == JsonValue::Type::Array)
+            for (const auto& v : fj->array)
+                if (v.type == JsonValue::Type::String)
+                    p.freeze_patterns.push_back(v.string);
     init_params(p, c, tc.seed);
     ModelConfig file_cfg = c;
     if (!tc.init_ckpt.empty()) {
@@ -489,6 +507,29 @@ static JsonValue run_job(const JsonValue& job) {
     if (c.mtp_num_layers > 0) put("mtp_loss_last", num(mtp_last));
     // v29 MTP stack observability: weighted aux CE of the last example.
     if (c.mtp_depth > 0) put("mtp_stack_loss_last", num(mtp_stack_last));
+    // §45 parameter-efficiency metrics: trainable vs frozen counts and
+    // gain-per-million — the capability loop's comparison currency.
+    {
+        const int64_t trainable = p.trainable_params();
+        put("trainable_params", num((double)trainable));
+        put("frozen_params", num((double)p.frozen_params()));
+        if (!p.freeze_patterns.empty()) {
+            JsonValue fp; fp.type = JsonValue::Type::Array;
+            for (auto& s : p.freeze_patterns)
+                fp.array.push_back(str(s.c_str()));
+            put("freeze_patterns", fp);
+        }
+        if (!losses.empty() && trainable > 0)
+            put("gain_per_million_trainable_params",
+                num((losses.front() - losses.back()) /
+                    (trainable / 1e6)));
+        double el = now_s() - t0;
+        int64_t toks = 0;
+        for (auto& ex : data) toks += (int64_t)ex.ids.size();
+        if (el > 0 && step > 0)
+            put("tokens_per_sec", num(toks * (double)step /
+                (double)data.size() / el));
+    }
     if (task == "grpo") {
         put("rollouts", num((double)grpo_rollouts));
         const double seen = grpo_rollouts > 0 ? (double)grpo_rollouts : 1.0;

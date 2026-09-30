@@ -910,6 +910,14 @@ std::string xct_to_bundle(const std::string& n, bool g4 = false) {
         return base + m[1].str() + ".mlp.shared_experts." + m[2].str() + "." +
                w + "_proj.weight";
     }
+    // §22 MTP export: the speculative head is part of the XCN10
+    // contract — mtp.* tensors ride the bundle verbatim under
+    // model.mtp.* so a runtime drafter can bind them; silently dropping
+    // them orphans the trained draft head (the old DeepSeek-style
+    // discard is retired for canonical bundles).
+    if (std::regex_match(n, m,
+            std::regex(R"(^mtp\.([A-Za-z0-9_.]+)$)")))
+        return "model.mtp." + m[1].str() + ".weight";
     if (std::regex_match(n, m, std::regex(R"(^layers\.(\d+)\.w([123])$)"))) {
         const char* w = m[2].str() == "1" ? "gate"
                        : m[2].str() == "2" ? "down" : "up";
