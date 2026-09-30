@@ -234,19 +234,29 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         ++prefix_misses_;
     }
 
-    // Always forward at least the final prompt token so logits exist; on a
-    // full-prefix hit the recomputed K/V overwrite identical values.
-    int64_t forward_begin = prefix_len;
-    int64_t forward_offset = prefix_len;
-    if (forward_begin == static_cast<int64_t>(prompt_ids.size())) {
-        forward_begin -= 1;
-        forward_offset = prefix_len - 1;
-        kv_lens_[0] = forward_offset;
+    // Always forward at least the final prompt token so logits exist. On
+    // a full-prefix hit the snapshot carries those logits — replaying
+    // them keeps the restored KV verbatim (recomputing the boundary
+    // token would read the dequantized prefix under KV-INT8 and overwrite
+    // its K/V with ulp-drifted values, breaking bit-identical restore).
+    std::vector<double> next_logits;
+    const bool full_hit = hit_index != prefix_cache_.size() &&
+        prefix_len == static_cast<int64_t>(prompt_ids.size());
+    if (full_hit && !prefix_cache_[hit_index].logits.empty()) {
+        next_logits = prefix_cache_[hit_index].logits;
+    } else {
+        int64_t forward_begin = prefix_len;
+        int64_t forward_offset = prefix_len;
+        if (forward_begin == static_cast<int64_t>(prompt_ids.size())) {
+            forward_begin -= 1;
+            forward_offset = prefix_len - 1;
+            kv_lens_[0] = forward_offset;
+        }
+        std::vector<int64_t> suffix(
+            prompt_ids.begin() + forward_begin, prompt_ids.end());
+        next_logits =
+            forward_last_logits(suffix, forward_offset, true);
     }
-    std::vector<int64_t> suffix(
-        prompt_ids.begin() + forward_begin, prompt_ids.end());
-    std::vector<double> next_logits =
-        forward_last_logits(suffix, forward_offset, true);
 
     // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
     if (prefix_ok && prefix_cache_max_entries_ > 0 && kv_lens_[0] > 0) {
@@ -254,7 +264,9 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         const int64_t head_bytes = kv_elem_stride_bytes_;
         const int64_t entry_bytes =
             2 * cfg.num_hidden_layers * store_len *
-            cfg.num_key_value_heads * head_bytes;
+                cfg.num_key_value_heads * head_bytes +
+            static_cast<int64_t>(next_logits.size()) *
+                static_cast<int64_t>(sizeof(double));
         if (entry_bytes <= prefix_cache_max_bytes_) {
             auto existing = std::find_if(
                 prefix_cache_.begin(), prefix_cache_.end(),
@@ -267,7 +279,8 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                 int64_t total_bytes = entry_bytes;
                 for (const PrefixEntry& entry : prefix_cache_) {
                     total_bytes += static_cast<int64_t>(
-                        entry.k.size() + entry.v.size());
+                        entry.k.size() + entry.v.size() +
+                        entry.logits.size() * sizeof(double));
                 }
                 while (
                     (!prefix_cache_.empty() &&
@@ -281,7 +294,8 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                             return a.tick < b.tick;
                         });
                     total_bytes -= static_cast<int64_t>(
-                        oldest->k.size() + oldest->v.size());
+                        oldest->k.size() + oldest->v.size() +
+                        oldest->logits.size() * sizeof(double));
                     prefix_cache_.erase(oldest);
                 }
                 PrefixEntry entry;
@@ -315,6 +329,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
                         }
                     }
                 }
+                entry.logits = next_logits;
                 entry.tick = ++prefix_tick_;
                 prefix_cache_.push_back(std::move(entry));
             }

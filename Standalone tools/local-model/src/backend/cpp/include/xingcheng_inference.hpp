@@ -357,6 +357,12 @@ private:
         // snapshot would re-quantize under a slightly different scale.
         std::vector<char> k;
         std::vector<char> v;
+        // Post-prompt logits captured at snapshot time. On a full hit
+        // they are replayed instead of recomputing the boundary token —
+        // the recompute would read a dequantized prefix under KV-INT8,
+        // which is not bit-identical to the fp64 forward that produced
+        // the snapshot (and wastes a forward under fp64).
+        std::vector<double> logits;
         uint64_t tick = 0;
     };
 

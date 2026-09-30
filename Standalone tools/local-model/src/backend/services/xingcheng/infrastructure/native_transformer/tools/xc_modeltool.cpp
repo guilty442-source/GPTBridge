@@ -1501,7 +1501,8 @@ int mode_export_bundle(const Args& a) {
 
     // Pass 1: read XCN header -> config; then allocate + load.
     xct::ModelConfig c;
-    if (!xct::ckpt_peek_config(ckpt, c)) fail("EXPORT_CKPT_UNREADABLE");
+    if (!xct::ckpt_peek_config(ckpt, c))
+        fail("EXPORT_CKPT_UNREADABLE:" + ckpt);
     xct::Params p;
     xct::init_params(p, c, 0);
     if (!xct::ckpt_load(p, c, ckpt)) fail("EXPORT_CKPT_LOAD_FAILED");
