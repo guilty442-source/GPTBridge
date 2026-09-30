@@ -3256,6 +3256,7 @@ int mode_mtp_draft_probe(const Args& a) {
     if (ids.size() < 2) fail("SPEC_PROMPT_TOO_SHORT");
     if ((int64_t)ids.size() + max_new > c.max_position_embeddings)
         fail("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+    const std::vector<int64_t> prompt_ids = ids;
 
     auto embed_row = [&](int64_t id) -> const double* {
         return mtp.embed->data + (size_t)id * H;
@@ -3311,10 +3312,48 @@ int mode_mtp_draft_probe(const Args& a) {
         accept_log.push_back(verify == draft_tok ? 1 : 0);
         if (verify == draft_tok) ++accepted;
     }
+
+    // ---- P8 production-dispatch evidence -------------------------------
+    // engine.generate() on the same prompt under greedy sampling engages
+    // the bound NativeMtpDrafter inside decode_continue_spec. The
+    // independent reference is teacher-forced greedy replay via logits()
+    // — no KV cache, no drafter — so any wrong commit or stale rollback
+    // surfaces as a token mismatch.
+    engine.reset_mtp_stats();
+    std::vector<int64_t> spec_out;
+    try {
+        SamplingConfig sc;
+        sc.do_sample = false;
+        spec_out = engine.generate(prompt_ids, max_new, sc);
+    } catch (const std::exception& e) {
+        fail(std::string("MTP_DISPATCH_FAILED:") + e.what());
+    }
+    if (spec_out.size() > prompt_ids.size() &&
+        std::equal(prompt_ids.begin(), prompt_ids.end(),
+                   spec_out.begin())) {
+        spec_out.erase(spec_out.begin(),
+                       spec_out.begin() +
+                           (ptrdiff_t)prompt_ids.size());
+    }
+    const int64_t eng_proposed = engine.mtp_proposed();
+    const int64_t eng_accepted = engine.mtp_accepted();
+    const int64_t eng_forwards = engine.mtp_spec_forwards();
+    const bool eng_bound = engine.mtp_drafter_bound();
+    std::vector<int64_t> replay = prompt_ids;
+    bool eng_parity = true;
+    for (size_t i = 0; i < spec_out.size(); ++i) {
+        const std::vector<double> rlg = engine.logits(replay);
+        const int64_t g = argmax(rlg);
+        if (spec_out[i] != g) eng_parity = false;
+        replay.push_back(g);
+    }
+    const bool production = eng_bound && eng_proposed > 0;
     engine.unload();
 
     const double rate =
         proposed ? (double)accepted / (double)proposed : 0.0;
+    const double eng_rate =
+        eng_proposed ? (double)eng_accepted / (double)eng_proposed : 0.0;
     std::ostringstream log_arr;
     log_arr << '[';
     for (size_t i = 0; i < accept_log.size(); ++i) {
@@ -3335,15 +3374,25 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"mtp_kv_positions\":%lld,"
         "\"emitted_tokens\":%lld,"
         "\"accept_log\":%s,"
-        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE ??engine-side "
-        "NativeMtpDrafter dispatch is not bound; SPECULATIVE_"
-        "DECODER_DISABLED remains in effect for production\","
+        "\"production_dispatch\":%s,"
+        "\"drafter_bound\":%s,"
+        "\"engine_proposed\":%lld,\"engine_accepted\":%lld,"
+        "\"engine_spec_forwards\":%lld,"
+        "\"engine_acceptance_rate\":%.6f,"
+        "\"engine_output_parity\":%s,"
+        "\"speculative_decoder\":\"%s\","
         "\"speedup\":null}\n",
         mtp.bound_family ? mtp.bound_family : "none",
         (long long)proposed, (long long)accepted, rate,
         1.0 + rate, (long long)mtp.positions, (long long)emitted,
-        log_arr.str().c_str());
-    return 0;
+        log_arr.str().c_str(),
+        production ? "true" : "false",
+        eng_bound ? "true" : "false",
+        (long long)eng_proposed, (long long)eng_accepted,
+        (long long)eng_forwards, eng_rate,
+        eng_parity ? "true" : "false",
+        production ? "PRODUCTION_DISPATCH" : "DISPATCH_NOT_ENGAGED");
+    return eng_parity ? 0 : 3;
 }
 
 // ------------------------------------------------------------------ serve --

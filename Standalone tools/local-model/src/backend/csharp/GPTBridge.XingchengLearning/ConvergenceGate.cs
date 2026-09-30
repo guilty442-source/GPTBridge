@@ -346,51 +346,69 @@ internal static class ConvergenceGate
                     "final_output_parity", "True"))),
             new("mtp-draft-contract", true, () => NeedBundle(() =>
             {
-                // P3: the MTP draft probe is evidence-only. When the
-                // manifest declares an MTP head the probe must emit the
-                // star-mtp-draft-probe/v1 report (draft_length=1,
-                // verification-guaranteed output parity, speedup=null,
-                // SPECULATIVE_DECODER_DISABLED). When the bundle has no
-                // MTP contract the probe must reject with the canonical
-                // typed code — MTP_HEAD_MISSING / MTP_BUNDLE_MISMATCH —
-                // never a crash and never a silent pass.
+                // P3+P8: on an MTP-declaring bundle the probe must emit
+                // the star-mtp-draft-probe/v1 report AND show live
+                // engine-side dispatch — production_dispatch:true with
+                // engine_output_parity:true against teacher-forced
+                // greedy replay (draft_length=1, speedup stays null —
+                // no speedup claim without measurement). On a bundle
+                // with no MTP contract the probe must reject with the
+                // canonical typed code — MTP_HEAD_MISSING /
+                // MTP_BUNDLE_MISMATCH — never a crash, never silent.
+                // The P8 positive path is always exercised against the
+                // governed mtp-contract fixture bundle when present.
                 string log = Path.Combine(toolRoot,
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
                     "gate-stderr.log");
-                var r = NativeTools.Run(toolExe,
-                    new[] { "mtp-draft-probe", "--bundle", bundle!,
-                            "--prompt", "星澄 native draft probe",
-                            "--max-new", "4" },
-                    toolRoot, log, 300);
-                string tail = r.StdoutTail.Trim();
-                int clip(int n) => Math.Min(n, tail.Length);
-                if (BundleDeclaresMtp(bundle!))
+                int clip(string s, int n) => Math.Min(n, s.Length);
+                var check = (string b, bool expectContract) =>
                 {
+                    var r = NativeTools.Run(toolExe,
+                        new[] { "mtp-draft-probe", "--bundle", b,
+                                "--prompt", "星澄 native draft probe",
+                                "--max-new", "4" },
+                        toolRoot, log, 300);
+                    string tail = r.StdoutTail.Trim();
+                    if (!expectContract)
+                    {
+                        if (r.ExitCode == 0)
+                            return Fail("MTP_DRAFT_PROBE_UNEXPECTED_PASS",
+                                tail[..clip(tail, 200)]);
+                        return tail.Contains("MTP_HEAD_MISSING",
+                                   StringComparison.Ordinal) ||
+                               tail.Contains("MTP_BUNDLE_MISMATCH",
+                                   StringComparison.Ordinal)
+                            ? Pass("typed MTP rejection")
+                            : Fail("MTP_DRAFT_PROBE_UNTYPED",
+                                   tail[..clip(tail, 200)]);
+                    }
                     if (r.ExitCode != 0)
                         return Fail("MTP_DRAFT_PROBE_FAILED",
-                            tail[..clip(200)]);
+                            tail[..clip(tail, 200)]);
                     foreach (var req in new[]
                              { "star-mtp-draft-probe/v1",
                                "guaranteed_by_verification",
                                "\"speedup\":null",
-                               "SPECULATIVE_DECODER_DISABLED" })
+                               "\"production_dispatch\":true",
+                               "\"engine_output_parity\":true" })
                         if (!tail.Contains(req,
                                 StringComparison.Ordinal))
                             return Fail("MTP_DRAFT_PROBE_CONTRACT",
                                 $"missing '{req}' in "
-                                + tail[..clip(200)]);
-                    return Pass("draft-probe v1 evidence");
+                                + tail[..clip(tail, 200)]);
+                    return Pass("draft-probe v1 + production dispatch");
+                };
+                var pinned = check(bundle!, BundleDeclaresMtp(bundle!));
+                if (!pinned.Ok) return pinned;
+                string fixture = Path.Combine(toolRoot,
+                    "xingcheng", "runtime", "devin", "mtp-contract",
+                    "bundle");
+                if (Directory.Exists(fixture))
+                {
+                    var fx = check(fixture, true);
+                    if (!fx.Ok) return fx;
                 }
-                if (r.ExitCode == 0)
-                    return Fail("MTP_DRAFT_PROBE_UNEXPECTED_PASS",
-                        tail[..clip(200)]);
-                return tail.Contains("MTP_HEAD_MISSING",
-                           StringComparison.Ordinal) ||
-                       tail.Contains("MTP_BUNDLE_MISMATCH",
-                           StringComparison.Ordinal)
-                    ? Pass("typed MTP rejection")
-                    : Fail("MTP_DRAFT_PROBE_UNTYPED",
-                           tail[..clip(200)]);
+                return pinned;
             })),
             new("mixed-precision-contract", true, () => NeedBundle(() =>
             {
