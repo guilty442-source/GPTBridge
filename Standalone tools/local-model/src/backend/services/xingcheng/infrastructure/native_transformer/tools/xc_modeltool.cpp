@@ -26,8 +26,10 @@
 //                 (paged-KV / prefix-cache determinism probe)
 //   mtp-draft-probe --bundle <dir> --prompt <text> [--max-new N]
 //                 (draft-length-1 acceptance evidence vs the exported
-//                  MTP head; SPECULATIVE_DECODER_DISABLED stays in
-//                  effect ??no production dispatch is bound)
+//                  MTP head plus production-dispatch evidence: engine
+//                  generate() engages the bound drafter on the greedy
+//                  path; parity is checked against teacher-forced
+//                  greedy replay, sampling never dispatches)
 //
 // Tokenize row shapes (star SFT/DPO/pretrain contracts):
 //   {"prompt","completion"}      -> {"input_ids","labels"}  (masked prompt)
@@ -2498,6 +2500,7 @@ int mode_capability(const Args& a) {
         fail("CAPABILITY_SUITE_ITEMS_MISSING");
     std::string suite_sha = suite_sha256(raw);
     bool chat = a.has("chat");
+
     // §15/§16 thinking-ON eval lane: --think-steps N [--think-branches M]
     // routes item generation through generate_thinking; absent = OFF.
     int64_t think_steps = 0;
@@ -2888,8 +2891,6 @@ int mode_capability(const Args& a) {
            << suite_sha.substr(0, 16) << "\""
            << ",\"inference_backend\":\"cpu/fp64\""
            << ",\"prompt_mode\":\"" << (chat ? "chat" : "verbatim") << "\""
-           << ",\"thinking\":{\"steps\":" << think_steps
-           << ",\"branches\":" << think_branches << "}"
            << ",\"quantization\":\"none\""
            << ",\"categories\":" << cats.str()
            << ",\"items\":" << items_obj.str()
@@ -2908,6 +2909,8 @@ int mode_capability(const Args& a) {
     if (!overlap_error.empty())
         report << ",\"error\":\"" << overlap_error << "\"";
     report << "},\"third_party_used\":false"
+           << ",\"thinking\":{\"steps\":" << think_steps
+           << ",\"branches\":" << think_branches << "}"
            << ",\"recorded_at\":\"" << now << "\"}";
 
     // Optional regression comparison against a baseline report file.
@@ -2965,10 +2968,12 @@ int mode_capability(const Args& a) {
 // lm_head. Greedy argmax verification: a draft is accepted iff it equals
 // the trunk argmax ??emitted tokens are identical to plain greedy by
 // construction, so `output_parity` is guaranteed, not claimed.
-// draft_length=1 evidence only: the engine-side NativeMtpDrafter
-// production dispatch is not bound; this mode reports measured
-// acceptance, never a speedup claim, and SPECULATIVE_DECODER_DISABLED
-// remains in effect for production.
+// draft_length=1. P8: the engine-side NativeMtpDrafter production
+// dispatch IS bound — generate() runs decode_continue_spec on the
+// greedy path when the bundle declares a complete MTP contract, and the
+// second half of this mode measures that dispatch end to end
+// (engine_proposed/accepted/spec_forwards + engine_output_parity vs a
+// teacher-forced replay). speedup stays null until measured.
 
 namespace {
 
@@ -3285,12 +3290,18 @@ int mode_mtp_draft_probe(const Args& a) {
         // Canonical-code mapping: an engine-load failure naming an mtp
         // tensor or config field is a bundle-level MTP contract breach
         // (corrupt shape/bounds/dtype) -- it must surface as
-        // MTP_BUNDLE_MISMATCH, not the generic load wrapper.
+        // MTP_BUNDLE_MISMATCH, not the generic load wrapper. Errors that
+        // already carry the canonical code (the engine's fail-closed
+        // bind path throws MTP_HEAD_MISSING / MTP_BUNDLE_MISMATCH
+        // directly) pass through unchanged.
         std::string msg = e.what();
-        fail(msg.find("mtp") != std::string::npos ||
-                     msg.find("nextn") != std::string::npos
-                 ? std::string("MTP_BUNDLE_MISMATCH:") + msg
-                 : std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + msg);
+        fail(msg.rfind("MTP_", 0) == 0
+                 ? msg
+                 : (msg.find("mtp") != std::string::npos ||
+                            msg.find("nextn") != std::string::npos
+                        ? std::string("MTP_BUNDLE_MISMATCH:") + msg
+                        : std::string("CAPABILITY_ENGINE_LOAD_FAILED:")
+                              + msg));
     }
     MtpDraft mtp;
     mtp.b = engine.bundle();
@@ -3306,6 +3317,7 @@ int mode_mtp_draft_probe(const Args& a) {
     if (ids.size() < 2) fail("SPEC_PROMPT_TOO_SHORT");
     if ((int64_t)ids.size() + max_new > c.max_position_embeddings)
         fail("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
+    const std::vector<int64_t> prompt_ids = ids;
 
     auto embed_row = [&](int64_t id) -> const double* {
         return mtp.embed->data + (size_t)id * H;
@@ -3361,10 +3373,76 @@ int mode_mtp_draft_probe(const Args& a) {
         accept_log.push_back(verify == draft_tok ? 1 : 0);
         if (verify == draft_tok) ++accepted;
     }
+
+    // ---- P8 production-dispatch evidence -------------------------------
+    // engine.generate() on the same prompt under greedy sampling engages
+    // the bound NativeMtpDrafter inside decode_continue_spec. The
+    // independent reference is teacher-forced greedy replay via logits()
+    // — no KV cache, no drafter — so any wrong commit or stale rollback
+    // surfaces as a token mismatch.
+    engine.reset_mtp_stats();
+    std::vector<int64_t> spec_out;
+    try {
+        SamplingConfig sc;
+        sc.do_sample = false;
+        spec_out = engine.generate(prompt_ids, max_new, sc);
+    } catch (const std::exception& e) {
+        fail(std::string("MTP_DISPATCH_FAILED:") + e.what());
+    }
+    if (spec_out.size() > prompt_ids.size() &&
+        std::equal(prompt_ids.begin(), prompt_ids.end(),
+                   spec_out.begin())) {
+        spec_out.erase(spec_out.begin(),
+                       spec_out.begin() +
+                           (ptrdiff_t)prompt_ids.size());
+    }
+    const int64_t eng_proposed = engine.mtp_proposed();
+    const int64_t eng_accepted = engine.mtp_accepted();
+    const int64_t eng_forwards = engine.mtp_spec_forwards();
+    const bool eng_bound = engine.mtp_drafter_bound();
+    std::vector<int64_t> replay = prompt_ids;
+    bool eng_parity = true;
+    for (size_t i = 0; i < spec_out.size(); ++i) {
+        const std::vector<double> rlg = engine.logits(replay);
+        const int64_t g = argmax(rlg);
+        if (spec_out[i] != g) eng_parity = false;
+        replay.push_back(g);
+    }
+    const bool production = eng_bound && eng_proposed > 0;
+    // Negative lane: sampling must never engage the drafter — a sampled
+    // pick may legitimately differ from the draft, so verification only
+    // has meaning under pure argmax.
+    engine.reset_mtp_stats();
+    {
+        SamplingConfig smp;
+        smp.do_sample = true;
+        smp.temperature = 0.8;
+        smp.seed = 7;
+        try { (void)engine.generate(prompt_ids, 3, smp); }
+        catch (...) { /* content itself is irrelevant */ }
+    }
+    const bool sampling_clean = engine.mtp_proposed() == 0;
+    engine.reset_mtp_stats();
+    std::ostringstream spec_ids;
+    spec_ids << '[';
+    for (size_t i = 0; i < spec_out.size(); ++i) {
+        if (i) spec_ids << ',';
+        spec_ids << spec_out[i];
+    }
+    spec_ids << ']';
+    std::ostringstream ev_ids;
+    ev_ids << '[';
+    for (size_t i = prompt_ids.size(); i < ids.size(); ++i) {
+        if (i > prompt_ids.size()) ev_ids << ',';
+        ev_ids << ids[i];
+    }
+    ev_ids << ']';
     engine.unload();
 
     const double rate =
         proposed ? (double)accepted / (double)proposed : 0.0;
+    const double eng_rate =
+        eng_proposed ? (double)eng_accepted / (double)eng_proposed : 0.0;
     std::ostringstream log_arr;
     log_arr << '[';
     for (size_t i = 0; i < accept_log.size(); ++i) {
@@ -3385,15 +3463,31 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"mtp_kv_positions\":%lld,"
         "\"emitted_tokens\":%lld,"
         "\"accept_log\":%s,"
-        "\"speculative_decoder\":\"INFRASTRUCTURE_EVIDENCE ??engine-side "
-        "NativeMtpDrafter dispatch is not bound; SPECULATIVE_"
-        "DECODER_DISABLED remains in effect for production\","
+        "\"production_dispatch\":%s,"
+        "\"drafter_bound\":%s,"
+        "\"engine_proposed\":%lld,\"engine_accepted\":%lld,"
+        "\"engine_spec_forwards\":%lld,"
+        "\"engine_acceptance_rate\":%.6f,"
+        "\"engine_emitted\":%lld,"
+        "\"engine_ids\":%s,\"evidence_ids\":%s,"
+        "\"engine_output_parity\":%s,"
+        "\"sampling_path_uses_drafter\":%s,"
+        "\"speculative_decoder\":\"%s\","
         "\"speedup\":null}\n",
         mtp.bound_family ? mtp.bound_family : "none",
         (long long)proposed, (long long)accepted, rate,
         1.0 + rate, (long long)mtp.positions, (long long)emitted,
-        log_arr.str().c_str());
-    return 0;
+        log_arr.str().c_str(),
+        production ? "true" : "false",
+        eng_bound ? "true" : "false",
+        (long long)eng_proposed, (long long)eng_accepted,
+        (long long)eng_forwards, eng_rate,
+        (long long)spec_out.size(), spec_ids.str().c_str(),
+        ev_ids.str().c_str(),
+        eng_parity ? "true" : "false",
+        sampling_clean ? "false" : "true",
+        production ? "PRODUCTION_DISPATCH" : "DISPATCH_NOT_ENGAGED");
+    return (eng_parity && sampling_clean) ? 0 : 3;
 }
 
 // ------------------------------------------------------------------ serve --
