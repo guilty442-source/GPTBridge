@@ -2388,6 +2388,47 @@ internal static class InstructionRecovery
         Led("regression_source",
             srcReg.GetValueOrDefault("categories"));
 
+        // Router-health BASELINE (moe-analyze on the source bundle):
+        // standing diagnoses — e.g. ROUTER_HOTSPOT from a 9-token probe
+        // on this 300M — are inherited state, not training damage. A
+        // stage only collapses the lane when it introduces a diagnosis
+        // the source never had, or worsens a standing layer's p99 load
+        // by >25%.
+        var srcRouter = ParseJsonStdout(
+            NativeTools.Run(
+                NativeTools.ModelToolExe(toolRoot),
+                new[] { "moe-analyze", "--bundle", sourceBundle },
+                toolRoot, stderrLog, timeoutS: 1800),
+            "RECOVERY_ROUTER_FAILED");
+        var srcDiag = new Dictionary<long, HashSet<string>>();
+        var srcP99 = new Dictionary<long, double>();
+        if (srcRouter.TryGetValue("analysis", out var srcAn) &&
+            srcAn is Dictionary<string, object?> srcAnd &&
+            srcAnd.TryGetValue("layers", out var srcLy) &&
+            srcLy is List<object?> srcLayers)
+            foreach (var l in srcLayers)
+                if (l is Dictionary<string, object?> ld)
+                {
+                    long lid = TransformerTrainingRepository.Int(
+                        ld, "layer_id");
+                    srcDiag[lid] = new HashSet<string>(
+                        ld.TryGetValue("diagnoses", out var sd) &&
+                        sd is List<object?> sdl
+                            ? sdl.Select(x => x?.ToString() ?? "")
+                            : Enumerable.Empty<string>());
+                    if (ld.TryGetValue("expert_load_quantiles",
+                            out var sq) &&
+                        sq is Dictionary<string, object?> sqd)
+                        srcP99[lid] = TransformerTrainingRepository.Num(
+                            sqd, "p99");
+                }
+        Led("router_baseline", new Dictionary<string, object?>
+        {
+            ["standing_layers"] = srcDiag
+                .Where(kv => kv.Value.Count > 0)
+                .Select(kv => (object?)kv.Key).ToList(),
+        });
+
         // model cfg for the trainer job spec.
         var srcManifest = (Dictionary<string, object?>)ModelLifecycle.Decode(
             JsonDocument.Parse(File.ReadAllText(configFrom)).RootElement)!;
@@ -2560,6 +2601,7 @@ internal static class InstructionRecovery
                     toolRoot, stderrLog, timeoutS: 1800),
                 "RECOVERY_ROUTER_FAILED");
             bool routerBad = false;
+            var newDiags = new List<object?>();
             if (router.TryGetValue("analysis", out var an) &&
                 an is Dictionary<string, object?> and_ &&
                 and_.TryGetValue("layers", out var ly) &&
@@ -2568,7 +2610,39 @@ internal static class InstructionRecovery
                     if (l is Dictionary<string, object?> ld &&
                         ld.TryGetValue("diagnoses", out var dg) &&
                         dg is List<object?> dl && dl.Count > 0)
-                        routerBad = true;
+                    {
+                        long lid = TransformerTrainingRepository.Int(
+                            ld, "layer_id");
+                        double p99 = -1;
+                        if (ld.TryGetValue("expert_load_quantiles",
+                                out var q) &&
+                            q is Dictionary<string, object?> qd)
+                            p99 = TransformerTrainingRepository.Num(
+                                qd, "p99");
+                        bool layerNew = false;
+                        foreach (var d in dl)
+                            if (!srcDiag.TryGetValue(lid, out var known) ||
+                                !known.Contains(d?.ToString() ?? ""))
+                                layerNew = true;
+                        // Standing diagnosis still fails if the load
+                        // skew blew up >25% over the source baseline.
+                        if (!layerNew && p99 >= 0 &&
+                            srcP99.TryGetValue(lid, out var sp) &&
+                            sp > 0 && p99 > sp * 1.25)
+                            layerNew = true;
+                        if (layerNew)
+                        {
+                            routerBad = true;
+                            newDiags.Add(new Dictionary<string, object?>
+                            {
+                                ["layer_id"] = lid,
+                                ["diagnoses"] = dl,
+                                ["p99"] = p99,
+                                ["baseline_p99"] =
+                                    srcP99.GetValueOrDefault(lid),
+                            });
+                        }
+                    }
 
             // regression gate at each regression_every boundary.
             bool regOk = true;
@@ -2600,7 +2674,13 @@ internal static class InstructionRecovery
             {
                 decision = "REGRESSION_REJECTED";
                 stopReason = "router_collapse";
-                Led("router_collapse", router.GetValueOrDefault("layers"));
+                Led("router_collapse", new Dictionary<string, object?>
+                {
+                    ["new_diagnoses"] = newDiags,
+                    ["note"] = "standing source-bundle diagnoses are "
+                        + "baselined out; collapse = new diagnosis or "
+                        + ">25% p99 load blowup vs source",
+                });
                 break;
             }
             if (!regOk)
@@ -2801,6 +2881,10 @@ internal static class InstructionRecovery
                     stageHistory.OfType<Dictionary<string, object?>>()
                         .Any(h => TransformerTrainingRepository.Truthy(
                             h.GetValueOrDefault("router_diagnostics"))),
+                ["standing_layers"] = srcDiag
+                    .Where(kv => kv.Value.Count > 0)
+                    .Select(kv => (object?)kv.Key).ToList(),
+                ["baseline"] = "source_bundle",
             },
             ["gates"] = gates,
             ["stop_reason"] = stopReason,
