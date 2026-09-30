@@ -40,10 +40,11 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // XCN10 = XCN9 + v29 MTP-stack block: mtp_depth (u32) + mtp_loss_w
     // (float). At ver >= 9 the gemma4 marker u32 is always present
     // (1 = g4 fields follow, 0 = non-gemma4 at ver 10+).
-    // v1..v8 checkpoints still load: absent fields default to the
-    // Qwen-style fused behaviour.
-    const uint32_t ver =
-        c.mtp_depth > 0 ? 10 : (c.is_gemma4() ? 9 : 8);
+    // Canonical contract: every new checkpoint is XCN10 — all versioned
+    // header blocks are always serialized (absent axes write zeros /
+    // marker 0), so the fingerprint is version-stable. v1..v9 files
+    // still load for backward compatibility.
+    const uint32_t ver = 10;
     f.write("XCN1", 4); u32(f, ver);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);

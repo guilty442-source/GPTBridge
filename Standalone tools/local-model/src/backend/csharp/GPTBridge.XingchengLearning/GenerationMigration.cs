@@ -141,7 +141,16 @@ internal static class GenerationMigration
         return new Dictionary<string, object?>
         {
             ["format"] = StateFormat,
+            // Unified generation-state fields (architecture-convergence
+            // contract): lineage, architecture profile, deployment and
+            // contract versions are separate keys — one generation string
+            // never carries them all.
             ["active_generation"] = "",
+            ["architecture_generation"] = "current-compatible-profile",
+            ["candidate_architecture"] = "xc-fused-1",
+            ["checkpoint_version"] = "XCN1 v10",
+            ["runtime_version"] = "xc-native-cpp23",
+            ["bundle_version"] = "",
         };
     }
 
@@ -707,6 +716,14 @@ internal static class GenerationMigration
         var state = LoadState(toolRoot);
         state["previous_generation"] = m["source_generation"];
         state["active_generation"] = m["target_generation"];
+        state["bundle_version"] = m["target_model_version"];
+        state["checkpoint_version"] = "XCN1 v10";
+        state["runtime_version"] = "xc-native-cpp23";
+        // The promoted bundle runs the architecture it was trained on —
+        // not the canonical contract. xc-fused-1 remains a candidate
+        // architecture until a trained generation carries it.
+        state["architecture_generation"] = "current-compatible-profile";
+        state["candidate_architecture"] = "xc-fused-1";
         SaveState(toolRoot, state);
 
         m["status"] = "PROMOTED";
