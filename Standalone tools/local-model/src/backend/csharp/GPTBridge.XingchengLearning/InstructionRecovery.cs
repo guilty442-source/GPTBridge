@@ -898,9 +898,9 @@ internal static class InstructionRecovery
             foreach (var (_, cv2) in cats)
                 if (cv2 is Dictionary<string, object?> cd2)
                 {
-                    it += TransformerTrainingRepository.Long(
+                    it += TransformerTrainingRepository.Int(
                         cd2, "items");
-                    ps += TransformerTrainingRepository.Long(
+                    ps += TransformerTrainingRepository.Int(
                         cd2, "passed");
                 }
             if (it > 0) score = (double)ps / it;
