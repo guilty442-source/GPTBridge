@@ -501,6 +501,9 @@ internal sealed class TransformerTrainingRepository
             throw new ArgumentException("transformer training snapshot SHA-256 mismatch");
         var normalized = NormalizeDatasetExamples(examples);
         var (trainCount, validationCount) = DatasetExampleCounts(normalized);
+        // Mutable: the supersede path below may re-key the successor row
+        // by the new snapshot digest (immutable trigger forbids rewriting
+        // the stale row's dataset identity).
         string datasetId = $"star-transformer-dataset-{contentDigest[..24]}";
         string manifestJson = CanonicalJson.CanonicalDict(sourceManifest);
         string createdAt = Now();
