@@ -3212,7 +3212,15 @@ int mode_mtp_draft_probe(const Args& a) {
     try {
         engine.load(bundle);
     } catch (const std::exception& e) {
-        fail(std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + e.what());
+        // Canonical-code mapping: an engine-load failure naming an mtp
+        // tensor or config field is a bundle-level MTP contract breach
+        // (corrupt shape/bounds/dtype) -- it must surface as
+        // MTP_BUNDLE_MISMATCH, not the generic load wrapper.
+        std::string msg = e.what();
+        fail(msg.find("mtp") != std::string::npos ||
+                     msg.find("nextn") != std::string::npos
+                 ? std::string("MTP_BUNDLE_MISMATCH:") + msg
+                 : std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + msg);
     }
     MtpDraft mtp;
     mtp.b = engine.bundle();
