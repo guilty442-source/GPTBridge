@@ -779,7 +779,8 @@ new("repo-mtp-head-contract", () =>
                         bool declares = false;
                         foreach (string k in new[]
                                  { "num_nextn_predict_layers",
-                                   "mtp_stack_depth" })
+                                   "mtp_stack_depth",
+                                   "mtp_num_layers", "mtp_depth" })
                             if (cfg.TryGetProperty(k, out var v) &&
                                 v.ValueKind == JsonValueKind.Number &&
                                 v.GetInt64() > 0)

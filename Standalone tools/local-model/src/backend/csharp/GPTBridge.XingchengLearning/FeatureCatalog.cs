@@ -751,6 +751,52 @@ internal static class FeatureCatalog
             "EXPERIMENTAL_TRAINING", false, true, false,
             "training",
             new[] { "fused-adamw-status" }),
+        // AutonomousCapabilityRecoveryLoop (self-training directive
+        // §78) — the loop collects/classifies/verifies/trains under
+        // bounded policy; promotion stays external.
+        new("f-autonomous-capability-recovery",
+            "self-training directive",
+            "star-autonomous-recovery-loop/v1 — mode ladder " +
+            "OFF->COLLECT_ONLY->DATASET_BUILD->PILOT_ONLY->" +
+            "GOVERNED_AUTONOMOUS, stage admission, never self-promote",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "self-training-contract", "self-training-admit" }),
+        new("f-self-training-data-factory",
+            "self-training directive",
+            "failure pools -> classify -> generate -> verify -> " +
+            "immutable snapshot; quality/novelty/leakage gates",
+            "INTEGRATED_TRAINING", false, true, false,
+            "training",
+            new[] { "dataset-purity-check", "self-train-trigger" }),
+        new("f-independent-sample-verification",
+            "self-training directive",
+            "DETERMINISTIC > REFERENCE_BASED > INDEPENDENT_MODEL > " +
+            "SELF_CONSISTENCY; generator never self-certifies",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "failure-classify-check" }),
+        new("f-failure-driven-curriculum",
+            "self-training directive",
+            "unresolved/high-severity/high-novelty failures first; " +
+            "capability-pure single-capability jobs",
+            "INTEGRATED_TRAINING", false, true, false,
+            "training",
+            new[] { "self-train-trigger" }),
+        new("f-self-distillation",
+            "self-training directive",
+            "candidate-as-teacher after capability gate; compact " +
+            "reasoning targets; artifact cache reuse",
+            "EXPERIMENTAL_TRAINING", false, true, false,
+            "training",
+            new[] { "self-training-receipt" }),
+        new("f-self-training-circuit",
+            "self-training directive",
+            "breaker: repeated failure/regression/anomaly snaps the " +
+            "loop back to COLLECT_ONLY (§72)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "self-training-circuit" }),
     };
 
     /// <summary>Devin-lane rows (batch-1 + batch-2 §30), kept in the

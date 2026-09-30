@@ -91,6 +91,12 @@ internal sealed class SelfLearningPolicy
     public bool CapabilityTrainingFrozen = true;
     public string CapabilityTrainingMode = "FROZEN";
     public string ActiveCapability = "";
+    // AutonomousCapabilityRecoveryLoop §3: OFF / COLLECT_ONLY /
+    // DATASET_BUILD / PILOT_ONLY / GOVERNED_AUTONOMOUS. Production
+    // starts COLLECT_ONLY; promotion to a higher lane requires every
+    // §2 validation gate to have passed (handled by the loop gate,
+    // never by editing this field mid-run).
+    public string SelfTrainingMode = "COLLECT_ONLY";
 
     public Dictionary<string, object?> ToDict()
     {
@@ -142,6 +148,7 @@ internal sealed class SelfLearningPolicy
             ["capability_training_frozen"] = CapabilityTrainingFrozen,
             ["capability_training_mode"] = CapabilityTrainingMode,
             ["active_capability"] = ActiveCapability,
+            ["self_training_mode"] = SelfTrainingMode,
         };
         return d;
     }
@@ -229,6 +236,8 @@ internal sealed class SelfLearningPolicy
                                                 policy.CapabilityTrainingMode);
             policy.ActiveCapability = Get(root, "active_capability",
                                           policy.ActiveCapability);
+            policy.SelfTrainingMode = Get(root, "self_training_mode",
+                                          policy.SelfTrainingMode);
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidOperationException)
         {

@@ -546,7 +546,9 @@ internal static class ConvergenceGate
             if (!doc.RootElement.TryGetProperty("config", out var c) ||
                 c.ValueKind != JsonValueKind.Object)
                 return false;
-            foreach (var k in new[] { "mtp_num_layers", "mtp_depth" })
+            foreach (var k in new[] { "mtp_num_layers", "mtp_depth",
+                                     "num_nextn_predict_layers",
+                                     "mtp_stack_depth" })
                 if (c.TryGetProperty(k, out var v) &&
                     v.ValueKind == JsonValueKind.Number &&
                     v.GetInt64() > 0)

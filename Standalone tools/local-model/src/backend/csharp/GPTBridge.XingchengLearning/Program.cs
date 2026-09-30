@@ -730,6 +730,44 @@ internal static class Program
                             ? gkv : "", "GRAPH_KEY_INVALID")));
             if (flags.Contains("fused-adamw-status"))
                 return Emit(CudaTrainingPlane.FusedAdamWStatus());
+            // ---- AutonomousCapabilityRecoveryLoop (§0-§85):
+            //      contract emission, mode/stage admission, failure
+            //      classification, dataset purity, training trigger,
+            //      circuit breaker, typed receipts.
+            if (flags.Contains("self-training-contract"))
+                return Emit(SelfTrainingLoop.Contract(toolRoot));
+            if (flags.Contains("self-training-admit"))
+                return Emit(SelfTrainingLoop.Admit(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? sta)
+                            ? sta : "", "SELF_TRAINING_DISABLED"),
+                    toolRoot));
+            if (flags.Contains("failure-classify-check"))
+                return Emit(SelfTrainingLoop.ClassifyCheck(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? fcc)
+                            ? fcc : "",
+                        "CAPABILITY_CLASSIFICATION_UNCERTAIN")));
+            if (flags.Contains("dataset-purity-check"))
+                return Emit(SelfTrainingLoop.PurityCheck(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dpc)
+                            ? dpc : "", "CAPABILITY_IMPURE_DATASET")));
+            if (flags.Contains("self-train-trigger"))
+                return Emit(SelfTrainingLoop.TriggerCheck(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? stt)
+                            ? stt : "", "SELF_TRAINING_DISABLED")));
+            if (flags.Contains("self-training-circuit"))
+                return Emit(SelfTrainingLoop.CircuitCheck(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? stc)
+                            ? stc : "", "SELF_TRAINING_CIRCUIT_OPEN")));
+            if (flags.Contains("self-training-receipt"))
+                return Emit(SelfTrainingLoop.ReceiptCheck(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? str2)
+                            ? str2 : "", "SELF_TRAINING_DISABLED")));
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
             if (flags.Contains("maturity-checks"))
                 return Emit(MaturityChecks.Run(toolRoot));
