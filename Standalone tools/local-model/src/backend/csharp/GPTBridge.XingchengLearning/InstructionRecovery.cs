@@ -40,6 +40,7 @@ internal static class InstructionRecovery
         "multi_turn" => "star-multiturn-eval-result/v1",
         "structured_output" => "star-structured-eval-result/v1",
         "tool_calling" => "star-toolcall-eval-result/v1",
+        "reading_grounding" => "star-reading-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -49,6 +50,7 @@ internal static class InstructionRecovery
         "structured_output" =>
             "star-structured-recovery-dataset/v1",
         "tool_calling" => "star-toolcall-recovery-dataset/v1",
+        "reading_grounding" => "star-reading-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
@@ -58,12 +60,14 @@ internal static class InstructionRecovery
         "structured_output" =>
             "star-structured-recovery-eval-20261001",
         "tool_calling" => "star-toolcall-recovery-eval-20261001",
+        "reading_grounding" =>
+            "star-reading-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
-          "structured_output", "tool_calling" };
+          "structured_output", "tool_calling", "reading_grounding" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -122,6 +126,22 @@ internal static class InstructionRecovery
         ("result_interpretation", 0.15),
         ("failure_recovery", 0.10),
     };
+    // Registered names from Maturation300M (9 metrics). Comprehension
+    // and honesty surfaces carry equal weight — a grounded reader that
+    // fabricates or leaks memory answers is failing the capability.
+    private static readonly (string metric, double w)[]
+        ReadingMetricWeights =
+    {
+        ("document_qa", 0.15),
+        ("multi_passage", 0.15),
+        ("conflicting_evidence", 0.10),
+        ("insufficient_evidence", 0.10),
+        ("citation_alignment", 0.10),
+        ("summarization", 0.10),
+        ("fact_extraction", 0.10),
+        ("retrieval_failure_isolated", 0.10),
+        ("comprehension_failure_isolated", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
@@ -129,6 +149,7 @@ internal static class InstructionRecovery
             "multi_turn" => MultiTurnMetricWeights,
             "structured_output" => StructuredMetricWeights,
             "tool_calling" => ToolMetricWeights,
+            "reading_grounding" => ReadingMetricWeights,
             _ => InstructionMetricWeights,
         };
 
