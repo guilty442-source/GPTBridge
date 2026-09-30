@@ -9,7 +9,7 @@
 //   (data.max_rows), step/time deadlines, reject-on-unknown-field envelope.
 //
 //   xingcheng_trainer.exe --job <job.json> --report <report.json>
-//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --mtpcheck | --routecheck | --dsvcheck | --yarncheck | --csacheck
+//   xingcheng_trainer.exe --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --gemmacheck | --mixcheck | --mtpcheck | --routecheck | --dsvcheck | --yarncheck | --csacheck | --canoncheck
 //
 // Masked self-attention (causal contract): position t may only read tokens
 //   <= t. Full attention scores/gradients iterate s<=t (upper triangle stays
@@ -155,6 +155,7 @@ namespace xct {
 #include "xct_route.h"
 #include "xct_yarn.h"
 #include "xct_csa.h"
+#include "xct_canon.h"
 
 } // namespace xct
 
@@ -180,10 +181,11 @@ int main(int argc, char** argv) {
         else if (a == "--yarncheck") return xct::yarncheck();
         else if (a == "--csacheck") return xct::csacheck();
         else if (a == "--mtpcheck") return xct::mtpcheck();
+        else if (a == "--canoncheck") return xct::canoncheck();
     }
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
-        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --mtpcheck | --routecheck | --gemmacheck | --dsvcheck | --yarncheck | --csacheck\n");
+        std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --mtpcheck | --routecheck | --gemmacheck | --dsvcheck | --yarncheck | --csacheck | --canoncheck\n");
         return 2;
     }
     try {

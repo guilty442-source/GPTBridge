@@ -42,8 +42,10 @@ static bool ckpt_save(const Params& p, const ModelConfig& c,
     // (1 = g4 fields follow, 0 = non-gemma4 at ver 10+).
     // v1..v8 checkpoints still load: absent fields default to the
     // Qwen-style fused behaviour.
-    const uint32_t ver =
-        c.mtp_depth > 0 ? 10 : (c.is_gemma4() ? 9 : 8);
+    // Convergence contract: every newly written checkpoint is XCN10 —
+    // the canonical xc-fused-1 save lands marker-0 + zeroed MTP block;
+    // readers v1..v10 stay backward compatible.
+    const uint32_t ver = 10;
     f.write("XCN1", 4); u32(f, ver);
     u32(f, (uint32_t)c.vocab); u32(f, (uint32_t)c.hidden);
     u32(f, (uint32_t)c.inter); u32(f, (uint32_t)c.layers);

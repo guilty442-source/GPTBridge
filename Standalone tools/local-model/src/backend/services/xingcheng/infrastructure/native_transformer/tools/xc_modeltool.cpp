@@ -47,6 +47,7 @@
 // line; the C# orchestrator owns the tool-root confinement checks.
 
 #include <algorithm>
+#include <atomic>
 #include <charconv>
 #include <chrono>
 #include <cmath>

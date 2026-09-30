@@ -174,6 +174,40 @@ internal static class GenerationMigration
             StatePath(toolRoot), CanonicalJson.PrettyDict(state) + "\n");
     }
 
+    /// <summary>Write (or clear) the native-engine checkpoint pin — used
+    /// by the post-activation rollback path to restore the predecessor's
+    /// pin without going through the candidate flow.</summary>
+    private static void RestorePin(string toolRoot, string? rel)
+    {
+        string settingsPath = Path.Combine(
+            toolRoot,
+            XcPaths.EngineSettingsRel.Replace(
+                '/', Path.DirectorySeparatorChar));
+        var settings = new Dictionary<string, object?>();
+        if (File.Exists(settingsPath))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(
+                    File.ReadAllText(settingsPath));
+                foreach (var p in doc.RootElement.EnumerateObject())
+                    settings[p.Name] = ModelLifecycle.Decode(p.Value);
+            }
+            catch { settings = new Dictionary<string, object?>(); }
+        }
+        if (string.IsNullOrEmpty(rel)) settings.Remove("checkpoint");
+        else settings["checkpoint"] = rel.Replace('\\', '/');
+        ModelLifecycle.AtomicWrite(
+            settingsPath,
+            CanonicalJson.PrettyDict(settings) + "\n");
+    }
+
+    /// <summary>Current ACTIVE_GENERATION ("" when unset) — shared
+    /// reader for lanes that stamp generation identity onto records.</summary>
+    public static string CurrentGeneration(string toolRoot)
+        => (string?)LoadState(toolRoot)
+               .GetValueOrDefault("active_generation") ?? "";
+
     private static string Event(Dictionary<string, object?> m, string evt,
                                 params (string Key, object? V)[] fields)
     {
@@ -709,6 +743,16 @@ internal static class GenerationMigration
             XcPaths.LifecycleRel.Replace('/', Path.DirectorySeparatorChar));
         var lifecycle = ModelLifecycle.LoadOrCreate(
             lifecycleDir, XcPaths.ModelId);
+
+        // Rollback points — §18: promotion is only complete once the
+        // *activated* generation passes independent verification, and a
+        // failed post-activation check must restore the predecessor
+        // rather than leave a half-promoted runtime.
+        string? prevPin = EngineSettings.PinnedCheckpoint(toolRoot);
+        int prevActiveVersion = lifecycle.ActiveWeightsVersion;
+        string prevGen = (string?)LoadState(toolRoot)
+            .GetValueOrDefault("active_generation") ?? "";
+
         var entry = lifecycle.RegisterArtifact(
             "weights", target,
             metadata: new Dictionary<string, object?>
@@ -718,11 +762,77 @@ internal static class GenerationMigration
                 ["config_sha256"] = m["target_checkpoint_hash"],
             },
             activate: true);
+        lifecycle.Save(lifecycleDir);
+        string pinned = EngineSettings.PinCheckpoint(toolRoot, target);
+
+        // ---- §18 post-activation verification (independent, on the
+        // now-active artifact as pinned) ----
+        string stderrLog = Path.Combine(
+            toolRoot, "runtime", "logs", "gen-migration-stderr.log");
+        var post = new List<object?>();
+        string targetRel = Rel(toolRoot, target).Replace('\\', '/');
+        post.Add(Check("pin_points_at_target",
+            pinned.Replace('\\', '/') == targetRel, pinned));
+        var activeAfter = lifecycle.ActiveWeights();
+        post.Add(Check("lifecycle_active_weights",
+            activeAfter != null &&
+            (string?)activeAfter["path"] == target,
+            activeAfter != null ? (string?)activeAfter["path"] ?? "" : ""));
+        if (IsBundleDir(target))
+        {
+            try
+            {
+                var run = NativeTools.Run(
+                    NativeTools.ModelToolExe(toolRoot),
+                    new[] { "cache-smoke", "--bundle", target },
+                    toolRoot, stderrLog, timeoutS: 1200);
+                post.Add(Check("active_inference", run.ExitCode == 0,
+                    $"cache-smoke exit={run.ExitCode}"));
+            }
+            catch (ExecutorError ex)
+            {
+                post.Add(Check("active_inference", false, ex.Message));
+            }
+        }
+        else
+        {
+            post.Add(Check("active_inference", false,
+                "target is not a native bundle"));
+        }
+        bool postOk = true;
+        foreach (var c in post.Cast<Dictionary<string, object?>>())
+            if (!(bool)c["pass"]!) postOk = false;
+        m["post_activation"] = new Dictionary<string, object?>
+        {
+            ["ok"] = postOk,
+            ["verified_at"] = XcPaths.IsoNow(),
+            ["checks"] = post,
+        };
+
+        if (!postOk)
+        {
+            // Roll back activation: predecessor pin + active version +
+            // generation state are restored before failing closed.
+            RestorePin(toolRoot, prevPin);
+            if (prevActiveVersion != 0)
+            {
+                lifecycle.RollbackWeights(prevActiveVersion);
+                lifecycle.Save(lifecycleDir);
+            }
+            var st = LoadState(toolRoot);
+            st["active_generation"] = prevGen;
+            SaveState(toolRoot, st);
+            m["status"] = "FAILED";
+            Event(m, "post_activation_failed",
+                  ("rolled_back", "true"));
+            SaveManifest(toolRoot, m);
+            throw new ExecutorError("GEN_POST_ACTIVATION_FAILED", id);
+        }
+
         lifecycle.RecordEvent("generation_promoted",
             ("generation", m["target_generation"]),
             ("migration_id", id));
         lifecycle.Save(lifecycleDir);
-        string pinned = EngineSettings.PinCheckpoint(toolRoot, target);
 
         var state = LoadState(toolRoot);
         state["previous_generation"] = m["source_generation"];
@@ -849,6 +959,42 @@ internal static class GenerationMigration
         if (apply)
         {
             m["status"] = "PURGED";
+            purge["retired_at"] = XcPaths.IsoNow();
+            // §21 lineage survives the deleted runtime: the manifest
+            // (which lives under the successor generation) keeps the
+            // predecessor's identity, hashes, lifecycle times and the
+            // carried-forward data summary — never the legacy runtime.
+            m["lineage"] = new Dictionary<string, object?>
+            {
+                ["predecessor_generation"] = m["source_generation"],
+                ["successor_generation"] = m["target_generation"],
+                ["architecture_summary"] = new Dictionary<string, object?>
+                {
+                    ["schema_from"] = m["schema_from"],
+                    ["schema_to"] = m["schema_to"],
+                    ["source_model_version"] = m["source_model_version"],
+                    ["target_model_version"] = m["target_model_version"],
+                    ["weight_migration_method"] =
+                        m["weight_migration_method"],
+                },
+                ["checkpoint_hashes"] = new Dictionary<string, object?>
+                {
+                    ["source"] = m["source_checkpoint_hash"],
+                    ["target"] = m["target_checkpoint_hash"],
+                },
+                ["migration_id"] = id,
+                ["activation_time"] = m["migration_completed_at"],
+                ["retired_at"] = purge["retired_at"],
+                ["data_carried_forward"] =
+                    ((Dictionary<string, object?>)
+                        m["data_validation"]!)["complete"],
+                ["records"] = new Dictionary<string, object?>
+                {
+                    ["migrated"] = m["migrated_records"],
+                    ["transformed"] = m["transformed_records"],
+                    ["rejected"] = m["rejected_records"],
+                },
+            };
             lifecycle.RetireWeights(keepLatest: 1);
             lifecycle.RecordEvent("generation_purged",
                 ("migration_id", id),

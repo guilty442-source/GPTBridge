@@ -138,6 +138,22 @@ internal static class Program
                 return Emit(GenerationMigration.Status(
                     toolRoot,
                     opts.TryGetValue("manifest", out string? sm) ? sm : ""));
+            if (flags.Contains("trace-record"))
+                return Emit(CapabilityTrace.RecordTrace(
+                    toolRoot,
+                    opts.TryGetValue("trace", out string? tf) &&
+                        tf.Length > 0 ? tf
+                    : opts.TryGetValue("file", out string? tf2)
+                        ? tf2 : ""));
+            if (flags.Contains("cap-record"))
+                return Emit(CapabilityTrace.RecordResult(
+                    toolRoot,
+                    opts.TryGetValue("result", out string? rf) &&
+                        rf.Length > 0 ? rf
+                    : opts.TryGetValue("file", out string? rf2)
+                        ? rf2 : ""));
+            if (flags.Contains("trace-status"))
+                return Emit(CapabilityTrace.Status(toolRoot));
             if (flags.Contains("queue-job"))
                 return Emit(QueueJob(
                     toolRoot,
@@ -182,7 +198,9 @@ internal static class Program
             "--gen-certify --manifest <id> [--suite <suite.json>] | " +
             "--gen-promote --manifest <id> | " +
             "--gen-purge --manifest <id> [--apply] | " +
-            "--gen-status [--manifest <id>])");
+            "--gen-status [--manifest <id>] | " +
+            "--trace-record --trace <file.json> | " +
+            "--cap-record --result <file.json> | --trace-status)");
         return 2;
     }
 
