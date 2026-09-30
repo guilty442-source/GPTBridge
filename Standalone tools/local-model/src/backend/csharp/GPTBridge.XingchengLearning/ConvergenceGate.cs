@@ -214,6 +214,8 @@ internal static class ConvergenceGate
             new("precision-parity", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "precision-parity",
                        "--bundle", bundle!))),
+            new("cuda-parity", true, () =>
+                Native(toolRoot, toolExe, "cuda-parity-all")),
             new("provenance-verify", true, () => NeedBundle(() =>
             {
                 try

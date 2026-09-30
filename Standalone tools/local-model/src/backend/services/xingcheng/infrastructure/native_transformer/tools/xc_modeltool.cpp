@@ -1708,12 +1708,15 @@ int mode_export_bundle(const Args& a) {
     }
     std::sort(pairs.begin(), pairs.end());
 
-    // --quant none|int8|int4_packed: weight-only per-tensor symmetric
-    // quantization of 2-D matrices (mirrors kernels/quant.py; the engine
-    // dequantizes to fp64 at load). 1-D tensors (norms) stay fp64.
+    // --quant none|int8|int4_packed|bf16: weight-only per-tensor
+    // quantization of 2-D matrices; the engine dequantizes to fp64 at
+    // load. int8/int4_packed are symmetric-with-scale (mirrors
+    // kernels/quant.py); bf16 is unscaled RNE truncation (§18
+    // conversion lane — never retrained). 1-D tensors (norms) stay fp64.
     std::string quant = a.get("quant");
     if (quant.empty()) quant = "none";
-    if (quant != "none" && quant != "int8" && quant != "int4_packed")
+    if (quant != "none" && quant != "int8" && quant != "int4_packed" &&
+        quant != "bf16")
         fail("EXPORT_QUANT_UNSUPPORTED:" + quant);
 
     std::string bin_path = (out_dir / "weights.bin").string();
@@ -1766,6 +1769,21 @@ int mode_export_bundle(const Args& a) {
             bin.write((char*)qd.data(), (std::streamsize)qd.size());
             bytes = (int64_t)qd.size();
             dtype = "int4_packed";
+        } else if (q && quant == "bf16") {
+            // fp64 -> bf16 via fp32 with round-to-nearest-even on the
+            // dropped mantissa; unscaled — the loader widens back.
+            std::vector<uint16_t> qd((size_t)n);
+            for (int64_t k = 0; k < n; ++k) {
+                const float f = (float)t.d[(size_t)k];
+                uint32_t u;
+                std::memcpy(&u, &f, sizeof(u));
+                u += 0x7FFFu + ((u >> 16) & 1u);
+                qd[(size_t)k] = (uint16_t)(u >> 16);
+            }
+            bin.write((char*)qd.data(),
+                      (std::streamsize)qd.size() * 2);
+            bytes = (int64_t)qd.size() * 2;
+            dtype = "bf16";
         } else {
             std::vector<double> tmp((size_t)n);
             for (int64_t k = 0; k < n; ++k)
@@ -2609,6 +2627,201 @@ int mode_probe_cuda() {
         ok ? "true" : "false", fb / (1024 * 1024), tb / (1024 * 1024),
         ccm, ccn);
     return 0;
+}
+
+// §19 cuda-parity-all: every CUDA compute lane verified against the
+// CPU fp64 reference — a kernel that compiles is not a kernel that is
+// correct. Absent lanes report "not_run" rather than PASS; a built
+// lane that diverges is a hard failure.
+extern "C" int xcuda_available();
+extern "C" int xcuda_matmul_f64(const double*, long long, long long,
+                                const double*, long long, double*);
+extern "C" int xcuda_matmul_f64_grouped(
+    const double*, const long long*, long long, const double* const*,
+    long long, long long, double*);
+extern "C" int xcuda_bf16_available();
+extern "C" int xcuda_matmul_bf16(const double*, long long, long long,
+                                 const double*, long long, double*);
+extern "C" int xcuda_fp8_available();
+extern "C" int xcuda_matmul_fp8(const double*, long long, long long,
+                                const double*, long long, double*);
+extern "C" int xcuda_kv_available();
+extern "C" int xcuda_kv_alloc(long long, long long, long long,
+                              long long);
+extern "C" void xcuda_kv_free();
+extern "C" int xcuda_kv_write_rows(int, long long, long long, long long,
+                                   long long, const double*);
+extern "C" int xcuda_kv_attention(long long, const double*, long long,
+                                  long long, long long, long long,
+                                  long long, double*, long long);
+
+static void cpup_ref_matmul(const double* a, long long m, long long k,
+                            const double* b, long long n, double* out) {
+    for (long long i = 0; i < m; ++i)
+        for (long long j = 0; j < n; ++j) {
+            double s = 0.0;
+            for (long long p = 0; p < k; ++p)
+                s += a[i * k + p] * b[p * n + j];
+            out[i * n + j] = s;
+        }
+}
+
+static double cpup_maxdiff(const std::vector<double>& a,
+                           const std::vector<double>& b) {
+    double d = 0.0;
+    for (size_t i = 0; i < a.size() && i < b.size(); ++i)
+        d = std::max(d, std::fabs(a[i] - b[i]));
+    return d;
+}
+
+static double cpup_maxabs(const std::vector<double>& v) {
+    double m = 0.0;
+    for (double x : v) m = std::max(m, std::fabs(x));
+    return m;
+}
+
+int mode_cuda_parity_all(const Args&) {
+    long long fb = 0, tb = 0;
+    int ccm = 0, ccn = 0;
+    const bool cuda = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
+    const long long M = 8, K = 16, N = 12;
+    std::vector<double> A(M * K), B(K * N);
+    {
+        std::mt19937_64 rng(4);
+        std::uniform_real_distribution<double> u(-0.5, 0.5);
+        for (auto& v : A) v = u(rng);
+        for (auto& v : B) v = u(rng);
+    }
+    std::vector<double> ref(M * N), got(M * N, 0.0);
+    cpup_ref_matmul(A.data(), M, K, B.data(), N, ref.data());
+    const double refmax = std::max(cpup_maxabs(ref), 1e-12);
+
+    struct Lane { const char* name; const char* status;
+                  double max_diff; double tol; };
+    std::vector<Lane> lanes;
+    auto run_gemm = [&](const char* name,
+                        int (*fn)(const double*, long long, long long,
+                                  const double*, long long, double*),
+                        double tol_scale) {
+        if (!cuda) { lanes.push_back({name, "not_run", 0, 0}); return; }
+        std::fill(got.begin(), got.end(), 0.0);
+        if (fn(A.data(), M, K, B.data(), N, got.data()) != 0) {
+            lanes.push_back({name, "unavailable", 0, 0});
+            return;
+        }
+        double d = cpup_maxdiff(ref, got);
+        lanes.push_back({name, d <= tol_scale * refmax ? "PASS" : "FAIL",
+                         d, tol_scale * refmax});
+    };
+    run_gemm("gemm_f64", xcuda_matmul_f64, 1e-9);
+    run_gemm("gemm_bf16", xcuda_matmul_bf16, 0.02);
+    run_gemm("gemm_fp8", xcuda_matmul_fp8, 0.25);
+
+    // Grouped fp64 GEMM: two row groups, per-group weight matrices.
+    if (cuda) {
+        const long long rows[2] = {3, 5};
+        std::vector<double> B2(K * N);
+        {
+            std::mt19937_64 rng(7);
+            std::uniform_real_distribution<double> u(-0.5, 0.5);
+            for (auto& v : B2) v = u(rng);
+        }
+        const double* bl[2] = {B.data(), B2.data()};
+        std::vector<double> gref(M * N), ggot(M * N, 0.0);
+        cpup_ref_matmul(A.data(), 3, K, B.data(), N, gref.data());
+        cpup_ref_matmul(A.data() + 3 * K, 5, K, B2.data(), N,
+                        gref.data() + 3 * N);
+        if (xcuda_matmul_f64_grouped(A.data(), rows, 2, bl, K, N,
+                                     ggot.data()) != 0) {
+            lanes.push_back({"gemm_f64_grouped", "unavailable", 0, 0});
+        } else {
+            double d = cpup_maxdiff(gref, ggot);
+            double tol = 1e-9 * std::max(cpup_maxabs(gref), 1e-12);
+            lanes.push_back({"gemm_f64_grouped",
+                             d <= tol ? "PASS" : "FAIL", d, tol});
+        }
+    } else {
+        lanes.push_back({"gemm_f64_grouped", "not_run", 0, 0});
+    }
+
+    // Device KV + online-softmax attention vs a CPU reference of the
+    // same causal semantics (query s attends 0..position_offset+s).
+    if (cuda && xcuda_kv_available()) {
+        const long long L = 1, KH = 1, D = 8, ML = 16;
+        bool kv_ok = xcuda_kv_alloc(L, KH, D, ML) == 0;
+        double kv_diff = -1.0;
+        if (kv_ok) {
+            const long long seq_in = 4;
+            std::vector<double> kdat(seq_in * D), vdat(seq_in * D),
+                qdat(seq_in * D), out(2 * D, 0.0);
+            {
+                std::mt19937_64 rng(11);
+                std::uniform_real_distribution<double> u(-1.0, 1.0);
+                for (auto& v : kdat) v = u(rng);
+                for (auto& v : vdat) v = u(rng);
+                for (auto& v : qdat) v = u(rng);
+            }
+            kv_ok &= xcuda_kv_write_rows(1, 0, 0, 0, seq_in,
+                                         kdat.data()) == 0;
+            kv_ok &= xcuda_kv_write_rows(0, 0, 0, 0, seq_in,
+                                         vdat.data()) == 0;
+            const long long poff = 2, qs = 2;
+            // q covers positions poff..poff+qs-1
+            kv_ok &= xcuda_kv_attention(0, qdat.data() + 0, 1, qs, 1, D,
+                                        poff, out.data(), D) == 0;
+            // CPU reference of the same kernel semantics
+            std::vector<double> cref(qs * D, 0.0);
+            for (long long s = 0; s < qs; ++s) {
+                const long long last = poff + s;
+                std::vector<double> sc(last + 1);
+                for (long long t = 0; t <= last; ++t) {
+                    double dot = 0.0;
+                    for (long long d = 0; d < D; ++d)
+                        dot += qdat[s * D + d] * kdat[t * D + d];
+                    sc[t] = dot / std::sqrt((double)D);
+                }
+                double mx = *std::max_element(sc.begin(), sc.end());
+                double l = 0.0;
+                for (long long t = 0; t <= last; ++t) {
+                    sc[t] = std::exp(sc[t] - mx); l += sc[t];
+                }
+                for (long long d = 0; d < D; ++d) {
+                    double a = 0.0;
+                    for (long long t = 0; t <= last; ++t)
+                        a += sc[t] * vdat[t * D + d];
+                    cref[s * D + d] = a / l;
+                }
+            }
+            kv_diff = cpup_maxdiff(cref, out);
+            xcuda_kv_free();
+        }
+        lanes.push_back({"kv_attention",
+                         !kv_ok ? "unavailable"
+                                : (kv_diff <= 1e-9 ? "PASS" : "FAIL"),
+                         kv_diff, 1e-9});
+    } else {
+        lanes.push_back({"kv_attention", "not_run", 0, 0});
+    }
+
+    bool all = true;
+    std::ostringstream lj;
+    for (size_t i = 0; i < lanes.size(); ++i) {
+        bool pass = std::string(lanes[i].status) == "PASS";
+        bool fail = std::string(lanes[i].status) == "FAIL";
+        if (fail) all = false;
+        if (i) lj << ',';
+        lj << '"' << lanes[i].name << "\":{\"status\":\""
+           << lanes[i].status << "\"";
+        if (pass || fail)
+            lj << ",\"max_diff\":" << lanes[i].max_diff
+               << ",\"tol\":" << lanes[i].tol;
+        lj << '}';
+    }
+    std::printf("{\"ok\":%s,\"format\":\"star-cuda-parity/v1\","
+                "\"cuda_available\":%s,\"lanes\":{%s}}\n",
+                all ? "true" : "false", cuda ? "true" : "false",
+                lj.str().c_str());
+    return all ? 0 : 1;
 }
 
 // ------------------------------------------------ batch-2 probes (§7/§10/§12/§13/§27/§29)
@@ -3785,6 +3998,7 @@ int main(int argc, char** argv) {
         if (mode == "parity") return mode_parity(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
+    if (mode == "cuda-parity-all") return mode_cuda_parity_all(a);
         if (mode == "memory-plan") return mode_memory_plan(a);
         if (mode == "state-snapshot") return mode_state_snapshot(a);
     if (mode == "native-thinking-eval")
