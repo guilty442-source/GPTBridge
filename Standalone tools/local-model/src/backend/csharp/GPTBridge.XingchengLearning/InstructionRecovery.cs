@@ -43,6 +43,7 @@ internal static class InstructionRecovery
         "reading_grounding" => "star-reading-eval-result/v1",
         "rag" => "star-rag-eval-result/v1",
         "math" => "star-math-eval-result/v1",
+        "coding" => "star-coding-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -55,6 +56,7 @@ internal static class InstructionRecovery
         "reading_grounding" => "star-reading-recovery-dataset/v1",
         "rag" => "star-rag-recovery-dataset/v1",
         "math" => "star-math-recovery-dataset/v1",
+        "coding" => "star-coding-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
@@ -68,13 +70,14 @@ internal static class InstructionRecovery
             "star-reading-recovery-eval-20261001",
         "rag" => "star-rag-recovery-eval-20261001",
         "math" => "star-math-recovery-eval-20261001",
+        "coding" => "star-coding-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
           "structured_output", "tool_calling", "reading_grounding",
-          "rag", "math" };
+          "rag", "math", "coding" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -178,6 +181,20 @@ internal static class InstructionRecovery
         ("simple_algebra", 0.12),
         ("word_problem", 0.13),
     };
+    // Registered names from Maturation300M (6 metrics). Syntax and
+    // function dominate the floor; fim/bug_fix are the editing
+    // surfaces; small_multi_file is the shallow repo boundary (large
+    // agent work stays out of scope per the canonical suite notes).
+    private static readonly (string metric, double w)[]
+        CodingMetricWeights =
+    {
+        ("syntax", 0.20),
+        ("function", 0.20),
+        ("unit_task", 0.20),
+        ("fim", 0.15),
+        ("bug_fix", 0.15),
+        ("small_multi_file", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
@@ -186,6 +203,9 @@ internal static class InstructionRecovery
             "structured_output" => StructuredMetricWeights,
             "tool_calling" => ToolMetricWeights,
             "reading_grounding" => ReadingMetricWeights,
+            "rag" => RagMetricWeights,
+            "math" => MathMetricWeights,
+            "coding" => CodingMetricWeights,
             _ => InstructionMetricWeights,
         };
 
@@ -3402,6 +3422,420 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // coding: 6 registered metrics — syntax / function / unit_task /
+    // fim / bug_fix / small_multi_file. Training identifiers are
+    // disjoint from the suite's (status/rate/mul4/Neg/second_or_none/
+    // min2/cube/shout/geom/tools.py + canonical total/add/avg/is_even/
+    // max3/square/greet/triple/first_or_none/math_utils) so eval
+    // measures contract transfer, not memorized names.
+    private static readonly string[] SynVars =
+    {
+        "score", "price", "qty", "idx", "flag2", "temp", "ratio2",
+        "msg", "buf", "acc",
+    };
+    private static readonly (string fn, string sig, string spec,
+                             string body)[]
+        PyFuncs =
+    {
+        ("plus", "a, b", "their sum", "return a + b"),
+        ("minus", "a, b", "a minus b", "return a - b"),
+        ("times", "a, b", "their product", "return a * b"),
+        ("halve", "x", "x divided by 2", "return x / 2"),
+        ("power2", "x", "x squared", "return x * x"),
+        ("quadruple", "x", "x times 4", "return x * 4"),
+        ("incr", "x", "x plus 1", "return x + 1"),
+        ("decr", "x", "x minus 1", "return x - 1"),
+        ("bigger", "a, b", "the larger of a and b",
+         "return a if a > b else b"),
+        ("smaller", "a, b", "the smaller of a and b",
+         "return a if a < b else b"),
+        ("positive_q", "x", "True when x > 0", "return x > 0"),
+        ("neg_q", "x", "True when x < 0", "return x < 0"),
+        ("mod_pair", "a, b", "a modulo b", "return a % b"),
+        ("pow3", "x", "x cubed", "return x * x * x"),
+        ("sign_q", "x", "-1, 0 or 1 by sign",
+         "return -1 if x < 0 else (1 if x > 0 else 0)"),
+        ("odd_q", "x", "True when x is odd", "return x % 2 != 0"),
+        ("diff2", "a, b", "a minus twice b", "return a - 2 * b"),
+        ("rem2", "x", "x modulo 2", "return x % 2"),
+        ("step2", "x", "x plus 2", "return x + 2"),
+        ("back2", "x", "x minus 2", "return x - 2"),
+    };
+    private static readonly (string fn, string spec, string body)[]
+        CppFuncs =
+    {
+        ("plus", "their sum", "return a + b;"),
+        ("minus", "a minus b", "return a - b;"),
+        ("times", "their product", "return a * b;"),
+        ("power2", "x squared", "return x * x;"),
+        ("quadruple", "x times 4", "return x * 4;"),
+        ("incr", "x plus 1", "return x + 1;"),
+        ("decr", "x minus 1", "return x - 1;"),
+        ("bigger", "the larger of a and b", "return a > b ? a : b;"),
+        ("smaller", "the smaller of a and b", "return a < b ? a : b;"),
+        ("mod_pair", "a modulo b", "return a % b;"),
+        ("pow3", "x cubed", "return x * x * x;"),
+        ("step2", "x plus 2", "return x + 2;"),
+        ("back2", "x minus 2", "return x - 2;"),
+        ("diff2", "a minus twice b", "return a - 2 * b;"),
+    };
+    private static readonly (string fn, string spec, string body)[]
+        UnitTasks =
+    {
+        ("count_positives", "count of elements > 0",
+         "return sum(1 for x in nums if x > 0)"),
+        ("last_or_default",
+         "the last element or d for an empty list",
+         "return lst[-1] if len(lst) > 0 else d"),
+        ("repeat_str", "s repeated n times", "return s * n"),
+        ("count_char", "occurrences of c in s", "return s.count(c)"),
+        ("clamp", "v limited to [lo, hi]",
+         "return max(lo, min(hi, v))"),
+        ("swap_pair", "the pair with elements swapped",
+         "return (p[1], p[0])"),
+        ("is_vowel", "True when c is a vowel",
+         "return c in \"aeiou\""),
+        ("join_csv", "items joined by commas",
+         "return \",\".join(str(x) for x in items)"),
+        ("count_even", "count of even elements",
+         "return sum(1 for x in nums if x % 2 == 0)"),
+        ("nth_or_zero", "the n-th element or 0 when out of range",
+         "return lst[n] if 0 <= n < len(lst) else 0"),
+        ("has_dup", "True when any element repeats",
+         "return len(lst) != len(set(lst))"),
+        ("sum_digits", "sum of the digits of n",
+         "return sum(int(c) for c in str(abs(n)))"),
+        ("reverse_s", "s reversed", "return s[::-1]"),
+        ("pad_s", "s padded with '*' to width w",
+         "return s.ljust(w, '*')"),
+        ("abs_all", "absolute values of all elements",
+         "return [abs(x) for x in nums]"),
+        ("count_word", "occurrences of w in text",
+         "return text.split().count(w)"),
+    };
+
+    private static IEnumerable<Row> GenerateCoding(int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(string prompt, string completion, string cat,
+                 string rule = "max_chars:550") =>
+            rows.Add(new Row
+            {
+                Prompt = prompt, Completion = completion,
+                Category = cat, Rule = rule,
+                Source = r.Next(4) == 0 ? "failure-pool" : "synthetic",
+            });
+        bool Zh() => r.Next(3) != 0;
+
+        // -- A. syntax — one-line declarations/statements.
+        for (int i = 0; i < count / 5; i++)
+        {
+            string v = Take(r, SynVars);
+            switch (r.Next(4))
+            {
+                case 0:
+                {
+                    int n = r.Next(100);
+                    Add(Zh() ? $"寫一行 C++ 宣告 int 變數 {v} 初值 {n}。"
+                             : $"Write a one-line C++ statement that "
+                               + $"declares an int variable named {v} "
+                               + $"initialized to {n}.",
+                        $"int {v} = {n};", "A");
+                    break;
+                }
+                case 1:
+                {
+                    int lo = r.Next(3), hi = lo + 3 + r.Next(8);
+                    Add(Zh() ? $"寫一個 Python for 迴圈印出 {lo} 到 "
+                               + $"{hi - 1}。"
+                             : $"Write a Python for loop printing "
+                               + $"{lo} to {hi - 1}.",
+                        $"for i in range({lo}, {hi}):\n    print(i)",
+                        "A");
+                    break;
+                }
+                case 2:
+                {
+                    string s = Take(r, new[] { "ok", "done", "idle",
+                                               "ready", "run" });
+                    Add(Zh() ? $"寫一行 Python 把字串 \"{s}\" 指派給變數 "
+                               + $"{v}。"
+                             : $"Write a one-line Python statement "
+                               + $"assigning \"{s}\" to a variable "
+                               + $"named {v}.",
+                        $"{v} = \"{s}\"", "A");
+                    break;
+                }
+                default:
+                {
+                    int a = r.Next(50), b = r.Next(50);
+                    Add(Zh() ? $"寫一行 C++ 計算 {a} + {b} 存入變數 {v}。"
+                             : $"Write a one-line C++ statement storing "
+                               + $"{a} + {b} into int {v}.",
+                        $"int {v} = {a} + {b};", "A");
+                    break;
+                }
+            }
+        }
+
+        // -- B. function — complete small functions.
+        for (int i = 0; i < count / 6; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                var (fn, sig, spec, body) = Take(r, PyFuncs);
+                Add(Zh() ? $"寫一個 Python 函式 `{fn}({sig})` 回傳"
+                           + $"{spec}。只輸出函式。"
+                         : $"Write a Python function `{fn}({sig})` "
+                           + $"returning {spec}. Output the function "
+                           + "only.",
+                    $"def {fn}({sig}):\n    {body}", "B");
+            }
+            else
+            {
+                var (fn, spec, body) = Take(r, CppFuncs);
+                string sig = fn is "plus" or "minus" or "times"
+                             or "bigger" or "smaller"
+                    ? "int a, int b" : "int x";
+                Add(Zh() ? $"寫一個 C++ 函式 `int {fn}({sig})` 回傳"
+                           + $"{spec}。"
+                         : $"Write a C++ function `int {fn}({sig})` "
+                           + $"returning {spec}.",
+                    $"int {fn}({sig}) {{ {body} }}", "B");
+            }
+        }
+
+        // -- C. unit_task — small utility functions.
+        for (int i = 0; i < count / 6; i++)
+        {
+            var (fn, spec, body) = Take(r, UnitTasks);
+            string sig = fn switch
+            {
+                "count_positives" => "nums",
+                "last_or_default" => "lst, d",
+                "repeat_str" => "s, n",
+                "count_char" => "s, c",
+                "clamp" => "v, lo, hi",
+                "swap_pair" => "p",
+                "is_vowel" => "c",
+                "count_even" => "nums",
+                "nth_or_zero" => "lst, n",
+                "has_dup" => "lst",
+                "sum_digits" => "n",
+                "reverse_s" => "s",
+                "pad_s" => "s, w",
+                "abs_all" => "nums",
+                "count_word" => "text, w",
+                _ => "items",
+            };
+            Add(Zh() ? Take(r, new[]
+                         {
+                             $"寫一個 Python 函式 `{fn}({sig})` 回傳"
+                             + $"{spec}。只輸出函式。",
+                             $"請寫 Python 函式 `{fn}({sig})`，功能："
+                             + $"回傳{spec}。",
+                             $"產生 `{fn}({sig})` 的 Python 定義，"
+                             + $"回傳{spec}。",
+                         })
+                     : Take(r, new[]
+                         {
+                             $"Write a Python function `{fn}({sig})` "
+                             + $"returning {spec}.",
+                             $"Output a Python function `{fn}({sig})` "
+                             + $"that returns {spec}.",
+                             $"Produce the definition of `{fn}({sig})`"
+                             + $" in Python returning {spec}.",
+                         }),
+                $"def {fn}({sig}):\n    {body}", "C");
+        }
+
+        // -- D. fim — output only the missing body line.
+        for (int i = 0; i < count / 6; i++)
+        {
+            var (fn, sig, spec, body) = Take(r, PyFuncs);
+            Add((Zh() ? "補上缺少的那一行。程式碼：\n"
+                      : "Fill in the missing line. Code:\n")
+                + $"```python\ndef {fn}({sig}):\n    <MISSING>\n```\n"
+                + (Zh() ? $"讓函式回傳{spec}。只輸出缺少的那一行。"
+                        : $"Complete so the function returns {spec}. "
+                          + "Output only the missing line."),
+                body, "D");
+        }
+
+        // -- E. bug_fix — buggy snippet -> fixed line/explanation.
+        var bugs = new (string bad, string askZh, string askEn,
+                        string fixZh, string fixEn)[]
+        {
+            ("for i in range(len(xs)+1): print(xs[i])",
+             "它會丟 IndexError。修正它，一行說明修法。",
+             "It raises IndexError. Fix it and state the fix in one "
+             + "line.",
+             "把 range(len(xs)+1) 改成 range(len(xs))",
+             "Change range(len(xs)+1) to range(len(xs))"),
+            ("def f(x):\n    y = x * 3",
+             "函式沒有回傳值。修正它。",
+             "The function returns nothing. Fix it.",
+             "加上 return y（回傳 y）",
+             "Add return y (return y)"),
+            ("if x = 5:\n    print(x)",
+             "這行有語法錯誤。修正它。",
+             "This line has a syntax error. Fix it.",
+             "把 = 改成 ==（比較要用 ==）",
+             "Change = to == (comparison needs ==)"),
+            ("x = 10 / n",
+             "n 可能是 0，會出錯。修正它。",
+             "n may be 0 and this will crash. Fix it.",
+             "if n != 0: x = 10 / n  else: x = 0（先檢查 n 不為 0）",
+             "if n != 0: x = 10 / n  else: x = 0 (guard n != 0)"),
+            ("int arr[3];\narr[3] = 1;",
+             "C++ 這段寫錯了。哪裡錯？一行說明。",
+             "This C++ snippet is wrong. What is wrong? One line.",
+             "arr[3] 超出邊界（合法索引 0..2），改成 arr[2] = 1;",
+             "arr[3] is out of bounds (valid 0..2); use arr[2] = 1;"),
+            ("int* q = &y;\ndelete q;",
+             "y 是 stack int。哪裡錯？一行說明修法。",
+             "y is a stack int. What is wrong? State the fix.",
+             "不能 delete stack 記憶體 — 移除 delete q;",
+             "cannot delete stack memory — remove delete q;"),
+            ("def avg2(a, b):\n    return a + b / 2",
+             "算出的不是平均值。修正它。",
+             "It does not compute the mean. Fix it.",
+             "改成 return (a + b) / 2（先加再除）",
+             "Change to return (a + b) / 2 (add first, then divide)"),
+            ("s = int(input())\nprint(s + \"1\")",
+             "int + str 會 TypeError。修正它。",
+             "int + str raises TypeError. Fix it.",
+             "改成 print(s + 1) 或 print(str(s) + \"1\")",
+             "Change to print(s + 1) or print(str(s) + \"1\")"),
+        };
+        for (int i = 0; i < count / 6; i++)
+        {
+            var (bad, askZh, askEn, fixZh, fixEn) =
+                bugs[r.Next(bugs.Length)];
+            bool zh = Zh();
+            Add(zh ? $"Bug：`{bad}`\n{askZh}" : $"Bug: `{bad}`\n{askEn}",
+                zh ? fixZh : fixEn, "E");
+        }
+
+        // -- F. small_multi_file — write the matching second file.
+        for (int i = 0; i < count / 8; i++)
+        {
+            if (r.Next(2) == 0)
+            {
+                var (fn, spec, body) = Take(r, CppFuncs);
+                bool two = fn is "plus" or "minus" or "times"
+                           or "bigger" or "smaller";
+                string sig = two ? "int, int" : "int";
+                string full = two ? "int a, int b" : "int x";
+                string h = $"{fn}_lib.h";
+                string cpp = $"{fn}_lib.cpp";
+                Add($"Two files: `{h}` declares `int {fn}({sig});` "
+                    + $"— write the matching `{cpp}` implementation "
+                    + $"(include the header). The function returns "
+                    + $"{spec}. Output the cpp content.",
+                    $"#include \"{h}\"\n"
+                    + $"int {fn}({full}) {{ {body} }}", "F");
+            }
+            else
+            {
+                var (fn, spec, body) = Take(r, UnitTasks);
+                Add($"helpers.py has `def {fn}` returning {spec}. "
+                    + $"app.py must import it and print {fn} called "
+                    + "on a sample argument. Write app.py.",
+                    $"import helpers\n"
+                    + $"print(helpers.{fn}("
+                    + (fn is "is_vowel" ? "'e'"
+                        : fn is "count_char" ? "'hello', 'e'"
+                        : fn is "clamp" ? "7, 0, 5"
+                        : fn is "repeat_str" ? "'ab', 2"
+                        : fn is "last_or_default" ? "[1,2], 0"
+                        : fn is "swap_pair" ? "(1,2)"
+                        : fn is "count_positives" ? "[1,-2,3]"
+                        : "['a','b']") + "))", "F");
+            }
+        }
+        return rows;
+    }
+
+    private static List<Dictionary<string, object?>>
+        BuildCodingSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string prompt,
+                string[] patterns, int maxTok, string fail,
+                string check = "regex_all")
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric,
+                ["check"] = check, ["prompt"] = prompt,
+                ["max_new_tokens"] = maxTok, ["fail_code"] = fail,
+            };
+            if (check == "regex_all") d["patterns"] = patterns;
+            else if (check == "regex") d["pattern"] = patterns[0];
+            else d["expected"] = patterns[0];
+            items.Add(d);
+        }
+        It("cd2-syn-1", "syntax",
+           "Write a one-line Python statement that assigns the "
+           + "string \"ok\" to a variable named status.",
+           new[] { "status", "=", "ok" }, 24, "WRONG_SYNTAX");
+        It("cd2-syn-2", "syntax",
+           "寫一行 C++ 宣告 double 變數 rate 初值 1.5。",
+           new[] { "double", "rate", "1.5", ";" }, 24,
+           "WRONG_SYNTAX");
+        It("cd2-func-1", "function",
+           "Write a Python function `mul4(a)` returning a * 4. "
+           + "Output the function only.",
+           new[] { "def mul4", "return" }, 48, "WRONG_FUNCTION");
+        It("cd2-func-2", "function",
+           "Write a C++ function `int Neg(int x)` returning -x.",
+           new[] { "Neg", "return", "-" }, 48, "WRONG_FUNCTION");
+        It("cd2-unit-1", "unit_task",
+           "Write a Python function `second_or_none(lst)` returning "
+           + "the second element or None for a short list.",
+           new[] { "def second_or_none", "return" }, 64,
+           "WRONG_LOGIC");
+        It("cd2-unit-2", "unit_task",
+           "寫一個函式 `min2(a,b)`（任何語言）回傳較小值。",
+           new[] { "min2", "return" }, 64, "WRONG_LOGIC");
+        It("cd2-fim-1", "fim",
+           "Fill in the missing line. Code:\n```python\n"
+           + "def cube(x):\n    <MISSING>\n```\nComplete so the "
+           + "function returns x cubed. Output only the missing "
+           + "line.",
+           new[] { "return" }, 24, "WRONG_FILL", "contains");
+        It("cd2-fim-2", "fim",
+           "Complete the middle of this function:\n```python\n"
+           + "def shout(s):\n    <MISSING>\n```\nIt must return s "
+           + "uppercased. Output only the missing line.",
+           new[] { "return.*upper|upper\\(\\)" }, 32, "WRONG_FILL",
+           "regex");
+        It("cd2-bug-1", "bug_fix",
+           "Bug: `while i < 5: print(i)` loops forever. Fix it and "
+           + "state the fix in one line.",
+           new[] { "i ?[+]?= ?i? ?[+]? ?1|i\\s*\\+=\\s*1|"
+                   + "i = i \\+ 1|increment|遞增|加 ?1" },
+           48, "BUG_NOT_FIXED", "regex");
+        It("cd2-bug-2", "bug_fix",
+           "Bug: `def area(r):\n    pi = 3.14\n    pi * r * r` "
+           + "returns nothing. State the fix in one line.",
+           new[] { "return" }, 48, "BUG_NOT_FIXED", "regex");
+        It("cd2-multi-1", "small_multi_file",
+           "Two files: `geom.h` declares `double area_circle(double);`"
+           + " — write the matching `geom.cpp` implementation "
+           + "(include the header). Output the cpp content.",
+           new[] { "#include", "geom.h", "area_circle", "return" },
+           96, "FILE_MISMATCH");
+        It("cd2-multi-2", "small_multi_file",
+           "tools.py has `def shout(s): return s.upper()`. run.py "
+           + "must import it and print shout(\"hi\"). Write run.py.",
+           new[] { "import", "shout", "print" }, 48,
+           "FILE_MISMATCH");
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -3421,6 +3855,7 @@ internal static class InstructionRecovery
             "reading_grounding" => GenerateReading(seed, count),
             "rag" => GenerateRag(seed, count),
             "math" => GenerateMath(seed, count),
+            "coding" => GenerateCoding(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -3471,6 +3906,7 @@ internal static class InstructionRecovery
             "reading_grounding" => BuildReadingSuiteItems(),
             "rag" => BuildRagSuiteItems(),
             "math" => BuildMathSuiteItems(),
+            "coding" => BuildCodingSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
