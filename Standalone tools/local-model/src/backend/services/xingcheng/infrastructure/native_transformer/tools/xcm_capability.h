@@ -175,14 +175,14 @@ inline std::string cap_sha256(const char* data, size_t n) {
 }
 
 inline DeltaStateSnapshot delta_snapshot_save(
-    xingcheng::inference::NativeInferenceEngine& engine, int64_t slot) {
+    xingcheng::inference::NativeInferenceEngine& engine, int64_t slot,
+    const std::string& architecture) {
     DeltaStateSnapshot s;
     s.generation = engine.bundle()
         ? engine.bundle()->architecture_generation() : "";
     s.model_hash = engine.bundle()
         ? engine.bundle()->weights_sha256() : "";
-    s.architecture =
-        manifest_field_for(engine, "architecture_profile");
+    s.architecture = architecture;
     s.slot = slot;
     if (!engine.delta_state_save(slot, s.blob)) {
         fail("STATE_SNAPSHOT_UNSUPPORTED");   // dense model — no linear state
@@ -371,16 +371,15 @@ inline RouterDiagnosis analyze_router(
     // from the layer-modal expert — a proxy for routing flip-flops.
     if (!layer.selected.empty()) {
         int64_t flips = 0;
+        const int64_t modal = (int64_t)std::distance(
+            layer.expert_counts.begin(),
+            std::max_element(layer.expert_counts.begin(),
+                             layer.expert_counts.end()));
         for (const auto& sel : layer.selected) {
             if (sel.empty()) continue;
-            int64_t top = sel[0];
-            double best = -1;
-            for (size_t e = 0; e < layer.expert_counts.size(); ++e)
-                if ((double)layer.expert_counts[e] > best) {
-                    best = (double)layer.expert_counts[e];
-                    if (top != (int64_t)e && e == 0) {}
-                }
-            int64_t modal = (int64_t)std::distance(
+            const int64_t top = sel[0];
+            if (top != modal) ++flips;
+        }
                 layer.expert_counts.begin(),
                 std::max_element(layer.expert_counts.begin(),
                                  layer.expert_counts.end()));

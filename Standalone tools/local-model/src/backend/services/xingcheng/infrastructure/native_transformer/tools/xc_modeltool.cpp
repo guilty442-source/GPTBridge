@@ -3107,6 +3107,14 @@ int main(int argc, char** argv) {
         if (mode == "parity") return mode_parity(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
+        // batch-2 probes (research/runtime infra; production untouched)
+        if (mode == "sparse-probe") return mode_sparse_probe(a);
+        if (mode == "kv-gather-probe") return mode_kv_gather_probe(a);
+        if (mode == "sched-smoke") return mode_sched_smoke(a);
+        if (mode == "state-drift") return mode_state_drift(a);
+        if (mode == "spec-probe") return mode_spec_probe(a);
+        if (mode == "hw-caps") return mode_hw_caps(a);
+        if (mode == "state2-smoke") return mode_state2_smoke(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());
