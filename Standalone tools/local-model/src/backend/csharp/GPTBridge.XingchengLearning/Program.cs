@@ -492,6 +492,8 @@ internal static class Program
             // ---- product scale tiers (1B STANDARD / 20B EXTREME) ----
             if (flags.Contains("scale-tiers"))
                 return Emit(ProductScale.Tiers());
+            if (flags.Contains("scale-profile-seed"))
+                return Emit(ProductScale.SeedProfiles(toolRoot));
             if (flags.Contains("model-identity"))
                 return Emit(ProductScale.Identity(
                     ToolContracts.ReadJson(

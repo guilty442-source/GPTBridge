@@ -285,7 +285,7 @@ internal static class ProductScale
                                 "profile, never a second core (§1)",
         };
         File.WriteAllText(Path.Combine(dir, "index.json"),
-            TransformerTrainingRepository.EmitJson(index));
+            CanonicalJson.PrettyDict(index));
         index["dir"] = ProfileRelDir;
         index["files"] = written
             .Select(s => (object?)(s + ".json")).ToList();
