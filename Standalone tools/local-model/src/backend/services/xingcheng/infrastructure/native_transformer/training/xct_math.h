@@ -489,7 +489,13 @@ static void fwd(const Params& p, const ModelConfig& c,
                 std::vector<int> idx(E);
                 std::iota(idx.begin(), idx.end(), 0);
                 std::partial_sort(idx.begin(), idx.begin() + K, idx.end(),
-                                  [&](int a, int b) { return gp[a] > gp[b]; });
+                                  [&](int a, int b) {
+                                      // Deterministic tie-break mirrors the
+                                      // inference engine (stable_sort, ties
+                                      // keep lower expert index first).
+                                      if (gp[a] != gp[b]) return gp[a] > gp[b];
+                                      return a < b;
+                                  });
                 float wsum = 0.0f;
                 for (int s = 0; s < K; ++s) wsum += gp[idx[s]];
                 const float* xr = L.n2.data() + (size_t)t * H;
