@@ -657,6 +657,9 @@ internal static class Program
                     opts.TryGetValue("val-permille", out string? vp) &&
                     int.TryParse(vp, out int vpv) ? vpv : 50,
                     flags.Contains("include-collected")));
+            // §36 community-fine-tune acceptance battery
+            if (flags.Contains("community-checks"))
+                return Emit(CommunityChecks.Run(toolRoot));
             return Usage();
         }
         catch (Exception exc)
@@ -707,7 +710,7 @@ internal static class Program
             "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +
             "--tool-metrics | --grounded-validate --file <f.json> | " +
             "--structured-validate --output <f.json> --schema <f.json> | " +
-            "--langcheck)");
+            "--langcheck | --community-checks)");
         return 2;
     }
 
