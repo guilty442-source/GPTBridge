@@ -41,9 +41,7 @@ internal sealed class LocalModelExecutor
     private readonly string _bundleDir;
     private readonly JsonObject _samplingDefaults;
     private readonly int _cpuThreads;
-    private readonly bool _cuda;
-    private readonly bool _cudaKv;
-    private readonly string _cudaPrecision;
+    private readonly bool _cppCuda;
 
     private readonly SemaphoreSlim _childLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
@@ -64,8 +62,8 @@ internal sealed class LocalModelExecutor
             env.ToolRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
-        (_bundleDir, _samplingDefaults, _cpuThreads, _cuda, _cudaKv,
-            _cudaPrecision) = ResolveBundle(env.ToolRoot);
+        (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda) =
+            ResolveBundle(env.ToolRoot);
     }
 
     /// <summary>
@@ -76,15 +74,12 @@ internal sealed class LocalModelExecutor
     /// cpu_threads feeds the native core's striped-GEMM stripe count via
     /// GPTBRIDGE_MATMUL_THREADS on the worker process; absent/<=1 leaves
     /// the core's auto default.
-    /// cuda/cuda_kv request the CUDA compute / device-KV paths via
-    /// XINGCHENG_CPP_CUDA{,_KV}; cuda_precision ("none"|"bf16"|"fp8")
-    /// selects the opt-in reduced-precision GEMM domain. All default to
-    /// off/CPU; requesting CUDA without device+toolkit fails closed in
-    /// the worker (CUDA_*_UNAVAILABLE), and a bad precision value fails
-    /// closed here.
+    /// cpp_cuda is the governed GPU opt-in flag (native-engine.json):
+    /// true requests the CUDA fp64 path after a device+VRAM admission
+    /// probe; denial is CPU fail-soft, never a load failure.
     /// </summary>
     private static (string Bundle, JsonObject Defaults, int CpuThreads,
-        bool Cuda, bool CudaKv, string CudaPrecision)
+        bool CppCuda)
         ResolveBundle(string toolRoot)
     {
         var settingsPath = Path.Combine(
@@ -122,23 +117,13 @@ internal sealed class LocalModelExecutor
             && ct.ValueKind == JsonValueKind.Number
                 ? ct.GetInt32()
                 : 0;
-        var cuda = root.TryGetProperty("cuda", out var cu)
+        var cppCuda = root.TryGetProperty("cpp_cuda", out var cu)
             && cu.ValueKind == JsonValueKind.True;
-        var cudaKv = root.TryGetProperty("cuda_kv", out var ck)
-            && ck.ValueKind == JsonValueKind.True;
-        var cudaPrecision =
-            root.TryGetProperty("cuda_precision", out var cpr)
-            && cpr.ValueKind == JsonValueKind.String
-                ? (cpr.GetString() ?? "none")
-                : "none";
-        if (cudaPrecision is not ("none" or "bf16" or "fp8"))
-            throw new InvalidOperationException("XC_CUDA_PRECISION_INVALID");
 
         // Pinned bundle directory (current contract).
         if (Directory.Exists(checkpointPath)
             && IsBundleDir(checkpointPath))
-            return (checkpointPath, defaults, cpuThreads, cuda, cudaKv,
-                    cudaPrecision);
+            return (checkpointPath, defaults, cpuThreads, cppCuda);
 
         // Legacy contract: checkpoint is the source .pt; find its bundle.
         if (File.Exists(checkpointPath))
@@ -173,8 +158,7 @@ internal sealed class LocalModelExecutor
                             && sz.GetInt64() != size)
                             continue;
                         if (IsBundleDir(dir))
-                            return (dir, defaults, cpuThreads, cuda,
-                                    cudaKv, cudaPrecision);
+                            return (dir, defaults, cpuThreads, cppCuda);
                     }
                     catch (JsonException) { /* skip unreadable bundle */ }
                 }
@@ -187,6 +171,47 @@ internal sealed class LocalModelExecutor
         File.Exists(Path.Combine(dir, "manifest.json"))
         && File.Exists(Path.Combine(dir, "weights.bin"))
         && File.Exists(Path.Combine(dir, "tokenizer.json"));
+
+    // Governed GPU admission (cpp_cuda contract): device + toolkit must be
+    // present and free VRAM must cover the resident fp64 weight set plus
+    // workspace headroom. Any probe failure means denial → the worker is
+    // spawned without the CUDA env and runs the CPU path (fail-soft).
+    private const long GpuAdmissionFreeMb = 3400;
+
+    private bool GpuAdmitted()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = _modeltoolExe,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = new UTF8Encoding(false),
+            };
+            psi.ArgumentList.Add("probe-cuda");
+            using var probe = Process.Start(psi);
+            if (probe == null) return false;
+            var stdout = probe.StandardOutput.ReadToEnd();
+            if (!probe.WaitForExit(15000) || probe.ExitCode != 0)
+            {
+                try { probe.Kill(); } catch { }
+                return false;
+            }
+            using var doc = JsonDocument.Parse(stdout);
+            var cuda = doc.RootElement.GetProperty("cuda");
+            return cuda.TryGetProperty("available", out var av)
+                && av.ValueKind == JsonValueKind.True
+                && cuda.TryGetProperty("vram_free_mb", out var fm)
+                && fm.GetInt64() >= GpuAdmissionFreeMb;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Bind the loopback listener and publish the descriptor. Called by
@@ -530,14 +555,11 @@ internal sealed class LocalModelExecutor
         if (_cpuThreads > 0)
             psi.Environment["GPTBRIDGE_MATMUL_THREADS"] =
                 _cpuThreads.ToString();
-        if (_cuda)
+        if (_cppCuda && GpuAdmitted())
+        {
             psi.Environment["XINGCHENG_CPP_CUDA"] = "1";
-        if (_cudaKv)
             psi.Environment["XINGCHENG_CPP_CUDA_KV"] = "1";
-        if (_cudaPrecision == "bf16")
-            psi.Environment["XINGCHENG_CPP_CUDA_BF16"] = "1";
-        else if (_cudaPrecision == "fp8")
-            psi.Environment["XINGCHENG_CPP_CUDA_FP8"] = "1";
+        }
         var child = Process.Start(psi)
             ?? throw new InvalidOperationException("MODEL_WORKER_SPAWN_FAILED");
         _ = Task.Run(async () =>

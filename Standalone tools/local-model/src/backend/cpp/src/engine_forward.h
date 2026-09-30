@@ -11,6 +11,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     const ModelConfig& cfg = bundle_->config();
     const int64_t hidden_size = cfg.hidden_size;
     std::vector<int64_t> starts(spans.size());
+    std::vector<int64_t> vlens(spans.size());
     int64_t total_tokens = 0;
     for (size_t i = 0; i < spans.size(); ++i) {
         const BatchSpan& span = spans[i];
@@ -18,8 +19,21 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             throw InferenceError("INPUT_EMPTY");
         }
         const int64_t seq = static_cast<int64_t>(span.ids->size());
+        // Vision early-fusion prefix length (0 for text-only spans).
+        const int64_t patches = span.vision_num_patches;
+        if (patches < 0) throw InferenceError("VISION_SHAPE_MISMATCH");
+        if (patches > 0) {
+            if (!cfg.use_vision) throw InferenceError("VISION_NOT_ENABLED");
+            if (span.vision_patches == nullptr ||
+                static_cast<int64_t>(span.vision_patches->size()) !=
+                    patches * cfg.vision_patch_dim)
+                throw InferenceError("VISION_SHAPE_MISMATCH");
+            if (cfg.vision_max_patches > 0 && patches > cfg.vision_max_patches)
+                throw InferenceError("VISION_TOO_MANY_PATCHES");
+        }
+        const int64_t vlen = patches + seq;
         if (span.position_offset < 0 ||
-            span.position_offset + seq > cfg.max_position_embeddings) {
+            span.position_offset + vlen > cfg.max_position_embeddings) {
             throw InferenceError("SEQUENCE_EXCEEDS_MAX_POSITION_EMBEDDINGS");
         }
         if (span.append_cache || span.position_offset > 0) {
@@ -35,7 +49,8 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             }
         }
         starts[i] = total_tokens;
-        total_tokens += seq;
+        vlens[i] = vlen;
+        total_tokens += vlen;
     }
 
     std::vector<double>& hidden = fs_.hidden;
@@ -43,7 +58,20 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
     for (size_t i = 0; i < spans.size(); ++i) {
         const BatchSpan& span = spans[i];
         const int64_t seq = static_cast<int64_t>(span.ids->size());
+        const int64_t patches = span.vision_num_patches;
         const int64_t base = starts[i];
+        if (patches > 0) {
+            // Early fusion: linear patch projection occupies rows
+            // [base, base+patches); text rows shift down by patches.
+            std::vector<double>& prefix = fs_.vision_prefix;
+            linear_into(
+                *span.vision_patches, patches, cfg.vision_patch_dim,
+                vision_patch_proj_t_, hidden_size, prefix);
+            std::copy_n(
+                prefix.data(),
+                static_cast<size_t>(patches * hidden_size),
+                hidden.data() + static_cast<size_t>(base * hidden_size));
+        }
         for (int64_t s = 0; s < seq; ++s) {
             const int64_t token = (*span.ids)[static_cast<size_t>(s)];
             if (token < 0 || token >= cfg.vocab_size) {
@@ -52,12 +80,12 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             std::copy_n(
                 embedding_.data + token * hidden_size,
                 hidden_size,
-                hidden.data() + static_cast<size_t>((base + s) * hidden_size));
+                hidden.data() + static_cast<size_t>((base + patches + s) * hidden_size));
             if (cfg.position_embedding_type == "learned") {
                 const TensorView& pos = bundle_->tensor("model.embeddings.position_embeddings.weight");
-                const int64_t position = span.position_offset + s;
+                const int64_t position = span.position_offset + patches + s;
                 for (int64_t d = 0; d < hidden_size; ++d) {
-                    hidden[static_cast<size_t>((base + s) * hidden_size + d)] +=
+                    hidden[static_cast<size_t>((base + patches + s) * hidden_size + d)] +=
                         pos.data[position * hidden_size + d];
                 }
             }
@@ -82,7 +110,7 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             rope_base_, rope_base_dim_, rope_base_theta_);
         for (size_t i = 0; i < spans.size(); ++i) {
             rope_tables(
-                static_cast<int64_t>(spans[i].ids->size()),
+                vlens[i],
                 spans[i].position_offset, cfg.head_dim, bases,
                 rope_cos[i], rope_sin[i]);
         }
@@ -123,7 +151,9 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         // cached prefix); no cross-sequence leakage is possible.
         for (size_t i = 0; i < spans.size(); ++i) {
             const BatchSpan& span = spans[i];
-            const int64_t seq = static_cast<int64_t>(span.ids->size());
+            // Fused length: vision prefix rows + text rows (early fusion —
+            // downstream stages see one causal sequence per span).
+            const int64_t seq = vlens[i];
             const int64_t base = starts[i];
             const int64_t total_len = span.position_offset + seq;
 

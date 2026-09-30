@@ -173,12 +173,12 @@ extern "C" int xcuda_bf16_available();
 extern "C" int xcuda_matmul_bf16(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
-// P1-1③ residual: fp8 (e4m3) weight-storage GEMM (kernels/matmul_fp8.cu).
+// P1-1③ residual: fp8 (e4m3) weight-storage GEMM (cuda_kernels.cpp).
 extern "C" int xcuda_fp8_available();
 extern "C" int xcuda_matmul_fp8(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
-// P1-1② device-resident KV + online-softmax attention (kernels/kv_attention.cu).
+// P1-1② device-resident KV + online-softmax attention (cuda_kernels.cpp).
 extern "C" int xcuda_kv_available();
 extern "C" int xcuda_kv_alloc(
     long long layers, long long kv_heads, long long head_dim,
@@ -191,4 +191,8 @@ extern "C" int xcuda_kv_attention(
     long long layer, const double* q, long long heads, long long seq,
     long long kv_heads, long long head_dim, long long position_offset,
     double* out, long long out_stride);
+// Governed admission probe: device + free VRAM, no kernel compile.
+extern "C" int xcuda_probe(
+    long long* free_bytes, long long* total_bytes, int* cc_major,
+    int* cc_minor);
 #endif

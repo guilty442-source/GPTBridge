@@ -1778,6 +1778,25 @@ std::string serve_render_chat(const JsonValue& messages) {
     return p;
 }
 
+// Governed GPU-admission probe: reports CUDA capability + free VRAM
+// without loading the engine. The stub (non-CUDA build) reports
+// available=0 — capability lives in the CUDA TU, the decision above.
+extern "C" int xcuda_probe(long long* free_bytes, long long* total_bytes,
+                           int* cc_major, int* cc_minor);
+
+int mode_probe_cuda() {
+    long long fb = 0, tb = 0;
+    int ccm = 0, ccn = 0;
+    const int ok = xcuda_probe(&fb, &tb, &ccm, &ccn);
+    std::printf(
+        "{\"ok\":true,\"cuda\":{\"available\":%s,"
+        "\"vram_free_mb\":%lld,\"vram_total_mb\":%lld,"
+        "\"cc_major\":%d,\"cc_minor\":%d}}\n",
+        ok ? "true" : "false", fb / (1024 * 1024), tb / (1024 * 1024),
+        ccm, ccn);
+    return 0;
+}
+
 double serve_num(const JsonValue& o, const char* k, double d) {
     const JsonValue* v = o.get(k);
     return (v && v->type == JsonValue::Type::Number) ? v->number : d;
@@ -1989,6 +2008,7 @@ int main(int argc, char** argv) {
         if (mode == "eval") return mode_eval(a);
         if (mode == "capability") return mode_capability(a);
         if (mode == "serve") return mode_serve(a);
+        if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

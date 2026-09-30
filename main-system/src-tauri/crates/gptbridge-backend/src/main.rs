@@ -152,14 +152,26 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
         // yet — fail closed instead of fabricating queue mutations.
         "xingcheng-confirm-automatic-repair"
         | "xingcheng-confirm-automatic-update"
-        | "xingcheng-revoke-automatic-repair"
-        | "xingcheng-revoke-automatic-update"
+        | "xingcheng-revoke-automatic-repair-confirmation"
+        | "xingcheng-revoke-automatic-update-confirmation"
         | "xingcheng-deny-pending-action"
         | "sync-execute-approved-automatic-repair"
         | "sync-execute-approved-automatic-update" => json!({
             "ok": false,
             "error_code": "CONFIRMATION_SOVEREIGN_UNAVAILABLE",
             "message": "confirmation sovereign not started",
+        }),
+        // Retired parity (third_party_handler): the manager lived under
+        // automation_sovereign and has no native successor — the retired
+        // path itself returned this exact denial when it was absent.
+        "app:get-third-party-status"
+        | "app:probe-third-party-versions"
+        | "app:check-third-party-updates"
+        | "app:update-third-party-tool"
+        | "app:auto-update-third-party-tools" => json!({
+            "ok": false,
+            "error_code": "THIRD_PARTY_MANAGER_UNAVAILABLE",
+            "message": "PERMISSION_DENIED",
         }),
         "xingcheng-set-native-model-enabled" => {
             match payload["enabled"].as_bool() {

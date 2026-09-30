@@ -13,7 +13,8 @@ std::vector<std::vector<double>> NativeInferenceEngine::forward_batch_last_logit
     last_rows.reserve(static_cast<size_t>(spans.size() * hidden_size));
     int64_t base = 0;
     for (const BatchSpan& span : spans) {
-        const int64_t seq = static_cast<int64_t>(span.ids->size());
+        const int64_t seq = static_cast<int64_t>(span.ids->size()) +
+            span.vision_num_patches;
         const double* last =
             hidden.data() + static_cast<size_t>((base + seq - 1) * hidden_size);
         last_rows.insert(last_rows.end(), last, last + hidden_size);

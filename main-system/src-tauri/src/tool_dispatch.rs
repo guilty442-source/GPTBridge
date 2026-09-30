@@ -17,7 +17,7 @@ use gptbridge_core::native::paths::is_path_inside;
 
 /// Preload whitelist parity — identical to source-tool-ui-host
 /// preload.cjs ``allowedInvokeChannels``.
-pub const TOOL_ALLOWED_CHANNELS: [&str; 21] = [
+pub const TOOL_ALLOWED_CHANNELS: [&str; 22] = [
     "app:ensure-backend-started",
     "app:get-backend-session",
     "app:open-path",
@@ -26,6 +26,7 @@ pub const TOOL_ALLOWED_CHANNELS: [&str; 21] = [
     "dialog:create-file",
     "dialog:open-file",
     "embedded-browser:create",
+    "embedded-browser:dom-op",
     "embedded-browser:navigate",
     "embedded-browser:execute",
     "embedded-browser:show",

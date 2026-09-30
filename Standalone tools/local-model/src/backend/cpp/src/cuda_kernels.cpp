@@ -79,6 +79,7 @@ struct DriverApi {
                                 unsigned int, unsigned int, unsigned int,
                                 unsigned int, unsigned int, CUstream_t,
                                 void**, void**) = nullptr;
+    CUresult_t (*mem_get_info)(size_t*, size_t*) = nullptr;
 };
 
 struct NvrtcApi {
@@ -183,6 +184,8 @@ bool api_init() {
                   "cuModuleGetFunction", nullptr);
     ok &= resolve(g_drv.dll, &g_drv.launch_kernel, "cuLaunchKernel",
                   nullptr);
+    ok &= resolve(g_drv.dll, &g_drv.mem_get_info, "cuMemGetInfo_v2",
+                  "cuMemGetInfo");
     if (!ok) { XCK_DBG("driver resolve fail"); return false; }
 
     const char* cp = getenv("CUDA_PATH");
@@ -826,6 +829,26 @@ int xcuda_fp8_kernel_probe() {
 
 int xcuda_kv_kernel_probe() {
     return device_ready() && ensure_module() ? 1 : 0;
+}
+
+// Lightweight capability probe for the governed admission check —
+// resolves the device + free VRAM without compiling kernels, so it is
+// cheap enough to run before every governed launch decision.
+int xcuda_probe(long long* free_bytes, long long* total_bytes,
+                int* cc_major, int* cc_minor) {
+    if (!device_ready()) return 0;
+    if (free_bytes != nullptr && total_bytes != nullptr) {
+        size_t fb = 0, tb = 0;
+        if (g_drv.ctx_set_current(g_ctx) != kCudaSuccess ||
+            g_drv.mem_get_info(&fb, &tb) != kCudaSuccess) {
+            return 0;
+        }
+        *free_bytes = static_cast<long long>(fb);
+        *total_bytes = static_cast<long long>(tb);
+    }
+    if (cc_major != nullptr) *cc_major = g_cc_major;
+    if (cc_minor != nullptr) *cc_minor = g_cc_minor;
+    return 1;
 }
 
 int xcuda_bf16_release_weights() {
