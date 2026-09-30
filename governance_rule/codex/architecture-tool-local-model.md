@@ -24,4 +24,6 @@ flowchart TB
 
 長文本推理的記憶與快取採原生實作：paged KV pool（邏輯區塊表→實體區塊按需配置，`reset_cache` 全數歸還、`kv_memory_bytes` 可稽核）、prefix cache（跨 `generate` 呼叫還原最長相符前綴，快照值與重算位元一致）、KV-INT8 每 token/head 對稱量化（opt-in 受管 env `XINGCHENG_CPP_KV_INT8`，KV 足跡約 8x 縮減，唯讀端以 dequantize 還原；CUDA 裝置端 KV 為另一 opt-in 路徑）。`xc_modeltool cache-smoke` 以前綴命中、重放位元一致與 INT8 漂移上限提供可執行證據。
 
+世代繼任契約（能力／架構升級後刪除前代）：新代權重 `activate` 時 `ModelLifecycle` 自動把前代完整記錄——version、sha256、path 與全份 metadata（dataset_id／job／eval 資料血統）——攜入新代 `metadata["succeeded_from"]` 並記 `weights_succession` 事件；實體刪除前代 bundle 必須先完成繼任記錄且 lifecycle 已持久化（`PruneSupersededGeneration`，缺繼任記錄 fail-closed 保留），刪除成功後前代條目由 versions 移入 retired 並標記 `succeeded_by`/`data_carried_to`/`deleted_at`，活版本表不留死路徑、retired 保留完整資料。在役世代經 `RetireWeightVersion` 永不退休（fail-closed）。
+
 Ollama 只作登錄的本地教師或專家，不取代星澄。視窗關閉須在 5 秒內停止 `local-model` 自身後端及其擁有的模型程序，但不得停止獨立的星澄服務。
