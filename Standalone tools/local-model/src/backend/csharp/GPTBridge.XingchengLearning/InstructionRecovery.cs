@@ -42,6 +42,7 @@ internal static class InstructionRecovery
         "tool_calling" => "star-toolcall-eval-result/v1",
         "reading_grounding" => "star-reading-eval-result/v1",
         "rag" => "star-rag-eval-result/v1",
+        "math" => "star-math-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
@@ -53,6 +54,7 @@ internal static class InstructionRecovery
         "tool_calling" => "star-toolcall-recovery-dataset/v1",
         "reading_grounding" => "star-reading-recovery-dataset/v1",
         "rag" => "star-rag-recovery-dataset/v1",
+        "math" => "star-math-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
@@ -65,13 +67,14 @@ internal static class InstructionRecovery
         "reading_grounding" =>
             "star-reading-recovery-eval-20261001",
         "rag" => "star-rag-recovery-eval-20261001",
+        "math" => "star-math-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
           "structured_output", "tool_calling", "reading_grounding",
-          "rag" };
+          "rag", "math" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -159,6 +162,21 @@ internal static class InstructionRecovery
         ("document_conflict", 0.15),
         ("revision_awareness", 0.15),
         ("retrieval_quality", 0.15),
+    };
+    // Registered names from Maturation300M (8 metrics). Arithmetic
+    // weighting is flat — a model that adds but cannot carry is not
+    // half-good at arithmetic, it is broken at carry_borrow.
+    private static readonly (string metric, double w)[]
+        MathMetricWeights =
+    {
+        ("add_sub", 0.15),
+        ("mul_div", 0.15),
+        ("carry_borrow", 0.13),
+        ("percentage", 0.12),
+        ("ratio", 0.10),
+        ("parentheses", 0.10),
+        ("simple_algebra", 0.12),
+        ("word_problem", 0.13),
     };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
