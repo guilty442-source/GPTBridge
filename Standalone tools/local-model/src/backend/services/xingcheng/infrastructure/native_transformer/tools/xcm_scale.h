@@ -573,10 +573,17 @@ std::string xcm_xsst_quantize(const std::string& blob, int bits) {
         double d;
         std::memcpy(&d, out.data() + p, 8);
         if (bits == 16) {
-            float f = (float)d;      // fp32 intermediate for fp16-class
+            float f = (float)d;
             uint32_t u;
             std::memcpy(&u, &f, 4);
             u &= 0xFFFF0000u;        // bf16-style truncation
+            std::memcpy(&f, &u, 4);
+            d = (double)f;
+        } else if (bits == 10) {
+            float f = (float)d;      // fp16-class: 10-bit mantissa
+            uint32_t u;
+            std::memcpy(&u, &f, 4);
+            u &= 0xFFFFE000u;
             std::memcpy(&f, &u, 4);
             d = (double)f;
         } else if (bits == 8) {
@@ -672,8 +679,10 @@ int mode_delta_precision_probe(const Args& a) {
                 "\"note\":\"no linear layers\"}", (long long)n);
             continue;
         }
-        for (int bits : {16, 8}) {
-            std::string q = xcm_xsst_quantize(snap, bits);
+        // §22 order: FP64 reference -> BF16 -> FP16-class (no INT8 yet)
+        for (int bits : {64, 16, 10}) {
+            std::string q = bits == 64 ? snap
+                                       : xcm_xsst_quantize(snap, bits);
             try { e.restore_delta_state(q, gen); }
             catch (const std::exception& ex) {
                 fail(std::string("DELTAPROBE_RESTORE:") + ex.what());
@@ -699,7 +708,8 @@ int mode_delta_precision_probe(const Args& a) {
             std::printf(
                 "{\"size\":%lld,\"precision\":\"%s\",\"state_bytes\":%lld,"
                 "\"logit_drift\":%.9f,\"argmax_match\":%s}",
-                (long long)n, bits == 16 ? "bf16" : "fp8-class",
+                (long long)n,
+                bits == 64 ? "fp64" : bits == 16 ? "bf16" : "fp16",
                 (long long)snap.size(), max_d,
                 am_ref == am_got ? "true" : "false");
         }
@@ -739,8 +749,7 @@ int mode_low_resource_sim(const Args& a) {
         fail("SCALE_GPU_BUDGET_EXCEEDED:pinned_set");
     const int64_t gpu_expert_cap =
         gpu_b > 0 ? std::max<int64_t>(0, gpu_b - pinned) : INT64_MAX;
-    if (nvme_b > 0 && ac.routed * 8 > nvme_b * 8 + 0 &&
-        (int64_t)ac.expert_elems.size() * per_expert > nvme_b)
+    if (nvme_b > 0 && ac.routed * 8 > nvme_b)
         fail("SCALE_NVME_BUDGET_EXCEEDED");
 
     // run the model under router trace to get a real selection stream
@@ -1078,6 +1087,23 @@ int mode_scale_status(const Args& a) {
                 mf.get("architecture_generation")->type ==
                     JsonValue::Type::String
             ? mf.get("architecture_generation")->string : "";
+    std::string profile =
+        mf.get("scale_profile") &&
+                mf.get("scale_profile")->type == JsonValue::Type::String
+            ? mf.get("scale_profile")->string : "";
+    if (profile.empty()) {
+        // derive a descriptive name; scale_profile stays separate from
+        // architecture_profile (never "xc-fused-NNN")
+        char buf[32];
+        if (ac.total >= 1000000000LL)
+            std::snprintf(buf, sizeof(buf), "xc-%.1fb",
+                          ac.total / 1e9);
+        else
+            std::snprintf(buf, sizeof(buf), "xc-%lldm",
+                          (long long)(ac.total / 1000000));
+        for (char* p = buf; *p; ++p) if (*p == '.') *p = 'p';
+        profile = buf;
+    }
     NativeInferenceEngine e;
     int64_t mem = 0, kv = 0, rss = 0;
     try {
@@ -1097,7 +1123,8 @@ int mode_scale_status(const Args& a) {
         "\"trainable_params\":%lld,\"memory_bytes\":%lld,"
         "\"kv_bytes\":%lld,\"recurrent_state_bytes\":%lld,"
         "\"expert_hit_rate\":null,\"prefix_hit_rate\":null}\n",
-        "", gptbridge::jsonlite::json_escape(gen).c_str(),
+        gptbridge::jsonlite::json_escape(profile).c_str(),
+        gptbridge::jsonlite::json_escape(gen).c_str(),
         (long long)ac.total, (long long)ac.unique,
         (long long)active, (long long)(ac.common + ac.router +
                                        ac.shared + ac.routed),
