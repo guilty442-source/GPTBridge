@@ -633,7 +633,7 @@ std::string NativeInferenceEngine::snapshot_delta_state(
     auto put_i64 = [&out](int64_t v) {
         out.append(reinterpret_cast<const char*>(&v), 8);
     };
-    auto put_doubles = [&out](const std::vector<double>& v) {
+    auto put_doubles = [&](const std::vector<double>& v) {
         put_u64(static_cast<uint64_t>(v.size()));
         if (!v.empty())
             out.append(reinterpret_cast<const char*>(v.data()),

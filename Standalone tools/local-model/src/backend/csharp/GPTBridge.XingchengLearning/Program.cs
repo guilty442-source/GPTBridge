@@ -278,6 +278,13 @@ internal static class Program
             if (flags.Contains("catalog-validate"))
                 return Emit(FeatureCatalog.Validate(
                     opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- runtime capability plane (star-runtime-capabilities/v1)
+            if (flags.Contains("caps-status"))
+                return Emit(RuntimeCapabilities.Status(toolRoot));
+            if (flags.Contains("caps-validate"))
+                return Emit(RuntimeCapabilities.Validate(
+                    opts.TryGetValue("file", out string? cvf)
+                        ? cvf : ""));
             // ---- tool decision gate + contracts (§16/§17/§18)
             if (flags.Contains("tool-validate"))
             {

@@ -2966,6 +2966,150 @@ int mode_serve(const Args& a) {
                 emit(o.str());
                 continue;
             }
+            if (op == "memplan") {
+                // InferenceMemoryPlanner report: typed budget breakdown
+                // + prefill/decode high-water marks.
+                if (!engine.loaded()) engine.load(bundle);
+                const auto r = engine.memory_report();
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":"
+                     "\"star-inference-memory-report/v1\""
+                  << ",\"weight_bytes\":" << r.weight_bytes
+                  << ",\"kv_bytes\":" << r.kv_bytes
+                  << ",\"prefix_cache_bytes\":" << r.prefix_cache_bytes
+                  << ",\"recurrent_state_bytes\":"
+                  << r.recurrent_state_bytes
+                  << ",\"vision_bytes\":" << r.vision_bytes
+                  << ",\"workspace_bytes\":" << r.workspace_bytes
+                  << ",\"prefill_peak_bytes\":" << r.prefill_peak_bytes
+                  << ",\"decode_peak_bytes\":" << r.decode_peak_bytes
+                  << ",\"kv_limit_bytes\":"
+                  << "null,\"note\":\"budgets via "
+                     "set_kv_memory_limit/prefix limits\"}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "depth") {
+                // Depth telemetry (Kimi-K3 lesson): per-layer residual
+                // RMS + per-module norms + recurrent-state norms.
+                if (!engine.loaded()) engine.load(bundle);
+                std::string prompt = jget_str(req, "prompt");
+                if (prompt.empty()) prompt = "1 2 3";
+                std::vector<int64_t> ids =
+                    engine.encode(prompt, true, false);
+                std::vector<double> layer =
+                    engine.layer_metrics(ids);
+                std::vector<double> mod =
+                    engine.module_metrics(ids);
+                std::vector<double> rec =
+                    engine.recurrent_state_norms();
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":"
+                     "\"star-depth-telemetry/v1\""
+                  << ",\"layer_representation_norm\":[";
+                for (size_t i = 0; i < layer.size(); ++i)
+                    o << (i ? "," : "") << layer[i];
+                o << "],\"module_output_norm\":[";
+                for (size_t i = 0; i < mod.size(); ++i)
+                    o << (i ? "," : "") << mod[i];
+                o << "],\"recurrent_state_norm\":[";
+                for (size_t i = 0; i < rec.size(); ++i)
+                    o << (i ? "," : "") << rec[i];
+                o << "]}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "moe-analyze") {
+                // MoERoutingAnalyzer: quantile routing analysis +
+                // ROUTER_* diagnoses over a prompt forward.
+                if (!engine.loaded()) engine.load(bundle);
+                std::string prompt = jget_str(req, "prompt");
+                if (prompt.empty()) prompt = "1 2 3";
+                engine.set_router_trace(true);
+                engine.logits(engine.encode(prompt, true, false));
+                std::string rep =
+                    xcm_moe_analyze_json(engine.router_trace());
+                engine.set_router_trace(false);
+                emit(std::string("{\"ok\":true,") +
+                     "\"analysis\":" + rep + "}");
+                continue;
+            }
+            if (op == "fim") {
+                // star-fim/v1 runtime envelope — control tokens are
+                // literal text; tokenizer assets unchanged.
+                std::string prefix = jget_str(req, "prefix");
+                std::string suffix = jget_str(req, "suffix");
+                if (!engine.loaded()) engine.load(bundle);
+                SamplingConfig sc;
+                sc.do_sample = serve_bool(req, "do_sample", false);
+                sc.seed = (uint64_t)serve_num(req, "seed", 0);
+                int64_t max_new = (int64_t)serve_num(
+                    req, "max_new_tokens", 96);
+                std::string enveloped =
+                    xcm_fim_envelope(prefix, suffix);
+                std::vector<int64_t> ids =
+                    engine.encode(enveloped, true, false);
+                std::vector<int64_t> out =
+                    engine.generate(ids, max_new, sc);
+                if (out.size() > ids.size() &&
+                    std::equal(ids.begin(), ids.end(), out.begin()))
+                    out.erase(out.begin(), out.begin() +
+                              (ptrdiff_t)ids.size());
+                std::string text = engine.decode(out, true);
+                size_t eot = text.find("<|eot|>");
+                if (eot != std::string::npos) text.erase(eot);
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":\"star-fim/v1\","
+                  << "\"envelope\":\"runtime-literal\","
+                  << "\"insertion\":\""
+                  << gptbridge::jsonlite::json_escape(text)
+                  << "\",\"generated_tokens\":"
+                  << (int64_t)out.size() << "}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "state-save") {
+                // DeltaStateSnapshot -> base64-free: writes raw blob to
+                // the given path; reports sha256 + bytes.
+                if (!engine.loaded()) engine.load(bundle);
+                std::string path = jget_str(req, "path");
+                std::string gen = jget_str(req, "generation");
+                if (path.empty() || gen.empty()) {
+                    err_obj("STATE_SNAPSHOT_ARGS_MISSING");
+                    continue;
+                }
+                std::string blob = engine.snapshot_delta_state(gen);
+                std::ofstream f(path, std::ios::binary | std::ios::trunc);
+                f.write(blob.data(), (std::streamsize)blob.size());
+                std::ostringstream o;
+                o << "{\"ok\":true,\"format\":\"star-delta-state/v1\","
+                  << "\"path\":\""
+                  << gptbridge::jsonlite::json_escape(path) << "\","
+                  << "\"bytes\":" << (int64_t)blob.size()
+                  << ",\"sha256\":\""
+                  << NativeInferenceEngine::delta_state_sha256(blob)
+                  << "\"}";
+                emit(o.str());
+                continue;
+            }
+            if (op == "state-restore") {
+                if (!engine.loaded()) engine.load(bundle);
+                std::string path = jget_str(req, "path");
+                std::string gen = jget_str(req, "generation");
+                if (path.empty() || gen.empty()) {
+                    err_obj("STATE_SNAPSHOT_ARGS_MISSING");
+                    continue;
+                }
+                std::ifstream f(path, std::ios::binary | std::ios::ate);
+                if (!f) { err_obj("SEQUENCE_STATE_INVALID:open");
+                          continue; }
+                std::string blob((size_t)f.tellg(), '\0');
+                f.seekg(0);
+                f.read(blob.data(), (std::streamsize)blob.size());
+                engine.restore_delta_state(blob, gen);
+                emit("{\"ok\":true,\"restored\":true}");
+                continue;
+            }
             err_obj("SERVE_UNKNOWN_OP");
         } catch (const std::exception& e) {
             std::string msg = e.what();
@@ -2979,6 +3123,7 @@ int mode_serve(const Args& a) {
 }
 
 #include "xcm_corpus.h"
+#include "xcm_runtime.h"
 
 }  // namespace
 
@@ -3003,6 +3148,12 @@ int main(int argc, char** argv) {
         if (mode == "cache-smoke") return mode_cache_smoke(a);
         if (mode == "parity") return mode_parity(a);
     if (mode == "precision") return mode_precision(a);
+        if (mode == "memplan") return mode_memplan(a);
+        if (mode == "statebench") return mode_statebench(a);
+        if (mode == "spec-probe") return mode_spec_probe(a);
+        if (mode == "vision-budget") return mode_vision_budget(a);
+        if (mode == "context-probe") return mode_context_probe(a);
+        if (mode == "reuse-probe") return mode_reuse_probe(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
     } catch (const std::exception& e) {
