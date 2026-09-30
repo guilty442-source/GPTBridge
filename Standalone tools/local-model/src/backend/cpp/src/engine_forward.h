@@ -170,19 +170,6 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         }
     }
 
-    const bool dbg_fwd = std::getenv("XC_DBG") != nullptr;
-    auto dbg_hash = [](const std::vector<double>& v) {
-        uint64_t h = 1469598103934665603ULL;
-        for (double x : v) {
-            uint64_t u; std::memcpy(&u, &x, 8);
-            h ^= u; h *= 1099511628211ULL;
-        }
-        return h;
-    };
-    if (dbg_fwd) {
-        std::fprintf(stderr, "[dbg] fwd hidden=%llx tt=%lld\n",
-            (unsigned long long)dbg_hash(hidden), (long long)total_tokens);
-    }
     for (int64_t layer_idx = 0; layer_idx < cfg.num_hidden_layers; ++layer_idx) {
         LayerWeights& layer = layers_[static_cast<size_t>(layer_idx)];
         std::vector<double>& normed = fs_.normed;
@@ -693,36 +680,24 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
                                 kv_src(span.slot, false, layer_idx, t, kv_head);
                         } else {
                             const int64_t s = t - span.position_offset;
-                            k_srcs[static_cast<size_t>(t)].fp =
+                            // Whole-struct assign: the scratch vectors keep
+                            // their elements across calls/layers, so a bare
+                            // .fp write would leak a stale .q8 (from an
+                            // earlier int8 restore) into the current-step
+                            // rows and silently re-route the dot through
+                            // dot_int8 on a dangling pool pointer.
+                            KvSrc kcur; KvSrc vcur;
+                            kcur.fp =
                                 k_attn->data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
-                            v_srcs[static_cast<size_t>(t)].fp =
+                            vcur.fp =
                                 v_heads.data() + static_cast<size_t>((kv_head * seq + s) * cfg.head_dim);
+                            k_srcs[static_cast<size_t>(t)] = kcur;
+                            v_srcs[static_cast<size_t>(t)] = vcur;
                         }
                     }
                 }
                 const double* q_head =
                     q_attn->data() + static_cast<size_t>(h * seq * cfg.head_dim);
-                if (dbg_fwd && layer_idx == 0 && h == 0) {
-                    uint64_t hh = 1469598103934665603ULL;
-                    for (int64_t t = 0; t < total_len; ++t) {
-                        const KvSrc& ks = k_srcs[static_cast<size_t>(t)];
-                        if (ks.q8 != nullptr) {
-                            for (int64_t d = 0; d < cfg.head_dim; ++d) {
-                                double x = ks.q8[d] * ks.scale;
-                                uint64_t u; std::memcpy(&u, &x, 8);
-                                hh ^= u; hh *= 1099511628211ULL;
-                            }
-                        } else {
-                            for (int64_t d = 0; d < cfg.head_dim; ++d) {
-                                uint64_t u; std::memcpy(&u, &ks.fp[d], 8);
-                                hh ^= u; hh *= 1099511628211ULL;
-                            }
-                        }
-                    }
-                    std::fprintf(stderr,
-                        "[dbg] L0 h0 deqK=%llx tl=%lld\n",
-                        (unsigned long long)hh, (long long)total_len);
-                }
                 for (int64_t s = 0; s < seq; ++s) {
                     const double* q_row = q_head + s * cfg.head_dim;
                     double* out = attn_flat.data() +
@@ -802,12 +777,6 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         axpy_f64(
             hidden.data(), 1.0, attn_out.data(),
             static_cast<int64_t>(hidden.size()));
-        if (dbg_fwd && layer_idx < 3) {
-            std::fprintf(stderr,
-                "[dbg] L%lld hid=%llx attn=%llx\n", (long long)layer_idx,
-                (unsigned long long)dbg_hash(hidden),
-                (unsigned long long)dbg_hash(attn_out));
-        }
 
         rmsnorm_into(
             hidden, total_tokens, hidden_size, layer.post_norm,

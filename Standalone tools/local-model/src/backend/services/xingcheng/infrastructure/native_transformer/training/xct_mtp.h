@@ -1,22 +1,21 @@
-// xct_mtp.h — B94 fragment of xingcheng_trainer.cpp (v29 Qwen3.8-Max MTP).
+// xct_mtp.h ??B94 fragment of xingcheng_trainer.cpp (v29 Qwen3.8-Max MTP).
 // Included once by xingcheng_trainer.cpp inside namespace xct.
 #pragma once
 
 // ---------------------------------------------------- MTP module (v29) --
 //
 // Qwen3-Next/Max multi-token prediction: each depth-d module fuses the
-// previous hidden stream with the next token's embedding —
-//   u[t] = W_proj · [ rms(h_{d-1}[t]) ; rms(embed[ids[t+d+1]]) ]   (2H → H)
+// previous hidden stream with the next token's embedding ??//   u[t] = W_proj 繚 [ rms(h_{d-1}[t]) ; rms(embed[ids[t+d+1]]) ]   (2H ??H)
 //   h_d  = decoder_block(u)   (causal GQA + RoPE + SwiGLU, c.inter)
-//   logits_d[t] = lm_head · rms(h_d[t])         predicts ids[t+d+2]
-// h_0 = trunk hidden (post final norm), text rows only — vision prefix
+//   logits_d[t] = lm_head 繚 rms(h_d[t])         predicts ids[t+d+2]
+// h_0 = trunk hidden (post final norm), text rows only ??vision prefix
 // rows never enter the MTP stack. lm_head and embed are shared with the
 // trunk. Rows per depth: R_d = PT-2-d. The aux CE densifies supervision
 // and the head doubles as the speculative-decoding draft substrate.
 
-static void mtp_fwd(const Params& p, const ModelConfig& c,
+static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o) {
-    o.mtp.clear();
+    o.mtp_stack.clear();
     if (c.mtp_depth <= 0) return;
     const int PT = (int)ids.size();
     const int P = o.vision_patches;
@@ -27,15 +26,15 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     const int rd = c.rotary_dim();
     const float scale = 1.0f / std::sqrt((float)hd);
     for (int d = 0; d < c.mtp_depth; ++d) {
-        MtpCache M;
+        MtpStackCache M;
         const int R = PT - 2 - d;
-        if (R <= 0) { o.mtp.push_back(std::move(M)); break; }
+        if (R <= 0) { o.mtp_stack.push_back(std::move(M)); break; }
         M.rows = R;
         const std::string b = "mtp." + std::to_string(d) + ".";
         // prev stream: d=0 reads trunk hidden at row P+t (text positions);
         // d>0 reads module d-1's block output at row t directly.
         const std::vector<float>& hv =
-            (d == 0) ? o.hidden : o.mtp[(size_t)d - 1].x2;
+            (d == 0) ? o.hidden : o.mtp_stack[(size_t)d - 1].x2;
         const int hoff = (d == 0) ? P : 0;
         M.eh_in.resize((size_t)R * H);
         M.ee_in.resize((size_t)R * H);
@@ -146,14 +145,14 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
         M.logits.resize((size_t)R * c.vocab);
         linear_fwd(M.hn.data(), p.w.at("lm_head"), M.logits.data(),
                    R, H, c.vocab);
-        o.mtp.push_back(std::move(M));
+        o.mtp_stack.push_back(std::move(M));
     }
 }
 
 // Backward: dm[d] = dloss/dlogits of module d (already scaled). Folds the
 // trunk-hidden contribution into dh_main rows P+t and accumulates the
 // shared embed/lm_head + module parameter grads.
-static void mtp_bwd(Params& p, const ModelConfig& c,
+static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o,
                     const std::vector<std::vector<float>>& dm,
                     float* dh_main) {
@@ -166,11 +165,11 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     const int P = o.vision_patches;
     std::vector<float> carry;   // d x2 of module d (for its eh input)
     for (int d = (int)dm.size() - 1; d >= 0; --d) {
-        MtpCache& M = o.mtp[(size_t)d];
+        MtpStackCache& M = o.mtp_stack[(size_t)d];
         const int R = M.rows;
-        if (R <= 0 || d >= (int)o.mtp.size()) continue;
+        if (R <= 0 || d >= (int)o.mtp_stack.size()) continue;
         const std::string b = "mtp." + std::to_string(d) + ".";
-        // head: logits = lm_head · norm_o(x2)
+        // head: logits = lm_head 繚 norm_o(x2)
         std::vector<float> dhn((size_t)R * H, 0.0f);
         linear_bwd(dm[(size_t)d].data(), M.hn.data(), p.w.at("lm_head"),
                    dhn.data(), p.g["lm_head"].d.data(), R, H, c.vocab);
@@ -182,7 +181,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
         if (!carry.empty())
             for (size_t i = 0; i < carry.size(); ++i) dx2[i] += carry[i];
         carry.clear();
-        // ffn: x2 = x1 + w2·(act(fa)⊙fb)
+        // ffn: x2 = x1 + w2繚(act(fa)?b)
         std::vector<float> dx1 = dx2;                    // residual
         std::vector<float> dfh((size_t)R * c.inter, 0.0f);
         linear_bwd(dx2.data(), M.fh.data(), p.w.at(b + "w2"),
@@ -207,7 +206,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
         tpu_elementwise((int64_t)dx1.size(), [&](int64_t i) {
             dx1[(size_t)i] += dx1n[(size_t)i];
         });
-        // attention: x1 = u + wo·attn_out
+        // attention: x1 = u + wo繚attn_out
         std::vector<float> du = dx1;                     // residual to u
         std::vector<float> dao((size_t)R * Hq, 0.0f);
         linear_bwd(dx1.data(), M.attn_out.data(), p.w.at(b + "wo"),
@@ -273,7 +272,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
         rmsnorm_bwd(dn1.data(), M.u.data(), p.w.at(b + "norm1").d.data(),
                     M.rms1.data(), du.data(), p.g[b + "norm1"].d.data(),
                     R, H);
-        // fusion proj: u = Wp·[ehn|een] → split back into the normed halves
+        // fusion proj: u = Wp繚[ehn|een] ??split back into the normed halves
         std::vector<float> dcat((size_t)R * 2 * H, 0.0f);
         linear_bwd(du.data(), M.cat.data(), p.w.at(b + "proj"),
                    dcat.data(), p.g[b + "proj"].d.data(), R, 2 * H, H);
@@ -314,16 +313,16 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
 }
 
 // MTP aux loss for the supervised legs: per-depth CE on ids[t+d+2],
-// weighted by mtp_loss_w; fills aligned dlogits for mtp_bwd (empty
+// weighted by mtp_loss_w; fills aligned dlogits for mtp_stack_bwd (empty
 // vectors mark skipped/empty modules).
-static float mtp_aux_loss(const ModelConfig& c, const std::vector<int>& ids,
+static float mtp_stack_aux_loss(const ModelConfig& c, const std::vector<int>& ids,
                           const Fwd& fw,
                           std::vector<std::vector<float>>& dmtp) {
-    dmtp.assign(fw.mtp.size(), {});
+    dmtp.assign(fw.mtp_stack.size(), {});
     if (c.mtp_depth <= 0) return 0.0f;
     float lsum = 0.0f;
-    for (int d = 0; d < (int)fw.mtp.size(); ++d) {
-        const MtpCache& M = fw.mtp[(size_t)d];
+    for (int d = 0; d < (int)fw.mtp_stack.size(); ++d) {
+        const MtpStackCache& M = fw.mtp_stack[(size_t)d];
         if (M.rows <= 0) continue;
         std::vector<int> ml((size_t)M.rows);
         for (int t = 0; t < M.rows; ++t) ml[(size_t)t] = ids[t + d + 2];
@@ -346,10 +345,10 @@ static float mtp_aux_loss(const ModelConfig& c, const std::vector<int>& ids,
 //   3. fusion liveness: MTP logits differ from the same positions of the
 //      main logits (the extra embed input + block do real work);
 //   4. backward: zeroed main-CE dlogits + MTP dlogits produce finite,
-//      non-zero grads on mtp.* params, embed rows and the trunk — verified
+//      non-zero grads on mtp.* params, embed rows and the trunk ??verified
 //      by finite differences on a sample of elements;
 //   5. router z-loss: with moe_z_loss_weight>0 the forward accumulates
-//      w·mean(lse²) and the gate weight receives the 2·lse·p/T gradient.
+//      w繚mean(lse簡) and the gate weight receives the 2繚lse繚p/T gradient.
 static int mtpcheck() {
     int failures = 0;
     auto fail = [&](const char* what) {
@@ -375,9 +374,9 @@ static int mtpcheck() {
     Fwd f0;
     fwd(p, c, ids, f0);
     // ---- 1. shape + finiteness + chaining -------------------------------
-    if (f0.mtp.size() != 2) fail("depth-2 stack not built");
-    for (int d = 0; d < 2 && d < (int)f0.mtp.size(); ++d) {
-        const MtpCache& M = f0.mtp[(size_t)d];
+    if (f0.mtp_stack.size() != 2) fail("depth-2 stack not built");
+    for (int d = 0; d < 2 && d < (int)f0.mtp_stack.size(); ++d) {
+        const MtpStackCache& M = f0.mtp_stack[(size_t)d];
         if (M.rows != PT - 2 - d) fail("row count");
         if ((int)M.logits.size() != M.rows * c.vocab) fail("logit shape");
         for (float x : M.logits) if (!std::isfinite(x)) fail("nonfinite");
@@ -392,7 +391,7 @@ static int mtpcheck() {
         if (ids2[j] == ids[j]) ids2[j] = (ids2[j] + 1) % c.vocab;
         Fwd f1;
         fwd(p, c, ids2, f1);
-        const MtpCache& M0 = f0.mtp[0], &M1 = f1.mtp[0];
+        const MtpStackCache& M0 = f0.mtp_stack[0], &M1 = f1.mtp_stack[0];
         int sealed = std::min(j - 1, M0.rows);
         if (std::memcmp(M0.logits.data(), M1.logits.data(),
                         (size_t)sealed * c.vocab * sizeof(float)) != 0)
@@ -405,7 +404,7 @@ static int mtpcheck() {
     }
     // ---- 3. fusion liveness ----------------------------------------------
     {
-        const MtpCache& M0 = f0.mtp[0];
+        const MtpStackCache& M0 = f0.mtp_stack[0];
         bool diff = false;
         for (int t = 0; t < M0.rows; ++t) {
             const float* a = M0.logits.data() + (size_t)t * c.vocab;
@@ -429,8 +428,8 @@ static int mtpcheck() {
         std::vector<float> dl;
         double l = ce_loss(f.logits, lab, PT, c.vocab, dl) + f.moe_aux +
                    f.moe_zloss;
-        for (int d = 0; d < (int)f.mtp.size(); ++d) {
-            const MtpCache& M = f.mtp[(size_t)d];
+        for (int d = 0; d < (int)f.mtp_stack.size(); ++d) {
+            const MtpStackCache& M = f.mtp_stack[(size_t)d];
             if (M.rows <= 0) continue;
             std::vector<int> ml((size_t)M.rows);
             for (int t = 0; t < M.rows; ++t) ml[(size_t)t] = idv[t + d + 2];
@@ -448,9 +447,9 @@ static int mtpcheck() {
         lab.back() = -100;
         std::vector<float> dl;
         (void)ce_loss(f.logits, lab, PT, c.vocab, dl);
-        std::vector<std::vector<float>> dmtp(f.mtp.size());
-        for (int d = 0; d < (int)f.mtp.size(); ++d) {
-            const MtpCache& M = f.mtp[(size_t)d];
+        std::vector<std::vector<float>> dmtp(f.mtp_stack.size());
+        for (int d = 0; d < (int)f.mtp_stack.size(); ++d) {
+            const MtpStackCache& M = f.mtp_stack[(size_t)d];
             if (M.rows <= 0) continue;
             std::vector<int> ml((size_t)M.rows);
             for (int t = 0; t < M.rows; ++t) ml[(size_t)t] = ids[t + d + 2];
