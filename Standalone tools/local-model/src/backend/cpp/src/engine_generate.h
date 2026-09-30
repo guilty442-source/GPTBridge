@@ -227,11 +227,17 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     // them keeps the restored KV verbatim (recomputing the boundary
     // token would read the dequantized prefix under KV-INT8 and overwrite
     // its K/V with ulp-drifted values, breaking bit-identical restore).
+    const bool spec_greedy = mtp_.bound &&
+        (!sampling.do_sample || sampling.temperature <= 0.0) &&
+        sampling.repetition_penalty == 1.0;
     std::vector<double> next_logits;
+    std::vector<double> last_hidden;
     const bool full_hit = hit_index != prefix_cache_.size() &&
         prefix_len == static_cast<int64_t>(prompt_ids.size());
     if (full_hit && !prefix_cache_[hit_index].logits.empty()) {
         next_logits = prefix_cache_[hit_index].logits;
+        // Replayed logits carry no hidden — the spec loop bootstraps
+        // the drafter after its first plain forward.
     } else {
         int64_t forward_begin = prefix_len;
         int64_t forward_offset = prefix_len;
@@ -242,8 +248,33 @@ std::vector<int64_t> NativeInferenceEngine::generate(
         }
         std::vector<int64_t> suffix(
             prompt_ids.begin() + forward_begin, prompt_ids.end());
-        next_logits =
-            forward_last_logits(suffix, forward_offset, true);
+        if (spec_greedy) {
+            // Keep every forwarded position's hidden so the drafter can
+            // seed pair (h_j, e_{j+1}) for each one. Prefix-restored
+            // positions have no hidden this call — the drafter's context
+            // simply starts at the recomputed span; verification keeps
+            // parity regardless of draft quality.
+            std::vector<double> hid =
+                forward_hidden(suffix, forward_offset, true);
+            const int64_t rows = static_cast<int64_t>(suffix.size());
+            const double* lastrow =
+                hid.data() + (rows - 1) * cfg.hidden_size;
+            next_logits = matmul(lastrow, 1, cfg.hidden_size,
+                                 lm_head_t_.data(), cfg.vocab_size);
+            logit_softcap(next_logits, cfg.final_logit_softcapping);
+            last_hidden.assign(lastrow, lastrow + cfg.hidden_size);
+            mtp_.reset();
+            for (int64_t j = 0; j + 1 < rows; ++j) {
+                const int64_t trunk_pos = forward_offset + j;
+                mtp_commit_pair(
+                    hid.data() + j * cfg.hidden_size,
+                    prompt_ids[static_cast<size_t>(trunk_pos + 1)],
+                    trunk_pos);
+            }
+        } else {
+            next_logits =
+                forward_last_logits(suffix, forward_offset, true);
+        }
     }
 
     // Snapshot the prompt prefix for future reuse (bounded, LRU-evicted).
@@ -296,7 +327,7 @@ std::vector<int64_t> NativeInferenceEngine::generate(
     }
     return decode_continue(
         std::move(next_logits), max_new_tokens, sampling, rng_state,
-        generated);
+        generated, std::move(last_hidden));
 }
 
 NativeInferenceEngine::PrefixEntry
@@ -388,14 +419,18 @@ void NativeInferenceEngine::restore_prefix_state(
 std::vector<int64_t> NativeInferenceEngine::decode_continue(
     std::vector<double> next_logits, int64_t max_new_tokens,
     const SamplingConfig& sampling, uint64_t rng_state,
-    std::vector<int64_t>& generated, std::vector<double> last_hidden) {
+    std::vector<int64_t>& generated,
+    std::vector<double> last_hidden) {
     const ModelConfig& cfg = bundle_->config();
-    // Greedy + bound MTP drafter: the verified speculative loop owns
-    // the decode (it bootstraps a missing last_hidden itself).
-    if (mtp_.bound && !sampling.do_sample) {
-        return decode_continue_spec(
-            std::move(next_logits), std::move(last_hidden),
-            max_new_tokens, generated);
+    // NativeMtpDrafter dispatch: only the pure-argmax path is verifiable
+    // — a sampled or penalized pick can legitimately differ from the
+    // draft without either being wrong, so spec decode stays off there.
+    if (mtp_.bound &&
+        (!sampling.do_sample || sampling.temperature <= 0.0) &&
+        sampling.repetition_penalty == 1.0) {
+        return decode_continue_spec(std::move(next_logits),
+                                    std::move(last_hidden),
+                                    max_new_tokens, generated);
     }
     // Byte-spelled turn end: SFT weights terminate turns by emitting the
     // literal text "<|eot|>" (the bundle vocab carries no dedicated

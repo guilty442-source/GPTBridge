@@ -1105,8 +1105,9 @@ int mode_router_analyze(const Args& a) {
 // §6/§11/§13 speculative-decoder probe: the full NativeSpeculativeDecoder
 // contract (PrepareDraft -> DraftTokens -> VerifyTokens -> AcceptPrefix
 // -> RejectFrom -> CommitState / RollbackState) on a synthetic drafter.
-// Production stays structurally disabled — no drafter is ever bound
-// outside this probe (MTP heads are dropped at export).
+// This scaffold lane stays API-only — production dispatch lives in the
+// engine-side NativeMtpDrafter (engine_mtp.h), verified by
+// mtp-draft-probe's production_dispatch evidence.
 int mode_spec_verify(const Args&) {
     NativeSpeculativeDecoder dec;
     bool disabled_ok =
@@ -1140,8 +1141,9 @@ int mode_spec_verify(const Args&) {
     std::printf(
         "{\"ok\":%s,\"format\":\"star-speculative-decoder/v1\","
         "\"enabled\":false,\"production_enabled\":false,"
-        "\"reason\":\"MTP heads are dropped at export — no production "
-        "drafter exists; contract + verification + metrics only\","
+        "\"reason\":\"scaffold lane only — production dispatch is the "
+        "engine-side NativeMtpDrafter in decode_continue_spec "
+        "(mtp-draft-probe reports its measured evidence)\","
         "\"api\":[\"PrepareDraft\",\"DraftTokens\",\"VerifyTokens\","
         "\"AcceptPrefix\",\"RejectFrom\",\"CommitState\","
         "\"RollbackState\"],"

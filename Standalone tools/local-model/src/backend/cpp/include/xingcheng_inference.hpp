@@ -872,11 +872,10 @@ private:
         }
     };
     MtpDrafter mtp_;
-    // True while a drafted forward has committed KV/state rows that a
-    // rejection must roll back (delta snapshot taken pre-forward).
-    bool mtp_rollback_armed_ = false;
+    // Reject-path DeltaNet snapshot — taken before each {tok, draft}
+    // window forward; restored before the correction re-forward so the
+    // recurrent state only ever carries committed tokens.
     std::vector<LinLayerState> mtp_lin_snapshot_;
-    int64_t mtp_kv_len_before_ = 0;
 
     void bind_mtp_drafter();
     // One draft step over the drafter's own KV: z(h_last, e_next)
@@ -885,12 +884,11 @@ private:
         const double* h_last, int64_t next_token, int64_t pos);
     std::vector<double> mtp_z_of(
         const double* h_t, const double* e_next) const;
-    // Append a committed pair's K/V into the drafter cache, in order.
+    // Commit-only pair append (z computed, K/V stored, no draft) — used
+    // for prompt seeding and the second token of an accepted pair.
     void mtp_append_kv(const std::vector<double>& z, int64_t pos);
-    // Commit a pair (h_pos, e_{pos+1}) without drafting — prompt
-    // seeding and the second token of an accepted pair.
     void mtp_commit_pair(
-        const double* h_t, int64_t next_token, int64_t pos);
+        const double* h_pos, int64_t next_token, int64_t pos);
     // Speculative decode loop for the greedy path — shares
     // decode_continue's caller contract (stop tokens, max_new, <|eot|>).
     std::vector<int64_t> decode_continue_spec(
