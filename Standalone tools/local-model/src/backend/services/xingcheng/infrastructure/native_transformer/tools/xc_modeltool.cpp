@@ -3376,109 +3376,123 @@ int mode_serve(const Args& a) {
 
 }  // namespace
 
+// ModelToolModeRegistry — the governed dispatch table. Every mode
+// belongs to exactly one category; unregistered names resolve to
+// MODE_NOT_REGISTERED rather than a free-form error. New capability
+// should prefer a subcommand/option on an existing mode over a new
+// registry row (mode count is not a success metric).
+struct ModeEntry {
+    const char* name;
+    const char* category;  // MODEL|TRAINING|STATE|CACHE|PRECISION|
+                           // CUDA|EXPERT|SCALE|RAG|EVAL|PROVENANCE
+    int (*fn)(const Args&);
+};
+
+static const ModeEntry kModeRegistry[] = {
+    {"tokenize",              "MODEL",      mode_tokenize},
+    {"corpus",                "TRAINING",   mode_corpus},
+    {"import-bundle",         "MODEL",      mode_import_bundle},
+    {"distill-init",          "TRAINING",   mode_distill_init},
+    {"export-bundle",         "MODEL",      mode_export_bundle},
+    {"eval",                  "EVAL",       mode_eval},
+    {"capability",            "EVAL",       mode_capability},
+    {"vision-smoke",          "EVAL",       mode_vision_smoke},
+    {"cache-smoke",           "CACHE",      mode_cache_smoke},
+    {"parity",                "PRECISION",  mode_parity},
+    {"precision",             "PRECISION",  mode_precision},
+    {"memplan",               "STATE",      mode_memplan},
+    {"statebench",            "STATE",      mode_statebench},
+    {"spec-probe",            "EVAL",       mode_spec_probe},
+    {"vision-budget",         "EVAL",       mode_vision_budget},
+    {"context-probe",         "CACHE",      mode_context_probe},
+    {"reuse-probe",           "CACHE",      mode_reuse_probe},
+    {"serve",                 "MODEL",      mode_serve},
+    {"probe-cuda",            "CUDA",
+        [](const Args&) -> int { return mode_probe_cuda(); }},
+    {"provenance-check",      "PROVENANCE", mode_provenance_check},
+    {"depth-probe",           "EVAL",       mode_depth_probe},
+    {"moe-analyze",           "EXPERT",     mode_moe_analyze},
+    // Native Inference Efficiency Plane
+    {"expert-residency",      "EXPERT",     mode_expert_residency},
+    {"expert-offload-bench",  "EXPERT",     mode_expert_offload_bench},
+    {"hybrid-prefix-smoke",   "CACHE",      mode_hybrid_prefix_smoke},
+    {"prefix-invalidation",   "CACHE",      mode_prefix_invalidation},
+    {"rag-prefix-bench",      "RAG",        mode_rag_prefix_bench},
+    {"pd-pipeline-bench",     "SCALE",      mode_pd_bench},
+    {"pd-transfer-smoke",     "SCALE",      mode_pd_transfer_smoke},
+    {"delta-prefix-restore",  "CACHE",      mode_delta_prefix_restore},
+    {"expert-quant-parity",   "EXPERT",     mode_expert_quant_parity},
+    // NativeScaleEfficiencyPlane
+    {"scale-metrics",         "SCALE",      mode_scale_metrics},
+    {"expert-store-build",    "EXPERT",     mode_expert_store_build},
+    {"expert-store-read",     "EXPERT",     mode_expert_store_read},
+    {"prefetch-probe",        "EXPERT",     mode_prefetch_probe},
+    {"delta-precision-probe", "PRECISION",  mode_delta_precision_probe},
+    {"low-resource-sim",      "SCALE",      mode_low_resource_sim},
+    {"scale-sim",             "SCALE",      mode_scale_sim},
+    {"scale-status",          "SCALE",      mode_scale_status},
+    {"future-scale-probe",    "SCALE",      mode_future_scale_probe},
+    // Laya/MiMo capability plane — native fast path.
+    {"system1-head",          "EVAL",       mode_system1_head},
+    {"mtp-runtime",           "MODEL",      mode_mtp_runtime},
+    {"mtp-speedup",           "EVAL",       mode_mtp_speedup},
+    {"mtp-precision-parity",  "PRECISION",  mode_mtp_precision_parity},
+    // NativeMemoryCudaPlane — unified memory manager probes.
+    {"memplane-probe",        "STATE",      mode_memplane_probe},
+    {"memplane-telemetry",    "STATE",      mode_memplane_telemetry},
+    // NativeSiliconEfficiencyPlane — measured surfaces.
+    {"npu-discovery",         "SCALE",      mode_npu_discovery},
+    {"cpu-affinity-probe",    "SCALE",      mode_cpu_affinity_probe},
+    {"cpu-bf16-bench",        "PRECISION",  mode_cpu_bf16_bench},
+    {"system-reuse-probe",    "SCALE",      mode_system_reuse_probe},
+    {"single-runtime-owner",  "PROVENANCE", mode_single_runtime_owner},
+    {"artifact-dedup",        "PROVENANCE", mode_artifact_dedup},
+    {"shared-routed-isolation","EXPERT",    mode_shared_routed_isolation},
+    {"expert-granularity-probe","EXPERT",   mode_expert_granularity_probe},
+    {"parameter-freeze-probe","TRAINING",   mode_parameter_freeze_probe},
+    {"parameter-efficiency-report","SCALE", mode_parameter_efficiency},
+    {"silicon-routing-bench", "SCALE",      mode_silicon_routing_bench},
+    {"npu-system1-bench",     "EVAL",
+        [](const Args& a) { return mode_npu_bench("npu-system1-bench", a); }},
+    {"npu-embedding-bench",   "EVAL",
+        [](const Args& a) { return mode_npu_bench("npu-embedding-bench", a); }},
+    {"npu-prefill-bench",     "EVAL",
+        [](const Args& a) { return mode_npu_bench("npu-prefill-bench", a); }},
+    {"sparse-optimizer-probe","TRAINING",   mode_parameter_freeze_probe},
+    {"npu-ep-enum",           "SCALE",      mode_npu_ep_enum},
+    {"npu-duplicate-cost",    "SCALE",      mode_npu_duplicate_cost},
+};
+
+static int mode_registry_emit() {
+    std::ostringstream o;
+    o << "{\"ok\":true,\"format\":\"star-mode-registry/v1\","
+      << "\"count\":"
+      << (sizeof(kModeRegistry) / sizeof(kModeRegistry[0]))
+      << ",\"modes\":[";
+    bool first = true;
+    for (const auto& e : kModeRegistry) {
+        o << (first ? "" : ",") << "{\"name\":\"" << e.name
+          << "\",\"category\":\"" << e.category << "\"}";
+        first = false;
+    }
+    o << "]}\n";
+    std::printf("%s", o.str().c_str());
+    return 0;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
-            "xc_modeltool <tokenize|corpus|import-bundle|distill-init|export-bundle|eval|"
-            "capability|vision-smoke|cache-smoke|parity|serve> [args]\n");
+            "xc_modeltool <mode> [args] — 'mode-registry' lists the "
+            "governed mode table (star-mode-registry/v1)\n");
         return 2;
     }
     std::string mode = argv[1];
     Args a = parse_args(argc, argv);
+    if (mode == "mode-registry") return mode_registry_emit();
     try {
-        if (mode == "tokenize") return mode_tokenize(a);
-        if (mode == "corpus") return mode_corpus(a);
-        if (mode == "import-bundle") return mode_import_bundle(a);
-        if (mode == "distill-init") return mode_distill_init(a);
-        if (mode == "export-bundle") return mode_export_bundle(a);
-        if (mode == "eval") return mode_eval(a);
-        if (mode == "capability") return mode_capability(a);
-        if (mode == "vision-smoke") return mode_vision_smoke(a);
-        if (mode == "cache-smoke") return mode_cache_smoke(a);
-        if (mode == "parity") return mode_parity(a);
-    if (mode == "precision") return mode_precision(a);
-        if (mode == "memplan") return mode_memplan(a);
-        if (mode == "statebench") return mode_statebench(a);
-        if (mode == "spec-probe") return mode_spec_probe(a);
-        if (mode == "vision-budget") return mode_vision_budget(a);
-        if (mode == "context-probe") return mode_context_probe(a);
-        if (mode == "reuse-probe") return mode_reuse_probe(a);
-        if (mode == "serve") return mode_serve(a);
-        if (mode == "probe-cuda") return mode_probe_cuda();
-        if (mode == "provenance-check") return mode_provenance_check(a);
-        if (mode == "depth-probe") return mode_depth_probe(a);
-        if (mode == "moe-analyze") return mode_moe_analyze(a);
-        // Native Inference Efficiency Plane
-        if (mode == "expert-residency") return mode_expert_residency(a);
-        if (mode == "expert-offload-bench")
-            return mode_expert_offload_bench(a);
-        if (mode == "hybrid-prefix-smoke")
-            return mode_hybrid_prefix_smoke(a);
-        if (mode == "prefix-invalidation")
-            return mode_prefix_invalidation(a);
-        if (mode == "rag-prefix-bench") return mode_rag_prefix_bench(a);
-        if (mode == "pd-pipeline-bench") return mode_pd_bench(a);
-        if (mode == "pd-transfer-smoke") return mode_pd_transfer_smoke(a);
-        if (mode == "delta-prefix-restore")
-            return mode_delta_prefix_restore(a);
-        if (mode == "expert-quant-parity")
-            return mode_expert_quant_parity(a);
-        // NativeScaleEfficiencyPlane
-        if (mode == "scale-metrics") return mode_scale_metrics(a);
-        if (mode == "expert-store-build")
-            return mode_expert_store_build(a);
-        if (mode == "expert-store-read")
-            return mode_expert_store_read(a);
-        if (mode == "prefetch-probe") return mode_prefetch_probe(a);
-        if (mode == "delta-precision-probe")
-            return mode_delta_precision_probe(a);
-        if (mode == "low-resource-sim")
-            return mode_low_resource_sim(a);
-        if (mode == "scale-sim") return mode_scale_sim(a);
-        if (mode == "scale-status") return mode_scale_status(a);
-        if (mode == "future-scale-probe")
-            return mode_future_scale_probe(a);
-        // Laya/MiMo capability plane — native fast path.
-        if (mode == "system1-head") return mode_system1_head(a);
-        if (mode == "mtp-runtime") return mode_mtp_runtime(a);
-        if (mode == "mtp-speedup") return mode_mtp_speedup(a);
-        if (mode == "mtp-precision-parity")
-            return mode_mtp_precision_parity(a);
-        // NativeMemoryCudaPlane — unified memory manager probes.
-        if (mode == "memplane-probe") return mode_memplane_probe(a);
-        if (mode == "memplane-telemetry")
-            return mode_memplane_telemetry(a);
-        // NativeSiliconEfficiencyPlane — measured surfaces.
-        if (mode == "npu-discovery") return mode_npu_discovery(a);
-        if (mode == "cpu-affinity-probe")
-            return mode_cpu_affinity_probe(a);
-        if (mode == "cpu-bf16-bench") return mode_cpu_bf16_bench(a);
-        if (mode == "system-reuse-probe")
-            return mode_system_reuse_probe(a);
-        if (mode == "single-runtime-owner")
-            return mode_single_runtime_owner(a);
-        if (mode == "artifact-dedup") return mode_artifact_dedup(a);
-        if (mode == "shared-routed-isolation")
-            return mode_shared_routed_isolation(a);
-        if (mode == "expert-granularity-probe")
-            return mode_expert_granularity_probe(a);
-        if (mode == "parameter-freeze-probe")
-            return mode_parameter_freeze_probe(a);
-        if (mode == "parameter-efficiency-report")
-            return mode_parameter_efficiency(a);
-        if (mode == "silicon-routing-bench")
-            return mode_silicon_routing_bench(a);
-        if (mode == "npu-system1-bench")
-            return mode_npu_bench("npu-system1-bench", a);
-        if (mode == "npu-embedding-bench")
-            return mode_npu_bench("npu-embedding-bench", a);
-        if (mode == "npu-prefill-bench")
-            return mode_npu_bench("npu-prefill-bench", a);
-        if (mode == "sparse-optimizer-probe")
-            return mode_parameter_freeze_probe(a);
-        if (mode == "npu-ep-enum") return mode_npu_ep_enum(a);
-        if (mode == "npu-duplicate-cost")
-            return mode_npu_duplicate_cost(a);
+        for (const auto& e : kModeRegistry)
+            if (mode == e.name) return e.fn(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());
@@ -3490,6 +3504,9 @@ int main(int argc, char** argv) {
         std::printf("{\"ok\":false,\"error\":\"UNHANDLED\"}\n");
         return 1;
     }
-    std::fprintf(stderr, "unknown mode: %s\n", mode.c_str());
+    std::fprintf(stderr, "MODE_NOT_REGISTERED: %s\n", mode.c_str());
+    std::printf("{\"ok\":false,\"error\":\"MODE_NOT_REGISTERED\","
+                "\"mode\":\"%s\"}\n",
+                gptbridge::jsonlite::json_escape(mode).c_str());
     return 2;
 }
