@@ -65,6 +65,17 @@ internal static class Program
                 return Emit(SelfTest(toolRoot));
             if (flags.Contains("converge-check"))
                 return Emit(ConvergenceChecks.Run(toolRoot));
+            if (flags.Contains("maturation-status"))
+                return Emit(MaturationStatus(toolRoot));
+            if (flags.Contains("maturation-freeze"))
+                return Emit(Maturation300M.Freeze(
+                    toolRoot,
+                    opts.TryGetValue("capability", out string? mc)
+                        ? mc : "",
+                    opts.TryGetValue("evidence", out string? me)
+                        ? me : ""));
+            if (flags.Contains("maturation-baseline"))
+                return Emit(MaturationBaseline(toolRoot, opts));
             if (flags.Contains("release-gate"))
                 return Emit(ConvergenceGate.Run(
                     toolRoot,
@@ -318,6 +329,10 @@ internal static class Program
             "(--status | --run-once [--force] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
             "--job <id> | --self-test | --converge-check | " +
+            "--maturation-status | --maturation-freeze --capability " +
+            "<id> --evidence <ref> | --maturation-baseline --weights " +
+            "<ref> --weights-sha256 <sha> --model <f> --runtime <f> " +
+            "--service <f> | " +
             "--release-gate [--bundle <dir>] [--suite <file>] " +
             "[--no-builds] | " +
             "--verify-audit | --db-status | " +
@@ -681,6 +696,69 @@ internal static class Program
     /// -> export-bundle -> completed. Uses a tiny scratch model so the
     /// 2.4 GB production bundle is never touched; every mutation goes
     /// through the repository's audited paths.</summary>
+    private static Dictionary<string, object?> MaturationStatus(
+        string toolRoot)
+    {
+        var state = Maturation300M.LoadState(toolRoot);
+        var caps = (Dictionary<string, object?>)state["capabilities"]!;
+        var head = Maturation300M.Head(state);
+        var rows = new List<object?>();
+        foreach (var spec in Maturation300M.Sequence)
+        {
+            var raw = caps.TryGetValue(spec.Id, out object? c)
+                ? c as Dictionary<string, object?> : null;
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["capability"] = spec.Id,
+                ["status"] = raw?.GetValueOrDefault("status") ?? "pending",
+                ["weight_version"] =
+                    raw?.GetValueOrDefault("weight_version"),
+                ["metrics"] = spec.Metrics.Cast<object?>().ToList(),
+            });
+        }
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["phase"] = Maturation300M.PhaseId,
+            ["model_scale"] = Maturation300M.ModelScale,
+            ["architecture_generation"] =
+                Maturation300M.ArchitectureGeneration,
+            ["active_capability"] = head?.Id,
+            ["capabilities"] = rows,
+            ["ladder"] = Maturation300M.Ladder.Select(
+                g => (object?)new Dictionary<string, object?>
+                {
+                    ["level"] = g.Level,
+                    ["code"] = g.Code,
+                    ["requirement"] = g.Requirement,
+                }).ToList(),
+        };
+    }
+
+    private static Dictionary<string, object?> MaturationBaseline(
+        string toolRoot, Dictionary<string, string> opts)
+    {
+        string weights = opts.TryGetValue("weights", out string? w)
+            ? w : "";
+        string sha = opts.TryGetValue("weights-sha256", out string? s)
+            ? s : "";
+        string Get(string k) =>
+            opts.TryGetValue(k, out string? v) ? v : "";
+        var model = ParseJsonFile(Get("model"));
+        var runtime = ParseJsonFile(Get("runtime"));
+        var service = ParseJsonFile(Get("service"));
+        var artifact = Maturation300M.WriteBaseline(
+            toolRoot, weights, sha, model, runtime, service);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["baseline"] = Maturation300M.BaselineRel,
+            ["sections"] =
+                Maturation300M.BaselineSections.Cast<object?>().ToList(),
+            ["weights_ref"] = artifact["weights_ref"],
+        };
+    }
+
     private static Dictionary<string, object?> SelfTest(string toolRoot)
     {
         var steps = new List<object?>();

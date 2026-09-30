@@ -127,6 +127,13 @@ internal sealed class TrainingJobExecutor
             TransformerTrainingRepository.Str(cfg, "capability") ?? "";
         CapabilityFreeze.GuardJob(kind, (string)cfg["capability"]!,
                                   SelfLearningPolicy.Load(_toolRoot));
+        // §4/§50 maturation order: even when the freeze lane admits the
+        // job, the declared capability must be the current sequence head
+        // (instruction_following first); out-of-order capabilities are
+        // denied before any weight work is scheduled.
+        if (kind == "sft")
+            Maturation300M.GuardSequence(_toolRoot,
+                                         (string)cfg["capability"]!);
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
         if (initRaw != null && initRaw.ToString() is { Length: > 0 } initStr)
