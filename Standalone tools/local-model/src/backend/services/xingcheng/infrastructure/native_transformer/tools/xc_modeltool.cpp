@@ -3360,6 +3360,9 @@ int mode_serve(const Args& a) {
 
 #include "xcm_corpus.h"
 #include "xcm_efficiency.h"
+// NativeScaleEfficiencyPlane: scale metrics, mapped expert store,
+// prefetch, delta-state precision, low-resource + candidate sims.
+#include "xcm_scale.h"
 
 }  // namespace
 
@@ -3410,6 +3413,21 @@ int main(int argc, char** argv) {
             return mode_delta_prefix_restore(a);
         if (mode == "expert-quant-parity")
             return mode_expert_quant_parity(a);
+        // NativeScaleEfficiencyPlane
+        if (mode == "scale-metrics") return mode_scale_metrics(a);
+        if (mode == "expert-store-build")
+            return mode_expert_store_build(a);
+        if (mode == "expert-store-read")
+            return mode_expert_store_read(a);
+        if (mode == "prefetch-probe") return mode_prefetch_probe(a);
+        if (mode == "delta-precision-probe")
+            return mode_delta_precision_probe(a);
+        if (mode == "low-resource-sim")
+            return mode_low_resource_sim(a);
+        if (mode == "scale-sim") return mode_scale_sim(a);
+        if (mode == "scale-status") return mode_scale_status(a);
+        if (mode == "future-scale-probe")
+            return mode_future_scale_probe(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());
