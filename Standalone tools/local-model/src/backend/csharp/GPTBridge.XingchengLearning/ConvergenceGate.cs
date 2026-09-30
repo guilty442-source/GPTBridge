@@ -267,8 +267,18 @@ internal static class ConvergenceGate
                        "--generation", ManifestGeneration(bundle!),
                        "--tokens", "32"))),
             new("cache-validation", true, () => NeedBundle(() =>
-                Native(toolRoot, toolExe, "cache-smoke",
-                       "--bundle", bundle!))),
+            {
+                // Precision policy: production KV is INT8 — both the
+                // default and the INT8-quantized paged-KV lanes must
+                // reproduce bit-identical output / hits.
+                var fp = Native(toolRoot, toolExe, "cache-smoke",
+                                "--bundle", bundle!);
+                if (fp.Status != "PASS") return fp;
+                var i8 = Native(toolRoot, toolExe, "cache-smoke",
+                                "--bundle", bundle!, "--kv-int8");
+                if (i8.Status != "PASS") return i8;
+                return Pass("kv fp64 + int8 lanes green");
+            })),
             new("vision-smoke", true, () => NeedBundle(() =>
             {
                 // §2 vision is canonical, but a bundle without fused
