@@ -79,6 +79,17 @@ struct ModelConfig {
     bool qk_norm = false;             // per-head RMSNorm on q/k pre-RoPE
     double partial_rotary_factor = 1.0;   // fraction of head_dim rotated
     int64_t linear_num_key_heads = 0;    // DeltaNet key/query heads
+    // XCN10 MTP contract (bundle-facing keys): num_nextn_predict_layers
+    // declares a legacy flat nextn head, mtp_stack_depth declares stacked
+    // draft modules model.mtp.{d}.* — both load as the same 13-tensor
+    // depth-0 contract today. A declaration without the tensors (or
+    // tensors without a declaration) is a load-time contract breach.
+    int64_t num_nextn_predict_layers = 0;
+    int64_t mtp_stack_depth = 0;
+    bool declares_mtp() const {
+        return num_nextn_predict_layers > 0 || mtp_stack_depth > 0;
+    }
+
     int64_t linear_key_head_dim = 0;     // DeltaNet key head dim
     int64_t linear_num_value_heads = 0;  // DeltaNet value heads
     int64_t linear_value_head_dim = 0;   // DeltaNet value head dim
@@ -356,6 +367,25 @@ public:
         const std::vector<int64_t>& prompt_ids,
         int64_t max_new_tokens,
         const SamplingConfig& sampling);
+
+    // NativeMtpDrafter (P8): when the bundle declares an XCN10 MTP head,
+    // load() binds the 13-tensor drafter fail-closed (MTP_HEAD_MISSING /
+    // MTP_BUNDLE_MISMATCH). decode_continue() then dispatches draft-
+    // verify on the greedy fast path: each step emits the trunk argmax
+    // and speculatively forwards {tok, draft} in one call; on accept two
+    // tokens commit per forward, on reject the draft row is rolled back
+    // (KV length + delta-state snapshot) and the trunk correction emits.
+    // Output parity is by construction — every committed token is either
+    // the trunk argmax or a draft proven equal to it. Sampling paths
+    // (do_sample with temperature>0, top-k/p filters, repetition
+    // penalty) never dispatch: verification is argmax-equality only.
+    bool mtp_drafter_bound() const { return mtp_.bound; }
+    int64_t mtp_proposed() const { return mtp_.proposed; }
+    int64_t mtp_accepted() const { return mtp_.accepted; }
+    int64_t mtp_spec_forwards() const { return mtp_.spec_forwards; }
+    void reset_mtp_stats() {
+        mtp_.proposed = mtp_.accepted = mtp_.spec_forwards = 0;
+    }
 
     // Prefill/Decode disaggregation (§24-§32): ONE engine core, two
     // execution roles. prefill_artifact() runs the prompt forward and
@@ -815,6 +845,51 @@ private:
     std::vector<double> rope_base_;
     int64_t rope_base_dim_ = 0;
     double rope_base_theta_ = 0.0;
+
+    // ---- NativeMtpDrafter (XCN10) ------------------------------------
+    // Bound at load when ModelConfig::declares_mtp(). Views into the
+    // bundle blob — empty when the model carries no MTP head. The
+    // drafter owns its own K/V (full-RoPE causal attention over the
+    // module's key/value projections), seeded per decode from the
+    // prompt's hidden states.
+    struct MtpDrafter {
+        TensorView norm_h, norm_e, w_proj, norm1;
+        TensorView wq, wk, wv, wo;
+        TensorView norm2, w1, w3, w2, norm_out;
+        bool bound = false;
+        int family = 0;                  // 0=flat nextn, 1=stack depth-0
+        // Decode-time state (reset per generation).
+        std::vector<double> kv_k, kv_v;  // [pos][kvh*hd]
+        int64_t positions = 0;
+        // Production telemetry.
+        int64_t proposed = 0;
+        int64_t accepted = 0;
+        int64_t spec_forwards = 0;
+        void reset() {
+            kv_k.clear();
+            kv_v.clear();
+            positions = 0;
+        }
+    };
+    MtpDrafter mtp_;
+    // True while a drafted forward has committed KV/state rows that a
+    // rejection must roll back (delta snapshot taken pre-forward).
+    bool mtp_rollback_armed_ = false;
+    std::vector<LinLayerState> mtp_lin_snapshot_;
+    int64_t mtp_kv_len_before_ = 0;
+
+    void bind_mtp_drafter();
+    // One draft step over the drafter's own KV: z(h_last, e_next)
+    // appended at its position, full block forward, lm_head argmax.
+    int64_t mtp_draft_token(
+        const double* h_last, int64_t next_token, int64_t pos);
+    std::vector<double> mtp_z_of(
+        const double* h_t, const double* e_next) const;
+    // Speculative decode loop for the greedy path — shares
+    // decode_continue's caller contract (stop tokens, max_new, <|eot|>).
+    std::vector<int64_t> decode_continue_spec(
+        std::vector<double> next_logits, std::vector<double> last_hidden,
+        int64_t max_new_tokens, std::vector<int64_t>& generated);
 
     void validate_supported() const;
     void reset_cache();
