@@ -317,6 +317,132 @@ public:
     void Reset() override {}
 };
 
+// §11/§12/§13 NativeSpeculativeDecoder — the formal runtime contract.
+// The decoder is enabled only while a drafter is bound; production
+// never binds one (XCN10 exports drop the MTP heads, and no speculative
+// claim may be made until the format carries a governed drafter), so
+// `enabled` is structurally false outside the synthetic probe lane.
+// Every entry point fails closed with SPECULATIVE_DECODER_DISABLED when
+// unbound. Metrics follow §13: only net_tps_gain>0 AND generation
+// parity could ever justify a later enablement review.
+class NativeSpeculativeDecoder {
+public:
+    struct Metrics {
+        int64_t draft_tokens = 0;
+        int64_t accepted_tokens = 0;
+        int64_t rejected_tokens = 0;
+        int64_t rollback_count = 0;
+        double acceptance_rate = 0;
+        double draft_latency_ms = 0;
+        double verify_latency_ms = 0;
+        double net_tps_gain = 0;
+        double net_latency_gain = 0;
+    };
+
+    /// No production ctor path binds a drafter — probes construct one
+    /// with a SyntheticDrafter explicitly.
+    void BindDrafter(SpeculativeDrafter* d) { drafter_ = d; }
+    bool enabled() const { return drafter_ != nullptr; }
+    const Metrics& metrics() const { return m_; }
+
+    /// Arm a draft round over `ctx` for `depth` tokens. Returns nullptr
+    /// on success or a fail-closed code.
+    const char* PrepareDraft(const std::vector<int64_t>& ctx,
+                             int64_t depth) {
+        if (!enabled()) return "SPECULATIVE_DECODER_DISABLED";
+        if (depth < 1 || depth > 16) return "SPEC_DRAFT_DEPTH_BOUNDS";
+        committed_ = ctx;
+        pending_.clear();
+        draft_depth_ = depth;
+        prepared_ = true;
+        return nullptr;
+    }
+
+    std::vector<int64_t> DraftTokens() {
+        if (!prepared_) return {};
+        auto t0 = std::chrono::steady_clock::now();
+        pending_ = drafter_->Draft(committed_, draft_depth_);
+        m_.draft_latency_ms += 1e3 * std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        m_.draft_tokens += (int64_t)pending_.size();
+        return pending_;
+    }
+
+    /// Verify against the target model's greedy continuation; returns
+    /// the accepted prefix length. Caller supplies the greedy tokens
+    /// the target produced for the same window.
+    int64_t VerifyTokens(const std::vector<int64_t>& target_greedy) {
+        auto t0 = std::chrono::steady_clock::now();
+        int64_t acc = spec_acceptance_prefix(pending_, target_greedy);
+        m_.verify_latency_ms += 1e3 * std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        verified_prefix_ = acc;
+        return acc;
+    }
+
+    /// Commit `n` accepted draft tokens (n <= verified_prefix_).
+    std::vector<int64_t> AcceptPrefix(int64_t n) {
+        n = std::min<int64_t>(n, verified_prefix_);
+        std::vector<int64_t> acc(pending_.begin(),
+                                 pending_.begin() + n);
+        committed_.insert(committed_.end(), acc.begin(), acc.end());
+        m_.accepted_tokens += n;
+        return acc;
+    }
+
+    /// Drop pending tokens from position `pos`; the dropped tail counts
+    /// as rejected and the round rolls back to committed_.
+    void RejectFrom(int64_t pos) {
+        if (pos < 0) pos = 0;
+        if (pos < (int64_t)pending_.size()) {
+            m_.rejected_tokens += (int64_t)pending_.size() - pos;
+            pending_.resize((size_t)pos);
+        }
+        m_.rollback_count++;
+    }
+
+    /// Close the round: refresh acceptance_rate and the net-gain
+    /// estimate (accepted tokens per verify ms vs a 1-token baseline).
+    void CommitState() {
+        if (m_.draft_tokens > 0)
+            m_.acceptance_rate =
+                (double)m_.accepted_tokens / (double)m_.draft_tokens;
+        if (m_.verify_latency_ms > 0)
+            m_.net_tps_gain =
+                m_.accepted_tokens / m_.verify_latency_ms
+                - 1.0 / m_.verify_latency_ms;
+        m_.net_latency_gain =
+            -m_.draft_latency_ms;   // draft cost is pure overhead when
+                                    // verification rejects
+        prepared_ = false;
+        pending_.clear();
+        verified_prefix_ = 0;
+    }
+
+    /// Abort the round: drop pending, count the rollback, restore the
+    /// committed context. Engine-side KV/Delta rollback binds via the
+    /// star-native-state/v2 envelope (state_type=SPECULATIVE_TEMP).
+    void RollbackState() {
+        m_.rejected_tokens += (int64_t)pending_.size();
+        m_.rollback_count++;
+        pending_.clear();
+        verified_prefix_ = 0;
+        prepared_ = false;
+        if (drafter_) drafter_->Reset();
+    }
+
+    const std::vector<int64_t>& context() const { return committed_; }
+
+private:
+    SpeculativeDrafter* drafter_ = nullptr;
+    Metrics m_;
+    std::vector<int64_t> committed_;
+    std::vector<int64_t> pending_;
+    int64_t draft_depth_ = 0;
+    int64_t verified_prefix_ = 0;
+    bool prepared_ = false;
+};
+
 // ----------------------------------------- §8 MoE routing analyzer ----
 
 struct Quantiles {

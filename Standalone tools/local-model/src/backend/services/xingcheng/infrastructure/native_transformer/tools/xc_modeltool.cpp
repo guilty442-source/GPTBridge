@@ -3584,28 +3584,59 @@ int mode_vision_budget(const Args& a) {
     return 0;
 }
 
-// §6 speculative-decoder probe: ABI + acceptance-mask verification on a
-// synthetic drafter. enabled=false — MTP heads are dropped at export.
-// (Named spec-verify: xcm_batch2's spec-probe owns the metrics schema.)
+// §6/§11/§13 speculative-decoder probe: the full NativeSpeculativeDecoder
+// contract (PrepareDraft -> DraftTokens -> VerifyTokens -> AcceptPrefix
+// -> RejectFrom -> CommitState / RollbackState) on a synthetic drafter.
+// Production stays structurally disabled — no drafter is ever bound
+// outside this probe (MTP heads are dropped at export).
 int mode_spec_verify(const Args&) {
+    NativeSpeculativeDecoder dec;
+    bool disabled_ok =
+        dec.PrepareDraft({1, 2}, 4)
+            != nullptr && std::string(
+                dec.PrepareDraft({1, 2}, 4))
+                == "SPECULATIVE_DECODER_DISABLED";
     SyntheticDrafter d;
+    dec.BindDrafter(&d);
+    bool ok = disabled_ok && dec.enabled();
     std::vector<int64_t> ctx{5, 6, 7, 8};
-    auto draft = d.Draft(ctx, 4);
+    ok &= dec.PrepareDraft(ctx, 4) == nullptr;
+    auto pending = dec.DraftTokens();
+    ok &= pending.size() == 4;
     // Scripted target continuation: first two match, rest diverge.
-    std::vector<int64_t> target{draft[0], draft[1], 99, 98};
-    const int64_t acc = spec_acceptance_prefix(draft, target);
+    std::vector<int64_t> target{pending[0], pending[1], 99, 98};
+    const int64_t acc = dec.VerifyTokens(target);
+    ok &= acc == 2;
+    auto committed = dec.AcceptPrefix(acc);
+    ok &= committed.size() == 2;
+    dec.RejectFrom(acc);
+    dec.CommitState();
+    // Second round exercises RollbackState.
+    ok &= dec.PrepareDraft(dec.context(), 4) == nullptr;
+    (void)dec.DraftTokens();
+    dec.RollbackState();
+    ok &= dec.context().size() == ctx.size() + 2;
+    const auto& m = dec.metrics();
+    ok &= m.draft_tokens == 8 && m.accepted_tokens == 2
+          && m.rejected_tokens == 6 && m.rollback_count == 2;
     std::printf(
-        "{\"ok\":true,\"format\":\"star-speculative-decoder/v1\","
-        "\"enabled\":false,"
+        "{\"ok\":%s,\"format\":\"star-speculative-decoder/v1\","
+        "\"enabled\":false,\"production_enabled\":false,"
         "\"reason\":\"MTP heads are dropped at export — no production "
-        "drafter exists; ABI + verification only\","
-        "\"abi\":[\"Draft\",\"Verify\",\"Accept\",\"Reject\",\"Reset\"],"
-        "\"synthetic\":{\"draft_len\":%lld,\"accepted\":%lld,"
-        "\"rejected\":%lld,\"acceptance_mask\":\"%s\"}}\n",
-        (long long)draft.size(), (long long)acc,
-        (long long)draft.size() - acc,
-        acc == 2 ? "1100" : "xxxx");
-    return acc == 2 ? 0 : 1;
+        "drafter exists; contract + verification + metrics only\","
+        "\"api\":[\"PrepareDraft\",\"DraftTokens\",\"VerifyTokens\","
+        "\"AcceptPrefix\",\"RejectFrom\",\"CommitState\","
+        "\"RollbackState\"],"
+        "\"synthetic\":{\"accepted\":%lld,\"rejected\":%lld,"
+        "\"acceptance_rate\":%.4f,\"draft_latency_ms\":%.3f,"
+        "\"verify_latency_ms\":%.3f,\"rollback_count\":%lld,"
+        "\"net_tps_gain\":%.4f,\"net_latency_gain\":%.3f}}\n",
+        ok ? "true" : "false",
+        (long long)m.accepted_tokens, (long long)m.rejected_tokens,
+        m.acceptance_rate, m.draft_latency_ms, m.verify_latency_ms,
+        (long long)m.rollback_count, m.net_tps_gain,
+        m.net_latency_gain);
+    return ok ? 0 : 1;
 }
 
 // §24 parameter-reuse probe — research evidence only.
