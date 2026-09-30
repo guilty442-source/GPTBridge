@@ -52,6 +52,11 @@ internal static partial class SuccessorBuilder
                 throw new SuccessorBuildError("REQUEST_NOT_UNDER_REVIEW",
                     $"{requestId}:{record.State}");
             File.Copy(source, output, overwrite: false);
+            // The authoritative export is sealed read-only. File.Copy keeps
+            // that attribute on Windows, but the candidate is a writable
+            // staging artifact until validation and publication finish.
+            File.SetAttributes(output,
+                File.GetAttributes(output) & ~FileAttributes.ReadOnly);
             outputCreated = true;
             var errors = new List<string>();
             List<Dictionary<string, object?>> applied;

@@ -30,7 +30,7 @@ lineage and audit records remain registered as evidence.
 | Module | Folder | Manifest | Status |
 |---|---|---|---|
 | local-model | `Standalone tools/local-model/` | `manifest.json` | `on-demand` |
-| model-dialogue (star-chat) | `Standalone tools/local-model/model-dialogue/` | `manifest.json` | `on-demand` |
+| model-dialogue (star-chat) | `Standalone tools/model-dialogue/` | `manifest.json` | `on-demand` |
 | ai-assistant | `Standalone tools/ai-assistant/` | `manifest.json` | `on-demand` |
 | investment-mobile | `Standalone tools/investment-mobile/` | `manifest.json` | `on-demand` |
 | ai-collaboration | `Standalone tools/ai-collaboration/` | `manifest.json` | `on-demand` |
@@ -42,17 +42,17 @@ lineage and audit records remain registered as evidence.
 
 B123/B125 keep `model-dialogue` as one of the seven independent tools
 while its folder stays physically nested under
-`local-model/model-dialogue/`. The manifests now declare the separated
+`model-dialogue/`. The manifests now declare the separated
 topology directly:
 
-- `local-model/model-dialogue/manifest.json` declares:
+- `model-dialogue/manifest.json` declares:
   - `id: "model-dialogue"`
   - `host_tool_id: "model-dialogue"` (self-hosted, B125)
   - `runtime_owner_tool_id: "model-dialogue"`
   - `physical_owner_root: "local-model"` (physical containment only)
   - `main_system_independent_tool: true`
 
-- `local-model/model-dialogue/star-chat/manifest.json` declares
+- `model-dialogue/star-chat/manifest.json` declares
   `host_tool_id: "model-dialogue"` — it is model-dialogue's companion
   surface, not a member of the tool roster.
 
@@ -78,7 +78,7 @@ local native-model service, not a tool, not a companion of any tool:
 - All xingcheng-owned data (identity, memory, weights, corpus,
   checkpoints, repair knowledge, runtime records) stays inside the
   registered domain roots `local-model/xingcheng/` (institution root)
-  and `local-model/model-dialogue/xingcheng/` (star directory);
+  and `model-dialogue/xingcheng/` (star directory);
   backups resolve in-domain (`xingcheng/runtime/backups`) per the
   `backup-outside-owner-boundary` prohibition.
 

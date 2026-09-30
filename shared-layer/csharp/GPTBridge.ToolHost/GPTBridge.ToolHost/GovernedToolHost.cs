@@ -104,6 +104,48 @@ public sealed class GovernedToolHost
         return false;
     }
 
+    /// <summary>
+    /// WS command lane (design §10): true when the executor declares the
+    /// command on its surface. Only owned commands may be dispatched —
+    /// everything else stays PERMISSION_DENIED at the server boundary.
+    /// </summary>
+    public bool OwnsWsCommand(string command) =>
+        _executor is IWsCommandSurface surface
+        && surface.OwnsCommand(command);
+
+    /// <summary>
+    /// Dispatch an authenticated WS command to the executor surface.
+    /// Registered in _inFlight so toolbox_cancel_tool_run cancels it the
+    /// same way store-claimed requests are cancelled; the returned task
+    /// completes with (event, result) for the server to emit.
+    /// </summary>
+    public async Task<(string Event, JsonObject Result)> DispatchWsAsync(
+        string command,
+        JsonObject payload,
+        string requestId,
+        Func<JsonObject, Task>? emitProgress,
+        CancellationToken ct)
+    {
+        if (_executor is not IWsCommandSurface surface
+            || !surface.OwnsCommand(command))
+            throw new PermissionDeniedException();
+        using var requestCts = CancellationTokenSource
+            .CreateLinkedTokenSource(ct, _shutdown.Token);
+        _inFlight[requestId] = requestCts;
+        try
+        {
+            return await surface
+                .ExecuteWsAsync(
+                    command, payload, requestId, emitProgress,
+                    requestCts.Token)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _inFlight.TryRemove(requestId, out _);
+        }
+    }
+
     public JsonObject HealthSnapshot()
     {
         var channelHealth = new JsonObject();
@@ -412,8 +454,19 @@ public sealed class GovernedToolHost
     public async ValueTask DisposeAsync()
     {
         _shutdown.Cancel();
+        // Cancel every in-flight WS request before tearing down the
+        // executor — executors own live children (model workers) whose
+        // shutdown must not race a still-running command.
+        foreach (var cts in _inFlight.Values)
+        {
+            try { cts.Cancel(); } catch { /* disposed */ }
+        }
         if (_transport is not null)
             await _transport.DisposeAsync().ConfigureAwait(false);
+        if (_executor is IAsyncDisposable asyncDisposable)
+            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+        else if (_executor is IDisposable disposable)
+            disposable.Dispose();
         _shutdown.Dispose();
         Stopped?.Invoke();
     }

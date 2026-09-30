@@ -112,7 +112,8 @@ internal static class Program
     /// GPTBRIDGE_TOOL_DIR. No proxy entry is required because the
     /// deferred transport spawns nothing.
     /// </summary>
-    private static GovernedEnvironment LoadEnvironment(out string version)
+    private static GovernedEnvironment LoadEnvironment(
+        out string version, out string ownerId)
     {
         static string Get(string key) =>
             (Environment.GetEnvironmentVariable(key) ?? "").Trim();
@@ -124,7 +125,7 @@ internal static class Program
         if (!Directory.Exists(root))
             throw new PermissionDeniedException();
 
-        var ownerId = Get("GPTBRIDGE_TOOL_ID");
+        ownerId = Get("GPTBRIDGE_TOOL_ID");
         if (!ToolIdPattern.IsMatch(ownerId) || ownerId == "main-system")
             throw new PermissionDeniedException();
         var governedId = Get("GPTBRIDGE_GOVERNED_RUNTIME_TOOL_ID");
@@ -188,13 +189,30 @@ internal static class Program
         };
     }
 
+    /// <summary>
+    /// Executor factory keyed on the OWNER tool id (GPTBRIDGE_TOOL_ID)
+    /// rather than the governed runtime identity — local-model's host
+    /// authenticates as xingcheng and model-dialogue's as star-chat, but
+    /// the owner id is what decides which business executor the host
+    /// runs. Unknown owners keep the honest deferred executor.
+    /// </summary>
+    private static IGovernedCommandExecutor CreateExecutor(
+        GovernedEnvironment env, string ownerId) =>
+        ownerId switch
+        {
+            "local-model" => new LocalModelExecutor(env, ownerId),
+            "model-dialogue" => new ModelDialogueExecutor(env),
+            _ => new DeferredExecutor(env.ToolId),
+        };
+
     public static async Task<int> Main()
     {
         GovernedEnvironment env;
         string version;
+        string ownerId;
         try
         {
-            env = LoadEnvironment(out version);
+            env = LoadEnvironment(out version, out ownerId);
         }
         catch (PermissionDeniedException)
         {
@@ -204,9 +222,25 @@ internal static class Program
             return 13;
         }
 
+        var executor = CreateExecutor(env, ownerId);
+        if (executor is LocalModelExecutor modelService)
+        {
+            try
+            {
+                modelService.StartService();
+            }
+            catch (Exception exc)
+            {
+                Console.Error.WriteLine(
+                    $"[toolhost] model-service start failed: {exc.Message}");
+                if (executor is IAsyncDisposable d1)
+                    await d1.DisposeAsync().ConfigureAwait(false);
+                return 13;
+            }
+        }
         await using var host = new GovernedToolHost(
             env,
-            new DeferredExecutor(env.ToolId),
+            executor,
             version,
             transportFactory: _ => new DeferredStoreTransport(),
             processingChannels: ["system"]);

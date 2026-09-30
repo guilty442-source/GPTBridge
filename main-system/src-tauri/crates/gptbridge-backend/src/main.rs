@@ -111,6 +111,13 @@ fn dispatch_command(command: &str, payload: &Value) -> Value {
                 "dependencies": r.dependencies,
             })
         }
+        "app:get-platform-tool-sizes" => json!({
+            "ok": true,
+            "tools": gptbridge_core::native::sizes::platform_tool_sizes(
+                &tools::workspace_root(),
+                payload["forceRefresh"].as_bool().unwrap_or(false),
+            ),
+        }),
         "app:get-resource-mode" => resource_mode::get(payload),
         "app:set-resource-mode" => resource_mode::set(payload),
         "app:get-saga-operations" | "app:get-saga-operation" => {

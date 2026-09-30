@@ -14,6 +14,10 @@
     "vaultly": {
       "binary": "gptbridge-egui.exe",
       "surface": "vaultly"
+    },
+    "ai-collaboration": {
+      "binary": "Standalone tools/ai-collaboration/dist/ai-collab-ui.exe",
+      "surface": "ai-collab-qt"
     }
   }
 }

@@ -11,6 +11,7 @@ mod console;
 mod diagnostics;
 mod fonts;
 mod governance;
+mod main_window;
 mod profiling;
 mod tool_file_sorter;
 mod tool_vaultly;
@@ -80,7 +81,25 @@ fn is_tool_window_mode() -> bool {
     std::env::args().any(|a| a == "--tool-window")
 }
 
+fn is_main_window_mode() -> bool {
+    std::env::args().any(|a| a == "--main-window")
+}
+
 fn main() -> eframe::Result<()> {
+    // Native main dashboard: `gptbridge-egui.exe --main-window` replaces
+    // the retired WebView2/JS main renderer.  Same governed
+    // ``GPTBRIDGE_SOURCE_UI_*`` environment contract as tool windows.
+    if is_main_window_mode() {
+        let cfg = match tool_window::ToolWindowConfig::from_env() {
+            Some(cfg) => cfg,
+            None => {
+                eprintln!("CONFIG_INVALID:main-window-environment");
+                std::process::exit(2);
+            }
+        };
+        return main_window::run_main_window(cfg);
+    }
+
     // Governed tool-window mode: `gptbridge-egui.exe --tool-window
     // --tool-id=<id>` replaces the retired WebView2 renderer for tools
     // with a registered native surface.

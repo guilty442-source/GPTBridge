@@ -207,7 +207,7 @@ export function buildSettings(s, acts) {
 							h("button", {
 								type: "button", className: "ai-collab-mini", disabled: busy,
 								onClick: () => void acts.saveAgentBusinessSettings(agent)
-							}, s.busyAction === `settings:${agent.agent_id}` ? "儲存中…" : "儲存 URL")))))));
+							}, s.busyAction === `settings:${agent.agent_id}` ? "儲存中…" : "儲存 URL"))))))));
 }
 
 /// Collaboration task selector inside the responses head.
@@ -283,7 +283,7 @@ function buildComparison(comparison) {
 			group("共同觀點", "＋", comparison.common_points || [], (item) => `· ${item.text}`),
 			group("各 AI 差異", "≠", comparison.differences || [], (item) => `· [${item.source_provider}] ${item.text}`),
 			group("相互矛盾", "×", comparison.contradictions || [], (item) => `· ${(item.statements || []).map((st) => `[${st.provider_id}] ${st.text}`).join(" / ")}`),
-			group("尚未回答", "？", comparison.unanswered_questions || [], (item) => `· ${item.question}`))));
+			group("尚未回答", "？", comparison.unanswered_questions || [], (item) => `· ${item.question}`)));
 }
 
 /// Synthesis card for a completed task.

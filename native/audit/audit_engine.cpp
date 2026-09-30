@@ -146,37 +146,51 @@ std::string to_lower(const std::string& s) {
  * a transient IO/parse error must not stick (fail-closed parity).
  * ------------------------------------------------------------------ */
 
+/* The memo maps are per-run: audit_run() calls cache_reset() first,
+ * so a file mutated between runs (rewritten baseline, edited target)
+ * is never served stale while a single run still shares one read. */
+std::mutex g_cache_mu;
+std::unordered_map<std::string, std::shared_ptr<const std::string>>
+    g_text_cache;
+std::unordered_map<std::string, std::shared_ptr<const std::string>>
+    g_lower_cache;
+std::unordered_map<std::string, std::shared_ptr<const JsonValue>>
+    g_json_cache;
+
+void cache_reset() {
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    g_text_cache.clear();
+    g_lower_cache.clear();
+    g_json_cache.clear();
+}
+
 std::shared_ptr<const std::string> cached_text(const fs::path& target) {
-    static std::mutex m;
-    static std::unordered_map<std::string,
-        std::shared_ptr<const std::string>> map;
     const std::string key = u8_bytes(target.lexically_normal());
     {
-        std::lock_guard<std::mutex> g(m);
-        const auto it = map.find(key);
-        if (it != map.end()) return it->second;
+        std::lock_guard<std::mutex> g(g_cache_mu);
+        const auto it = g_text_cache.find(key);
+        if (it != g_text_cache.end()) return it->second;
     }
     auto content = std::make_shared<std::string>();
     if (!read_file(target, content.get())) return nullptr;
-    std::lock_guard<std::mutex> g(m);
-    return map.emplace(std::move(key), std::move(content)).first->second;
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    return g_text_cache.emplace(std::move(key), std::move(content))
+        .first->second;
 }
 
 std::shared_ptr<const std::string> cached_lower(const fs::path& target) {
-    static std::mutex m;
-    static std::unordered_map<std::string,
-        std::shared_ptr<const std::string>> map;
     const std::string key = u8_bytes(target.lexically_normal());
     {
-        std::lock_guard<std::mutex> g(m);
-        const auto it = map.find(key);
-        if (it != map.end()) return it->second;
+        std::lock_guard<std::mutex> g(g_cache_mu);
+        const auto it = g_lower_cache.find(key);
+        if (it != g_lower_cache.end()) return it->second;
     }
     const auto text = cached_text(target);
     if (!text) return nullptr;
     auto lowered = std::make_shared<std::string>(to_lower(*text));
-    std::lock_guard<std::mutex> g(m);
-    return map.emplace(std::move(key), std::move(lowered)).first->second;
+    std::lock_guard<std::mutex> g(g_cache_mu);
+    return g_lower_cache.emplace(std::move(key), std::move(lowered))
+        .first->second;
 }
 
 /* unreadable_out distinguishes "file missing/unreadable" from
@@ -185,14 +199,11 @@ std::shared_ptr<const std::string> cached_lower(const fs::path& target) {
  * the missing case). */
 std::shared_ptr<const JsonValue> cached_json(const fs::path& target,
                                              bool* unreadable_out) {
-    static std::mutex m;
-    static std::unordered_map<std::string,
-        std::shared_ptr<const JsonValue>> map;
     const std::string key = u8_bytes(target.lexically_normal());
     {
-        std::lock_guard<std::mutex> g(m);
-        const auto it = map.find(key);
-        if (it != map.end()) {
+        std::lock_guard<std::mutex> g(g_cache_mu);
+        const auto it = g_json_cache.find(key);
+        if (it != g_json_cache.end()) {
             *unreadable_out = false;
             return it->second;
         }
@@ -208,9 +219,10 @@ std::shared_ptr<const JsonValue> cached_json(const fs::path& target,
         *unreadable_out = false;
         return nullptr;
     }
-    std::lock_guard<std::mutex> g(m);
+    std::lock_guard<std::mutex> g(g_cache_mu);
     *unreadable_out = false;
-    return map.emplace(std::move(key), std::move(doc)).first->second;
+    return g_json_cache.emplace(std::move(key), std::move(doc))
+        .first->second;
 }
 
 /* dotted 路徑解析：逐層走 object；段名可帶 [KEY] 選取 object 陣列中
@@ -297,6 +309,7 @@ AuditCheckResult run_check(const AuditCheck& check, const std::string& root) {
 
 AuditReport audit_run(const std::vector<AuditCheck>& checks,
                       const std::string& root) {
+    cache_reset();
     AuditReport report;
     report.manifest_ok = true;
     // Bounded parallel execution — 5-core budget, 4 workers max (thread_budget cap)

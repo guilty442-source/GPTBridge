@@ -148,7 +148,7 @@ public class LifecycleOrchestratorTests
             port = 19999,
             pid = 4242,
             token_file = "model-service-session-token",
-            lifecycle_owner = "local-model/channel_runtime.py",
+            lifecycle_owner = "local-model/toolhost-model-service",
             consumer_policy = "csharp-orchestrator-client-only",
         }));
         return ipcDir;

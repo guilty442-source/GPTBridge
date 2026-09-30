@@ -71,6 +71,17 @@ impl Backend {
                 match socket.events().try_recv() {
                     Ok(WsEvent::Message(v)) => {
                         let event = v["event"].as_str().unwrap_or("").to_string();
+                        // The backend culls sockets silent for
+                        // HEARTBEAT_TIMEOUT (20 s); every governed
+                        // surface answers heartbeat_ping inline instead
+                        // of relying on incidental command traffic.
+                        if event == "heartbeat_ping" {
+                            let _ = socket.send(&json!({
+                                "command": "heartbeat_pong",
+                                "payload": {},
+                            }));
+                            continue;
+                        }
                         batch.push((event, v["payload"].clone()));
                     }
                     Ok(WsEvent::Closed) | Err(TryRecvError::Disconnected) => {

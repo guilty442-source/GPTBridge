@@ -1,0 +1,48 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "model-dialogue-physical-root-migration-20260930-r1",
+  "title": "Rebind model-dialogue canonical registrations to the independent top-level root",
+  "summary": "model-dialogue, its star-chat companion and the dialogue-scoped xingcheng data root were physically relocated from 'Standalone tools/local-model/model-dialogue' to the top-level 'Standalone tools/model-dialogue' per the MODEL-DIALOGUE-INDEPENDENCE and OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE target state. Codex live registrations still carry the retired nested path: project_architecture_directory.physical_root for MODEL_DIALOGUE and STAR_DIRECTORY, and test_suite_architecture_directory.suite_root for TS_MODEL_DIALOGUE. This amendment rebinds the three live registration fields; superseded article text (B58, D58) retaining the nested path is immutable history and is intentionally not rewritten.",
+  "requested_by": "permission-sovereign",
+  "origin": "governor-directed model-dialogue split and relocation executed in the repository; audit manifest emits activation:target:MODEL_DIALOGUE and activation:target:STAR_DIRECTORY dir-exists checks resolving through project_architecture_directory.physical_root, which still registers the retired nested root",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T15:47:57Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "3b4443a487d901e3a7fa3fc9815ac0f561fabc3ea1ec0ea2b54dafaadc316bc7",
+    "revision_sequence": 181
+  },
+  "changes": [
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_DIALOGUE" },
+      "field": "physical_root",
+      "proposed": "E:\\GPTBridge\\Standalone tools\\model-dialogue"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "STAR_DIRECTORY" },
+      "field": "physical_root",
+      "proposed": "E:\\GPTBridge\\Standalone tools\\model-dialogue\\xingcheng"
+    },
+    {
+      "table": "test_suite_architecture_directory",
+      "key": { "suite_code": "TS_MODEL_DIALOGUE" },
+      "field": "suite_root",
+      "proposed": "E:\\GPTBridge\\Standalone tools\\model-dialogue\\tests"
+    }
+  ],
+  "evidence": {
+    "physical_relocation": "Standalone tools/model-dialogue exists with star-chat, locales, runtime, dist and xingcheng subdirectories; the nested local-model/model-dialogue root no longer exists",
+    "manifest_independence": "Standalone tools/model-dialogue/manifest.json already declares host_tool_id=model-dialogue, runtime_owner_tool_id=model-dialogue, main_system_independent_tool=true and runtime.native_entry=dist/GPTBridge.ToolHost.App.exe",
+    "audit_projection": "audit_checks_manifest.json regenerates activation:target:MODEL_DIALOGUE and activation:target:STAR_DIRECTORY dir-exists checks from project_architecture_directory.physical_root, currently resolving to the retired nested root",
+    "historical_text_kept": "articles B58 and D58 are lifecycle_state=superseded; per the AMENDMENT clause (historical content is not rewritten) their embedded nested-path text remains untouched",
+    "classification_unchanged": "the MODEL_DIALOGUE row already carries entity_kind=independent-tool, owner=permission-sovereign and parent_code=UNIT_DIALOGUE; only the physical root changes"
+  }
+}

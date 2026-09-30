@@ -11,6 +11,7 @@
 //   capability    --bundle <dir> --suite <suite.json>
 //                 [--corpus-manifest <manifest.json>] [--chat]
 //                 [--baseline-report <file>]
+//   serve         --bundle <dir>   (stdin/stdout JSON-lines worker)
 //
 // Tokenize row shapes (star SFT/DPO/pretrain contracts):
 //   {"prompt","completion"}      -> {"input_ids","labels"}  (masked prompt)
@@ -1541,13 +1542,250 @@ int mode_capability(const Args& a) {
     return 0;
 }
 
+// ------------------------------------------------------------------ serve --
+// Long-lived stdin/stdout JSON-lines inference worker. The C# tool host
+// owns the loopback HTTP surface + descriptor; this mode keeps the
+// engine resident and answers one request object per line.
+//
+//   xc_modeltool serve --bundle <dir>
+//
+// In : {"op":"status"|"load"|"infer"|"unload"|"quit", ...}
+// Out: one JSON object per request line (flushed); EOF exits 0.
+// infer: {"prompt": verbatim} or {"messages":[{role,content}...]} (chat
+//        template applied here), plus optional sampling fields
+//        max_new_tokens/temperature/top_k/top_p/repetition_penalty/
+//        do_sample/seed.
+
+const int64_t kServeLineCap = 8 * 1024 * 1024;
+
+// Render the SFT chat template: <|user|>\n{c}\n<|eot|>\n<|assistant|>\n
+// per turn; "system" content folds into the user lane (the bundle was
+// trained on user/assistant only). A trailing assistant turn closes
+// with <|eot|> and a fresh user header so generation always lands on an
+// open assistant slot.
+std::string serve_render_chat(const JsonValue& messages) {
+    std::string p;
+    bool open_assistant = false;
+    for (const auto& m : messages.array) {
+        std::string role = jget_str(m, "role");
+        std::string content = py_strip(jget_str(m, "content"));
+        if (content.empty()) continue;
+        if (role == "user" || role == "system") {
+            if (open_assistant) p += "<|eot|>\n";
+            p += "<|user|>\n" + content + "\n<|eot|>\n<|assistant|>\n";
+            open_assistant = true;
+        } else if (role == "assistant" && open_assistant) {
+            p += content + "\n<|eot|>\n";
+            open_assistant = false;
+        }
+    }
+    if (!open_assistant) {
+        // Conversation ended on an assistant turn (or was empty): open a
+        // fresh turn so generation has a well-formed slot.
+        p += "<|user|>\n<|eot|>\n<|assistant|>\n";
+    }
+    return p;
+}
+
+double serve_num(const JsonValue& o, const char* k, double d) {
+    const JsonValue* v = o.get(k);
+    return (v && v->type == JsonValue::Type::Number) ? v->number : d;
+}
+
+bool serve_bool(const JsonValue& o, const char* k, bool d) {
+    const JsonValue* v = o.get(k);
+    return (v && v->type == JsonValue::Type::Bool) ? v->boolean : d;
+}
+
+int mode_serve(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("SERVE_ARGS_MISSING");
+
+    // Unbuffered line protocol: every response must reach the host even
+    // while a later request is still generating.
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+
+    NativeInferenceEngine engine;
+    std::string ckpt_sha = manifest_field(bundle, "checkpoint_sha256");
+    std::string model_version =
+        ckpt_sha.size() > 16 ? ckpt_sha.substr(0, 16) : ckpt_sha;
+
+    auto emit = [](const std::string& line) {
+        std::fputs(line.c_str(), stdout);
+        std::fputc('\n', stdout);
+        std::fflush(stdout);
+    };
+    auto err_obj = [&](const std::string& code) {
+        emit(std::string("{\"ok\":false,\"error\":\"") +
+             gptbridge::jsonlite::json_escape(code) + "\"}");
+    };
+
+    std::fprintf(stderr, "[xc_modeltool serve] bundle=%s\n", bundle.c_str());
+
+    std::string line;
+    line.reserve(4096);
+    while (true) {
+        // Bounded line read — a peer writing past the cap is a protocol
+        // violation, not a reason to grow memory without bound.
+        line.clear();
+        int ch;
+        while ((ch = std::fgetc(stdin)) != EOF && ch != '\n') {
+            if ((int64_t)line.size() >= kServeLineCap) {
+                err_obj("SERVE_REQUEST_TOO_LARGE");
+                // drain to the line boundary so framing stays aligned
+                while (ch != EOF && ch != '\n') ch = std::fgetc(stdin);
+                line.clear();
+                break;
+            }
+            line += (char)ch;
+        }
+        if (ch == EOF && line.empty()) break;  // stdin closed
+        if (line.empty()) continue;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+
+        JsonValue req;
+        try {
+            JsonParser p(line);
+            req = p.parse();
+        } catch (...) {
+            err_obj("SERVE_REQUEST_INVALID_JSON");
+            continue;
+        }
+        if (req.type != JsonValue::Type::Object) {
+            err_obj("SERVE_REQUEST_NOT_OBJECT");
+            continue;
+        }
+        std::string op = jget_str(req, "op");
+        try {
+            if (op == "quit") {
+                emit("{\"ok\":true,\"quitting\":true}");
+                break;
+            }
+            if (op == "status") {
+                std::ostringstream o;
+                o << "{\"ok\":true,\"service\":\"xc-model-service\","
+                  << "\"decoder\":\"native-cpp\",\"cpp_runtime\":true,"
+                  << "\"loaded\":" << (engine.loaded() ? "true" : "false")
+                  << ",\"bundle_dir\":\""
+                  << gptbridge::jsonlite::json_escape(bundle) << "\""
+                  << ",\"model_id\":\"xingcheng-native-transformer\""
+                  << ",\"model_version\":\""
+                  << gptbridge::jsonlite::json_escape(model_version) << "\""
+                  << ",\"pid\":" << (long long)GetCurrentProcessId();
+                if (engine.loaded()) {
+                    o << ",\"engine\":" << engine.describe()
+                      << ",\"memory_bytes\":" << engine.memory_bytes()
+                      << ",\"kv_memory_bytes\":" << engine.kv_memory_bytes()
+                      << ",\"cuda_active\":"
+                      << (engine.cuda_active() ? "true" : "false");
+                }
+                o << '}';
+                emit(o.str());
+                continue;
+            }
+            if (op == "load") {
+                if (!engine.loaded()) {
+                    auto t0 = std::chrono::steady_clock::now();
+                    engine.load(bundle);
+                    double ms = std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - t0).count() * 1000.0;
+                    std::ostringstream o;
+                    o << "{\"ok\":true,\"loaded\":true,\"load_ms\":" << ms
+                      << '}';
+                    emit(o.str());
+                } else {
+                    emit("{\"ok\":true,\"loaded\":true,\"already\":true}");
+                }
+                continue;
+            }
+            if (op == "unload") {
+                if (engine.loaded()) {
+                    engine.unload();
+                    emit("{\"ok\":true,\"released\":[\"engine\"],"
+                         "\"loaded\":false}");
+                } else {
+                    emit("{\"ok\":true,\"released\":[],\"loaded\":false}");
+                }
+                continue;
+            }
+            if (op == "infer") {
+                std::string prompt = jget_str(req, "prompt");
+                const JsonValue* messages = req.get("messages");
+                if (prompt.empty() && messages &&
+                    messages->type == JsonValue::Type::Array) {
+                    prompt = serve_render_chat(*messages);
+                }
+                if (prompt.empty()) {
+                    err_obj("SERVE_INFER_PROMPT_REQUIRED");
+                    continue;
+                }
+                if (!engine.loaded()) engine.load(bundle);
+                SamplingConfig sc;
+                sc.do_sample = serve_bool(req, "do_sample", false);
+                sc.temperature = serve_num(req, "temperature", 1.0);
+                sc.top_k = (int64_t)serve_num(req, "top_k", 0);
+                sc.top_p = serve_num(req, "top_p", 1.0);
+                sc.repetition_penalty =
+                    serve_num(req, "repetition_penalty", 1.0);
+                sc.seed = (uint64_t)serve_num(req, "seed", 0);
+                int64_t max_new = (int64_t)serve_num(
+                    req, "max_new_tokens", 192);
+                if (max_new <= 0) max_new = 1;
+                if (max_new > 2048) max_new = 2048;
+
+                std::vector<int64_t> pids = engine.encode(prompt, true, false);
+                auto t0 = std::chrono::steady_clock::now();
+                std::vector<int64_t> out =
+                    engine.generate(pids, max_new, sc);
+                double elapsed = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t0).count();
+                if (out.size() > pids.size() &&
+                    std::equal(pids.begin(), pids.end(), out.begin())) {
+                    out.erase(out.begin(),
+                              out.begin() + (ptrdiff_t)pids.size());
+                }
+                std::string text = engine.decode(out, true);
+                size_t eot = text.find("<|eot|>");
+                if (eot != std::string::npos) text.erase(eot);
+
+                std::ostringstream o;
+                o << "{\"ok\":true,\"text\":\""
+                  << gptbridge::jsonlite::json_escape(text) << "\"";
+                o << ",\"token_ids\":[";
+                for (size_t i = 0; i < out.size(); ++i) {
+                    if (i) o << ',';
+                    o << out[i];
+                }
+                o << ']';
+                o << ",\"generated_tokens\":" << (int64_t)out.size()
+                  << ",\"latency_ms\":" << elapsed * 1000.0
+                  << ",\"model_id\":\"xingcheng-native-transformer\""
+                  << ",\"model_version\":\""
+                  << gptbridge::jsonlite::json_escape(model_version) << "\""
+                  << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true}";
+                emit(o.str());
+                continue;
+            }
+            err_obj("SERVE_UNKNOWN_OP");
+        } catch (const std::exception& e) {
+            std::string msg = e.what();
+            if (msg.size() > 300) msg.resize(300);
+            err_obj(std::string("SERVE_OP_FAILED:") + msg);
+        } catch (...) {
+            err_obj("SERVE_OP_FAILED");
+        }
+    }
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
             "xc_modeltool <tokenize|import-bundle|export-bundle|eval|"
-            "capability> [args]\n");
+            "capability|serve> [args]\n");
         return 2;
     }
     std::string mode = argv[1];
@@ -1558,6 +1796,7 @@ int main(int argc, char** argv) {
         if (mode == "export-bundle") return mode_export_bundle(a);
         if (mode == "eval") return mode_eval(a);
         if (mode == "capability") return mode_capability(a);
+        if (mode == "serve") return mode_serve(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());

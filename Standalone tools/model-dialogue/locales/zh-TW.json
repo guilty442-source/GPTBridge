@@ -1,0 +1,6 @@
+{
+  "tool.name": "模型對話",
+  "tool.description": "只在主系統獨立啟停，並共用本地模型的設定、權限、路由、記憶與推論服務之對話介面。",
+  "tool.window_title": "GPTBridge - 模型對話",
+  "errors.permission_denied": "權限不足"
+}

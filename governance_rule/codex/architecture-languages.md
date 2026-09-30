@@ -2,7 +2,7 @@
 
 本架構圖僅為 PostgreSQL Codex 的同步投影，不是法典鏡像或權威。法典檔案只保留五份唯讀中文鏡像；其他 SQL、資料庫、JSON、快取、匯出或備份形式的 Codex 鏡像一律禁止。
 
-正式語言池僅含 C、C++23、C#、Rust、Go、F#。文件中的語言分工是原則參考與初始偏好，不是不可變更的固定配置；每項能力可依正確性、安全、延遲、吞吐、CPU、RAM、產物大小、啟動時間及維護成本，自適化選定唯一現行主要擁有語言。任何變更只能在六種語言內進行，並維持既有契約、權限、資源上限、原子升級與回復能力；不得同時保留兩個主要實作、不得新增第七種語言、權威或繞過治理。Python 與直譯式執行維持全面禁止；正式 runtime 僅執行受管建置階段產生的預編譯原生產物。
+正式核心語言池含 C、C++23、C#、Rust、Go、F#；桌面 UI 可在 Tauri、Wails 與 Qt 中依應用自適化選定唯一殼層，並可使用受管 Bun 執行 JavaScript ESM。所有許可語言都可依能力需求使用，但每項能力仍須選定唯一現行擁有者並遵守型別邊界、權限與資源上限；語言選擇不得新增權威、重複實作或繞過治理。Python 維持全面禁止。
 
 本文件是現行語言責任的非權威同步投影；正式責任以最新 PostgreSQL Codex 為準。
 
@@ -16,18 +16,17 @@
 | C# 14／.NET 10 | 應用、API、已授權工作流、Windows 整合、唯一測試編排 | F# 業務語義與前端 DOM |
 | F# 10 | 業務規則、驗證、轉換、狀態轉移、資料分析、ML 與高正確性計算 | 治理、權限、UI、流程編排 |
 | Go 1.27.1 | 高併發網路、搜尋、檔案與批次 I/O | 治理、權限及業務判斷 |
-| Julia | 統計、數學模型、最佳化、模擬與科學計算 | 治理、權限及 UI |
-| Native JavaScript ESM + JSDoc | 設定、工具面板、表格、表單與一般 UI | 直接資料庫、原生 ABI 或後端模組存取 |
+| Bun + JavaScript ESM | Tauri UI 呈現、互動、設定、表格、表單與工具面板 | 核心能力、資料權威、直接資料庫、原生 ABI、權限或業務決策 |
 | SQL／PostgreSQL 18.6 | 集合式資料操作、完整性、RLS 與正式 schema | 工作流、權限來源及業務決策 |
 | Python／NumPy／JAX | 已全面退役並立即生效：零角色、零常駐、零相依、零產物、零回退 | 任何殘留使用（fail-closed 拒絕） |
 
-套件下載：套件管理的下載來源僅限 Visual Studio Installer 與 Winget 兩個通道。語言套件管理器（Cargo、Go modules、NuGet、npm、pip、Bun 等）不得連網下載（禁止透過 Bun 下載套件），只能使用受管相依根內已 vendored／已登錄的產物；兩通道皆無法提供者須先取得明確許可。Python 全面禁止且無執行例外：不得存在現行 Python 原始碼、直譯器、虛擬環境、套件管理器、套件、相依、建置、測試、審計、訓練、推論、腳本、工具、常駐程序或回退路徑；不得下載、安裝、重新安裝、修復、還原、重建或補裝 Python、pip、NumPy、JAX 及其他 Python 套件。歷史文字只能作不可執行的歷史紀錄，不得成為現行依據。
+套件下載：套件管理的下載來源僅限 Visual Studio Installer 與 Winget 兩個通道。語言套件管理器不得自行連網下載套件；Bun 僅能執行受管 JavaScript ESM 並使用受管相依根內已 vendored／已登錄的產物；兩通道皆無法提供者須先取得明確許可。Python 全面禁止且無執行例外：不得存在現行 Python 原始碼、直譯器、虛擬環境、套件管理器、套件、相依、建置、測試、審計、訓練、推論、腳本、工具、常駐程序或回退路徑；不得下載、安裝、重新安裝、修復、還原、重建或補裝 Python、pip、NumPy、JAX 及其他 Python 套件。歷史文字只能作不可執行的歷史紀錄，不得成為現行依據。
 
-Python 原責任由既有原生擁有者接手：C 負責決定性規則與穩定 ABI；C++23 負責模型訓練、推論、原生測試與審計熱路徑；Rust 負責程序、生命週期、安全、RAG、向量與 UI 核心；C# 負責應用、API、工作流及唯一測試編排；F# 負責業務規則、驗證、訓練評估與高正確性分析；Go 負責檔案、網路及批次併發；Julia 負責科學與大量數值運算；PostgreSQL 負責集合式資料處理。移交不得保留 Python 代理、橋接、參考實作或回退。
+Python 原責任由既有原生擁有者接手：C 負責決定性規則與穩定 ABI；C++23 負責模型訓練、推論、原生測試與審計熱路徑；Rust 負責程序、生命週期、安全、RAG、向量與 UI 核心；C# 負責應用、API、工作流及唯一測試編排；F# 負責業務規則、驗證、訓練評估、科學與高正確性分析；Go 負責檔案、網路及批次併發；PostgreSQL 負責集合式資料處理。移交不得保留 Python 代理、橋接、參考實作或回退。
 
-正式程式碼只以 C、C++23、C#、Rust、Go、F# 撰寫。編譯器與連結器僅能存在於受管建置階段；正式執行環境不得啟動編譯器、直譯器、即時原始碼編譯器或腳本引擎，只能執行已驗證的預編譯原生產物。C# 與 F# 正式發布採 NativeAOT 或等價的預先編譯形式，不得依賴執行期動態編譯。
+核心程式碼以 C、C++23、C#、Rust、Go、F# 撰寫；核准桌面 UI 可由受管 Bun 執行已登錄且完整性驗證通過的 JavaScript ESM。Bun 是唯一 UI script-engine 例外，只能存在於選定的 Tauri 或 Wails UI 邊界，不得執行動態下載、`eval`、未登錄動態載入、套件安裝、程序派生或後端工作。其他直譯器、script engine、執行期原始碼編譯器與建置工具不得進入 production；C# 與 F# 正式發布採 NativeAOT 或等價預先編譯形式。
 
-撰寫原則：所有新增或修改的程式碼一律以已登錄的原生擁有語言撰寫（C／C++23／Rust／Go／C#／F#／JavaScript-ESM／Julia／SQL），並以高效方式實作：編譯形式、批次、零複製、容量預留、單趟處理、受限並行與期限取消；大型結構以型別化指標、參照、借用視圖或句柄傳遞，禁止不必要的整體值複製。熱迴圈優先採編譯器最佳化；實測有益時才使用迴圈展開與安全遞減計數，且不得造成溢位、錯誤終止或程式膨脹。語言支援且可證明無別名時善用 `restrict` 或等價契約；經量測的小型熱函式可使用 `inline`，但不得強制膨脹程式或改變語意。建置須善用已登錄、可重現且經量測的編譯器最佳化參數、連結時最佳化與目標架構設定；禁止未經證明即啟用會放寬數值、安全或相容語意的旗標。效能敏感路徑須有量測（p50／p95／p99、CPU、RAM、VRAM、queue depth）證據；直譯／腳本與已退役 runtime 不得作為撰寫或回退目標。
+撰寫原則：所有新增或修改的程式碼一律以已登錄的原生擁有語言撰寫（C／C++23／Rust／Go／C#／F#，以及 UI 限定的 JavaScript ESM），並以高效方式實作：編譯形式、批次、零複製、容量預留、單趟處理、受限並行與期限取消；大型結構以型別化指標、參照、借用視圖或句柄傳遞，禁止不必要的整體值複製。熱迴圈優先採編譯器最佳化；實測有益時才使用迴圈展開與安全遞減計數，且不得造成溢位、錯誤終止或程式膨脹。語言支援且可證明無別名時善用 `restrict` 或等價契約；經量測的小型熱函式可使用 `inline`，但不得強制膨脹程式或改變語意。建置須善用已登錄、可重現且經量測的編譯器最佳化參數、連結時最佳化與目標架構設定；禁止未經證明即啟用會放寬數值、安全或相容語意的旗標。效能敏感路徑須有量測（p50／p95／p99、CPU、RAM、VRAM、queue depth）證據；直譯／腳本與已退役 runtime 不得作為撰寫或回退目標。
 
 WebAssembly：已登錄的執行格式（UI／WebView 與受治理沙箱；Tauri 桌面殼層保留）。僅限已登錄之原生擁有語言編譯產生（Rust／C++ 優先）；wasm 不是來源語言、不得手寫，也不得自網路取得未登錄的 wasm 產物；套件下載、撰寫與沙箱契約規則一體適用。
 
@@ -35,7 +34,9 @@ WebAssembly：已登錄的執行格式（UI／WebView 與受治理沙箱；Tauri
 
 ```mermaid
 flowchart TB
-  JS[Native JavaScript ESM + JSDoc] --> API[Typed UI Contract]
+  SHELL[Tauri, Wails or Qt Desktop UI] --> BUN[Bun + JavaScript ESM UI]
+  BUN --> RUSTUI[Rust UI Core]
+  RUSTUI --> API[Typed UI Contract]
   API --> CS[C# Application and Workflow]
   CS --> FS[F# Business and Validation]
   CS --> GO[Go Network File and Batch Services]
@@ -44,7 +45,6 @@ flowchart TB
   RUST --> CABI
   CABI --> CPP[C++23 Native Core]
   CS --> SQL[(PostgreSQL SQL)]
-  JULIA[Julia Scientific Compute] --> CS
   RUST --> WASM[WebAssembly UI and Governed Sandbox]
   CPP --> WASM
 ```
@@ -56,14 +56,18 @@ flowchart TB
 ```mermaid
 flowchart TB
   RUST[Rust Application Core] --> TAURI[Tauri Desktop Shell]
-  TAURI --> JS[Native JavaScript ESM + JSDoc]
+  GO[Go Application Core] --> WAILS[Wails Desktop Shell]
+  CPP[C++23 Application Core] --> QT[Qt Desktop Shell and Native Views]
+  TAURI --> BUN[Bun + JavaScript ESM UI]
+  WAILS --> BUN
+  QT --> RUSTUI
+  BUN --> RUSTUI[Rust UI State, Lifecycle, IPC and Security]
   RUST --> GPUI[GPUI High-performance Views]
+  RUST --> SLINT[Slint Native Declarative Views]
   RUST --> EGUI[egui Diagnostics]
-  SWC[SWC Transform] --> ESBUILD[Esbuild Bundle]
-  ESBUILD --> JS
 ```
 
-Electron、TypeScript、Node.js、React 已排除；TypeScript 與 Node 全面禁用。Python 則為零角色、零原始碼、零執行、零相依、零工具鏈、零回退的全面禁止狀態。SWC 與 Esbuild 混用，但只負責編譯與打包，不取得 UI runtime 或應用權責。JavaScript-ESM 少用：互動關鍵與高頻視圖以原生 GPUI／egui／Rust 為主，JS 僅保留不可化約的 WebView 呈現面。
+Tauri、Wails 與 Qt 是核准桌面 UI 殼層；每個應用只能依其 Rust、Go 或 C++23 擁有邊界選用其中一個，不得多重宿主。Bun 是 Tauri／Wails 內唯一核准的 UI script-engine 例外，只能執行已登錄且完整性驗證通過的 JavaScript ESM，禁止動態下載、`eval`、未登錄動態載入、套件安裝、程序派生與後端工作；Qt、GPUI、Slint 及 egui 維持原生執行。Electron、TypeScript、Node.js、React 與 Python 禁用；語言選擇不得直接連線權威資料庫、取得未授權權責或形成重複實作。
 
 ## Python／NumPy／JAX 退役
 
@@ -110,4 +114,4 @@ flowchart LR
 - **Go**：能用值不用指標；`make` 帶 capacity；大字串用 `strings.Builder`（迴圈禁 `+`）；高頻物件用 `sync.Pool`；不盲目開 Goroutine。
 - **Rust**：多用 `&[T]`／`&str`，不亂 `clone()`；迭代器取代索引迴圈；集合 `with_capacity`。
 
-編譯器優化：production 一律使用擁有語言的 release 優化組態——C／C++ 為 `/O2` 或 `-O3`（必要時 LTO）；Rust 為 `cargo build --release`（必要時 `lto=true`／`codegen-units=1`）；C#／F# 為 Release＋optimize（Tiered PGO 依量測）；Go 為最佳化 release 建置＋`-trimpath`；Julia 為 `-O3`。未優化或 Debug 組態不得進入 production，實際組態記入 B79 工具鏈／ABI 證據。
+編譯器優化：production 一律使用擁有語言的 release 優化組態——C／C++ 為 `/O2` 或 `-O3`（必要時 LTO）；Rust 為 `cargo build --release`（必要時 `lto=true`／`codegen-units=1`）；C#／F# 為 Release＋optimize（Tiered PGO 依量測）；Go 為最佳化 release 建置＋`-trimpath`。未優化或 Debug 組態不得進入 production，實際組態記入 B79 工具鏈／ABI 證據。

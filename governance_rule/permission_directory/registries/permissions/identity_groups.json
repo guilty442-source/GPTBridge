@@ -345,7 +345,7 @@
       "identity_code": "D00001",
       "language_name": "model_dialogue",
       "codename": "DIALOGUE",
-      "root_template": "Standalone tools/local-model/model-dialogue"
+      "root_template": "Standalone tools/model-dialogue"
     }
   },
   "STAR_CHAT_IDENTITY": {
@@ -360,7 +360,7 @@
       "identity_code": "D00002",
       "language_name": "star_chat",
       "codename": "STARCHAT",
-      "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+      "root_template": "Standalone tools/model-dialogue/star-chat",
       "code_scope": "xingcheng-internal",
       "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
     }
@@ -712,7 +712,7 @@
         "identity_code": "D00001",
         "language_name": "model_dialogue",
         "codename": "DIALOGUE",
-        "root_template": "Standalone tools/local-model/model-dialogue"
+        "root_template": "Standalone tools/model-dialogue"
       }
     },
     {
@@ -727,7 +727,7 @@
         "identity_code": "D00002",
         "language_name": "star_chat",
         "codename": "STARCHAT",
-        "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+        "root_template": "Standalone tools/model-dialogue/star-chat",
         "code_scope": "xingcheng-internal",
         "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
       }
@@ -1087,7 +1087,7 @@
             "identity_code": "D00001",
             "language_name": "model_dialogue",
             "codename": "DIALOGUE",
-            "root_template": "Standalone tools/local-model/model-dialogue"
+            "root_template": "Standalone tools/model-dialogue"
           }
         },
         {
@@ -1102,7 +1102,7 @@
             "identity_code": "D00002",
             "language_name": "star_chat",
             "codename": "STARCHAT",
-            "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+            "root_template": "Standalone tools/model-dialogue/star-chat",
             "code_scope": "xingcheng-internal",
             "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
           }
@@ -1473,7 +1473,7 @@
                 "identity_code": "D00001",
                 "language_name": "model_dialogue",
                 "codename": "DIALOGUE",
-                "root_template": "Standalone tools/local-model/model-dialogue"
+                "root_template": "Standalone tools/model-dialogue"
               }
             },
             {
@@ -1488,7 +1488,7 @@
                 "identity_code": "D00002",
                 "language_name": "star_chat",
                 "codename": "STARCHAT",
-                "root_template": "Standalone tools/local-model/model-dialogue/star-chat",
+                "root_template": "Standalone tools/model-dialogue/star-chat",
                 "code_scope": "xingcheng-internal",
                 "database_scope": "all-project-databases-via-xingcheng-excluding-governance-rule"
               }

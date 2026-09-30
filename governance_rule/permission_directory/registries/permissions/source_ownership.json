@@ -84,7 +84,7 @@
     "$kw": {}
   },
   "STAR_CHAT_PACKAGE_ROOT": [
-    "Standalone tools/local-model/model-dialogue/src/backend/services/star_chat"
+    "Standalone tools/model-dialogue/src/backend/services/star_chat"
   ],
   "STAR_CHAT_REQUIRED_LAYERS": {
     "$call": "frozenset",

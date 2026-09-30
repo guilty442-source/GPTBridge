@@ -346,7 +346,7 @@ lifecycle snapshots, self-learning pools/reports, ledgers, eval output,
 and any recovery or scratch artifacts — resolves inside the registered
 xingcheng domain roots only (`XINGCHENG_INSTITUTION_ROOT` =
 `Standalone tools/local-model/xingcheng/`, `STAR_DIRECTORY` =
-`Standalone tools/local-model/model-dialogue/xingcheng/`; codex
+`Standalone tools/model-dialogue/xingcheng/`; codex
 `data_authority: residency XINGCHENG_DOMAIN_ONLY, no external
 persistence`). Copies under `main-system/runtime/`, other tools, other
 drives, or ad-hoc scratch dirs are violations and must be moved in or

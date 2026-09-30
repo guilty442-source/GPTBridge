@@ -147,7 +147,7 @@ public class ModelHttpClientTests
             pid = 1234,
             port = 4567,
             token_file = "model-service-session-token",
-            lifecycle_owner = "local-model/channel_runtime.py",
+            lifecycle_owner = "local-model/toolhost-model-service",
             consumer_policy = "csharp-orchestrator-client-only",
             session_token_sha256 = "abc",
         }));
@@ -157,7 +157,7 @@ public class ModelHttpClientTests
             Assert.Equal("http://127.0.0.1:4567", ep.Endpoint);
             Assert.Equal("tok-xyz", ep.SessionToken);
             Assert.Equal(1234, ep.Pid);
-            Assert.Equal("local-model/channel_runtime.py", ep.LifecycleOwner);
+            Assert.Equal("local-model/toolhost-model-service", ep.LifecycleOwner);
             Assert.Equal("csharp-orchestrator-client-only", ep.ConsumerPolicy);
         }
         finally { Directory.Delete(root, true); }

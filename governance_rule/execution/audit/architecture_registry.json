@@ -690,7 +690,7 @@
       "runtime_form": "standalone-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "model-dialogue-ui",
-      "physical_path": "Standalone tools/local-model/model-dialogue",
+      "physical_path": "Standalone tools/model-dialogue",
       "lifecycle": "on-demand",
       "canonical": true,
       "dependencies": [
@@ -710,7 +710,7 @@
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "star-chat",
       "physical_path":
-        "Standalone tools/local-model/model-dialogue/star-chat",
+        "Standalone tools/model-dialogue/star-chat",
       "lifecycle": "on-demand",
       "canonical": true,
       "independent_tool": false,
