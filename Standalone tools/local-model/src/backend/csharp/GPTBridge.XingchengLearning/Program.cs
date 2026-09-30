@@ -63,6 +63,8 @@ internal static class Program
                 return Emit(RunJob(toolRoot, jobId));
             if (flags.Contains("self-test"))
                 return Emit(SelfTest(toolRoot));
+            if (flags.Contains("converge-check"))
+                return Emit(ConvergenceChecks.Run(toolRoot));
             if (flags.Contains("verify-audit"))
                 return Emit(new TransformerTrainingRepository(toolRoot)
                     .VerifyAuditChain());
@@ -280,7 +282,8 @@ internal static class Program
             "GPTBridge.XingchengLearning [--tool-root <dir>] " +
             "(--status | --run-once [--force] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
-            "--job <id> | --self-test | --verify-audit | --db-status | " +
+            "--job <id> | --self-test | --converge-check | " +
+            "--verify-audit | --db-status | " +
             "--migrate | --teacher-collect [--dry-run] | " +
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
             "[--include-collected] [--val-permille N] | " +

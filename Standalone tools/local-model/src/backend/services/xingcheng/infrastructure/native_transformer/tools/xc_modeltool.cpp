@@ -3082,6 +3082,412 @@ int mode_serve(const Args& a) {
 }
 
 #include "xcm_corpus.h"
+#include "xcm_capability.h"
+
+// ------------------------------------------- capability modes (P3-P7) ----
+
+int mode_memory_plan(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("MEMORY_PLAN_ARGS_MISSING");
+    xingcheng::inference::WeightBundle wb = xingcheng::inference::
+        WeightBundle::load((fs::path(bundle) / "manifest.json").string());
+    int64_t ctx = a.has("context")
+        ? (int64_t)std::stoll(a.get("context")) : 0;
+    int64_t batch = a.has("batch")
+        ? (int64_t)std::stoll(a.get("batch")) : 1;
+    std::string kv = a.get("kv", "fp64");
+    int64_t vp = a.has("vision-patches")
+        ? (int64_t)std::stoll(a.get("vision-patches")) : 0;
+    MemoryPlan p = plan_memory(wb, ctx, batch, kv, vp);
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-memory-plan/v1\","
+        "\"weight_bytes\":%lld,\"kv_bytes\":%lld,"
+        "\"prefix_cache_bytes\":%lld,\"recurrent_state_bytes\":%lld,"
+        "\"vision_bytes\":%lld,\"workspace_bytes\":%lld,"
+        "\"prefill_peak_bytes\":%lld,\"decode_peak_bytes\":%lld,"
+        "\"context_tokens\":%lld,\"batch\":%lld,\"kv_mode\":\"%s\","
+        "\"hybrid\":%s,\"prefix_reconstructs_state\":%s}\n",
+        (long long)p.weight_bytes, (long long)p.kv_bytes,
+        (long long)p.prefix_cache_bytes,
+        (long long)p.recurrent_state_bytes,
+        (long long)p.vision_bytes, (long long)p.workspace_bytes,
+        (long long)p.prefill_peak_bytes,
+        (long long)p.decode_peak_bytes,
+        (long long)p.context_tokens, (long long)p.batch,
+        gptbridge::jsonlite::json_escape(p.kv_mode).c_str(),
+        p.hybrid ? "true" : "false",
+        p.prefix_reconstructs_state ? "true" : "false");
+    return 0;
+}
+
+// §23 state snapshot probe: prefill a slot, snapshot, extend, restore,
+// and verify the DeltaNet state comes back byte-identical (the engine
+// validates geometry + the envelope validates generation/model hash).
+int mode_state_snapshot(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("STATE_SNAPSHOT_ARGS_MISSING");
+    NativeInferenceEngine engine;
+    engine.load(bundle);
+    if (!engine.has_delta_state()) {
+        std::printf("{\"ok\":true,\"format\":\"%s\",\"delta_state\":false,"
+                    "\"note\":\"dense model — no recurrent state\"}\n",
+                    DeltaStateSnapshot::kFormat);
+        return 0;
+    }
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
+    if (vocab < 4) fail("STATE_SNAPSHOT_BAD_CONFIG");
+    std::mt19937_64 rng(7);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+    std::vector<int64_t> ids(24);
+    for (auto& t : ids) t = tok(rng);
+    SamplingConfig sc;
+    sc.temperature = 0.0;
+    // Warm the slot, snapshot, extend, restore, verify.
+    (void)engine.logits(ids);
+    std::vector<char> blob_a;
+    if (!engine.delta_state_save(0, blob_a)) fail("STATE_SNAPSHOT_SAVE");
+    std::vector<int64_t> ext(8);
+    for (auto& t : ext) t = tok(rng);
+    (void)engine.logits(ext);   // mutates recurrence (probe path appends)
+    if (!engine.delta_state_restore(0, blob_a.data(),
+                                    (int64_t)blob_a.size())) {
+        fail("STATE_SNAPSHOT_RESTORE");
+    }
+    std::vector<char> blob_b;
+    if (!engine.delta_state_save(0, blob_b)) fail("STATE_SNAPSHOT_SAVE2");
+    const bool identical = blob_a == blob_b;
+    DeltaStateSnapshot env =
+        delta_snapshot_save(engine, 0, "xc-fused-1");
+    // Generation mismatch must fail closed.
+    bool gen_reject = false;
+    {
+        DeltaStateSnapshot bad = env;
+        bad.generation = "gen-x-other";
+        try { delta_snapshot_restore(engine, bad); }
+        catch (...) { gen_reject = true; }
+    }
+    std::printf(
+        "{\"ok\":%s,\"format\":\"%s\",\"version\":%lld,"
+        "\"delta_state\":true,\"slot\":0,\"state_bytes\":%lld,"
+        "\"state_sha256\":\"%s\",\"restore_identical\":%s,"
+        "\"generation_mismatch_rejected\":%s,"
+        "\"generation\":\"%s\"}\n",
+        (identical && gen_reject) ? "true" : "false",
+        DeltaStateSnapshot::kFormat,
+        (long long)DeltaStateSnapshot::kVersion,
+        (long long)env.state_bytes,
+        env.state_sha256.c_str(),
+        identical ? "true" : "false",
+        gen_reject ? "true" : "false",
+        gptbridge::jsonlite::json_escape(env.generation).c_str());
+    return (identical && gen_reject) ? 0 : 1;
+}
+
+// §23 sequence-state benchmark: state/kv bytes per token, prefill/decode
+// throughput, stream duration, snapshot restore time.
+int mode_state_bench(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("STATE_BENCH_ARGS_MISSING");
+    int64_t prefill = a.has("prefill")
+        ? (int64_t)std::stoll(a.get("prefill")) : 64;
+    int64_t decode = a.has("decode")
+        ? (int64_t)std::stoll(a.get("decode")) : 16;
+    NativeInferenceEngine engine;
+    engine.load(bundle);
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
+    if (vocab < 4) fail("STATE_BENCH_BAD_CONFIG");
+    std::mt19937_64 rng(5);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+    std::vector<int64_t> ids((size_t)prefill);
+    for (auto& t : ids) t = tok(rng);
+    SamplingConfig sc;
+    sc.temperature = 0.0;
+    auto t0 = std::chrono::steady_clock::now();
+    (void)engine.logits(ids);
+    auto t1 = std::chrono::steady_clock::now();
+    std::vector<int64_t> gen = engine.generate(ids, decode, sc);
+    auto t2 = std::chrono::steady_clock::now();
+    std::vector<char> blob;
+    const bool have_state = engine.delta_state_save(0, blob);
+    std::vector<char> copy = blob;
+    auto t3 = std::chrono::steady_clock::now();
+    bool restored = false;
+    if (have_state)
+        restored = engine.delta_state_restore(
+            0, copy.data(), (int64_t)copy.size());
+    auto t4 = std::chrono::steady_clock::now();
+    const double prefill_s =
+        std::chrono::duration<double>(t1 - t0).count();
+    const double decode_s =
+        std::chrono::duration<double>(t2 - t1).count();
+    const double restore_s =
+        std::chrono::duration<double>(t4 - t3).count();
+    const int64_t kv_bytes = engine.kv_memory_bytes();
+    const int64_t st_bytes = engine.delta_state_bytes(0);
+    const int64_t total = prefill + (int64_t)gen.size();
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-sequence-state-bench/v1\","
+        "\"state_bytes_session\":%lld,\"kv_bytes\":%lld,"
+        "\"delta_state_bytes\":%lld,"
+        "\"state_bytes_token\":%.1f,\"kv_bytes_token\":%.1f,"
+        "\"prefill_tps\":%.1f,\"decode_tps\":%.1f,"
+        "\"stream_duration_s\":%.4f,\"state_restore_time_s\":%.6f,"
+        "\"state_restore_ok\":%s,\"has_delta_state\":%s}\n",
+        (long long)(kv_bytes + st_bytes), (long long)kv_bytes,
+        (long long)st_bytes,
+        total > 0 ? (double)(kv_bytes + st_bytes) / total : 0.0,
+        total > 0 ? (double)kv_bytes / total : 0.0,
+        prefill_s > 0 ? prefill / prefill_s : 0.0,
+        decode_s > 0 ? (double)gen.size() / decode_s : 0.0,
+        prefill_s + decode_s, restore_s,
+        restored ? "true" : "false",
+        engine.has_delta_state() ? "true" : "false");
+    return 0;
+}
+
+// §8 router analyzer: generate with the MoE trace armed and emit the
+// per-layer quantiles + ROUTER_* diagnostics.
+int mode_router_analyze(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("ROUTER_ARGS_MISSING");
+    NativeInferenceEngine engine;
+    engine.load(bundle);
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    if (!mcfg || xct::j_num(mcfg, "num_experts", 0) <= 0)
+        fail("ROUTER_NOT_MOE");
+    int64_t vocab = (int64_t)xct::j_num(mcfg, "vocab_size", 0);
+    std::mt19937_64 rng(3);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+    std::vector<int64_t> ids(32);
+    for (auto& t : ids) t = tok(rng);
+    SamplingConfig sc;
+    sc.temperature = 0.0;
+    engine.set_moe_trace_enabled(true);
+    (void)engine.generate(ids, 16, sc);
+    const auto& tr = engine.moe_trace();
+    std::ostringstream o;
+    o << "{\"ok\":true,\"format\":\"star-routing-trace/v1\","
+         "\"forwards\":" << tr.forwards << ",\"layers\":[";
+    bool any_flag = false;
+    for (size_t i = 0; i < tr.layers.size(); ++i) {
+        const auto& tl = tr.layers[i];
+        Quantiles q;
+        RouterDiagnosis d = analyze_router(tl, q);
+        if (i) o << ',';
+        o << "{\"layer_id\":" << tl.layer_id
+          << ",\"expert_load_quantiles\":{"
+          << "\"p01\":" << q.p01 << ",\"p05\":" << q.p05
+          << ",\"p25\":" << q.p25 << ",\"p50\":" << q.p50
+          << ",\"p75\":" << q.p75 << ",\"p95\":" << q.p95
+          << ",\"p99\":" << q.p99 << "}"
+          << ",\"top_share\":" << d.top_share
+          << ",\"starved_experts\":" << d.starved
+          << ",\"instability\":" << d.instability
+          << ",\"shared_expert_used\":"
+          << (tl.shared_expert_used ? "true" : "false")
+          << ",\"diagnostics\":[";
+        for (size_t f = 0; f < d.flags.size(); ++f) {
+            if (f) o << ',';
+            o << '"' << d.flags[f] << '"';
+            any_flag = true;
+        }
+        o << "]}";
+    }
+    o << "],\"any_diagnostic\":" << (any_flag ? "true" : "false")
+      << "}\n";
+    std::fputs(o.str().c_str(), stdout);
+    return 0;
+}
+
+// §20 vision budget controller (EXPERIMENTAL): resolves a patch plan;
+// without parity evidence always falls back to FULL.
+int mode_vision_budget(const Args& a) {
+    int64_t raw = a.has("patches")
+        ? (int64_t)std::stoll(a.get("patches")) : 0;
+    if (raw <= 0) fail("VISION_BUDGET_ARGS_MISSING");
+    int64_t maxp = a.has("max-patches")
+        ? (int64_t)std::stoll(a.get("max-patches")) : 0;
+    int64_t mem = a.has("mem-bytes")
+        ? (int64_t)std::stoll(a.get("mem-bytes")) : 0;
+    int64_t pb = a.has("patch-bytes")
+        ? (int64_t)std::stoll(a.get("patch-bytes")) : 4096;
+    std::string profile = a.get("profile", "FULL");
+    std::string task = a.get("task", "general");
+    // parity evidence latch — real suites wire this through the eval
+    // plane; standalone probes pass --parity-ok only with evidence.
+    bool parity = a.has("parity-ok");
+    VisionBudgetPlan v =
+        plan_vision_budget(profile, raw, maxp, task, mem, pb, parity);
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-vision-budget/v1\","
+        "\"profile\":\"%s\",\"requested_profile\":\"%s\","
+        "\"raw_patch_count\":%lld,\"selected_patch_count\":%lld,"
+        "\"compression_mode\":\"%s\",\"task_class\":\"%s\","
+        "\"experimental\":true,\"parity_status\":\"%s\""
+        "%s%s%s}\n",
+        v.profile.c_str(),
+        gptbridge::jsonlite::json_escape(profile).c_str(),
+        (long long)v.raw_patch_count,
+        (long long)v.selected_patch_count,
+        v.compression_mode.c_str(),
+        gptbridge::jsonlite::json_escape(v.task_class).c_str(),
+        v.parity_status.c_str(),
+        v.fallback_reason.empty() ? "" : ",\"fallback_reason\":\"",
+        v.fallback_reason.empty() ? "" : v.fallback_reason.c_str(),
+        v.fallback_reason.empty() ? "" : "\"");
+    return 0;
+}
+
+// §6 speculative-decoder probe: ABI + acceptance-mask verification on a
+// synthetic drafter. enabled=false — MTP heads are dropped at export.
+// (Named spec-verify: xcm_batch2's spec-probe owns the metrics schema.)
+int mode_spec_verify(const Args&) {
+    SyntheticDrafter d;
+    std::vector<int64_t> ctx{5, 6, 7, 8};
+    auto draft = d.Draft(ctx, 4);
+    // Scripted target continuation: first two match, rest diverge.
+    std::vector<int64_t> target{draft[0], draft[1], 99, 98};
+    const int64_t acc = spec_acceptance_prefix(draft, target);
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-speculative-decoder/v1\","
+        "\"enabled\":false,"
+        "\"reason\":\"MTP heads are dropped at export — no production "
+        "drafter exists; ABI + verification only\","
+        "\"abi\":[\"Draft\",\"Verify\",\"Accept\",\"Reject\",\"Reset\"],"
+        "\"synthetic\":{\"draft_len\":%lld,\"accepted\":%lld,"
+        "\"rejected\":%lld,\"acceptance_mask\":\"%s\"}}\n",
+        (long long)draft.size(), (long long)acc,
+        (long long)draft.size() - acc,
+        acc == 2 ? "1100" : "xxxx");
+    return acc == 2 ? 0 : 1;
+}
+
+// §24 parameter-reuse probe — research evidence only.
+int mode_param_reuse(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("REUSE_ARGS_MISSING");
+    xingcheng::inference::WeightBundle wb = xingcheng::inference::
+        WeightBundle::load((fs::path(bundle) / "manifest.json").string());
+    ReuseProbeResult r = probe_parameter_reuse(wb);
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-parameter-reuse-probe/v1\","
+        "\"sink\":\"FutureArchitectureResearch\","
+        "\"weights_bytes\":%lld,\"weights_saved_bytes\":%lld,"
+        "\"weights_saved_frac\":%.4f,"
+        "\"quality_risk\":\"%s\",\"routing_complexity\":\"%s\","
+        "\"checkpoint_complexity\":\"%s\"}\n",
+        (long long)r.weights_bytes,
+        (long long)r.weights_saved_bytes, r.weights_saved_frac,
+        gptbridge::jsonlite::json_escape(r.quality_risk).c_str(),
+        gptbridge::jsonlite::json_escape(r.routing_complexity).c_str(),
+        gptbridge::jsonlite::json_escape(r.checkpoint_complexity)
+            .c_str());
+    return 0;
+}
+
+// §26 precision parity: REFERENCE_FP64 baseline vs PRODUCTION_BF16
+// candidate. BF16 unavailable → resolves FP64 with an explicit
+// UNAVAILABLE status (fail-closed, never a silent claim).
+int mode_precision_parity(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("PRECISION_ARGS_MISSING");
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
+    if (vocab < 4) fail("PRECISION_BAD_CONFIG");
+    std::mt19937_64 rng(9);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+    std::vector<int64_t> ids(16);
+    for (auto& t : ids) t = tok(rng);
+    SamplingConfig sc;
+    sc.temperature = 0.0;
+
+    std::vector<double> ref;
+    std::vector<int64_t> ref_gen;
+    double ref_s = 0.0;
+    {
+        NativeInferenceEngine e;
+        e.load(bundle);
+        auto t0 = std::chrono::steady_clock::now();
+        ref = e.logits(ids);
+        ref_gen = e.generate(ids, 8, sc);
+        ref_s = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+    }
+
+#ifdef _WIN32
+    _putenv_s("XINGCHENG_CPP_CUDA", "1");
+    _putenv_s("XINGCHENG_CPP_CUDA_BF16", "1");
+#else
+    setenv("XINGCHENG_CPP_CUDA", "1", 1);
+    setenv("XINGCHENG_CPP_CUDA_BF16", "1", 1);
+#endif
+    std::vector<double> cand;
+    std::vector<int64_t> cand_gen;
+    double cand_s = 0.0;
+    std::string cand_status;
+    try {
+        NativeInferenceEngine e;
+        e.load(bundle);
+        auto t0 = std::chrono::steady_clock::now();
+        cand = e.logits(ids);
+        cand_gen = e.generate(ids, 8, sc);
+        cand_s = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - t0).count();
+        cand_status = "CANDIDATE";
+    } catch (const std::exception&) {
+        cand_status = "UNAVAILABLE";   // e.g. CUDA_BF16_UNAVAILABLE
+    }
+#ifdef _WIN32
+    _putenv_s("XINGCHENG_CPP_CUDA", "");
+    _putenv_s("XINGCHENG_CPP_CUDA_BF16", "");
+#endif
+
+    if (cand_status == "UNAVAILABLE") {
+        std::printf(
+            "{\"ok\":true,\"format\":\"star-precision-parity/v1\","
+            "\"candidate\":\"PRODUCTION_BF16\",\"status\":\"UNAVAILABLE\","
+            "\"resolved_precision\":\"REFERENCE_FP64\","
+            "\"fail_closed\":true}\n");
+        return 0;
+    }
+    double max_diff = 0.0;
+    int64_t top1_agree = 0;
+    for (size_t i = 0; i < ref.size() && i < cand.size(); ++i) {
+        max_diff = std::max(max_diff, std::abs(ref[i] - cand[i]));
+    }
+    if (!ref.empty() && !cand.empty()) {
+        auto argmax = [](const std::vector<double>& v) {
+            return (int64_t)std::distance(
+                v.begin(), std::max_element(v.begin(), v.end()));
+        };
+        top1_agree = argmax(ref) == argmax(cand) ? 1 : 0;
+    }
+    const bool gen_agree = ref_gen == cand_gen;
+    const bool pass = max_diff < 0.05 && top1_agree == 1 && gen_agree;
+    std::printf(
+        "{\"ok\":%s,\"format\":\"star-precision-parity/v1\","
+        "\"candidate\":\"PRODUCTION_BF16\",\"status\":\"%s\","
+        "\"resolved_precision\":\"%s\","
+        "\"logit_max_abs_diff\":%.6g,\"top1_agreement\":%lld,"
+        "\"generation_agreement\":%s,"
+        "\"ref_time_s\":%.4f,\"cand_time_s\":%.4f,"
+        "\"threshold\":{\"logit_max_abs_diff\":0.05}}\n",
+        pass ? "true" : "false", cand_status.c_str(),
+        pass ? "PRODUCTION_BF16" : "REFERENCE_FP64",
+        max_diff, (long long)top1_agree,
+        gen_agree ? "true" : "false", ref_s, cand_s);
+    return pass ? 0 : 1;
+}
 
 }  // namespace
 
@@ -3089,7 +3495,10 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr,
             "xc_modeltool <tokenize|corpus|import-bundle|distill-init|export-bundle|eval|"
-            "capability|vision-smoke|cache-smoke|parity|serve> [args]\n");
+            "capability|vision-smoke|cache-smoke|parity|serve|probe-cuda|"
+            "memory-plan|state-snapshot|state-bench|router-analyze|"
+            "vision-budget|spec-verify|param-reuse-probe|precision-parity>"
+            " [args]\n");
         return 2;
     }
     std::string mode = argv[1];
@@ -3107,6 +3516,14 @@ int main(int argc, char** argv) {
         if (mode == "parity") return mode_parity(a);
         if (mode == "serve") return mode_serve(a);
         if (mode == "probe-cuda") return mode_probe_cuda();
+        if (mode == "memory-plan") return mode_memory_plan(a);
+        if (mode == "state-snapshot") return mode_state_snapshot(a);
+        if (mode == "state-bench") return mode_state_bench(a);
+        if (mode == "router-analyze") return mode_router_analyze(a);
+        if (mode == "vision-budget") return mode_vision_budget(a);
+        if (mode == "spec-verify") return mode_spec_verify(a);
+        if (mode == "param-reuse-probe") return mode_param_reuse(a);
+        if (mode == "precision-parity") return mode_precision_parity(a);
         // batch-2 probes (research/runtime infra; production untouched)
         if (mode == "sparse-probe") return mode_sparse_probe(a);
         if (mode == "kv-gather-probe") return mode_kv_gather_probe(a);

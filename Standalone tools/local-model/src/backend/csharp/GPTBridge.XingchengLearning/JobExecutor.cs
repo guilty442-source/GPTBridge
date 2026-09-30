@@ -119,6 +119,10 @@ internal sealed class TrainingJobExecutor
             throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
                 $"unknown training_kind: {kind}");
         cfg["training_kind"] = kind;
+        // §34 capability-training freeze — a formal training kind is a
+        // frozen operation while the freeze holds; probes/benchmarks
+        // never flow through this executor.
+        CapabilityFreeze.Guard(kind);
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
         if (initRaw != null && initRaw.ToString() is { Length: > 0 } initStr)
