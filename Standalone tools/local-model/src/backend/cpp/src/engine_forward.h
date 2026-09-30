@@ -715,7 +715,6 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
             }
         }
 
-        }
         // v27 attention output gate: sigmoid gate on the pre-o_proj
         // stream (trainer attn_gated = attn_out * sigmoid(gate)).
         if (cfg.attn_output_gate) {

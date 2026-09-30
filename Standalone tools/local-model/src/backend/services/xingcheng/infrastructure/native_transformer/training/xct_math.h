@@ -49,32 +49,74 @@ static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
     }
 }
 
+// YaRN per-channel frequency blend (Qwen3-Coder context extension):
+// pair channel i keeps the raw inv-freq below the fast boundary, uses
+// inv_freq/factor above the slow boundary, and ramps linearly between —
+// mirrors HF _compute_yarn_parameters over the rotary dim.
+static float yarn_blend_i(int i, int dim, float theta, float factor,
+                          int orig_pos, float beta_fast, float beta_slow) {
+    const int half = dim / 2;
+    const float logb = std::log(theta);
+    auto corr = [&](float beta) {
+        return dim * std::log((float)orig_pos / (beta * 6.28318530718f)) /
+               (2.0f * logb);
+    };
+    float lo = std::max(0.0f, std::floor(corr(beta_fast)));
+    float hi = std::min((float)(half - 1), std::ceil(corr(beta_slow)));
+    if (hi == lo) hi = lo + 1e-3f;
+    float ext =
+        1.0f - std::min(1.0f, std::max(0.0f, (i - lo) / (hi - lo)));
+    return ext + (1.0f - ext) / factor;
+}
+// YaRN attention-factor mscale applied to the rotated channels.
+static float yarn_mscale(const ModelConfig& c) {
+    if (!c.use_yarn()) return 1.0f;
+    return c.yarn_attn_factor > 0.0f
+               ? c.yarn_attn_factor
+               : 0.1f * std::log(c.yarn_factor) + 1.0f;
+}
+
 // RoPE cos/sin tables: angle(t,i) = t * theta^(-2i/dim) — identical
 // operands to the per-element pow() form, computed once per (T, dim,
-// theta) instead of per element. Table bounded to keep memory sane.
+// theta) instead of per element. With mc->use_yarn() the inv-freqs are
+// per-channel blended and the output scaled by the yarn mscale.
+// Table bounded to keep memory sane.
 struct RopeCs { std::vector<float> c, s; };
-static const RopeCs& rope_cs(int T, int dim, float theta) {
-    static int cT = -1, cd = -1;
-    static float ct = 0.0f;
+static const RopeCs& rope_cs(int T, int dim, float theta,
+                             const ModelConfig* mc) {
+    static int cT = -1, cd = -1, cyo = -1;
+    static float ct = 0.0f, cyf = -1.0f, cybF = 0.0f, cybS = 0.0f,
+                 cyaF = 0.0f;
     static RopeCs tab;
-    if (cT != T || cd != dim || ct != theta) {
+    const float yf = mc ? mc->yarn_factor : 0.0f;
+    const int yo = mc ? mc->yarn_orig_pos : 0;
+    const float ybF = mc ? mc->yarn_beta_fast : 0.0f;
+    const float ybS = mc ? mc->yarn_beta_slow : 0.0f;
+    const float yaF = mc ? mc->yarn_attn_factor : 0.0f;
+    if (cT != T || cd != dim || ct != theta || cyf != yf || cyo != yo ||
+        cybF != ybF || cybS != ybS || cyaF != yaF) {
         const int half = dim / 2;
+        const float ms = mc ? yarn_mscale(*mc) : 1.0f;
+        const bool yarn = mc && mc->use_yarn();
         tab.c.assign((size_t)T * half, 0.0f);
         tab.s.assign((size_t)T * half, 0.0f);
         for (int i = 0; i < half; ++i) {
             float fr = std::pow(theta, -(float)(2 * i) / (float)dim);
+            if (yarn) fr *= yarn_blend_i(i, dim, theta, yf, yo, ybF, ybS);
             for (int t = 0; t < T; ++t) {
-                tab.c[(size_t)t * half + i] = std::cos(t * fr);
-                tab.s[(size_t)t * half + i] = std::sin(t * fr);
+                tab.c[(size_t)t * half + i] = std::cos(t * fr) * ms;
+                tab.s[(size_t)t * half + i] = std::sin(t * fr) * ms;
             }
         }
         cT = T; cd = dim; ct = theta;
+        cyf = yf; cyo = yo; cybF = ybF; cybS = ybS; cyaF = yaF;
     }
     return tab;
 }
 
-static void rope(float* v, int T, int nh, int hd, float theta, bool inverse) {
-    const RopeCs& cs = rope_cs(T, hd, theta);
+static void rope(float* v, int T, int nh, int hd, float theta, bool inverse,
+                 const ModelConfig* mc = nullptr) {
+    const RopeCs& cs = rope_cs(T, hd, theta, mc);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
@@ -120,9 +162,10 @@ static inline float gate_act_df(float x, int act) {
 // rotary). rd must be even; channels >= rd pass through. inverse runs the
 // transpose (backward / inverse rotation).
 static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
-                            float theta, bool inverse) {
+                            float theta, bool inverse,
+                            const ModelConfig* mc = nullptr) {
     const int half = rd / 2;
-    const RopeCs& cs = rope_cs(T, rd, theta);
+    const RopeCs& cs = rope_cs(T, rd, theta, mc);
     for (int t = 0; t < T; ++t)
         for (int h = 0; h < nh; ++h) {
             float* r = v + ((size_t)t * nh + h) * hd;
@@ -520,8 +563,10 @@ static void fwd(const Params& p, const ModelConfig& c,
             // decoupled rope: per-head q rope channels + the shared k
             // rope head rotate at the layer's theta.
             const float th = c.rope_theta_at(l);
-            rope_hf_partial(L.mla_qr.data(), T, c.heads, kr, kr, th, false);
-            rope_hf_partial(L.mla_kr.data(), T, 1, kr, kr, th, false);
+            rope_hf_partial(L.mla_qr.data(), T, c.heads, kr, kr, th,
+                            false, &c);
+            rope_hf_partial(L.mla_kr.data(), T, 1, kr, kr, th,
+                            false, &c);
             const float scale = 1.0f / std::sqrt((float)qd);
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * c.heads * hd, 0.0f);
@@ -639,11 +684,13 @@ static void fwd(const Params& p, const ModelConfig& c,
             const int rd = c.rotary_dim_at(l);
             const float th = c.rope_theta_at(l);
             if (rd < hd) {
-                rope_hf_partial(L.q.data(), T, c.heads, hd, rd, th, false);
-                rope_hf_partial(L.k.data(), T, kvh, hd, rd, th, false);
+                rope_hf_partial(L.q.data(), T, c.heads, hd, rd, th,
+                                false, &c);
+                rope_hf_partial(L.k.data(), T, kvh, hd, rd, th,
+                                false, &c);
             } else {
-                rope(L.q.data(), T, c.heads, hd, th, false);
-                rope(L.k.data(), T, kvh, hd, th, false);
+                rope(L.q.data(), T, c.heads, hd, th, false, &c);
+                rope(L.k.data(), T, kvh, hd, th, false, &c);
             }
             int group = c.heads / kvh;
             const int win = loc ? c.sliding_window : 0;
