@@ -1476,6 +1476,7 @@ int mode_capability(const Args& a) {
            << ",\"dataset_version\":\"" << suite_id << '@'
            << suite_sha.substr(0, 16) << "\""
            << ",\"inference_backend\":\"cpu/fp64\""
+           << ",\"prompt_mode\":\"" << (chat ? "chat" : "verbatim") << "\""
            << ",\"quantization\":\"none\""
            << ",\"categories\":" << cats.str()
            << ",\"items\":" << items_obj.str()

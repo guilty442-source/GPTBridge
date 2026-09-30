@@ -1296,7 +1296,8 @@ internal static class SelfLearning
                 candidateArtifact: artifact,
                 suitePath: suitePath,
                 baselineArtifact: activePath,
-                evaluatedBy: "star-self-learning");
+                evaluatedBy: "star-self-learning",
+                chat: true);
             evaluations.Add(new Dictionary<string, object?>
             {
                 ["suite"] = suiteName,
