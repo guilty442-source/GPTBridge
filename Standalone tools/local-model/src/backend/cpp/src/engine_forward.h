@@ -170,6 +170,19 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         }
     }
 
+    const bool dbg_fwd = std::getenv("XC_DBG") != nullptr;
+    auto dbg_hash = [](const std::vector<double>& v) {
+        uint64_t h = 1469598103934665603ULL;
+        for (double x : v) {
+            uint64_t u; std::memcpy(&u, &x, 8);
+            h ^= u; h *= 1099511628211ULL;
+        }
+        return h;
+    };
+    if (dbg_fwd) {
+        std::fprintf(stderr, "[dbg] fwd hidden=%llx tt=%lld\n",
+            (unsigned long long)dbg_hash(hidden), (long long)total_tokens);
+    }
     for (int64_t layer_idx = 0; layer_idx < cfg.num_hidden_layers; ++layer_idx) {
         LayerWeights& layer = layers_[static_cast<size_t>(layer_idx)];
         std::vector<double>& normed = fs_.normed;
@@ -768,6 +781,12 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden(
         axpy_f64(
             hidden.data(), 1.0, attn_out.data(),
             static_cast<int64_t>(hidden.size()));
+        if (dbg_fwd && layer_idx < 3) {
+            std::fprintf(stderr,
+                "[dbg] L%lld hid=%llx attn=%llx\n", (long long)layer_idx,
+                (unsigned long long)dbg_hash(hidden),
+                (unsigned long long)dbg_hash(attn_out));
+        }
 
         rmsnorm_into(
             hidden, total_tokens, hidden_size, layer.post_norm,
