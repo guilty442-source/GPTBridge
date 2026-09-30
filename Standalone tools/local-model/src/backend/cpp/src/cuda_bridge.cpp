@@ -49,6 +49,7 @@ struct CublasApi {
     HMODULE dll = nullptr;
     cublasStatus_t (*create)(cublasHandle_t*) = nullptr;
     cublasStatus_t (*destroy)(cublasHandle_t) = nullptr;
+    cublasStatus_t (*set_stream)(cublasHandle_t, cudaStream_t) = nullptr;
     cublasStatus_t (*dgemm)(cublasHandle_t, cublasOperation_t,
                             cublasOperation_t, int, int, int,
                             const double*, const double*, int,
@@ -82,10 +83,12 @@ bool cublas_ready() {
         GetProcAddress(dll, "cublasCreate_v2"));
     g_cublas.destroy = reinterpret_cast<decltype(g_cublas.destroy)>(
         GetProcAddress(dll, "cublasDestroy_v2"));
+    g_cublas.set_stream = reinterpret_cast<decltype(g_cublas.set_stream)>(
+        GetProcAddress(dll, "cublasSetStream_v2"));
     g_cublas.dgemm = reinterpret_cast<decltype(g_cublas.dgemm)>(
         GetProcAddress(dll, "cublasDgemm_v2"));
     if (g_cublas.create == nullptr || g_cublas.destroy == nullptr ||
-        g_cublas.dgemm == nullptr) {
+        g_cublas.dgemm == nullptr || g_cublas.set_stream == nullptr) {
         g_cublas.dll = nullptr;
         return false;
     }
@@ -145,12 +148,41 @@ double* host_get(HostBuf& buf, size_t elems) {
 }
 
 cublasHandle_t get_handle() {
-    if (g_handle == nullptr &&
-        (!cublas_ready() ||
-         g_cublas.create(&g_handle) != kCublasSuccess)) {
-        return nullptr;
+    if (g_handle == nullptr) {
+        if (!mp::mgr().ensure() || !cublas_ready() ||
+            g_cublas.create(&g_handle) != kCublasSuccess) {
+            return nullptr;
+        }
+        // §16-§17: GEMM work rides the PREFILL lane, never the legacy
+        // default stream — cross-lane ordering is by event, so a D2H
+        // copy can never read a buffer the GEMM is still writing.
+        if (g_cublas.set_stream(
+                g_handle, mp::mgr().stream(
+                              mp::StreamLane::PREFILL_NORMAL)) !=
+                kCublasSuccess) {
+            g_cublas.destroy(g_handle);
+            g_handle = nullptr;
+            return nullptr;
+        }
     }
     return g_handle;
+}
+
+// Event chain for H2D -> compute -> D2H ordering across lanes.
+// Non-blocking streams never synchronize with the legacy default
+// stream; explicit events are the contract (§16).
+cudaEvent_t g_ev_in = nullptr, g_ev_out = nullptr;
+
+bool ensure_events() {
+    if (g_ev_in == nullptr &&
+        cudaEventCreateWithFlags(&g_ev_in, cudaEventDisableTiming)
+            != cudaSuccess)
+        return false;
+    if (g_ev_out == nullptr &&
+        cudaEventCreateWithFlags(&g_ev_out, cudaEventDisableTiming)
+            != cudaSuccess)
+        return false;
+    return true;
 }
 
 void* device_weight(const double* host, size_t bytes) {
@@ -248,6 +280,8 @@ int xcuda_release_weights() {
     mp::mgr().pinned_release_all();
     g_pin_a = HostBuf{};
     g_pin_c = HostBuf{};
+    if (g_ev_in) { cudaEventDestroy(g_ev_in); g_ev_in = nullptr; }
+    if (g_ev_out) { cudaEventDestroy(g_ev_out); g_ev_out = nullptr; }
     if (g_handle != nullptr) {
         g_cublas.destroy(g_handle);
         g_handle = nullptr;
@@ -320,23 +354,27 @@ int xcuda_matmul_f64(
         double* ha = host_get(g_pin_a, a_elems);
         double* hc = host_get(g_pin_c, c_elems);
         cudaStream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+        cudaStream_t prefill =
+            mp::mgr().stream(mp::StreamLane::PREFILL_NORMAL);
         cudaStream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
-        // §15: transfers ride the dedicated lanes; stream-scoped sync
-        // keeps the function's contract without device-wide waits (§16).
+        if (!ensure_events()) return 3;
+        // §15/§16: H2D on the transfer lane -> event -> GEMM on the
+        // compute lane -> event -> D2H. The only host wait is the
+        // final D2H completion; no default-stream semantics involved.
         if (ha != nullptr) {
             std::memcpy(ha, a, a_bytes);
             if (cudaMemcpyAsync(da, ha, a_bytes,
-                    cudaMemcpyHostToDevice, h2d) != cudaSuccess ||
-                cudaStreamSynchronize(h2d) != cudaSuccess) {
+                    cudaMemcpyHostToDevice, h2d) != cudaSuccess)
                 return 3;
-            }
         } else if (
             cudaMemcpyAsync(da, a, a_bytes,
-                cudaMemcpyHostToDevice, h2d) != cudaSuccess ||
-            cudaStreamSynchronize(h2d) != cudaSuccess) {
+                cudaMemcpyHostToDevice, h2d) != cudaSuccess) {
             return 3;
         }
         mp::mgr().h2d_bytes += (int64_t)a_bytes;
+        if (cudaEventRecord(g_ev_in, h2d) != cudaSuccess ||
+            cudaStreamWaitEvent(prefill, g_ev_in, 0) != cudaSuccess)
+            return 3;
         {
             const double alpha = 1.0;
             const double beta = 0.0;
@@ -350,6 +388,9 @@ int xcuda_matmul_f64(
                 return 3;
             }
         }
+        if (cudaEventRecord(g_ev_out, prefill) != cudaSuccess ||
+            cudaStreamWaitEvent(d2h, g_ev_out, 0) != cudaSuccess)
+            return 3;
         if (hc != nullptr) {
             if (cudaMemcpyAsync(hc, dc, c_bytes,
                     cudaMemcpyDeviceToHost, d2h) != cudaSuccess ||
@@ -412,21 +453,25 @@ int xcuda_matmul_f64_grouped(
     double* ha = host_get(g_pin_a, a_elems);
     double* hc = host_get(g_pin_c, c_elems);
     cudaStream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+    cudaStream_t prefill =
+        mp::mgr().stream(mp::StreamLane::PREFILL_NORMAL);
     cudaStream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
+    if (!ensure_events()) return 3;
     if (ha != nullptr) {
         std::memcpy(ha, a, a_bytes);
         if (cudaMemcpyAsync(da, ha, a_bytes, cudaMemcpyHostToDevice,
-                h2d) != cudaSuccess ||
-            cudaStreamSynchronize(h2d) != cudaSuccess) {
+                h2d) != cudaSuccess) {
             return 3;
         }
     } else if (
         cudaMemcpyAsync(da, a, a_bytes, cudaMemcpyHostToDevice,
-            h2d) != cudaSuccess ||
-        cudaStreamSynchronize(h2d) != cudaSuccess) {
+            h2d) != cudaSuccess) {
         return 3;
     }
     mp::mgr().h2d_bytes += (int64_t)a_bytes;
+    if (cudaEventRecord(g_ev_in, h2d) != cudaSuccess ||
+        cudaStreamWaitEvent(prefill, g_ev_in, 0) != cudaSuccess)
+        return 3;
     {
         const double alpha = 1.0;
         const double beta = 0.0;
@@ -452,6 +497,9 @@ int xcuda_matmul_f64_grouped(
             off += m_g;
         }
     }
+    if (cudaEventRecord(g_ev_out, prefill) != cudaSuccess ||
+        cudaStreamWaitEvent(d2h, g_ev_out, 0) != cudaSuccess)
+        return 3;
     if (hc != nullptr) {
         if (cudaMemcpyAsync(hc, dc, c_bytes, cudaMemcpyDeviceToHost,
                 d2h) != cudaSuccess ||
