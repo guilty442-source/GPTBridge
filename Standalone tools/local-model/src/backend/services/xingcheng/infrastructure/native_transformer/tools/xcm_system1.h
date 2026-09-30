@@ -201,10 +201,6 @@ int mode_system1_head(const Args& a) {
     }
     if (threshold <= 0.0) threshold = head.abstain_threshold;
 
-    if (a.has("debug-bind-only")) {
-        std::printf("{\"ok\":true,\"bound\":true,\"debug\":\"bind\"}\n");
-        return 0;
-    }
     auto ids = e.encode(text);
     auto t0 = std::chrono::steady_clock::now();
     std::vector<double> hidden = e.prefill_hidden(ids);
@@ -233,14 +229,6 @@ int mode_system1_head(const Args& a) {
     }
     std::vector<double> last_hidden(
         hidden.end() - hsize, hidden.end());
-    if (a.has("debug-prefill")) {
-        std::printf("{\"ok\":true,\"bound\":true,\"debug\":\"prefill\","
-                    "\"hidden\":%lld,\"finite\":%s,\"norm\":%.4f,"
-                    "\"absmax\":%.4f}\n",
-                    (long long)last_hidden.size(),
-                    finite ? "true" : "false", std::sqrt(hnorm), hmax);
-        return 0;
-    }
     if (!finite) {
         std::printf("{\"ok\":true,\"format\":\"star-system1-head/v1\","
                     "\"head_present\":true,\"bound\":true,"
