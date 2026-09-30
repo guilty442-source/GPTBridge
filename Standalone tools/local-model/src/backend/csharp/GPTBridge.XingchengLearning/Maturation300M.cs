@@ -477,7 +477,14 @@ internal static class Maturation300M
             if (!root.TryGetProperty(f, out var v))
                 throw new ExecutorError("HW_BASELINE_FIELD_MISSING",
                     $"hardware baseline missing '{f}'");
-            if (f == "power_watts") continue;   // may be null
+            // Sensor-gated fields may be null — an absent sensor is
+            // reported honestly, never fabricated: power_watts (no
+            // meter), gpu_utilization (no NVML on this lane),
+            // training_tokens_per_sec (filled by --train-report).
+            if (f is "power_watts" or "gpu_utilization" or
+                     "training_tokens_per_sec" &&
+                v.ValueKind == JsonValueKind.Null)
+                continue;
             if (v.ValueKind != JsonValueKind.Number)
                 throw new ExecutorError("HW_BASELINE_FIELD_INVALID",
                     $"hardware baseline field '{f}' must be numeric");

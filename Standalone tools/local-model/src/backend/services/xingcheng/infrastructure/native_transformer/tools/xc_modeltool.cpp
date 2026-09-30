@@ -82,8 +82,10 @@
 #endif
 #include <windows.h>
 #include <bcrypt.h>
+#include <psapi.h>
 #pragma comment(lib, "bcrypt.lib")
 #pragma comment(lib, "Normaliz.lib")
+#pragma comment(lib, "psapi.lib")
 
 #include "jsonlite.h"
 #include "xingcheng_inference.hpp"
@@ -3738,6 +3740,138 @@ int mode_state_bench(const Args& a) {
     return 0;
 }
 
+// ---------------------------------------------------------- hw-baseline ----
+//
+// §66 300M Hardware Baseline (star-hardware-baseline-300m/v1): a single
+// measured record every later optimization compares against (§67/§68).
+// Loads the bundle, runs a timed prefill + decode, and reports the full
+// §66 field set — VRAM delta via the CUDA probe when a device exists,
+// process RAM peak via psapi, CPU utilization from process times over
+// the bench window, prefill/decode TPS, TTFT (prefill + first decode
+// step) and ITL (per-token decode latency). GPU utilization and power
+// have no sensor on this lane — they are emitted null rather than
+// fabricated; --train-report <file.json> supplies the trainer-side
+// tokens_per_sec from a governed train report.
+//
+//   xc_modeltool hw-baseline --bundle <dir> [--prefill N] [--decode N]
+//       [--train-report <report.json>]
+
+static double filetime_s(const FILETIME& ft) {
+    ULARGE_INTEGER u;
+    u.LowPart = ft.dwLowDateTime; u.HighPart = ft.dwHighDateTime;
+    return (double)u.QuadPart * 1e-7;
+}
+
+int mode_hw_baseline(const Args& a) {
+    std::string bundle = a.get("bundle");
+    if (bundle.empty()) fail("HW_BASELINE_ARGS_MISSING");
+    int64_t prefill = a.has("prefill")
+        ? (int64_t)std::stoll(a.get("prefill")) : 512;
+    int64_t decode = a.has("decode")
+        ? (int64_t)std::stoll(a.get("decode")) : 64;
+
+    // Device VRAM before load — baseline is the delta the model+KV adds.
+    long long vb0 = -1, vt0 = -1, vb1 = -1, vt1 = -1;
+    int ccmaj = 0, ccmin = 0;
+    const bool cuda = xcuda_probe(&vb0, &vt0, &ccmaj, &ccmin) == 0;
+
+    FILETIME c0{}, e0{}, k0{}, u0{};
+    GetProcessTimes(GetCurrentProcess(), &c0, &e0, &k0, &u0);
+
+    NativeInferenceEngine engine;
+    auto tl0 = std::chrono::steady_clock::now();
+    engine.load(bundle);
+    auto tl1 = std::chrono::steady_clock::now();
+
+    JsonValue manifest =
+        parse_json_file((fs::path(bundle) / "manifest.json").string());
+    const JsonValue* mcfg = manifest.get("config");
+    int64_t vocab = mcfg ? (int64_t)xct::j_num(mcfg, "vocab_size", 0) : 0;
+    if (vocab < 4) fail("HW_BASELINE_BAD_CONFIG");
+    std::mt19937_64 rng(11);
+    std::uniform_int_distribution<int64_t> tok(3, vocab - 1);
+    std::vector<int64_t> ids((size_t)prefill);
+    for (auto& t : ids) t = tok(rng);
+    SamplingConfig sc;
+    sc.temperature = 0.0;
+
+    auto t0 = std::chrono::steady_clock::now();
+    (void)engine.logits(ids);                    // prefill
+    auto t1 = std::chrono::steady_clock::now();
+    std::vector<int64_t> gen = engine.generate(ids, decode, sc);
+    auto t2 = std::chrono::steady_clock::now();
+
+    FILETIME c1{}, e1{}, k1{}, u1{};
+    GetProcessTimes(GetCurrentProcess(), &c1, &e1, &k1, &u1);
+    PROCESS_MEMORY_COUNTERS pmc{};
+    int64_t ram_peak = 0;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+        ram_peak = (int64_t)pmc.PeakWorkingSetSize;
+    if (cuda) (void)xcuda_probe(&vb1, &vt1, &ccmaj, &ccmin);
+
+    const double prefill_s =
+        std::chrono::duration<double>(t1 - t0).count();
+    const double decode_s =
+        std::chrono::duration<double>(t2 - t1).count();
+    const double load_s =
+        std::chrono::duration<double>(tl1 - tl0).count();
+    const double wall_s =
+        std::chrono::duration<double>(t2 - t0).count();
+    const double cpu_s =
+        (filetime_s(k1) + filetime_s(u1)) -
+        (filetime_s(k0) + filetime_s(u0));
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    const double cpu_util =
+        wall_s > 0 && si.dwNumberOfProcessors > 0
+            ? cpu_s / (wall_s * (double)si.dwNumberOfProcessors) : 0.0;
+    const double itl_ms = gen.size() > 0
+        ? decode_s * 1000.0 / (double)gen.size() : 0.0;
+    // TTFT = prefill + one decode step.
+    const double ttft_ms = prefill_s * 1000.0 + itl_ms;
+    const int64_t vram_used =
+        (cuda && vb0 >= 0 && vb1 >= 0) ? (vb0 - vb1) : -1;
+
+    // §66 training side: tokens/sec comes from a governed train report,
+    // not from this inference process — pass it in explicitly.
+    double train_tps = -1.0;
+    if (a.has("train-report")) {
+        JsonValue rep = parse_json_file(a.get("train-report"));
+        const JsonValue* v = rep.get("tokens_per_sec");
+        if (v && v->type == JsonValue::Type::Number)
+            train_tps = v->number;
+    }
+    char vram_buf[24] = "null", tps_buf[32] = "null";
+    if (vram_used >= 0)
+        std::snprintf(vram_buf, sizeof(vram_buf), "%lld", vram_used);
+    if (train_tps >= 0.0)
+        std::snprintf(tps_buf, sizeof(tps_buf), "%.2f", train_tps);
+
+    std::printf(
+        "{\"ok\":true,\"format\":\"star-hardware-baseline-300m/v1\","
+        "\"model_scale\":\"300m\",\"bundle\":\"%s\","
+        "\"weights_sha256\":\"%s\","
+        "\"vram_peak_bytes\":%s,\"ram_peak_bytes\":%lld,"
+        "\"cpu_utilization\":%.4f,\"gpu_utilization\":null,"
+        "\"prefill_tps\":%.1f,\"decode_tps\":%.1f,"
+        "\"ttft_ms\":%.2f,\"itl_ms\":%.2f,"
+        "\"training_tokens_per_sec\":%s,\"power_watts\":null,"
+        "\"prefill_tokens\":%lld,\"decode_tokens\":%lld,"
+        "\"load_s\":%.3f,\"kv_bytes\":%lld,"
+        "\"cuda_available\":%s}\n",
+        gptbridge::jsonlite::json_escape(bundle).c_str(),
+        engine.bundle() ? engine.bundle()->weights_sha256().c_str() : "",
+        vram_buf,
+        (long long)ram_peak, cpu_util,
+        prefill_s > 0 ? prefill / prefill_s : 0.0,
+        decode_s > 0 ? (double)gen.size() / decode_s : 0.0,
+        ttft_ms, itl_ms, tps_buf,
+        (long long)prefill, (long long)gen.size(),
+        load_s, (long long)engine.kv_memory_bytes(),
+        cuda ? "true" : "false");
+    return 0;
+}
+
 // §8 router analyzer: generate with the MoE trace armed and emit the
 // per-layer quantiles + ROUTER_* diagnostics.
 int mode_router_analyze(const Args& a) {
@@ -4270,6 +4404,7 @@ const ModeEntry kModeRegistry[] = {
     {"state-snapshot",       "RUNTIME",     mode_state_snapshot},
     {"state-bench",          "RUNTIME",     mode_state_bench},
     {"state-drift",          "RUNTIME",     mode_state_drift},
+    {"hw-baseline",          "RUNTIME",     mode_hw_baseline},
     {"state2-smoke",         "RUNTIME",     mode_state2_smoke},
     {"sched-smoke",          "RUNTIME",     mode_sched_smoke},
     {"vision-budget",        "RUNTIME",     mode_vision_budget},
