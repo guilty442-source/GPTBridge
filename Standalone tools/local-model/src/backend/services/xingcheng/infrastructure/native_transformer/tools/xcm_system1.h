@@ -206,6 +206,25 @@ int mode_system1_head(const Args& a) {
     std::vector<double> hidden = e.prefill_hidden(ids);
     double prefill_ms = 1e3 * std::chrono::duration<double>(
         std::chrono::steady_clock::now() - t0).count();
+
+    // Fail-closed guard: a non-finite hidden state never reaches the
+    // head — degrade to SYSTEM_2 with evidence, never emit a NaN
+    // decision.
+    double hnorm = 0.0, hmax = 0.0;
+    bool finite = !hidden.empty();
+    for (double v : hidden) {
+        if (!std::isfinite(v)) { finite = false; break; }
+        hnorm += v * v;
+        hmax = std::max(hmax, std::fabs(v));
+    }
+    if (!finite) {
+        std::printf("{\"ok\":true,\"format\":\"star-system1-head/v1\","
+                    "\"head_present\":true,\"bound\":true,"
+                    "\"hidden_finite\":false,\"fallback\":\"SYSTEM_2\","
+                    "\"reason\":\"PREFILL_STATE_INVALID\"}\n");
+        return 0;
+    }
+
     t0 = std::chrono::steady_clock::now();
     auto probs = head.probabilities(hidden);
     double head_ms = 1e3 * std::chrono::duration<double>(
@@ -248,6 +267,8 @@ int mode_system1_head(const Args& a) {
       << "\"ttfd_ms\":" << (prefill_ms + head_ms)
       << ",\"prefill_ms\":" << prefill_ms
       << ",\"head_ms\":" << head_ms
+      << ",\"hidden_norm\":" << std::sqrt(hnorm)
+      << ",\"hidden_absmax\":" << hmax
       << ",\"prompt_tokens\":" << (int64_t)ids.size()
       << ",\"decode_tokens\":0}";
     o << "}\n";
