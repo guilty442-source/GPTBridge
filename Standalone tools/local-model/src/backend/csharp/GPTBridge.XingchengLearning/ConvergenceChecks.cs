@@ -4,6 +4,8 @@
 // ok=false overall. Native probes run through xc_modeltool — the same
 // governed subprocess lane as every other native invocation.
 
+using System.Text.Json;
+
 namespace GPTBridge.XingchengLearning;
 
 internal static class ConvergenceChecks
@@ -296,6 +298,285 @@ internal static class ConvergenceChecks
                 var broken = new Dictionary<string, object?>
                     { ["format"] = BundleManifestV2.Format };
                 return ExpectThrow(() => BundleManifestV2.Validate(broken));
+            }),
+            // ==================== §39 repo-level convergence ===========
+            // Platform invariants — one runtime owner, one generation
+            // owner, canonical contract, frozen training, supported
+            // axes only. Repo-state reads are bounded to toolRoot.
+            new("repo-single-canonical-runtime", () =>
+            {
+                string src = Path.Combine(toolRoot, "src", "backend");
+                if (!Directory.Exists(src)) return false;
+                // One C++ engine owner: exactly one engine.cpp and one
+                // public engine header across the native lane.
+                return Directory.GetFiles(
+                           src, "engine.cpp", SearchOption.AllDirectories)
+                           .Length == 1 &&
+                       Directory.GetFiles(
+                           src, "xingcheng_inference.hpp",
+                           SearchOption.AllDirectories).Length == 1;
+            }),
+            new("repo-single-generation-owner", () =>
+            {
+                // Exactly one lifecycle.json owns the governed model id —
+                // per-model lifecycle dirs and selftest scratch copies
+                // are separate owners by scope, not duplicates.
+                string lcDir = Path.Combine(
+                    toolRoot,
+                    XcPaths.LifecycleRel.Replace(
+                        '/', Path.DirectorySeparatorChar));
+                if (!Directory.Exists(lcDir)) return true;
+                return Directory.GetFiles(lcDir, "lifecycle.json")
+                           .Length <= 1;
+            }),
+            new("repo-architecture-contract", () =>
+            {
+                // §22 quarantine: a bundle claiming xc-fused-1 while
+                // enabling CSA/MLA is CANONICAL_CONTRACT_VIOLATION.
+                string rt = Path.Combine(toolRoot, "xingcheng", "runtime");
+                if (!Directory.Exists(rt)) return true;
+                foreach (string mf in Directory.GetFiles(
+                             rt, "manifest.json", SearchOption.AllDirectories))
+                {
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(mf)); }
+                    catch { continue; }
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        string arch =
+                            r.TryGetProperty("architecture_profile",
+                                             out var ap) ? ap.GetString() ?? "" :
+                            r.TryGetProperty("architecture",
+                                             out var ar) ? ar.GetString() ?? "" : "";
+                        if (arch != "xc-fused-1") continue;
+                        if (!r.TryGetProperty("config", out var cfg))
+                            continue;
+                        foreach (string k in new[]
+                                 { "use_csa", "csa_enabled", "use_mla",
+                                   "mla_enabled", "use_latent_moe",
+                                   "use_rwkv", "use_mamba" })
+                            if (cfg.TryGetProperty(k, out var v) &&
+                                v.ValueKind == JsonValueKind.True)
+                                return false;
+                    }
+                }
+                return true;
+            }),
+            new("repo-active-generation-singleton", () =>
+            {
+                string sp = Path.Combine(
+                    toolRoot, GenerationMigration.StateDirRel
+                                  .Replace('/', Path.DirectorySeparatorChar),
+                    GenerationMigration.StateFile);
+                if (!File.Exists(sp)) return true;
+                using var doc = JsonDocument.Parse(File.ReadAllText(sp));
+                // exactly one active generation string
+                return doc.RootElement.TryGetProperty(
+                           "active_generation", out var ag) &&
+                       ag.ValueKind == JsonValueKind.String;
+            }),
+            new("repo-dangling-lineage", () =>
+            {
+                string dir = Path.Combine(
+                    toolRoot, GenerationMigration.StateDirRel
+                                  .Replace('/', Path.DirectorySeparatorChar));
+                if (!Directory.Exists(dir)) return true;
+                foreach (string mf in Directory.GetFiles(
+                             dir, "migration-*.json"))
+                {
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(mf)); }
+                    catch { return false; }
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        string status =
+                            r.TryGetProperty("status", out var s)
+                                ? s.GetString() ?? "" : "";
+                        if (status == "PURGED" || status == "FAILED")
+                            continue;
+                        if (r.TryGetProperty("weights", out var w) &&
+                            w.TryGetProperty("target_path", out var tp))
+                        {
+                            string rel = tp.GetString() ?? "";
+                            string abs = Path.Combine(
+                                toolRoot, rel.Replace('/',
+                                    Path.DirectorySeparatorChar));
+                            if (rel.Length > 0 && !File.Exists(abs) &&
+                                !Directory.Exists(abs))
+                                return false;   // dangling lineage
+                        }
+                    }
+                }
+                return true;
+            }),
+            new("repo-orphan-artifacts", () =>
+            {
+                // Production store only — runtime/devin is a scratch
+                // lane whose fixtures are not lineage-referenced by
+                // contract.
+                string store = Path.Combine(
+                    toolRoot, "xingcheng", "runtime", "models");
+                if (!Directory.Exists(store)) return true;
+                var referenced = new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase);
+                string lcDir = Path.Combine(
+                    toolRoot,
+                    XcPaths.LifecycleRel.Replace(
+                        '/', Path.DirectorySeparatorChar));
+                var lc = ModelLifecycle.LoadOrCreate(
+                    lcDir, XcPaths.ModelId);
+                void Collect(object? node)
+                {
+                    switch (node)
+                    {
+                        case Dictionary<string, object?> d:
+                            foreach (var kv in d)
+                            {
+                                if (kv.Value is string s &&
+                                    kv.Key.EndsWith("_path",
+                                        StringComparison.Ordinal))
+                                    referenced.Add(
+                                        s.Replace('\\', '/'));
+                                else Collect(kv.Value);
+                            }
+                            break;
+                        case List<object?> l:
+                            foreach (var i in l) Collect(i);
+                            break;
+                    }
+                }
+                Collect(lc.Artifacts);
+                foreach (string b in Directory.GetDirectories(
+                             store, "*", SearchOption.AllDirectories))
+                {
+                    string mpath = Path.Combine(b, "manifest.json");
+                    if (!File.Exists(mpath)) continue;
+                    string rel = Path.GetRelativePath(toolRoot, b)
+                        .Replace('\\', '/');
+                    if (referenced.Contains(rel) || referenced.Any(
+                            p => p.StartsWith(rel,
+                                StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    // Owned by a governing record (job dir) or carrying
+                    // its own lineage (source_checkpoint / provenance)
+                    // is not an orphan; a bundle with neither is.
+                    if (rel.Contains("/jobs/",
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    JsonDocument doc;
+                    try
+                    { doc = JsonDocument.Parse(File.ReadAllText(mpath)); }
+                    catch { return false; }
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        bool selfDescribing =
+                            r.TryGetProperty("source_checkpoint",
+                                             out var s1) &&
+                            s1.ValueKind == JsonValueKind.String &&
+                            (s1.GetString() ?? "").Length > 0;
+                        if (!selfDescribing &&
+                            !File.Exists(Path.Combine(b,
+                                             "provenance.json")))
+                            return false;
+                    }
+                }
+                return true;
+            }),
+            new("repo-production-axis-supported", () =>
+            {
+                string rt = Path.Combine(toolRoot, "xingcheng", "runtime");
+                if (!Directory.Exists(rt)) return true;
+                var quants = new HashSet<string>(
+                    StringComparer.OrdinalIgnoreCase)
+                    { "none", "int8", "int4", "int4_packed", "bf16" };
+                foreach (string mf in Directory.GetFiles(
+                             rt, "manifest.json", SearchOption.AllDirectories))
+                {
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(mf)); }
+                    catch { continue; }
+                    using (doc)
+                    {
+                        if (doc.RootElement.TryGetProperty(
+                                "quantization", out var q) &&
+                            q.ValueKind == JsonValueKind.String &&
+                            !quants.Contains(q.GetString() ?? ""))
+                            return false;
+                    }
+                }
+                return true;
+            }),
+            new("repo-forbidden-language", () =>
+                LanguageBoundary.Scan(
+                    Path.Combine(toolRoot, "src")).Count == 0),
+            new("repo-training-frozen", () =>
+            {
+                string sp = Path.Combine(
+                    toolRoot, "runtime", "settings",
+                    "self-learning.json");
+                if (!File.Exists(sp)) return true;
+                using var doc = JsonDocument.Parse(File.ReadAllText(sp));
+                // §3/§28: while the frozen flag is set, no scheduler may
+                // emit a weight-changing job — the flag itself is the
+                // contract; verify it is still latched.
+                return doc.RootElement.TryGetProperty(
+                           "capability_training_frozen", out var f) &&
+                       f.ValueKind == JsonValueKind.True;
+            }),
+            new("repo-xcn-writer-v10", () =>
+            {
+                string rt = Path.Combine(toolRoot, "xingcheng", "runtime");
+                if (!Directory.Exists(rt)) return true;
+                foreach (string mf in Directory.GetFiles(
+                             rt, "manifest.json", SearchOption.AllDirectories))
+                {
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(mf)); }
+                    catch { continue; }
+                    using (doc)
+                    {
+                        foreach (string k in new[]
+                                 { "checkpoint_version", "xcn_version",
+                                   "format_version" })
+                            if (doc.RootElement.TryGetProperty(k, out var v) &&
+                                v.ValueKind == JsonValueKind.String)
+                            {
+                                string s = v.GetString() ?? "";
+                                var mm = System.Text.RegularExpressions
+                                    .Regex.Match(s, @"v(\d+)");
+                                if (mm.Success &&
+                                    int.Parse(mm.Groups[1].Value) > 10)
+                                    return false;   // XCN writer > 10
+                            }
+                    }
+                }
+                return true;
+            }),
+            new("repo-state-version-supported", () =>
+            {
+                // Every persisted state envelope we honor is v1/v2 —
+                // a state file claiming a higher version than the
+                // runtime understands is unsupported reads.
+                string dir = Path.Combine(
+                    toolRoot, GenerationMigration.StateDirRel
+                                  .Replace('/', Path.DirectorySeparatorChar));
+                if (!Directory.Exists(dir)) return true;
+                foreach (string f in Directory.GetFiles(dir, "*.json"))
+                {
+                    JsonDocument doc;
+                    try { doc = JsonDocument.Parse(File.ReadAllText(f)); }
+                    catch { return false; }
+                    using (doc)
+                        if (doc.RootElement.TryGetProperty(
+                                "state_version", out var sv) &&
+                            sv.ValueKind == JsonValueKind.Number &&
+                            sv.GetInt64() > 2)
+                            return false;
+                }
+                return true;
             }),
         };
 

@@ -316,11 +316,12 @@ internal static class BundleProvenance
         string Hash(string name)
         {
             string p = Path.Combine(bundleDir, name);
-            return File.Exists(p)
-                ? "sha256:" + Convert.ToHexString(
-                    SHA256.HashData(File.ReadAllBytes(p)))
-                      .ToLowerInvariant()
-                : "";
+            if (!File.Exists(p)) return "";
+            // stream — weights.bin exceeds File.ReadAllBytes' 2GB cap
+            using var s = new FileStream(p, FileMode.Open, FileAccess.Read,
+                                         FileShare.Read, 1024 * 1024);
+            return "sha256:" + Convert.ToHexString(SHA256.HashData(s))
+                .ToLowerInvariant();
         }
         var block = new Dictionary<string, object?>
         {
