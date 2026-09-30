@@ -273,7 +273,7 @@ static void tpu_linear(const float* x, const float* w, float* y,
 // element (t-ascending for dW, o-ascending for dx).
 static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
                            float* dx, float* dW, int T, int I, int O) {
-    parallel_for(O, [&](int64_t b, int64_t e) {
+    if (dW) parallel_for(O, [&](int64_t b, int64_t e) {
         for (int64_t o = b; o < e; ++o) {
             float* dw = dW + (size_t)o * I;
             for (int64_t t = 0; t < T; ++t)

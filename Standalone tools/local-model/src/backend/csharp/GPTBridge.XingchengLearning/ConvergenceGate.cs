@@ -99,6 +99,8 @@ internal static class ConvergenceGate
             stdout.AppendLine(e.Data); };
         p.ErrorDataReceived += (_, e) => { if (e.Data != null)
             stderr.AppendLine(e.Data); };
+        p.BeginOutputReadLine();
+        p.BeginErrorReadLine();
         if (!p.WaitForExit(timeoutS * 1000))
         {
             try { p.Kill(true); } catch { }
@@ -615,9 +617,14 @@ internal static class ConvergenceGate
             UseShellExecute = false, CreateNoWindow = true,
         };
         var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
         using var p = Process.Start(psi)!;
         p.OutputDataReceived += (_, e) => { if (e.Data != null)
             stdout.AppendLine(e.Data); };
+        p.ErrorDataReceived += (_, e) => { if (e.Data != null)
+            stderr.AppendLine(e.Data); };
+        p.BeginOutputReadLine();
+        p.BeginErrorReadLine();
         if (!p.WaitForExit(300_000))
         {
             try { p.Kill(true); } catch { }

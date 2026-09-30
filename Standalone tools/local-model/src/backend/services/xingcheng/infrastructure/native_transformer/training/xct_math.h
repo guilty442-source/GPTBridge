@@ -217,7 +217,7 @@ static void conv1d_causal_bwd(const float* dy, const float* y_pre,
         for (int c = 0; c < D; ++c) {
             float d = dpre[(size_t)t * D + c];
             for (int j = 0; j < K && t - j >= 0; ++j) {
-                dw[(size_t)c * K + j] += d * x[(size_t)(t - j) * D + c];
+                if (dw) dw[(size_t)c * K + j] += d * x[(size_t)(t - j) * D + c];
                 dx[(size_t)(t - j) * D + c] += d * w[(size_t)c * K + j];
             }
         }

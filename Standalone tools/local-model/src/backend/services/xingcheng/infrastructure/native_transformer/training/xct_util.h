@@ -680,6 +680,13 @@ struct Params {
             if (pat_match(pat, n)) return true;
         return false;
     }
+    // Weight-grad sink for a trainable param; nullptr when the param is
+    // training-frozen. Backward kernels treat a null dW as "skip the
+    // weight-grad accumulation" while still propagating dx upstream —
+    // frozen params keep participating in forward and in the dx chain.
+    float* dw(const std::string& n) {
+        return is_frozen(n) ? nullptr : g[n].d.data();
+    }
     Tensor& add(const std::string& n, std::initializer_list<int64_t> s) {
         w[n] = mk(s);
         g[n] = mk(s);

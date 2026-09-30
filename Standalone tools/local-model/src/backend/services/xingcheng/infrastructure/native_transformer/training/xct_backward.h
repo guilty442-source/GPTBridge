@@ -50,7 +50,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     }
     std::vector<float> dh((size_t)T * H, 0.0f);
     linear_bwd(dlp, o.hidden.data(), p.w.at("lm_head"),
-               dh.data(), p.g["lm_head"].d.data(), T, H, c.vocab);
+               dh.data(), p.dw("lm_head"), T, H, c.vocab);
     // DeepSeek MTP: the module's CE also reaches the shared lm_head /
     // embed and the trunk hidden states (dh rows over text positions).
     // aux_scale==0 (DPO) keeps MTP out of the preference gradient.
@@ -62,7 +62,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data());
     std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
-                o.rmsf.data(), dx_fin.data(), p.g["norm_f"].d.data(), T, H);
+                o.rmsf.data(), dx_fin.data(), p.dw("norm_f"), T, H);
     std::vector<float> dx = dx_fin;
     for (int l = c.layers - 1; l >= 0; --l) {
         LayerCache& L = o.layers[l];
@@ -77,7 +77,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             rmsnorm_bwd(dx.data(), L.ffn_proj.data(),
                         p.w.at(ln(l, "norm_ffw_out")).d.data(),
                         L.post_ffn_rms.data(), dproj.data(),
-                        p.g[ln(l, "norm_ffw_out")].d.data(), T, H);
+                        p.dw(ln(l, "norm_ffw_out")), T, H);
         } else {
             dproj = dx;                                 // [T,H]
         }
@@ -85,7 +85,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         if (!moe) {
             std::vector<float> dfh((size_t)T * c.inter, 0.0f);
             linear_bwd(dproj.data(), L.fh.data(), p.w.at(ln(l, "w2")),
-                       dfh.data(), p.g[ln(l, "w2")].d.data(), T, c.inter, H);
+                       dfh.data(), p.dw(ln(l, "w2")), T, c.inter, H);
             std::vector<float> dfa((size_t)T * c.inter, 0.0f), dfb((size_t)T * c.inter, 0.0f);
             tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
                 float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
@@ -93,9 +93,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 dfb[(size_t)i] += d * gate_act_f(a, c.ffn_act);
             });
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
-                       dn2.data(), p.g[ln(l, "w1")].d.data(), T, H, c.inter);
+                       dn2.data(), p.dw(ln(l, "w1")), T, H, c.inter);
             linear_bwd(dfb.data(), L.n2.data(), p.w.at(ln(l, "w3")),
-                       dn2.data(), p.g[ln(l, "w3")].d.data(), T, H, c.inter);
+                       dn2.data(), p.dw(ln(l, "w3")), T, H, c.inter);
         } else {
             const int E = c.moe_experts, K = c.moe_top_k;
             const int EI = c.expert_inter();
@@ -135,7 +135,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     for (int i = 0; i < H; ++i) deo[i] = dpr[i] * wgt;
                     std::vector<float> dfh((size_t)EI, 0.0f);
                     linear_bwd(deo.data(), fh.data(), p.w.at(b + "w2"),
-                               dfh.data(), p.g[b + "w2"].d.data(), 1, EI, H);
+                               dfh.data(), p.dw(b + "w2"), 1, EI, H);
                     std::vector<float> dfa((size_t)EI, 0.0f), dfb((size_t)EI, 0.0f);
                     for (int i = 0; i < EI; ++i) {
                         float a = fa[i], bb = fb[i], d = dfh[i];
@@ -143,9 +143,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                         dfb[i] += d * gate_act_f(a, c.ffn_act);
                     }
                     linear_bwd(dfa.data(), xr, p.w.at(b + "w1"),
-                               dxr, p.g[b + "w1"].d.data(), 1, H, EI);
+                               dxr, p.dw(b + "w1"), 1, H, EI);
                     linear_bwd(dfb.data(), xr, p.w.at(b + "w3"),
-                               dxr, p.g[b + "w3"].d.data(), 1, H, EI);
+                               dxr, p.dw(b + "w3"), 1, H, EI);
                     // router weight grad: d(wgt * eo)/d gp[e]
                     float dot = 0.0f;
                     for (int i = 0; i < H; ++i) {
@@ -196,7 +196,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     }
                 }
                 linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
-                           dxr, p.g[ln(l, "gate")].d.data(), 1, H, E);
+                           dxr, p.dw(ln(l, "gate")), 1, H, E);
                 (void)aux_scale;
             }
             // Shared experts (v26): always-on SwiGLU backward — the shared
@@ -228,7 +228,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     dproj_use = dsg_in.data();
                 }
                 linear_bwd(dproj_use, sfh.data(), p.w.at(b + "w2"),
-                           dsh.data(), p.g[b + "w2"].d.data(), T, SI, H);
+                           dsh.data(), p.dw(b + "w2"), T, SI, H);
                 std::vector<float> dsa((size_t)T * SI, 0.0f);
                 std::vector<float> dsb((size_t)T * SI, 0.0f);
                 tpu_elementwise((int64_t)sfh.size(), [&](int64_t i) {
@@ -237,9 +237,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     dsb[(size_t)i] += d * gate_act_f(a, c.ffn_act);
                 });
                 linear_bwd(dsa.data(), L.n2.data(), p.w.at(b + "w1"),
-                           dn2.data(), p.g[b + "w1"].d.data(), T, H, SI);
+                           dn2.data(), p.dw(b + "w1"), T, H, SI);
                 linear_bwd(dsb.data(), L.n2.data(), p.w.at(b + "w3"),
-                           dn2.data(), p.g[b + "w3"].d.data(), T, H, SI);
+                           dn2.data(), p.dw(b + "w3"), T, H, SI);
                 if (sgated) {
                     // gate grad: dsg[t] = Σ_i dproj[t,i] · so[t,i]; need so —
                     // recompute so = w2 @ sfh (cheap relative to the FFN bwd).
@@ -260,13 +260,13 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
                 linear_bwd(dsg_logit.data(), L.n2.data(),
                            p.w.at(ln(l, "shared_gate")), dn2.data(),
-                           p.g[ln(l, "shared_gate")].d.data(), T, H, 1);
+                           p.dw(ln(l, "shared_gate")), T, H, 1);
             }
         }
         // norm2 backward: dn2 -> dx_res (accumulate into residual branch)
         std::vector<float> dxres2((size_t)T * H, 0.0f);
         rmsnorm_bwd(dn2.data(), L.x_res.data(), p.w.at(ln(l, "norm2")).d.data(),
-                    L.rms2.data(), dxres2.data(), p.g[ln(l, "norm2")].d.data(), T, H);
+                    L.rms2.data(), dxres2.data(), p.dw(ln(l, "norm2")), T, H);
         std::vector<float> dpre((size_t)T * H);
         tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
             dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
@@ -280,7 +280,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             rmsnorm_bwd(dpre.data(), L.attn_proj.data(),
                         p.w.at(ln(l, "norm_attn_out")).d.data(),
                         L.post_attn_rms.data(), dproj_attn.data(),
-                        p.g[ln(l, "norm_attn_out")].d.data(), T, H);
+                        p.dw(ln(l, "norm_attn_out")), T, H);
         } else {
             dproj_attn = dpre;                          // through output proj
         }
@@ -300,7 +300,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             std::vector<float> don((size_t)T * val_dim, 0.0f);
             linear_bwd(dproj_attn.data(), L.lin_on.data(),
                        p.w.at(lb + "out_proj"), don.data(),
-                       p.g[lb + "out_proj"].d.data(), T, val_dim, H);
+                       p.dw(lb + "out_proj"), T, val_dim, H);
             // silu(z) gate then gated-RMSNorm backward
             std::vector<float> donorm((size_t)T * val_dim),
                                dz((size_t)T * val_dim);
@@ -318,7 +318,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                 p.w.at(lb + "norm").d.data(),
                                 L.lin_orms.data() + (size_t)t * vh + h,
                                 do_.data() + off,
-                                p.g[lb + "norm"].d.data(), 1, vd);
+                                p.dw(lb + "norm"), 1, vd);
                 }
             // (kept serial: rmsnorm_bwd folds a shared dw row into
             // p.g[lb+"norm"] — partitioning it would reorder the fold.)
@@ -330,8 +330,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                dv((size_t)T * val_dim, 0.0f),
                                da_raw((size_t)T * vh, 0.0f),
                                db_raw((size_t)T * vh, 0.0f);
-            float* dA_log = p.g[lb + "A_log"].d.data();
-            float* ddt_bias = p.g[lb + "dt_bias"].d.data();
+            float* dA_log = p.dw(lb + "A_log");
+            float* ddt_bias = p.dw(lb + "dt_bias");
             const float* A_log = p.w.at(lb + "A_log").d.data();
             parallel_for(vh, [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
@@ -386,10 +386,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     float g_t = std::log(dec);
                     float eA = std::exp(A_log[h]);
                     float ar = L.lin_a_raw[(size_t)t * vh + h];
-                    dA_log[h] += dg * g_t;
+                    if (dA_log) dA_log[h] += dg * g_t;
                     float dar = dg * (-eA) * sigmoid_f(ar);
                     da_raw[(size_t)t * vh + h] += dar;
-                    ddt_bias[h] += dar;
+                    if (ddt_bias) ddt_bias[h] += dar;
                 }
             }
             });
@@ -462,7 +462,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             conv1d_causal_bwd(dconv_out.data(), L.lin_conv_pre.data(),
                               L.lin_conv_in.data(),
                               p.w.at(lb + "conv1d").d.data(), dconv_in.data(),
-                              p.g[lb + "conv1d"].d.data(), T, conv_dim,
+                              p.dw(lb + "conv1d"), T, conv_dim,
                               c.lin_conv_kernel);
             // repack flat conv-in grads → per-k-head grouped qkvz layout
             std::vector<float> dqkvz((size_t)T * kh * group_sz, 0.0f);
@@ -480,15 +480,15 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
             }
             linear_bwd(dqkvz.data(), L.n1.data(), p.w.at(lb + "in_proj_qkv"),
-                       dn1.data(), p.g[lb + "in_proj_qkv"].d.data(),
+                       dn1.data(), p.dw(lb + "in_proj_qkv"),
                        T, H, kh * group_sz);
             linear_bwd(dz.data(), L.n1.data(), p.w.at(lb + "in_proj_z"),
-                       dn1.data(), p.g[lb + "in_proj_z"].d.data(),
+                       dn1.data(), p.dw(lb + "in_proj_z"),
                        T, H, val_dim);
             linear_bwd(da_raw.data(), L.n1.data(), p.w.at(lb + "in_proj_a"),
-                       dn1.data(), p.g[lb + "in_proj_a"].d.data(), T, H, vh);
+                       dn1.data(), p.dw(lb + "in_proj_a"), T, H, vh);
             linear_bwd(db_raw.data(), L.n1.data(), p.w.at(lb + "in_proj_b"),
-                       dn1.data(), p.g[lb + "in_proj_b"].d.data(), T, H, vh);
+                       dn1.data(), p.dw(lb + "in_proj_b"), T, H, vh);
         } else if (c.is_mla(l)) {
             // -------- DeepSeek MLA backward --------
             const int kn = c.qk_nope_head_dim, kr = c.qk_rope_head_dim;
@@ -500,7 +500,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             std::vector<float> dao((size_t)T * c.heads * hd, 0.0f);
             linear_bwd(dproj_attn.data(), L.attn_out.data(),
                        p.w.at(b + "wo"), dao.data(),
-                       p.g[b + "wo"].d.data(), T, c.heads * hd, H);
+                       p.dw(b + "wo"), T, c.heads * hd, H);
             std::vector<float> dqn((size_t)T * c.heads * kn, 0.0f),
                                dqr((size_t)T * c.heads * kr, 0.0f),
                                dkn((size_t)T * c.heads * kn, 0.0f),
@@ -579,7 +579,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             if (qr > 0) {
                 std::vector<float> dcq((size_t)T * qr, 0.0f);
                 linear_bwd(dqf.data(), L.mla_cq.data(), p.w.at(b + "w_uq"),
-                           dcq.data(), p.g[b + "w_uq"].d.data(),
+                           dcq.data(), p.dw(b + "w_uq"),
                            T, qr, c.heads * qd);
                 std::vector<float> dcq_raw((size_t)T * qr, 0.0f);
                 for (int t = 0; t < T; ++t)
@@ -588,25 +588,25 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                 p.w.at(b + "norm_ql").d.data(),
                                 L.mla_cq_rms.data() + t,
                                 dcq_raw.data() + (size_t)t * qr,
-                                p.g[b + "norm_ql"].d.data(), 1, qr);
+                                p.dw(b + "norm_ql"), 1, qr);
                 linear_bwd(dcq_raw.data(), L.n1.data(), p.w.at(b + "w_dq"),
-                           dn1.data(), p.g[b + "w_dq"].d.data(), T, H, qr);
+                           dn1.data(), p.dw(b + "w_dq"), T, H, qr);
             } else {
                 linear_bwd(dqf.data(), L.n1.data(), p.w.at(b + "wq"),
-                           dn1.data(), p.g[b + "wq"].d.data(),
+                           dn1.data(), p.dw(b + "wq"),
                            T, H, c.heads * qd);
             }
             // kv path: dkn/dv fold into the shared latent grad; shared
             // rope key flows straight to w_kr.
             std::vector<float> dckv((size_t)T * rank, 0.0f);
             linear_bwd(dkn.data(), L.mla_ckv.data(), p.w.at(b + "w_uk"),
-                       dckv.data(), p.g[b + "w_uk"].d.data(),
+                       dckv.data(), p.dw(b + "w_uk"),
                        T, rank, c.heads * kn);
             linear_bwd(dvv.data(), L.mla_ckv.data(), p.w.at(b + "w_uv"),
-                       dckv.data(), p.g[b + "w_uv"].d.data(),
+                       dckv.data(), p.dw(b + "w_uv"),
                        T, rank, c.heads * hd);
             linear_bwd(dkr.data(), L.n1.data(), p.w.at(b + "w_kr"),
-                       dn1.data(), p.g[b + "w_kr"].d.data(), T, H, kr);
+                       dn1.data(), p.dw(b + "w_kr"), T, H, kr);
             std::vector<float> dckv_raw((size_t)T * rank, 0.0f);
             for (int t = 0; t < T; ++t)
                 rmsnorm_bwd(dckv.data() + (size_t)t * rank,
@@ -614,16 +614,16 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                             p.w.at(b + "norm_kvl").d.data(),
                             L.mla_ckv_rms.data() + t,
                             dckv_raw.data() + (size_t)t * rank,
-                            p.g[b + "norm_kvl"].d.data(), 1, rank);
+                            p.dw(b + "norm_kvl"), 1, rank);
             linear_bwd(dckv_raw.data(), L.n1.data(), p.w.at(b + "w_dkv"),
-                       dn1.data(), p.g[b + "w_dkv"].d.data(), T, H, rank);
+                       dn1.data(), p.dw(b + "w_dkv"), T, H, rank);
         } else {
             // -------- full attention backward --------
             std::vector<float> dao((size_t)T * Hq, 0.0f);
             const float* wo_in = c.attn_output_gate ? L.attn_gated.data()
                                                     : L.attn_out.data();
             linear_bwd(dproj_attn.data(), wo_in, p.w.at(ln(l, "wo")),
-                       dao.data(), p.g[ln(l, "wo")].d.data(), T, Hq, H);
+                       dao.data(), p.dw(ln(l, "wo")), T, Hq, H);
             std::vector<float> dgate;
             if (c.attn_output_gate) {
                 // dao currently flows to gated output; split into raw
@@ -768,7 +768,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     }
                 }
                 linear_bwd(diq.data(), L.n1.data(), p.w.at(ln(l, "wiq")),
-                           dn1.data(), p.g[ln(l, "wiq")].d.data(), T, H, hd);
+                           dn1.data(), p.dw(ln(l, "wiq")), T, H, hd);
             }
             // CSA producer finalize: unrope the accumulated compressed-K
             // grads into raw-latent space, fold the shared index-key chain
@@ -787,7 +787,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     rope(L.csa_dck.data(), csa_nc, kvh, hd, thc, true);
                 if (c.csa_indexer && !L.csa_dik.empty()) {
                     const float* wik = p.w.at(ln(l, "wik")).d.data();
-                    float* gwik = p.g[ln(l, "wik")].d.data();
+                    float* gwik = p.dw(ln(l, "wik"));
                     for (int cc = 0; cc < csa_nc; ++cc) {
                         const float* dik = L.csa_dik.data() + (size_t)cc * hd;
                         std::vector<float> mkr((size_t)hd, 0.0f);
@@ -797,10 +797,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                          ((size_t)cc * kvh + gg) * hd,
                                      hd);
                         // dwik += dik ⊗ mk ; dmk = wikᵀ·dik
-                        for (int oi = 0; oi < hd; ++oi)
-                            for (int ii = 0; ii < hd; ++ii)
-                                gwik[(size_t)oi * hd + ii] +=
-                                    dik[oi] * mkr[ii];
+                        if (gwik)
+                            for (int oi = 0; oi < hd; ++oi)
+                                for (int ii = 0; ii < hd; ++ii)
+                                    gwik[(size_t)oi * hd + ii] +=
+                                        dik[oi] * mkr[ii];
                         for (int gg = 0; gg < kvh; ++gg) {
                             float* dck = L.csa_dck.data() +
                                 ((size_t)cc * kvh + gg) * hd;
@@ -820,8 +821,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 dv_csa.assign((size_t)T * Hkvl, 0.0f);
                 const float* wck = p.w.at(ln(l, "wck")).d.data();
                 const float* wcv = p.w.at(ln(l, "wcv")).d.data();
-                float* gwck = p.g[ln(l, "wck")].d.data();
-                float* gwcv = p.g[ln(l, "wcv")].d.data();
+                float* gwck = p.dw(ln(l, "wck"));
+                float* gwcv = p.dw(ln(l, "wcv"));
                 std::vector<float> cvec((size_t)rr * hd);
                 for (int cc = 0; cc < csa_nc; ++cc)
                     for (int gg = 0; gg < kvh; ++gg) {
@@ -837,10 +838,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                       cvec.data() + (size_t)j * hd);
                         }
                         // dwck += dck ⊗ cvec ; dvec = wckᵀ dck
-                        for (int oi = 0; oi < hd; ++oi)
-                            for (int ii = 0; ii < rr * hd; ++ii)
-                                gwck[(size_t)oi * (size_t)(rr * hd) + ii] +=
-                                    dck[oi] * cvec[ii];
+                        if (gwck)
+                            for (int oi = 0; oi < hd; ++oi)
+                                for (int ii = 0; ii < rr * hd; ++ii)
+                                    gwck[(size_t)oi * (size_t)(rr * hd) + ii] +=
+                                        dck[oi] * cvec[ii];
                         for (int j = 0; j < rr; ++j) {
                             float* dm =
                                 dk_csa.data() +
@@ -860,10 +862,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                       L.v.data() + mrow + hd,
                                       cvec.data() + (size_t)j * hd);
                         }
-                        for (int oi = 0; oi < hd; ++oi)
-                            for (int ii = 0; ii < rr * hd; ++ii)
-                                gwcv[(size_t)oi * (size_t)(rr * hd) + ii] +=
-                                    dcv[oi] * cvec[ii];
+                        if (gwcv)
+                            for (int oi = 0; oi < hd; ++oi)
+                                for (int ii = 0; ii < rr * hd; ++ii)
+                                    gwcv[(size_t)oi * (size_t)(rr * hd) + ii] +=
+                                        dcv[oi] * cvec[ii];
                         for (int j = 0; j < rr; ++j) {
                             float* dm =
                                 dv_csa.data() +
@@ -905,7 +908,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                     p.w.at(ln(l, "q_norm")).d.data(),
                                     L.qk_qrms.data() + (size_t)t * c.heads + h,
                                     dq_raw.data() + off,
-                                    p.g[ln(l, "q_norm")].d.data(), 1, hd);
+                                    p.dw(ln(l, "q_norm")), 1, hd);
                     }
                     for (int h = 0; h < kvh; ++h) {
                         size_t off = ((size_t)t * kvh + h) * (size_t)hd;
@@ -913,7 +916,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                     p.w.at(ln(l, "k_norm")).d.data(),
                                     L.qk_krms.data() + (size_t)t * kvh + h,
                                     dk_raw.data() + off,
-                                    p.g[ln(l, "k_norm")].d.data(), 1, hd);
+                                    p.dw(ln(l, "k_norm")), 1, hd);
                     }
                 }
                 dq.swap(dq_raw); dk.swap(dk_raw);
@@ -933,10 +936,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                   fr + hd);
                     }
                 linear_bwd(dqf.data(), L.n1.data(), p.w.at(ln(l, "wq")),
-                           dn1.data(), p.g[ln(l, "wq")].d.data(), T, H, Hq * 2);
+                           dn1.data(), p.dw(ln(l, "wq")), T, H, Hq * 2);
             } else {
                 linear_bwd(dq.data(), L.n1.data(), p.w.at(ln(l, "wq")),
-                           dn1.data(), p.g[ln(l, "wq")].d.data(), T, H, Hq);
+                           dn1.data(), p.dw(ln(l, "wq")), T, H, Hq);
             }
             if (c.kv_unified(l)) {
                 // unified K==V: the shared projection sees dk + dv.
@@ -944,31 +947,34 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     dk[(size_t)i] += dvv[(size_t)i];
                 });
                 linear_bwd(dk.data(), L.n1.data(), p.w.at(ln(l, "wkv")),
-                           dn1.data(), p.g[ln(l, "wkv")].d.data(), T, H, Hkvl);
+                           dn1.data(), p.dw(ln(l, "wkv")), T, H, Hkvl);
             } else {
                 linear_bwd(dk.data(), L.n1.data(), p.w.at(ln(l, "wk")),
-                           dn1.data(), p.g[ln(l, "wk")].d.data(), T, H, Hkvl);
+                           dn1.data(), p.dw(ln(l, "wk")), T, H, Hkvl);
                 linear_bwd(dvv.data(), L.n1.data(), p.w.at(ln(l, "wv")),
-                           dn1.data(), p.g[ln(l, "wv")].d.data(), T, H, Hkvl);
+                           dn1.data(), p.dw(ln(l, "wv")), T, H, Hkvl);
             }
         }
         std::vector<float> dx_in2((size_t)T * H, 0.0f);
         rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at(ln(l, "norm1")).d.data(),
-                    L.rms1.data(), dx_in2.data(), p.g[ln(l, "norm1")].d.data(), T, H);
+                    L.rms1.data(), dx_in2.data(), p.dw(ln(l, "norm1")), T, H);
         tpu_elementwise((int64_t)dx.size(), [&](int64_t i) {
             dx[(size_t)i] = dx_attn_in[(size_t)i] + dx_in2[(size_t)i];
         });
     }
     // embedding backward (text rows start after the P prefix rows)
-    for (int t = 0; t < PT; ++t) {
-        float* ger = p.g["embed"].d.data() + (size_t)ids[t] * H;
-        for (int i = 0; i < H; ++i) ger[i] += dx[(size_t)(P + t) * H + i];
+    if (float* ge = p.dw("embed")) {
+        for (int t = 0; t < PT; ++t) {
+            float* ger = ge + (size_t)ids[t] * H;
+            for (int i = 0; i < H; ++i)
+                ger[i] += dx[(size_t)(P + t) * H + i];
+        }
     }
     if (P > 0) {
         // vision projection grad; patch-side dx is discarded (input).
         linear_bwd(dx.data(), o.vision_in.data(),
                    p.w.at("vision.patch_proj"), nullptr,
-                   p.g["vision.patch_proj"].d.data(),
+                   p.dw("vision.patch_proj"),
                    P, c.vision_patch_dim, H);
     }
 }
@@ -995,12 +1001,12 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     for (auto& d : dlm) d *= sc;
     std::vector<float> dout((size_t)PT * H, 0.0f);
     linear_bwd(dlm.data(), M.out.data(), p.w.at("lm_head"), dout.data(),
-               p.g["lm_head"].d.data(), PT, H, c.vocab);
+               p.dw("lm_head"), PT, H, c.vocab);
     const LayerCache& L = M.lc;
     std::vector<float> dx2((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dout.data(), M.res2.data(),
                 p.w.at("mtp.norm_out").d.data(), M.out_rms.data(),
-                dx2.data(), p.g["mtp.norm_out"].d.data(), PT, H);
+                dx2.data(), p.dw("mtp.norm_out"), PT, H);
     // residual split: ffn path + x_res skip
     std::vector<float> dx_res = dx2;
     std::vector<float> dn2((size_t)PT * H, 0.0f);
@@ -1008,20 +1014,20 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
                        dfa((size_t)PT * c.inter, 0.0f),
                        dfb((size_t)PT * c.inter, 0.0f);
     linear_bwd(dx2.data(), L.fh.data(), p.w.at("mtp.w2"), dfh.data(),
-               p.g["mtp.w2"].d.data(), PT, c.inter, H);
+               p.dw("mtp.w2"), PT, c.inter, H);
     tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
         float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
         dfa[(size_t)i] += d * b * gate_act_df(a, c.ffn_act);
         dfb[(size_t)i] += d * gate_act_f(a, c.ffn_act);
     });
     linear_bwd(dfa.data(), L.n2.data(), p.w.at("mtp.w1"), dn2.data(),
-               p.g["mtp.w1"].d.data(), PT, H, c.inter);
+               p.dw("mtp.w1"), PT, H, c.inter);
     linear_bwd(dfb.data(), L.n2.data(), p.w.at("mtp.w3"), dn2.data(),
-               p.g["mtp.w3"].d.data(), PT, H, c.inter);
+               p.dw("mtp.w3"), PT, H, c.inter);
     std::vector<float> dxres2((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dn2.data(), L.x_res.data(),
                 p.w.at("mtp.norm2").d.data(), L.rms2.data(),
-                dxres2.data(), p.g["mtp.norm2"].d.data(), PT, H);
+                dxres2.data(), p.dw("mtp.norm2"), PT, H);
     std::vector<float> dpre((size_t)PT * H);
     tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
         dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
@@ -1030,7 +1036,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     std::vector<float> dz_res = dpre;             // residual to z
     std::vector<float> dao((size_t)PT * Hq, 0.0f);
     linear_bwd(dpre.data(), L.attn_out.data(), p.w.at("mtp.wo"),
-               dao.data(), p.g["mtp.wo"].d.data(), PT, Hq, H);
+               dao.data(), p.dw("mtp.wo"), PT, Hq, H);
     const int group = c.heads / kvh;
     const float scale = 1.0f / std::sqrt((float)hd);
     std::vector<float> dq((size_t)PT * Hq, 0.0f),
@@ -1076,36 +1082,38 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     rope(dk.data(), PT, kvh, hd, c.rope_theta, true, &c);
     std::vector<float> dn1((size_t)PT * H, 0.0f);
     linear_bwd(dq.data(), L.n1.data(), p.w.at("mtp.wq"), dn1.data(),
-               p.g["mtp.wq"].d.data(), PT, H, Hq);
+               p.dw("mtp.wq"), PT, H, Hq);
     linear_bwd(dk.data(), L.n1.data(), p.w.at("mtp.wk"), dn1.data(),
-               p.g["mtp.wk"].d.data(), PT, H, Hkvl);
+               p.dw("mtp.wk"), PT, H, Hkvl);
     linear_bwd(dv.data(), L.n1.data(), p.w.at("mtp.wv"), dn1.data(),
-               p.g["mtp.wv"].d.data(), PT, H, Hkvl);
+               p.dw("mtp.wv"), PT, H, Hkvl);
     std::vector<float> dz((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at("mtp.norm1").d.data(),
-                L.rms1.data(), dz.data(), p.g["mtp.norm1"].d.data(), PT, H);
+                L.rms1.data(), dz.data(), p.dw("mtp.norm1"), PT, H);
     tpu_elementwise((int64_t)dz.size(), [&](int64_t i) {
         dz[(size_t)i] += dz_res[(size_t)i];
     });
     // w_proj input split: normed hidden half + normed embed half
     std::vector<float> dcin((size_t)PT * 2 * H, 0.0f);
     linear_bwd(dz.data(), M.cin.data(), p.w.at("mtp.w_proj"), dcin.data(),
-               p.g["mtp.w_proj"].d.data(), PT, 2 * H, H);
+               p.dw("mtp.w_proj"), PT, 2 * H, H);
     for (int i = 0; i < PT; ++i) {
         rmsnorm_bwd(dcin.data() + (size_t)i * 2 * H,
                     M.nh_src.data() + (size_t)i * H,
                     p.w.at("mtp.norm_h").d.data(), M.nh_rms.data() + i,
                     dh.data() + (size_t)(P + i) * H,
-                    p.g["mtp.norm_h"].d.data(), 1, H);
+                    p.dw("mtp.norm_h"), 1, H);
         if (M.ne_ids[(size_t)i] >= 0) {
             std::vector<float> demb((size_t)H, 0.0f);
             rmsnorm_bwd(dcin.data() + (size_t)i * 2 * H + H,
                         M.ne_src.data() + (size_t)i * H,
                         p.w.at("mtp.norm_e").d.data(), M.ne_rms.data() + i,
-                        demb.data(), p.g["mtp.norm_e"].d.data(), 1, H);
-            float* ger = p.g["embed"].d.data() +
-                         (size_t)M.ne_ids[(size_t)i] * H;
-            for (int j = 0; j < H; ++j) ger[j] += demb[(size_t)j];
+                        demb.data(), p.dw("mtp.norm_e"), 1, H);
+            float* ger = p.dw("embed");
+            if (ger) {
+                ger += (size_t)M.ne_ids[(size_t)i] * H;
+                for (int j = 0; j < H; ++j) ger[j] += demb[(size_t)j];
+            }
         }
     }
 }

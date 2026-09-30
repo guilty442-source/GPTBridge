@@ -172,11 +172,11 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         // head: logits = lm_head 繚 norm_o(x2)
         std::vector<float> dhn((size_t)R * H, 0.0f);
         linear_bwd(dm[(size_t)d].data(), M.hn.data(), p.w.at("lm_head"),
-                   dhn.data(), p.g["lm_head"].d.data(), R, H, c.vocab);
+                   dhn.data(), p.dw("lm_head"), R, H, c.vocab);
         std::vector<float> dx2((size_t)R * H, 0.0f);
         rmsnorm_bwd(dhn.data(), M.x2.data(),
                     p.w.at(b + "norm_o").d.data(), M.hrms.data(),
-                    dx2.data(), p.g[b + "norm_o"].d.data(), R, H);
+                    dx2.data(), p.dw(b + "norm_o"), R, H);
         // deeper module consumed x2 rows [0, R_{d+1}) as its eh input
         if (!carry.empty())
             for (size_t i = 0; i < carry.size(); ++i) dx2[i] += carry[i];
@@ -185,7 +185,7 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         std::vector<float> dx1 = dx2;                    // residual
         std::vector<float> dfh((size_t)R * c.inter, 0.0f);
         linear_bwd(dx2.data(), M.fh.data(), p.w.at(b + "w2"),
-                   dfh.data(), p.g[b + "w2"].d.data(), R, c.inter, H);
+                   dfh.data(), p.dw(b + "w2"), R, c.inter, H);
         std::vector<float> dfa((size_t)R * c.inter, 0.0f),
                            dfb((size_t)R * c.inter, 0.0f);
         tpu_elementwise((int64_t)M.fh.size(), [&](int64_t i) {
@@ -196,12 +196,12 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         });
         std::vector<float> dn2((size_t)R * H, 0.0f);
         linear_bwd(dfa.data(), M.n2.data(), p.w.at(b + "w1"),
-                   dn2.data(), p.g[b + "w1"].d.data(), R, H, c.inter);
+                   dn2.data(), p.dw(b + "w1"), R, H, c.inter);
         linear_bwd(dfb.data(), M.n2.data(), p.w.at(b + "w3"),
-                   dn2.data(), p.g[b + "w3"].d.data(), R, H, c.inter);
+                   dn2.data(), p.dw(b + "w3"), R, H, c.inter);
         std::vector<float> dx1n((size_t)R * H, 0.0f);
         rmsnorm_bwd(dn2.data(), M.x1.data(), p.w.at(b + "norm2").d.data(),
-                    M.rms2.data(), dx1n.data(), p.g[b + "norm2"].d.data(),
+                    M.rms2.data(), dx1n.data(), p.dw(b + "norm2"),
                     R, H);
         tpu_elementwise((int64_t)dx1.size(), [&](int64_t i) {
             dx1[(size_t)i] += dx1n[(size_t)i];
@@ -210,7 +210,7 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         std::vector<float> du = dx1;                     // residual to u
         std::vector<float> dao((size_t)R * Hq, 0.0f);
         linear_bwd(dx1.data(), M.attn_out.data(), p.w.at(b + "wo"),
-                   dao.data(), p.g[b + "wo"].d.data(), R, Hq, H);
+                   dao.data(), p.dw(b + "wo"), R, Hq, H);
         std::vector<float> dq((size_t)R * Hq, 0.0f),
                            dk((size_t)R * Hkv, 0.0f),
                            dvv((size_t)R * Hkv, 0.0f);
@@ -264,18 +264,18 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         }
         std::vector<float> dn1((size_t)R * H, 0.0f);
         linear_bwd(dq.data(), M.n1.data(), p.w.at(b + "wq"),
-                   dn1.data(), p.g[b + "wq"].d.data(), R, H, Hq);
+                   dn1.data(), p.dw(b + "wq"), R, H, Hq);
         linear_bwd(dk.data(), M.n1.data(), p.w.at(b + "wk"),
-                   dn1.data(), p.g[b + "wk"].d.data(), R, H, Hkv);
+                   dn1.data(), p.dw(b + "wk"), R, H, Hkv);
         linear_bwd(dvv.data(), M.n1.data(), p.w.at(b + "wv"),
-                   dn1.data(), p.g[b + "wv"].d.data(), R, H, Hkv);
+                   dn1.data(), p.dw(b + "wv"), R, H, Hkv);
         rmsnorm_bwd(dn1.data(), M.u.data(), p.w.at(b + "norm1").d.data(),
-                    M.rms1.data(), du.data(), p.g[b + "norm1"].d.data(),
+                    M.rms1.data(), du.data(), p.dw(b + "norm1"),
                     R, H);
         // fusion proj: u = Wp繚[ehn|een] ??split back into the normed halves
         std::vector<float> dcat((size_t)R * 2 * H, 0.0f);
         linear_bwd(du.data(), M.cat.data(), p.w.at(b + "proj"),
-                   dcat.data(), p.g[b + "proj"].d.data(), R, 2 * H, H);
+                   dcat.data(), p.dw(b + "proj"), R, 2 * H, H);
         std::vector<float> deh((size_t)R * H), dee((size_t)R * H);
         for (int t = 0; t < R; ++t) {
             std::copy(dcat.data() + (size_t)t * 2 * H,
@@ -289,17 +289,18 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                            demb((size_t)R * H, 0.0f);
         rmsnorm_bwd(deh.data(), M.eh_in.data(), p.w.at(b + "eh").d.data(),
                     M.eh_rms.data(), dhprev.data(),
-                    p.g[b + "eh"].d.data(), R, H);
+                    p.dw(b + "eh"), R, H);
         rmsnorm_bwd(dee.data(), M.ee_in.data(), p.w.at(b + "et").d.data(),
                     M.ee_rms.data(), demb.data(),
-                    p.g[b + "et"].d.data(), R, H);
+                    p.dw(b + "et"), R, H);
         // embed table rows ids[t+d+1]
-        float* ge = p.g["embed"].d.data();
-        for (int t = 0; t < R; ++t) {
-            float* gr = ge + (size_t)ids[t + d + 1] * H;
-            const float* dr = demb.data() + (size_t)t * H;
-            for (int i = 0; i < H; ++i) gr[i] += dr[i];
-        }
+        float* ge = p.dw("embed");
+        if (ge)
+            for (int t = 0; t < R; ++t) {
+                float* gr = ge + (size_t)ids[t + d + 1] * H;
+                const float* dr = demb.data() + (size_t)t * H;
+                for (int i = 0; i < H; ++i) gr[i] += dr[i];
+            }
         if (d == 0) {
             for (int t = 0; t < R; ++t) {
                 float* hr = dh_main + (size_t)(P + t) * H;

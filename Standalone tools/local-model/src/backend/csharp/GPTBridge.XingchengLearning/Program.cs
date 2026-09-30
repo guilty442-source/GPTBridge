@@ -768,6 +768,66 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? str2)
                             ? str2 : "", "SELF_TRAINING_DISABLED")));
+            // ---- §10/§11 per-capability failure pools (COLLECT_ONLY
+            //      substrate): status + optional per-class row dump.
+            if (flags.Contains("failure-record"))
+            {
+                var fr = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? frf)
+                        ? frf : "", "SELF_TRAINING_DISABLED");
+                string fcap = fr.TryGetProperty("capability",
+                    out var fcp) ? fcp.GetString() ?? "" : "";
+                string fin = fr.TryGetProperty("input",
+                    out var finp) ? finp.GetString() ?? "" : "";
+                if (fin.Length == 0)
+                    throw new ExecutorError(
+                        "CAPABILITY_CLASSIFICATION_UNCERTAIN",
+                        "failure-record requires input");
+                var rec = FailurePool.Record(
+                    toolRoot, fin,
+                    fr.TryGetProperty("generation", out var fg)
+                        ? fg.GetString() ?? "" : "",
+                    FailurePool.ClassForCapability(fcap),
+                    fr.TryGetProperty("expected", out var fe)
+                        ? fe.GetString() ?? "" : "",
+                    fr.TryGetProperty("actual", out var fa)
+                        ? fa.GetString() ?? "" : "",
+                    fr.TryGetProperty("evidence", out var fev)
+                        ? fev.GetString() ?? "" : "",
+                    fr.TryGetProperty("severity", out var fs)
+                        ? fs.GetString() ?? "medium" : "medium",
+                    true,
+                    fr.TryGetProperty("reason", out var frs)
+                        ? frs.GetString() : null,
+                    fr.TryGetProperty("model_version", out var fmv)
+                        ? fmv.GetString() : null,
+                    fr.TryGetProperty("runtime_version", out var frv)
+                        ? frv.GetString() : null,
+                    fr.TryGetProperty("provenance", out var fpv)
+                        ? fpv.GetString() : null);
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = rec != null,
+                    ["format"] = "star-self-training-failure/v1",
+                    ["capability"] = fcap,
+                    ["failure_class"] =
+                        FailurePool.ClassForCapability(fcap),
+                    ["recorded"] = rec != null,
+                    ["dedup"] = rec != null &&
+                        rec.TryGetValue("dedup", out var dd)
+                            ? dd : "new",
+                });
+            }
+            if (flags.Contains("failure-pool-status"))
+            {
+                var st = FailurePool.Status(toolRoot);
+                if (opts.TryGetValue("capability", out string? fps) &&
+                    fps.Length > 0)
+                    st["pool_rows"] = FailurePool.ReadPool(
+                        toolRoot,
+                        FailurePool.ClassForCapability(fps));
+                return Emit(st);
+            }
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
             if (flags.Contains("maturity-checks"))
                 return Emit(MaturityChecks.Run(toolRoot));
