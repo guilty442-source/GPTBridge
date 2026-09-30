@@ -14,6 +14,7 @@
 // All output is JSON on stdout (same contract as the Python lane); exit
 // code is 0 unless the top-level result carries ok=false.
 
+using System.Globalization;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
@@ -1166,7 +1167,8 @@ internal static class Program
             "--cpu-plan --file <f.json> | " +
             "--freeze-map-validate --file <f.json> | " +
             "--param-efficiency --file <f.json> | " +
-            "--lifetime-plan --file <f.json> | --silicon-checks)");
+            "--lifetime-plan --file <f.json> | --silicon-checks | " +
+            "--capacity-checks)");
         return 2;
     }
 

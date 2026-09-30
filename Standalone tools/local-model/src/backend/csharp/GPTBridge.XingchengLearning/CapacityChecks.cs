@@ -281,7 +281,8 @@ internal static class CapacityChecks
                      "reasoning_tokens":40,
                      "transfer_bytes_per_token":1200}
                     """));
-                return (long)r["active_params"]! == 600_000_000L &&
+                return ((JsonElement)r["active_params"]!)
+                           .GetInt64() == 600_000_000L &&
                        (bool)r["kpi_set_fixed"]!;
             }));
         }

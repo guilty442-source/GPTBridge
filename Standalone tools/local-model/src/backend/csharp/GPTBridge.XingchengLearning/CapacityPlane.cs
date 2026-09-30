@@ -473,12 +473,58 @@ internal static class CapacityPlane
         foreach (string k in Kpis)
             rep[k] = el.TryGetProperty(k, out var v) &&
                      v.ValueKind == JsonValueKind.Number
-                ? v.GetInt64() : null;
-        if (el.TryGetProperty("effective_compute", out var ec) &&
-            ec.ValueKind == JsonValueKind.Number)
-            rep["effective_compute"] = ec.GetDouble();
+                ? (object?)v.Clone() : null;
         rep["kpi_set_fixed"] = true;
         return rep;
+    }
+
+    // ----------------------------------------- JsonElement input --
+
+    public static Dictionary<string, object?> EffectiveCompute(
+        JsonElement el)
+        => EffectiveCompute(
+            Num(el, "active_params"), Num(el, "executed_tokens"),
+            Num(el, "executed_layers", 1), Num(el, "total_layers", 1),
+            Num(el, "expert_transfer_bytes"),
+            Num(el, "mtp_verified_tokens"));
+
+    public static Dictionary<string, object?> ReasoningCompression(
+        JsonElement el)
+        => ReasoningCompression(
+            Num(el, "teacher_reasoning_tokens"),
+            Num(el, "student_reasoning_tokens"),
+            NumF(el, "teacher_score"), NumF(el, "student_score"),
+            el.TryGetProperty("tolerance", out var t) &&
+                t.ValueKind == JsonValueKind.Number
+                    ? t.GetDouble() : 0.02);
+
+    public static Dictionary<string, object?> ValidatePrecision(
+        JsonElement el)
+        => ValidatePrecision(
+            Str(el, "component"), Str(el, "precision"),
+            el.TryGetProperty("certified", out var c) &&
+                c.ValueKind == JsonValueKind.True);
+
+    public static Dictionary<string, object?> ExpertLifecycle(
+        JsonElement el)
+        => ExpertLifecycle(
+            (int)Num(el, "expert_id"), NumF(el, "weight_similarity"),
+            NumF(el, "utilization"), NumF(el, "capability_contribution"),
+            el.TryGetProperty("replaceable", out var r) &&
+                r.ValueKind == JsonValueKind.True,
+            el.TryGetProperty("capability_gate_passed", out var g) &&
+                g.ValueKind == JsonValueKind.True);
+
+    public static Dictionary<string, object?> PromotionGate(
+        JsonElement el)
+    {
+        var stages = new Dictionary<string, bool>();
+        foreach (var p in el.EnumerateObject())
+            if (p.Value.ValueKind is JsonValueKind.True or
+                    JsonValueKind.False)
+                stages[p.Name] = p.Value.ValueKind ==
+                    JsonValueKind.True;
+        return PromotionGate(stages);
     }
 
     internal static long Num(JsonElement el, string k, long d = 0)
@@ -490,4 +536,9 @@ internal static class CapacityPlane
         => el.TryGetProperty(k, out var v) &&
            v.ValueKind == JsonValueKind.String
             ? v.GetString() ?? "" : "";
+
+    internal static double NumF(JsonElement el, string k, double d = 0.0)
+        => el.TryGetProperty(k, out var v) &&
+           v.ValueKind == JsonValueKind.Number
+            ? v.GetDouble() : d;
 }

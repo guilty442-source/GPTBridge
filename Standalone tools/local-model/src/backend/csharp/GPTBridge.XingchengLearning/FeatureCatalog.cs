@@ -475,6 +475,51 @@ internal static class FeatureCatalog
             "INTEGRATED_RUNTIME", false, true, false,
             "csharp-runtime",
             new[] { "hardware-scale-search" }),
+        // ---- capacity & active-parameter formal spec (capacity
+        //      directive §0-§57) ----
+        new("f-capacity-metrics", "capacity directive",
+            "star-capacity-metrics/v1 — six param metrics + five " +
+            "storage metrics measured from bundle manifest (§4-§5)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "capacity-metrics" }),
+        new("f-common-floor-gate", "capacity directive",
+            "common+shared >=600M -> COMMON_FLOOR_TOO_HIGH; routed " +
+            "active budget = 1B - floor (§32-§34)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "common-floor-gate" }),
+        new("f-distillation-plane", "capacity directive",
+            "NativeDistillationPlane — LOGIT/HIDDEN/CAPABILITY/" +
+            "ROUTING lanes + reasoning compression + quant-aware " +
+            "(§9-§15)",
+            "FUTURE_TRAINING", false, true, false, "training",
+            new[] { "distillation-contract",
+                    "reasoning-compression" }),
+        new("f-quantization-policy", "capacity directive",
+            "mixed-precision table — router FP32, common/shared " +
+            "BF16, routed cold INT4 (§20-§26)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "quantization-validate" }),
+        new("f-effective-compute", "capacity directive",
+            "EffectiveActiveCompute — active*tokens*layers + " +
+            "transfers + MTP verify (§37-§38)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "effective-compute" }),
+        new("f-expert-lifecycle", "capacity directive",
+            "dedup/split/merge/dead-prune gates — capability-gated, " +
+            "never magnitude-only (§16-§19)",
+            "EXPERIMENTAL_ARCHITECTURE", false, true, false,
+            "training",
+            new[] { "expert-lifecycle-gate" }),
+        new("f-generation-pipeline", "capacity directive",
+            "TRAIN->...->PROMOTE ten-stage contract + §54 promotion " +
+            "legs (§7/§54)",
+            "INTEGRATED_GOVERNANCE", false, true, false,
+            "csharp-runtime",
+            new[] { "promotion-gate" }),
     };
 
     private static string Path_(string toolRoot)
