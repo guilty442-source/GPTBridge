@@ -118,8 +118,21 @@ void NativeInferenceEngine::bind_mtp_drafter() {
         throw InferenceError("MTP_BUNDLE_MISMATCH:stack-depth>1");
     }
 
-    // Prefer the flat nextn naming; fall back to the XCN10 stack's
-    // depth-0 module — never mix families.
+    // Family detection is by presence, not completeness: any
+    // model.mtp.<role>.* segment that starts with a non-digit is a flat
+    // nextn head, any model.mtp.<digit>.* is a stacked module. Both
+    // families present is a breach — never mix. A partial family then
+    // reports its own missing names, not the other family's.
+    bool flat_present = false, stack_present = false;
+    for (const std::string& n : bundle_->tensor_names()) {
+        if (n.rfind("model.mtp.", 0) != 0 || n.size() <= 10) continue;
+        const char seg = n[10];
+        if (seg >= '0' && seg <= '9') stack_present = true;
+        else flat_present = true;
+    }
+    if (flat_present && stack_present) {
+        throw InferenceError("MTP_BUNDLE_MISMATCH:mixed-mtp-families");
+    }
     static const char* kFlat[13] = {
         "model.mtp.norm_h.weight", "model.mtp.norm_e.weight",
         "model.mtp.w_proj.weight", "model.mtp.norm1.weight",
@@ -132,15 +145,12 @@ void NativeInferenceEngine::bind_mtp_drafter() {
         "eh", "et", "proj", "norm1", "wq", "wk", "wv", "wo",
         "norm2", "w1", "w3", "w2", "norm_o"};
     std::string names[13];
-    bool flat_ok = true;
     for (int i = 0; i < 13; ++i) {
-        if (!bundle_->has_tensor(kFlat[i])) { flat_ok = false; break; }
-        names[i] = kFlat[i];
+        names[i] = stack_present
+            ? "model.mtp.0." + std::string(kRole[i]) + ".weight"
+            : std::string(kFlat[i]);
     }
-    if (!flat_ok) {
-        for (int i = 0; i < 13; ++i)
-            names[i] = "model.mtp.0." + std::string(kRole[i]) + ".weight";
-    }
+    const bool flat_ok = !stack_present;
     TensorView* dst[13] = {
         &mtp_.norm_h, &mtp_.norm_e, &mtp_.w_proj, &mtp_.norm1,
         &mtp_.wq, &mtp_.wk, &mtp_.wv, &mtp_.wo,
