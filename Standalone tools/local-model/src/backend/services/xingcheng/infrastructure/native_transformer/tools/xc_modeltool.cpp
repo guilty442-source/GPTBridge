@@ -3348,6 +3348,20 @@ int mode_mtp_draft_probe(const Args& a) {
         replay.push_back(g);
     }
     const bool production = eng_bound && eng_proposed > 0;
+    std::ostringstream spec_ids;
+    spec_ids << '[';
+    for (size_t i = 0; i < spec_out.size(); ++i) {
+        if (i) spec_ids << ',';
+        spec_ids << spec_out[i];
+    }
+    spec_ids << ']';
+    std::ostringstream ev_ids;
+    ev_ids << '[';
+    for (size_t i = prompt_ids.size(); i < ids.size(); ++i) {
+        if (i > prompt_ids.size()) ev_ids << ',';
+        ev_ids << ids[i];
+    }
+    ev_ids << ']';
     engine.unload();
 
     const double rate =
@@ -3380,6 +3394,7 @@ int mode_mtp_draft_probe(const Args& a) {
         "\"engine_spec_forwards\":%lld,"
         "\"engine_acceptance_rate\":%.6f,"
         "\"engine_emitted\":%lld,"
+        "\"engine_ids\":%s,\"evidence_ids\":%s,"
         "\"engine_output_parity\":%s,"
         "\"speculative_decoder\":\"%s\","
         "\"speedup\":null}\n",
@@ -3391,7 +3406,8 @@ int mode_mtp_draft_probe(const Args& a) {
         eng_bound ? "true" : "false",
         (long long)eng_proposed, (long long)eng_accepted,
         (long long)eng_forwards, eng_rate,
-        (long long)spec_out.size(),
+        (long long)spec_out.size(), spec_ids.str().c_str(),
+        ev_ids.str().c_str(),
         eng_parity ? "true" : "false",
         production ? "PRODUCTION_DISPATCH" : "DISPATCH_NOT_ENGAGED");
     return eng_parity ? 0 : 3;
