@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -23,6 +24,17 @@ import (
 )
 
 const toolID = "ai-collaboration"
+
+var traceFile = filepath.Join(os.TempDir(), "aicollab-ui-trace.log")
+
+func trace(msg string) {
+	f, err := os.OpenFile(traceFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "%s %s\n", time.Now().Format("15:04:05.000"), msg)
+}
 
 func envInt(key string, fallback int) int {
 	if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key))); err == nil && v > 0 {
@@ -73,6 +85,7 @@ func main() {
 		Title: title, ToolRoot: toolRoot}
 
 	handler := newAssetHandler(toolRoot, workspaceRoot)
+	trace("before wails.Run")
 	if dbg := strings.TrimSpace(os.Getenv("AICOLLAB_DEBUG_HTTP")); dbg != "" {
 		go func() {
 			_ = http.ListenAndServe("127.0.0.1:"+dbg, handler)
@@ -97,6 +110,7 @@ func main() {
 				toolRoot, "runtime", "webview2", "shell"),
 		},
 	})
+	trace(fmt.Sprintf("after wails.Run err=%v", err))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "wails runtime error:", err)
 		os.Exit(1)
