@@ -31,7 +31,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             for (size_t i = 0; i < L.fh.size(); ++i) {
                 float a = L.fa[i], b = L.fb[i], d = dfh[i];
                 float sig = silu_f(a);
-                dfa[i] += d * b * sig * (1.0f + a * (1.0f - sig) / (sig == 0.0f ? 1.0f : sig));
+                dfa[i] += d * b * sig * (1.0f + a * (1.0f - sig));
                 dfb[i] += d * sig;
             }
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
@@ -67,7 +67,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     for (int i = 0; i < EI; ++i) {
                         float a = fa[i], bb = fb[i], d = dfh[i];
                         float sig = silu_f(a);
-                        dfa[i] += d * bb * sig * (1.0f + a * (1.0f - sig) / (sig == 0.0f ? 1.0f : sig));
+                        dfa[i] += d * bb * sig * (1.0f + a * (1.0f - sig));
                         dfb[i] += d * sig;
                     }
                     linear_bwd(dfa.data(), xr, p.w.at(b + "w1"),
@@ -133,7 +133,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 for (size_t i = 0; i < sfh.size(); ++i) {
                     float a = sfa[i], bb = sfb[i], d = dsh[i];
                     float sig = silu_f(a);
-                    dsa[i] += d * bb * sig * (1.0f + a * (1.0f - sig) / (sig == 0.0f ? 1.0f : sig));
+                    dsa[i] += d * bb * sig * (1.0f + a * (1.0f - sig));
                     dsb[i] += d * sig;
                 }
                 linear_bwd(dsa.data(), L.n2.data(), p.w.at(b + "w1"),
