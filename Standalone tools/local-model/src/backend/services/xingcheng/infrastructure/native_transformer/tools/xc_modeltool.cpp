@@ -3368,6 +3368,9 @@ int mode_serve(const Args& a) {
 // Laya/MiMo capability plane native lanes: System-1 decision head +
 // MTP drafter benchmarks (contract plane lives in C#).
 #include "xcm_system1.h"
+// NativeMemoryCudaPlane: unified CUDA memory manager, pools, arenas,
+// pressure ladder, telemetry.
+#include "xcm_memplane.h"
 
 }  // namespace
 
@@ -3439,6 +3442,10 @@ int main(int argc, char** argv) {
         if (mode == "mtp-speedup") return mode_mtp_speedup(a);
         if (mode == "mtp-precision-parity")
             return mode_mtp_precision_parity(a);
+        // NativeMemoryCudaPlane — unified memory manager probes.
+        if (mode == "memplane-probe") return mode_memplane_probe(a);
+        if (mode == "memplane-telemetry")
+            return mode_memplane_telemetry(a);
     } catch (const std::exception& e) {
         std::string msg = e.what();
         std::fprintf(stderr, "xc_modeltool error: %s\n", msg.c_str());
