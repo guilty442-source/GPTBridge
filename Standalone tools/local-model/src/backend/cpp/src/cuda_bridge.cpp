@@ -346,8 +346,11 @@ int xcuda_matmul_f64(
 
     {
         std::lock_guard<std::mutex> lk(g_mu);
-        double* db = static_cast<double*>(device_weight(b, b_bytes));
+        // get_handle() first: it owns mp::mgr().ensure() — the pool
+        // alloc in device_weight/dev_get returns nullptr until the
+        // manager is initialized.
         cublasHandle_t handle = get_handle();
+        double* db = static_cast<double*>(device_weight(b, b_bytes));
         double* da = static_cast<double*>(dev_get(g_dev_a, a_bytes));
         double* dc = static_cast<double*>(dev_get(g_dev_c, c_bytes));
         if (db == nullptr || handle == nullptr ||

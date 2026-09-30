@@ -339,6 +339,10 @@ internal static class Program
                         int.TryParse(rsd, out int rsv) ? rsv : 42));
             }
             if (flags.Contains("recovery-eval"))
+            {
+                if (opts.TryGetValue("capability", out string? rec) &&
+                    rec.Length > 0)
+                    InstructionRecovery.Capability = rec;
                 return Emit(InstructionRecovery.EvalBundle(
                     toolRoot,
                     opts.TryGetValue("bundle", out string? reb)
@@ -347,6 +351,7 @@ internal static class Program
                         ? res : "",
                     opts.TryGetValue("out", out string? reo)
                         ? reo : null));
+            }
             if (flags.Contains("recovery-run"))
                 return Emit(InstructionRecovery.Run(
                     toolRoot,

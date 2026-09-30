@@ -38,23 +38,29 @@ internal static class InstructionRecovery
     {
         "context_tracking" => "star-context-eval-result/v1",
         "multi_turn" => "star-multiturn-eval-result/v1",
+        "structured_output" => "star-structured-eval-result/v1",
         _ => "star-instruction-eval-result/v1",
     };
     public static string DatasetFormat => Capability switch
     {
         "context_tracking" => "star-context-recovery-dataset/v1",
         "multi_turn" => "star-multiturn-recovery-dataset/v1",
+        "structured_output" =>
+            "star-structured-recovery-dataset/v1",
         _ => "star-instruction-recovery-dataset/v1",
     };
     private static string SuiteId => Capability switch
     {
         "context_tracking" => "star-context-recovery-eval-20261001",
         "multi_turn" => "star-multiturn-recovery-eval-20261001",
+        "structured_output" =>
+            "star-structured-recovery-eval-20261001",
         _ => "star-instruction-recovery-eval-20261001",
     };
 
     private static readonly string[] SupportedCapabilities =
-        { "instruction_following", "context_tracking", "multi_turn" };
+        { "instruction_following", "context_tracking", "multi_turn",
+          "structured_output" };
 
     // §20 sub-metrics -> score weights, per capability.
     private static readonly (string metric, double w)[]
@@ -87,11 +93,24 @@ internal static class InstructionRecovery
         ("role_consistency", 0.10),
         ("multi_step_state", 0.10),
     };
+    // §9 maturation spec order: validity and schema dominate; enum /
+    // nested / array conformance are real but secondary surfaces.
+    private static readonly (string metric, double w)[]
+        StructuredMetricWeights =
+    {
+        ("json_valid", 0.25),
+        ("schema_conformant", 0.20),
+        ("typed_fields", 0.20),
+        ("enum_membership", 0.15),
+        ("nested_objects", 0.10),
+        ("arrays", 0.10),
+    };
     private static (string metric, double w)[] MetricWeights =>
         Capability switch
         {
             "context_tracking" => ContextMetricWeights,
             "multi_turn" => MultiTurnMetricWeights,
+            "structured_output" => StructuredMetricWeights,
             _ => InstructionMetricWeights,
         };
 
@@ -1418,6 +1437,210 @@ internal static class InstructionRecovery
         return rows;
     }
 
+    // ------------------------------------------------- structured_out --
+
+    // Training pools — eval values are deliberately outside these.
+    private static readonly string[] SoNames =
+        { "明華", "淑芬", "志豪", "雅婷", "建宏", "美玲", "宗翰",
+          "怡君", "家豪", "佳穎" };
+    private static readonly string[] SoTitles =
+        { "夜航西飛", "山海經", "紅樓夢", "鄉土劇場", "島嶼日記",
+          "巷口食記" };
+    private static readonly string[] SoAuthors =
+        { "三毛", "曹雪芹", "吳明益", "陳冠中", "駱以軍" };
+    private static readonly string[] SoLevels =
+        { "high", "medium", "low" };
+    private static readonly string[] SoStates =
+        { "已完成", "進行中", "待處理" };
+
+    // Structured-output recovery — the capability is emitting exactly
+    // one JSON payload and nothing else: correct fields, correct value
+    // TYPES (unquoted numbers / literal booleans), enum membership and
+    // nesting. Every row's completion is one raw JSON object — a
+    // prose-wrapped answer is a negative sample even when the JSON
+    // inside parses (§9 invalid output is never positive).
+    private static IEnumerable<Row> GenerateStructuredOutput(
+        int seed, int count)
+    {
+        var r = new Random(seed);
+        var rows = new List<Row>();
+        void Add(Row row) => rows.Add(row);
+        bool Hard() => r.Next(4) == 0;
+        string Name() => Take(r, SoNames);
+
+        // -- A. json_valid (~25%) — bare object, nothing else. --------
+        for (int i = 0; i < count / 4; i++)
+        {
+            var t = Take(r, ZhTopics);
+            string item = Take(r, t.items);
+            int k = 1 + r.Next(9);
+            Add(new Row
+            {
+                Prompt = $"只輸出 JSON 物件，不要任何其他文字："
+                       + $"{{\"name\": \"{item}\", \"count\": {k}}}",
+                Completion = $"{{\"name\":\"{item}\",\"count\":{k}}}",
+                Category = "A",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        // ok-echo rows — the degenerate valid-object instruction.
+        foreach (bool b in new[] { true, false })
+            for (int i = 0; i < 8; i++)
+                Add(new Row
+                {
+                    Prompt = $"只輸出 JSON：{{\"ok\": "
+                             + (b ? "true" : "false") + "}。"
+                             + "不要其他文字。",
+                    Completion = $"{{\"ok\":{(b ? "true" : "false")}}}",
+                    Category = "A",
+                    Rule = "json_obj",
+                });
+
+        // -- B. schema_conformant (~20%) — exact keys, declared order. --
+        for (int i = 0; i < count / 10; i++)
+        {
+            string title = Take(r, SoTitles);
+            string author = Take(r, SoAuthors);
+            int year = 1950 + r.Next(74);
+            Add(new Row
+            {
+                Prompt = $"回傳 JSON，欄位只能是 title、author、year"
+                       + $"（照此順序）。title={title},author={author},"
+                       + $"year={year}。只輸出 JSON。",
+                Completion = $"{{\"title\":\"{title}\","
+                           + $"\"author\":\"{author}\","
+                           + $"\"year\":{year}}}",
+                Category = "B",
+                Rule = "json_obj;field_order:title,author,year",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        // compact two-field schema.
+        for (int i = 0; i < count / 16; i++)
+        {
+            string id = $"T-{100 + r.Next(900)}";
+            string st = Take(r, SoStates);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON，恰好兩個欄位 id 與 state。"
+                       + $"id={id},state={st}。",
+                Completion = $"{{\"id\":\"{id}\",\"state\":\"{st}\"}}",
+                Category = "B",
+                Rule = "json_obj;field_order:id,state",
+            });
+        }
+
+        // -- C. typed_fields (~20%) — numbers unquoted, booleans
+        //    literal; a quoted number is a type error.
+        for (int i = 0; i < count / 10; i++)
+        {
+            int k = 2 + r.Next(48);
+            string label = Take(r, SoTitles);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：count 為整數（不要加引號），"
+                       + $"label 為字串。count={k},label={label}。"
+                       + "只輸出 JSON。",
+                Completion = $"{{\"count\":{k},\"label\":\"{label}\"}}",
+                Category = "C",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        for (int i = 0; i < count / 16; i++)
+        {
+            bool ok = r.Next(2) == 0;
+            int score = 40 + r.Next(60);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"score\": <數字>, "
+                       + $"\"pass\": <布林>}}。score={score},"
+                       + $"pass={(ok ? "true" : "false")}。",
+                Completion = $"{{\"score\":{score},"
+                           + $"\"pass\":{(ok ? "true" : "false")}}}",
+                Category = "C",
+                Rule = "json_obj",
+            });
+        }
+
+        // -- D. enum_membership (~15%) — value drawn from a closed set;
+        //    a second payload field keeps the shapes distinct so dedup
+        //    does not collapse the lane to six canonical rows.
+        for (int i = 0; i < count / 8; i++)
+        {
+            string lv = Take(r, SoLevels);
+            string task = Take(r, MtTasks);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"priority\": <值>, \"task\": "
+                       + "<字串>}，priority 只能是 high、medium、low "
+                       + $"其中之一。選 {lv}。task={task}。",
+                Completion = $"{{\"priority\":\"{lv}\","
+                           + $"\"task\":\"{task}\"}}",
+                Category = "D",
+                Rule = $"json_obj;exact_json:{lv}",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        foreach (string st in SoStates)
+            for (int i = 0; i < 6; i++)
+            {
+                string task = Take(r, MtTasks);
+                Add(new Row
+                {
+                    Prompt = "只輸出 JSON：{\"狀態\": <值>, \"事項\": "
+                           + "<字串>}，狀態只能是「已完成」「進行中」"
+                           + "「待處理」之一。"
+                           + $"選「{st}」。事項={task}。",
+                    Completion = $"{{\"狀態\":\"{st}\","
+                               + $"\"事項\":\"{task}\"}}",
+                    Category = "D",
+                    Rule = $"json_obj;exact_json:{st}",
+                });
+            }
+
+        // -- E. nested_objects (~10%) — an object inside the object.
+        for (int i = 0; i < count / 10; i++)
+        {
+            string n = Name();
+            int age = 18 + r.Next(50);
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"user\": {{\"name\": <字串>, "
+                       + $"\"age\": <數字>}}}}。name={n},age={age}。"
+                       + "只輸出 JSON。",
+                Completion = $"{{\"user\":{{\"name\":\"{n}\","
+                           + $"\"age\":{age}}}}}",
+                Category = "E",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+
+        // -- F. arrays (~10%) — array fields with correct element
+        //    types and a matching count.
+        for (int i = 0; i < count / 10; i++)
+        {
+            var t = Take(r, ZhTopics);
+            var items = SampleItems(r, t.items, 2 + r.Next(2));
+            string arr = string.Join(
+                ",", items.Select(x => $"\"{x}\""));
+            Add(new Row
+            {
+                Prompt = $"輸出 JSON：{{\"items\": [<字串陣列>], "
+                       + $"\"total\": <數字>}}。items="
+                       + $"{string.Join("、", items)}。",
+                Completion = $"{{\"items\":[{arr}],"
+                           + $"\"total\":{items.Length}}}",
+                Category = "F",
+                Rule = "json_obj",
+                Source = Hard() ? "failure-pool" : "synthetic",
+            });
+        }
+        return rows;
+    }
+
     // Multi-turn eval suite — `category` = sub-metric feeding
     // MultiTurnMetricWeights; every entity/time/item value is disjoint
     // from the Mt* training pools. fail_code carries the multi-turn
@@ -1558,6 +1781,152 @@ internal static class InstructionRecovery
         return items;
     }
 
+    // Structured-output eval suite — `category` = metric name feeding
+    // StructuredMetricWeights. All field names and values are disjoint
+    // from the So* training pools (eval: city/sunny, code/level,
+    // score/pass, level enum {urgent,normal,deferred}, owner/tags,
+    // readings). fail_code taxonomy: JSON_INVALID / SCHEMA_MISMATCH /
+    // TYPE_ERROR / ENUM_VIOLATION / NESTING_ERROR / ARRAY_ERROR.
+    private static List<Dictionary<string, object?>>
+        BuildStructuredSuiteItems()
+    {
+        var items = new List<Dictionary<string, object?>>();
+        void It(string id, string metric, string check, string prompt,
+                string fail, params (string k, object? v)[] extra)
+        {
+            var d = new Dictionary<string, object?>
+            {
+                ["id"] = id, ["category"] = metric, ["check"] = check,
+                ["prompt"] = prompt, ["fail_code"] = fail,
+            };
+            foreach (var (k, v) in extra) d[k] = v;
+            items.Add(d);
+        }
+
+        // json_valid — bare object, exact keys, nothing else.
+        It("jv-basic-1", "json_valid", "json_valid",
+           "Output only a JSON object with fields city (string) and "
+           + "sunny (boolean). city=Tainan, sunny=true. No other text.",
+           "JSON_INVALID",
+           ("required_fields", new List<object?> { "city", "sunny" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["city"] = "string", ["sunny"] = "boolean" }),
+           ("max_new_tokens", 40));
+        It("jv-exact-1", "json_valid", "json_valid",
+           "只輸出 JSON：{\"done\": false}。不要任何其他文字。",
+           "JSON_INVALID",
+           ("required_fields", new List<object?> { "done" }),
+           ("exact_fields", 1),
+           ("field_types", new Dictionary<string, object?>
+            { ["done"] = "boolean" }),
+           ("max_new_tokens", 24));
+
+        // schema_conformant — exact field set and declared order.
+        It("sc-order-1", "schema_conformant", "json_valid",
+           "Return a JSON object with EXACTLY the keys code, label, "
+           + "retry — in that order. code=\"E7\", label=\"timeout\", "
+           + "retry=false. Only the object.",
+           "SCHEMA_MISMATCH",
+           ("required_fields",
+            new List<object?> { "code", "label", "retry" }),
+           ("exact_fields", 1),
+           ("field_order",
+            new List<object?> { "code", "label", "retry" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["code"] = "string", ["label"] = "string",
+              ["retry"] = "boolean" }),
+           ("max_new_tokens", 56));
+        It("sc-two-1", "schema_conformant", "json_valid",
+           "輸出 JSON，恰好兩個欄位 month 與 day。month=11,day=30。",
+           "SCHEMA_MISMATCH",
+           ("required_fields",
+            new List<object?> { "month", "day" }),
+           ("exact_fields", 1),
+           ("field_types", new Dictionary<string, object?>
+            { ["month"] = "number", ["day"] = "number" }),
+           ("max_new_tokens", 32));
+
+        // typed_fields — a quoted digit fails the number type check.
+        It("tf-num-1", "typed_fields", "json_valid",
+           "Output JSON with fields score (integer, NOT a string) and "
+           + "note (string). score=88, note=pass. Only JSON.",
+           "TYPE_ERROR",
+           ("required_fields",
+            new List<object?> { "score", "note" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["score"] = "number", ["note"] = "string" }),
+           ("max_new_tokens", 40));
+        It("tf-bool-1", "typed_fields", "json_valid",
+           "輸出 JSON：enabled 為布林值（不是字串），ratio 為數字。"
+           + "enabled=true,ratio=0.5。只輸出 JSON。",
+           "TYPE_ERROR",
+           ("required_fields",
+            new List<object?> { "enabled", "ratio" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["enabled"] = "boolean", ["ratio"] = "number" }),
+           ("max_new_tokens", 40));
+
+        // enum_membership — value inside the closed set only.
+        It("em-en-1", "enum_membership", "json_valid",
+           "Output JSON {\"level\": <value>} where value must be one "
+           + "of: urgent, normal, deferred. Choose urgent. Only JSON.",
+           "ENUM_VIOLATION",
+           ("required_fields", new List<object?> { "level" }),
+           ("field_values", new Dictionary<string, object?>
+            { ["level"] = new List<object?>
+              { "urgent", "normal", "deferred" } }),
+           ("max_new_tokens", 24));
+        It("em-zh-1", "enum_membership", "json_valid",
+           "只輸出 JSON：{\"優先級\": <值>}，值只能是"
+           + "「緊急」「普通」「延後」其中之一。選「緊急」。",
+           "ENUM_VIOLATION",
+           ("required_fields", new List<object?> { "優先級" }),
+           ("field_values", new Dictionary<string, object?>
+            { ["優先級"] = new List<object?>
+              { "緊急", "普通", "延後" } }),
+           ("max_new_tokens", 24));
+
+        // nested_objects — object inside object.
+        It("no-user-1", "nested_objects", "json_valid",
+           "Output JSON {\"owner\": {\"name\": <string>, \"id\": "
+           + "<number>}} with owner.name=\"Kai\", owner.id=42. "
+           + "Only JSON.",
+           "NESTING_ERROR",
+           ("required_fields", new List<object?> { "owner" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["owner"] = "object" }),
+           ("max_new_tokens", 48));
+        It("no-deep-1", "nested_objects", "json_valid",
+           "Produce nested JSON: {\"meta\": {\"version\": 2}, "
+           + "\"ok\": true}. Follow this shape exactly. Only JSON.",
+           "NESTING_ERROR",
+           ("required_fields",
+            new List<object?> { "meta", "ok" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["meta"] = "object", ["ok"] = "boolean" }),
+           ("max_new_tokens", 48));
+
+        // arrays — real array fields, correct element types and count.
+        It("ar-list-1", "arrays", "json_valid",
+           "輸出 JSON：{\"items\": [<字串陣列>], \"total\": <數字>}。"
+           + "items=鉛筆、橡皮擦、尺。只輸出 JSON。",
+           "ARRAY_ERROR",
+           ("required_fields",
+            new List<object?> { "items", "total" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["items"] = "array", ["total"] = "number" }),
+           ("max_new_tokens", 56));
+        It("ar-empty-1", "arrays", "json_valid",
+           "Output JSON {\"readings\": []} — readings must be an empty "
+           + "array, not a string. Only JSON.",
+           "ARRAY_ERROR",
+           ("required_fields", new List<object?> { "readings" }),
+           ("field_types", new Dictionary<string, object?>
+            { ["readings"] = "array" }),
+           ("max_new_tokens", 24));
+        return items;
+    }
+
     // ----------------------------------------------------- dataset build --
 
     /// <summary>Build the instruction-recovery dataset + eval suite into
@@ -1572,6 +1941,7 @@ internal static class InstructionRecovery
         {
             "context_tracking" => GenerateContext(seed, count),
             "multi_turn" => GenerateMultiTurn(seed, count),
+            "structured_output" => GenerateStructuredOutput(seed, count),
             _ => Generate(seed, count),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -1617,6 +1987,7 @@ internal static class InstructionRecovery
         {
             "context_tracking" => BuildContextSuiteItems(),
             "multi_turn" => BuildMultiTurnSuiteItems(),
+            "structured_output" => BuildStructuredSuiteItems(),
             _ => BuildSuiteItems(),
         };
         var corpusPrompts = rows
