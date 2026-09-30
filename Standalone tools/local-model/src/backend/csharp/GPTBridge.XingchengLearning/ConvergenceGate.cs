@@ -255,15 +255,10 @@ internal static class ConvergenceGate
                 Native(toolRoot, toolExe, "provenance-check",
                        "--bundle", bundle!))),
             new("state-validation", true, () => NeedBundle(() =>
-            {
-                string gen = ManifestGeneration(bundle!);
-                if (gen.Length == 0)
-                    return Fail("STATE_GENERATION_UNKNOWN",
-                                "bundle manifest lacks generation");
-                return Native(toolRoot, toolExe, "statebench",
-                              "--bundle", bundle!,
-                              "--generation", gen, "--tokens", "32");
-            })),
+                Native(toolRoot, toolExe, "statebench",
+                       "--bundle", bundle!,
+                       "--generation", ManifestGeneration(bundle!),
+                       "--tokens", "32"))),
             new("cache-validation", true, () => NeedBundle(() =>
                 Native(toolRoot, toolExe, "cache-smoke",
                        "--bundle", bundle!))),
@@ -448,23 +443,33 @@ internal static class ConvergenceGate
         catch (Exception) { return false; }
     }
 
+    /// <summary>The engine's generation() is manifest
+    /// `architecture_generation` ("" on pre-convergence bundles).
+    /// statebench only needs a consistent tag — fall back to the
+    /// legacy claims and finally "unversioned".</summary>
     private static string ManifestGeneration(string bundle)
     {
         try
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(
                 Path.Combine(bundle, "manifest.json")));
-            if (doc.RootElement.TryGetProperty("generation", out var g)
-                && g.ValueKind == JsonValueKind.String)
-                return g.GetString() ?? "";
-            if (doc.RootElement.TryGetProperty("config", out var c)
-                && c.ValueKind == JsonValueKind.Object
-                && c.TryGetProperty("generation", out var cg)
-                && cg.ValueKind == JsonValueKind.String)
-                return cg.GetString() ?? "";
+            var root = doc.RootElement;
+            foreach (var k in new[] { "architecture_generation",
+                                      "generation" })
+                if (root.TryGetProperty(k, out var g) &&
+                    g.ValueKind == JsonValueKind.String &&
+                    (g.GetString() ?? "").Length > 0)
+                    return g.GetString()!;
+            if (root.TryGetProperty("config", out var c) &&
+                c.ValueKind == JsonValueKind.Object)
+                foreach (var k in new[] { "generation", "architecture" })
+                    if (c.TryGetProperty(k, out var cg) &&
+                        cg.ValueKind == JsonValueKind.String &&
+                        (cg.GetString() ?? "").Length > 0)
+                        return cg.GetString()!;
         }
         catch (Exception) { }
-        return "";
+        return "unversioned";
     }
 
     /// <summary>Architecture drift: the bundle manifest must declare
@@ -482,10 +487,19 @@ internal static class ConvergenceGate
             if (root.TryGetProperty("config", out var c) &&
                 c.ValueKind == JsonValueKind.Object)
                 cfg = c;
-            foreach (var k in new[] { "architecture", "model_type" })
+            foreach (var k in new[] { "architecture",
+                                     "architecture_generation",
+                                     "model_type", "generation" })
                 if (cfg.TryGetProperty(k, out var a) &&
                     a.ValueKind == JsonValueKind.String)
                 { arch = a.GetString() ?? ""; if (arch.Length > 0) break; }
+            if (arch.Length == 0)
+                foreach (var k in new[] { "architecture",
+                                         "architecture_generation" })
+                    if (root.TryGetProperty(k, out var a) &&
+                        a.ValueKind == JsonValueKind.String)
+                    { arch = a.GetString() ?? "";
+                      if (arch.Length > 0) break; }
             if (arch.Length > 0 && arch != "xc-fused-1" &&
                 arch != "xc_fused_1" && !arch.StartsWith("xc-fused-1"))
                 return Fail("ARCHITECTURE_DRIFT",
@@ -656,7 +670,13 @@ internal static class ConvergenceGate
             {
                 new Dictionary<string, object?>
                 {
-                    ["role"] = "gate-invariant", ["content"] = "x",
+                    ["split"] = "train",
+                    ["database_scope"] = "main",
+                    ["content_sha256"] =
+                        TransformerTrainingRepository.Sha256Text(
+                            "gate-invariant-example"),
+                    ["source_revision"] = 1,
+                    ["quality_score"] = 0.9,
                 },
             };
             var manifest = new Dictionary<string, object?>

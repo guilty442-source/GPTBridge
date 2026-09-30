@@ -523,6 +523,59 @@ groupwise / reward integrity / self-correction）、
 `RouterStability.cs`（stage policy + drift gate）、
 `LayaMiMoChecks.cs`（20-check §44 battery）。
 
+## 星澄 NativeMemoryCudaPlane（memory/CUDA directive）
+
+**唯一** CUDA 記憶體平面 —— 所有 device/pinned 配置走
+`UnifiedCudaMemoryManager`；hot path（decode / layer forward /
+MoE dispatch / KV append / Delta update / MTP verify / training
+microstep）**永不** cudaMalloc/cudaFree。
+
+- **Tiers**：`PINNED_PERMANENT`（common weights/router/shared
+  expert）、`SESSION_PERSISTENT`（KV/Delta state/hot experts）、
+  `TOKEN_PERSISTENT`、`LAYER_TEMP`、`KERNEL_SCRATCH` ——
+  不重疊生命週期 alias 同一物理記憶體。
+- **CudaDevicePool**：`cudaMallocAsync` mempool，
+  release threshold = high-water —— 只有 memory pressure /
+  unload / generation switch / 明確維護才 trim。
+- **Budget**：VRAM hard budget 永留 emergency headroom；
+  記憶體不足走 8 步 **pressure ladder**（cold prefix → warm
+  prefix → routed expert → hotset → batch → prefill chunk →
+  spill → reject），**不得 OOM**。
+- **PinnedHostPool**：固定 ring buffer，上限
+  `max_pinned_host_bytes`；普通 metadata/corpus 用 pageable。
+- **Streams**：固定 lane（DECODE_HIGH / PREFILL / EXPERT_PREFETCH /
+  H2D / D2H / TRAIN），decode 最高優先權；日常同步用 event，
+  不用 cudaDeviceSynchronize。
+- **Precision（sm_86）**：production = BF16（Tensor Core），
+  router/norm accumulate = FP32，KV = INT8，
+  **FP64 = Oracle only**（gradcheck/parity/certification），
+  **FP8/FP4 = DISABLED_BY_HARDWARE**。
+- **Telemetry**：`star-cuda-memory-telemetry/v1`（pool
+  used/peak、workspace_peak、per-tier bytes、h2d/d2h/d2d
+  bytes、pinned、ladder events）。
+- **整個 plane 屬 RUNTIME_OPTIMIZATION_AXIS** —— 不改模型語意、
+  權重語意、XCN10、HybridCausalDecoder，不產生新 generation。
+
+```powershell
+# native probe（真 GPU 執行 pool/arena/ladder 檢查；無 GPU 回報 simulated）
+& xc_modeltool.exe memplane-probe --budget 2147483648 --pinned 33554432
+& xc_modeltool.exe memplane-telemetry
+# 合約層電池（原生 probe + 政策檢查）
+& xc-learning.exe --tool-root "Standalone tools\local-model" --cuda-plane-checks
+& xc-learning.exe --tool-root "Standalone tools\local-model" --precision-policy
+```
+
+Implementation：`tools/xcm_memplane.h`（manager/pool/arena/
+pinned/ladder/telemetry，real CUDA runtime API）、
+`GPTBridge.XingchengLearning/MemoryCudaPlane.cs`（precision
+policy / ladder / prefill-chunk / telemetry schema / alignment）、
+`CudaPlaneChecks.cs`（11-check battery）。
+
+未落地（P1–P10，依優先序排程）：BF16 production GEMM 切換、
+CUDA Graph decode/prefill/training、kernel fusion、fused AdamW、
+activation/gradient arena、autotune —— 目前僅契約與 catalog
+狀態；FP8/FP4 production kernel **不做**。
+
 ## 星澄 Data Residency (`xingcheng-internal`)
 
 > Human-governor directive 2026-09-28: 星澄資料只能保留在星澄內部。
