@@ -721,6 +721,13 @@ internal static class GenerationMigration
         if (!TransformerTrainingRepository.Truthy(
                 cv.GetValueOrDefault("ok")))
             throw new ExecutorError("GEN_CERTIFY_NOT_PASSED", id);
+        // §5: when the convergence gate is enforced, promotion needs a
+        // passing star-release-gate/v1 report — fail closed otherwise.
+        if (ConvergenceGate.Enforced(toolRoot)
+            && ConvergenceGate.LatestVerdict(toolRoot)
+                != "PROMOTION_ALLOWED")
+            throw new ExecutorError("RELEASE_GATE_BLOCKED",
+                "release gate has not passed (enforce_release_gate=1)");
         var weights = (Dictionary<string, object?>)m["weights"]!;
         string target = Path.Combine(
             toolRoot,

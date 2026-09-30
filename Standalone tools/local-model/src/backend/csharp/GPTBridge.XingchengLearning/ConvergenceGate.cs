@@ -37,6 +37,43 @@ internal static class ConvergenceGate
     private sealed record Step(string Name, bool Critical,
                                Func<StepResult> Run);
 
+    /// <summary>§5 enforcement: true when runtime/settings/
+    /// convergence-gate.json sets enforce_release_gate=true —
+    /// promotion/activation must then present passing gate evidence.</summary>
+    public static bool Enforced(string toolRoot)
+    {
+        string path = Path.Combine(toolRoot, "runtime", "settings",
+            "convergence-gate.json");
+        if (!File.Exists(path)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            return doc.RootElement.TryGetProperty(
+                "enforce_release_gate", out var v)
+                && v.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>Latest gate report verdict ("" if none).</summary>
+    public static string LatestVerdict(string toolRoot)
+    {
+        string dir = Path.Combine(toolRoot,
+            ReportRel.Replace('/', Path.DirectorySeparatorChar));
+        if (!Directory.Exists(dir)) return "";
+        string? newest = Directory.EnumerateFiles(dir, "gate-*.json")
+            .OrderByDescending(f => f).FirstOrDefault();
+        if (newest == null) return "";
+        try
+        {
+            using var doc = JsonDocument.Parse(
+                File.ReadAllText(newest));
+            return doc.RootElement.TryGetProperty("verdict", out var v)
+                ? v.GetString() ?? "" : "";
+        }
+        catch (Exception) { return ""; }
+    }
+
     private static StepResult Pass(string detail = "") =>
         new() { Detail = detail };
     private static StepResult Fail(string code, string detail = "") =>
