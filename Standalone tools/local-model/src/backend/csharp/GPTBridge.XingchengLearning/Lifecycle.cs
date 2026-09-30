@@ -82,8 +82,11 @@ internal sealed class ModelLifecycle
     {
         if (!ArtifactKinds.Contains(kind))
             throw new ArgumentException($"ARTIFACT_KIND_UNKNOWN:{kind}");
-        if (!File.Exists(path))
+        bool isDir = Directory.Exists(path);
+        if (!File.Exists(path) && !isDir)
             throw new FileNotFoundException($"ARTIFACT_MISSING:{path}");
+        string sha256 = isDir ? ArtifactHashDir(path)
+                              : TransformerTrainingRepository.Sha256File(path);
         if (!Artifacts.TryGetValue(kind, out var versions))
         {
             versions = new Dictionary<string, object?>
@@ -113,7 +116,7 @@ internal sealed class ModelLifecycle
         {
             ["version"] = known.Count > 0 ? known.Max() + 1 : 1,
             ["path"] = path,
-            ["sha256"] = TransformerTrainingRepository.Sha256File(path),
+            ["sha256"] = sha256,
             ["registered_at"] = UtcNow(),
             ["metadata"] = metadata ?? new Dictionary<string, object?>(),
         };
@@ -234,6 +237,24 @@ internal sealed class ModelLifecycle
             if (Convert.ToInt32(entry["version"]) == ActiveWeightsVersion)
                 return entry;
         return null;
+    }
+
+    /// <summary>Digest for a directory artifact (native bundle):
+    /// manifest.json hash when present, else weights.bin, else the
+    /// canonical hash of sorted child names.</summary>
+    private static string ArtifactHashDir(string dir)
+    {
+        string manifest = Path.Combine(dir, "manifest.json");
+        if (File.Exists(manifest))
+            return TransformerTrainingRepository.Sha256File(manifest);
+        string weights = Path.Combine(dir, "weights.bin");
+        if (File.Exists(weights))
+            return TransformerTrainingRepository.Sha256File(weights);
+        string listing = string.Join(
+            "\n", Directory.GetFileSystemEntries(dir)
+                      .Select(Path.GetFileName)
+                      .OrderBy(n => n, StringComparer.Ordinal));
+        return TransformerTrainingRepository.Sha256Text(listing);
     }
 
     /// <summary>Absolute paths of every registered weights version

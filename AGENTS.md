@@ -337,6 +337,61 @@ schedule; `retention.json` `enabled=false` stops deletion. Manual:
 Implementation: `GPTBridge.XingchengLearning/Retention.cs`
 (`apply_retention` port; `star-retention-policy/v1`).
 
+## 星澄 Generation Migration (`star-generation-migration/v1`)
+
+> Human-governor directive 2026-09-30: 世代升級採單一活躍世代——
+> 新世代完成遷移、驗證、認證及啟用後才允許淘汰前代；前代有價值
+> 資料（人格/記憶/知識/RAG/訓練/評估/工具/tokenizer）必須已
+> move-forward 至新世代，歷史版本號累積不歸零。
+
+Single-active-generation upgrade flow in `xc-learning.exe`:
+
+1. `--gen-begin` creates the sole CANDIDATE manifest
+   (`xingcheng/runtime/state/generation/migration-*.json`) recording
+   source/target generation, checkpoint+tokenizer hashes, schema
+   range and `weight_migration_method` (`direct` / `partial` /
+   `distill`; `partial` requires `--expert-lineage <json>` —
+   source→target expert weight source / init / router mapping /
+   split-merge). A second open candidate is refused
+   (`GEN_CANDIDATE_EXISTS`).
+2. `--gen-record` moves each required domain forward with record
+   counts — `personality`, `cognition_knowledge`,
+   `long_term_memory`, `rag`, `training_corpus`,
+   `evaluation_history`, `capability_state`, `tokenizer`,
+   `routing_policy`, `safety_policy` — each must reach `migrated`
+   or `not_applicable` (never parallel database copies).
+3. `--gen-certify` runs fail-closed gates: candidate artifact hash,
+   single candidate, tokenizer loadable, config contract,
+   `xingcheng_trainer --smoke`, `xc_modeltool cache-smoke` native
+   inference on the target bundle, optional `--suite` capability
+   regression vs the source bundle (via `Evaluation`), all data
+   domains complete, expert lineage present for `partial`.
+   Any gate failure → manifest `FAILED`, nothing activated.
+4. `--gen-promote` (requires certified): registers+activates the
+   target weights in the model lifecycle, pins
+   `runtime/settings/native-engine.json`, flips
+   `state/generation/state.json` ACTIVE_GENERATION.
+5. `--gen-purge` (dry-run unless `--apply`): deletes predecessor
+   executable artifacts — unreferenced bundles and retired weight
+   versions — never the target, the pinned checkpoint, or any
+   lifecycle-owned active path. The manifest migrates forward with
+   the new generation, preserving lineage after predecessor
+   deletion.
+
+```powershell
+$X = "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe"
+& $X --tool-root "Standalone tools\local-model" --gen-begin --target v28 --weights <bundle|ckpt> --weight-method direct
+& $X --tool-root "Standalone tools\local-model" --gen-record --manifest <id> --domain personality --status migrated --migrated 8
+& $X --tool-root "Standalone tools\local-model" --gen-certify --manifest <id> [--suite <suite.json>]
+& $X --tool-root "Standalone tools\local-model" --gen-promote --manifest <id>
+& $X --tool-root "Standalone tools\local-model" --gen-purge --manifest <id> [--apply]
+& $X --tool-root "Standalone tools\local-model" --gen-status [--manifest <id>]
+```
+
+Implementation: `GPTBridge.XingchengLearning/GenerationMigration.cs`;
+directory artifacts (native bundles) hash via manifest/weights digest
+in `Lifecycle.cs::ArtifactHashDir`.
+
 ## 星澄 Data Residency (`xingcheng-internal`)
 
 > Human-governor directive 2026-09-28: 星澄資料只能保留在星澄內部。
