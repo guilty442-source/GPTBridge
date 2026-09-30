@@ -278,6 +278,60 @@ internal static class Program
             if (flags.Contains("catalog-validate"))
                 return Emit(FeatureCatalog.Validate(
                     opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- tool decision gate + contracts (§16/§17/§18)
+            if (flags.Contains("tool-validate"))
+            {
+                string kind = opts.TryGetValue("kind", out string? tvk)
+                    ? tvk : "request";
+                var el = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? tvf)
+                        ? tvf : "",
+                    "TOOL_SCHEMA_INVALID");
+                return Emit(kind == "result"
+                    ? ToolContracts.ValidateResult(el)
+                    : ToolContracts.ValidateCall(el));
+            }
+            if (flags.Contains("tool-gate"))
+            {
+                var decided = ToolContracts.Decide(
+                    toolRoot,
+                    opts.TryGetValue("tool", out string? tgt) ? tgt : "",
+                    opts.TryGetValue("requirement", out string? tgr)
+                        ? tgr : "optional",
+                    opts.TryGetValue("reason", out string? tre)
+                        ? tre : "");
+                if (opts.TryGetValue("outcome-status", out string? tos))
+                    decided["outcome"] = ToolContracts.RecordOutcome(
+                        toolRoot,
+                        (string)decided["decision"]!,
+                        schemaValid: !flags.Contains("schema-invalid"),
+                        status: tos);
+                return Emit(decided);
+            }
+            if (flags.Contains("tool-metrics"))
+                return Emit(ToolContracts.MetricsPayload(toolRoot));
+            if (flags.Contains("grounded-validate"))
+                return Emit(ToolContracts.ValidateGrounded(
+                    toolRoot,
+                    opts.TryGetValue("file", out string? gvf)
+                        ? gvf : ""));
+            if (flags.Contains("structured-validate"))
+            {
+                string output =
+                    opts.TryGetValue("output", out string? svo)
+                        ? svo : "";
+                var schema = ToolContracts.ReadJson(
+                    opts.TryGetValue("schema", out string? svs)
+                        ? svs : "",
+                    "STRUCTURED_SCHEMA_FAILED");
+                if (!File.Exists(output))
+                    throw new ExecutorError(
+                        "STRUCTURED_PARSE_FAILED",
+                        "output file missing");
+                return Emit(StructuredOutput.Validate(
+                    File.ReadAllText(output), schema,
+                    repairOnce: flags.Contains("repair")));
+            }
             if (flags.Contains("langcheck"))
                 return Emit(LangCheck.Scan(toolRoot));
             if (flags.Contains("queue-job"))
@@ -770,8 +824,8 @@ internal static class Program
         var reloaded = ModelLifecycle.Load(lcDir);
         if (reloaded.ActiveWeightsVersion != 2)
             throw new InvalidOperationException("lifecycle reload mismatch");
-        // 世代繼任契�?：v2 ?�用?�自?��???v1 完整記�? ?��??�除?�代後其
-        // 資�?仍�??�在?�代 metadata.succeeded_from ?��?
+        // 世代繼任契�?：v2 ?�用?�自?��???v1 完整記�? ?��??�除?�代後其
+        // 資�?仍�??�在?�代 metadata.succeeded_from ?��?
         bool successionRecorded = false;
         if (reloaded.Artifacts.TryGetValue("weights", out var wg) &&
             wg.TryGetValue("versions", out object? wv) &&

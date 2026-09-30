@@ -808,6 +808,8 @@ void NativeInferenceEngine::reset_cache() {
     // reset (kv_alloc_slot returns the first inactive slot → slot 0).
     kv_alloc_slot();
     sequence_.clear();
+    mem_prefill_peak_ = 0;
+    mem_decode_peak_ = 0;
 }
 
 std::vector<double> NativeInferenceEngine::logits(const std::vector<int64_t>& input_ids) {

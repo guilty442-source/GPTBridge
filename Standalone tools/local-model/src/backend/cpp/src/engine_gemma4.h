@@ -621,5 +621,6 @@ std::vector<double> NativeInferenceEngine::forward_batch_hidden_gemma4(
     if (module_rms != nullptr) {
         module_rms->push_back(hidden_rms(normed, total_tokens, hidden_size));
     }
+    mem_note(total_tokens);
     return normed;
 }
