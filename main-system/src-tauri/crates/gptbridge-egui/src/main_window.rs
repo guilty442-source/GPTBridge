@@ -583,8 +583,9 @@ impl MainWindow {
     ) {
         let tool = &self.tools[index];
         let busy = tool.busy() || self.busy.contains(&tool.id);
+        const FOOTER_H: f32 = 34.0;
         let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(width, 176.0),
+            egui::vec2(width, 236.0),
             egui::Sense::hover(),
         );
         let stroke = match tool.status.as_str() {
@@ -594,9 +595,15 @@ impl MainWindow {
         };
         paint_card(ui.painter(), rect, CARD_TOP, CARD_BOTTOM, 14.0, stroke, true);
 
+        // Content region reserves the footer strip so meta cells never
+        // slide underneath the action buttons.
+        let content_rect = egui::Rect::from_min_max(
+            egui::pos2(rect.left() + 16.0, rect.top() + 14.0),
+            egui::pos2(rect.right() - 16.0, rect.bottom() - 14.0 - FOOTER_H - 8.0),
+        );
         let mut inner = ui.new_child(
             egui::UiBuilder::new()
-                .max_rect(rect.shrink2(egui::vec2(16.0, 14.0)))
+                .max_rect(content_rect)
                 .layout(egui::Layout::top_down(egui::Align::Min)),
         );
         let ui = &mut inner;

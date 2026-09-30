@@ -301,8 +301,26 @@ void draw_button(const DRAWITEMSTRUCT* dis) {
                                          : theme::kSecondary);
     if (disabled) fill = theme::kDisabled;
     theme::fill_chamfer(dis->hDC, dis->rcItem, 8, fill,
-                        accent ? theme::kAccentDn
+                        accent ? (g_blink && !disabled ? theme::kAccentHot
+                                                      : theme::kAccentDn)
                                : hot ? theme::kAccent : theme::kFieldEdge);
+    /* diagonal sheen on hover — light sweep like a menu button */
+    if (hot && !disabled) {
+        int saved = SaveDC(dis->hDC);
+        IntersectClipRect(dis->hDC, dis->rcItem.left, dis->rcItem.top,
+                          dis->rcItem.right, dis->rcItem.bottom);
+        HPEN pen = CreatePen(PS_SOLID, 2,
+                             accent ? theme::kOnAccent : theme::kAccentHot);
+        HGDIOBJ op = SelectObject(dis->hDC, pen);
+        for (int x = dis->rcItem.left - 10; x < dis->rcItem.right;
+             x += 18) {
+            MoveToEx(dis->hDC, x, dis->rcItem.bottom, nullptr);
+            LineTo(dis->hDC, x + 14, dis->rcItem.top);
+        }
+        SelectObject(dis->hDC, op);
+        DeleteObject(pen);
+        RestoreDC(dis->hDC, saved);
+    }
     /* neon slash across the cut corner — reticle detail */
     if (accent && !disabled) {
         HPEN pen = CreatePen(PS_SOLID, 1, theme::kOnAccent);
@@ -456,6 +474,25 @@ LRESULT CALLBACK content_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             theme::accent_rule(dc, 218, 108, 60, theme::kAccentDim);
             theme::accent_rule(dc, sx, 108, 120, theme::kAccentDim);
             theme::accent_rule(dc, sx + 110, 108, 10, theme::kAccentHot);
+            /* targeting reticle watermark — big faint crosshair in
+             * the hatch zone */
+            {
+                int rx = cw - 120, ry = 52, rr = 34;
+                HPEN pen = CreatePen(PS_SOLID, 1, theme::kAccentDim);
+                HGDIOBJ ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
+                HGDIOBJ op = SelectObject(dc, pen);
+                Ellipse(dc, rx - rr, ry - rr, rx + rr, ry + rr);
+                for (int a = 0; a < 4; ++a) {
+                    static const int dx[4] = {0, 0, -1, 1};
+                    static const int dy[4] = {-1, 1, 0, 0};
+                    MoveToEx(dc, rx + dx[a] * (rr - 8), ry + dy[a] * (rr - 8),
+                             nullptr);
+                    LineTo(dc, rx + dx[a] * (rr + 6), ry + dy[a] * (rr + 6));
+                }
+                SelectObject(dc, ob);
+                SelectObject(dc, op);
+                DeleteObject(pen);
+            }
             /* hex unit emblem inside the hatch zone */
             theme::hex_badge(dc, cw - 42, 34, 12,
                              theme::kAccentDim, theme::kAccent);
@@ -579,6 +616,9 @@ void on_tick() {
         blink_tick = 0;
         g_blink = !g_blink;
         InvalidateRect(g_app.ui.conn_dot, nullptr, TRUE);
+        /* CTA pulse — accent buttons breathe when enabled */
+        InvalidateRect(g_app.ui.btn_cleanup, nullptr, FALSE);
+        InvalidateRect(g_app.ui.btn_upsert, nullptr, FALSE);
     }
     RECT band{0, 0, 2000, 112};
     InvalidateRect(g_app.content, &band, FALSE);

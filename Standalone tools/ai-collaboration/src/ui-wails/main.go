@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	wailswindows "github.com/wailsapp/wails/v2/pkg/options/windows"
@@ -80,9 +81,11 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Handler: handler,
 		},
-		Bind:       []interface{}{app},
-		OnStartup:  app.Startup,
-		OnShutdown: app.Shutdown,
+		Bind:               []interface{}{app},
+		OnStartup:          app.Startup,
+		OnShutdown:         app.Shutdown,
+		LogLevel:           logger.DEBUG,
+		LogLevelProduction: logger.DEBUG,
 		Windows: &wailswindows.Options{
 			WebviewUserDataPath: filepath.Join(
 				toolRoot, "runtime", "webview2", "shell"),

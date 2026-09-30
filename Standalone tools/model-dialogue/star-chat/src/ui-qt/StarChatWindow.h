@@ -85,7 +85,8 @@ private:
     bool generating_ = false;
     QString stage_ = QStringLiteral("準備處理");
     QDateTime thinkingSince_;
-    Pending *pending_ = nullptr;
+    Pending pending_;
+    bool hasPending_ = false;
     QVector<QPair<QString, QString>> models_;  // (name, label)
     QString selectedModel_;
     quint64 requestSeq_ = 0;

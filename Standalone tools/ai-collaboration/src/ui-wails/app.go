@@ -22,6 +22,8 @@ type App struct {
 type uiSession struct {
 	WebsocketURL string
 	Version      string
+	Title        string
+	ToolRoot     string
 }
 
 func NewApp() *App { return &App{} }

@@ -349,6 +349,34 @@ export function mountAiCollaborationWindowApp(root) {
 	};
 	window.addEventListener("socket_connected", onSocketConnected);
 
+	// Backend-delegated browser ops: the host bridge executes DOM work on
+	// the matching embedded-browser session and replies on the same
+	// governed socket.  Fail-closed when no bridge is present.
+	const onBrowserOp = (event) => {
+		const detail = event.detail;
+		if (!detail || detail.event !== "ai_collab_browser_op") return;
+		const p = detail.payload || {};
+		const opId = String(p.op_id || "");
+		const reply = (res) => socket.sendCommand("ai_collab_browser_op_result", {
+			op_id: opId,
+			...(res && typeof res === "object" ? res : { ok: false })
+		});
+		const api = window.electron;
+		if (!api || typeof api.invoke !== "function") {
+			reply({ ok: false, error_code: "BROWSER_BRIDGE_UNAVAILABLE",
+				message: "embedded browser bridge unavailable" });
+			return;
+		}
+		void Promise.resolve(api.invoke("embedded-browser:dom-op", p)).then(
+			(res) => reply(res && typeof res === "object"
+				? res
+				: { ok: false, error_code: "INVALID_BRIDGE_RESULT",
+					message: "browser bridge returned a malformed result" }),
+			(err) => reply({ ok: false, error_code: "DOM_OP_FAILED",
+				message: err instanceof Error ? err.message : String(err) }));
+	};
+	window.addEventListener("ipc_event", onBrowserOp);
+
 	let boundsMounted = true;
 	const handleResize = () => {
 		window.setTimeout(() => {
@@ -379,6 +407,7 @@ export function mountAiCollaborationWindowApp(root) {
 			window.removeEventListener("resize", handleResize);
 			document.removeEventListener("visibilitychange", handleVisibility);
 			window.removeEventListener("socket_connected", onSocketConnected);
+			window.removeEventListener("ipc_event", onBrowserOp);
 			window.clearInterval(resyncTimer);
 			unsubStore();
 			unsubSocket();

@@ -106,6 +106,24 @@ inline void corner_tick(HDC dc, int x, int y, int dx, int dy, int L,
  * corner ticks + specular top edge (catches the light). */
 inline void card(HDC dc, RECT rc) {
     fill_chamfer(dc, rc, 16, kCard, kCardEdge);
+    /* faint CRT scanlines inside the panel */
+    {
+        HPEN sp = CreatePen(PS_SOLID, 1, kGrid);
+        HGDIOBJ sop = SelectObject(dc, sp);
+        int saved = SaveDC(dc);
+        IntersectClipRect(dc, rc.left, rc.top, rc.right, rc.bottom);
+        for (int y = rc.top + 4; y < rc.bottom; y += 5) {
+            MoveToEx(dc, rc.left, y, nullptr);
+            LineTo(dc, rc.right, y);
+        }
+        RestoreDC(dc, saved);
+        SelectObject(dc, sop);
+        DeleteObject(sp);
+    }
+    /* title marker bar — neon pip just left of the card heading,
+     * clear of the corner slash */
+    RECT pip{rc.left + 28, rc.top + 15, rc.left + 32, rc.top + 31};
+    FillRect(dc, &pip, brush(kAccent));
     HPEN pen = CreatePen(PS_SOLID, 2, kAccent);
     HGDIOBJ op = SelectObject(dc, pen);
     MoveToEx(dc, rc.left + 2, rc.top + 22, nullptr);
@@ -170,6 +188,8 @@ inline HBRUSH grid_brush() {
     SetPixel(mem, 16, 16, kGrid);
     SetPixel(mem, 4, 5, kGrid);
     SetPixel(mem, 16, 17, kGrid);
+    /* CRT scanline row — every other pixel, one row per tile */
+    for (int x = 0; x < 24; x += 2) SetPixel(mem, x, 22, kGrid);
     SelectObject(mem, ob);
     DeleteDC(mem);
     ReleaseDC(nullptr, scr);

@@ -174,6 +174,18 @@ LRESULT CALLBACK slider_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                 RECT cap{fillw - 3, cy - 3, fillw, cy + 3};
                 theme::fill_round(dc, cap, theme::kAccentHot, 4);
             }
+            /* tick notches under the track — HUD scale marks */
+            {
+                HPEN tp = CreatePen(PS_SOLID, 1, theme::kAccentDim);
+                HGDIOBJ top = SelectObject(dc, tp);
+                for (int i = 0; i <= 10; ++i) {
+                    int x = 8 + (rc.right - 16) * i / 10;
+                    MoveToEx(dc, x, cy + 6, nullptr);
+                    LineTo(dc, x, cy + (i % 5 == 0 ? 11 : 9));
+                }
+                SelectObject(dc, top);
+                DeleteObject(tp);
+            }
             /* thumb: chamfered hexagon — dark core, neon edge */
             int tx = 8 + (int)(t * (rc.right - 16));
             POINT hex[6]{{tx - 4, cy - 8}, {tx + 4, cy - 8},
@@ -204,8 +216,12 @@ LRESULT CALLBACK progress_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_NCCREATE:
             SetPropW(h, L"fsui.pct", (HANDLE)0);
             return TRUE;
+        case WM_SETFONT:
+            SetPropW(h, L"fsui.font", (HANDLE)wp);
+            return TRUE;
         case WM_NCDESTROY:
             RemovePropW(h, L"fsui.pct");
+            RemovePropW(h, L"fsui.font");
             return 0;
         case PBM_SETPOS:
             SetPropW(h, L"fsui.pct", (HANDLE)(INT_PTR)wp);
@@ -249,6 +265,20 @@ LRESULT CALLBACK progress_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                 if (cap.right > cap.left)
                     theme::fill_round(dc, cap, theme::kAccentHot,
                                       rc.bottom - 2);
+            }
+            /* percent readout — HUD numeric inside the bar */
+            {
+                wchar_t buf[16];
+                std::swprintf(buf, 16, L"%d%%", pct);
+                HFONT f = (HFONT)GetPropW(h, L"fsui.font");
+                if (!f) f = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+                HGDIOBJ of = SelectObject(dc, f);
+                SetBkMode(dc, TRANSPARENT);
+                SetTextColor(dc, pct >= 50 ? theme::kOnAccent
+                                           : theme::kAccentHot);
+                DrawTextW(dc, buf, -1, &rc,
+                          DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                SelectObject(dc, of);
             }
             EndPaint(h, &ps);
             return 0;
