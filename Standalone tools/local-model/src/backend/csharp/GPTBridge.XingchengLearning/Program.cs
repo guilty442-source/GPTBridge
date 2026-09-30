@@ -76,6 +76,9 @@ internal static class Program
                     ["migrated"] =
                         new TransformerTrainingRepository(toolRoot).Maintain(),
                 });
+            if (flags.Contains("teacher-collect"))
+                return Emit(TeacherCollect.Collect(
+                    toolRoot, dryRun: flags.Contains("dry-run")));
             return Usage();
         }
         catch (Exception exc)
@@ -97,7 +100,7 @@ internal static class Program
             "(--status | --run-once [--force] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
             "--job <id> | --self-test | --verify-audit | --db-status | " +
-            "--migrate)");
+            "--migrate | --teacher-collect [--dry-run])");
         return 2;
     }
 
