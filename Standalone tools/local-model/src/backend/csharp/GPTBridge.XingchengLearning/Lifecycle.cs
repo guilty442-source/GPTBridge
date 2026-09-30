@@ -142,13 +142,26 @@ internal sealed class ModelLifecycle
                         meta = new Dictionary<string, object?>();
                         entry["metadata"] = meta;
                     }
+                    // Snapshot a deep copy — storing the predecessor's
+                    // live metadata dictionary would alias shared object
+                    // graphs and can create a serialization cycle.
+                    object? prevMeta = prev.GetValueOrDefault("metadata");
+                    object? metaCopy = null;
+                    if (prevMeta != null)
+                    {
+                        var sb = new System.Text.StringBuilder();
+                        CanonicalJson.WriteValue(
+                            prevMeta, sb, canonical: false, depth: 0);
+                        metaCopy = Decode(
+                            JsonDocument.Parse(sb.ToString()).RootElement);
+                    }
                     meta["succeeded_from"] = new Dictionary<string, object?>
                     {
                         ["version"] = previousActive,
                         ["path"] = prev.GetValueOrDefault("path"),
                         ["sha256"] = prev.GetValueOrDefault("sha256"),
                         ["registered_at"] = prev.GetValueOrDefault("registered_at"),
-                        ["metadata"] = prev.GetValueOrDefault("metadata"),
+                        ["metadata"] = metaCopy,
                     };
                     History.Add(new Dictionary<string, object?>
                     {
