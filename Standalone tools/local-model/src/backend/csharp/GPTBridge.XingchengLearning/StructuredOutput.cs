@@ -183,6 +183,23 @@ internal static class StructuredOutput
     /// <summary>Insert null placeholders for missing required fields —
     /// a schema can then accept or still reject (null fails the type
     /// check unless the field is nullable, which is honest).</summary>
+    /// <summary>CLI-facing: validate an output file against a schema
+    /// file — parse -> schema -> single repair -> validate.</summary>
+    public static Dictionary<string, object?> Validate(
+        string toolRoot, string outputFile, string schemaFile)
+    {
+        if (string.IsNullOrEmpty(outputFile) ||
+            !File.Exists(outputFile))
+            throw new ExecutorError("STRUCTURED_PARSE_FAILED",
+                $"{outputFile}: output file missing");
+        var schema = ToolContracts.ReadJson(
+            schemaFile, "STRUCTURED_SCHEMA_FAILED");
+        var r = Validate(File.ReadAllText(outputFile), schema,
+                         repairOnce: true);
+        r["file"] = outputFile;
+        return r;
+    }
+
     private static JsonElement? RepairRequired(
         JsonElement v, JsonElement schema)
     {

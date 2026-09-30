@@ -154,56 +154,22 @@ internal static class Program
                         ? rf2 : ""));
             if (flags.Contains("trace-status"))
                 return Emit(CapabilityTrace.Status(toolRoot));
-            // ---- runtime capability plane (star-runtime-capabilities/v1)
-            if (flags.Contains("caps-status"))
-                return Emit(RuntimeCapabilities.Status(toolRoot));
-            if (flags.Contains("caps-validate"))
-                return Emit(RuntimeCapabilities.Validate(
-                    opts.TryGetValue("profile", out string? cp)
-                        ? cp : ""));
-            // ---- feature catalog (star-model-feature-catalog/v1)
-            if (flags.Contains("feature-catalog"))
-                return Emit(FeatureCatalog.Emit(toolRoot));
-            if (flags.Contains("catalog-validate"))
-                return Emit(FeatureCatalog.Validate(
-                    opts.TryGetValue("file", out string? cf) ? cf : ""));
-            // ---- tool contracts (§16/§17/§18)
-            if (flags.Contains("tool-decision"))
-                return Emit(ToolContracts.Decide(
-                    toolRoot,
-                    opts.TryGetValue("request", out string? tdr)
-                        ? tdr : ""));
-            if (flags.Contains("tool-call-validate"))
-                return Emit(ToolContracts.ValidateCall(
-                    opts.TryGetValue("call", out string? tcc)
-                        ? tcc : ""));
-            if (flags.Contains("tool-result-validate"))
-                return Emit(ToolContracts.ValidateResult(
-                    opts.TryGetValue("result", out string? trr)
-                        ? trr : ""));
-            if (flags.Contains("structured-validate"))
-                return Emit(ToolContracts.ValidateStructured(
-                    opts.TryGetValue("output", out string? soo)
-                        ? soo : "",
-                    opts.TryGetValue("schema", out string? sos)
-                        ? sos : "",
-                    repair: flags.Contains("repair")));
-            if (flags.Contains("grounded-record"))
-                return Emit(ToolContracts.RecordGrounded(
-                    toolRoot,
-                    opts.TryGetValue("result", out string? grf)
-                        ? grf : ""));
-            // ---- long-horizon tasks (§5)
+            // ---- long-horizon tasks (§5 checkpoint/compact/resume)
             if (flags.Contains("task-create"))
-                return Emit(LongHorizonTask.Create(
+                return Emit(LongHorizonTasks.Create(
                     toolRoot,
                     opts.TryGetValue("goal", out string? tg) ? tg : "",
                     opts.TryGetValue("constraints", out string? tc)
-                        ? tc : "",
-                    opts.TryGetValue("plan", out string? tpl)
-                        ? tpl : ""));
+                        ? tc : ""));
+            if (flags.Contains("task-plan"))
+                return Emit(LongHorizonTasks.SetPlan(
+                    toolRoot,
+                    opts.TryGetValue("task", out string? tp1) ? tp1 : "",
+                    (opts.TryGetValue("steps", out string? tps)
+                        ? tps : "").Split(';',
+                        StringSplitOptions.RemoveEmptyEntries)));
             if (flags.Contains("task-step"))
-                return Emit(LongHorizonTask.Step(
+                return Emit(LongHorizonTasks.RecordStep(
                     toolRoot,
                     opts.TryGetValue("task", out string? ts1) ? ts1 : "",
                     opts.TryGetValue("step", out string? ts2) ? ts2 : "",
@@ -212,52 +178,49 @@ internal static class Program
                     opts.TryGetValue("evidence", out string? tev)
                         ? tev : ""));
             if (flags.Contains("task-checkpoint"))
-                return Emit(LongHorizonTask.Checkpoint(
+                return Emit(LongHorizonTasks.Checkpoint(
                     toolRoot,
                     opts.TryGetValue("task", out string? tc1)
                         ? tc1 : ""));
             if (flags.Contains("task-compact"))
-                return Emit(LongHorizonTask.Compact(
+                return Emit(LongHorizonTasks.Compact(
                     toolRoot,
                     opts.TryGetValue("task", out string? tc2)
                         ? tc2 : ""));
             if (flags.Contains("task-resume"))
-                return Emit(LongHorizonTask.Resume(
+                return Emit(LongHorizonTasks.Resume(
                     toolRoot,
-                    opts.TryGetValue("task", out string? tr1)
-                        ? tr1 : ""));
-            if (flags.Contains("task-verify"))
-                return Emit(LongHorizonTask.Verify(
+                    opts.TryGetValue("checkpoint", out string? trc)
+                        ? trc : ""));
+            if (flags.Contains("task-revalidate"))
+                return Emit(LongHorizonTasks.Revalidate(
                     toolRoot,
-                    opts.TryGetValue("task", out string? tv1)
-                        ? tv1 : "",
-                    opts.TryGetValue("note", out string? tvn)
-                        ? tvn : ""));
-            if (flags.Contains("task-complete"))
-                return Emit(LongHorizonTask.Complete(
+                    opts.TryGetValue("task", out string? trv)
+                        ? trv : ""));
+            if (flags.Contains("task-transition"))
+                return Emit(LongHorizonTasks.Transition(
                     toolRoot,
-                    opts.TryGetValue("task", out string? tc3)
-                        ? tc3 : ""));
-            if (flags.Contains("task-fail"))
-                return Emit(LongHorizonTask.Fail(
-                    toolRoot,
-                    opts.TryGetValue("task", out string? tf1)
-                        ? tf1 : "",
-                    opts.TryGetValue("reason", out string? tfr)
-                        ? tfr : ""));
+                    opts.TryGetValue("task", out string? tt1)
+                        ? tt1 : "",
+                    opts.TryGetValue("to", out string? tt2)
+                        ? tt2 : "",
+                    opts.TryGetValue("reason", out string? ttr2)
+                        ? ttr2 : ""));
             if (flags.Contains("task-status"))
-                return Emit(LongHorizonTask.Status(
-                    toolRoot,
-                    opts.TryGetValue("task", out string? tst)
-                        ? tst : ""));
+                return Emit(LongHorizonTasks.Status(toolRoot));
             // ---- coding lane (§10/§11/§22)
             if (flags.Contains("code-task-validate"))
                 return Emit(CodeAgent.ValidateTask(
-                    opts.TryGetValue("task-file", out string? ct)
-                        ? ct : ""));
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("task-file", out string? ct)
+                            ? ct : "",
+                        "REPO_TASK_SCOPE_INVALID")));
             if (flags.Contains("fim-validate"))
                 return Emit(CodeAgent.ValidateFim(
-                    opts.TryGetValue("file", out string? ff) ? ff : ""));
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ff)
+                            ? ff : "",
+                        "FIM_CONTRACT_INVALID")));
             if (flags.Contains("code-run"))
                 return Emit(CodeAgent.Run(
                     toolRoot,
@@ -289,50 +252,16 @@ internal static class Program
                 return Emit(EvaluationCoordinator.Status(toolRoot));
             if (flags.Contains("arch-gate"))
                 return Emit(ArchitectureGate.Evaluate(
-                    opts.TryGetValue("file", out string? agf)
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? agf)
+                            ? agf : "",
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")))
                         ? agf : ""));
             if (flags.Contains("provenance-check"))
                 return Emit(BundleProvenance.Check(
                     toolRoot,
                     opts.TryGetValue("bundle", out string? pb)
                         ? pb : ""));
-            if (flags.Contains("tool-validate"))
-                return Emit(ToolContracts.ValidateCall(
-                    opts.TryGetValue("file", out string? tvf) ? tvf : "",
-                    opts.TryGetValue("kind", out string? tvk)
-                        ? tvk : "request"));
-            if (flags.Contains("tool-gate"))
-            {
-                var decided = ToolContracts.Decide(
-                    toolRoot,
-                    opts.TryGetValue("tool", out string? tgt) ? tgt : "",
-                    opts.TryGetValue("requirement", out string? tgr)
-                        ? tgr : "optional",
-                    opts.TryGetValue("reason", out string? tre) ? tre : "");
-                if (opts.TryGetValue("outcome-status", out string? tos))
-                    decided["outcome"] = ToolContracts.RecordOutcome(
-                        toolRoot,
-                        (string)decided["decision"]!,
-                        schemaValid: !flags.Contains("schema-invalid"),
-                        status: tos);
-                return Emit(decided);
-            }
-            if (flags.Contains("tool-metrics"))
-                return Emit(ToolContracts.MetricsPayload(toolRoot));
-            if (flags.Contains("grounded-validate"))
-                return Emit(ToolContracts.ValidateGrounded(
-                    toolRoot,
-                    opts.TryGetValue("file", out string? gvf) ? gvf : ""));
-            if (flags.Contains("structured-validate"))
-                return Emit(StructuredOutput.Validate(
-                    toolRoot,
-                    opts.TryGetValue("output", out string? svo) ? svo : "",
-                    opts.TryGetValue("schema", out string? svs) ? svs : ""));
-            if (flags.Contains("caps-status"))
-                return Emit(RuntimeCapabilities.Status(toolRoot));
-            if (flags.Contains("caps-validate"))
-                return Emit(RuntimeCapabilities.Validate(
-                    opts.TryGetValue("file", out string? cv) ? cv : ""));
             if (flags.Contains("catalog-emit"))
                 return Emit(FeatureCatalog.Emit(toolRoot));
             if (flags.Contains("catalog-validate"))

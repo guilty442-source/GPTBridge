@@ -1,4 +1,4 @@
-// FeatureCatalog.cs — ``star-model-feature-catalog/v1`` (§31).
+// FeatureCatalog.cs ??``star-model-feature-catalog/v1`` (§31).
 //
 // Formal governance data (not a research report): the canonical mapping
 // from external model inspirations to the xingcheng components that
@@ -30,7 +30,7 @@ internal static class FeatureCatalog
         bool GenerationChangeRequired, string Owner,
         string[] Tests);
 
-    /// <summary>Canonical catalog — the §31 mapping, embedded so the
+    /// <summary>Canonical catalog ??the §31 mapping, embedded so the
     /// catalog is versioned with the code that implements it.</summary>
     public static readonly Feature[] Canonical =
     {
@@ -117,15 +117,15 @@ internal static class FeatureCatalog
         new("f-kda-attnres", "Kimi-K3",
             "KDA/AttnRes/Stable-LatentMoE into xc-fused-1",
             "REJECTED", false, false, true, "governance",
-            new[] { }),
+            Array.Empty<string>()),
         new("f-mamba2", "Zamba-2",
             "Mamba2 blocks into xc-fused-1",
             "REJECTED", false, false, true, "governance",
-            new[] { }),
+            Array.Empty<string>()),
         new("f-distill-train", "all sources",
             "Any distillation/merge/weight migration this phase",
             "DEFERRED_TRAINING", true, false, false, "governance",
-            new[] { }),
+            Array.Empty<string>()),
     };
 
     private static string Path_(string toolRoot)
@@ -147,7 +147,7 @@ internal static class FeatureCatalog
             ["tests"] = f.Tests.Cast<object?>().ToList(),
         };
 
-    /// <summary>Persist the canonical catalog (atomic write) — the file
+    /// <summary>Persist the canonical catalog (atomic write) ??the file
     /// is the governance artifact; the code is its source of truth.</summary>
     public static Dictionary<string, object?> Emit(string toolRoot)
     {

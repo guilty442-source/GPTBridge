@@ -329,4 +329,99 @@ internal static class ToolContracts
             throw new ExecutorError(errCode, $"{file}: {e.Message}");
         }
     }
+
+    // ----------------------------------- CLI-facing conveniences -----
+
+    /// <summary>Validate a call or result document by path; ``kind`` is
+    /// ``request`` (star-tool-call/v2) or ``result``
+    /// (star-tool-result/v2).</summary>
+    public static Dictionary<string, object?> ValidateCall(
+        string file, string kind)
+    {
+        var el = ReadJson(file, "TOOL_SCHEMA_INVALID");
+        return kind == "result" ? ValidateResult(el) : ValidateCall(el);
+    }
+
+    /// <summary>Per-request tool-need decision without a prepared call
+    /// document: the allowlist still gates, and a request naming a
+    /// non-allowlisted tool is denied rather than guessed.</summary>
+    public static Dictionary<string, object?> Decide(
+        string toolRoot, string tool, string requirement,
+        string reason)
+    {
+        var profile = RuntimeCapabilities.Load(toolRoot);
+        string decision;
+        if (tool.Length == 0)
+            decision = "TOOL_NOT_REQUIRED";
+        else if (profile.ToolsAllowed.Length > 0 &&
+                 !profile.ToolsAllowed.Contains(tool))
+            decision = "TOOL_DENIED";
+        else
+            decision = requirement switch
+            {
+                "required" => "TOOL_REQUIRED",
+                "denied" => "TOOL_DENIED",
+                _ => "TOOL_OPTIONAL",
+            };
+        if (!Decisions.Contains(decision))
+            throw new ExecutorError("TOOL_DECISION_INVALID", decision);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-tool-decision/v1",
+            ["decision"] = decision,
+            ["tool"] = tool,
+            ["requirement"] = requirement,
+            ["reason"] = reason,
+            ["requires_confirmation"] =
+                profile.ToolRequiresConfirmation &&
+                decision == "TOOL_REQUIRED",
+        };
+    }
+
+    /// <summary>Record the outcome of a gate decision in the metrics
+    /// ledger and return the outcome payload.</summary>
+    public static Dictionary<string, object?> RecordOutcome(
+        string toolRoot, string decision, bool schemaValid,
+        string status)
+    {
+        if (!schemaValid) RecordMetric(toolRoot, "invalid");
+        else if (decision == "TOOL_NOT_REQUIRED")
+            RecordMetric(toolRoot, "unnecessary");
+        if (status.Length > 0 && decision != "TOOL_NOT_REQUIRED")
+            RecordMetric(toolRoot,
+                status == "ok" ? "succeeded" : "failed");
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["decision"] = decision,
+            ["schema_valid"] = schemaValid,
+            ["status"] = status,
+            ["recorded_at"] = XcPaths.IsoNow(),
+        };
+    }
+
+    /// <summary>Metrics surface for the CLI (alias of Metrics).</summary>
+    public static Dictionary<string, object?> MetricsPayload(
+        string toolRoot)
+        => Metrics(toolRoot);
+
+    /// <summary>Validate a star-grounded-result/v1 file, then append it
+    /// to the grounding ledger.</summary>
+    public static Dictionary<string, object?> ValidateGrounded(
+        string toolRoot, string file)
+    {
+        var el = ReadJson(file, "GROUNDING_UNSUPPORTED_CLAIM");
+        var r = ValidateGrounded(el);
+        try
+        {
+            string dir = Path.Combine(toolRoot, XcPaths.LogsRel);
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(
+                Path.Combine(dir, "grounded-results.jsonl"),
+                CanonicalJson.Canonical(el) + "\n");
+        }
+        catch { /* ledger append is best-effort */ }
+        return r;
+    }
 }
