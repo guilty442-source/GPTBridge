@@ -1,7 +1,7 @@
-// cuda_ptx_fp8.h — embedded PTX fp8 (E4M3) kernels (B132):
-//   xc_gemm_fp8       fp32 a × fp8 b → fp32 c; shared-tile decode hoist
+// cuda_ptx_fp8.h -- embedded PTX fp8 (E4M3) kernels (B132):
+//   xc_gemm_fp8       fp32 a x fp8 b -> fp32 c; shared-tile decode hoist
 //                     (each b element decoded once via xc_fp8_dec).
-//   xc_gemv_fp8_part  skinny-m split-k GEMV pass 1 — same fused-row
+//   xc_gemv_fp8_part  skinny-m split-k GEMV pass 1 -- same fused-row
 //                     register pattern as the bf16 lane.
 
 #pragma once
@@ -21,7 +21,7 @@ inline const char* fp8() {
     .reg .b32  %r<12>;
     .reg .b64  %rd<20>;
     .reg .f32  %f<10>;
-    .param .b32 %po_dec;
+    .param .b32 %po_dec, %pi_dec;
     ld.param.u64 %rd1, [%p_a];
     ld.param.u64 %rd2, [%p_b];
     ld.param.u64 %rd3, [%p_c];
@@ -79,7 +79,8 @@ XC_G8_SA:
     add.u64 %rd14, %rd14, %rd8;
     add.u64 %rd14, %rd2, %rd14;                   // &b[b_row*n+col] u8
     ld.global.u8 %r10, [%rd14];
-    call (%po_dec), xc_fp8_dec, (%r10);
+    st.param.b32 [%pi_dec], %r10;
+    call (%po_dec), xc_fp8_dec, (%pi_dec);
     ld.param.b32 %r11, [%po_dec];
     mov.b32 %f3, %r11;
 XC_G8_SB:
@@ -138,7 +139,7 @@ XC_G8_RET:
     .reg .b32  %r<10>;
     .reg .b64  %rd<24>;
     .reg .f32  %f<32>;
-    .param .b32 %po_dec;
+    .param .b32 %po_dec, %pi_dec;
     ld.param.u64 %rd1, [%p_a];
     ld.param.u64 %rd2, [%p_b];
     ld.param.u64 %rd3, [%p_part];
@@ -189,7 +190,8 @@ XC_GVF_LOOP:
     add.u64 %rd12, %rd12, %rd8;                   // b idx i*n+col
     add.u64 %rd12, %rd2, %rd12;
     ld.global.u8 %r6, [%rd12];
-    call (%po_dec), xc_fp8_dec, (%r6);
+    st.param.b32 [%pi_dec], %r6;
+    call (%po_dec), xc_fp8_dec, (%pi_dec);
     ld.param.b32 %r7, [%po_dec];
     mov.b32 %f1, %r7;                             // bv
     shl.b64 %rd13, %rd11, 2;

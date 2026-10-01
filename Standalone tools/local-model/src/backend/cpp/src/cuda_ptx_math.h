@@ -1,14 +1,14 @@
-// cuda_ptx_math.h — embedded PTX device helpers for the native CUDA
+// cuda_ptx_math.h -- embedded PTX device helpers for the native CUDA
 // lane (B132): shared .func subroutines called by the module's kernels.
 // Text is authored in-tree and JIT-compiled by the NVIDIA driver via
-// cuModuleLoadData — no toolkit, NVRTC or external library involved.
+// cuModuleLoadData -- no toolkit, NVRTC or external library involved.
 //
 //   xc_exp_f64  IEEE-f64 exp(): Cody-Waite ln2 reduction + degree-15
-//               Horner + 2^k exponent scale. |rel err| ≲ 1e-15 on the
-//               contracted range — matches host exp() within the fp64
+//               Horner + 2^k exponent scale. |rel err| ? 1e-15 on the
+//               contracted range -- matches host exp() within the fp64
 //               parity tolerance (1e-9).
-//   xc_fp8_dec  E4M3 (nv fp8e4m3fn) byte → f32, identical semantics to
-//               the CUDA FP8 pipeline's conversion: subnormal = m·2^-9,
+//   xc_fp8_dec  E4M3 (nv fp8e4m3fn) byte -> f32, identical semantics to
+//               the CUDA FP8 pipeline's conversion: subnormal = m*2^-9,
 //               e+120 bias shift, canonical NaN = 0x7fc00000.
 
 #pragma once
@@ -17,7 +17,7 @@ namespace xcuda_ptx {
 
 inline const char* math() {
     return R"PTX(
-// ---- f64 exp() — Cody-Waite + Horner + exponent scale -------------
+// ---- f64 exp() -- Cody-Waite + Horner + exponent scale -------------
 .func (.param .b64 %p_out) xc_exp_f64 (.param .b64 %p_in)
 {
     .reg .pred %p<5>;
@@ -53,9 +53,9 @@ inline const char* math() {
     fma.rn.f64 %fd6, %fd6, %fd5, 0d3FF0000000000000; // +1/0!
     add.s32 %r2, %r1, 1023;                      // biased 2^k exponent
     setp.le.s32 %p3, %r2, 0;
-    @%p3 bra XC_EXP_ZERO;                        // underflow → 0
+    @%p3 bra XC_EXP_ZERO;                        // underflow -> 0
     setp.ge.s32 %p4, %r2, 2047;
-    @%p4 bra XC_EXP_BIG;                         // k ≥ 1024 → two-step
+    @%p4 bra XC_EXP_BIG;                         // k >= 1024 -> two-step
     cvt.s64.s32 %rd1, %r2;
     shl.b64 %rd1, %rd1, 52;
     mov.b64 %fd7, %rd1;                          // 2^k
@@ -75,7 +75,7 @@ XC_EXP_INF:
     ret;
 }
 
-// ---- E4M3 fp8 byte → f32 (nv-fp8 semantics: subnormal m·2^-9) ----
+// ---- E4M3 fp8 byte -> f32 (nv-fp8 semantics: subnormal m*2^-9) ----
 .func (.param .b32 %p_out) xc_fp8_dec (.param .b32 %p_in)
 {
     .reg .pred %p<5>;
@@ -83,21 +83,21 @@ XC_EXP_INF:
     .reg .f32  %f<4>;
     ld.param.u32 %r1, [%p_in];
     and.b32 %r1, %r1, 255;
-    and.b32 %r2, %r1, 128;           // sign (bit7 → bit31 later)
+    and.b32 %r2, %r1, 128;           // sign (bit7 -> bit31 later)
     shr.u32 %r3, %r1, 3;
     and.b32 %r3, %r3, 15;            // e4
     and.b32 %r4, %r1, 7;             // m3
     setp.eq.u32 %p1, %r3, 15;
     setp.eq.u32 %p2, %r4, 7;
     and.pred %p3, %p1, %p2;
-    @%p3 bra XC_FP8D_NAN;            // e=15,m=7 → NaN
+    @%p3 bra XC_FP8D_NAN;            // e=15,m=7 -> NaN
     setp.eq.u32 %p4, %r3, 0;
     @%p4 bra XC_FP8D_SUB;
     add.u32 %r5, %r3, 120;           // f32 bias = e4-7+127
     shl.b32 %r5, %r5, 23;
     shl.b32 %r6, %r4, 20;
     or.b32  %r5, %r5, %r6;
-    shl.b32 %r7, %r2, 24;            // sign → bit31
+    shl.b32 %r7, %r2, 24;            // sign -> bit31
     or.b32  %r5, %r5, %r7;
     st.param.b32 [%p_out], %r5;
     ret;

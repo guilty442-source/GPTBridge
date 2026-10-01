@@ -1,11 +1,11 @@
-// cuda_ptx_gemv.h — embedded PTX skinny-m split-k GEMV kernels (B132):
-//   xc_gemv_bf16_part  bf16 a/b → fp32 split-k partials; one thread per
-//                      output column, all ≤16 rows fused in registers
+// cuda_ptx_gemv.h -- embedded PTX skinny-m split-k GEMV kernels (B132):
+//   xc_gemv_bf16_part  bf16 a/b -> fp32 split-k partials; one thread per
+//                      output column, all <=16 rows fused in registers
 //                      (acc[r] = fma(av, bv, acc[r]) in k order).
 //   xc_gemv_fp8_part   same shape; a is device fp32, b is E4M3 bytes
 //                      decoded through xc_fp8_dec.
-//   xc_gemv_reduce     shared pass 2: c[r][col] = Σ_s part[s][r][col]
-//                      in fixed slice order — deterministic.
+//   xc_gemv_reduce     shared pass 2: c[r][col] = sum_s part[s][r][col]
+//                      in fixed slice order -- deterministic.
 
 #pragma once
 
@@ -317,7 +317,7 @@ XC_GVB_END:
     ret;
 }
 
-// ---- split-k reduce (shared pass 2): c[r][col] = Σ_s part[s][r][col] -
+// ---- split-k reduce (shared pass 2): c[r][col] = sum_s part[s][r][col] -
 .visible .entry xc_gemv_reduce(
     .param .u64 %p_part, .param .u64 %p_c,
     .param .u32 %p_m, .param .u32 %p_n, .param .u32 %p_ksplit)

@@ -1,9 +1,9 @@
-// cuda_ptx_conv.h — embedded PTX conversion kernels (B132):
-//   xc_f64_to_bf16  f64 → bf16u16 (RN, via cvt.rn.bf16.f32)
-//   xc_f64_to_fp32  f64 → f32   (RN)
-//   xc_f64_to_fp8   f64 → fp8 E4M3 (RNE, satfinite) — same semantics as
-//                   the CUDA FP8 pipeline (double→half→e4m3): NaN→0x7f,
-//                   |x|≥464→±448, subnormal via ·2^9 + round-to-nearest-int.
+// cuda_ptx_conv.h -- embedded PTX conversion kernels (B132):
+//   xc_f64_to_bf16  f64 -> bf16u16 (RN, via cvt.rn.bf16.f32)
+//   xc_f64_to_fp32  f64 -> f32   (RN)
+//   xc_f64_to_fp8   f64 -> fp8 E4M3 (RNE, satfinite) -- same semantics as
+//                   the CUDA FP8 pipeline (double->half->e4m3): NaN->0x7f,
+//                   |x|>=464->+/-448, subnormal via *2^9 + round-to-nearest-int.
 
 #pragma once
 
@@ -11,7 +11,7 @@ namespace xcuda_ptx {
 
 inline const char* conv() {
     return R"PTX(
-// ---- f64 → bf16 (u16) ----------------------------------------------
+// ---- f64 -> bf16 (u16) ----------------------------------------------
 .visible .entry xc_f64_to_bf16(
     .param .u64 %p_in, .param .u64 %p_out, .param .u64 %p_n)
 {
@@ -46,7 +46,7 @@ XC_CVT16_DONE:
     ret;
 }
 
-// ---- f64 → f32 ------------------------------------------------------
+// ---- f64 -> f32 ------------------------------------------------------
 .visible .entry xc_f64_to_fp32(
     .param .u64 %p_in, .param .u64 %p_out, .param .u64 %p_n)
 {
@@ -79,7 +79,7 @@ XC_CVT32_DONE:
     ret;
 }
 
-// ---- f64 → fp8 E4M3 (RNE, satfinite) --------------------------------
+// ---- f64 -> fp8 E4M3 (RNE, satfinite) --------------------------------
 .visible .entry xc_f64_to_fp8(
     .param .u64 %p_in, .param .u64 %p_out, .param .u64 %p_n)
 {
@@ -107,12 +107,12 @@ XC_CVT32_DONE:
     cvt.rn.f32.f64 %f1, %fd1;
     mov.b32 %r4, %f1;
     and.b32 %r5, %r4, 0x80000000;
-    shr.u32 %r5, %r5, 24;                        // sign → bit7
+    shr.u32 %r5, %r5, 24;                        // sign -> bit7
     and.b32 %r6, %r4, 0x7fffffff;                // |x| bits
     setp.gt.u32 %p2, %r6, 0x7f800000;
-    @%p2 bra XC_FP8_NAN;                         // NaN → 0x7f
+    @%p2 bra XC_FP8_NAN;                         // NaN -> 0x7f
     setp.ge.u32 %p3, %r6, 0x43E80000;
-    @%p3 bra XC_FP8_SAT;                         // |x| ≥ 464 → ±448
+    @%p3 bra XC_FP8_SAT;                         // |x| >= 464 -> +/-448
     shr.u32 %r7, %r6, 23;                        // f32 biased exp
     add.s32 %r8, %r7, -120;                      // e4m3 biased exp
     setp.le.s32 %p4, %r8, 0;
@@ -133,7 +133,7 @@ XC_CVT32_DONE:
     bra XC_FP8_ST;
 XC_FP8_SUB:                                      // |x| < 2^-6
     mov.b32 %f2, %r6;
-    mul.rn.f32 %f2, %f2, 0f44000000;             // x·512 → subnorm steps
+    mul.rn.f32 %f2, %f2, 0f44000000;             // x*512 -> subnorm steps
     cvt.rni.s32.f32 %r13, %f2;                   // RNE to integer
     or.b32 %r13, %r13, %r5;
     bra XC_FP8_ST;

@@ -1,10 +1,10 @@
-// cuda_ptx_gemm.h — embedded PTX tiled GEMM kernels (B132):
-//   xc_gemm_f64   row-major C=A·B in fp64 — the self-authored
-//                 replacement for the retired cuBLAS Dgemm; 16×16
+// cuda_ptx_gemm.h -- embedded PTX tiled GEMM kernels (B132):
+//   xc_gemm_f64   row-major C=A*B in fp64 -- the self-authored
+//                 replacement for the retired cuBLAS Dgemm; 16x16
 //                 shared tiles, f64 accumulate, fma order identical to
 //                 a row-major mul+add within fp64 parity tolerance.
-//   xc_gemm_bf16  bf16 operands → fp32 shared tiles (each element
-//                 converted once at load), fp32 FMA accumulate —
+//   xc_gemm_bf16  bf16 operands -> fp32 shared tiles (each element
+//                 converted once at load), fp32 FMA accumulate --
 //                 semantics identical to the retired NVRTC source.
 
 #pragma once
@@ -13,7 +13,7 @@ namespace xcuda_ptx {
 
 inline const char* gemm() {
     return R"PTX(
-// ---- fp64 tiled GEMM: c[m,n] = a[m,k] · b[k,n] ----------------------
+// ---- fp64 tiled GEMM: c[m,n] = a[m,k] * b[k,n] ----------------------
 .visible .entry xc_gemm_f64(
     .param .u64 %p_a, .param .u64 %p_b, .param .u64 %p_c,
     .param .u64 %p_m, .param .u64 %p_k, .param .u64 %p_n)
