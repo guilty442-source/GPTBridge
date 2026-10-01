@@ -25,11 +25,11 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
     const float emb_scale = std::sqrt((float)H);
     std::vector<float> x((size_t)T * H);
     const float* er0 = p.w.at("embed").d.data();
-    for (int t = 0; t < T; ++t) {
-        const float* er = er0 + (size_t)ids[t] * H;
-        float* xr = x.data() + (size_t)t * H;
-        for (int i = 0; i < H; ++i) xr[i] = er[i] * emb_scale;
-    }
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t)
+            tpu_scale_copy(x.data() + (size_t)t * H,
+                           er0 + (size_t)ids[(size_t)t] * H, emb_scale, H);
+    });
     o.g4_x0 = x;
 
     // PLE inputs: identity (embed_ple*sqrt(ple)) + context branch.
@@ -38,16 +38,18 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
         o.g4_ple_in.assign((size_t)T * L * ple, 0.0f);
         const float tok_scale = std::sqrt((float)ple);
         const float* epl = p.w.at("embed_ple").d.data();
-        for (int t = 0; t < T; ++t) {
-            const float* src = epl + (size_t)ids[t] * L * ple;
-            float* dst = o.g4_ple_in.data() + (size_t)t * L * ple;
-            for (int i = 0; i < L * ple; ++i) dst[i] = src[i] * tok_scale;
-        }
+        parallel_for(T, [&](int64_t b, int64_t e) {
+            for (int64_t t = b; t < e; ++t)
+                tpu_scale_copy(
+                    o.g4_ple_in.data() + (size_t)t * L * ple,
+                    epl + (size_t)ids[(size_t)t] * L * ple,
+                    tok_scale, (int64_t)L * ple);
+        });
         std::vector<float> ctx((size_t)T * L * ple);
         linear_fwd(x.data(), p.w.at("ple_model_proj"), ctx.data(),
                    T, H, L * ple);
         const float ctx_scale = 1.0f / std::sqrt((float)H);
-        for (float& v : ctx) v *= ctx_scale;
+        tpu_scale(ctx.data(), ctx_scale, (int64_t)ctx.size());
         o.g4_ctx_in = ctx;                       // post-scale, pre-norm
         o.g4_ctx_rms.resize((size_t)T * L);
         std::vector<float> ctxn(ctx.size());
@@ -55,8 +57,10 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                     ctxn.data(), o.g4_ctx_rms.data(), T * L, ple,
                     c.rms_eps);
         const float mix = std::pow(2.0f, -0.5f);
-        for (size_t i = 0; i < o.g4_ple_in.size(); ++i)
-            o.g4_ple_in[i] = (ctxn[i] + o.g4_ple_in[i]) * mix;
+        tpu_elementwise((int64_t)o.g4_ple_in.size(), [&](int64_t i) {
+            o.g4_ple_in[(size_t)i] =
+                (ctxn[(size_t)i] + o.g4_ple_in[(size_t)i]) * mix;
+        });
     }
 
     o.g4l.resize(c.layers);
@@ -115,37 +119,31 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
         const int group = c.heads / c.kv_heads;
         L.probs.assign((size_t)c.heads * T * T, 0.0f);
         L.attn_out.assign((size_t)T * Hq, 0.0f);
-        for (int h = 0; h < c.heads; ++h) {
-            const int kh = h / group;
-            for (int t = 0; t < T; ++t) {
-                const int lo = std::max(0, t - win + 1);
-                float* pr = L.probs.data() + ((size_t)h * T + t) * T;
-                float mx = -1e30f;
-                const float* qr =
-                    L.q.data() + ((size_t)t * c.heads + h) * hd;
-                for (int s = lo; s <= t; ++s) {
-                    const float* kr =
-                        KV.k.data() + ((size_t)s * c.kv_heads + kh) * hd;
-                    float dot = 0.0f;
-                    for (int i = 0; i < hd; ++i) dot += qr[i] * kr[i];
-                    pr[s] = dot * scale;
-                    mx = std::max(mx, pr[s]);
-                }
-                float sum = 0.0f;
-                for (int s = lo; s <= t; ++s) {
-                    pr[s] = std::exp(pr[s] - mx); sum += pr[s];
-                }
-                float inv = 1.0f / sum;
-                float* ao =
-                    L.attn_out.data() + ((size_t)t * c.heads + h) * hd;
-                for (int s = lo; s <= t; ++s) {
-                    pr[s] *= inv;
-                    const float* vr =
-                        KV.v.data() + ((size_t)s * c.kv_heads + kh) * hd;
-                    for (int i = 0; i < hd; ++i) ao[i] += pr[s] * vr[i];
-                }
+        // TPU lanes: heads are disjoint lanes (probs per-h slice, attn_out
+        // per-h column slice); 4-row blocks share each streamed k/v row —
+        // per-element accumulation order is unchanged.
+        parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            for (int64_t h = hb; h < he; ++h) {
+                const int kh = (int)h / group;
+                tpu_attn_fwd(
+                    L.probs.data() + (size_t)h * T * T,
+                    L.attn_out.data() + (size_t)h * hd,
+                    (int64_t)c.heads * hd, T, hd,
+                    sliding ? win : 0, scale,
+                    [&](int t) {
+                        return L.q.data() +
+                               ((size_t)t * c.heads + h) * hd;
+                    },
+                    [&](int s) {
+                        return KV.k.data() +
+                               ((size_t)s * c.kv_heads + kh) * hd;
+                    },
+                    [&](int s) {
+                        return KV.v.data() +
+                               ((size_t)s * c.kv_heads + kh) * hd;
+                    });
             }
-        }
+        });
         L.o_pre.resize((size_t)T * H);
         linear_fwd(L.attn_out.data(), p.w.at(ln(l, "wo")),
                    L.o_pre.data(), T, Hq, H);
@@ -154,8 +152,9 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
         rmsnorm_fwd(L.o_pre.data(), p.w.at(ln(l, "norm_attn")).d.data(),
                     normed.data(), L.rms_attn.data(), T, H, c.rms_eps);
         L.x_mid.resize((size_t)T * H);
-        for (size_t i = 0; i < (size_t)T * H; ++i)
-            L.x_mid[i] = L.x_in[i] + normed[i];
+        tpu_elementwise((int64_t)T * H, [&](int64_t i) {
+            L.x_mid[(size_t)i] = L.x_in[(size_t)i] + normed[(size_t)i];
+        });
 
         L.n2.resize((size_t)T * H); L.rms2.resize(T);
         rmsnorm_fwd(L.x_mid.data(), p.w.at(ln(l, "norm2")).d.data(),
@@ -168,8 +167,9 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                    T, H, inter);
         linear_fwd(L.n2.data(), p.w.at(ln(l, "w3")), L.fb.data(),
                    T, H, inter);
-        for (size_t i = 0; i < L.fh.size(); ++i)
-            L.fh[i] = act_f(c, L.fa[i]) * L.fb[i];
+        tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
+            L.fh[(size_t)i] = act_f(c, L.fa[(size_t)i]) * L.fb[(size_t)i];
+        });
         L.ffn_pre.resize((size_t)T * H);
         linear_fwd(L.fh.data(), p.w.at(ln(l, "w2")), L.ffn_pre.data(),
                    T, inter, H);
@@ -178,22 +178,21 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
         rmsnorm_fwd(L.ffn_pre.data(), p.w.at(ln(l, "norm_ffn")).d.data(),
                     normed.data(), L.rms_ffn.data(), T, H, c.rms_eps);
         L.x_ple.resize((size_t)T * H);
-        for (size_t i = 0; i < (size_t)T * H; ++i)
-            L.x_ple[i] = L.x_mid[i] + normed[i];
+        tpu_elementwise((int64_t)T * H, [&](int64_t i) {
+            L.x_ple[(size_t)i] = L.x_mid[(size_t)i] + normed[(size_t)i];
+        });
 
         if (ple > 0) {
             L.ple_g.resize((size_t)T * ple);
             linear_fwd(L.x_ple.data(), p.w.at(ln(l, "ple_gate")),
                        L.ple_g.data(), T, H, ple);
             L.ple_ga.resize((size_t)T * ple);
-            for (int t = 0; t < T; ++t) {
-                const float* pl = o.g4_ple_in.data() +
-                    ((size_t)t * c.layers + l) * ple;
-                for (int d = 0; d < ple; ++d) {
-                    L.ple_ga[(size_t)t * ple + d] =
-                        gelu_tanh_f(L.ple_g[(size_t)t * ple + d]) * pl[d];
-                }
-            }
+            tpu_elementwise((int64_t)T * ple, [&](int64_t i) {
+                L.ple_ga[(size_t)i] =
+                    gelu_tanh_f(L.ple_g[(size_t)i]) *
+                    o.g4_ple_in[((size_t)(i / ple) * c.layers + l) * ple +
+                                (size_t)(i % ple)];
+            });
             L.ple_p.resize((size_t)T * H);
             linear_fwd(L.ple_ga.data(), p.w.at(ln(l, "ple_proj")),
                        L.ple_p.data(), T, ple, H);
@@ -201,8 +200,9 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
             normed.assign((size_t)T * H, 0.0f);
             rmsnorm_fwd(L.ple_p.data(), p.w.at(ln(l, "ple_post")).d.data(),
                         normed.data(), L.rms_ple.data(), T, H, c.rms_eps);
-            for (size_t i = 0; i < (size_t)T * H; ++i)
-                x[i] = L.x_ple[i] + normed[i];
+            tpu_elementwise((int64_t)T * H, [&](int64_t i) {
+                x[(size_t)i] = L.x_ple[(size_t)i] + normed[(size_t)i];
+            });
         } else {
             x = L.x_ple;
         }
@@ -218,7 +218,10 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
     o.logits = o.logits_pre;
     const float cap = c.final_logit_softcapping;
     if (cap > 0.0f)
-        for (float& v : o.logits) v = cap * std::tanh(v / cap);
+        tpu_elementwise((int64_t)o.logits.size(), [&](int64_t i) {
+            o.logits[(size_t)i] =
+                cap * std::tanh(o.logits[(size_t)i] / cap);
+        });
 }
 
 // ------------------------------------------------------ gemma4 backward --
@@ -235,10 +238,10 @@ static void bwd_g4(Params& p, const ModelConfig& c,
     std::vector<float> dz = dlogits;
     const float cap = c.final_logit_softcapping;
     if (cap > 0.0f) {
-        for (size_t i = 0; i < dz.size(); ++i) {
-            const float t = o.logits[i] / cap;   // tanh(pre/cap)
-            dz[i] *= 1.0f - t * t;
-        }
+        tpu_elementwise((int64_t)dz.size(), [&](int64_t i) {
+            const float t = o.logits[(size_t)i] / cap;   // tanh(pre/cap)
+            dz[(size_t)i] *= 1.0f - t * t;
+        });
     }
     std::vector<float> dh((size_t)T * H, 0.0f);
     linear_bwd(dz.data(), o.hidden.data(), p.w.at(lm_name),
@@ -282,18 +285,15 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                        p.w.at(ln(l, "ple_proj")), dga.data(),
                        p.dw(ln(l, "ple_proj")), T, ple, H);
             std::vector<float> dg((size_t)T * ple, 0.0f);
-            for (int t = 0; t < T; ++t) {
-                const float* pl = o.g4_ple_in.data() +
-                    ((size_t)t * c.layers + l) * ple;
-                float* dpl = dple_in.data() +
-                    ((size_t)t * c.layers + l) * ple;
-                for (int d = 0; d < ple; ++d) {
-                    const float g = L.ple_g[(size_t)t * ple + d];
-                    const float du = dga[(size_t)t * ple + d];
-                    dg[(size_t)t * ple + d] = du * pl[d] * gelu_tanh_d(g);
-                    dpl[d] += du * gelu_tanh_f(g);
-                }
-            }
+            tpu_elementwise((int64_t)T * ple, [&](int64_t i) {
+                const size_t pl_i =
+                    ((size_t)(i / ple) * c.layers + l) * ple +
+                    (size_t)(i % ple);
+                const float g = L.ple_g[(size_t)i];
+                const float du = dga[(size_t)i];
+                dg[(size_t)i] = du * o.g4_ple_in[pl_i] * gelu_tanh_d(g);
+                dple_in[pl_i] += du * gelu_tanh_f(g);
+            });
             std::vector<float> dxb((size_t)T * H, 0.0f);
             linear_bwd(dg.data(), L.x_ple.data(),
                        p.w.at(ln(l, "ple_gate")), dxb.data(),

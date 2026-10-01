@@ -581,7 +581,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                dkn((size_t)T * c.heads * kn, 0.0f),
                                dkr((size_t)T * kr, 0.0f),
                                dvv((size_t)T * c.heads * hd, 0.0f);
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            // The rope key is shared across heads in MLA, so dkr rows
+            // would race under a plain head partition. Fixed 64 chunk
+            // lanes each own a private dkr buffer; the serial merge in
+            // chunk order replays the h-ascending accumulation, so every
+            // element is bitwise identical to the serial loop.
+            constexpr int MLA_LANES = 64;
+            std::vector<std::vector<float>> dkr_lanes(
+                MLA_LANES, std::vector<float>((size_t)T * kr, 0.0f));
+            parallel_for(MLA_LANES, [&](int64_t cb, int64_t ce) {
+                for (int64_t cl = cb; cl < ce; ++cl) {
+                float* dkrl = dkr_lanes[(size_t)cl].data();
+                const int64_t hb = cl * c.heads / MLA_LANES,
+                              he = (cl + 1) * c.heads / MLA_LANES;
                 for (int64_t h = hb; h < he; ++h) {
                     std::vector<float> dscore;
                     for (int t = 0; t < T; ++t) {
@@ -616,7 +628,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                             const float* krr = L.mla_kr.data() + (size_t)s * kr;
                             float* dknr = dkn.data() +
                                 ((size_t)s * c.heads + h) * kn;
-                            float* dkrr = dkr.data() + (size_t)s * kr;
+                            float* dkrr = dkrl + (size_t)s * kr;
                             tpu_axpy(dqnr, dscore[(size_t)s - s0], knr, kn);
                             tpu_axpy(dqrr, dscore[(size_t)s - s0], krr, kr);
                             tpu_axpy(dknr, dscore[(size_t)s - s0], qnr, kn);
@@ -627,7 +639,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                         }
                     }
                 }
+                }
             });
+            // Merge lane-local dkr in chunk order — replays the serial
+            // h-ascending accumulation per element (bitwise identical).
+            for (int cl = 0; cl < MLA_LANES; ++cl) {
+                const float* lr_ = dkr_lanes[(size_t)cl].data();
+                for (size_t i = 0; i < dkr.size(); ++i) dkr[i] += lr_[i];
+            }
             // inverse decoupled rope on the rope-channel grads
             const float th = c.rope_theta_at(l);
             rope_hf_partial(dqr.data(), T, c.heads, kr, kr, th, true, &c);
