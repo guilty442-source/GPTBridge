@@ -198,6 +198,14 @@
     "vectord.exe": {
       "exclude": true,
       "pool": "compute"
+    },
+    "xc-learning.exe": {
+      "exclude": true,
+      "pool": "compute"
+    },
+    "xingcheng_trainer.exe": {
+      "exclude": true,
+      "pool": "compute"
     }
   },
   "version": "star-resource-governor-rules/v1"
