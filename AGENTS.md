@@ -771,8 +771,26 @@ Tunables: `--interval` (default 20s), `--cpu-busy` (50% of one core),
 `main-system/runtime/logs/resource-governor.jsonl`; the latest cycle snapshot
 is in `main-system/runtime/state/resource-governor.json`.
 
+**Automatic mode** (`auto_mode` + `auto` block in
+`main-system/config/resource-governor-rules.json`): a demand-driven advisor
+inside the same governor process (B159 — no second regulator) picks among the
+registered `modes` presets each `auto.eval_interval_s` (60 s).  `auto.ceiling`
+(default `medium`) is the highest mode auto-mode may select, so foreground /
+user work always keeps machine headroom; `power_saving_schedule`
+(22:00–07:00) forces `sleep` at night.  Control law: responsiveness strain or
+machine overload → `low` immediately (urgent, cooldown-exempt); worker demand
++ machine headroom → upgrade after `streak_up` evaluations, clamped to
+`ceiling`; downgrades need `streak_down` evaluations plus `cooldown_s`.
+Manual mode selection via `app:set-resource-mode` sets `auto_mode=false`
+(user intent wins).  Advisor state persists in
+`main-system/runtime/state/resource-mode-advisor.json`; mode switches append
+to `runtime/state/resource-mode-audit.jsonl` (same ledger the Rust backend
+writes for manual changes).
+
 Implementation: `native/resource_governor/` (C++23, Codex A137) — the Python
-`scripts/resource-governor.py` was retired on migration; the state/log JSON
+`scripts/resource-governor.py` and `resource_mode_advisor` lane were retired
+on migration; the advisor control law now lives in
+`governor_advisor.h/.cpp` (pure evaluation in-cycle) and the state/log JSON
 contract is unchanged.
 
 ## Adaptive SQL Layer
