@@ -93,8 +93,11 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                    ProcessRecord& record) {
     if (pool == Pool::None || record.pool_member) return;
     /* Windows：進程一旦入任一 Job Object 便無法移出。已被 worker 共享 Job
-     * 捕獲的進程永遠無法遷入池 Job —— 記錄一次後停止重試。 */
-    if (record.job_member) {
+     * 捕獲、或 join 連續失敗（已在其他 Job）的進程永遠無法遷入池 Job ——
+     * 記錄一次後停止每輪無效重試。 */
+    const bool join_blocked =
+        record.job_member || record.pool_join_fails >= 3;
+    if (join_blocked) {
         if (!record.pool_join_blocked) {
             record.pool_join_blocked = true;
             env.actions.push_back(
@@ -102,7 +105,8 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                       {"pid", jint(sample.pid)},
                       {"name", jstr(sample.name)},
                       {"pool", jstr(pool_name(pool))},
-                      {"reason", jstr("in-worker-job")}}));
+                      {"reason", jstr(record.job_member ? "in-worker-job"
+                                                        : "join-failed")}}));
         }
         return;
     }
@@ -126,6 +130,7 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                                      : 100.0,
                                  mem_bytes, policy.process_limit);
         if (ok || env.dry_run) record.pool_member = true;
+        else record.pool_join_fails++;
         env.actions.push_back(
             jobj({{"action", jstr("pool-joined")},
                   {"pid", jint(sample.pid)},
