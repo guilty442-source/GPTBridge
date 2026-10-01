@@ -317,10 +317,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     std::vector<float> so((size_t)T * H);
                     linear_fwd(sfh.data(), p.w.at(b + "w2"), so.data(),
                                T, SI, H);
-                    for (int t = 0; t < T; ++t)
-                        for (int i = 0; i < H; ++i)
-                            dsg[(size_t)t] +=
-                                dproj[(size_t)t * H + i] * so[(size_t)t * H + i];
+                    parallel_for(T, [&](int64_t b2, int64_t e2) {
+                        for (int64_t t = b2; t < e2; ++t)
+                            dsg[(size_t)t] += tpu_dot(
+                                dproj.data() + (size_t)t * H,
+                                so.data() + (size_t)t * H, H);
+                    });
                 }
             }
             if (sgated) {
@@ -490,20 +492,22 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 std::vector<float> qn_kh((size_t)T * kh * kd),
                                    kn_kh((size_t)T * kh * kd),
                                    qr_kh((size_t)T * kh), kr_kh((size_t)T * kh);
-                for (int t = 0; t < T; ++t)
-                    for (int g = 0; g < kh; ++g) {
-                        int h = g * ratio;
-                        std::copy(L.lin_qn.begin() + ((size_t)t * vh + h) * kd,
-                                  L.lin_qn.begin() + ((size_t)t * vh + h) * kd + kd,
-                                  qn_kh.begin() + ((size_t)t * kh + g) * kd);
-                        std::copy(L.lin_kn.begin() + ((size_t)t * vh + h) * kd,
-                                  L.lin_kn.begin() + ((size_t)t * vh + h) * kd + kd,
-                                  kn_kh.begin() + ((size_t)t * kh + g) * kd);
-                        qr_kh[(size_t)t * kh + g] =
-                            L.lin_qrms[(size_t)t * vh + h];
-                        kr_kh[(size_t)t * kh + g] =
-                            L.lin_krms[(size_t)t * vh + h];
-                    }
+                parallel_for(T, [&](int64_t tb, int64_t te) {
+                    for (int64_t t = tb; t < te; ++t)
+                        for (int g = 0; g < kh; ++g) {
+                            int h = g * ratio;
+                            std::copy(L.lin_qn.begin() + ((size_t)t * vh + h) * kd,
+                                      L.lin_qn.begin() + ((size_t)t * vh + h) * kd + kd,
+                                      qn_kh.begin() + ((size_t)t * kh + g) * kd);
+                            std::copy(L.lin_kn.begin() + ((size_t)t * vh + h) * kd,
+                                      L.lin_kn.begin() + ((size_t)t * vh + h) * kd + kd,
+                                      kn_kh.begin() + ((size_t)t * kh + g) * kd);
+                            qr_kh[(size_t)t * kh + g] =
+                                L.lin_qrms[(size_t)t * vh + h];
+                            kr_kh[(size_t)t * kh + g] =
+                                L.lin_krms[(size_t)t * vh + h];
+                        }
+                });
                 // qn is l2normed then scaled — undo scale for l2norm_bwd
                 for (auto& x : qn_kh) x /= qscale;
                 l2norm_bwd(dqk_raw.data(), qn_kh.data(), qr_kh.data(),
@@ -514,17 +518,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             dconv_v = std::move(dv);
             // conv output grad: [T, q_flat|k_flat|v_flat]
             std::vector<float> dconv_out((size_t)T * conv_dim, 0.0f);
-            for (int t = 0; t < T; ++t) {
-                float* dr = dconv_out.data() + (size_t)t * conv_dim;
-                std::copy(dq_pre.begin() + (size_t)t * key_dim,
-                          dq_pre.begin() + (size_t)(t + 1) * key_dim, dr);
-                std::copy(dk_pre.begin() + (size_t)t * key_dim,
-                          dk_pre.begin() + (size_t)(t + 1) * key_dim,
-                          dr + key_dim);
-                std::copy(dconv_v.begin() + (size_t)t * val_dim,
-                          dconv_v.begin() + (size_t)(t + 1) * val_dim,
-                          dr + key_dim * 2);
-            }
+            parallel_for(T, [&](int64_t tb, int64_t te) {
+                for (int64_t t = tb; t < te; ++t) {
+                    float* dr = dconv_out.data() + (size_t)t * conv_dim;
+                    std::copy(dq_pre.begin() + (size_t)t * key_dim,
+                              dq_pre.begin() + (size_t)(t + 1) * key_dim, dr);
+                    std::copy(dk_pre.begin() + (size_t)t * key_dim,
+                              dk_pre.begin() + (size_t)(t + 1) * key_dim,
+                              dr + key_dim);
+                    std::copy(dconv_v.begin() + (size_t)t * val_dim,
+                              dconv_v.begin() + (size_t)(t + 1) * val_dim,
+                              dr + key_dim * 2);
+                }
+            });
             std::vector<float> dconv_in((size_t)T * conv_dim, 0.0f);
             conv1d_causal_bwd(dconv_out.data(), L.lin_conv_pre.data(),
                               L.lin_conv_in.data(),
@@ -533,19 +539,21 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                               c.lin_conv_kernel);
             // repack flat conv-in grads → per-k-head grouped qkvz layout
             std::vector<float> dqkvz((size_t)T * kh * group_sz, 0.0f);
-            for (int t = 0; t < T; ++t) {
-                const float* src = dconv_in.data() + (size_t)t * conv_dim;
-                float* dst = dqkvz.data() + (size_t)t * kh * group_sz;
-                for (int g = 0; g < kh; ++g) {
-                    float* gr = dst + (size_t)g * group_sz;
-                    std::copy(src + (size_t)g * kd, src + (size_t)(g + 1) * kd, gr);
-                    std::copy(src + key_dim + (size_t)g * kd,
-                              src + key_dim + (size_t)(g + 1) * kd, gr + kd);
-                    std::copy(src + key_dim * 2 + (size_t)g * (vd * ratio),
-                              src + key_dim * 2 + (size_t)(g + 1) * (vd * ratio),
-                              gr + 2 * kd);
+            parallel_for(T, [&](int64_t tb, int64_t te) {
+                for (int64_t t = tb; t < te; ++t) {
+                    const float* src = dconv_in.data() + (size_t)t * conv_dim;
+                    float* dst = dqkvz.data() + (size_t)t * kh * group_sz;
+                    for (int g = 0; g < kh; ++g) {
+                        float* gr = dst + (size_t)g * group_sz;
+                        std::copy(src + (size_t)g * kd, src + (size_t)(g + 1) * kd, gr);
+                        std::copy(src + key_dim + (size_t)g * kd,
+                                  src + key_dim + (size_t)(g + 1) * kd, gr + kd);
+                        std::copy(src + key_dim * 2 + (size_t)g * (vd * ratio),
+                                  src + key_dim * 2 + (size_t)(g + 1) * (vd * ratio),
+                                  gr + 2 * kd);
+                    }
                 }
-            }
+            });
             linear_bwd(dqkvz.data(), L.n1.data(), p.w.at(lb + "in_proj_qkv"),
                        dn1.data(), p.dw(lb + "in_proj_qkv"),
                        T, H, kh * group_sz);
@@ -1001,8 +1009,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // CSA producer: merge compressor member grads — they live in
             // pre-rope key space, so they join dk only after the unrope.
             if (!dk_csa.empty()) {
-                for (size_t i = 0; i < dk.size(); ++i) dk[i] += dk_csa[i];
-                for (size_t i = 0; i < dvv.size(); ++i) dvv[i] += dv_csa[i];
+                tpu_elementwise((int64_t)dk.size(), [&](int64_t i) {
+                    dk[(size_t)i] += dk_csa[(size_t)i];
+                });
+                tpu_elementwise((int64_t)dvv.size(), [&](int64_t i) {
+                    dvv[(size_t)i] += dv_csa[(size_t)i];
+                });
             }
             if (c.qk_norm) {
                 // Batched row-norm backward over (t,h) — same per-element
@@ -1022,17 +1034,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             if (c.attn_output_gate) {
                 // repack [q|gate] per head for the fused wq weight
                 std::vector<float> dqf((size_t)T * Hq * 2, 0.0f);
-                for (int t = 0; t < T; ++t)
-                    for (int h = 0; h < c.heads; ++h) {
-                        float* fr = dqf.data() +
-                            ((size_t)t * c.heads + h) * (size_t)hd * 2;
-                        std::copy(dq.begin() + ((size_t)t * c.heads + h) * hd,
-                                  dq.begin() + ((size_t)t * c.heads + h) * hd + hd,
-                                  fr);
-                        std::copy(dgate.begin() + ((size_t)t * c.heads + h) * hd,
-                                  dgate.begin() + ((size_t)t * c.heads + h) * hd + hd,
-                                  fr + hd);
-                    }
+                parallel_for(T, [&](int64_t tb, int64_t te) {
+                    for (int64_t t = tb; t < te; ++t)
+                        for (int h = 0; h < c.heads; ++h) {
+                            float* fr = dqf.data() +
+                                ((size_t)t * c.heads + h) * (size_t)hd * 2;
+                            std::copy(dq.begin() + ((size_t)t * c.heads + h) * hd,
+                                      dq.begin() + ((size_t)t * c.heads + h) * hd + hd,
+                                      fr);
+                            std::copy(dgate.begin() + ((size_t)t * c.heads + h) * hd,
+                                      dgate.begin() + ((size_t)t * c.heads + h) * hd + hd,
+                                      fr + hd);
+                        }
+                });
                 linear_bwd(dqf.data(), L.n1.data(), p.w.at(ln(l, "wq")),
                            dn1.data(), p.dw(ln(l, "wq")), T, H, Hq * 2);
             } else {
@@ -1062,11 +1076,15 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     }
     // embedding backward (text rows start after the P prefix rows)
     if (float* ge = p.dw("embed")) {
-        for (int t = 0; t < PT; ++t) {
-            float* ger = ge + (size_t)ids[t] * H;
-            for (int i = 0; i < H; ++i)
-                ger[i] += dx[(size_t)(P + t) * H + i];
-        }
+        // Column lanes: each worker owns a disjoint i-range across all
+        // tokens, so repeated token ids still accumulate in t-ascending
+        // order per element — bitwise identical to the serial loop.
+        parallel_for(H, [&](int64_t b, int64_t e) {
+            for (int64_t i = b; i < e; ++i)
+                for (int t = 0; t < PT; ++t)
+                    ge[(size_t)ids[t] * H + (size_t)i] +=
+                        dx[(size_t)(P + t) * H + (size_t)i];
+        });
     }
     if (P > 0) {
         // vision projection grad; patch-side dx is discarded (input).
