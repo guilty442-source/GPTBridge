@@ -511,6 +511,22 @@ struct Fwd {
     int vision_patches = 0;
 };
 
+// Forward workspace: the non-cached temporaries (projection results,
+// MoE slot packs, conv staging) total tens of MB per layer and were
+// malloc'd + first-touched every layer of every example. Reusing
+// capacity via one thread_local workspace removes that churn; every
+// field is re-initialized at its use site (assign/clear/resize before
+// any read), so semantics are identical. fwd/mtp_fwd only run on the
+// caller thread — never inside a TPU lane. Lane-private vectors inside
+// parallel_for lambdas stay local.
+struct FwdWs {
+    std::vector<float> x, proj, qkvz, conv_out, qraw, kraw, beta;
+    std::vector<float> qf, qfused;
+    std::vector<float> moe_cnt, eos, X, FA, FB, Fh, EO, sg, so, p_i, zc;
+    std::vector<std::vector<int>> slots;
+    std::vector<float> dtmp;    // mtp_fwd ce_loss gradient sink
+};
+
 static void fwd_g4(const Params& p, const ModelConfig& c,
                    const std::vector<int>& ids, Fwd& o);
 static void mtp_fwd(const Params& p, const ModelConfig& c,
@@ -523,10 +539,11 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
 static float mtp_stack_aux_loss(const ModelConfig& c,
                                 const std::vector<int>& ids, const Fwd& fw,
                                 std::vector<std::vector<float>>& dmtp);
+struct BwdWs;
 static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                           const std::vector<int>& ids, Fwd& o,
                           const std::vector<std::vector<float>>& dm,
-                          float* dh_main);
+                          float* dh_main, BwdWs& ws);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,
@@ -552,7 +569,9 @@ static void fwd(const Params& p, const ModelConfig& c,
     const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd;
-    std::vector<float> x((size_t)T * H);
+    static thread_local FwdWs ws;
+    auto& x = ws.x;
+    x.assign((size_t)T * H, 0.0f);
     if (P > 0) {
         linear_fwd(vision->data(), p.w.at("vision.patch_proj"),
                    x.data(), P, c.vision_patch_dim, H);
@@ -581,7 +600,8 @@ static void fwd(const Params& p, const ModelConfig& c,
         L.n1.resize((size_t)T * H); L.rms1.resize(T);
         rmsnorm_fwd(x.data(), p.w.at(ln(l, "norm1")).d.data(),
                     L.n1.data(), L.rms1.data(), T, H, c.rms_eps);
-        std::vector<float> proj((size_t)T * H);
+        auto& proj = ws.proj;
+        proj.assign((size_t)T * H, 0.0f);
         if (c.is_linear(l)) {
             // ----- Qwen3.5 gated deltanet (linear attention) -----
             const int kd = c.lin_key_dim, vd = c.lin_value_dim;
@@ -593,7 +613,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             const std::string lb = ln(l, "lin.");
             // in_proj_qkv rows are grouped per key head [q|k|v-group];
             // unpack into flat conv layout [q_flat | k_flat | v_flat].
-            std::vector<float> qkvz((size_t)T * kh * group_sz);
+            auto& qkvz = ws.qkvz;
+            qkvz.assign((size_t)T * kh * group_sz, 0.0f);
             linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_qkv"),
                        qkvz.data(), T, H, kh * group_sz);
             L.lin_conv_in.resize((size_t)T * conv_dim);
@@ -613,7 +634,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                 }
             });
             L.lin_conv_pre.resize((size_t)T * conv_dim);
-            std::vector<float> conv_out((size_t)T * conv_dim);
+            auto& conv_out = ws.conv_out;
+            conv_out.assign((size_t)T * conv_dim, 0.0f);
             conv1d_causal_fwd(L.lin_conv_in.data(),
                               p.w.at(lb + "conv1d").d.data(), conv_out.data(),
                               L.lin_conv_pre.data(), T, conv_dim,
@@ -622,8 +644,10 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.lin_qn.resize((size_t)T * vh * kd);
             L.lin_kn.resize((size_t)T * vh * kd);
             L.lin_v.resize((size_t)T * vd * vh);
-            std::vector<float> qraw((size_t)T * vh * kd),
-                               kraw((size_t)T * vh * kd);
+            auto& qraw = ws.qraw;
+            auto& kraw = ws.kraw;
+            qraw.assign((size_t)T * vh * kd, 0.0f);
+            kraw.assign((size_t)T * vh * kd, 0.0f);
             parallel_for(T, [&](int64_t tb, int64_t te) {
                 for (int64_t t = tb; t < te; ++t) {
                     const float* cr =
@@ -662,7 +686,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             const float* A_log = p.w.at(lb + "A_log").d.data();
             const float* dt_bias = p.w.at(lb + "dt_bias").d.data();
             L.lin_decay.resize((size_t)T * vh);
-            std::vector<float> beta((size_t)T * vh);
+            auto& beta = ws.beta;
+            beta.assign((size_t)T * vh, 0.0f);
             tpu_elementwise((int64_t)T * vh, [&](int64_t i) {
                 const int h = (int)(i % vh);
                 const float ar = L.lin_a_raw[(size_t)i] + dt_bias[h];
@@ -741,7 +766,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                         L.mla_ckv.data(), L.mla_ckv_rms.data(), T, rank,
                         c.rms_eps);
             const int qd = kn + kr;
-            std::vector<float> qf((size_t)T * c.heads * qd);
+            auto& qf = ws.qf;
+            qf.assign((size_t)T * c.heads * qd, 0.0f);
             if (qr > 0) {
                 L.mla_cq_raw.resize((size_t)T * qr);
                 linear_fwd(L.n1.data(), p.w.at(b + "w_dq"),
@@ -838,7 +864,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             // ----- full attention (optional qk_norm / output gate /
             // partial rotary — all three gate Qwen3.5 parity) -----
             const int qmul = c.attn_output_gate ? 2 : 1;
-            std::vector<float> qfused;
+            auto& qfused = ws.qfused;
+            qfused.clear();
             if (c.attn_output_gate) {
                 qfused.resize((size_t)T * Hq * 2);
                 linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")),
@@ -1242,7 +1269,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.gate_probs.resize((size_t)T * E);
             L.moe_idx.resize((size_t)T * K); L.moe_w.resize((size_t)T * K);
             L.mfa.resize((size_t)T * K); L.mfb.resize((size_t)T * K); L.mfh.resize((size_t)T * K);
-            std::vector<float> moe_cnt((size_t)E, 0.0f);  // top-k assignments per expert
+            auto& moe_cnt = ws.moe_cnt;
+            moe_cnt.assign((size_t)E, 0.0f);  // top-k assignments per expert
             // Token lanes: gate_probs/moe_idx/moe_w rows are disjoint per
             // t; the deterministic top-K order is unchanged within a row.
             parallel_for(T, [&](int64_t tb, int64_t te) {
@@ -1297,11 +1325,14 @@ static void fwd(const Params& p, const ModelConfig& c,
             // per-row dots are identical, and the weighted sum lands in
             // slot order — bitwise identical to the per-pair path.
             {
-                std::vector<std::vector<int>> slots((size_t)E);
+                auto& slots = ws.slots;
+                slots.assign((size_t)E, std::vector<int>());
                 for (size_t a = 0; a < L.moe_idx.size(); ++a)
                     slots[(size_t)L.moe_idx[a]].push_back((int)a);
-                std::vector<float> eos((size_t)T * K * H);
-                std::vector<float> X, FA, FB, Fh, EO;
+                auto& eos = ws.eos;
+                eos.assign((size_t)T * K * H, 0.0f);
+                auto& X = ws.X; auto& FA = ws.FA; auto& FB = ws.FB;
+                auto& Fh = ws.Fh; auto& EO = ws.EO;
                 for (int e = 0; e < E; ++e) {
                     auto& sl = slots[(size_t)e];
                     const int Te = (int)sl.size();
@@ -1365,7 +1396,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             const int SI = c.shared_inter();
             if (c.shared_expert_gate && c.moe_shared_experts > 0) {
                 L.shared_gate_sig.resize((size_t)T);
-                std::vector<float> sg((size_t)T);
+                auto& sg = ws.sg;
+                sg.assign((size_t)T, 0.0f);
                 linear_fwd(L.n2.data(), p.w.at(ln(l, "shared_gate")),
                            sg.data(), T, H, 1);
                 tpu_elementwise(T, [&](int64_t t) {
@@ -1389,7 +1421,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     fh[(size_t)i] = gate_act_f(fa[(size_t)i], c.ffn_act) *
                                     fb[(size_t)i];
                 });
-                std::vector<float> so((size_t)T * H);
+                auto& so = ws.so;
+                so.assign((size_t)T * H, 0.0f);
                 linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
                 if (L.shared_gate_sig.empty())
                     tpu_elementwise((int64_t)so.size(), [&](int64_t i) {
@@ -1414,7 +1447,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             if (!c.moe_auxfree_balance) {
                 // Expert lanes compute P_i; the scalar lb_dot fold stays
                 // e-ascending — bitwise identical to the serial loop.
-                std::vector<float> p_i((size_t)E);
+                auto& p_i = ws.p_i;
+                p_i.assign((size_t)E, 0.0f);
                 parallel_for(E, [&](int64_t b, int64_t e) {
                     for (int64_t e2 = b; e2 < e; ++e2) {
                         float s = 0.0f;
@@ -1435,7 +1469,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             // bwd: dz/dlogit_e = 2·w·lse_t·softmax_e/T (softmax over the raw
             // logits regardless of the v28 sigmoid scoring mode).
             if (c.moe_zloss_w > 0.0f) {
-                std::vector<float> zc((size_t)T);
+                auto& zc = ws.zc;
+                zc.assign((size_t)T, 0.0f);
                 parallel_for(T, [&](int64_t b, int64_t e) {
                     for (int64_t t = b; t < e; ++t) {
                         const float* gl =
@@ -1571,7 +1606,9 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
                 });
         }
     });
-    std::vector<float> proj((size_t)PT * H);
+    static thread_local FwdWs ws;
+    auto& proj = ws.proj;
+    proj.assign((size_t)PT * H, 0.0f);
     linear_fwd(L.attn_out.data(), p.w.at("mtp.wo"), proj.data(), PT, Hq, H);
     L.x_res.resize((size_t)PT * H);
     tpu_elementwise((int64_t)L.x_res.size(), [&](int64_t i) {
@@ -1600,7 +1637,8 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     M.logits.resize((size_t)PT * c.vocab);
     linear_fwd(M.out.data(), p.w.at("lm_head"), M.logits.data(), PT, H,
                c.vocab);
-    std::vector<float> dtmp;
+    auto& dtmp = ws.dtmp;
+    dtmp.clear();
     M.loss = c.mtp_loss_weight *
              ce_loss(M.logits, M.lab, PT, c.vocab, dtmp);
 }
