@@ -365,187 +365,17 @@ internal sealed class TrainingJobExecutor
     }
 
     /// <summary>Read the XCN1..XCN10 header into a trainer ``model``
-    /// config dict (XCN2 MoE widths, XCN3 hybrid-attention geometry,
-    /// XCN4 vision early-fusion block, XCN5 Gemma A4B axis, XCN6
-    /// fused-router flag, XCN7 DeepSeek V4-Pro axis, XCN8 YaRN block,
-    /// XCN9 Gemma4 marker block, XCN10 MTP-stack — field names match
-    /// ``xct_util.parse_model``).</summary>
+    /// config dict — sole implementation lives in <see cref="XcnHeader"/>
+    /// (field order must match ``xct_ckpt.h``).</summary>
     private static Dictionary<string, object?> XcnConfig(string ckptPath)
-    {
-        using var f = new FileStream(ckptPath, FileMode.Open, FileAccess.Read);
-        using var r = new BinaryReader(f);
-        byte[] magic = r.ReadBytes(4);
-        if (magic.Length != 4 ||
-            magic[0] != 'X' || magic[1] != 'C' || magic[2] != 'N' || magic[3] != '1')
-            throw new ExecutorError("EXECUTOR_CKPT_BAD_MAGIC", ckptPath);
-        uint ver = r.ReadUInt32();
-        if (ver < 1 || ver > 10)
-            throw new ExecutorError("EXECUTOR_CKPT_VERSION", $"v{ver}");
-        uint vocab = r.ReadUInt32();
-        uint hidden = r.ReadUInt32();
-        uint inter = r.ReadUInt32();
-        uint layers = r.ReadUInt32();
-        uint heads = r.ReadUInt32();
-        uint kvHeads = r.ReadUInt32();
-        uint maxPos = r.ReadUInt32();
-        uint moeExperts = r.ReadUInt32();
-        uint moeTopK = r.ReadUInt32();
-        uint moeInterval = r.ReadUInt32();
-        double ropeTheta = r.ReadSingle();
-        double rmsEps = r.ReadSingle();
-        double moeAux = r.ReadSingle();
-        var cfg = new Dictionary<string, object?>
-        {
-            ["vocab_size"] = (long)vocab,
-            ["hidden_size"] = (long)hidden,
-            ["intermediate_size"] = (long)inter,
-            ["num_hidden_layers"] = (long)layers,
-            ["num_attention_heads"] = (long)heads,
-            ["num_key_value_heads"] = (long)kvHeads,
-            ["max_position_embeddings"] = (long)maxPos,
-            ["moe_num_experts"] = (long)moeExperts,
-            ["moe_top_k"] = (long)moeTopK,
-            ["moe_layer_interval"] = (long)moeInterval,
-            ["rope_theta"] = (double)(float)ropeTheta,
-            ["rms_norm_eps"] = (double)(float)rmsEps,
-            ["moe_aux_loss_weight"] = (double)(float)moeAux,
-        };
-        if (ver >= 2)
-        {
-            cfg["moe_expert_intermediate_size"] = (long)r.ReadUInt32();
-            cfg["moe_num_shared_experts"] = (long)r.ReadUInt32();
-            cfg["moe_shared_intermediate_size"] = (long)r.ReadUInt32();
-        }
-        if (ver >= 3)
-        {
-            cfg["full_attention_interval"] = (long)r.ReadUInt32();
-            uint flags = r.ReadUInt32();
-            cfg["attn_output_gate"] = (flags & 1u) != 0;
-            cfg["qk_norm"] = (flags & 2u) != 0;
-            cfg["shared_expert_gate"] = (flags & 4u) != 0;
-            cfg["partial_rotary_factor"] = (double)r.ReadSingle();
-            cfg["linear_num_key_heads"] = (long)r.ReadUInt32();
-            cfg["linear_key_head_dim"] = (long)r.ReadUInt32();
-            cfg["linear_num_value_heads"] = (long)r.ReadUInt32();
-            cfg["linear_value_head_dim"] = (long)r.ReadUInt32();
-            cfg["linear_conv_kernel_dim"] = (long)r.ReadUInt32();
-        }
-        if (ver >= 4)
-        {
-            cfg["use_vision"] = r.ReadUInt32() != 0u;
-            cfg["vision_patch_dim"] = (long)r.ReadUInt32();
-            cfg["vision_max_patches"] = (long)r.ReadUInt32();
-        }
-        if (ver >= 5)
-        {
-            // XCN5 Gemma A4B block (see xct_ckpt.h write order):
-            // global_attention_interval, sliding_window, num_global_kv_heads,
-            // flag bits, rope proportions/base frequencies, softcap.
-            cfg["global_attention_interval"] = (long)r.ReadUInt32();
-            cfg["sliding_window_size"] = (long)r.ReadUInt32();
-            cfg["num_global_kv_heads"] = (long)r.ReadUInt32();
-            uint gflags = r.ReadUInt32();
-            cfg["k_eq_v_global"] = (gflags & 1u) != 0;
-            cfg["use_post_attn_norm"] = (gflags & 2u) != 0;
-            cfg["use_post_ffw_norm"] = (gflags & 4u) != 0;
-            if ((gflags & 8u) != 0) cfg["ffn_activation"] = "gelu_tanh";
-            cfg["local_rope_proportion"] = (double)r.ReadSingle();
-            cfg["global_rope_proportion"] = (double)r.ReadSingle();
-            cfg["local_base_frequency"] = (double)r.ReadSingle();
-            cfg["global_base_frequency"] = (double)r.ReadSingle();
-            cfg["final_logit_softcap"] = (double)r.ReadSingle();
-        }
-        if (ver >= 6)
-        {
-            // XCN6 fused router: Qwen3-A3B softmax | Qwen3.5 sigmoid
-            // scoring flag (see xct_ckpt.h).
-            cfg["moe_router_sigmoid"] = r.ReadUInt32() != 0u;
-        }
-        if (ver >= 7)
-        {
-            // XCN7 DeepSeek V4-Pro block (see xct_ckpt.h write order):
-            // MLA dims, aux-free balance flag + bias rate, MTP depth +
-            // loss weight.
-            cfg["kv_lora_rank"] = (long)r.ReadUInt32();
-            cfg["q_lora_rank"] = (long)r.ReadUInt32();
-            cfg["qk_nope_head_dim"] = (long)r.ReadUInt32();
-            cfg["qk_rope_head_dim"] = (long)r.ReadUInt32();
-            cfg["moe_auxfree_balance"] = r.ReadUInt32() != 0u;
-            cfg["moe_lb_bias_rate"] = (double)r.ReadSingle();
-            cfg["num_nextn_predict_layers"] = (long)r.ReadUInt32();
-            cfg["mtp_loss_weight"] = (double)r.ReadSingle();
-        }
-        if (ver >= 8)
-        {
-            // XCN8 Qwen3-Coder YaRN block (see xct_ckpt.h write order):
-            // extension factor, original context length, beta band
-            // bounds, attention factor (mscale).
-            cfg["yarn_factor"] = (double)r.ReadSingle();
-            cfg["yarn_original_max_position_embeddings"] =
-                (long)r.ReadUInt32();
-            cfg["yarn_beta_fast"] = (double)r.ReadSingle();
-            cfg["yarn_beta_slow"] = (double)r.ReadSingle();
-            cfg["yarn_attention_factor"] = (double)r.ReadSingle();
-        }
-        if (ver >= 9)
-        {
-            // XCN9 Gemma4 block (see xct_ckpt.h write order): the marker
-            // u32 is always present at ver >= 9 — 1 = g4 fields follow,
-            // 0 = non-gemma4 (canonical fused generation checkpoints
-            // land here).
-            uint g4m = r.ReadUInt32();
-            if (g4m == 1u)
-            {
-                cfg["model_type"] = "gemma4_text";
-                cfg["head_dim"] = (long)r.ReadUInt32();
-                cfg["global_head_dim"] = (long)r.ReadUInt32();
-                cfg["sliding_window"] = (long)r.ReadUInt32();
-                cfg["num_kv_shared_layers"] = (long)r.ReadUInt32();
-                cfg["hidden_size_per_layer_input"] = (long)r.ReadUInt32();
-                cfg["vocab_size_per_layer_input"] = (long)r.ReadUInt32();
-                uint g4flags = r.ReadUInt32();
-                cfg["use_double_wide_mlp"] = (g4flags & 1u) != 0;
-                cfg["tie_word_embeddings"] = (g4flags & 2u) != 0;
-                cfg["rope_theta_full"] = (double)r.ReadSingle();
-                cfg["rope_partial_rotary_factor"] = (double)r.ReadSingle();
-                cfg["final_logit_softcapping"] = (double)r.ReadSingle();
-                cfg["attention_scale"] = (double)r.ReadSingle();
-                uint nt = r.ReadUInt32();
-                var types = new List<object?>();
-                for (uint i = 0; i < nt; ++i)
-                {
-                    uint nl = r.ReadUInt32();
-                    types.Add(System.Text.Encoding.UTF8.GetString(
-                        r.ReadBytes((int)nl)));
-                }
-                cfg["layer_types"] = types;
-                uint al = r.ReadUInt32();
-                cfg["hidden_activation"] =
-                    System.Text.Encoding.UTF8.GetString(
-                        r.ReadBytes((int)al));
-            }
-            else if (g4m != 0u)
-            {
-                throw new ExecutorError("EXECUTOR_CKPT_VERSION",
-                    "bad gemma4 marker");
-            }
-        }
-        if (ver >= 10)
-        {
-            // XCN10 v29 MTP-stack block (see xct_ckpt.h write order):
-            // mtp_stack_depth u32 + mtp_stack_loss_weight float.
-            cfg["mtp_stack_depth"] = (long)r.ReadUInt32();
-            cfg["mtp_stack_loss_weight"] = (double)r.ReadSingle();
-        }
-        return cfg;
-    }
+        => XcnHeader.ReadConfig(ckptPath);
 
     private void RunModelTool(string toolRoot, string stderrLog,
                               params string[] args)
     {
         var result = NativeTools.Run(
             NativeTools.ModelToolExe(toolRoot), args, toolRoot, stderrLog,
-            timeoutS: 7200, rssBudgetMb: 0);
+            timeoutS: 7200, rssBudgetMb: 0, lowPriority: true);
         if (result.ExitCode != 0)
             throw new ExecutorError("EXECUTOR_MODELTOOL_FAILED",
                 $"xc_modeltool {args[0]} exited {result.ExitCode}: " +
@@ -557,7 +387,7 @@ internal sealed class TrainingJobExecutor
     {
         var result = NativeTools.Run(
             NativeTools.ModelToolExe(toolRoot), args, toolRoot, stderrLog,
-            timeoutS: 7200, rssBudgetMb: 0);
+            timeoutS: 7200, rssBudgetMb: 0, lowPriority: true);
         string tail = result.StdoutTail.Trim();
         try
         {
@@ -580,11 +410,194 @@ internal sealed class TrainingJobExecutor
         }
     }
 
+    // --------------------------------------------- resource preflight --
+
+    /// <summary>Preflight resource gate. Every execution entry (--job,
+    /// --run-jobs, the self-learning cycle) funnels through
+    /// <see cref="RunJob"/>, so this one gate covers all of them. Two
+    /// checks, both fail-closed with EXECUTOR_GPU_BUSY so the
+    /// self-learning gpu-busy backoff (GpuBusyRecord) actually fires —
+    /// previously that error code was never emitted and the backoff was
+    /// dead code:
+    ///   1. inference exclusion — a live model-service session owns the
+    ///      machine; training must not contend with serving.
+    ///   2. resource-governor concurrency budget — when the governor
+    ///      pauses the training class (pressure active), the job stays
+    ///      queued instead of fighting interactive/model work (A598:
+    ///      training sheds first).
+    /// A missing/unreadable governor state file is fail-open (trainer
+    /// auto threads), per the budget contract: no state, expired or
+    /// kill-switch falls back to static limits. Returns the trainer
+    /// thread count derived from the training quota (0 = auto).</summary>
+    private int PreflightResourceGate()
+    {
+        bool? inferenceActive = Collectors.InferenceActive(_toolRoot);
+        if (inferenceActive != false)
+            throw new ExecutorError("EXECUTOR_GPU_BUSY",
+                inferenceActive == true
+                    ? "inference session active — training deferred"
+                    : "inference state unavailable — training deferred " +
+                      "(fail-closed)");
+        return GovernorTrainingThreads();
+    }
+
+    /// <summary>Read the governor's concurrency budget for the training
+    /// class. Paused (quota 0) refuses the job with EXECUTOR_GPU_BUSY;
+    /// throttled/normal maps quota -&gt; trainer threads, clamped to the
+    /// trainer's [1,16] lane range. Missing/unreadable/corrupt state is
+    /// fail-open (0 = trainer auto).</summary>
+    private int GovernorTrainingThreads()
+    {
+        string? statePath = GovernorStatePath();
+        if (statePath == null) return 0;
+        string raw;
+        try
+        {
+            raw = File.ReadAllText(statePath);
+        }
+        catch (Exception ex) when (ex is IOException or
+            UnauthorizedAccessException)
+        {
+            return 0;
+        }
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("concurrency_budget", out var budget) ||
+                budget.ValueKind != JsonValueKind.Object)
+                return 0;
+            if (!budget.TryGetProperty("classes", out var classes) ||
+                classes.ValueKind != JsonValueKind.Object)
+                return 0;
+            if (!classes.TryGetProperty("training", out var training) ||
+                training.ValueKind != JsonValueKind.Object)
+                return 0;
+            int quota = training.TryGetProperty("quota", out var q) &&
+                        q.ValueKind == JsonValueKind.Number &&
+                        q.TryGetInt32(out int n) ? n : -1;
+            string state = training.TryGetProperty("state", out var s) &&
+                           s.ValueKind == JsonValueKind.String
+                ? s.GetString() ?? "" : "";
+            string pressure = budget.TryGetProperty("pressure", out var p) &&
+                              p.ValueKind == JsonValueKind.String
+                ? p.GetString() ?? "" : "";
+            if (quota == 0 || state == "paused")
+                throw new ExecutorError("EXECUTOR_GPU_BUSY",
+                    "resource governor paused training " +
+                    $"(pressure {pressure}) — job stays queued with " +
+                    "gpu-busy backoff");
+            if (quota > 0)
+                return Math.Clamp(quota, 1, 16);
+        }
+        catch (JsonException)
+        {
+            return 0;
+        }
+        return 0;
+    }
+
+    private string? GovernorStatePath()
+    {
+        try
+        {
+            string repoRoot = Path.GetFullPath(
+                Path.Combine(_toolRoot, "..", ".."));
+            string candidate = Path.Combine(repoRoot, "main-system",
+                "runtime", "state", "resource-governor.json");
+            return File.Exists(candidate) ? candidate : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Append one line to the resource-action ledger
+    /// (previously declared but never written). Best-effort: ledger
+    /// failure must never break governed training.</summary>
+    private void AppendResourceAction(
+        string jobId, string state,
+        IReadOnlyDictionary<string, object?>? detail = null)
+    {
+        if (!ResourceActionTrainingStates.Contains(state)) return;
+        try
+        {
+            string path = Path.Combine(_toolRoot, ResourceActionLedger);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var entry = new Dictionary<string, object?>
+            {
+                ["at"] = DateTime.UtcNow.ToString(
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'"),
+                ["job_id"] = jobId,
+                ["state"] = state,
+            };
+            if (detail != null)
+                foreach (var kv in detail) entry[kv.Key] = kv.Value;
+            File.AppendAllText(path,
+                CanonicalJson.PlainDict(entry) + "\n",
+                new System.Text.UTF8Encoding(false));
+        }
+        catch { /* ledger must never break governed training */ }
+    }
+
+    /// <summary>Advisory batch plan (§7-§10): bucket + free VRAM ->
+    /// microbatch + grad-accum. Advisory only — the planner's
+    /// activation estimate is crude, and the native trainer runs
+    /// per-example with packing (batch_size/grad_accum are config
+    /// intent, not trainer inputs), so the plan is attached for
+    /// operators instead of enforced. Null when no VRAM budget or no
+    /// measurable scale is configured.</summary>
+    private static Dictionary<string, object?>? AdvisoryBatchPlan(
+        Dictionary<string, object?> configuration,
+        string? initBundleDir,
+        int maxLen)
+    {
+        int vramMb = TransformerTrainingRepository.Int(
+            configuration, "max_train_vram_mb");
+        if (vramMb <= 0 || string.IsNullOrEmpty(initBundleDir)) return null;
+        long? total = CapacityPlane.BundleTotalParams(initBundleDir);
+        if (!total.HasValue || total.Value <= 0) return null;
+        int bucket = TrainingAcceleration.SeqBuckets
+            .FirstOrDefault(b => b >= maxLen,
+                TrainingAcceleration.SeqBuckets[^1]);
+        int batchSize = TransformerTrainingRepository.Int(
+            configuration, "batch_size");
+        int gradAccum = TransformerTrainingRepository.Int(
+            configuration, "grad_accum");
+        if (batchSize <= 0) batchSize = 1;
+        if (gradAccum <= 0) gradAccum = 1;
+        try
+        {
+            string payload = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["sequence_bucket"] = bucket,
+                    ["free_vram_bytes"] = (long)vramMb * 1024L * 1024L,
+                    ["trainable_params"] = total.Value,
+                    ["target_batch_tokens"] =
+                        (long)batchSize * gradAccum * bucket,
+                });
+            using var doc = JsonDocument.Parse(payload);
+            var plan = TrainingAcceleration.BatchPlan(doc.RootElement);
+            plan["advisory_only"] = true;
+            plan["note"] = "native trainer runs per-example with " +
+                "packing — batch_size/grad_accum express config " +
+                "intent; size the VRAM budget from microbatch_tokens";
+            return plan;
+        }
+        catch (ExecutorError)
+        {
+            return null;
+        }
+    }
+
     private Dictionary<string, object?> InvokeTrainerNative(
         List<Dictionary<string, object?>> trainDocs,
         List<Dictionary<string, object?>> valDocs,
         Dictionary<string, object?> configuration,
-        string outputDir)
+        string outputDir,
+        int trainerThreads)
     {
         string kind = (string)configuration["training_kind"]!;
         string toolRoot = _toolRoot;
@@ -658,10 +671,31 @@ internal sealed class TrainingJobExecutor
             throw new ExecutorError("EXECUTOR_EMPTY_SPLIT",
                 "tokenized train split produced no usable rows");
 
+        // -- validation split: previously loaded for snapshot integrity
+        //    and then silently discarded. Tokenize it too — fail-fast on
+        //    val data that cannot tokenize — and carry the artifact into
+        //    the summary for the eval tier (the native trainer consumes
+        //    the train path only).
+        string valSrc = Path.Combine(outputDir, "val-src.jsonl");
+        string valIds = Path.Combine(outputDir, "val-ids.jsonl");
+        WriteSourceRows(valSrc, valDocs, kind);
+        var valTkArgs = new List<string>
+        {
+            "tokenize", "--tokenizer", tokenizerPath,
+            "--in", valSrc, "--out", valIds,
+            "--max-length", maxLen.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+        if (chat && kind != "pretrain") valTkArgs.Add("--chat");
+        var valTkOut = RunModelToolJson(toolRoot, stderrLog, valTkArgs.ToArray());
+        int valRows = TransformerTrainingRepository.Int(valTkOut, "rows_out");
+
         // -- trainer job spec.
         double deadline = TransformerTrainingRepository.Num(
             configuration, "max_train_seconds");
         string emitCkpt = Path.Combine(outputDir, "final.xcn");
+        string? initBundleDir = initObj is string ip && Directory.Exists(ip)
+            ? ip : null;
+        var batchPlan = AdvisoryBatchPlan(configuration, initBundleDir, maxLen);
         var jobSpec = new Dictionary<string, object?>
         {
             ["task"] = kind,
@@ -691,6 +725,9 @@ internal sealed class TrainingJobExecutor
                 ["init_checkpoint"] = initXcn,
                 ["emit_checkpoint"] = emitCkpt,
                 ["overwrite"] = true,
+                // Trainer CPU lanes follow the governor's training quota
+                // (0 = trainer auto: min(8, hw), cap 16).
+                ["threads"] = trainerThreads,
                 // §41-§45 ParameterFreezeMap passthrough: config
                 // "freeze" is a bounded list of wildcard patterns; the
                 // trainer resolves it before init_params so frozen
@@ -724,7 +761,8 @@ internal sealed class TrainingJobExecutor
         var run = NativeTools.Run(
             NativeTools.TrainerExe(toolRoot),
             new[] { "--job", jobSpecPath, "--report", reportPath },
-            toolRoot, stderrLog, timeoutS, rssBudget, sampleInterval);
+            toolRoot, stderrLog, timeoutS, rssBudget, sampleInterval,
+            lowPriority: true);
         if (run.ExitCode != 0)
             throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
                 $"trainer exited {run.ExitCode} " +
@@ -794,6 +832,11 @@ internal sealed class TrainingJobExecutor
             ["requested_device"] =
                 TransformerTrainingRepository.Str(configuration, "device") ?? "",
             ["executed_device"] = "cpu-native",
+            ["trainer_threads"] = trainerThreads,
+            ["train_ids"] = trainIds,
+            ["val_ids"] = valIds,
+            ["val_rows_tokenized"] = valRows,
+            ["batch_plan"] = batchPlan,
             ["export"] = export,
         };
         if (report.TryGetValue("deadline_hit", out object? dh) &&
@@ -895,6 +938,10 @@ internal sealed class TrainingJobExecutor
         try
         {
             configuration = NormalizeConfiguration(row);
+            // Resource preflight before any snapshot IO: inference
+            // exclusion + governor training quota. EXECUTOR_GPU_BUSY keeps
+            // the job queued and arms the self-learning gpu-busy backoff.
+            int trainerThreads = PreflightResourceGate();
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
             // §1 recovery lane defense-in-depth: under
@@ -935,11 +982,27 @@ internal sealed class TrainingJobExecutor
                 throw new ExecutorError("EXECUTOR_OUTPUT_SCOPE_DENIED",
                     "job output dir escapes jobs root");
             Directory.CreateDirectory(outputDir);
+            AppendResourceAction(jobId,
+                (string)configuration["training_kind"]! == "pretrain"
+                    ? "PRETRAINING" : "SFT_TRAINING",
+                new Dictionary<string, object?>
+                {
+                    ["trainer_threads"] = trainerThreads,
+                    ["device"] = TransformerTrainingRepository.Str(
+                        configuration, "device") ?? "",
+                    ["max_train_seconds"] =
+                        TransformerTrainingRepository.Num(
+                            configuration, "max_train_seconds"),
+                    ["max_train_vram_mb"] =
+                        TransformerTrainingRepository.Int(
+                            configuration, "max_train_vram_mb"),
+                });
             Dictionary<string, object?> summary;
             try
             {
                 summary = InvokeTrainerNative(
-                    trainDocs, valDocs, configuration, outputDir);
+                    trainDocs, valDocs, configuration, outputDir,
+                    trainerThreads);
             }
             catch (ExecutorError)
             {

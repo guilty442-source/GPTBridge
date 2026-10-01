@@ -62,14 +62,52 @@ inline fs::path find_repo_root() {
     return fs::path();
 }
 
-/* bundle 目錄：env XINGCHENG_BUNDLE_DIR 優先；否則掃
+/* bundle 目錄：env XINGCHENG_BUNDLE_DIR 優先；其次讀
+   runtime/settings/native-engine.json 的 checkpoint 釘定（正式
+   推論 bundle，self-learning 換代會更新此 pin，測試永遠對齊
+   生產工件）；最後掃
    <repo>/Standalone tools/local-model/xingcheng/runtime/models/
    cpp-bundles/*，取第一個含 manifest.json+weights.bin+tokenizer.json
    者（名稱排序，決定性）。 */
+inline std::string read_text_file(const fs::path& p);
+
+inline bool looks_like_bundle(const fs::path& d) {
+    std::error_code ec;
+    return fs::exists(d / "manifest.json", ec) &&
+           fs::exists(d / "weights.bin", ec) &&
+           fs::exists(d / "tokenizer.json", ec);
+}
+
+inline fs::path find_pinned_bundle(const fs::path& root) {
+    const fs::path toolRoot = root / "Standalone tools" / "local-model";
+    const fs::path settings =
+        toolRoot / "runtime" / "settings" / "native-engine.json";
+    std::error_code ec;
+    if (!fs::exists(settings, ec)) return fs::path();
+    jl::JsonValue doc;
+    try {
+        doc = jl::JsonParser(read_text_file(settings)).parse();
+    } catch (...) {
+        return fs::path();
+    }
+    const jl::JsonValue* ck = doc.get("checkpoint");
+    if (!ck || ck->type != jl::JsonValue::Type::String ||
+        ck->string.empty())
+        return fs::path();
+    fs::path p(ck->string);
+    if (p.is_relative()) p = toolRoot / p;
+    if (looks_like_bundle(p)) return p;
+    /* checkpoint 也可能直接指向父層下的 bundle/ 子目錄 */
+    if (looks_like_bundle(p / "bundle")) return p / "bundle";
+    return fs::path();
+}
+
 inline fs::path find_bundle_dir(const fs::path& root) {
     if (const char* env = std::getenv("XINGCHENG_BUNDLE_DIR")) {
         if (*env) return fs::path(env);
     }
+    if (const fs::path pinned = find_pinned_bundle(root); !pinned.empty())
+        return pinned;
     const fs::path base = root / "Standalone tools" / "local-model" /
                           "xingcheng" / "runtime" / "models" /
                           "cpp-bundles";

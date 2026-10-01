@@ -60,7 +60,10 @@ internal static class NativeTools
     }
 
     /// <summary>Run a native tool with timeout + RSS accounting; on
-    /// non-zero exit the stderr tail becomes the error message.</summary>
+    /// non-zero exit the stderr tail becomes the error message.
+    /// <paramref name="lowPriority"/> drops the child to BelowNormal so
+    /// batch training yields CPU to interactive work and live inference
+    /// (governor A598: training sheds first).</summary>
     public static RunResult Run(
         string exe,
         IEnumerable<string> args,
@@ -68,7 +71,8 @@ internal static class NativeTools
         string stderrLogPath,
         double timeoutS = 14400,
         double rssBudgetMb = 0,
-        double sampleIntervalS = 5)
+        double sampleIntervalS = 5,
+        bool lowPriority = false)
     {
         var psi = new ProcessStartInfo
         {
@@ -116,6 +120,11 @@ internal static class NativeTools
 
         var started = Stopwatch.StartNew();
         proc.Start();
+        if (lowPriority)
+        {
+            try { proc.PriorityClass = ProcessPriorityClass.BelowNormal; }
+            catch { /* lowering priority must never abort governed work */ }
+        }
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
 
