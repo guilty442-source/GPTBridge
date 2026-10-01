@@ -89,7 +89,7 @@ fn filetime_ticks(md: &std::fs::Metadata) -> i64 {
             Ok(d) => {
                 (d.as_secs() as i64) * 10_000_000
                     + (d.subsec_nanos() as i64) / 100
-                    + 11_644_473_600_000_000_000i64
+                    + 116_444_736_000_000_000i64
             }
             Err(_) => 0,
         },
