@@ -254,39 +254,130 @@ static void parallel_for(int64_t n,
 
 // ------------------------------------------------------------ GEMM lanes --
 
-// Tiled linear lane: y[t,o] = x[t,:] . w[o,:] over the flat output space.
-// Lane-granular contiguous p-ranges keep one fixed accumulation order per
-// output element, identical for any lane count.
+// Row-shared dot block: y[j] = x_j . w for up to 4 rows against the same
+// weight row. The old elementwise lane re-streamed the whole W row per
+// output element — the dominant DRAM traffic in every GEMM (the lm_head
+// alone moved ~51 GB/step). Four rows share one W read, quartering that
+// traffic. Each element keeps tpu_dot's exact accumulation order (dual
+// accumulators over 16-float chunks, one 8-chunk, scalar tail), so the
+// results are bitwise identical to per-row tpu_dot calls.
+static void tpu_dot4(const float* x0, const float* x1, const float* x2,
+                     const float* x3, const float* w, float* y4,
+                     int64_t n) {
+#if XCT_TPU_X64 && defined(_MSC_VER)
+    if (tpu_has_avx2_fma()) {
+        const __m256 z = _mm256_setzero_ps();
+        __m256 a00 = z, a01 = z, a10 = z, a11 = z;
+        __m256 a20 = z, a21 = z, a30 = z, a31 = z;
+        int64_t i = 0;
+        for (; i + 16 <= n; i += 16) {
+            const __m256 w0 = _mm256_loadu_ps(w + i);
+            const __m256 w1 = _mm256_loadu_ps(w + i + 8);
+            a00 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), w0, a00);
+            a01 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i + 8), w1, a01);
+            a10 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), w0, a10);
+            a11 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i + 8), w1, a11);
+            a20 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), w0, a20);
+            a21 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i + 8), w1, a21);
+            a30 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), w0, a30);
+            a31 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i + 8), w1, a31);
+        }
+        if (i + 8 <= n) {
+            const __m256 w0 = _mm256_loadu_ps(w + i);
+            a00 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), w0, a00);
+            a10 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), w0, a10);
+            a20 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), w0, a20);
+            a30 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), w0, a30);
+            i += 8;
+        }
+        auto hsum = [](__m256 s0, __m256 s1) {
+            __m256 s = _mm256_add_ps(s0, s1);
+            __m128 lo = _mm256_castps256_ps128(s);
+            __m128 hi = _mm256_extractf128_ps(s, 1);
+            lo = _mm_add_ps(lo, hi);
+            lo = _mm_add_ps(lo, _mm_movehl_ps(lo, lo));
+            lo = _mm_add_ss(lo, _mm_shuffle_ps(lo, lo, 1));
+            return _mm_cvtss_f32(lo);
+        };
+        y4[0] = hsum(a00, a01); y4[1] = hsum(a10, a11);
+        y4[2] = hsum(a20, a21); y4[3] = hsum(a30, a31);
+        for (; i < n; ++i) {
+            y4[0] += x0[i] * w[i]; y4[1] += x1[i] * w[i];
+            y4[2] += x2[i] * w[i]; y4[3] += x3[i] * w[i];
+        }
+        return;
+    }
+#endif
+    const float* xs[4] = {x0, x1, x2, x3};
+    for (int j = 0; j < 4; ++j) y4[j] = tpu_dot(xs[j], w, n);
+}
+
+// Tiled linear lane: y[t,o] = x[t,:] . w[o,:]. Lanes own t-blocks of 4
+// rows and sweep all outputs serially, so each weight row is fetched
+// once per 4 x-rows instead of once per element. Per-element results
+// are lane-count independent and bitwise identical to tpu_dot rows.
 static void tpu_linear(const float* x, const float* w, float* y,
                        int T, int I, int O) {
-    parallel_for((int64_t)T * O, [&](int64_t b, int64_t e) {
-        int64_t t = b / O, o = b % O;
-        for (int64_t p = b; p < e; ++p) {
-            y[p] = tpu_dot(x + (size_t)t * I, w + (size_t)o * I, I);
-            if (++o == O) { o = 0; ++t; }
+    const int64_t nb = (T + 3) / 4;
+    parallel_for(nb, [&](int64_t b, int64_t e) {
+        for (int64_t tb = b; tb < e; ++tb) {
+            const int64_t t0 = tb * 4;
+            const int nr = (int)std::min<int64_t>(4, T - t0);
+            const float* xb = x + (size_t)t0 * I;
+            float* yb = y + (size_t)t0 * O;
+            for (int64_t o = 0; o < O; ++o) {
+                const float* wr = w + (size_t)o * I;
+                if (nr == 4) {
+                    tpu_dot4(xb, xb + I, xb + 2 * I, xb + 3 * I,
+                             wr, yb + o, I);
+                } else {
+                    for (int j = 0; j < nr; ++j)
+                        yb[(size_t)j * O + o] =
+                            tpu_dot(xb + (size_t)j * I, wr, I);
+                }
+            }
         }
     });
 }
 
-// Split backward GEMM into two disjoint partitions — dW over output rows,
-// dx over input rows — matching the reference accumulation order per
-// element (t-ascending for dW, o-ascending for dx).
+// Split backward GEMM into two disjoint partitions — dW over output-row
+// blocks, dx over input-row blocks — matching the reference accumulation
+// order per element (t-ascending for dW, o-ascending for dx; the row-
+// block interleave only changes which row each FMA lands in, never the
+// add order within an element). Row blocks share the streamed operand:
+// x rows are read once per 4 dW rows, W rows once per 4 dx rows —
+// quartering the L3/DRAM traffic of the per-row lanes.
 static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
                            float* dx, float* dW, int T, int I, int O) {
-    if (dW) parallel_for(O, [&](int64_t b, int64_t e) {
-        for (int64_t o = b; o < e; ++o) {
-            float* dw = dW + (size_t)o * I;
-            for (int64_t t = 0; t < T; ++t)
-                tpu_axpy(dw, dy[(size_t)t * O + o], x + (size_t)t * I, I);
-        }
-    });
+    if (dW) {
+        const int64_t nob = (O + 3) / 4;
+        parallel_for(nob, [&](int64_t b, int64_t e) {
+            for (int64_t ob = b; ob < e; ++ob) {
+                const int64_t o0 = ob * 4;
+                const int no = (int)std::min<int64_t>(4, O - o0);
+                for (int64_t t = 0; t < T; ++t) {
+                    const float* xr = x + (size_t)t * I;
+                    const float* dyr = dy + (size_t)t * O + o0;
+                    for (int j = 0; j < no; ++j)
+                        tpu_axpy(dW + (size_t)(o0 + j) * I, dyr[j], xr, I);
+                }
+            }
+        });
+    }
     if (!dx) return;
-    parallel_for(T, [&](int64_t b, int64_t e) {
-        for (int64_t t = b; t < e; ++t) {
-            float* dxr = dx + (size_t)t * I;
-            const float* dyr = dy + (size_t)t * O;
-            for (int64_t o = 0; o < O; ++o)
-                tpu_axpy(dxr, dyr[o], w + (size_t)o * I, I);
+    const int64_t ntb = (T + 3) / 4;
+    parallel_for(ntb, [&](int64_t b, int64_t e) {
+        for (int64_t tb = b; tb < e; ++tb) {
+            const int64_t t0 = tb * 4;
+            const int nt = (int)std::min<int64_t>(4, T - t0);
+            for (int64_t o = 0; o < O; ++o) {
+                const float* wr = w + (size_t)o * I;
+                for (int j = 0; j < nt; ++j) {
+                    const int64_t t = t0 + j;
+                    tpu_axpy(dx + (size_t)t * I, dy[(size_t)t * O + o],
+                             wr, I);
+                }
+            }
         }
     });
 }
