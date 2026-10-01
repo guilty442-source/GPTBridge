@@ -78,7 +78,8 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
     // the standard EOS-separated packing convention). Vision rows and
     // dpo/grpo formats are never packed.
     const int pack = j_int(d, "pack", 0);
-    if (pack > 0 && (fmt == "sft" || fmt == "pretrain")) {
+    const bool packable = fmt == "sft" || fmt == "pretrain" || fmt == "ids";
+    if (pack > 0 && packable) {
         const int target = std::min(pack, max_len);
         const int sep = j_int(d, "pack_sep", -1);
         std::vector<Example> packed;
@@ -95,12 +96,13 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             if (!cur.ids.empty() && (int)cur.ids.size() + need > target) flush();
             if (!cur.ids.empty() && sep >= 0) {
                 cur.ids.push_back(sep);
-                // pretrain labels are unshifted ids (shift_labels runs on
-                // the packed row), so push sep to keep doc-end->sep and
-                // sep->next-doc both taught; sft labels are pre-aligned
-                // targets — mask the sep position so packing never
-                // teaches a cross-doc transition.
-                cur.labels.push_back(fmt == "pretrain" ? sep : -100);
+                // pretrain/ids labels are unshifted ids (shift_labels
+                // runs on the packed row), so push sep to keep
+                // doc-end->sep and sep->next-doc both taught; sft
+                // labels are pre-aligned targets — mask the sep
+                // position so packing never teaches a cross-doc
+                // transition.
+                cur.labels.push_back(fmt == "sft" ? -100 : sep);
             }
             cur.ids.insert(cur.ids.end(), e.ids.begin(), e.ids.end());
             cur.labels.insert(cur.labels.end(), e.labels.begin(), e.labels.end());
