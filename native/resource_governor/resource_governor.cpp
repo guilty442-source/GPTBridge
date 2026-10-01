@@ -285,6 +285,7 @@ void advisor_step(CycleEnv& env) {
     sig.local_minutes = env.ctx.local_minutes;
     sig.now_unix = env.ctx.now_unix;
     sig.now_mono = env.ctx.now_mono;
+    sig.user_idle_s = env.sys.user_idle_s;
     AdvisorState& advisor = env.regulation.advisor;
     const AdvisorDecision decision =
         evaluate_advisor(env.rules.advisor, sig, advisor);
@@ -306,6 +307,10 @@ void advisor_step(CycleEnv& env) {
         {"applied", advisor.applied_mode.empty()
                         ? jnull()
                         : jstr(advisor.applied_mode)},
+        {"ceiling",
+         jstr(decision.eff_ceiling.empty() ? policy.ceiling
+                                           : decision.eff_ceiling)},
+        {"idle_full_speed", jbool(decision.idle_active)},
         {"last_switch_at", jnum(advisor.last_switch_unix)},
         {"power_saving",
          jobj({{"enabled", jbool(policy.schedule_enabled)},
@@ -322,6 +327,9 @@ void advisor_step(CycleEnv& env) {
                {"headroom", jbool(decision.headroom)},
                {"worker_cpu_pct", jnum(round1(sig.worker_cpu_pct))},
                {"worker_ram_pct", jnum(round1(sig.worker_ram_pct))},
+               {"user_idle_s",
+                sig.user_idle_s < 0.0 ? jnull()
+                                      : jnum(round1(sig.user_idle_s))},
                {"power_saving_active", jbool(decision.schedule_active)}})},
     });
     if (decision.changed) {

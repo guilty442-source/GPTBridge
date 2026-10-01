@@ -92,6 +92,10 @@ AdvisorPolicy parse_advisor_policy(const jsonlite::JsonValue* auto_obj,
             std::clamp(num_or(auto_obj, "headroom_mem_pct", 75.0), 1.0, 100.0);
         policy.demand_factor =
             std::clamp(num_or(auto_obj, "demand_factor", 0.8), 0.05, 1.0);
+        policy.idle_full_speed = bool_or(auto_obj, "idle_full_speed", true);
+        policy.idle_after_s =
+            std::clamp(num_or(auto_obj, "idle_after_s", 300.0), 30.0, 86400.0);
+        policy.idle_ceiling = str_or(auto_obj->get("idle_ceiling"), "high");
     }
     /* ceiling 僅在啟用或顯式宣告時驗證——未啟用且未宣告的預設值不應
      * 讓不含該檔位的 rules 檔報錯（fail-open 於停用態，fail-closed
@@ -103,6 +107,16 @@ AdvisorPolicy parse_advisor_policy(const jsonlite::JsonValue* auto_obj,
     if (!valid_modes.empty() && (policy.enabled || ceiling_declared) &&
         valid_modes.count(policy.ceiling) == 0) {
         error = "auto: unknown ceiling '" + policy.ceiling + "'";
+        return policy;
+    }
+    const bool idle_ceiling_declared =
+        auto_obj != nullptr &&
+        auto_obj->type == jsonlite::JsonValue::Type::Object &&
+        auto_obj->get("idle_ceiling") != nullptr;
+    if (!valid_modes.empty() && policy.idle_full_speed &&
+        (policy.enabled || idle_ceiling_declared) &&
+        valid_modes.count(policy.idle_ceiling) == 0) {
+        error = "auto: unknown idle_ceiling '" + policy.idle_ceiling + "'";
         return policy;
     }
     if (schedule_obj != nullptr &&
@@ -195,10 +209,19 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         out.target = "medium";
         reason = "baseline";
     }
-    /* 使用者可用性上限：自動模式永不升過 ceiling（降檔/省電不受限）。 */
-    if (mode_rank(out.target) > mode_rank(policy.ceiling)) {
-        out.target = policy.ceiling;
-        reason += " (ceiling " + policy.ceiling + ")";
+    /* 閒置全速：無輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling；
+     * user_idle_s<0（偵測失敗）視同使用中 → 仍受 ceiling 限制。 */
+    out.idle_active = policy.idle_full_speed && sig.user_idle_s >= 0.0 &&
+                      sig.user_idle_s >= policy.idle_after_s;
+    out.eff_ceiling =
+        out.idle_active &&
+                mode_rank(policy.idle_ceiling) > mode_rank(policy.ceiling)
+            ? policy.idle_ceiling
+            : policy.ceiling;
+    /* 使用者可用性上限：自動模式永不升過有效 ceiling（降檔/省電不受限）。 */
+    if (mode_rank(out.target) > mode_rank(out.eff_ceiling)) {
+        out.target = out.eff_ceiling;
+        reason += " (ceiling " + out.eff_ceiling + ")";
     }
 
     state.streak = state.last_target == out.target ? state.streak + 1 : 1;
@@ -216,6 +239,11 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         return out;
     }
     const bool upgrade = mode_rank(out.target) > mode_rank(out.current);
+    /* 使用者回來（閒置結束）且現檔高於正常使用上限 → urgent 立即讓位，
+     * 不吃 streak/cooldown（user intent 優先於滯回）。 */
+    if (!upgrade && !out.idle_active && !out.urgent &&
+        mode_rank(out.current) > mode_rank(policy.ceiling))
+        out.urgent = true;
     if (!out.urgent) {
         if (upgrade && state.streak < policy.streak_up) {
             out.reason = reason + " (streak " + std::to_string(state.streak) +
