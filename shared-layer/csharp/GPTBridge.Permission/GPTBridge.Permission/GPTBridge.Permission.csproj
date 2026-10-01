@@ -10,4 +10,8 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="GPTBridge.Automation" />
+  </ItemGroup>
+
 </Project>
