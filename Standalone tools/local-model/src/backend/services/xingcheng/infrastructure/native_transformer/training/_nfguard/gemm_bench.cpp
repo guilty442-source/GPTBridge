@@ -1,5 +1,6 @@
 // Micro-benchmark: current per-element tpu_linear vs register-tiled variant.
-// Same per-element serial accumulation order -> bitwise identical outputs.
+// tile4 keeps per-row dual accumulators matching dot_ref's exact split and
+// reduction order, so each output element accumulates identically (bitwise).
 #include <immintrin.h>
 #include <chrono>
 #include <cstdio>
@@ -7,8 +8,6 @@
 #include <cstring>
 #include <vector>
 #include <random>
-#include <thread>
-#include <atomic>
 #include <algorithm>
 
 static float dot_ref(const float* a, const float* b, int64_t n) {
@@ -31,6 +30,15 @@ static float dot_ref(const float* a, const float* b, int64_t n) {
     return sum;
 }
 
+static float reduce8(__m256 v) {
+    __m128 lo = _mm256_castps256_ps128(v);
+    __m128 hi = _mm256_extractf128_ps(v, 1);
+    lo = _mm_add_ps(lo, hi);
+    lo = _mm_add_ps(lo, _mm_movehl_ps(lo, lo));
+    lo = _mm_add_ss(lo, _mm_shuffle_ps(lo, lo, 1));
+    return _mm_cvtss_f32(lo);
+}
+
 // baseline: one output element per dot, W re-streamed per token row
 static void lin_ref(const float* x, const float* w, float* y, int T, int I, int O) {
     for (int t = 0; t < T; ++t)
@@ -38,37 +46,49 @@ static void lin_ref(const float* x, const float* w, float* y, int T, int I, int 
             y[(size_t)t * O + o] = dot_ref(x + (size_t)t * I, w + (size_t)o * I, I);
 }
 
-// register-tiled: 4 token rows share one W row stream; each output element
-// is still the identical i-ascending serial accumulation -> bitwise equal.
+// tile4: 4 token rows share one W stream. Per output element the i-loop
+// mirrors dot_ref exactly (s0 on i, s1 on i+8, same tails) -> bitwise equal.
 static void lin_tile4(const float* x, const float* w, float* y, int T, int I, int O) {
     for (int t0 = 0; t0 < T; t0 += 4) {
         int tb = std::min(4, T - t0);
         for (int o = 0; o < O; ++o) {
             const float* wr = w + (size_t)o * I;
-            float acc[4] = {0, 0, 0, 0};
-            __m256 v0 = _mm256_setzero_ps(), v1 = _mm256_setzero_ps(),
-                   v2 = _mm256_setzero_ps(), v3 = _mm256_setzero_ps();
+            __m256 a0 = _mm256_setzero_ps(), a1 = _mm256_setzero_ps(),
+                   b0 = _mm256_setzero_ps(), b1 = _mm256_setzero_ps(),
+                   c0 = _mm256_setzero_ps(), c1 = _mm256_setzero_ps(),
+                   d0 = _mm256_setzero_ps(), d1 = _mm256_setzero_ps();
             const float* x0 = x + (size_t)t0 * I;
             const float* x1 = tb > 1 ? x0 + I : x0;
             const float* x2 = tb > 2 ? x0 + 2 * I : x0;
             const float* x3 = tb > 3 ? x0 + 3 * I : x0;
             int64_t i = 0;
+            for (; i + 16 <= I; i += 16) {
+                __m256 wv0 = _mm256_loadu_ps(wr + i);
+                __m256 wv1 = _mm256_loadu_ps(wr + i + 8);
+                a0 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), wv0, a0);
+                a1 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i + 8), wv1, a1);
+                b0 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), wv0, b0);
+                b1 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i + 8), wv1, b1);
+                c0 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), wv0, c0);
+                c1 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i + 8), wv1, c1);
+                d0 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), wv0, d0);
+                d1 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i + 8), wv1, d1);
+            }
+            float acc[4] = {reduce8(_mm256_add_ps(a0, a1)),
+                            reduce8(_mm256_add_ps(b0, b1)),
+                            reduce8(_mm256_add_ps(c0, c1)),
+                            reduce8(_mm256_add_ps(d0, d1))};
             for (; i + 8 <= I; i += 8) {
                 __m256 wv = _mm256_loadu_ps(wr + i);
-                v0 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), wv, v0);
-                v1 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), wv, v1);
-                v2 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), wv, v2);
-                v3 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), wv, v3);
+                acc[0] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), wv,
+                                                 _mm256_setzero_ps())) + acc[0];
+                acc[1] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), wv,
+                                                 _mm256_setzero_ps())) + acc[1];
+                acc[2] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), wv,
+                                                 _mm256_setzero_ps())) + acc[2];
+                acc[3] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), wv,
+                                                 _mm256_setzero_ps())) + acc[3];
             }
-            auto red = [](__m256 v) {
-                __m128 lo = _mm256_castps256_ps128(v);
-                __m128 hi = _mm256_extractf128_ps(v, 1);
-                lo = _mm_add_ps(lo, hi);
-                lo = _mm_add_ps(lo, _mm_movehl_ps(lo, lo));
-                lo = _mm_add_ss(lo, _mm_shuffle_ps(lo, lo, 1));
-                return _mm_cvtss_f32(lo);
-            };
-            acc[0] = red(v0); acc[1] = red(v1); acc[2] = red(v2); acc[3] = red(v3);
             for (; i < I; ++i) {
                 acc[0] += x0[i] * wr[i]; acc[1] += x1[i] * wr[i];
                 acc[2] += x2[i] * wr[i]; acc[3] += x3[i] * wr[i];
@@ -83,7 +103,8 @@ template <typename F>
 static double bench(F&& f, int reps) {
     auto t0 = std::chrono::steady_clock::now();
     for (int r = 0; r < reps; ++r) f();
-    return std::chrono::duration<double>(t0.time_since_epoch()).count() / reps;
+    auto t1 = std::chrono::steady_clock::now();
+    return std::chrono::duration<double>(t1 - t0).count() / reps;
 }
 
 int main() {
