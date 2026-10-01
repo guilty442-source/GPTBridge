@@ -156,7 +156,9 @@ internal static class NativeTools
         }
         finally
         {
-            try { proc.WaitForExit(2000); } catch { /* already dead */ }
+            // Drain async output handlers: the timed WaitForExit overload
+            // does not guarantee redirected-output processing finished.
+            try { proc.WaitForExit(); } catch { /* already dead */ }
         }
 
         int exitCode;
