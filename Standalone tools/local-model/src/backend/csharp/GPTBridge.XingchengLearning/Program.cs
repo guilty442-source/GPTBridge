@@ -75,6 +75,13 @@ internal static class Program
                         ? mc : "",
                     opts.TryGetValue("evidence", out string? me)
                         ? me : ""));
+            if (flags.Contains("maturation-reopen"))
+                return Emit(Maturation300M.Reopen(
+                    toolRoot,
+                    opts.TryGetValue("capability", out string? mrc)
+                        ? mrc : "",
+                    opts.TryGetValue("reason", out string? mrr)
+                        ? mrr : ""));
             if (flags.Contains("maturation-unsupported"))
                 return Emit(Maturation300M.MarkUnsupported(
                     toolRoot,
@@ -1565,7 +1572,10 @@ internal static class Program
             "--retention [--apply|--status] | --run-jobs [n] | " +
             "--job <id> | --self-test | --converge-check | " +
             "--maturation-status | --maturation-freeze --capability " +
-            "<id> --evidence <ref> | --maturation-baseline --weights " +
+            "<id> --evidence <ref> | --maturation-reopen --capability " +
+            "<id> --reason <text> | --maturation-unsupported " +
+            "--capability <id> --evidence <ref> --reason <text> | " +
+            "--maturation-baseline --weights " +
             "<ref> --weights-sha256 <sha> --model <f> --runtime <f> " +
             "--service <f> | " +
             "--release-gate [--bundle <dir>] [--suite <file>] " +
