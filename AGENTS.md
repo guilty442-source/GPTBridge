@@ -274,10 +274,21 @@ Implementation: `GPTBridge.XingchengLearning` (C#) —
 `SftDataset.cs` (SFT/DPO snapshot bridges), `Repository.cs`
 (PostgreSQL `gptbridge_xingcheng` schema + audit chain),
 `JobExecutor.cs` + `NativeTools.cs` (native subprocess lane),
-`Evaluation.cs` (`xc_modeltool eval`/`capability` gates),
-`Lifecycle.cs` (`star-model-lifecycle/v1`), `Retention.cs`; native
+`Evaluation.cs` (`xc_modeltool eval`/`capability` measurement +
+recording), `Lifecycle.cs` (`star-model-lifecycle/v1`), `Retention.cs`;
+native
 execution: `infrastructure/native_transformer/training/xingcheng_trainer.exe`,
 bridge: `infrastructure/native_transformer/tools/xc_modeltool.exe`.
+
+Evaluation verdict ownership (codex B139/B132/B141): the native engine
+only measures; the authoritative pass/fail verdict + comparison is
+computed by the F# evaluator `xc-eval`
+(`src/backend/fsharp/GPTBridge.XingchengEval`, contract
+`star-fsharp-eval-verdict/v1`), invoked by `Evaluation.cs` after every
+suite run. The engine's own `passed`/`comparison` fields are carried as
+`engine_comparison` evidence only. Missing or failing `xc-eval.exe`
+fails closed (`EVAL_OWNER_UNAVAILABLE`/`EVAL_VERDICT_FAILED` → recorded
+passed=0), so promotion can never proceed without an F# verdict.
 The retired Python `self_learning*.py`/`training_job_executor.py` are
 interface documentation only — never execution.
 

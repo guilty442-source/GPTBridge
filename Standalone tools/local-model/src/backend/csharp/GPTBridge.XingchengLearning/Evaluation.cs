@@ -20,6 +20,15 @@
 // failure records passed=0 rather than aborting the cycle silently —
 // matching the Python lane where suite execution errors produced a
 // failed evaluation row, not a crash.
+//
+// Ownership split (codex B139/B132/B141): the native engine only
+// measures — perplexity, tokens/sec, per-category pass rates. The
+// pass/fail verdict is owned by the F# evaluator (xc-eval,
+// star-fsharp-eval-verdict/v1); its comparison is recorded as the
+// authoritative comparison and the engine's own comparison is carried
+// as engine_comparison evidence only. If the F# owner is missing or
+// errors, the evaluation fails closed (EVAL_OWNER_UNAVAILABLE /
+// EVAL_VERDICT_FAILED).
 
 using System.Text.Json;
 
@@ -83,6 +92,65 @@ internal static class Evaluation
         return map.TryGetValue(key, out object? v) &&
                v is Dictionary<string, object?> d
             ? d : new Dictionary<string, object?>();
+    }
+
+    /// <summary>Resolve the F# evaluation-verdict executable that owns
+    /// the gate decision (codex B139/B132/B141). Missing → fail closed.</summary>
+    private static string XcEvalExe(string execRoot)
+    {
+        string path = Path.Combine(
+            execRoot, "src", "backend", "fsharp",
+            "GPTBridge.XingchengEval", "publish", "xc-eval.exe");
+        if (!File.Exists(path))
+            throw new ExecutorError(
+                "EVAL_OWNER_UNAVAILABLE",
+                $"xc-eval.exe missing: {path}");
+        return path;
+    }
+
+    /// <summary>Ask the F# evaluator for the authoritative verdict on the
+    /// measurements the native engine produced. Returns the recorded
+    /// comparison (verdict_owner=fsharp).</summary>
+    private static Dictionary<string, object?> FsharpVerdict(
+        string execRoot, TransformerTrainingRepository repo,
+        string format, Dictionary<string, object?> gates,
+        Dictionary<string, object?> adapterMetrics,
+        Dictionary<string, object?> baselineMetrics,
+        Dictionary<string, object?> engineComparison,
+        string stderrLog, out bool passed)
+    {
+        var input = new Dictionary<string, object?>
+        {
+            ["format"] = format,
+            ["quality_gates"] = gates,
+            ["candidate"] = adapterMetrics,
+            ["baseline"] = baselineMetrics,
+            ["engine_comparison"] = engineComparison,
+        };
+        string inputPath = Path.Combine(
+            Path.GetTempPath(), $"xc-eval-in-{Guid.NewGuid():N}.json");
+        File.WriteAllText(inputPath, CanonicalJson.PlainDict(input),
+                          new System.Text.UTF8Encoding(false));
+        try
+        {
+            var run = NativeTools.Run(
+                XcEvalExe(execRoot),
+                new[] { "gate", "--input", inputPath },
+                repo.ToolRoot, stderrLog, timeoutS: 120);
+            var verdict = ParseStdoutJson(run, "EVAL_VERDICT_FAILED");
+            if (run.ExitCode == 1 ||
+                !TransformerTrainingRepository.Truthy(
+                    verdict.GetValueOrDefault("ok")))
+                throw new ExecutorError("EVAL_VERDICT_FAILED",
+                    $"xc-eval exited {run.ExitCode}");
+            passed = TransformerTrainingRepository.Truthy(
+                verdict.GetValueOrDefault("passed"));
+            return Child(verdict, "comparison");
+        }
+        finally
+        {
+            try { File.Delete(inputPath); } catch { }
+        }
     }
 
     /// <summary>Evaluate a candidate bundle against one suite and record
@@ -179,9 +247,6 @@ internal static class Evaluation
                         NativeTools.ModelToolExe(execRoot), args,
                         repo.ToolRoot, stderrLog, timeoutS: 7200);
                     var output = ParseStdoutJson(run, "EVAL_TOOL_FAILED");
-                    passed = run.ExitCode == 0 &&
-                             TransformerTrainingRepository
-                                 .Truthy(output.GetValueOrDefault("passed"));
                     var report = Child(output, "report");
                     adapterMetrics = report;
                     comparison = Child(output, "comparison");
@@ -210,8 +275,6 @@ internal static class Evaluation
                 if (run.ExitCode != 0 && run.ExitCode != 2)
                     throw new ExecutorError("EVAL_TOOL_FAILED",
                         $"modeltool eval exited {run.ExitCode}");
-                passed = TransformerTrainingRepository
-                    .Truthy(output.GetValueOrDefault("passed"));
                 adapterMetrics = Child(output, "candidate");
                 baselineMetrics = Child(output, "baseline");
                 comparison = Child(output, "comparison");
@@ -221,6 +284,19 @@ internal static class Evaluation
                 return Fail(repo, adapterId, suiteId,
                             $"unknown-suite-format:{format}", evaluatedBy);
             }
+        }
+        catch (ExecutorError ex)
+        {
+            return Fail(repo, adapterId, suiteId, ex.Message, evaluatedBy);
+        }
+
+        // The verdict belongs to the F# evaluator (B139/B132/B141).
+        try
+        {
+            comparison = FsharpVerdict(
+                execRoot, repo, format, gates,
+                adapterMetrics, baselineMetrics, comparison,
+                stderrLog, out passed);
         }
         catch (ExecutorError ex)
         {
