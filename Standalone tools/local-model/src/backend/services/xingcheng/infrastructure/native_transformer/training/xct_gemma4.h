@@ -298,7 +298,9 @@ static void bwd_g4(Params& p, const ModelConfig& c,
             linear_bwd(dg.data(), L.x_ple.data(),
                        p.w.at(ln(l, "ple_gate")), dxb.data(),
                        p.dw(ln(l, "ple_gate")), T, H, ple);
-            for (size_t i = 0; i < dx.size(); ++i) dx[i] += dxb[i];
+            tpu_elementwise((int64_t)dx.size(), [&](int64_t i) {
+                dx[(size_t)i] += dxb[(size_t)i];
+            });
         }
         {
             // x_ple = x_mid + ffn_norm(ffn_pre)
@@ -313,11 +315,12 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                        T, inter, H);
             std::vector<float> dfa((size_t)T * inter, 0.0f);
             std::vector<float> dfb((size_t)T * inter, 0.0f);
-            for (size_t i = 0; i < L.fh.size(); ++i) {
-                const float a = L.fa[i], b = L.fb[i], d = dfh[i];
-                dfa[i] += d * b * act_d(c, a);
-                dfb[i] += d * act_f(c, a);
-            }
+            tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
+                const float a = L.fa[(size_t)i], b = L.fb[(size_t)i],
+                            d = dfh[(size_t)i];
+                dfa[(size_t)i] += d * b * act_d(c, a);
+                dfb[(size_t)i] += d * act_f(c, a);
+            });
             std::vector<float> dn2((size_t)T * H, 0.0f);
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
                        dn2.data(), p.dw(ln(l, "w1")),
@@ -330,7 +333,9 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                         p.w.at(ln(l, "norm2")).d.data(),
                         L.rms2.data(), buf.data(),
                         p.dw(ln(l, "norm2")), T, H);
-            for (size_t i = 0; i < dx.size(); ++i) dx[i] += buf[i];
+            tpu_elementwise((int64_t)dx.size(), [&](int64_t i) {
+                dx[(size_t)i] += buf[(size_t)i];
+            });
         }
         {
             // x_mid = x_in + attn_norm(o_pre); o_pre = attn_out @ wo
@@ -351,47 +356,50 @@ static void bwd_g4(Params& p, const ModelConfig& c,
             std::vector<float>& dk = dk_acc[owner];
             std::vector<float>& dv = dv_acc[owner];
             const int group = c.heads / c.kv_heads;
-            for (int h = 0; h < c.heads; ++h) {
-                const int kh = h / group;
-                for (int t = 0; t < T; ++t) {
-                    const int lo = std::max(0, t - win + 1);
-                    const float* pr =
-                        L.probs.data() + ((size_t)h * T + t) * T;
-                    const float* dao_r =
-                        dao.data() + ((size_t)t * c.heads + h) * hd;
-                    std::vector<float> dscore((size_t)t + 1, 0.0f);
-                    for (int s = lo; s <= t; ++s) {
-                        const float* vr = KV.v.data() +
-                            ((size_t)s * c.kv_heads + kh) * hd;
-                        float dotv = 0.0f;
-                        for (int i = 0; i < hd; ++i)
-                            dotv += dao_r[i] * vr[i];
-                        dscore[s] = dotv;
+            // TPU lanes: one lane per kv-head — the q-heads of a GQA group
+            // share its dk/dv slices, so grouping heads by owner keeps
+            // every shared-buffer write disjoint across lanes; per-element
+            // accumulation order is unchanged.
+            parallel_for(c.kv_heads, [&](int64_t gb, int64_t ge) {
+                std::vector<float> dsc((size_t)4 * T);
+                for (int64_t g = gb; g < ge; ++g)
+                    for (int h = (int)g * group;
+                         h < std::min((int)(g + 1) * group, c.heads); ++h) {
+                        const int kh = h / group;
+                        tpu_attn_bwd(
+                            L.probs.data() + (size_t)h * T * T,
+                            T, hd, sliding ? win : 0, scale,
+                            [&](int t) {
+                                return dao.data() +
+                                       ((size_t)t * c.heads + h) * hd;
+                            },
+                            [&](int t) {
+                                return L.q.data() +
+                                       ((size_t)t * c.heads + h) * hd;
+                            },
+                            [&](int s) {
+                                return KV.k.data() +
+                                       ((size_t)s * c.kv_heads + kh) * hd;
+                            },
+                            [&](int s) {
+                                return KV.v.data() +
+                                       ((size_t)s * c.kv_heads + kh) * hd;
+                            },
+                            [&](int t) {
+                                return dq.data() +
+                                       ((size_t)t * c.heads + h) * hd;
+                            },
+                            [&](int s) {
+                                return dk.data() +
+                                       ((size_t)s * c.kv_heads + kh) * hd;
+                            },
+                            [&](int s) {
+                                return dv.data() +
+                                       ((size_t)s * c.kv_heads + kh) * hd;
+                            },
+                            dsc.data());
                     }
-                    float dsum = 0.0f;
-                    for (int s = lo; s <= t; ++s)
-                        dsum += dscore[s] * pr[s];
-                    const float* qr =
-                        L.q.data() + ((size_t)t * c.heads + h) * hd;
-                    float* dqr =
-                        dq.data() + ((size_t)t * c.heads + h) * hd;
-                    for (int s = lo; s <= t; ++s) {
-                        const float ds =
-                            pr[s] * (dscore[s] - dsum) * scale;
-                        const float* kr = KV.k.data() +
-                            ((size_t)s * c.kv_heads + kh) * hd;
-                        float* dkr =
-                            dk.data() + ((size_t)s * c.kv_heads + kh) * hd;
-                        float* dvr =
-                            dv.data() + ((size_t)s * c.kv_heads + kh) * hd;
-                        for (int i = 0; i < hd; ++i) {
-                            dqr[i] += ds * kr[i];
-                            dkr[i] += ds * qr[i];
-                            dvr[i] += pr[s] * dao_r[i];
-                        }
-                    }
-                }
-            }
+            });
             // un-rope + un-norm q (always own); k/v only at the owner.
             rope_ex(dq.data(), T, c.heads, hd, theta, rotary, true);
             std::vector<float> dn1((size_t)T * H, 0.0f);
@@ -429,7 +437,9 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                         p.w.at(ln(l, "norm1")).d.data(),
                         L.rms1.data(), buf.data(),
                         p.dw(ln(l, "norm1")), T, H);
-            for (size_t i = 0; i < dx.size(); ++i) dx[i] += buf[i];
+            tpu_elementwise((int64_t)dx.size(), [&](int64_t i) {
+                dx[(size_t)i] += buf[(size_t)i];
+            });
         }
     }
 
@@ -442,32 +452,38 @@ static void bwd_g4(Params& p, const ModelConfig& c,
         const float ctx_scale = 1.0f / std::sqrt((float)H);
         std::vector<float> dctxn(dple_in.size());
         float* gepl = p.dw("embed_ple");
-        for (int t = 0; t < T; ++t) {
-            const float* din =
-                dple_in.data() + (size_t)t * L * ple;
-            float* dc = dctxn.data() + (size_t)t * L * ple;
-            float* ger = gepl ? gepl + (size_t)ids[t] * L * ple : nullptr;
-            for (int i = 0; i < L * ple; ++i) {
-                dc[i] = din[i] * mix;
-                if (ger) ger[i] += din[i] * mix * tok_scale;
-            }
-        }
+        // Column lanes over L*ple: each worker owns a disjoint channel
+        // range across all rows, so repeated-token embed_ple accumulations
+        // stay in t-ascending order per element — bitwise identical.
+        parallel_for((int64_t)L * ple, [&](int64_t b, int64_t e) {
+            for (int64_t i = b; i < e; ++i)
+                for (int64_t t = 0; t < T; ++t) {
+                    const float dv = dple_in[(size_t)t * L * ple + i];
+                    dctxn[(size_t)t * L * ple + i] = dv * mix;
+                    if (gepl)
+                        gepl[(size_t)ids[(size_t)t] * L * ple + i] +=
+                            dv * mix * tok_scale;
+                }
+        });
         std::vector<float> dctx(dctxn.size(), 0.0f);
         rmsnorm_bwd(dctxn.data(), o.g4_ctx_in.data(),
                     p.w.at("ple_proj_norm").d.data(),
                     o.g4_ctx_rms.data(), dctx.data(),
                     p.dw("ple_proj_norm"), T * L, ple);
-        for (float& v : dctx) v *= ctx_scale;
+        tpu_scale(dctx.data(), ctx_scale, (int64_t)dctx.size());
         linear_bwd(dctx.data(), o.g4_x0.data(),
                    p.w.at("ple_model_proj"), dx0.data(),
                    p.dw("ple_model_proj"), T, H, L * ple);
     }
     // embed backward (x0 = embed*emb_scale); tied lm_head already routed.
+    // Column lanes over H keep repeated-token accumulation t-ascending
+    // per element — bitwise identical to the serial row order.
     float* gemb = p.dw("embed");
     if (gemb)
-        for (int t = 0; t < T; ++t) {
-            float* ger = gemb + (size_t)ids[t] * H;
-            const float* dxr = dx0.data() + (size_t)t * H;
-            for (int i = 0; i < H; ++i) ger[i] += dxr[i] * emb_scale;
-        }
+        parallel_for(H, [&](int64_t b, int64_t e) {
+            for (int64_t i = b; i < e; ++i)
+                for (int64_t t = 0; t < T; ++t)
+                    gemb[(size_t)ids[(size_t)t] * H + i] +=
+                        dx0[(size_t)t * H + i] * emb_scale;
+        });
 }
