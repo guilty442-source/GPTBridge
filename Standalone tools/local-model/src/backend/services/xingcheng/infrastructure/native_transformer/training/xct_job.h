@@ -458,8 +458,14 @@ static JsonValue run_job(const JsonValue& job) {
                 float s = tc.beta * (1.0f - sig);
                 // Workspace buffers: keep capacity across examples —
                 // two [T,V] gradient rows per example is ~32 MB of
-                // realloc+first-touch churn per pair.
-                static thread_local std::vector<float> dl_c, dl_r;
+                // realloc+first-touch churn per pair. Kept in ONE struct
+                // TLS — grouped function-scope static thread_local
+                // vectors crash in this TU (mtp_stack_fwd incident).
+                static thread_local struct DpoWs {
+                    std::vector<float> dl_c, dl_r;
+                } dws;
+                auto& dl_c = dws.dl_c;
+                auto& dl_r = dws.dl_r;
                 dl_c.assign(fw.logits.size(), 0.0f);
                 dl_r.assign(fr.logits.size(), 0.0f);
                 soft_grad(fw.logits, ex.labels, (int)ex.ids.size(),
@@ -543,7 +549,10 @@ static JsonValue run_job(const JsonValue& job) {
                     grpo_kl_sum += kl;
                     // dL/dz = (A - kl_c)/ntok * (softmax - 1[y]) over the
                     // completion positions only.
-                    static thread_local std::vector<float> dl;
+                    static thread_local struct GrpoWs {
+                        std::vector<float> dl;
+                    } gws;
+                    auto& dl = gws.dl;
                     dl.assign(fw.logits.size(), 0.0f);
                     const float scale = (r.adv - tc.kl_coef) / (float)ntok;
                     parallel_for((int64_t)T - P, [&](int64_t b, int64_t e) {

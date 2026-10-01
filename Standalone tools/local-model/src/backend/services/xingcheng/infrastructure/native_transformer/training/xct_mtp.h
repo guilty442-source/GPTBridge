@@ -5,9 +5,9 @@
 // ---------------------------------------------------- MTP module (v29) --
 //
 // Qwen3-Next/Max multi-token prediction: each depth-d module fuses the
-// previous hidden stream with the next token's embedding ??//   u[t] = W_proj 繚 [ rms(h_{d-1}[t]) ; rms(embed[ids[t+d+1]]) ]   (2H ??H)
+// previous hidden stream with the next token's embedding ??//   u[t] = W_proj ??[ rms(h_{d-1}[t]) ; rms(embed[ids[t+d+1]]) ]   (2H ??H)
 //   h_d  = decoder_block(u)   (causal GQA + RoPE + SwiGLU, c.inter)
-//   logits_d[t] = lm_head 繚 rms(h_d[t])         predicts ids[t+d+2]
+//   logits_d[t] = lm_head ??rms(h_d[t])         predicts ids[t+d+2]
 // h_0 = trunk hidden (post final norm), text rows only ??vision prefix
 // rows never enter the MTP stack. lm_head and embed are shared with the
 // trunk. Rows per depth: R_d = PT-2-d. The aux CE densifies supervision
@@ -16,7 +16,12 @@
 static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o) {
     if (c.mtp_depth <= 0) { o.mtp_stack.clear(); return; }
-    o.mtp_stack.resize(0);   // keep capacity across calls
+    // Depth slots persist across calls like the layer caches: each field
+    // is fully rewritten by resize/assign below before any read, so the
+    // retained capacity just skips realloc + first-touch churn. Sizing
+    // once up front also keeps the per-depth references stable ??no
+    // mid-loop reallocation can move an element a live ref points into.
+    o.mtp_stack.resize((size_t)c.mtp_depth);
     const int PT = (int)ids.size();
     const int P = o.vision_patches;
     const int H = c.hidden, hd = H / c.heads;
@@ -25,14 +30,21 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
     const int group = c.heads / kvh;
     const int rd = c.rotary_dim();
     const float scale = 1.0f / std::sqrt((float)hd);
-    // Fwd temporaries: depth-local buffers kept across depths/examples —
-    // the cache fields (M.*) still own their persistent storage.
-    static thread_local std::vector<float> ehn, een, aproj, fproj;
+    // Fwd temporaries: hoisted out of the depth loop so capacity is kept
+    // across depths within a call. NOTE: these must NOT be thread_local ??
+    // several grouped static thread_local vectors in this function were
+    // observed to crash nondeterministically inside the depth loop.
+    std::vector<float> ehn, een, aproj, fproj;
     for (int d = 0; d < c.mtp_depth; ++d) {
-        o.mtp_stack.resize((size_t)d + 1);
-        MtpStackCache& M = o.mtp_stack.back();
+        MtpStackCache& M = o.mtp_stack[(size_t)d];
         const int R = PT - 2 - d;
-        if (R <= 0) { M.rows = 0; break; }
+        if (R <= 0) {
+            // Mark this and every deeper slot empty ??readers all gate
+            // on rows<=0, matching the old truncated-stack semantics.
+            for (int e = d; e < c.mtp_depth; ++e)
+                o.mtp_stack[(size_t)e].rows = 0;
+            break;
+        }
         M.rows = R;
         const std::string b = "mtp." + std::to_string(d) + ".";
         // prev stream: d=0 reads trunk hidden at row P+t (text positions);
@@ -174,7 +186,7 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         const int R = M.rows;
         if (R <= 0 || d >= (int)o.mtp_stack.size()) continue;
         const std::string b = "mtp." + std::to_string(d) + ".";
-        // head: logits = lm_head 繚 norm_o(x2)
+        // head: logits = lm_head ??norm_o(x2)
         auto& dhn = ws.dhn;
         dhn.assign((size_t)R * H, 0.0f);
         linear_bwd(dm[(size_t)d].data(), M.hn.data(), p.w.at("lm_head"),
@@ -188,7 +200,7 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         if (!carry.empty())
             for (size_t i = 0; i < carry.size(); ++i) dx2[i] += carry[i];
         carry.clear();
-        // ffn: x2 = x1 + w2繚(act(fa)?b)
+        // ffn: x2 = x1 + w2??act(fa)???)
         auto& dx1 = ws.dx1;
         dx1 = dx2;                                     // residual
         auto& dfh = ws.dfh;
@@ -219,7 +231,7 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         tpu_elementwise((int64_t)dx1.size(), [&](int64_t i) {
             dx1[(size_t)i] += dx1n[(size_t)i];
         });
-        // attention: x1 = u + wo繚attn_out
+        // attention: x1 = u + wo??ttn_out
         auto& du = ws.du;
         du = dx1;                                      // residual to u
         auto& dao = ws.dao;
@@ -291,7 +303,7 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         rmsnorm_bwd(dn1.data(), M.u.data(), p.w.at(b + "norm1").d.data(),
                     M.rms1.data(), du.data(), p.dw(b + "norm1"),
                     R, H);
-        // fusion proj: u = Wp繚[ehn|een] ??split back into the normed halves
+        // fusion proj: u = Wp??ehn|een] ??split back into the normed halves
         auto& dcat = ws.dcat;
         dcat.assign((size_t)R * 2 * H, 0.0f);
         linear_bwd(du.data(), M.cat.data(), p.w.at(b + "proj"),
@@ -374,7 +386,7 @@ static float mtp_stack_aux_loss(const ModelConfig& c, const std::vector<int>& id
 //      non-zero grads on mtp.* params, embed rows and the trunk ??verified
 //      by finite differences on a sample of elements;
 //   5. router z-loss: with moe_z_loss_weight>0 the forward accumulates
-//      w繚mean(lse簡) and the gate weight receives the 2繚lse繚p/T gradient.
+//      w??ean(lse?? and the gate weight receives the 2??se??/T gradient.
 static int mtpcheck() {
     int failures = 0;
     auto fail = [&](const char* what) {
