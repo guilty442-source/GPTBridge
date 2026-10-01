@@ -147,6 +147,14 @@ static double now_s() {
 // device kernel with w/m/v resident ??the host only ships the gradient
 // and reads back w (host forward still needs it this phase). Any miss
 // falls through to the scalar path per tensor ??never a partial tensor.
+// §26 batch surface POD — identical declaration in cuda_kernels.cpp
+// (same pattern as the extern "C" entries below).
+struct XcudaAdamwItem {
+    const float* g_host;   // host gradient, length = bound tensor n
+    const void*  w_key;    // bound host weight pointer (map key)
+    float*       w_out;    // host dst for updated w
+    int          rc;       // per-item verdict written by the batch call
+};
 #if defined(XINGCHENG_CUDA)
 extern "C" int xcuda_adamw_probe();
 extern "C" int xcuda_adamw_bind(const float*, const float*, const float*,
@@ -154,6 +162,8 @@ extern "C" int xcuda_adamw_bind(const float*, const float*, const float*,
 extern "C" int xcuda_adamw_step_dev(const float*, const void*, float,
                                     float, float, int);
 extern "C" int xcuda_adamw_sync(const void*, float*, float*, float*);
+extern "C" int xcuda_adamw_step_all(XcudaAdamwItem*, long long, float,
+                                    float, float, int);
 #else
 static int xcuda_adamw_probe() { return 0; }
 static int xcuda_adamw_bind(const float*, const float*, const float*,
@@ -163,6 +173,8 @@ static int xcuda_adamw_step_dev(const float*, const void*, float, float,
 static int xcuda_adamw_sync(const void*, float*, float*, float*) {
     return 3;
 }
+static int xcuda_adamw_step_all(XcudaAdamwItem*, long long, float,
+                                float, float, int) { return 3; }
 #endif
 
 static void adamw_step(Params& p, float gscale, float lr_t, float wd,
@@ -177,6 +189,72 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
     static const bool cuda_ok =
         cuda_opt && xcuda_adamw_probe() != 0;
+    if (cuda_ok) {
+        // §26 batch path: one call pipelines every bound tensor's
+        // H2D/kernel/D2H across the manager's dedicated lanes. The
+        // skip guards are identical to the serial loop; a failed item
+        // falls back to scalar for that tensor only — never a partial
+        // tensor.
+        std::vector<XcudaAdamwItem> items;
+        std::vector<const std::string*> names;
+        items.reserve(p.order.size());
+        names.reserve(p.order.size());
+        for (auto& n : p.order) {
+            // lb_bias: routing-time buffer updated by the sign rule,
+            // never by the optimizer — decay would pull it to zero.
+            if (n.size() >= 7 &&
+                n.compare(n.size() - 7, 7, "lb_bias") == 0)
+                continue;
+            // §41 frozen params own no Adam moments, never updated.
+            if (p.frozen.count(n)) continue;
+            // §44 routed-expert sparsity: untouched experts get no
+            // gradient update AND no optimizer update.
+            if (n.find(".experts.") != std::string::npos &&
+                !p.touched.count(n))
+                continue;
+            Tensor& w = p.w[n];
+            Tensor& m = p.m[n];
+            Tensor& v = p.v[n];
+            if (xcuda_adamw_bind(w.d.data(), m.d.data(), v.d.data(),
+                                 static_cast<int64_t>(w.d.size())) != 0) {
+                // never bound — no device state to pull back.
+                Tensor& g = p.g[n];
+                tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
+                          (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
+                          bc1, bc2, eps);
+                continue;
+            }
+            Tensor& g = p.g[n];
+            items.push_back({g.d.data(), w.d.data(), w.d.data(), 0});
+            names.push_back(&n);
+        }
+        const int batch_rc = items.empty()
+            ? 0
+            : xcuda_adamw_step_all(items.data(),
+                                   (long long)items.size(), gscale,
+                                   lr_t, wd, step);
+        for (size_t i = 0; i < items.size(); ++i) {
+            const std::string& n = *names[i];
+            Tensor& w = p.w[n]; Tensor& g = p.g[n];
+            Tensor& m = p.m[n]; Tensor& v = p.v[n];
+            if (batch_rc == 0 && items[i].rc == 0) {
+                // consumed: the fused-zero contract clears the host
+                // gradient so the next step's backward starts clean.
+                std::fill(g.d.begin(), g.d.end(), 0.0f);
+                continue;
+            }
+            // Device holds the newest m/v — pull them back so the
+            // scalar fallback resumes from the last good optimizer
+            // state rather than stale host copies.
+            xcuda_adamw_sync(w.d.data(), w.d.data(), m.d.data(),
+                             v.d.data());
+            tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
+                      (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
+                      bc1, bc2, eps);
+        }
+        p.touched.clear();
+        return;
+    }
     for (auto& n : p.order) {
         // DeepSeek aux-free lb_bias is a routing-time buffer updated by
         // the sign rule (lb_bias_step), never by the optimizer ??without
@@ -196,27 +274,6 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             !p.touched.count(n))
             continue;
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
-        if (cuda_ok) {
-            const int64_t cnt = static_cast<int64_t>(w.d.size());
-            if (xcuda_adamw_bind(w.d.data(), m.d.data(), v.d.data(),
-                                 cnt) == 0) {
-                if (xcuda_adamw_step_dev(g.d.data(), w.d.data(), gscale,
-                                         lr_t, wd, step) != 0 ||
-                    xcuda_adamw_sync(w.d.data(), w.d.data(), nullptr,
-                                     nullptr) != 0) {
-                    // Device holds the newest m/v ??pull them back so
-                    // the scalar fallback resumes from the last good
-                    // optimizer state rather than stale host copies.
-                    xcuda_adamw_sync(w.d.data(), w.d.data(),
-                                     m.d.data(), v.d.data());
-                } else {
-                    // consumed: the fused-zero contract clears the host
-                    // gradient so the next step's backward starts clean.
-                    std::fill(g.d.begin(), g.d.end(), 0.0f);
-                    continue;
-                }
-            }
-        }
         // Fused lane: same op-for-op math as the scalar loop (g consumed
         // and zeroed, m/v updated, w stepped) ??bitwise per element.
         tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
