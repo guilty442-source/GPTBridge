@@ -2,7 +2,7 @@
   "artifact": "codex-amendment-request",
   "authority": "request-only",
   "schema": "codex-amendment-request/v1",
-  "request_id": "xingcheng-model-scale-boundary-20261001-r2",
+  "request_id": "xingcheng-model-scale-boundary-20261001-r4",
   "title": "Xingcheng model scale boundary",
   "summary": "Set the total model scale to 300M through 20B parameters and prohibit a full-capability baseline below 300M.",
   "requested_by": "decision-sovereign",
