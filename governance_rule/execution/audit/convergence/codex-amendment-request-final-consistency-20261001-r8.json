@@ -1,13 +1,13 @@
 {
   "artifact": "codex-amendment-request",
   "authority": "request-only",
-  "amendment_id": "codex-amendment-request-final-consistency-20261001-r6",
-  "request_id": "final-consistency-convergence-20261001-r6",
-  "requested_by": "human-governor",
+  "amendment_id": "codex-amendment-request-final-consistency-20261001-r8",
+  "request_id": "final-consistency-convergence-20261001-r8",
+  "requested_by": "decision-sovereign",
   "origin": "direct user order to execute whole-Codex deficiency closure",
   "change_class": "architecture-authority",
-  "required_review": "governed-automatic-audit",
-  "flow": "current-successor-publication",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
   "predecessor": {
     "codex_version": "2026-10-01T08:50:58Z",
     "history_head": "82ef021a3e735cf332aef6666f53333338aeb1cc34ff7015cbd6e90e15ec8cdc",
