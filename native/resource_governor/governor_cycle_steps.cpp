@@ -92,6 +92,20 @@ ProcKey pool_job_key(Pool pool) {
 void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                    ProcessRecord& record) {
     if (pool == Pool::None || record.pool_member) return;
+    /* Windows：進程一旦入任一 Job Object 便無法移出。已被 worker 共享 Job
+     * 捕獲的進程永遠無法遷入池 Job —— 記錄一次後停止重試。 */
+    if (record.job_member) {
+        if (!record.pool_join_blocked) {
+            record.pool_join_blocked = true;
+            env.actions.push_back(
+                jobj({{"action", jstr("pool-join-blocked")},
+                      {"pid", jint(sample.pid)},
+                      {"name", jstr(sample.name)},
+                      {"pool", jstr(pool_name(pool))},
+                      {"reason", jstr("in-worker-job")}}));
+        }
+        return;
+    }
     auto it = env.rules.pools.find(pool);
     if (it == env.rules.pools.end() || !it->second.enabled) return;
     const PoolPolicy& policy = it->second;
@@ -155,7 +169,11 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
  * Windows 單一行程僅能隸屬一個 Job Object）。 */
 void job_cap_and_pb(CycleEnv& env, const ProcSample& sample, Plane plane,
                     const ProcKey& key, ProcessRecord& record) {
+    /* 只對未分池（Pool::None）的 worker 套用共享 Job：池分類進程若池加入
+     * 失敗，寧可本輪不受控，也不可進 worker Job —— Job 成員身分不可逆，
+     * 一旦捕獲便永久喪失遷入池的資格。 */
     if (env.features.worker_job_cap && is_worker_plane(plane) &&
+        record.pool == Pool::None &&
         !record.job_member && !record.pool_member) {
         static const ProcKey kWorkerJob{-1, 0};
         const bool ok = env.dry_run || env.engine.cpu_limit(kWorkerJob, sample.pid,
