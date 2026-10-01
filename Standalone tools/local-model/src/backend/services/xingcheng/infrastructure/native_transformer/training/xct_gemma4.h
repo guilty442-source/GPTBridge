@@ -15,6 +15,19 @@
 // owner's gradient buffers before the owner's un-rope/un-norm backward.
 #pragma once
 
+// Gemma4 workspace: same contract as BwdWs — per-call and per-layer
+// temporaries held in one thread_local struct so capacity persists
+// across layers/examples; every field is re-initialized at its use site.
+// fwd_g4/bwd_g4 run on the caller thread only.
+struct G4Ws {
+    std::vector<float> x, ctx, ctxn, normed;                    // fwd
+    std::vector<float> dz, dh, dx, dple_in, buf, dp, dga, dg,   // bwd
+                       dxb, dproj, dfh, dfa, dfb, dn2, dao, dq,
+                       dn1, dqp, dkp, dvp, dx0, dctxn, dctx;
+    std::vector<std::vector<float>> dk_acc, dv_acc;
+    std::vector<float> ones_buf;
+};
+
 // ------------------------------------------------------- gemma4 forward --
 
 static void fwd_g4(const Params& p, const ModelConfig& c,
@@ -23,7 +36,9 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
     const int H = c.hidden;
     const int ple = c.ple_hidden;
     const float emb_scale = std::sqrt((float)H);
-    std::vector<float> x((size_t)T * H);
+    static thread_local G4Ws ws;
+    auto& x = ws.x;
+    x.assign((size_t)T * H, 0.0f);
     const float* er0 = p.w.at("embed").d.data();
     parallel_for(T, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t)
@@ -45,14 +60,16 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                     epl + (size_t)ids[(size_t)t] * L * ple,
                     tok_scale, (int64_t)L * ple);
         });
-        std::vector<float> ctx((size_t)T * L * ple);
+        auto& ctx = ws.ctx;
+        ctx.assign((size_t)T * L * ple, 0.0f);
         linear_fwd(x.data(), p.w.at("ple_model_proj"), ctx.data(),
                    T, H, L * ple);
         const float ctx_scale = 1.0f / std::sqrt((float)H);
         tpu_scale(ctx.data(), ctx_scale, (int64_t)ctx.size());
         o.g4_ctx_in = ctx;                       // post-scale, pre-norm
         o.g4_ctx_rms.resize((size_t)T * L);
-        std::vector<float> ctxn(ctx.size());
+        auto& ctxn = ws.ctxn;
+        ctxn.assign(ctx.size(), 0.0f);
         rmsnorm_fwd(ctx.data(), p.w.at("ple_proj_norm").d.data(),
                     ctxn.data(), o.g4_ctx_rms.data(), T * L, ple,
                     c.rms_eps);
@@ -64,7 +81,7 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
     }
 
     o.g4l.resize(c.layers);
-    std::vector<float> normed((size_t)T * H);
+    auto& normed = ws.normed;
     for (int l = 0; l < c.layers; ++l) {
         G4Layer& L = o.g4l[l];
         const int hd = c.hd_at(l);
@@ -107,7 +124,7 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
                         c.rms_eps);
             rope_ex(L.k.data(), T, c.kv_heads, hd, theta, rotary, false);
             // v_norm: scale-free RMSNorm (with_scale=False).
-            static std::vector<float> ones_buf;
+            auto& ones_buf = ws.ones_buf;
             if ((int)ones_buf.size() < hd) ones_buf.assign(hd, 1.0f);
             L.rms_v.resize((size_t)T * c.kv_heads);
             L.v.resize((size_t)T * Hkv);

@@ -392,7 +392,12 @@ static JsonValue run_job(const JsonValue& job) {
                 // dL/dlp_rejected = +beta*(1-sig). soft_grad emits
                 // scale*(p - 1[y]) = scale*d(-lp)/dz, so scale = beta*(1-sig).
                 float s = tc.beta * (1.0f - sig);
-                std::vector<float> dl_c(fw.logits.size(), 0.0f), dl_r(fr.logits.size(), 0.0f);
+                // Workspace buffers: keep capacity across examples —
+                // two [T,V] gradient rows per example is ~32 MB of
+                // realloc+first-touch churn per pair.
+                static thread_local std::vector<float> dl_c, dl_r;
+                dl_c.assign(fw.logits.size(), 0.0f);
+                dl_r.assign(fr.logits.size(), 0.0f);
                 soft_grad(fw.logits, ex.labels, (int)ex.ids.size(),
                           c.vocab, s, dl_c);
                 soft_grad(fr.logits, ex.rej_labels, (int)ex.rej_ids.size(),
@@ -474,7 +479,8 @@ static JsonValue run_job(const JsonValue& job) {
                     grpo_kl_sum += kl;
                     // dL/dz = (A - kl_c)/ntok * (softmax - 1[y]) over the
                     // completion positions only.
-                    std::vector<float> dl(fw.logits.size(), 0.0f);
+                    static thread_local std::vector<float> dl;
+                    dl.assign(fw.logits.size(), 0.0f);
                     const float scale = (r.adv - tc.kl_coef) / (float)ntok;
                     parallel_for((int64_t)T - P, [&](int64_t b, int64_t e) {
                         for (int64_t t = (P - 1) + b; t < (P - 1) + e; ++t) {

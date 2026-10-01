@@ -4,14 +4,16 @@
 
 // -------------------------------------------------------------- backward --
 
+struct BwdWs;
+
 static void mtp_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o, float aux_scale,
-                    std::vector<float>& dh);
+                    std::vector<float>& dh, BwdWs& ws);
 // v29 MTP stack — defined in xct_mtp.h (included after this header)
 static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                         const std::vector<int>& ids, Fwd& o,
                         const std::vector<std::vector<float>>& dmtp,
-                        float* dh_main);
+                        float* dh_main, BwdWs& ws);
 
 // Backward workspace: the per-layer temporaries total tens of MB and
 // were malloc'd + first-touched every layer of every example. Holding
@@ -30,16 +32,18 @@ struct BwdWs {
     std::vector<float> X, Deo, Fh, Dfh, Dfa, Dfb, Dxt, EOg, din_all;
     std::vector<float> dsg, dsh, dsg_in, dsa, dsb, so, dsg_logit;
     std::vector<float> don, donorm, dz, do_, dqn, dkn, dv, dvv, da_raw,
-                       db_raw, dqk_raw, dkk_raw, dconv_v, dq_pre, dk_pre,
+                       db_raw, dqk_raw, dkk_raw, dq_pre, dk_pre,
                        qn_kh, kn_kh, qr_kh, kr_kh, dconv_out, dconv_in,
                        dqkvz;
     std::vector<float> dao, dqr, dkr, dqf, dcq, dcq_raw, dckv, dckv_raw;
     std::vector<std::vector<float>> dkr_lanes;
     std::vector<float> dgate, dq, dk, diq, dsbuf, dk_csa, dv_csa,
                        mkr_all, dq_raw, dk_raw, cvec_k, cvec_v;
-    // mtp_bwd shares the same workspace — it runs before the trunk layer
-    // loop and every field is re-initialized before use.
+    // mtp_bwd/mtp_stack_bwd share the same workspace — they run before
+    // the trunk layer loop and every field is re-initialized before use.
     std::vector<float> dlm, dout, dx2, dz_res, dcin, dnh, dne;
+    std::vector<float> dhn, dx1, dx1n, du, dcat, deh, dee,
+                       dhprev, demb, carry;
 };
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
@@ -85,12 +89,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     // DeepSeek MTP: the module's CE also reaches the shared lm_head /
     // embed and the trunk hidden states (dh rows over text positions).
     // aux_scale==0 (DPO) keeps MTP out of the preference gradient.
-    mtp_bwd(p, c, ids, o, aux_scale, dh);
+    mtp_bwd(p, c, ids, o, aux_scale, dh, ws);
     // v29 MTP stack: folds its dh contribution onto the trunk hidden rows
     // (post-final-norm input) before the norm_f backward, and accumulates
     // the shared embed/lm_head + mtp.* parameter grads.
     if (dmtp != nullptr && !dmtp->empty() && c.mtp_depth > 0)
-        mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data());
+        mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data(), ws);
     auto& dx_fin = ws.dx_fin;
     dx_fin.assign((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
@@ -538,10 +542,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const float qscale = 1.0f / std::sqrt((float)kd);
             auto& dqk_raw = ws.dqk_raw;
             auto& dkk_raw = ws.dkk_raw;
-            auto& dconv_v = ws.dconv_v;
             dqk_raw.assign((size_t)T * kh * kd, 0.0f);
             dkk_raw.assign((size_t)T * kh * kd, 0.0f);
-            dconv_v.assign((size_t)T * val_dim, 0.0f);
             // fold v-head grads back to k-heads — lane per t keeps the
             // r-order fold identical; (t,g) slots stay single-lane.
             parallel_for(T, [&](int64_t b, int64_t e) {
@@ -599,7 +601,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 l2norm_bwd(dkk_raw.data(), kn_kh.data(), kr_kh.data(),
                            dk_pre.data(), T * kh, kd);
             }
-            dconv_v = std::move(dv);
+            // dv is dead past this point — reuse it directly as the
+            // conv-v grad slice (a move would drain ws.dv's capacity and
+            // force a fresh alloc every layer).
+            auto& dconv_v = dv;
             // conv output grad: [T, q_flat|k_flat|v_flat]
             auto& dconv_out = ws.dconv_out;
             dconv_out.assign((size_t)T * conv_dim, 0.0f);
@@ -1289,13 +1294,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
 // contract).
 static void mtp_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o, float aux_scale,
-                    std::vector<float>& dh) {
+                    std::vector<float>& dh, BwdWs& ws) {
     if (!o.mtp.on || aux_scale == 0.0f) return;
     const MtpCache& M = o.mtp;
     const int PT = (int)ids.size(), P = o.vision_patches;
     const int H = c.hidden, hd = H / c.heads;
     const int kvh = c.kv_heads, Hkvl = kvh * hd, Hq = c.heads * hd;
-    static thread_local BwdWs ws;
     auto& dlm = ws.dlm;
     dlm.clear();
     ce_loss(M.logits, M.lab, PT, c.vocab, dlm);
@@ -1477,8 +1481,10 @@ static float ce_loss(const std::vector<float>& logits,
     // Rows are disjoint lanes; per-row softmax math is unchanged. The
     // scalar loss stays a serial t-ascending accumulate over per-row
     // contributions, so the value is bitwise identical to the serial loop.
-    std::vector<float> contrib((size_t)T, 0.0f);
-    std::vector<int> lab_row((size_t)T, 0);
+    static thread_local std::vector<float> contrib;
+    static thread_local std::vector<int> lab_row;
+    contrib.assign((size_t)T, 0.0f);
+    lab_row.assign((size_t)T, 0);
     parallel_for(T, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             int y = labels[(size_t)t];
@@ -1510,7 +1516,8 @@ static float ce_loss(const std::vector<float>& logits,
 
 static float seq_logprob(const std::vector<float>& logits,
                          const std::vector<int>& labels, int T, int V) {
-    std::vector<float> contrib((size_t)T, 0.0f);
+    static thread_local std::vector<float> contrib;
+    contrib.assign((size_t)T, 0.0f);
     parallel_for(T, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             int y = labels[(size_t)t];
