@@ -317,6 +317,77 @@ XC_GVB_END:
     ret;
 }
 
+// ---- m==1 fast path: single-row decode GEMV ---------------------------
+// Same signature as xc_gemv_bf16_part (m is ignored); the row-broadcast
+// predicate chain collapses to one fma per element. Pointer increments
+// keep the a/b addresses marching instead of re-multiplied per i.
+.visible .entry xc_gemv_bf16_m1(
+    .param .u64 %p_a, .param .u64 %p_b, .param .u64 %p_part,
+    .param .u32 %p_m, .param .u32 %p_k, .param .u32 %p_n,
+    .param .u32 %p_ksplit, .param .u32 %p_kchunk)
+{
+    .reg .pred %p<6>;
+    .reg .b16  %rs<4>;
+    .reg .b32  %r<14>;
+    .reg .b64  %rd<20>;
+    .reg .f32  %f<8>;
+    ld.param.u64 %rd1, [%p_a];
+    ld.param.u64 %rd2, [%p_b];
+    ld.param.u64 %rd3, [%p_part];
+    ld.param.u32 %r2, [%p_k];
+    ld.param.u32 %r3, [%p_n];
+    ld.param.u32 %r4, [%p_kchunk];
+    mov.u32 %r5, %ctaid.x;
+    mov.u32 %r6, %ntid.x;
+    mov.u32 %r7, %tid.x;
+    mul.lo.u32 %r8, %r5, %r6;
+    add.u32 %r8, %r8, %r7;                        // col
+    setp.ge.u32 %p1, %r8, %r3;
+    @%p1 bra XC_GVM_END;
+    cvt.u64.u32 %rd8, %r8;                        // col64
+    cvt.u64.u32 %rd5, %r2;                        // k64
+    cvt.u64.u32 %rd6, %r3;                        // n64
+    mov.u32 %r9, %ctaid.y;                        // s
+    cvt.u64.u32 %rd9, %r9;
+    cvt.u64.u32 %rd7, %r4;                        // kchunk64
+    mul.lo.u64 %rd10, %rd9, %rd7;                 // i0
+    add.u64 %rd11, %rd10, %rd7;
+    setp.lt.u64 %p2, %rd11, %rd5;
+    selp.u64 %rd11, %rd11, %rd5, %p2;             // i1 = min(k, i0+kc)
+    mov.f32 %f4, 0f00000000;                      // acc
+    add.u64 %rd12, %rd10, %rd10;
+    add.u64 %rd12, %rd1, %rd12;                   // &a[i0]
+    mul.lo.u64 %rd13, %rd10, %rd6;
+    add.u64 %rd13, %rd13, %rd8;
+    add.u64 %rd13, %rd13, %rd13;
+    add.u64 %rd13, %rd2, %rd13;                   // &b[i0*n+col]
+    shl.b64 %rd14, %rd6, 1;                       // n*2 stride
+XC_GVM_LOOP:                                      // for i in [i0,i1)
+    setp.ge.u64 %p3, %rd10, %rd11;
+    @%p3 bra XC_GVM_STORE;
+    ld.global.u16 %rs1, [%rd12];
+    cvt.u32.u16 %r10, %rs1;
+    shl.b32 %r10, %r10, 16;
+    mov.b32 %f1, %r10;                            // av
+    ld.global.u16 %rs2, [%rd13];
+    cvt.u32.u16 %r11, %rs2;
+    shl.b32 %r11, %r11, 16;
+    mov.b32 %f2, %r11;                            // bv
+    fma.rn.f32 %f4, %f1, %f2, %f4;
+    add.u64 %rd12, %rd12, 2;
+    add.u64 %rd13, %rd13, %rd14;
+    add.u64 %rd10, %rd10, 1;
+    bra XC_GVM_LOOP;
+XC_GVM_STORE:                                     // part[s*n + col]
+    mul.lo.u64 %rd16, %rd9, %rd6;
+    add.u64 %rd16, %rd16, %rd8;
+    shl.b64 %rd16, %rd16, 2;
+    add.u64 %rd16, %rd3, %rd16;
+    st.global.f32 [%rd16], %f4;
+XC_GVM_END:
+    ret;
+}
+
 // ---- split-k reduce (shared pass 2): c[r][col] = sum_s part[s][r][col] -
 .visible .entry xc_gemv_reduce(
     .param .u64 %p_part, .param .u64 %p_c,

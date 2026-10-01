@@ -41,6 +41,7 @@ enum : int {
     kOk = 0,
     kAttrCcMajor = 75,          // CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR
     kAttrCcMinor = 76,          // CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR
+    kAttrSmCount = 16,          // CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT
     kStreamNonBlocking = 1,     // CU_STREAM_NON_BLOCKING
     kEventDisableTiming = 2,    // CU_EVENT_DISABLE_TIMING
     kMempoolReleaseThreshold = 4,  // CU_MEMPOOL_ATTR_RELEASE_THRESHOLD
@@ -207,6 +208,7 @@ struct Dev {
     CUdevice_t device = 0;
     int cc_major = 0;
     int cc_minor = 0;
+    int sm_count = 0;            // dispatch heuristics (dynamic ksplit)
     bool tried = false;
     bool ok = false;
 };
@@ -232,6 +234,11 @@ inline bool device_ready() {
     if (a.device_get_attribute(&d.cc_major, kAttrCcMajor, dv) != kOk ||
         a.device_get_attribute(&d.cc_minor, kAttrCcMinor, dv) != kOk)
         return false;
+    // SM count feeds the dynamic launch heuristics; a failed query
+    // degrades to 1 (narrowest dispatch), never a failure.
+    if (a.device_get_attribute(&d.sm_count, kAttrSmCount, dv) != kOk ||
+        d.sm_count <= 0)
+        d.sm_count = 1;
     if (a.primary_ctx_retain(&d.ctx, dv) != kOk || d.ctx == 0)
         return false;
     d.device = dv;

@@ -43,7 +43,9 @@ namespace mp = xcm_memplane;
 // Embedded PTX bodies — self-authored device code (star-cuda-language).
 #include "cuda_ptx_conv.h"
 #include "cuda_ptx_fp8.h"
+#include "cuda_ptx_fp8w.h"
 #include "cuda_ptx_gemm.h"
+#include "cuda_ptx_gemmw.h"
 #include "cuda_ptx_gemv.h"
 #include "cuda_ptx_kv.h"
 #include "cuda_ptx_math.h"
@@ -86,8 +88,10 @@ std::string ptx_image() {
     s += xcuda_ptx::math();
     s += xcuda_ptx::conv();
     s += xcuda_ptx::gemm();
+    s += xcuda_ptx::gemmw();
     s += xcuda_ptx::gemv();
     s += xcuda_ptx::fp8();
+    s += xcuda_ptx::fp8w();
     s += xcuda_ptx::kv();
     s += xcuda_ptx::train();
     return s;
@@ -99,13 +103,18 @@ std::string ptx_image() {
 CUmodule_t g_module = 0;
 CUfunction_t g_f_conv_bf16 = 0;
 CUfunction_t g_f_gemm_f64 = 0;
+CUfunction_t g_f_gemm_f64_w = 0;
 CUfunction_t g_f_gemm_bf16 = 0;
+CUfunction_t g_f_gemm_bf16_w = 0;
 CUfunction_t g_f_gemv_bf16 = 0;
+CUfunction_t g_f_gemv_bf16_m1 = 0;
 CUfunction_t g_f_gemv_reduce = 0;
 CUfunction_t g_f_conv_fp32 = 0;
 CUfunction_t g_f_conv_fp8 = 0;
 CUfunction_t g_f_gemm_fp8 = 0;
+CUfunction_t g_f_gemm_fp8_w = 0;
 CUfunction_t g_f_gemv_fp8 = 0;
+CUfunction_t g_f_gemv_fp8_m1 = 0;
 CUfunction_t g_f_kv_attn = 0;
 CUfunction_t g_f_adamw = 0;
 CUfunction_t g_f_sqsum = 0;
@@ -151,13 +160,18 @@ bool ensure_module() {
     bool ok = true;
     ok &= get_func(&g_f_conv_bf16, "xc_f64_to_bf16");
     ok &= get_func(&g_f_gemm_f64, "xc_gemm_f64");
+    ok &= get_func(&g_f_gemm_f64_w, "xc_gemm_f64_w");
     ok &= get_func(&g_f_gemm_bf16, "xc_gemm_bf16");
+    ok &= get_func(&g_f_gemm_bf16_w, "xc_gemm_bf16_w");
     ok &= get_func(&g_f_gemv_bf16, "xc_gemv_bf16_part");
+    ok &= get_func(&g_f_gemv_bf16_m1, "xc_gemv_bf16_m1");
     ok &= get_func(&g_f_gemv_reduce, "xc_gemv_reduce");
     ok &= get_func(&g_f_conv_fp32, "xc_f64_to_fp32");
     ok &= get_func(&g_f_conv_fp8, "xc_f64_to_fp8");
     ok &= get_func(&g_f_gemm_fp8, "xc_gemm_fp8");
+    ok &= get_func(&g_f_gemm_fp8_w, "xc_gemm_fp8_w");
     ok &= get_func(&g_f_gemv_fp8, "xc_gemv_fp8_part");
+    ok &= get_func(&g_f_gemv_fp8_m1, "xc_gemv_fp8_m1");
     ok &= get_func(&g_f_kv_attn, "xc_kv_attention");
     ok &= get_func(&g_f_adamw, "xc_adamw_fused");
     ok &= get_func(&g_f_sqsum, "xc_sqsum_part");
@@ -191,9 +205,32 @@ constexpr long long kConvThreads = 256;
 // Skinny-m threshold mirroring XC_GEMV_MAX_M in the device source.
 constexpr long long kGemvMaxM = 16;
 constexpr long long kGemvThreads = 256;
-// Split-k factor: widens the launch so decode-size shapes still cover
-// enough SMs to hide memory latency (fixed → deterministic reduce order).
+// Legacy fixed split-k, kept as the floor of the dynamic range.
 constexpr long long kGemvKSplit = 8;
+
+// ------------------------------------------------- adaptive dispatch --
+// Deterministic given (m,k,n,device): the 64x64 wide tiles win when the
+// grid still covers the SMs; m==1 decode gets the fused single-row
+// kernel; split-k scales the launch to ~4 waves of the live SM count
+// instead of a fixed 8 slices. The reduce stays in fixed slice order,
+// so results remain bit-stable for a given shape on a given device.
+constexpr long long kWideMin = 32;
+
+bool wide_gemm_shape(long long m, long long k, long long n) {
+    return m >= kWideMin && n >= kWideMin && k >= 16;
+}
+
+int pick_ksplit(long long k, long long n) {
+    const long long sm =
+        xcd::dev().sm_count > 0 ? xcd::dev().sm_count : 1;
+    const long long col_blocks = (n + kGemvThreads - 1) / kGemvThreads;
+    long long ks = kGemvKSplit;
+    while (ks < 32 && col_blocks * ks < sm * 4) ks <<= 1;
+    const long long cap = (k + 63) / 64;    // keep >=64 k per slice
+    if (ks > cap) ks = cap;
+    if (ks < kGemvKSplit) ks = kGemvKSplit;
+    return static_cast<int>(ks);
+}
 
 std::mutex g_bf16_mu;
 std::unordered_map<const void*, CUdevptr_t> g_bf16_weights;
@@ -398,7 +435,8 @@ int run_bf16_graph(const double* a, long long m, long long k,
                          mp::Tier::KERNEL_SCRATCH);
         g.dc = dev_alloc(cb, mp::Tier::KERNEL_SCRATCH);
         if (skinny)
-            g.part = dev_alloc(static_cast<size_t>(kGemvKSplit * m * n) *
+            g.part = dev_alloc(static_cast<size_t>(
+                                   pick_ksplit(k, n) * m * n) *
                                    sizeof(float),
                                mp::Tier::KERNEL_SCRATCH);
         g.a_host = static_cast<double*>(
@@ -428,13 +466,12 @@ int run_bf16_graph(const double* a, long long m, long long k,
             int mi = static_cast<int>(m), ki = static_cast<int>(k),
                 ni = static_cast<int>(n);
             if (skinny) {
-                int ksi = static_cast<int>(kGemvKSplit);
-                int kci = static_cast<int>(
-                    (k + kGemvKSplit - 1) / kGemvKSplit);
+                int ksi = pick_ksplit(k, n);
+                int kci = static_cast<int>((k + ksi - 1) / ksi);
                 void* pp[] = {&g.da, &g.db, &g.part, &mi, &ki, &ni,
                               &ksi, &kci};
                 ok &= launch_s(
-                    g_f_gemv_bf16,
+                    m == 1 ? g_f_gemv_bf16_m1 : g_f_gemv_bf16,
                     static_cast<unsigned int>(
                         (n + kGemvThreads - 1) / kGemvThreads),
                     static_cast<unsigned int>(ksi),
@@ -448,12 +485,14 @@ int run_bf16_graph(const double* a, long long m, long long k,
                     1, static_cast<unsigned int>(kGemvThreads), 1, 0, rp,
                     s);
             } else {
+                const bool wide = wide_gemm_shape(m, k, n);
+                const long long ts = wide ? 64 : 16;
                 void* pp[] = {&g.da, &g.db, &g.dc, &mi, &ki, &ni};
                 ok &= launch_s(
-                    g_f_gemm_bf16,
-                    static_cast<unsigned int>((n + 15) / 16),
-                    static_cast<unsigned int>((m + 15) / 16), 16, 16, 0,
-                    pp, s);
+                    wide ? g_f_gemm_bf16_w : g_f_gemm_bf16,
+                    static_cast<unsigned int>((n + ts - 1) / ts),
+                    static_cast<unsigned int>((m + ts - 1) / ts), 16, 16,
+                    0, pp, s);
             }
             ok &= g_drv.memcpy_dtoh_async(g.c_host, g.dc, cb, s) ==
                   kCudaSuccess;
@@ -529,15 +568,15 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
         if (m <= kGemvMaxM) {
             // Decode/skinny-m: split-k GEMV — part partials then a
             // fixed-order reduce; bandwidth-bound and deterministic.
+            // ksplit adapts to the device SM count (pick_ksplit).
+            int ksi = pick_ksplit(k, n);
             CUdevptr_t part = dev_get_pooled(
                 g_bf16_part,
-                static_cast<size_t>(kGemvKSplit * m * n) * sizeof(float));
+                static_cast<size_t>(ksi) * m * n * sizeof(float));
             if (part == 0) goto done;
-            int ksi = static_cast<int>(kGemvKSplit);
-            int kci =
-                static_cast<int>((k + kGemvKSplit - 1) / kGemvKSplit);
+            int kci = static_cast<int>((k + ksi - 1) / ksi);
             void* pparams[] = {&da, &db, &part, &mi, &ki, &ni, &ksi, &kci};
-            if (!launch(g_f_gemv_bf16,
+            if (!launch(m == 1 ? g_f_gemv_bf16_m1 : g_f_gemv_bf16,
                         static_cast<unsigned int>(
                             (n + kGemvThreads - 1) / kGemvThreads),
                         static_cast<unsigned int>(ksi),
@@ -554,10 +593,12 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
                 goto done;
             }
         } else {
+            const bool wide = wide_gemm_shape(m, k, n);
+            const long long ts = wide ? 64 : 16;
             void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
-            if (!launch(g_f_gemm_bf16,
-                        static_cast<unsigned int>((n + 15) / 16),
-                        static_cast<unsigned int>((m + 15) / 16),
+            if (!launch(wide ? g_f_gemm_bf16_w : g_f_gemm_bf16,
+                        static_cast<unsigned int>((n + ts - 1) / ts),
+                        static_cast<unsigned int>((m + ts - 1) / ts),
                         16, 16, 0, params)) {
                 goto done;
             }
@@ -655,15 +696,14 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
         int mi = static_cast<int>(m), ki = static_cast<int>(k),
             ni = static_cast<int>(n);
         if (m <= kGemvMaxM) {
+            int ksi = pick_ksplit(k, n);
             CUdevptr_t part = dev_get_pooled(
                 g_fp8_part,
-                static_cast<size_t>(kGemvKSplit * m * n) * sizeof(float));
+                static_cast<size_t>(ksi) * m * n * sizeof(float));
             if (part == 0) goto done;
-            int ksi = static_cast<int>(kGemvKSplit);
-            int kci =
-                static_cast<int>((k + kGemvKSplit - 1) / kGemvKSplit);
+            int kci = static_cast<int>((k + ksi - 1) / ksi);
             void* pparams[] = {&da, &db, &part, &mi, &ki, &ni, &ksi, &kci};
-            if (!launch(g_f_gemv_fp8,
+            if (!launch(m == 1 ? g_f_gemv_fp8_m1 : g_f_gemv_fp8,
                         static_cast<unsigned int>(
                             (n + kGemvThreads - 1) / kGemvThreads),
                         static_cast<unsigned int>(ksi),
@@ -680,10 +720,12 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
                 goto done;
             }
         } else {
+            const bool wide = wide_gemm_shape(m, k, n);
+            const long long ts = wide ? 64 : 16;
             void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
-            if (!launch(g_f_gemm_fp8,
-                        static_cast<unsigned int>((n + 15) / 16),
-                        static_cast<unsigned int>((m + 15) / 16),
+            if (!launch(wide ? g_f_gemm_fp8_w : g_f_gemm_fp8,
+                        static_cast<unsigned int>((n + ts - 1) / ts),
+                        static_cast<unsigned int>((m + ts - 1) / ts),
                         16, 16, 0, params)) {
                 goto done;
             }
@@ -838,7 +880,10 @@ int xcuda_kv_kernel_probe() {
 // fp64 lane admission probe for cuda_bridge.cpp — device + JIT'd
 // module + the self-authored GEMM all present; fail-closed otherwise.
 int xcuda_dev_probe() {
-    return device_ready() && ensure_module() && g_f_gemm_f64 != 0 ? 1 : 0;
+    return device_ready() && ensure_module() && g_f_gemm_f64 != 0 &&
+                   g_f_gemm_f64_w != 0
+               ? 1
+               : 0;
 }
 
 // fp64 tiled GEMM over device-resident operands, launched on the
@@ -848,13 +893,19 @@ int xcuda_dev_probe() {
 int xcuda_dev_gemm_f64(unsigned long long da, unsigned long long db,
                        unsigned long long dc, long long m, long long k,
                        long long n, unsigned long long stream) {
-    if (!use_ctx() || !ensure_module() || g_f_gemm_f64 == 0) return 3;
+    if (!use_ctx() || !ensure_module() || g_f_gemm_f64 == 0 ||
+        g_f_gemm_f64_w == 0)
+        return 3;
     if (da == 0 || db == 0 || dc == 0 || m <= 0 || k <= 0 || n <= 0)
         return 2;
     void* params[] = {&da, &db, &dc, &m, &k, &n};
-    return launch_s(g_f_gemm_f64,
-                    static_cast<unsigned int>((n + 15) / 16),
-                    static_cast<unsigned int>((m + 15) / 16),
+    // Wide-tile when the 64x64 grid still covers the device; the 16x16
+    // kernel remains for small/skinny shapes.
+    const bool wide = wide_gemm_shape(m, k, n);
+    const long long ts = wide ? 64 : 16;
+    return launch_s(wide ? g_f_gemm_f64_w : g_f_gemm_f64,
+                    static_cast<unsigned int>((n + ts - 1) / ts),
+                    static_cast<unsigned int>((m + ts - 1) / ts),
                     16, 16, 0, params,
                     static_cast<CUstream_t>(stream))
                ? 0
@@ -1160,8 +1211,9 @@ int xcuda_kv_attention(long long layer, const double* q_host,
         !grow_scratch(&g_obuf, &g_ocap, o_elems)) {
         return 2;
     }
+    // scores[128] | acc[hd] | red[32] | scal[5] | staged q[hd]
     const unsigned int shmem = static_cast<unsigned int>(
-        (static_cast<size_t>(kKvTile) + static_cast<size_t>(head_dim) +
+        (static_cast<size_t>(kKvTile) + static_cast<size_t>(head_dim) * 2 +
          32 + 5) * sizeof(double));
     long long h_ll = heads, s_ll = seq, kh_ll = kv_heads,
               hd_ll = head_dim, ml_ll = g_max_len,

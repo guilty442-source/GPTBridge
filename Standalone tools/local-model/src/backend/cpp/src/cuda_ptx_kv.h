@@ -1,9 +1,11 @@
 // cuda_ptx_kv.h -- embedded PTX online-softmax KV attention (B132):
 //   xc_kv_attention -- 1:1 port of the retired NVRTC kernel: fp64 online
 //   softmax over the device-resident KV cache, tile=128, shared layout
-//   scores[128] | acc[head_dim] | red[32] | scal[5]; exp() through the
-//   in-module xc_exp_f64 helper. Accumulation order and rescaling are
-//   identical to the host fp64 reference.
+//   scores[128] | acc[head_dim] | red[32] | scal[5] | q[head_dim]; exp()
+//   through the in-module xc_exp_f64 helper. The q row is staged into
+//   shared once per block instead of being re-fetched per candidate --
+//   accumulation order and rescaling stay identical to the host fp64
+//   reference.
 
 #pragma once
 
@@ -66,6 +68,7 @@ inline const char* kv() {
     shl.b64 %rd25, %rd7, 3;
     add.u64 %rd25, %rd24, %rd25;                  // red
     add.u64 %rd26, %rd25, 256;                    // scal
+    add.u64 %rd42, %rd26, 40;                     // q staging (head_dim)
     add.u32 %r4, %r3, 31;
     shr.u32 %r4, %r4, 5;                          // warps
     shr.u32 %r5, %r2, 5;                          // wid
@@ -75,6 +78,18 @@ inline const char* kv() {
     st.shared.f64 [%rd26], 0dFFF0000000000000;    // scal[0] = -inf
     st.shared.f64 [%rd26+8], 0d0000000000000000;  // scal[1] = 0
 XC_KV_I0:
+    mov.u64 %rd43, %rd13;                         // d = tid
+XC_KV_Q:                                          // q[d] -> smem
+    setp.ge.u64 %p2, %rd43, %rd7;
+    @%p2 bra XC_KV_QD;
+    shl.b64 %rd35, %rd43, 3;
+    add.u64 %rd36, %rd20, %rd35;
+    ld.global.f64 %fd23, [%rd36];
+    add.u64 %rd36, %rd42, %rd35;
+    st.shared.f64 [%rd36], %fd23;
+    add.u64 %rd43, %rd43, %rd14;
+    bra XC_KV_Q;
+XC_KV_QD:
     mov.u64 %rd27, %rd13;                         // d
 XC_KV_ZACC:
     setp.ge.u64 %p2, %rd27, %rd7;
@@ -108,8 +123,8 @@ XC_KV_DOTI:
     setp.ge.u64 %p6, %rd33, %rd7;
     @%p6 bra XC_KV_DOTW;
     shl.b64 %rd35, %rd33, 3;
-    add.u64 %rd36, %rd20, %rd35;
-    ld.global.f64 %fd6, [%rd36];
+    add.u64 %rd36, %rd42, %rd35;
+    ld.shared.f64 %fd6, [%rd36];                  // q[d] staged
     add.u64 %rd36, %rd32, %rd35;
     ld.global.f64 %fd7, [%rd36];
     fma.rn.f64 %fd5, %fd6, %fd7, %fd5;
