@@ -33,7 +33,12 @@ use serde_json::{json, Value};
 use crate::audit::append_audit_record;
 use crate::tools::{spawn_hidden, workspace_root};
 
-const REAP_INTERVAL: Duration = Duration::from_millis(200);
+const REAP_INTERVAL: Duration = Duration::from_millis(500);
+/// Deferred preflight cycles re-write state only on transition and once
+/// per ``DEFER_STATE_REFRESH`` cycles (~1/min) — an externally-held
+/// single-instance lock must not spin a state-file write every backoff
+/// tick for the whole deferral window.
+const DEFER_STATE_REFRESH: u32 = 60;
 
 /// Governed resident-service contract handed to the supervisor.
 pub struct ServiceSpec {
@@ -164,7 +169,7 @@ enum Cycle {
 
 fn supervise(spec: ServiceSpec, service: Arc<Service>) {
     let mut attempts = 0u32;
-    let mut deferred = false;
+    let mut deferred = 0u32;
     while !service.stop.load(Ordering::SeqCst) {
         match run_cycle(&spec, &service, &mut attempts, &mut deferred) {
             Cycle::Restart => continue,
@@ -179,20 +184,22 @@ fn run_cycle(
     spec: &ServiceSpec,
     service: &Service,
     attempts: &mut u32,
-    deferred: &mut bool,
+    deferred: &mut u32,
 ) -> Cycle {
     if let Some(gate) = spec.preflight {
         if let Some(reason) = gate() {
-            write_state(spec, "deferred", 0, *attempts);
-            if !*deferred {
-                audit(spec, "spawn-deferred", json!({ "reason": reason }));
-                *deferred = true;
+            if *deferred % DEFER_STATE_REFRESH == 0 {
+                write_state(spec, "deferred", 0, *attempts);
             }
+            if *deferred == 0 {
+                audit(spec, "spawn-deferred", json!({ "reason": reason }));
+            }
+            *deferred = deferred.saturating_add(1);
             std::thread::sleep(spec.restart_backoff);
             return Cycle::Restart;
         }
     }
-    *deferred = false;
+    *deferred = 0;
     let child = match spawn_service(spec) {
         Ok(c) => c,
         Err(code) => {
