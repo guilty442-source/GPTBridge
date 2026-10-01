@@ -519,10 +519,13 @@ static void tpu_linear(const float* x, const float* w, float* y,
 
 static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
                            float* dx, float* dW, int T, int I, int O) {
-    if (g_tpu.tile4 && T >= kTpuTile4MinT) {
-        tpu_linear_bwd_tile4(dy, x, w, dx, dW, T, I, O);
-        return;
-    }
+    // Measured on the production microbenchmark: tile4's row-blocked
+    // backward is a systematic loss at the mid-T shapes that dominate
+    // real steps (768x768 T=64: 0.54x, T=128: 0.48x — the 4-row dx block
+    // thrashes store buffers harder than the stream saving pays), while
+    // the legacy split is already near its bandwidth roof. Keep backward
+    // on the legacy partitions; forward keeps the tile4/tile2 wins.
+    (void)g_tpu; (void)kTpuTile4MinT;
     tpu_linear_bwd_legacy(dy, x, w, dx, dW, T, I, O);
 }
 
