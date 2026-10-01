@@ -757,6 +757,9 @@ internal sealed class TrainingJobExecutor
 
         // -- export the trained weights as a native bundle (the runnable +
         //    registerable artifact).
+        if (!File.Exists(emitCkpt))
+            throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
+                $"final checkpoint not emitted: {emitCkpt}");
         string bundleDir = Path.Combine(outputDir, "bundle");
         string configFrom = bundleManifestForExport
             ?? WriteScratchManifest(outputDir, modelCfg, emitCkpt);
