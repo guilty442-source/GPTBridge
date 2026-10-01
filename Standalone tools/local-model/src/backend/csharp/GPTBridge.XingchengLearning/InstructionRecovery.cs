@@ -4392,28 +4392,9 @@ internal static class InstructionRecovery
         PlanFreeze(plan);   // validate early — fail before any work
         string stderrLog = Path.Combine(outDir, "recovery-stderr.log");
 
-        // ── single training pipeline: this lane's staged trainer runs
-        // used to spawn xingcheng_trainer directly, bypassing the
-        // governed queue (serial cap, admission guards, resource
-        // preflight, audit chain). Converged: acquire the shared lane
-        // lease — the same advisory key TryClaimTrainingJob claims — so
-        // a staged run can never overlap a governed job, plus sequence
-        // guard + governor quota/GPU admission identical to RunJob. The
-        // lease is held for the whole run; process death auto-releases.
-        var laneRepo = new TransformerTrainingRepository(toolRoot);
-        using var lane = new TrainingJobExecutor(laneRepo, toolRoot)
-            .AcquireTrainingLane(cap, new Dictionary<string, object?>
-            {
-                ["device"] =
-                    TransformerTrainingRepository.Str(plan, "device")
-                    ?? policy.Device,
-            });
         int planThreads = TransformerTrainingRepository.Int(
             plan, "threads");
-        int threads = lane.Threads > 0
-            ? (planThreads > 0 ? Math.Min(planThreads, lane.Threads)
-                               : lane.Threads)
-            : Math.Min(planThreads > 0 ? planThreads : 8, 16);
+        var laneRepo = new TransformerTrainingRepository(toolRoot);
 
         int maxSteps = Math.Clamp(
             TransformerTrainingRepository.Int(plan, "max_steps"), 50, 600);
@@ -4492,6 +4473,17 @@ internal static class InstructionRecovery
             ["sha256"] = manifest["dataset_sha256"],
         });
         string suitePath = Path.Combine(dataDir, "eval-suite.json");
+
+        // ── governed lane registration: the verified corpus registers
+        // as a real training dataset so the lane-holding job row carries
+        // honest lineage — the single training lane is the job table
+        // itself (one row in 'training' status for the whole run).
+        string laneDatasetId = RegisterLaneDataset(
+            laneRepo, dataDir, cap, outDir);
+        Led("lane_dataset", new Dictionary<string, object?>
+        {
+            ["dataset_id"] = laneDatasetId,
+        });
 
         // ── pretokenize (all data work completes before training) ──────
         var tkTimer = System.Diagnostics.Stopwatch.StartNew();
@@ -4639,6 +4631,35 @@ internal static class InstructionRecovery
         var srcManifest = (Dictionary<string, object?>)ModelLifecycle.Decode(
             JsonDocument.Parse(File.ReadAllText(configFrom)).RootElement)!;
         var modelCfg = srcManifest["config"];
+
+        // ── single training pipeline: this lane's staged trainer runs
+        // used to spawn xingcheng_trainer directly, bypassing the
+        // governed queue (serial cap, admission guards, resource
+        // preflight, audit chain). Converged: the lane is a governed job
+        // row claimed through TryClaimTrainingJob — the same atomic
+        // mechanism every queued job uses — held in 'training' status
+        // for the whole run. Admission parity: sequence guard + the
+        // governor's resource preflight (thread quota, GPU/VRAM).
+        using var lane = new TrainingJobExecutor(laneRepo, toolRoot)
+            .AcquireTrainingLane(cap, laneDatasetId,
+                new Dictionary<string, object?>
+                {
+                    ["device"] =
+                        TransformerTrainingRepository.Str(plan, "device")
+                        ?? policy.Device,
+                    ["max_steps"] = maxSteps,
+                },
+                requestedBy: "instruction-recovery");
+        int threads = lane.Threads > 0
+            ? (planThreads > 0 ? Math.Min(planThreads, lane.Threads)
+                               : lane.Threads)
+            : Math.Min(planThreads > 0 ? planThreads : 8, 16);
+        Led("lane_lease", new Dictionary<string, object?>
+        {
+            ["job_id"] = lane.JobId,
+            ["trainer_threads"] = threads,
+            ["cuda_opt_admitted"] = lane.CudaOptAdmitted,
+        });
 
         // ── staged SFT + eval loop ──────────────────────────────────────
         string curCkpt = initCkpt;
@@ -5158,6 +5179,7 @@ internal static class InstructionRecovery
         ModelLifecycle.AtomicWrite(
             reportPath, CanonicalJson.PrettyDict(report) + "\n");
         report["report_path"] = reportPath;
+        lane.Complete();
         return report;
     }
 
@@ -5278,5 +5300,87 @@ internal static class InstructionRecovery
         if (output.TryGetValue("comparison", out var cmp))
             merged["comparison"] = cmp;
         return merged;
+    }
+
+    /// <summary>Register the run's verified corpus as a governed
+    /// training dataset. Every row is machine-verified by a rule spec
+    /// (quality 1.0); content identity mirrors the SFT dataset
+    /// convention — sha256 of the sorted example-hashes array — so an
+    /// identical corpus re-registers to the same row instead of
+    /// duplicating. Returns the dataset_id for the lane-holding job.</summary>
+    private static string RegisterLaneDataset(
+        TransformerTrainingRepository repo, string dataDir,
+        string capability, string outDir)
+    {
+        var examples = new List<Dictionary<string, object?>>();
+        void AddFile(string name, string split)
+        {
+            int ordinal = 0;
+            foreach (string line in File.ReadLines(
+                         Path.Combine(dataDir, name)))
+            {
+                string trimmed = line.Trim();
+                if (trimmed.Length == 0) continue;
+                ordinal += 1;
+                examples.Add(new Dictionary<string, object?>
+                {
+                    ["split"] = split,
+                    ["owner_model_id"] = "instruction-recovery",
+                    ["database_scope"] = "main",
+                    ["source_example_id"] =
+                        $"recovery:{capability}:{split}:{ordinal}",
+                    ["source_revision"] = 1,
+                    ["content_sha256"] =
+                        TransformerTrainingRepository.Sha256Text(trimmed),
+                    ["source_type"] = "instruction-recovery",
+                    ["quality_score"] = 1.0,
+                });
+            }
+        }
+        int trainCount = 0, valCount = 0;
+        AddFile("train.jsonl", "train");
+        trainCount = examples.Count;
+        AddFile("val.jsonl", "validation");
+        valCount = examples.Count - trainCount;
+
+        string snapshot = Path.Combine(outDir, "lane-dataset-snapshot.jsonl");
+        using (var writer = new StreamWriter(snapshot, append: false,
+                                       new System.Text.UTF8Encoding(false)))
+        {
+            foreach (string line in File.ReadLines(
+                         Path.Combine(dataDir, "train.jsonl")))
+                writer.WriteLine(line);
+            foreach (string line in File.ReadLines(
+                         Path.Combine(dataDir, "val.jsonl")))
+                writer.WriteLine(line);
+        }
+        var sorted = examples
+            .Select(e => (string)e["content_sha256"]!)
+            .OrderBy(h => h, StringComparer.Ordinal).ToList();
+        var sb = new System.Text.StringBuilder("[");
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            CanonicalJson.WriteValue(sorted[i], sb,
+                                     canonical: false, depth: 0);
+        }
+        sb.Append(']');
+        var ds = repo.CreateDataset(
+            contentSha256:
+                TransformerTrainingRepository.Sha256Text(sb.ToString()),
+            snapshotPath: snapshot,
+            snapshotSha256:
+                TransformerTrainingRepository.Sha256File(snapshot),
+            examples: examples,
+            sourceManifest: new Dictionary<string, object?>
+            {
+                ["format"] = "instruction-recovery/v1",
+                ["capability"] = capability,
+                ["train_rows"] = trainCount,
+                ["validation_rows"] = valCount,
+            },
+            createdBy: "instruction-recovery",
+            formatVersion: "instruction-recovery/v1");
+        return (string)ds["dataset_id"]!;
     }
 }

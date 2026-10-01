@@ -1537,90 +1537,120 @@ internal sealed class TrainingJobExecutor
 
     // ------------------------------------------------------ lane lease --
 
-    /// <summary>Lease on the single training lane: while held, every
-    /// governed job claim reports Busy. Disposing audits the release and
-    /// closes the session (the advisory lock is session-scoped, so a
-    /// crashed process auto-releases — no stale rows to reap).</summary>
+    /// <summary>Lease on the single training lane, backed by a real
+    /// governed job row: the lane IS the row in 'training' status — one
+    /// mechanism for claims, exclusion, audit and orphan reaping. While
+    /// held, every governed claim reports Busy (sibling in flight); a
+    /// crash leaves an orphan the --reap-stale path collects. Disposing
+    /// fails the row if it is still live.</summary>
     public sealed class LaneLease : IDisposable
     {
+        public string JobId = "";
         public int Threads;
         public bool CudaOptAdmitted;
         public Dictionary<string, object?> GpuEvidence = new();
-        internal Pg.PgScope? Scope;
         internal TransformerTrainingRepository? Repo;
-        internal string LaneId = "";
+        private bool _done;
+
+        /// <summary>Run finished — validating → completed.</summary>
+        public void Complete()
+        {
+            if (_done || Repo == null) return;
+            _done = true;
+            Repo.TransitionTrainingJob(JobId, "validating",
+                errorMessage: "staged lane finished");
+            Repo.TransitionTrainingJob(JobId, "completed");
+        }
+
+        /// <summary>Run failed or aborted — active status → failed.</summary>
+        public void Abort(string code, string message)
+        {
+            if (_done || Repo == null) return;
+            _done = true;
+            var row = Repo.JobRow(JobId);
+            string status = (string?)row?["status"] ?? "";
+            if (status is "preflight" or "training" or "validating")
+                Repo.TransitionTrainingJob(JobId, "failed",
+                    errorCode: code, errorMessage: message);
+        }
 
         public void Dispose()
         {
-            try
-            {
-                Repo?.AuditEvent("training-lane-released",
-                    "training-lane", LaneId, new Dictionary<string, object?>
-                    {
-                        ["reason"] = "lane-scope-disposed",
-                    });
-            }
-            catch { /* audit must never throw on release */ }
-            Scope?.Dispose();
-            Scope = null;
+            if (_done) return;
+            try { Abort("EXECUTOR_LANE_ABORTED",
+                        "lane scope disposed while still active"); }
+            catch { /* release must never throw */ }
         }
     }
 
     /// <summary>Acquire the single training lane for a staged run that
     /// keeps its own orchestration (currently only the §33/§34
-    /// instruction-recovery lane). The lease is a session advisory lock
-    /// on the same key <see cref="TransformerTrainingRepository.TryClaimTrainingJob"/>
-    /// uses — mutual exclusion is symmetric: a governed job in flight or
-    /// a racing claim denies acquisition, and while held every governed
-    /// claim reports Busy. Admission parity with a governed SFT job is
-    /// enforced here: maturation-sequence guard + the governor's
-    /// resource preflight (inference exclusion, training pause, thread
-    /// quota, GPU/VRAM admission). The caller's freeze guard
-    /// (CapabilityFreeze.GuardJob) must already have passed.</summary>
+    /// instruction-recovery lane). The lane is expressed as a governed
+    /// job row claimed through
+    /// <see cref="TransformerTrainingRepository.TryClaimTrainingJob"/> —
+    /// the same atomic mechanism every queued job uses, so exclusion is
+    /// race-free in both directions and every step lands in the audit
+    /// chain. Admission parity with a governed SFT job is enforced:
+    /// maturation-sequence guard + the governor's resource preflight
+    /// (inference exclusion, training pause, thread quota, GPU/VRAM
+    /// admission). The caller's freeze guard
+    /// (CapabilityFreeze.GuardJob) must already have passed. A denied
+    /// claim cancels the marker row; a denied admission fails it — no
+    /// lane row ever lingers queued to be drained as real training.</summary>
     public LaneLease AcquireTrainingLane(
-        string capability, Dictionary<string, object?> configuration)
+        string capability, string laneDatasetId,
+        Dictionary<string, object?> configuration,
+        string requestedBy)
     {
-        var lease = Pg.Connect(_repo.Schema);
+        var laneCfg = new Dictionary<string, object?>(configuration)
+        {
+            ["training_kind"] = "sft",
+            ["capability"] = capability,
+            ["lane"] = "staged-run",
+        };
+        var job = _repo.CreateTrainingJob(
+            datasetId: laneDatasetId, configuration: laneCfg,
+            requestedBy: requestedBy);
+        string jobId = (string)job["job_id"]!;
+        var (claim, _) = _repo.TryClaimTrainingJob(jobId);
+        if (claim != TransformerTrainingRepository.JobClaimResult.Claimed)
+        {
+            _repo.TransitionTrainingJob(jobId, "cancelled",
+                errorCode: "EXECUTOR_TRAINING_SERIAL",
+                errorMessage: "training lane busy — staged run denied");
+            throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                "another governed training job holds the lane; " +
+                "staged run stays sealed");
+        }
         try
         {
-            var locked = lease.QueryOne(
-                "SELECT pg_try_advisory_lock(" +
-                "hashtextextended('xc_serial_training', 0)) AS locked");
-            if (locked == null ||
-                !TransformerTrainingRepository.Truthy(locked["locked"]))
-                throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
-                    "the training lane is held (governed claim or " +
-                    "recovery lease) — staged run stays sealed");
-            if (_repo.ActiveJobs(1).Count > 0)
-                throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
-                    "another governed training job is in flight; " +
-                    "staged run stays sealed");
             Maturation300M.GuardSequence(_toolRoot, capability);
             var (threads, gpu) = PreflightResourceGate(configuration);
-            var lane = new LaneLease
-            {
-                Threads = threads,
-                CudaOptAdmitted = gpu.Admitted,
-                GpuEvidence = gpu.ToDict(),
-                Scope = lease,
-                Repo = _repo,
-                LaneId = $"lane-{capability}-{Guid.NewGuid():N}"[..40],
-            };
+            _repo.TransitionTrainingJob(jobId, "training",
+                errorMessage: $"staged lane held for '{capability}'");
             _repo.AuditEvent("training-lane-leased",
-                "training-lane", lane.LaneId,
+                "training-job", jobId,
                 new Dictionary<string, object?>
                 {
                     ["capability"] = capability,
-                    ["lane"] = "instruction-recovery",
+                    ["lane"] = requestedBy,
                     ["trainer_threads"] = threads,
                     ["cuda_opt_admitted"] = gpu.Admitted,
                     ["gpu"] = gpu.ToDict(),
                 });
-            return lane;
+            return new LaneLease
+            {
+                JobId = jobId,
+                Threads = threads,
+                CudaOptAdmitted = gpu.Admitted,
+                GpuEvidence = gpu.ToDict(),
+                Repo = _repo,
+            };
         }
-        catch
+        catch (ExecutorError ex)
         {
-            lease.Dispose();
+            _repo.TransitionTrainingJob(jobId, "failed",
+                errorCode: ex.ErrorCode, errorMessage: ex.Message);
             throw;
         }
     }
