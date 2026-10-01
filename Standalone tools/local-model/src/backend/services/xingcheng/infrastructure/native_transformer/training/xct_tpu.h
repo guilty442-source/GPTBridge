@@ -347,6 +347,169 @@ static void tpu_dot2(const float* x0, const float* x1, const float* w,
     y2[0] = tpu_dot(x0, w, n); y2[1] = tpu_dot(x1, w, n);
 }
 
+// -------------------------------------------------- attention lanes ------
+//
+// Blocked causal (optionally sliding-window) softmax attention over one
+// head: 4-row q blocks share each streamed k row (tpu_dot4 keeps the
+// per-element accumulation order of tpu_dot), then each row normalizes
+// in place and the output accumulation sweeps every v row once per block
+// instead of once per row — the K/V DRAM traffic drops ~4x at long T.
+// Per-element order is identical to the per-row loop: every probs row is
+// filled s-ascending, softmaxed with its own row max, and every
+// attn_out row receives axpys s-ascending. probs keeps the [T*T]
+// head-major layout headcheck consumes.
+// score4(t0, s, y4) writes y4[j] = <q[t0+j], k[s]> for the four block
+// rows (the caller pads missing rows with row t0; their entries are
+// discarded). win <= 0 means full causal; win > 0 bounds each row t to
+// s in [max(0, t-win+1), t].
+template <class S4, class VF>
+static void tpu_attn_core(float* probs, float* ao0, int64_t ao_stride,
+                          int T, int hd, int win, float scale,
+                          const S4& score4, const VF& vrow) {
+    for (int t0 = 0; t0 < T; t0 += 4) {
+        const int nb = (int)std::min<int64_t>(4, T - t0);
+        const int tmax = t0 + nb - 1;
+        float* pr[4];
+        float* ao[4];
+        float mx[4];
+        int s0[4];
+        for (int j = 0; j < nb; ++j) {
+            const int t = t0 + j;
+            pr[j] = probs + (size_t)t * T;
+            ao[j] = ao0 + (size_t)t * ao_stride;
+            mx[j] = -1e30f;
+            s0[j] = win > 0 ? std::max(0, t - win + 1) : 0;
+        }
+        const int s_lo = s0[0];
+        float y[4];
+        for (int s = s_lo; s <= tmax; ++s) {
+            score4(t0, s, y);
+            for (int j = 0; j < nb; ++j) {
+                if (s < s0[j] || s > t0 + j) continue;
+                pr[j][s] = y[j] * scale;
+                mx[j] = std::max(mx[j], pr[j][s]);
+            }
+        }
+        for (int j = 0; j < nb; ++j) {
+            const int t = t0 + j;
+            float sum = 0.0f;
+            for (int s = s0[j]; s <= t; ++s) {
+                pr[j][s] = std::exp(pr[j][s] - mx[j]);
+                sum += pr[j][s];
+            }
+            const float inv = 1.0f / sum;
+            for (int s = s0[j]; s <= t; ++s) pr[j][s] *= inv;
+        }
+        for (int s = s_lo; s <= tmax; ++s) {
+            const float* vr = vrow(s);
+            for (int j = 0; j < nb; ++j) {
+                if (s < s0[j] || s > t0 + j) continue;
+                tpu_axpy(ao[j], pr[j][s], vr, hd);
+            }
+        }
+    }
+}
+
+// Standard q·kᵀ score lane for tpu_attn_core (single k/v head per call).
+template <class QF, class KF, class VF>
+static void tpu_attn_fwd(float* probs, float* ao0, int64_t ao_stride,
+                         int T, int hd, int win, float scale,
+                         const QF& qrow, const KF& krow, const VF& vrow) {
+    auto score4 = [&](int t0, int s, float* y) {
+        const float* q0 = qrow(t0);
+        const float* q1 = qrow(t0 + 1 < T ? t0 + 1 : t0);
+        const float* q2 = qrow(t0 + 2 < T ? t0 + 2 : t0);
+        const float* q3 = qrow(t0 + 3 < T ? t0 + 3 : t0);
+        tpu_dot4(q0, q1, q2, q3, krow(s), y, hd);
+    };
+    tpu_attn_core(probs, ao0, ao_stride, T, hd, win, scale, score4, vrow);
+}
+
+// Blocked causal attention backward (plain path — no compressed-KV
+// extras): dscore = p⊙(dot(dao,v) − ⟨p,dot⟩)·scale per row, then
+// dq[t] += ds·k[s], dk[s] += ds·q[t], dv[s] += p·dao[t]. The 4-row
+// block shares each v read across four dscore dots and each k/dk/dv row
+// across four accumulations; per-element accumulation order is unchanged
+// (dq rows s-ascending, dk/dv rows t-ascending across blocks and lanes).
+// dscore4(t0, s, y4) writes y4[j] = <dao[t0+j], v[s]>; dao/q rows come
+// from daorow/qrow, k grads land through dkrow/dvrow (kv-head space —
+// callers partition lanes so the dk/dv ranges are disjoint). dsc is
+// per-lane scratch of at least 4*T floats.
+template <class DS4, class DaoF, class QF, class KF, class DQF, class DKF,
+          class DVF>
+static void tpu_attn_bwd_core(const float* probs, int T, int hd, int win,
+                              float scale, const DS4& dscore4,
+                              const DaoF& daorow, const QF& qrow,
+                              const KF& krow, const DQF& dqrow,
+                              const DKF& dkrow, const DVF& dvrow,
+                              float* dsc) {
+    for (int t0 = 0; t0 < T; t0 += 4) {
+        const int nb = (int)std::min<int64_t>(4, T - t0);
+        const int tmax = t0 + nb - 1;
+        const float* pr[4];
+        float* dqr[4];
+        const float* qr[4];
+        const float* dr[4];
+        int s0[4];
+        for (int j = 0; j < nb; ++j) {
+            const int t = t0 + j;
+            pr[j] = probs + (size_t)t * T;
+            dqr[j] = dqrow(t);
+            qr[j] = qrow(t);
+            dr[j] = daorow(t);
+            s0[j] = win > 0 ? std::max(0, t - win + 1) : 0;
+        }
+        for (int j = nb; j < 4; ++j) dr[j] = dr[0];
+        const int s_lo = s0[0];
+        float y[4];
+        for (int s = s_lo; s <= tmax; ++s) {
+            dscore4(t0, s, y);
+            for (int j = 0; j < nb; ++j) {
+                if (s < s0[j] || s > t0 + j) continue;
+                dsc[(size_t)j * T + s] = y[j];
+            }
+        }
+        for (int j = 0; j < nb; ++j) {
+            const int t = t0 + j;
+            float* ds = dsc + (size_t)j * T;
+            float dsum = 0.0f;
+            for (int s = s0[j]; s <= t; ++s) dsum += ds[s] * pr[j][s];
+            for (int s = s0[j]; s <= t; ++s)
+                ds[s] = pr[j][s] * (ds[s] - dsum) * scale;
+        }
+        for (int s = s_lo; s <= tmax; ++s) {
+            const float* kr = krow(s);
+            float* dkr = dkrow(s);
+            float* dvr = dvrow(s);
+            for (int j = 0; j < nb; ++j) {
+                if (s < s0[j] || s > t0 + j) continue;
+                const float ds = dsc[(size_t)j * T + s];
+                tpu_axpy(dqr[j], ds, kr, hd);
+                tpu_axpy(dkr, ds, qr[j], hd);
+                tpu_axpy(dvr, pr[j][s], dr[j], hd);
+            }
+        }
+    }
+}
+
+// Standard dscore lane for tpu_attn_bwd_core (dot4 of dao rows vs v row).
+template <class DaoF, class QF, class KF, class VF, class DQF, class DKF,
+          class DVF>
+static void tpu_attn_bwd(const float* probs, int T, int hd, int win,
+                         float scale, const DaoF& daorow, const QF& qrow,
+                         const KF& krow, const VF& vrow, const DQF& dqrow,
+                         const DKF& dkrow, const DVF& dvrow, float* dsc) {
+    auto dscore4 = [&](int t0, int s, float* y) {
+        const float* d0 = daorow(t0);
+        const float* d1 = daorow(t0 + 1 < T ? t0 + 1 : t0);
+        const float* d2 = daorow(t0 + 2 < T ? t0 + 2 : t0);
+        const float* d3 = daorow(t0 + 3 < T ? t0 + 3 : t0);
+        tpu_dot4(d0, d1, d2, d3, vrow(s), y, hd);
+    };
+    tpu_attn_bwd_core(probs, T, hd, win, scale, dscore4, daorow, qrow,
+                      krow, dqrow, dkrow, dvrow, dsc);
+}
+
 // Legacy linear lane: y[t,o] = x[t,:] . w[o,:] over the flat output
 // space — one full W-row stream per output element. Kept verbatim as
 // the small-T path (tile4 is a measured 0.31x loss at T=8) and as the
@@ -534,6 +697,66 @@ template <typename F>
 static void tpu_elementwise(int64_t n, F&& f) {
     parallel_for(n, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) f(i);
+    });
+}
+
+// Fused AdamW lane: g consumed (zeroed) in place, m/v updated, w stepped.
+// Mirrors the scalar elementwise loop op-for-op — mul/add/div/sqrt only,
+// no FMA contraction — so each element is bitwise identical to the
+// scalar path; the lane split over [0,n) keeps the run lane-count
+// independent.
+static void tpu_adamw(float* g, float* w, float* m, float* v, int64_t n,
+                      float gscale, float lr, float wd, float b1,
+                      float b2, float bc1, float bc2, float eps) {
+    const float mb1 = 1.0f - b1, mb2 = 1.0f - b2;
+    parallel_for(n, [&](int64_t b, int64_t e) {
+        int64_t i = b;
+#if XCT_TPU_X64 && defined(_MSC_VER)
+        if (tpu_has_avx2_fma()) {
+            const __m256 gs = _mm256_set1_ps(gscale);
+            const __m256 vb1 = _mm256_set1_ps(b1);
+            const __m256 vmb1 = _mm256_set1_ps(mb1);
+            const __m256 vb2 = _mm256_set1_ps(b2);
+            const __m256 vmb2 = _mm256_set1_ps(mb2);
+            const __m256 vbc1 = _mm256_set1_ps(bc1);
+            const __m256 vbc2 = _mm256_set1_ps(bc2);
+            const __m256 vlr = _mm256_set1_ps(lr);
+            const __m256 vwd = _mm256_set1_ps(wd);
+            const __m256 veps = _mm256_set1_ps(eps);
+            const __m256 zz = _mm256_setzero_ps();
+            for (; i + 8 <= e; i += 8) {
+                const __m256 gi =
+                    _mm256_mul_ps(_mm256_loadu_ps(g + i), gs);
+                _mm256_storeu_ps(g + i, zz);
+                const __m256 mv = _mm256_add_ps(
+                    _mm256_mul_ps(vb1, _mm256_loadu_ps(m + i)),
+                    _mm256_mul_ps(vmb1, gi));
+                _mm256_storeu_ps(m + i, mv);
+                const __m256 vv = _mm256_add_ps(
+                    _mm256_mul_ps(vb2, _mm256_loadu_ps(v + i)),
+                    _mm256_mul_ps(_mm256_mul_ps(vmb2, gi), gi));
+                _mm256_storeu_ps(v + i, vv);
+                const __m256 mh = _mm256_div_ps(mv, vbc1);
+                const __m256 vh = _mm256_div_ps(vv, vbc2);
+                const __m256 den =
+                    _mm256_add_ps(_mm256_sqrt_ps(vh), veps);
+                const __m256 wv = _mm256_loadu_ps(w + i);
+                const __m256 upd = _mm256_mul_ps(
+                    vlr, _mm256_add_ps(_mm256_div_ps(mh, den),
+                                       _mm256_mul_ps(vwd, wv)));
+                _mm256_storeu_ps(w + i, _mm256_sub_ps(wv, upd));
+            }
+        }
+#endif
+        for (; i < e; ++i) {
+            const float gi = g[(size_t)i] * gscale;
+            g[(size_t)i] = 0.0f;
+            m[(size_t)i] = b1 * m[(size_t)i] + mb1 * gi;
+            v[(size_t)i] = b2 * v[(size_t)i] + mb2 * gi * gi;
+            const float mh = m[(size_t)i] / bc1, vh = v[(size_t)i] / bc2;
+            w[(size_t)i] -=
+                lr * (mh / (std::sqrt(vh) + eps) + wd * w[(size_t)i]);
+        }
     });
 }
 
