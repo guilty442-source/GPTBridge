@@ -1420,6 +1420,7 @@ internal static class SelfLearning
                 ["passed"] = TransformerTrainingRepository.Truthy(
                     evalResult["passed"]),
                 ["comparison"] = evalResult.GetValueOrDefault("comparison"),
+                ["error"] = evalResult.GetValueOrDefault("error"),
             });
             allPassed = allPassed &&
                 TransformerTrainingRepository.Truthy(evalResult["passed"]);
@@ -1530,8 +1531,11 @@ internal static class SelfLearning
             if (ev is not Dictionary<string, object?> em) continue;
             if (em["comparison"] is not Dictionary<string, object?> cmp)
             {
-                // suite-missing / early-failure rows carry no comparison
-                verdictOwned = verdictOwned && em.ContainsKey("error");
+                // Fail-closed rows legitimately carry no verdict; a
+                // PASSING evaluation without an F# verdict is the
+                // violation this check exists to catch.
+                if (TransformerTrainingRepository.Truthy(em["passed"]))
+                    verdictOwned = false;
                 continue;
             }
             verdictOwned = verdictOwned &&
