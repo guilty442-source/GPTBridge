@@ -351,6 +351,41 @@ internal static class InstructionRecovery
         };
     }
 
+    /// <summary>Echo-format arithmetic replay rows (請計算：a + b = →
+    /// a + b = c) matching the governed regression suite's surface
+    /// convention — disjoint operands, never suite prompts.</summary>
+    private static IEnumerable<Row> GenerateMathEcho(int seed, int count)
+    {
+        var r = new Random(seed);
+        for (int i = 0; i < count; i++)
+        {
+            bool zh = r.Next(3) != 0;
+            int a = r.Next(2) == 0 ? 1 + r.Next(99) : 100 + r.Next(900);
+            int b = 1 + r.Next(399);
+            string sym;
+            int ans;
+            switch (r.Next(3))
+            {
+                case 0: sym = "+"; ans = a + b; break;
+                case 1:
+                    sym = zh ? "×" : "*";
+                    a = 2 + r.Next(48); b = 2 + r.Next(30);
+                    ans = a * b; break;
+                default:
+                    sym = "-"; if (a < b) (a, b) = (b, a);
+                    ans = a - b; break;
+            }
+            string c = $"{a} {sym} {b} = {ans}";
+            yield return new Row
+            {
+                Prompt = zh ? $"請計算：{a} {sym} {b} = "
+                            : $"Compute: {a} {sym} {b} = ",
+                Completion = c, Category = "A",
+                Rule = $"exact:{c}", Source = "replay",
+            };
+        }
+    }
+
     private static T Take<T>(Random r, T[] xs) => xs[r.Next(xs.Length)];
 
     private static string[] SampleItems(Random r, string[] pool, int n)
@@ -4030,10 +4065,16 @@ internal static class InstructionRecovery
             replayRatio = Math.Min(replayRatio, 0.5);
             int replayN = (int)Math.Round(
                 count * replayRatio / (1 - replayRatio));
-            int mathN = replayN * 3 / 4;
+            int mathN = replayN / 3;
+            int echoN = replayN / 3;
             var replay = new List<Row>();
             replay.AddRange(GenerateMath(seed ^ 0x5f3759df, mathN));
-            replay.AddRange(Generate(seed ^ 0x2c1b3c6d, replayN - mathN));
+            // Echo-format arithmetic matches the regression suite's
+            // surface convention (請計算：a + b = → a + b = c); bare
+            // "number only" replay rows actively retrain away from it.
+            replay.AddRange(GenerateMathEcho(seed ^ 0x3b9aca07, echoN));
+            replay.AddRange(
+                Generate(seed ^ 0x2c1b3c6d, replayN - mathN - echoN));
             foreach (var r in replay) r.Source = "replay";
             all.AddRange(replay);
         }
