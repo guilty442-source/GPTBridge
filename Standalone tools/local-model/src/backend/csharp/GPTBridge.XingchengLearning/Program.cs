@@ -790,12 +790,16 @@ internal static class Program
                 return Emit(MainlineConvergence.SequenceCheck(toolRoot));
             if (flags.Contains("binary-provenance"))
                 return Emit(MainlineConvergence.BinaryProvenance(
-                    toolRoot));
+                    toolRoot,
+                    opts.TryGetValue("bin-dir", out string? bpd)
+                        ? bpd : null));
             if (flags.Contains("training-run-receipt"))
                 return Emit(MainlineConvergence.RunReceipt(
                     toolRoot,
                     opts.TryGetValue("run", out string? trr)
-                        ? trr : ""));
+                        ? trr : "",
+                    opts.TryGetValue("bin-dir", out string? trb)
+                        ? trb : null));
             // ---- AutonomousCapabilityRecoveryLoop (§0-§85):
             //      contract emission, mode/stage admission, failure
             //      classification, dataset purity, training trigger,

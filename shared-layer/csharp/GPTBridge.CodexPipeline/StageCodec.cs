@@ -307,7 +307,24 @@ internal static partial class StageCodec
         string schema)
     {
         CheckName(schema);
-        var rawLines = File.ReadAllLines(artifact, Encoding.UTF8);
+        string[] rawLines = Array.Empty<string>();
+        IOException? lastReadError = null;
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            try
+            {
+                rawLines = File.ReadAllLines(artifact, Encoding.UTF8);
+                lastReadError = null;
+                break;
+            }
+            catch (IOException error)
+            {
+                lastReadError = error;
+                Thread.Sleep(100 * (attempt + 1));
+            }
+        }
+        if (lastReadError is not null)
+            throw lastReadError;
         var statements = rawLines
             .Where(line => line.Trim().Length > 0
                 && !line.TrimStart().StartsWith("--",

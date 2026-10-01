@@ -567,7 +567,7 @@ internal static class MainlineConvergence
     /// field is the literal string "unavailable" (§44: no fake
     /// values).</summary>
     public static Dictionary<string, object?> RunReceipt(
-        string toolRoot, string runDir)
+        string toolRoot, string runDir, string? binDir = null)
     {
         string planPath = Path.Combine(runDir, "plan.json");
         if (!File.Exists(planPath))
@@ -636,7 +636,7 @@ internal static class MainlineConvergence
         }
 
         // Final recovery decision if present (log dir sibling).
-        var prov = BinaryProvenance(toolRoot);
+        var prov = BinaryProvenance(toolRoot, binDir);
         var perf = new Dictionary<string, object?>
         {
             ["format"] = "star-training-performance/v1",
@@ -691,32 +691,52 @@ internal static class MainlineConvergence
 
     /// <summary>star-binary-provenance/v1: sha256 + git commit of the
     /// governed executables. Training reports bind binary_sha256 so a
-    /// run is never attributed to an unknown binary (§5).</summary>
+    /// run is never attributed to an unknown binary (§5). When
+    /// <paramref name="binDir"/> is given every *.exe under that tree
+    /// (one level deep, so a publish subdir is included) is hashed —
+    /// this is the fresh-rebuild path used while the canonical exe
+    /// locations are still locked by PRE_REBUILD processes (§2).</summary>
     public static Dictionary<string, object?> BinaryProvenance(
-        string toolRoot)
+        string toolRoot, string? binDir = null)
     {
         var exes = new Dictionary<string, object?>();
-        foreach (var rel in new[]
-                 {
-                     "src/backend/services/xingcheng/infrastructure/" +
-                         "native_transformer/training/" +
-                         "xingcheng_trainer.exe",
-                     "src/backend/services/xingcheng/infrastructure/" +
-                         "native_transformer/tools/xc_modeltool.exe",
-                     "src/backend/csharp/GPTBridge.XingchengLearning/" +
-                         "bin/Release/net10.0/xc-learning.exe",
-                 })
+        IEnumerable<string> paths;
+        string label;
+        if (binDir != null)
         {
-            string p = Path.Combine(toolRoot,
-                rel.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(p)) continue;
+            paths = Directory.Exists(binDir)
+                ? Directory
+                    .EnumerateFiles(binDir, "*.exe",
+                        SearchOption.AllDirectories)
+                    .OrderBy(p => p, StringComparer.Ordinal)
+                : Enumerable.Empty<string>();
+            label = Path.GetFullPath(binDir);
+        }
+        else
+        {
+            paths = new[]
+            {
+                "src/backend/services/xingcheng/infrastructure/" +
+                    "native_transformer/training/" +
+                    "xingcheng_trainer.exe",
+                "src/backend/services/xingcheng/infrastructure/" +
+                    "native_transformer/tools/xc_modeltool.exe",
+                "src/backend/csharp/GPTBridge.XingchengLearning/" +
+                    "bin/Release/net10.0/xc-learning.exe",
+            }.Select(rel => Path.Combine(toolRoot,
+                rel.Replace('/', Path.DirectorySeparatorChar)))
+             .Where(File.Exists);
+            label = "canonical";
+        }
+        foreach (string p in paths)
+        {
             exes[Path.GetFileName(p)] = new Dictionary<string, object?>
             {
                 ["binary_sha256"] =
                     TransformerTrainingRepository.Sha256File(p),
                 ["build_timestamp"] = File.GetLastWriteTimeUtc(p)
                     .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
-                ["path"] = rel,
+                ["path"] = p,
             };
         }
         string commit = "";
@@ -741,6 +761,7 @@ internal static class MainlineConvergence
             ["ok"] = true,
             ["format"] = "star-binary-provenance/v1",
             ["source_commit"] = commit,
+            ["binary_root"] = label,
             ["executables"] = exes,
             ["evidence_class"] = commit.Length > 0
                 ? "FRESH_MAIN_EVIDENCE" : "PRE_REBUILD_RUNTIME_EVIDENCE",
