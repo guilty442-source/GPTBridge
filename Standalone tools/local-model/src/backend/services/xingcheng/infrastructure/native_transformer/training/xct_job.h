@@ -264,6 +264,10 @@ static JsonValue run_job(const JsonValue& job) {
         tc.simd = !(e[0] == '0' && e[1] == '\0');
     g_tpu.threads = tc.threads;
     g_tpu.simd = tc.simd;
+    // XCT_TPU_TILE4=0 pins the legacy GEMM path — measurement/A-B
+    // evidence only; production training keeps the tile4 dispatcher.
+    if (const char* e = std::getenv("XCT_TPU_TILE4"))
+        g_tpu.tile4 = !(e[0] == '0' && e[1] == '\0');
     int max_rows = j_int(dj, "max_rows", 10000);
     int max_len = j_int(dj, "max_len", c.max_pos);
 
