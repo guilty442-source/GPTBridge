@@ -750,6 +750,10 @@ internal sealed class TrainingJobExecutor
             pf is bool finite && !finite)
             throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
                 "trainer produced non-finite parameters");
+        if (report.TryGetValue("nonfinite_abort", out object? nfa) &&
+            nfa is bool aborted && aborted)
+            throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
+                "trainer aborted on non-finite loss/gradients");
 
         // -- export the trained weights as a native bundle (the runnable +
         //    registerable artifact).
@@ -792,6 +796,9 @@ internal sealed class TrainingJobExecutor
         if (report.TryGetValue("deadline_hit", out object? dh) &&
             dh is bool hit && hit)
             summary["stopped_reason"] = "deadline-exceeded";
+        if (report.TryGetValue("nonfinite_abort", out object? na) &&
+            na is bool nab && nab)
+            summary["stopped_reason"] = "nonfinite-abort";
         if (report.TryGetValue("checkpoint_emitted", out object? ce) &&
             ce is bool emitted && !emitted)
             summary["stopped_reason"] = "checkpoint-not-emitted";
