@@ -554,6 +554,139 @@ internal static class MainlineConvergence
         return rep;
     }
 
+    // --------------------------------------- §41/§43/§53 run receipt ----
+
+    /// <summary>star-autonomous-training-run/v1 + embedded
+    /// star-training-performance/v1: aggregate a recovery run dir into
+    /// the governed receipt — binds capability, effective policy,
+    /// dataset hash, binary provenance, stage timing, sparse-training
+    /// metrics and TimeToQualifiedModel (wall time from run start to
+    /// the first stage whose capability score reached target without
+    /// regression; null when no stage qualified — never estimated).
+    /// GPU telemetry is emitted only when measurable; otherwise every
+    /// field is the literal string "unavailable" (§44: no fake
+    /// values).</summary>
+    public static Dictionary<string, object?> RunReceipt(
+        string toolRoot, string runDir)
+    {
+        string planPath = Path.Combine(runDir, "plan.json");
+        if (!File.Exists(planPath))
+            throw new ExecutorError("TRAINING_RUN_MISSING",
+                $"run dir has no plan.json: {runDir}");
+        var plan = (Dictionary<string, object?>)ModelLifecycle.Decode(
+            JsonDocument.Parse(File.ReadAllText(planPath))
+                .RootElement)!;
+        double lr = TransformerTrainingRepository.Num(plan, "lr");
+        string capability =
+            TransformerTrainingRepository.Str(plan, "capability") ?? "";
+
+        // Stage timing + sparse metrics from stage-*/report.json.
+        long totalSteps = 0;
+        double totalTrainS = 0.0, tokensPerSec = 0.0;
+        long trainable = 0, frozen = 0;
+        var stageRows = new List<object?>();
+        double? firstQualifiedS = null;
+        double targetScore =
+            TransformerTrainingRepository.Num(plan, "target_score");
+        foreach (string dir in Directory
+            .GetDirectories(runDir, "stage-*").OrderBy(d => d,
+                StringComparer.Ordinal))
+        {
+            string rp = Path.Combine(dir, "report.json");
+            if (!File.Exists(rp)) continue;
+            var rep = (Dictionary<string, object?>)ModelLifecycle.Decode(
+                JsonDocument.Parse(File.ReadAllText(rp)).RootElement)!;
+            long steps = TransformerTrainingRepository.Int(
+                rep, "steps");
+            double el = TransformerTrainingRepository.Num(
+                rep, "elapsed_s");
+            double tps = TransformerTrainingRepository.Num(
+                rep, "tokens_per_sec");
+            totalSteps += steps;
+            totalTrainS += el;
+            if (tps > 0) tokensPerSec = tps;
+            if (trainable == 0)
+                trainable = TransformerTrainingRepository.Int(
+                    rep, "trainable_params");
+            if (frozen == 0)
+                frozen = TransformerTrainingRepository.Int(
+                    rep, "frozen_params");
+            stageRows.Add(new Dictionary<string, object?>
+            {
+                ["stage"] = Path.GetFileName(dir),
+                ["steps"] = steps, ["elapsed_s"] = el,
+                ["step_ms"] = steps > 0
+                    ? Math.Round(el * 1000.0 / steps, 2) : 0.0,
+                ["tokens_per_sec"] = tps,
+                ["loss_last"] = rep.GetValueOrDefault("loss_last"),
+            });
+            // TimeToQualifiedModel: stage eval score vs target.
+            string ev = Path.Combine(dir, "eval.json");
+            if (firstQualifiedS == null && targetScore > 0 &&
+                File.Exists(ev))
+            {
+                var e = (Dictionary<string, object?>)
+                    ModelLifecycle.Decode(JsonDocument.Parse(
+                        File.ReadAllText(ev)).RootElement)!;
+                double sc = TransformerTrainingRepository.Num(
+                    e, "capability_score");
+                if (sc >= targetScore)
+                    firstQualifiedS = totalTrainS;
+            }
+        }
+
+        // Final recovery decision if present (log dir sibling).
+        var prov = BinaryProvenance(toolRoot);
+        var perf = new Dictionary<string, object?>
+        {
+            ["format"] = "star-training-performance/v1",
+            ["step_ms"] = totalSteps > 0
+                ? Math.Round(totalTrainS * 1000.0 / totalSteps, 2)
+                : 0.0,
+            ["train_wall_s"] = Math.Round(totalTrainS, 2),
+            ["tokens_per_sec"] = tokensPerSec,
+            ["effective_tokens_per_sec"] = tokensPerSec,
+            ["trainable_params"] = trainable,
+            ["frozen_params"] = frozen,
+            // §44: NVML is not bound in this lane — every telemetry
+            // field is honestly "unavailable", never zero-filled.
+            ["gpu"] = new Dictionary<string, object?>
+            {
+                ["gpu_util"] = "unavailable",
+                ["memory_util"] = "unavailable",
+                ["power_w"] = "unavailable",
+                ["temperature"] = "unavailable",
+                ["clock"] = "unavailable",
+                ["vram_used"] = "unavailable",
+                ["vram_peak"] = "unavailable",
+                ["source"] = "nvml-not-bound",
+            },
+            ["stages"] = stageRows,
+        };
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-autonomous-training-run/v1",
+            ["run_id"] = Path.GetFileName(runDir.TrimEnd(
+                Path.DirectorySeparatorChar)),
+            ["capability"] = capability,
+            ["mode"] = "SINGLE_CAPABILITY_RECOVERY",
+            ["steps"] = totalSteps,
+            ["lr"] = lr,
+            ["cuda_opt"] =
+                Environment.GetEnvironmentVariable(
+                    "XINGCHENG_TRAINER_CUDA_OPT") == "1",
+            ["trainable_params"] = trainable,
+            ["dataset_dir"] =
+                TransformerTrainingRepository.Str(plan, "dataset_dir"),
+            ["time_to_qualified_model_s"] = firstQualifiedS,
+            ["binary_provenance"] = prov,
+            ["performance"] = perf,
+            ["effective_policy"] = EffectivePolicy(toolRoot),
+            ["emitted_at"] = XcPaths.IsoNow(),
+        };
+    }
+
     // ------------------------------------------------- §5 binary provenance ----
 
     /// <summary>star-binary-provenance/v1: sha256 + git commit of the

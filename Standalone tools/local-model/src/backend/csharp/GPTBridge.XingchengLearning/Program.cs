@@ -791,6 +791,11 @@ internal static class Program
             if (flags.Contains("binary-provenance"))
                 return Emit(MainlineConvergence.BinaryProvenance(
                     toolRoot));
+            if (flags.Contains("training-run-receipt"))
+                return Emit(MainlineConvergence.RunReceipt(
+                    toolRoot,
+                    opts.TryGetValue("run", out string? trr)
+                        ? trr : ""));
             // ---- AutonomousCapabilityRecoveryLoop (§0-§85):
             //      contract emission, mode/stage admission, failure
             //      classification, dataset purity, training trigger,

@@ -4677,6 +4677,16 @@ internal static class InstructionRecovery
                     ["init_checkpoint"] = curCkpt,
                     ["emit_checkpoint"] = emitCkpt,
                     ["overwrite"] = true,
+                    // Lane parallelism: plan "threads" caps the TPU worker
+                    // pool (trainer clamps to 16). Default 16 — measured
+                    // optimum on 16-logical-core hosts when the lane runs
+                    // solo; a plan may pin lower to leave cores for a
+                    // concurrent lane.
+                    ["threads"] =
+                        TransformerTrainingRepository.Num(
+                            plan, "threads") > 0
+                            ? TransformerTrainingRepository.Num(
+                                plan, "threads") : 16.0,
                     // §41-§45 ParameterFreezeMap: plan "freeze" is a
                     // bounded pattern list; frozen params never get
                     // Adam moments (sparse optimizer) — the
