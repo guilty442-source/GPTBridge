@@ -28,8 +28,7 @@
 // Pure Driver API binding (nvcuda.dll) — no toolkit headers, no cudart
 // link. The manager's pool/streams/pinned memory all come from the
 // retained primary context in cuda_drvapi.h.
-#include "cuda_drvapi.h"
-namespace xcd = xcuda_drv;
+#include "cuda_drvapi.h"   // provides namespace xcd = xcuda_drv
 #endif
 
 #include <cstdint>
@@ -425,8 +424,8 @@ struct Manager {
         workspace_peak = ladder_events = allocs = 0;
         owned.clear();
 #if defined(XINGCHENG_CUDA)
-        pool = nullptr;
-        for (auto& s : streams) s = nullptr;
+        pool = 0;
+        for (auto& s : streams) s = 0;
         pinned_dev = nullptr;
         pinned_ring_size = pinned_ring_off = 0;
 #endif
