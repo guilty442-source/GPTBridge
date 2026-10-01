@@ -1,0 +1,27 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "amendment_id": "codex-amendment-request-xingcheng-special-law-d131-prohibition-repair-20261001",
+  "request_id": "xingcheng-special-law-d131-prohibition-repair-20261001",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: continue codex convergence with the Xingcheng special law. D131 (xingcheng-autonomous-training-and-upgrade) is the only provision whose normative field is storage-corrupted: the prohibition column stores every character pipe-separated (N|o|d|i|r|e|c|t|...) with all spaces stripped, making the binding machine-unreadable and unverifiable. Repair restores the decoded text verbatim with restored word boundaries; no scope, duty or authority change.",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "predecessor": {
+    "codex_version": "2026-10-01T15:12:35Z",
+    "history_head": "4097968473eb90ed46b76d150bb559a9f89d70ecdfa180c2edd5a6972254ae2e",
+    "revision_sequence": 190
+  },
+  "status": "submitted",
+  "not_executed": true,
+  "summary": "Repair the corrupted prohibition field of D131 (Xingcheng special law, autonomous training and upgrade). The stored value interleaves a '|' between every character and drops all spaces; the restored text is the literal decode with word boundaries reinserted: no direct overwrite of current weights or programs; no self-issued release authority; no third-party weights mixed into the chain; no candidate activation without independent verification and a rollback path; any failure fails closed and leaves the active weights, runtime checkpoint and adapter registry untouched. The corruption also propagates to the codex_search_document projection, which the build step regenerates.",
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "D131" },
+      "field": "prohibition",
+      "proposed": "FORBID:No direct overwrite of current weights or programs; no self-issued release authority; no third-party weights mixed into the chain; no candidate activation without independent verification and a rollback path; any failure fails closed and leaves the active weights, runtime checkpoint and adapter registry untouched."
+    }
+  ]
+}
