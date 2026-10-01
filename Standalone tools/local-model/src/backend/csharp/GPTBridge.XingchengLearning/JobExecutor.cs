@@ -759,7 +759,7 @@ internal sealed class TrainingJobExecutor
         //    registerable artifact).
         string bundleDir = Path.Combine(outputDir, "bundle");
         string configFrom = bundleManifestForExport
-            ?? WriteScratchManifest(outputDir, modelCfg);
+            ?? WriteScratchManifest(outputDir, modelCfg, emitCkpt);
         string weightQuant = (
                 TransformerTrainingRepository.Str(
                     configuration, "weight_quant") ?? "none").Trim();
@@ -806,11 +806,19 @@ internal sealed class TrainingJobExecutor
     }
 
     private static string WriteScratchManifest(
-        string outputDir, Dictionary<string, object?> modelCfg)
+        string outputDir, Dictionary<string, object?> modelCfg,
+        string emitCkpt)
     {
         // Minimal manifest wrapper so export-bundle can copy config verbatim.
+        // The trainer canonicalises the job config (vision/MTP/FAI pins) before
+        // serialising it into the checkpoint; the ckpt header is therefore the
+        // ground truth. Overlay every serialized field so the manifest's
+        // parity check compares what was actually trained, not the raw spec.
+        // Non-ckpt keys (e.g. "generation") survive from the job config.
+        var effective = new Dictionary<string, object?>(modelCfg);
+        foreach (var kv in XcnConfig(emitCkpt)) effective[kv.Key] = kv.Value;
         string path = Path.Combine(outputDir, "model-config.json");
-        var wrapper = new Dictionary<string, object?> { ["config"] = modelCfg };
+        var wrapper = new Dictionary<string, object?> { ["config"] = effective };
         File.WriteAllText(path, CanonicalJson.PrettyDict(wrapper) + "\n",
                           new System.Text.UTF8Encoding(false));
         return path;
