@@ -1162,7 +1162,59 @@ internal sealed class TrainingJobExecutor
         if (report.TryGetValue("checkpoint_emitted", out object? ce) &&
             ce is bool emitted && !emitted)
             summary["stopped_reason"] = "checkpoint-not-emitted";
+        summary["contract_checks"] = ContractChecks(configuration);
         return summary;
+    }
+
+    /// <summary>Advisory training-acceleration contract checks (§37-§43):
+    /// pilot ladder + eval tiers evaluated over the job's own cadence
+    /// and attached for operators. Advisory only — violations never fail
+    /// the job; they surface policy-vs-contract drift (e.g. production
+    /// max_steps beyond the 600-step pilot ladder).</summary>
+    private static Dictionary<string, object?> ContractChecks(
+        Dictionary<string, object?> configuration)
+    {
+        var checks = new Dictionary<string, object?>();
+        try
+        {
+            int maxSteps = TransformerTrainingRepository.Int(
+                configuration, "max_steps");
+            int logEvery = TransformerTrainingRepository.Int(
+                configuration, "log_every");
+            int evalEvery = TransformerTrainingRepository.Int(
+                configuration, "eval_every");
+            int ckptEvery = TransformerTrainingRepository.Int(
+                configuration, "checkpoint_every");
+            string pilotPayload = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["planned_steps"] = maxSteps,
+                });
+            using var pilotDoc = JsonDocument.Parse(pilotPayload);
+            checks["pilot_ladder"] =
+                TrainingAcceleration.PilotLadder(pilotDoc.RootElement);
+            string tierPayload = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["fast_eval_every"] = logEvery,
+                    ["regression_eval_every"] =
+                        evalEvery > 0 ? evalEvery : ckptEvery,
+                    ["full_eval_every"] = -1,
+                    ["full_on_candidates_only"] = true,
+                });
+            using var tierDoc = JsonDocument.Parse(tierPayload);
+            var tiers = TrainingAcceleration.EvalTiers(tierDoc.RootElement);
+            tiers["mapping"] = "fast=log_every, " +
+                "regression=eval_every||checkpoint_every, " +
+                "full=candidates-only (post-training suite gate)";
+            checks["eval_tiers"] = tiers;
+            checks["advisory_only"] = true;
+        }
+        catch (Exception exc) when (exc is ExecutorError or JsonException)
+        {
+            checks["error"] = exc.Message;
+        }
+        return checks;
     }
 
     private static string WriteScratchManifest(
@@ -1240,23 +1292,28 @@ internal sealed class TrainingJobExecutor
             !CapabilityFreeze.CanonicalPretrainLaneOpen(freezePolicy))
             throw new ExecutorError("EXECUTOR_TRAINING_FROZEN",
                 $"capability training is frozen; job {jobId} stays queued");
-        var row = _repo.JobRow(jobId)
-            ?? throw new ExecutorError("EXECUTOR_JOB_MISSING",
-                $"job {jobId} does not exist");
-        if ((string?)row["status"] != "queued")
-            throw new ExecutorError("EXECUTOR_JOB_NOT_QUEUED",
-                $"job is {row["status"]}, not queued");
         // Serial execution contract: at most one governed training job
-        // in flight at a time (policy: 同時訓練上限 = 1). A sibling in
-        // preflight/training/validating keeps this job queued — the
-        // caller retries it on the next drain instead of racing resource
-        // supervision. RunJobs is already a sequential drain; this guard
-        // also covers --job entry and concurrent executor processes.
-        if (_repo.ActiveJobs(2).Count > 0)
-            throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
-                $"another governed training job is in flight; " +
-                $"{jobId} stays queued");
-        _repo.TransitionTrainingJob(jobId, "preflight");
+        // in flight at a time (policy: 同時訓練上限 = 1). The claim is a
+        // single advisory-locked transaction — existence, queued state,
+        // sibling-in-flight and the preflight transition are atomic, so
+        // concurrent executors can never both pass a check-then-act gap.
+        // A sibling in flight keeps this job queued — the caller retries
+        // it on the next drain instead of racing resource supervision.
+        var (claim, claimedRow) = _repo.TryClaimTrainingJob(jobId);
+        switch (claim)
+        {
+            case TransformerTrainingRepository.JobClaimResult.Missing:
+                throw new ExecutorError("EXECUTOR_JOB_MISSING",
+                    $"job {jobId} does not exist");
+            case TransformerTrainingRepository.JobClaimResult.NotQueued:
+                throw new ExecutorError("EXECUTOR_JOB_NOT_QUEUED",
+                    $"job is {claimedRow?["status"]}, not queued");
+            case TransformerTrainingRepository.JobClaimResult.Busy:
+                throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                    $"another governed training job is in flight; " +
+                    $"{jobId} stays queued");
+        }
+        var row = claimedRow!;
         ModelLifecycle? lifecycle = null;
         Dictionary<string, object?>? configuration = null;
         try
@@ -1476,5 +1533,94 @@ internal sealed class TrainingJobExecutor
     {
         var queued = _repo.QueuedJobs(1);
         return queued.Count == 0 ? null : RunJob((string)queued[0]["job_id"]!);
+    }
+
+    // ------------------------------------------------------------- reaper --
+
+    /// <summary>Reap orphaned live-state jobs (preflight/training/
+    /// validating). A crashed or killed run never leaves these states by
+    /// itself, and <see cref="RunNext"/> only drains queued — without a
+    /// reaper the row blocks that dataset's lane forever and every
+    /// downstream probe (self-learning, queue depth) lies about it.
+    /// Only rows older than <paramref name="olderThanS"/> (floored to
+    /// one hour so a live run can never be reaped by a typo) are
+    /// candidates; unparseable timestamps are skipped, never reaped.
+    /// Reaping marks the row failed with EXECUTOR_ORPHANED_REAPED through
+    /// the governed transition (audited); requeueing stays an explicit
+    /// operator act via --queue-job. Default dry-run lists candidates.</summary>
+    public Dictionary<string, object?> ReapStaleJobs(
+        long olderThanS, bool dryRun)
+    {
+        long thresholdS = Math.Max(3600, olderThanS <= 0 ? 86400 : olderThanS);
+        var now = DateTimeOffset.UtcNow;
+        var candidates = new List<object?>();
+        var reaped = new List<object?>();
+        var skipped = new List<object?>();
+        foreach (var row in _repo.ActiveJobs())
+        {
+            string jobId = (string)row["job_id"]!;
+            string status = (string)row["status"]!;
+            string anchor = TransformerTrainingRepository.Str(row, "started_at")!;
+            if (string.IsNullOrEmpty(anchor))
+                anchor = TransformerTrainingRepository.Str(row, "created_at")!;
+            if (!DateTimeOffset.TryParse(anchor, out var since))
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["job_id"] = jobId, ["status"] = status,
+                    ["reason"] = "unparseable-timestamp",
+                });
+                continue;
+            }
+            long ageS = (long)(now - since).TotalSeconds;
+            if (ageS < thresholdS)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["job_id"] = jobId, ["status"] = status,
+                    ["age_s"] = ageS, ["reason"] = "below-threshold",
+                });
+                continue;
+            }
+            var candidate = new Dictionary<string, object?>
+            {
+                ["job_id"] = jobId, ["status"] = status,
+                ["age_s"] = ageS, ["since"] = anchor,
+            };
+            candidates.Add(candidate);
+            if (dryRun) continue;
+            try
+            {
+                var failed = _repo.TransitionTrainingJob(
+                    jobId, "failed",
+                    errorCode: "EXECUTOR_ORPHANED_REAPED",
+                    errorMessage: $"orphaned in {status} for {ageS}s; " +
+                        "no live run holds it — requeue explicitly via " +
+                        "--queue-job after verifying no trainer process " +
+                        "is running");
+                candidate["reaped_to"] = failed["status"];
+                reaped.Add(candidate);
+            }
+            catch (Exception exc)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["job_id"] = jobId, ["status"] = status,
+                    ["age_s"] = ageS,
+                    ["reason"] = $"reap-refused:{exc.Message}",
+                });
+            }
+        }
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-training-reap/v1",
+            ["dry_run"] = dryRun,
+            ["threshold_s"] = thresholdS,
+            ["candidates"] = candidates,
+            ["reaped"] = reaped,
+            ["skipped"] = skipped,
+            ["checked_at"] = XcPaths.IsoNow(),
+        };
     }
 }
