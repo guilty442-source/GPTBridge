@@ -4200,7 +4200,8 @@ internal static class InstructionRecovery
         string? outPath = null)
     {
         string stderrLog = Path.Combine(
-            toolRoot, XcPaths.LogsRel, "recovery-eval-stderr.log");
+            toolRoot, XcPaths.LogsRel,
+            $"recovery-eval-stderr-{Environment.ProcessId}-{Guid.NewGuid():N}.log");
         var run = NativeTools.Run(
             NativeTools.ModelToolExe(toolRoot),
             new[] { "capability", "--bundle", bundle,

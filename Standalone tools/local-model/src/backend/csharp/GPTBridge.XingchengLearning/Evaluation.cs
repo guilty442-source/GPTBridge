@@ -99,7 +99,8 @@ internal static class Evaluation
         bool chat = false)
     {
         string stderrLog = Path.Combine(
-            repo.ToolRoot, "runtime", "logs", "eval-stderr.log");
+            repo.ToolRoot, "runtime", "logs",
+            $"eval-stderr-{Environment.ProcessId}-{Guid.NewGuid():N}.log");
         Dictionary<string, object?> suite;
         try
         {
