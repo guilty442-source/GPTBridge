@@ -139,7 +139,8 @@ static void fwd_g4(const Params& p, const ModelConfig& c,
         // TPU lanes: heads are disjoint lanes (probs per-h slice, attn_out
         // per-h column slice); 4-row blocks share each streamed k/v row —
         // per-element accumulation order is unchanged.
-        parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+        parallel_for(c.heads, (int64_t)T * T * hd,
+                     [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
                 const int kh = (int)h / group;
                 tpu_attn_fwd(
@@ -402,7 +403,8 @@ static void bwd_g4(Params& p, const ModelConfig& c,
             // share its dk/dv slices, so grouping heads by owner keeps
             // every shared-buffer write disjoint across lanes; per-element
             // accumulation order is unchanged.
-            parallel_for(c.kv_heads, [&](int64_t gb, int64_t ge) {
+            parallel_for(c.kv_heads, (int64_t)T * T * hd * group,
+                         [&](int64_t gb, int64_t ge) {
                 std::vector<float> dsc((size_t)4 * T);
                 for (int64_t g = gb; g < ge; ++g)
                     for (int h = (int)g * group;
@@ -529,7 +531,7 @@ static void bwd_g4(Params& p, const ModelConfig& c,
     // per element — bitwise identical to the serial row order.
     float* gemb = p.dw("embed");
     if (gemb)
-        parallel_for(H, [&](int64_t b, int64_t e) {
+        parallel_for(H, (int64_t)T, [&](int64_t b, int64_t e) {
             for (int64_t i = b; i < e; ++i)
                 for (int64_t t = 0; t < T; ++t)
                     gemb[(size_t)ids[(size_t)t] * H + i] +=

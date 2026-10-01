@@ -50,7 +50,7 @@ static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
             dots[(size_t)t] = dot;
         }
     });
-    parallel_for(H, [&](int64_t b, int64_t e) {
+    parallel_for(H, (int64_t)T, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) {
             float acc = 0.0f;
             for (int t = 0; t < T; ++t) {
@@ -116,7 +116,7 @@ static const RopeCs& rope_cs(int T, int dim, float theta,
         const bool yarn = mc && mc->use_yarn();
         tab.c.assign((size_t)T * half, 0.0f);
         tab.s.assign((size_t)T * half, 0.0f);
-        parallel_for(half, [&](int64_t b, int64_t e) {
+        parallel_for(half, (int64_t)T * 8, [&](int64_t b, int64_t e) {
             for (int64_t i = b; i < e; ++i) {
                 float fr = std::pow(theta, -(float)(2 * i) / (float)dim);
                 if (yarn)
@@ -246,7 +246,7 @@ static void conv1d_causal_bwd(const float* dy, const float* y_pre,
     });
     // Channels are disjoint lanes: dx[t*D+c] and dw[c*K+j] are owned by
     // the channel lane, so the t/j accumulation order is unchanged.
-    parallel_for(D, [&](int64_t b, int64_t e) {
+    parallel_for(D, (int64_t)T * K, [&](int64_t b, int64_t e) {
         for (int64_t c = b; c < e; ++c)
             for (int t = 0; t < T; ++t) {
                 float d = dpre[(size_t)t * D + c];
@@ -263,7 +263,7 @@ static void conv1d_causal_bwd(const float* dy, const float* y_pre,
 
 static void l2norm_fwd(float* v, int rows, int dim, float eps,
                        float* norms_out) {
-    parallel_for(rows, [&](int64_t b, int64_t e) {
+    parallel_for(rows, (int64_t)dim, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             float* r = v + (size_t)t * dim;
             float ss = 0.0f;
@@ -280,7 +280,7 @@ static void l2norm_fwd(float* v, int rows, int dim, float eps,
 // norms holds the forward ||x|| per row.
 static void l2norm_bwd(const float* dy, const float* x_normed,
                        const float* norms, float* dx, int rows, int dim) {
-    parallel_for(rows, [&](int64_t b, int64_t e) {
+    parallel_for(rows, (int64_t)dim, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             const float* xr = x_normed + (size_t)t * dim;
             const float* dr = dy + (size_t)t * dim;
@@ -583,7 +583,7 @@ static void fwd(const Params& p, const ModelConfig& c,
     }
     {
         const float* emb = p.w.at("embed").d.data();
-        parallel_for(PT, [&](int64_t b, int64_t e) {
+        parallel_for(PT, (int64_t)H, [&](int64_t b, int64_t e) {
             for (int64_t t = b; t < e; ++t)
                 std::copy(emb + (size_t)ids[(size_t)t] * H,
                           emb + (size_t)ids[(size_t)t] * H + H,
@@ -702,7 +702,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.lin_S.assign((size_t)(T + 1) * vh * kd * vd, 0.0f);
             L.lin_o.resize((size_t)T * vh * vd);
             const size_t ssz = (size_t)kd * vd;
-            parallel_for(vh, [&](int64_t hb, int64_t he) {
+            parallel_for(vh, (int64_t)T * kd * vd,
+                         [&](int64_t hb, int64_t he) {
                 std::vector<float> u(vd), kvm(vd);
                 for (int64_t h = hb; h < he; ++h)
                 for (int t = 0; t < T; ++t) {
@@ -785,7 +786,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             }
             L.mla_qn.resize((size_t)T * c.heads * kn);
             L.mla_qr.resize((size_t)T * c.heads * kr);
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * qd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h)
                     for (int t = 0; t < T; ++t) {
                         const float* fr = qf.data() +
@@ -815,7 +817,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             const float scale = 1.0f / std::sqrt((float)qd);
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * c.heads * hd, 0.0f);
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * T * hd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h) {
                 // MLA scores split into nope+rope dots — two dot4 lanes
                 // summed keep the per-element order of the serial dots.
@@ -1112,7 +1115,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             // TPU lanes: heads are disjoint lanes (probs per-h slice,
             // attn_out per-h column slice); per-element order unchanged.
             if (crole < 0 || nc == 0) {
-                parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                parallel_for(c.heads, (int64_t)T * T * hd,
+                             [&](int64_t hb, int64_t he) {
                     for (int64_t h = hb; h < he; ++h) {
                         const int kh2 = (int)h / group;
                         tpu_attn_fwd(
@@ -1134,7 +1138,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     }
                 });
             } else
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * T * hd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h) {
                 int kh2 = (int)h / group;
                 for (int t = 0; t < T; ++t) {
@@ -1449,7 +1454,7 @@ static void fwd(const Params& p, const ModelConfig& c,
                 // e-ascending — bitwise identical to the serial loop.
                 auto& p_i = ws.p_i;
                 p_i.assign((size_t)E, 0.0f);
-                parallel_for(E, [&](int64_t b, int64_t e) {
+                parallel_for(E, (int64_t)T, [&](int64_t b, int64_t e) {
                     for (int64_t e2 = b; e2 < e; ++e2) {
                         float s = 0.0f;
                         for (int t = 0; t < T; ++t)
@@ -1588,7 +1593,8 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     const float scale = 1.0f / std::sqrt((float)hd);
     L.probs.assign((size_t)c.heads * PT * PT, 0.0f);
     L.attn_out.assign((size_t)PT * Hq, 0.0f);
-    parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+    parallel_for(c.heads, (int64_t)PT * PT * hd,
+                 [&](int64_t hb, int64_t he) {
         for (int64_t h = hb; h < he; ++h) {
             const int kh2 = (int)h / group;
             tpu_attn_fwd(

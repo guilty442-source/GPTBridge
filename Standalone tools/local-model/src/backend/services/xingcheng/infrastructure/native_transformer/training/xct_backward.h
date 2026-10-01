@@ -479,7 +479,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             float* dA_log = p.dw(lb + "A_log");
             float* ddt_bias = p.dw(lb + "dt_bias");
             const float* A_log = p.w.at(lb + "A_log").d.data();
-            parallel_for(vh, [&](int64_t hb, int64_t he) {
+            parallel_for(vh, (int64_t)T * kd * vd,
+                         [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
                 std::vector<float> dS(ssz, 0.0f);  // carry: dL/dS_t
                 std::vector<float> Sd(ssz), u(vd), kvm(vd), du(vd),
@@ -754,7 +755,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // low-rank chain W_uq -> latent norm -> W_dq.
             auto& dqf = ws.dqf;
             dqf.assign((size_t)T * c.heads * qd, 0.0f);
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * qd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h)
                     for (int t = 0; t < T; ++t) {
                         float* fr = dqf.data() +
@@ -863,7 +865,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 // Blocked path: 4-row t blocks share each streamed v/k
                 // row; dk/dv land in kv-head space so the g-group lanes
                 // stay disjoint. Per-element order unchanged.
-                parallel_for(kvh, [&](int64_t gb, int64_t ge) {
+                parallel_for(kvh, (int64_t)T * T * hd * group,
+                             [&](int64_t gb, int64_t ge) {
                 std::vector<float> dsc((size_t)4 * T);
                 for (int64_t g = gb; g < ge; ++g)
                 for (int h = (int)g * group;
@@ -904,7 +907,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
                 });
             } else
-            parallel_for(kvh, [&](int64_t gb, int64_t ge) {
+            parallel_for(kvh, (int64_t)T * T * hd * group,
+                         [&](int64_t gb, int64_t ge) {
             for (int64_t g = gb; g < ge; ++g)
             for (int h = (int)g * group;
                  h < std::min((int)(g + 1) * group, c.heads); ++h) {
@@ -1019,7 +1023,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                         }
                     }
                 });
-                parallel_for(csa_nc, [&](int64_t cb, int64_t ce) {
+                parallel_for(csa_nc, (int64_t)T * hd,
+                             [&](int64_t cb, int64_t ce) {
                     for (int64_t cc = cb; cc < ce; ++cc) {
                         float* dikr =
                             csa_prod->csa_dik.data() + (size_t)cc * hd;
@@ -1062,7 +1067,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     // unchanged.
                     auto& mkr_all = ws.mkr_all;
                     mkr_all.assign((size_t)csa_nc * hd, 0.0f);
-                    parallel_for(csa_nc, [&](int64_t cb, int64_t ce) {
+                    parallel_for(csa_nc, (int64_t)kvh * hd,
+                                 [&](int64_t cb, int64_t ce) {
                         for (int64_t cc = cb; cc < ce; ++cc) {
                             float* mkr = mkr_all.data() + (size_t)cc * hd;
                             for (int gg = 0; gg < kvh; ++gg)
@@ -1084,7 +1090,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                          mkr, hd);
                         }
                     parallel_for((int64_t)csa_nc * kvh,
-                                 [&](int64_t b, int64_t e) {
+                                 (int64_t)T * hd, [&](int64_t b, int64_t e) {
                         std::vector<float> tmp((size_t)hd);
                         for (int64_t p2 = b; p2 < e; ++p2) {
                             const int cc = (int)(p2 / kvh);
@@ -1268,7 +1274,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         // Column lanes: each worker owns a disjoint i-range across all
         // tokens, so repeated token ids still accumulate in t-ascending
         // order per element — bitwise identical to the serial loop.
-        parallel_for(H, [&](int64_t b, int64_t e) {
+        parallel_for(H, (int64_t)PT, [&](int64_t b, int64_t e) {
             for (int64_t i = b; i < e; ++i)
                 for (int t = 0; t < PT; ++t)
                     ge[(size_t)ids[t] * H + (size_t)i] +=
@@ -1362,7 +1368,8 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     dq.assign((size_t)PT * Hq, 0.0f);
     dk.assign((size_t)PT * Hkvl, 0.0f);
     dv.assign((size_t)PT * Hkvl, 0.0f);
-    parallel_for(kvh, [&](int64_t gb, int64_t ge) {
+    parallel_for(kvh, (int64_t)PT * PT * hd * group,
+                 [&](int64_t gb, int64_t ge) {
         std::vector<float> dsc((size_t)4 * PT);
         for (int64_t g = gb; g < ge; ++g)
         for (int h = (int)g * group;
@@ -1430,7 +1437,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     auto& dne = ws.dne;
     dnh.assign((size_t)PT, 0.0f);
     dne.assign((size_t)PT, 0.0f);
-    parallel_for(PT, [&](int64_t b, int64_t e) {
+    parallel_for(PT, (int64_t)H, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) {
             const float* xr = M.nh_src.data() + (size_t)i * H;
             const float* dyr = dcin.data() + (size_t)i * 2 * H;
@@ -1448,7 +1455,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
             }
         }
     });
-    parallel_for(H, [&](int64_t b, int64_t e) {
+    parallel_for(H, (int64_t)PT, [&](int64_t b, int64_t e) {
         for (int64_t j = b; j < e; ++j)
             for (int64_t i = 0; i < PT; ++i) {
                 const float inv = 1.0f / M.nh_rms[(size_t)i];

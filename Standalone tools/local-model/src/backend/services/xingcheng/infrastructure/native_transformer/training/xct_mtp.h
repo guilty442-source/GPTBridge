@@ -100,7 +100,8 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
         }
         M.probs.assign((size_t)c.heads * R * R, 0.0f);
         M.attn_out.assign((size_t)R * Hq, 0.0f);
-        parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+        parallel_for(c.heads, (int64_t)R * R * hd,
+                     [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
                 int kh2 = (int)h / group;
                 for (int t = 0; t < R; ++t) {
@@ -244,7 +245,8 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         dq.assign((size_t)R * Hq, 0.0f);
         dk.assign((size_t)R * Hkv, 0.0f);
         dvv.assign((size_t)R * Hkv, 0.0f);
-        parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+        parallel_for(c.heads, (int64_t)R * R * hd,
+                     [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
                 int kh2 = (int)h / group;
                 std::vector<float> dscore;
