@@ -284,6 +284,13 @@ static JsonValue run_job(const JsonValue& job) {
         if (file_cfg.use_vision != c.use_vision ||
             file_cfg.vision_patch_dim != c.vision_patch_dim)
             throw "init_checkpoint: vision config mismatch";
+        // Fail fast on a poisoned source: resuming from a checkpoint
+        // that already carries NaN/Inf weights cannot recover — refuse
+        // the job before burning the training budget.
+        for (auto& n : p.order)
+            for (float x : p.w[n].d)
+                if (!std::isfinite(x))
+                    throw "init_checkpoint: non-finite weights";
     }
     // DPO/GRPO reference: frozen copy of the initial weights
     Params ref;
@@ -300,6 +307,7 @@ static JsonValue run_job(const JsonValue& job) {
     double t0 = now_s();
     int step = 0;
     bool deadline_hit = false;
+    bool nonfinite_abort = false;
     Fwd fw;
     std::vector<float> dlogits;
     float mtp_last = 0.0f;
@@ -496,6 +504,17 @@ static JsonValue run_job(const JsonValue& job) {
                 for (float x : p.g[n].d) gnorm += (double)x * x;
             }
             gnorm = std::sqrt(gnorm);
+            // Fail-fast divergence guard: a non-finite loss or grad norm
+            // means this step would inject NaN/Inf into the weights.
+            // Abort BEFORE adamw consumes the grads so the emitted
+            // checkpoint stays finite and resumable; the report carries
+            // the abort for the audit trail.
+            if (!std::isfinite(loss) || !std::isfinite(gnorm)) {
+                nonfinite_abort = true;
+                losses.push_back(loss);
+                ++step;
+                break;
+            }
             float gscale = (tc.clip > 0 && gnorm > tc.clip) ? tc.clip / (float)gnorm : 1.0f;
             // adamw
             float lr_t = tc.lr;
@@ -510,7 +529,7 @@ static JsonValue run_job(const JsonValue& job) {
             if (tc.ckpt_every > 0 && step % tc.ckpt_every == 0 && !tc.emit_ckpt.empty())
                 ckpt_save(p, c, tc.emit_ckpt, /*overwrite*/true);
         }
-        if (deadline_hit) break;
+        if (deadline_hit || nonfinite_abort) break;
     }
 
     bool finite = true;
@@ -541,6 +560,7 @@ static JsonValue run_job(const JsonValue& job) {
     put("steps", num(step));
     put("examples", num((double)data.size()));
     put("deadline_hit", bol(deadline_hit));
+    put("nonfinite_abort", bol(nonfinite_abort));
     put("params_finite", bol(finite));
     put("checkpoint_emitted", bol(emitted));
     put("checkpoint_path", str(tc.emit_ckpt.c_str()));
