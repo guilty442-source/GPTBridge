@@ -7,4 +7,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <AssemblyName>GPTBridge.GitAutomation</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GPTBridge.Automation" />
+  </ItemGroup>
 </Project>

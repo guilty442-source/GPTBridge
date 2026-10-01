@@ -12,6 +12,27 @@ internal static partial class Program
         return await service.Run();
     }
 
+    // -- unified-host entries (GPTBridge.Automation in-process planes) --
+
+    /// Resident sweep+sync service for the unified automation host:
+    /// runs the same loop as ``--watch`` under the caller's process
+    /// supervision.  Exit contract: 0 graceful (flow disabled /
+    /// stop-file), 1 single-instance lock held — the caller defers and
+    /// adopts the plane when the external holder releases.
+    internal static Task<int> WatchService(string root)
+    {
+        var options = new Options { Mode = "watch" };
+        return new Service(Path.GetFullPath(root), options).Run();
+    }
+
+    /// Unified-host ``--once`` plane: exactly one sweep+sync cycle,
+    /// then exit.  Takes no instance lock (bounded one-shot parity).
+    internal static Task<int> RunOnce(string root)
+    {
+        var options = new Options { Mode = "once" };
+        return new Service(Path.GetFullPath(root), options).Run();
+    }
+
     // -- sweep / sync primitives (shared with --once / --sweep / --sync) --
 
     private static JsonObject Sweep(

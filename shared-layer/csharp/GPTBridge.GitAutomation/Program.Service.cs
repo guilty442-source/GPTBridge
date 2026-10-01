@@ -33,6 +33,35 @@ internal static partial class Program
             _options = options;
         }
 
+        /// Single-instance arbitration for the resident watch loop —
+        /// same contract as codex-automation.lock /
+        /// permission-automation.lock: an external holder means another
+        /// host (standalone --watch or the unified automation host)
+        /// owns the git plane.  Bounded one-shot modes skip the lock so
+        /// manual --once/--sweep/--sync still work beside a supervised
+        /// instance.
+        private FileStream? AcquireInstanceLock()
+        {
+            if (_options.Mode != "watch")
+                return null;
+            var lockPath = Path.Combine(_root, "main-system", "runtime",
+                "state", "git-automation.lock");
+            try
+            {
+                Directory.CreateDirectory(
+                    Path.GetDirectoryName(lockPath)!);
+                return new FileStream(lockPath, FileMode.Create,
+                    FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (Exception error) when (error is IOException
+                or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine(
+                    "[git-automation] already running (lock held)");
+                return null;
+            }
+        }
+
         public async Task<int> Run()
         {
             if (!FlowsConfig.FlowEnabled(_root))
@@ -48,6 +77,9 @@ internal static partial class Program
                     "[git-automation] skipped: not-a-git-worktree");
                 return 0;
             }
+            using var instanceLock = AcquireInstanceLock();
+            if (instanceLock is null && _options.Mode == "watch")
+                return 1;
             StartDirwatch();
             Console.CancelKeyPress += (_, e) =>
             {
