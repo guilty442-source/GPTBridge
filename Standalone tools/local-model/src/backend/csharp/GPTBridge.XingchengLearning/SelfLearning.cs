@@ -1390,6 +1390,7 @@ internal static class SelfLearning
 
         var evaluations = new List<object?>();
         bool allPassed = true;
+        int preWeightsVersion = lifecycle.ActiveWeightsVersion;
         foreach (string suiteName in policy.Suites)
         {
             string suitePath = Path.Combine(
@@ -1507,6 +1508,66 @@ internal static class SelfLearning
                     newEntry?.GetValueOrDefault("version") ?? -1));
         }
 
+        // In-cycle correctness verification (star-learning-verify/v1):
+        // re-check the evidence chain this cycle just produced — trainer
+        // report sanity, F# verdict ownership on every evaluation,
+        // engine/F# verdict parity, lifecycle transition consistent with
+        // the action, dataset registered. An "upgraded" action whose
+        // verification fails means the promotion lacks valid evidence:
+        // take the governed rollback path (same posture as the maturity
+        // recheck above) instead of trusting the recorded action.
+        bool verifyOk = true;
+        var verifyChecks = new Dictionary<string, object?>
+        {
+            ["trainer_report"] =
+                TransformerTrainingRepository.Int(trainerSummary, "steps") > 0,
+            ["dataset_registered"] = dataset["dataset_id"] != null,
+        };
+        bool verdictOwned = true;
+        bool parityOk = true;
+        foreach (var ev in evaluations)
+        {
+            if (ev is not Dictionary<string, object?> em) continue;
+            if (em["comparison"] is not Dictionary<string, object?> cmp)
+            {
+                // suite-missing / early-failure rows carry no comparison
+                verdictOwned = verdictOwned && em.ContainsKey("error");
+                continue;
+            }
+            verdictOwned = verdictOwned &&
+                "fsharp".Equals(
+                    TransformerTrainingRepository.Str(cmp, "verdict_owner"));
+            if (cmp.TryGetValue("engine_passed", out object? ep) &&
+                TransformerTrainingRepository.Truthy(ep) !=
+                TransformerTrainingRepository.Truthy(em["passed"]))
+                parityOk = false;
+        }
+        verifyChecks["verdict_owner_fsharp"] = verdictOwned;
+        verifyChecks["engine_fsharp_parity"] = parityOk;
+        verifyChecks["lifecycle_transition"] = action == "upgraded"
+            ? lifecycle.ActiveWeightsVersion > preWeightsVersion &&
+              pinned != null
+            : lifecycle.ActiveWeightsVersion == preWeightsVersion &&
+              pinned == null;
+        verifyOk = verifyChecks.Values.All(
+            TransformerTrainingRepository.Truthy);
+        summary["learning_verification"] = new Dictionary<string, object?>
+        {
+            ["format"] = "star-learning-verify/v1",
+            ["ok"] = verifyOk,
+            ["checks"] = verifyChecks,
+        };
+        if (action == "upgraded" && !verifyOk &&
+            !summary.ContainsKey("rollback"))
+        {
+            summary["rollback"] = AttemptGovernedRollback(
+                tool, lifecycle, lifecycleDir,
+                anchorPath: activePath,
+                excludeVersion: Convert.ToInt32(
+                    newEntry?.GetValueOrDefault("version") ?? -1));
+            summary["rollback_reason"] = "learning-verification-failed";
+        }
+
         bool rolledBack = summary.TryGetValue("rollback", out object? rb) &&
                           rb is Dictionary<string, object?> rbm &&
                           TransformerTrainingRepository.Truthy(
@@ -1529,6 +1590,8 @@ internal static class SelfLearning
             ["last_degradation_probe"] = summary.GetValueOrDefault("degradation_probe"),
             ["last_maturity_recheck"] = summary.GetValueOrDefault("maturity_recheck"),
             ["last_rollback"] = summary.GetValueOrDefault("rollback"),
+            ["last_verification"] = summary.GetValueOrDefault(
+                "learning_verification"),
             ["active_weights_version"] = lifecycle.ActiveWeightsVersion,
             ["resource_account"] = resourceAccount,
             ["pool"] = stats,

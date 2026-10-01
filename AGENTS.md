@@ -226,7 +226,16 @@ registered — no doomed job is queued and `consecutive_failures` is not
 incremented. When the sequence is complete every capability is resolved and
 the guard releases untagged governed SFT (the recorded completion order);
 capability-declared jobs stay denied until a governor reopens a bounded
-lane with `--maturation-reopen`. Policy: `runtime/settings/self-learning.json`
+lane with `--maturation-reopen`. Each finished cycle also self-verifies
+(`learning_verification`, `star-learning-verify/v1`): it re-checks the
+evidence chain it just produced — trainer report sanity, `verdict_owner:
+"fsharp"` on every evaluation, engine/F# verdict parity
+(`engine_passed`/`engine_comparison` embedded in each comparison), the
+lifecycle transition matching the recorded action (upgraded ⇒ version
+advanced + runtime pinned; otherwise unchanged + unpinned) and dataset
+registration. An `upgraded` action that fails verification takes the
+governed rollback path; the latest result surfaces as `last_verification`
+in the self-learning state. Policy: `runtime/settings/self-learning.json`
 (`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
 reports: `xingcheng/runtime/logs/self-learning-*.json`.
 

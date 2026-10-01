@@ -117,6 +117,7 @@ internal static class Evaluation
         Dictionary<string, object?> adapterMetrics,
         Dictionary<string, object?> baselineMetrics,
         Dictionary<string, object?> engineComparison,
+        bool enginePassed,
         string stderrLog, out bool passed)
     {
         var input = new Dictionary<string, object?>
@@ -145,7 +146,13 @@ internal static class Evaluation
                     $"xc-eval exited {run.ExitCode}");
             passed = TransformerTrainingRepository.Truthy(
                 verdict.GetValueOrDefault("passed"));
-            return Child(verdict, "comparison");
+            var cmp = Child(verdict, "comparison");
+            // The measurement lane's own verdict stays embedded as
+            // evidence — the cycle verifier checks F#/engine parity and
+            // flags contract drift; authority remains the F# verdict.
+            cmp["engine_passed"] = enginePassed;
+            cmp["engine_comparison"] = engineComparison;
+            return cmp;
         }
         finally
         {
@@ -199,6 +206,7 @@ internal static class Evaluation
         }
 
         bool passed;
+        bool enginePassed = false;
         Dictionary<string, object?> adapterMetrics;
         Dictionary<string, object?> baselineMetrics;
         Dictionary<string, object?> comparison;
@@ -247,6 +255,9 @@ internal static class Evaluation
                         NativeTools.ModelToolExe(execRoot), args,
                         repo.ToolRoot, stderrLog, timeoutS: 7200);
                     var output = ParseStdoutJson(run, "EVAL_TOOL_FAILED");
+                    enginePassed = run.ExitCode == 0 &&
+                        TransformerTrainingRepository.Truthy(
+                            output.GetValueOrDefault("passed"));
                     var report = Child(output, "report");
                     adapterMetrics = report;
                     comparison = Child(output, "comparison");
@@ -275,6 +286,8 @@ internal static class Evaluation
                 if (run.ExitCode != 0 && run.ExitCode != 2)
                     throw new ExecutorError("EVAL_TOOL_FAILED",
                         $"modeltool eval exited {run.ExitCode}");
+                enginePassed = TransformerTrainingRepository.Truthy(
+                    output.GetValueOrDefault("passed"));
                 adapterMetrics = Child(output, "candidate");
                 baselineMetrics = Child(output, "baseline");
                 comparison = Child(output, "comparison");
@@ -296,7 +309,7 @@ internal static class Evaluation
             comparison = FsharpVerdict(
                 execRoot, repo, format, gates,
                 adapterMetrics, baselineMetrics, comparison,
-                stderrLog, out passed);
+                enginePassed, stderrLog, out passed);
         }
         catch (ExecutorError ex)
         {
