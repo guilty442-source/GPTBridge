@@ -501,7 +501,8 @@ static JsonValue run_job(const JsonValue& job) {
             double gnorm = 0.0f;
             for (auto& n : p.order) {
                 if (p.frozen.count(n)) continue;
-                for (float x : p.g[n].d) gnorm += (double)x * x;
+                gnorm += tpu_sumsq(p.g[n].d.data(),
+                                   (int64_t)p.g[n].d.size());
             }
             gnorm = std::sqrt(gnorm);
             // Fail-fast divergence guard: a non-finite loss or grad norm

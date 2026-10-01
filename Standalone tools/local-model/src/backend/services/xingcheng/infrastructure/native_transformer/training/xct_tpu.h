@@ -20,6 +20,7 @@
 struct TpuLaneCfg {
     int threads = 0;    // 0 = auto (min(8, hw)); 1 = serial lanes; cap 16
     bool simd = true;   // runtime AVX2/FMA dispatch; false forces scalar
+    bool tile4 = true;  // register-tiled GEMM at T>=16; false = legacy (A/B only)
 };
 
 static TpuLaneCfg g_tpu;
@@ -66,6 +67,21 @@ static const char* tpu_simd_name() {
     return tpu_has_avx2_fma() ? "avx2+fma" : "scalar";
 }
 
+#if XCT_TPU_X64 && defined(_MSC_VER)
+// Horizontal reduction for the dual-accumulator dot: a fixed reduction
+// tree shared by the scalar-shape path and the tile4 kernel so both
+// produce bitwise-identical per-element results.
+static float tpu_hsum2(__m256 s0, __m256 s1) {
+    s0 = _mm256_add_ps(s0, s1);
+    __m128 lo = _mm256_castps256_ps128(s0);
+    __m128 hi = _mm256_extractf128_ps(s0, 1);
+    lo = _mm_add_ps(lo, hi);
+    lo = _mm_add_ps(lo, _mm_movehl_ps(lo, lo));
+    lo = _mm_add_ss(lo, _mm_shuffle_ps(lo, lo, 1));
+    return _mm_cvtss_f32(lo);
+}
+#endif
+
 // fp32 dot: AVX2+FMA dual accumulators when supported, scalar otherwise.
 static float tpu_dot(const float* a, const float* b, int64_t n) {
 #if XCT_TPU_X64 && defined(_MSC_VER)
@@ -81,13 +97,7 @@ static float tpu_dot(const float* a, const float* b, int64_t n) {
         for (; i + 8 <= n; i += 8)
             s0 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i),
                                  _mm256_loadu_ps(b + i), s0);
-        s0 = _mm256_add_ps(s0, s1);
-        __m128 lo = _mm256_castps256_ps128(s0);
-        __m128 hi = _mm256_extractf128_ps(s0, 1);
-        lo = _mm_add_ps(lo, hi);
-        lo = _mm_add_ps(lo, _mm_movehl_ps(lo, lo));
-        lo = _mm_add_ss(lo, _mm_shuffle_ps(lo, lo, 1));
-        float sum = _mm_cvtss_f32(lo);
+        float sum = tpu_hsum2(s0, s1);
         for (; i < n; ++i) sum += a[i] * b[i];
         return sum;
     }
@@ -388,4 +398,27 @@ static void tpu_elementwise(int64_t n, F&& f) {
     parallel_for(n, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) f(i);
     });
+}
+
+// Fixed-shape parallel sum of squares: every tensor is cut into the same
+// 64 chunks regardless of worker count; lanes sum whole chunks serially
+// and the caller combines partials in chunk order — deterministic and
+// lane-count independent. Chunk-boundary reassociation can differ from
+// a flat serial scan by ~1ulp; used for the global grad-norm where the
+// value feeds only the clip threshold, not stored state.
+static double tpu_sumsq(const float* x, int64_t n) {
+    constexpr int64_t NC = 64;
+    double part[NC] = {};
+    parallel_for(NC, [&](int64_t b, int64_t e) {
+        for (int64_t c = b; c < e; ++c) {
+            const int64_t lo = c * n / NC, hi = (c + 1) * n / NC;
+            double s = 0.0;
+            for (int64_t i = lo; i < hi; ++i)
+                s += (double)x[(size_t)i] * x[(size_t)i];
+            part[c] = s;
+        }
+    });
+    double s = 0.0;
+    for (int64_t c = 0; c < NC; ++c) s += part[c];
+    return s;
 }
