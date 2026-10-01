@@ -52,6 +52,14 @@ internal static class CapacityPlane
     public const long CommonFloorTargetMin = 300_000_000L;
     public const long CommonFloorTargetMax = 500_000_000L;
     public const long CommonFloorHard = 600_000_000L;
+    // codex architecture-tool-local-model: every publishable model
+    // configuration must sit inside [300M, 20B] inclusive — below 300M
+    // or above 20B can never become a formal model; any baseline
+    // claiming complete capability may not be under 300M. Parameter
+    // count bounds scale/resources only — it never substitutes for
+    // capability tests, quality evidence, or release conditions.
+    public const long PublishableMinParams = 300_000_000L;
+    public const long PublishableMaxParams = DefaultTotalCeiling;
 
     /// <summary>§4 the six parameter counts — "model params" alone is
     /// never an acceptable report.</summary>
@@ -125,6 +133,64 @@ internal static class CapacityPlane
             throw new ExecutorError("ACTIVE_PARAMETER_CEILING_EXCEEDED",
                 $"active {activeParams} exceeds hard ceiling " +
                 $"{ActiveCeiling} — rejected before benchmark (§35)");
+    }
+
+    /// <summary>Publishable-scale boundary (codex
+    /// architecture-tool-local-model): formal model configurations must
+    /// total [300M, 20B] inclusive. A boundary check only — capability
+    /// evidence remains a separate release condition.</summary>
+    public static void RequirePublishableScale(long totalParams,
+                                             string subject)
+    {
+        if (totalParams < PublishableMinParams ||
+            totalParams > PublishableMaxParams)
+            throw new ExecutorError("MODEL_SCALE_OUT_OF_PUBLISHABLE_BAND",
+                $"{subject} total_params {totalParams} outside the " +
+                $"publishable band [{PublishableMinParams}, " +
+                $"{PublishableMaxParams}] — cannot become a formal model");
+    }
+
+    /// <summary>Total declared parameters of a publishable artifact:
+    /// a bundle directory's manifest.json ``param_count``. Returns
+    /// null when the artifact does not declare a scale (bare files are
+    /// not publishable configurations).</summary>
+    public static long? BundleTotalParams(string path)
+    {
+        if (!Directory.Exists(path)) return null;
+        string manifest = Path.Combine(path, "manifest.json");
+        if (!File.Exists(manifest)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(manifest));
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("param_count", out var pc) &&
+                pc.ValueKind == JsonValueKind.Number &&
+                pc.TryGetInt64(out long total))
+                return total;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException
+                                       or UnauthorizedAccessException)
+        {
+            return null;
+        }
+        return null;
+    }
+
+    /// <summary>Fail-closed gate for weights ACTIVATION: a bundle dir
+    /// being promoted to a formal model must declare param_count in its
+    /// manifest and sit inside the publishable band. Bare checkpoint
+    /// files are not publishable configurations and are not gated
+    /// here.</summary>
+    public static void EnforcePublishableOnActivate(string artifactPath)
+    {
+        if (!Directory.Exists(artifactPath)) return;
+        long? total = BundleTotalParams(artifactPath);
+        if (!total.HasValue || total.Value <= 0)
+            throw new ExecutorError("MODEL_SCALE_UNVERIFIABLE",
+                $"activating bundle '{artifactPath}' has no readable " +
+                "manifest.json param_count — publishable scale cannot " +
+                "be proven");
+        RequirePublishableScale(total.Value, artifactPath);
     }
 
     /// <summary>§32-§34: common+shared floor gate and the routed

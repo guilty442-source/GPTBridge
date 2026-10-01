@@ -112,6 +112,36 @@ internal static class CapacityChecks
                         CapacityPlane.ActiveCeiling;
             }));
 
+            // ------------ codex publishable band 300M..20B ----------
+            checks.Add(Check("publishable-scale-band", () =>
+            {
+                // boundaries inclusive
+                CapacityPlane.RequirePublishableScale(
+                    CapacityPlane.PublishableMinParams, "b-min");
+                CapacityPlane.RequirePublishableScale(
+                    CapacityPlane.PublishableMaxParams, "b-max");
+                bool low = ExpectError(
+                    "MODEL_SCALE_OUT_OF_PUBLISHABLE_BAND",
+                    () => CapacityPlane.RequirePublishableScale(
+                        CapacityPlane.PublishableMinParams - 1, "low"));
+                bool high = ExpectError(
+                    "MODEL_SCALE_OUT_OF_PUBLISHABLE_BAND",
+                    () => CapacityPlane.RequirePublishableScale(
+                        CapacityPlane.PublishableMaxParams + 1, "high"));
+                // fail-closed: a bundle without readable param_count
+                // cannot be promoted to a formal model.
+                string scratch = Path.Combine(
+                    Path.GetTempPath(),
+                    "xc-band-" + Guid.NewGuid().ToString("N")[..8]);
+                Directory.CreateDirectory(scratch);
+                bool unverifiable = ExpectError(
+                    "MODEL_SCALE_UNVERIFIABLE",
+                    () => CapacityPlane.EnforcePublishableOnActivate(
+                        scratch));
+                try { Directory.Delete(scratch, true); } catch { }
+                return low && high && unverifiable;
+            }));
+
             // ------------ §32-§34 common floor ----------------------
             checks.Add(Check("common-floor-gate", () =>
             {

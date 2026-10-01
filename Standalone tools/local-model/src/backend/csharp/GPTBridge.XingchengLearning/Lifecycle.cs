@@ -124,6 +124,11 @@ internal sealed class ModelLifecycle
         int previousActive = ActiveWeightsVersion;
         if (kind == "weights" && activate)
         {
+            // codex publishable bound: activating a bundle dir promotes a
+            // formal model — its manifest must prove 300M..20B total
+            // params. Bare checkpoint files are not publishable
+            // configurations and pass through ungated.
+            CapacityPlane.EnforcePublishableOnActivate(path);
             ActiveWeightsVersion = (int)entry["version"]!;
             // 世代繼任契約：新代啟用時自動把前代完整記錄（version、
             // sha256、path、全份 metadata 資料血統）攜入新代

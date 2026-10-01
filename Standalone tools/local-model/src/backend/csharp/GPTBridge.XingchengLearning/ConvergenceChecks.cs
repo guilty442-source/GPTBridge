@@ -869,6 +869,35 @@ new("repo-mtp-head-contract", () =>
                             () => CapabilityFreeze.GuardJob(
                                 "sft", "instruction_following", pol)))
                     return false;
+                // Canonical-architecture pretrain lane
+                // (star-canonical-pretrain/v1): while the freeze holds,
+                // declaring architecture_pretrain_mode=XC_FUSED_1 admits
+                // exactly the pretrain kind at the GuardJob level — SFT
+                // stays denied, and pretrain without the declaration
+                // stays denied. (model.generation pinning is enforced
+                // one layer down in JobExecutor.)
+                var frozenPol = new SelfLearningPolicy();
+                if (!Denied("CAPABILITY_TRAINING_FROZEN",
+                            () => CapabilityFreeze.GuardJob(
+                                "pretrain", "", frozenPol)))
+                    return false;
+                var canonPol = new SelfLearningPolicy
+                {
+                    ArchitecturePretrainMode = "XC_FUSED_1",
+                };
+                try
+                {
+                    CapabilityFreeze.GuardJob("pretrain", "", canonPol);
+                }
+                catch { return false; }
+                if (!Denied("CAPABILITY_TRAINING_FROZEN",
+                            () => CapabilityFreeze.GuardJob(
+                                "sft", "", canonPol)))
+                    return false;
+                if (!Denied("CAPABILITY_TRAINING_FROZEN",
+                            () => CapabilityFreeze.GuardJob(
+                                "dpo", "", canonPol)))
+                    return false;
                 // Self-correction records feed SFT/DPO candidates only —
                 // never an RL lane.
                 using var doc = JsonDocument.Parse(
