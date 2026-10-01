@@ -4,7 +4,7 @@
 
 /// C108 confidential deny-fragments, matched against lowercase
 /// '/'-separated repo-relative paths (same set and order as the C++).
-const DENY: [&str; 19] = [
+const DENY: [&str; 21] = [
     "governance_rule/codex",
     "governance_codex",
     "permission_directory",

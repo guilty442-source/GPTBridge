@@ -164,7 +164,11 @@ public:
             std::unique_lock<std::mutex> lk(mu_);
             if (workers_.empty()) start();
             fn_ = &fn; n_ = n; next_ = 0;
-            lanes_ = (int64_t)workers_.size() + 1;
+            // Never cut more blocks than items — empty blocks only burn
+            // claim cycles. Partition math is unchanged, so results stay
+            // lane-count independent.
+            lanes_ = std::min<int64_t>((int64_t)workers_.size() + 1,
+                                       std::max<int64_t>(n, 1));
             pending_ = lanes_;
             ep_ = nullptr;
             g = ++gen_;
@@ -256,6 +260,26 @@ static void parallel_for(int64_t n,
                          const std::function<void(int64_t, int64_t)>& fn) {
     if (n <= 0) return;
     if (tpu_threads() <= 1 || n < 64 || TpuPool::in_lane_) {
+        fn(0, n);
+        return;
+    }
+    TpuPool::inst().run(n, fn);
+}
+
+// Work-aware dispatch: the flat n<64 serial rule mis-ranks loops whose
+// per-item work is large — a DeltaNet/attention head lane is ~1-16M
+// element-ops at production shapes, yet heads/kv-heads counts (4-16)
+// sent them down the serial path. item_cost is a rough per-item cost in
+// element-ops; a small-n loop still goes to the pool when the total
+// estimated work clears the amortization floor. Cheap small-n loops
+// keep the serial path, so both ends self-tune on shape. Disjoint-range
+// partitioning is unchanged — results are identical for any lane count.
+static constexpr int64_t kTpuParMinWork = 32 * 1024;
+static void parallel_for(int64_t n, int64_t item_cost,
+                         const std::function<void(int64_t, int64_t)>& fn) {
+    if (n <= 0) return;
+    if (tpu_threads() <= 1 || TpuPool::in_lane_ ||
+        (n < 64 && n * item_cost < kTpuParMinWork)) {
         fn(0, n);
         return;
     }
