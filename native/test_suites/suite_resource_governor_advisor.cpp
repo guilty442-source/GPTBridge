@@ -182,6 +182,8 @@ int main() {
         state.applied_mode = "high";
         state.last_switch_unix = calm_signals().now_unix;
         gov::AdvisorSignals sig = calm_signals(); /* target = medium baseline */
+        sig.user_idle_s = 600.0; /* 閒置中 → high 屬合法（idle_ceiling），
+                                    降檔走正常 streak/cooldown 而非 urgent */
 
         for (int i = 0; i < 2; ++i) {
             const gov::AdvisorDecision d =
@@ -245,6 +247,7 @@ int main() {
             R"( "end": "07:00", "mode": "sleep"},)"
             R"("modes": {"medium": {"worker_job_percent": 10.0},)"
             R"( "low": {"worker_job_percent": 5.0},)"
+            R"( "high": {"worker_job_percent": 30.0},)"
             R"( "sleep": {"worker_job_percent": 2.0}}})";
         auto parsed = gov::parse_rules(text);
         NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
