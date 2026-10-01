@@ -4079,6 +4079,20 @@ internal static class InstructionRecovery
             all.AddRange(replay);
         }
 
+        // Interleave replay through the stream: the trainer consumes
+        // train.jsonl in order, so appended-at-tail replay rows would
+        // only be seen after a full capability-data prefix — too late
+        // to protect against early forgetting. Seeded shuffle keeps
+        // the order deterministic.
+        {
+            var sh = new Random(seed ^ 0x1f123bb5);
+            for (int i = all.Count - 1; i > 0; --i)
+            {
+                int j = sh.Next(i + 1);
+                (all[i], all[j]) = (all[j], all[i]);
+            }
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var rows = new List<Row>();
         int dropped = 0;
