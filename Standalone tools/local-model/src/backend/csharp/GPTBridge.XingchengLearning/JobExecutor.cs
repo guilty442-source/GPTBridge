@@ -493,7 +493,7 @@ internal sealed class TrainingJobExecutor
     private (int quota, string state, string pressure) GovernorTrainingBudget()
     {
         string? statePath = GovernorStatePath();
-        if (statePath == null) return 0;
+        if (statePath == null) return (-1, "", "");
         string raw;
         try
         {
@@ -502,7 +502,7 @@ internal sealed class TrainingJobExecutor
         catch (Exception ex) when (ex is IOException or
             UnauthorizedAccessException)
         {
-            return 0;
+            return (-1, "", "");
         }
         try
         {
@@ -510,46 +510,47 @@ internal sealed class TrainingJobExecutor
             var root = doc.RootElement;
             if (!root.TryGetProperty("concurrency_budget", out var budget) ||
                 budget.ValueKind != JsonValueKind.Object)
-                return 0;
+                return (-1, "", "");
             if (!budget.TryGetProperty("classes", out var classes) ||
                 classes.ValueKind != JsonValueKind.Object)
-                return 0;
+                return (-1, "", "");
             if (!classes.TryGetProperty("training", out var training) ||
                 training.ValueKind != JsonValueKind.Object)
-                return 0;
+                return (-1, "", "");
             int quota = training.TryGetProperty("quota", out var q) &&
                         q.ValueKind == JsonValueKind.Number &&
                         q.TryGetInt32(out int n) ? n : -1;
             string state = training.TryGetProperty("state", out var s) &&
                            s.ValueKind == JsonValueKind.String
                 ? s.GetString() ?? "" : "";
-            string pressure = budget.TryGetProperty("pressure", out var p) &&
-                              p.ValueKind == JsonValueKind.String
-                ? p.GetString() ?? "" : "";
-            if (quota == 0 || state == "paused")
-                throw new ExecutorError("EXECUTOR_GPU_BUSY",
-                    "resource governor paused training " +
-                    $"(pressure {pressure}) — job stays queued with " +
-                    "gpu-busy backoff");
-            if (quota > 0)
-                return Math.Clamp(quota, 1, 16);
+            string pressure = budget.TryGetProperty("pressure", out var pr) &&
+                              pr.ValueKind == JsonValueKind.String
+                ? pr.GetString() ?? "" : "";
+            return (quota, state, pressure);
         }
         catch (JsonException)
         {
-            return 0;
+            return (-1, "", "");
         }
-        return 0;
     }
 
+    /// <summary>Locate the governor state file by walking ancestors for
+    /// main-system/runtime/state/resource-governor.json (the main
+    /// checkout resolves at toolRoot/../..; worktree checkouts nest
+    /// differently). Null when absent — the gate stays fail-open.</summary>
     private string? GovernorStatePath()
     {
         try
         {
-            string repoRoot = Path.GetFullPath(
-                Path.Combine(_toolRoot, "..", ".."));
-            string candidate = Path.Combine(repoRoot, "main-system",
-                "runtime", "state", "resource-governor.json");
-            return File.Exists(candidate) ? candidate : null;
+            string? dir = Path.GetFullPath(_toolRoot);
+            for (int i = 0; i < 4 && dir != null; i++)
+            {
+                string candidate = Path.Combine(dir, "main-system",
+                    "runtime", "state", "resource-governor.json");
+                if (File.Exists(candidate)) return candidate;
+                dir = Path.GetDirectoryName(dir);
+            }
+            return null;
         }
         catch
         {
