@@ -177,6 +177,14 @@ extern "C" int xcuda_available();
 extern "C" int xcuda_matmul_f64(
     const double* a, long long m, long long k,
     const double* b, long long n, double* out);
+// Async pair for the hybrid CPU+GPU fp64 lane: begin() enqueues the
+// H2D -> GEMM -> D2H chain into pinned staging and returns before device
+// completion; wait() joins the D2H lane and copies the result.
+extern "C" int xcuda_matmul_f64_begin(
+    const double* a, long long m, long long k,
+    const double* b, long long n);
+extern "C" int xcuda_matmul_f64_wait(
+    double* out, long long m, long long n);
 // Grouped variant: one H2D/D2H round trip for the whole expert batch.
 extern "C" int xcuda_matmul_f64_grouped(
     const double* a, const long long* group_rows, long long groups,

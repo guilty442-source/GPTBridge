@@ -932,6 +932,13 @@ int xcuda_probe(long long* free_bytes, long long* total_bytes,
     return 1;
 }
 
+// SM count for the unified compute-plane report — same fail-closed
+// probe rule: 0 when the device/driver is not ready.
+int xcuda_sm_count() {
+    if (!device_ready()) return 0;
+    return xcd::dev().sm_count > 0 ? xcd::dev().sm_count : 0;
+}
+
 // NVML instantaneous sensors for the §66 hardware baseline — same
 // run-time binding rule as every other CUDA dependency: nvml.dll ships
 // with the driver, nothing is import-linked, and any missing symbol or

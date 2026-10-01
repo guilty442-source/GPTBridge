@@ -102,6 +102,7 @@ struct HostBuf {
 
 HostBuf g_pin_a;
 HostBuf g_pin_c;
+int g_mm_async = 0;  // one outstanding xcuda_matmul_f64_begin flight
 
 bool host_get(HostBuf& b, size_t need) {
     if (b.bytes >= need) return true;
@@ -250,6 +251,88 @@ int xcuda_matmul_f64(const double* a, long long m, long long k,
 }
 
 // ---------------------------------------------------------------------------
+// Async fp64 GEMM pair for the hybrid CPU+GPU lane: begin() enqueues the
+// whole H2D -> GEMM -> D2H chain and returns before device completion so
+// the host can run its own row block concurrently; wait() joins the D2H
+// lane and copies the result.  At most ONE outstanding call — the engine
+// forward is single-threaded, and a second begin while a flight is
+// pending fails closed so the shared pinned/scratch slabs can never be
+// clobbered mid-flight.  rc codes match xcuda_matmul_f64.
+// ---------------------------------------------------------------------------
+int xcuda_matmul_f64_begin(const double* a, long long m, long long k,
+                           const double* b, long long n) {
+    if (a == nullptr || b == nullptr || m <= 0 || k <= 0 || n <= 0)
+        return 2;
+    if (!xcuda_available()) return 3;
+
+    const size_t a_bytes = (size_t)m * (size_t)k * sizeof(double);
+    const size_t b_bytes = (size_t)k * (size_t)n * sizeof(double);
+    const size_t c_bytes = (size_t)m * (size_t)n * sizeof(double);
+
+    std::lock_guard<std::mutex> g(g_mu);
+    if (g_mm_async) return 3;  // one flight at a time
+
+    void* db = device_weight(b, b_bytes);
+    if (db == nullptr) return 3;
+    if (!dev_get(g_dev_a, a_bytes) || !dev_get(g_dev_c, c_bytes))
+        return 3;
+    if (!ensure_events()) return 3;
+    void* ha = host_get(g_pin_a, a_bytes) ? g_pin_a.ptr : nullptr;
+    if (!host_get(g_pin_c, c_bytes)) return 3;  // wait() needs pinned dst
+
+    const xcd::Api& api = xcd::api();
+    const xcd::CUstream_t h2d = mp::mgr().stream(mp::StreamLane::H2D);
+    const xcd::CUstream_t prefill =
+        mp::mgr().stream(mp::StreamLane::PREFILL_NORMAL);
+    const xcd::CUstream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
+    const xcd::CUdevptr_t da = static_cast<xcd::CUdevptr_t>(
+        reinterpret_cast<uintptr_t>(g_dev_a.ptr));
+    const xcd::CUdevptr_t dcv = static_cast<xcd::CUdevptr_t>(
+        reinterpret_cast<uintptr_t>(g_dev_c.ptr));
+
+    const void* src = a;
+    if (ha != nullptr) {
+        std::memcpy(ha, a, a_bytes);
+        src = ha;
+    }
+    if (api.memcpy_htod_async(da, src, a_bytes, h2d) != xcd::kOk ||
+        api.event_record(g_ev_in, h2d) != xcd::kOk ||
+        api.stream_wait_event(prefill, g_ev_in, 0) != xcd::kOk)
+        return 3;
+    if (xcuda_dev_gemm_f64(static_cast<unsigned long long>(da),
+                           static_cast<unsigned long long>(
+                               reinterpret_cast<uintptr_t>(db)),
+                           static_cast<unsigned long long>(dcv),
+                           m, k, n,
+                           static_cast<unsigned long long>(prefill)) != 0)
+        return 3;
+    if (api.event_record(g_ev_out, prefill) != xcd::kOk ||
+        api.stream_wait_event(d2h, g_ev_out, 0) != xcd::kOk)
+        return 3;
+    // D2H is enqueued into the pinned slab now; wait() only needs to
+    // join the lane — the copy itself overlaps the CPU row block.
+    if (api.memcpy_dtoh_async(g_pin_c.ptr, dcv, c_bytes, d2h) != xcd::kOk)
+        return 3;
+    mp::mgr().h2d_bytes += (int64_t)(a_bytes + b_bytes);
+    mp::mgr().d2h_bytes += (int64_t)c_bytes;
+    g_mm_async = 1;
+    return 0;
+}
+
+int xcuda_matmul_f64_wait(double* out, long long m, long long n) {
+    if (out == nullptr || m <= 0 || n <= 0) return 2;
+    if (!g_mm_async) return 3;
+    const size_t c_bytes = (size_t)m * (size_t)n * sizeof(double);
+    const xcd::Api& api = xcd::api();
+    const xcd::CUstream_t d2h = mp::mgr().stream(mp::StreamLane::D2H);
+    const int rc = api.stream_sync(d2h) == xcd::kOk ? 0 : 3;
+    if (rc == 0 && g_pin_c.bytes >= c_bytes)
+        std::memcpy(out, g_pin_c.ptr, c_bytes);
+    g_mm_async = 0;
+    return rc == 0 && g_pin_c.bytes >= c_bytes ? 0 : 3;
+}
+
+// ---------------------------------------------------------------------------
 // Grouped fp64 GEMM: one H2D upload of the concatenated activation block
 // and one D2H download of the concatenated output, with a per-group PTX
 // GEMM over device-resident weights in between — identical math to
@@ -347,6 +430,10 @@ int xcuda_matmul_f64_grouped(
 // ---------------------------------------------------------------------------
 int xcuda_release_weights() {
     std::lock_guard<std::mutex> g(g_mu);
+    if (g_mm_async) {  // drain an in-flight async GEMM before freeing slabs
+        xcd::api().stream_sync(mp::mgr().stream(mp::StreamLane::D2H));
+        g_mm_async = 0;
+    }
     for (auto& kv : g_dev_weights) {
         if (kv.second.first != nullptr)
             mp::mgr().free(kv.second.first, mp::StreamLane::H2D);

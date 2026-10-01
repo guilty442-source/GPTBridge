@@ -4274,6 +4274,8 @@ int mode_serve(const Args& a) {
 #include "xcm_capability.h"
 // Runtime-gate modes converged from the devin lane (see header doc).
 #include "xcm_rtgates.h"
+// Unified measured compute-plane report (CPU+GPU+hybrid lane evidence).
+#include "xcm_computeplane.h"
 
 }  // namespace
 
@@ -4390,6 +4392,7 @@ static const ModeEntry kModeRegistry[] = {
     {"sparse-probe",          "CACHE",     mode_sparse_probe},
     {"kv-gather-probe",       "CACHE",     mode_kv_gather_probe},
     {"hw-caps",               "SCALE",     mode_hw_caps},
+    {"compute-plane",         "CUDA",      mode_compute_plane},
     // Checkpoint-format convergence onto the canonical writer
     // (byte-exact tensor table, zeroed MTP-stack block).
     {"ckpt-converge",         "MODEL",     mode_ckpt_converge},
