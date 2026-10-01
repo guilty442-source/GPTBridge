@@ -842,9 +842,13 @@ admission+env-flag until the trainer report echoes the lane it ran).
 `xc-learning --preflight` previews the whole gate read-only.
 
 **Training concurrency = 1**: at most one governed training job is in
-flight at a time — `RunJob` refuses a second (`EXECUTOR_TRAINING_SERIAL`,
-job stays queued; covers `--run-jobs`, `--job`, and concurrent executor
-processes via the `preflight`/`training`/`validating` set).  Per-job CPU
+flight at a time — `RunJob` claims the lane in a single advisory-locked
+transaction (queued check + sibling check + preflight transition +
+audit), so concurrent executors can never both pass
+(`EXECUTOR_TRAINING_SERIAL`, job stays queued). Orphaned live-state rows
+(crash/kill never transitions out) are reaped explicitly:
+`--reap-stale [--older-than-s N] [--apply]` (dry-run default, floor
+3600 s, `EXECUTOR_ORPHANED_REAPED`).  Per-job CPU
 lanes follow `classes.training.quota` in `concurrency-budget/v1`, tuned
 through `concurrency_w_training`/`concurrency_min_training` in rules
 `defaults` (base 5 → quota 5 at tier none, 2 at pre, paused at active;
