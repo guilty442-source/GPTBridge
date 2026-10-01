@@ -235,7 +235,11 @@ lifecycle transition matching the recorded action (upgraded ⇒ version
 advanced + runtime pinned; otherwise unchanged + unpinned) and dataset
 registration. An `upgraded` action that fails verification takes the
 governed rollback path; the latest result surfaces as `last_verification`
-in the self-learning state. Policy: `runtime/settings/self-learning.json`
+in the self-learning state. `curriculum_intent_map` scopes each cycle's
+dataset by intent per course (`sft-refresh` currently prioritizes the
+weakest measured capabilities — instruction/tool_call_format/math/
+code/reading — plus forward-looking multi_turn/context_tracking intents,
+excluding saturated `conversation` traffic). Policy: `runtime/settings/self-learning.json`
 (`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
 reports: `xingcheng/runtime/logs/self-learning-*.json`.
 
@@ -511,6 +515,37 @@ Version 維度分開：`architecture_generation` / `weight_version` /
 Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
 `AxisChecks.cs`；feature registry 的 `primary_axis` 由
 `FeatureCatalog.FeatureDict` 經 taxonomy `Classify` 派生。
+
+## 星澄 Language Architecture（local-model 收斂目標）
+
+> Owner-local implementation contract（Codex B81 ARCHITECTURE-EXCLUSION /
+> rev 194：架構不寫入法典）。在 `Standalone tools/local-model` 樹內覆寫
+> 上方 Execution Plane Ownership 的 repo 全域預設。
+
+| 語言 | 角色 | 比重 | 判斷 |
+| --- | --- | --- | --- |
+| C++23 | 模型核心、Tensor、Forward/Backward、MoE、Attention、Delta、MTP、CPU Kernel | 最大 | 主計算語言 |
+| Rust | 儲存、資料、檔案格式、Tokenizer、驗證器、並行 IO、安全邊界 | 第二 | 主系統語言 |
+| C# | Governance、Lifecycle、自治訓練、Scheduler、Policy | 第三 | 主控制語言 |
+| C | 穩定 ABI、極低階 SIMD/OS bridge | 極少 | 只做邊界 |
+| F# | 無預設 Production 職責 | 0 或極少 | 不建議強制使用 |
+
+現況與收斂差距（2026-10-01 盤點）：
+
+- **C++23 已就定位** — `native_transformer/xct_*`（訓練核心）、
+  `xcm_*` + `xc_modeltool`（模型工具）、`backend/cpp/engine_*` +
+  `cuda_*`（推論 + PTX kernel）。
+- **C# 已就定位** — `GPTBridge.XingchengLearning`（SelfLearning/
+  JobExecutor/Evaluation/Lifecycle/Retention）+ `xct-executor`。
+- **Rust lane 尚未建立** — 其職責目前在 C++：`engine_tokenizer.h`
+  （tokenizer）、`xct_ckpt.h`/`engine_weights.h`/`xcm_corpus.h`
+  （檔案格式與資料）、驗證器散在 `xcm_*cert`/`xcm_rtgates`。
+- **F# 待退役** — `GPTBridge.XingchengEval`（xc-eval）目前是
+  `verdict_owner: "fsharp"` 的評估仲裁 lane；收斂時判決邏輯遷入
+  C#，`verdict_owner`/parity 檢查同步更新。在此之前 F# lane 繼續
+  持有現行契約，不得提前拔除。
+- **C 已就定位** — `native/bridge/gptbridge_native.c` +
+  `engine_c_abi.cpp`/`xingcheng_engine_c.h` 維持 ABI 邊界，不長肉。
 
 ## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
 
