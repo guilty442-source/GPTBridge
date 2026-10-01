@@ -54,9 +54,18 @@ std::string sha256_hex(const unsigned char* data, size_t size) {
         BCryptCloseAlgorithmProvider(algorithm, 0);
         throw InferenceError("SHA256_INIT_FAILED");
     }
-    const NTSTATUS update_status = BCryptHashData(
-        hash, const_cast<unsigned char*>(data),
-        static_cast<ULONG>(size), 0);
+    // BCryptHashData takes a 32-bit ULONG length — hash in chunks so
+    // bundles past 4 GiB verify correctly instead of truncating to
+    // size mod 2^32.
+    NTSTATUS update_status = 0;
+    for (size_t off = 0; off < size; ) {
+        const ULONG chunk = static_cast<ULONG>(
+            size - off < 0x40000000ULL ? size - off : 0x40000000ULL);
+        update_status = BCryptHashData(
+            hash, const_cast<unsigned char*>(data) + off, chunk, 0);
+        if (update_status != 0) break;
+        off += chunk;
+    }
     const NTSTATUS finish_status = update_status == 0
         ? BCryptFinishHash(hash, digest, sizeof(digest), 0)
         : update_status;

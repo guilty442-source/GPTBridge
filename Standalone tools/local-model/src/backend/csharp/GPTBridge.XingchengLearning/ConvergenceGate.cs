@@ -28,6 +28,12 @@ internal static class ConvergenceGate
     public const string ReportRel =
         "xingcheng/runtime/logs/release-gate";
 
+// One stderr log per gate process — two concurrent gate runs
+// (e.g. the scheduled cycle vs an ad-hoc invocation) must not
+// collide on a shared file handle.
+private static readonly string StderrLog =
+$"gate-stderr-{Environment.ProcessId}.log";
+
     private sealed class StepResult
     {
         public string Status = "PASS";       // PASS | FAIL | SKIP
@@ -130,7 +136,7 @@ internal static class ConvergenceGate
     {
         string log = Path.Combine(toolRoot,
             ReportRel.Replace('/', Path.DirectorySeparatorChar),
-            "gate-stderr.log");
+            StderrLog);
         var r = NativeTools.Run(exe, args, toolRoot, log, 300);
         return r.ExitCode == 0
             ? Pass(r.StdoutTail.Trim()[..Math.Min(200,
@@ -149,7 +155,7 @@ internal static class ConvergenceGate
     {
         string log = Path.Combine(toolRoot,
             ReportRel.Replace('/', Path.DirectorySeparatorChar),
-            "gate-stderr.log");
+            StderrLog);
         var r = NativeTools.Run(exe, args, toolRoot, log, 300);
         if (r.ExitCode != 0)
             return Fail("GATE_STEP_FAILED",
@@ -289,7 +295,7 @@ internal static class ConvergenceGate
                 // (mode, required field tokens in stdout tail)
                 string log = Path.Combine(toolRoot,
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
-                    "gate-stderr.log");
+                    StderrLog);
                 int Clip(string s, int n) => Math.Min(n, s.Length);
                 foreach (var (mode, reqs) in new (string, string[])[]
                 {
@@ -359,7 +365,7 @@ internal static class ConvergenceGate
                 // governed mtp-contract fixture bundle when present.
                 string log = Path.Combine(toolRoot,
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
-                    "gate-stderr.log");
+                    StderrLog);
                 int clip(string s, int n) => Math.Min(n, s.Length);
                 StepResult check(string b, bool expectContract)
                 {
@@ -430,7 +436,7 @@ internal static class ConvergenceGate
                             $"(want {kv.Want})");
                 string log = Path.Combine(toolRoot,
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
-                    "gate-stderr.log");
+                    StderrLog);
                 int Clip(string s, int n) =>
                     Math.Min(n, s.Length);
                 // 1) BF16 GEMM certification vs the FP64 oracle
@@ -487,7 +493,7 @@ internal static class ConvergenceGate
                     return Fail("SYSTEM1_SUITE_MISSING", evalDir);
                 string log = Path.Combine(toolRoot,
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
-                    "gate-stderr.log");
+                    StderrLog);
                 string headOut = Path.Combine(toolRoot, "xingcheng",
                     "runtime", "scratch", "system1", "heads");
                 var r = NativeTools.Run(toolExe,
@@ -545,7 +551,7 @@ internal static class ConvergenceGate
                 // residency outcome.
                 string log = Path.Combine(toolRoot,
                     ReportRel.Replace('/', Path.DirectorySeparatorChar),
-                    "gate-stderr.log");
+                    StderrLog);
                 int Clip(string s, int n) => Math.Min(n, s.Length);
                 StepResult Run(string[] args, string[] reqs,
                                string code, int timeout = 600)

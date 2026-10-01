@@ -1183,25 +1183,64 @@ static void fwd(const Params& p, const ModelConfig& c,
                                   });
                 float wsum = 0.0f;
                 for (int s = 0; s < K; ++s) wsum += gp[idx[s]];
-                const float* xr = L.n2.data() + (size_t)t * H;
                 for (int s = 0; s < K; ++s) {
                     int e = idx[s];
-                    float wgt = gp[e] / wsum;
                     L.moe_idx[(size_t)t * K + s] = e;
-                    L.moe_w[(size_t)t * K + s] = wgt;
-                    std::string b = ln(l, "experts.") + std::to_string(e) + ".";
-                    auto& fa = L.mfa[(size_t)t * K + s];
-                    auto& fb = L.mfb[(size_t)t * K + s];
-                    auto& fh = L.mfh[(size_t)t * K + s];
-                    fa.resize(EI); fb.resize(EI); fh.resize(EI);
-                    linear_fwd(xr, p.w.at(b + "w1"), fa.data(), 1, H, EI);
-                    linear_fwd(xr, p.w.at(b + "w3"), fb.data(), 1, H, EI);
-                    for (int i = 0; i < EI; ++i)
-                        fh[i] = gate_act_f(fa[i], c.ffn_act) * fb[i];
-                    std::vector<float> eo(H);
-                    linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
-                    for (int i = 0; i < H; ++i) proj[(size_t)t * H + i] += wgt * eo[i];
+                    L.moe_w[(size_t)t * K + s] = gp[e] / wsum;
                     ++moe_cnt[(size_t)e];
+                }
+            }
+            // Grouped expert forward: tokens sharing an expert run as one
+            // GEMM (T_e rows) instead of K matvecs per token — the expert
+            // weights are read once per layer instead of once per pair.
+            // Fwd caches keep the per-(t,s) layout backward expects and
+            // per-row dot order is unchanged, so results are bitwise
+            // identical to the per-pair path.
+            {
+                std::vector<std::vector<int>> slots((size_t)E);
+                for (size_t a = 0; a < L.moe_idx.size(); ++a)
+                    slots[(size_t)L.moe_idx[a]].push_back((int)a);
+                std::vector<float> X, FA, FB, Fh, EO;
+                for (int e = 0; e < E; ++e) {
+                    auto& sl = slots[(size_t)e];
+                    const int Te = (int)sl.size();
+                    if (!Te) continue;
+                    std::string b =
+                        ln(l, "experts.") + std::to_string(e) + ".";
+                    X.resize((size_t)Te * H); FA.resize((size_t)Te * EI);
+                    FB.resize((size_t)Te * EI); Fh.resize((size_t)Te * EI);
+                    EO.resize((size_t)Te * H);
+                    for (int j = 0; j < Te; ++j)
+                        std::copy(L.n2.data() +
+                                      (size_t)(sl[(size_t)j] / K) * H,
+                                  L.n2.data() +
+                                      (size_t)(sl[(size_t)j] / K) * H + H,
+                                  X.data() + (size_t)j * H);
+                    linear_fwd(X.data(), p.w.at(b + "w1"), FA.data(),
+                               Te, H, EI);
+                    linear_fwd(X.data(), p.w.at(b + "w3"), FB.data(),
+                               Te, H, EI);
+                    for (size_t i = 0; i < Fh.size(); ++i)
+                        Fh[i] = gate_act_f(FA[i], c.ffn_act) * FB[i];
+                    linear_fwd(Fh.data(), p.w.at(b + "w2"), EO.data(),
+                               Te, EI, H);
+                    for (int j = 0; j < Te; ++j) {
+                        const int slot = sl[(size_t)j];
+                        const int t = slot / K;
+                        const float wgt = L.moe_w[(size_t)slot];
+                        auto& fa = L.mfa[(size_t)slot];
+                        auto& fb = L.mfb[(size_t)slot];
+                        auto& fh = L.mfh[(size_t)slot];
+                        fa.assign(FA.begin() + (ptrdiff_t)j * EI,
+                                  FA.begin() + (ptrdiff_t)(j + 1) * EI);
+                        fb.assign(FB.begin() + (ptrdiff_t)j * EI,
+                                  FB.begin() + (ptrdiff_t)(j + 1) * EI);
+                        fh.assign(Fh.begin() + (ptrdiff_t)j * EI,
+                                  Fh.begin() + (ptrdiff_t)(j + 1) * EI);
+                        float* pr = proj.data() + (size_t)t * H;
+                        const float* er = EO.data() + (size_t)j * H;
+                        for (int i = 0; i < H; ++i) pr[i] += wgt * er[i];
+                    }
                 }
             }
             // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
