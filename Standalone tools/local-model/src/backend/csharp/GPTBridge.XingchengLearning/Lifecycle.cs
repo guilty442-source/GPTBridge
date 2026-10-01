@@ -129,6 +129,11 @@ internal sealed class ModelLifecycle
             // params. Bare checkpoint files are not publishable
             // configurations and pass through ungated.
             CapacityPlane.EnforcePublishableOnActivate(path);
+            // §29-§31: production activate additionally requires a
+            // topology-recomputed star-capacity-proof — total within
+            // [300M, 20B] AND active_params_worst_case <= 1B. Bare
+            // checkpoints stay ungated (probe/test lane).
+            MainlineConvergence.EnforceCapacityProofOnActivate(path);
             ActiveWeightsVersion = (int)entry["version"]!;
             // 世代繼任契約：新代啟用時自動把前代完整記錄（version、
             // sha256、path、全份 metadata 資料血統）攜入新代

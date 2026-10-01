@@ -74,21 +74,17 @@ static void lin_tile4(const float* x, const float* w, float* y, int T, int I, in
                 d0 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), wv0, d0);
                 d1 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i + 8), wv1, d1);
             }
+            for (; i + 8 <= I; i += 8) {
+                __m256 wv = _mm256_loadu_ps(wr + i);
+                a0 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), wv, a0);
+                b0 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), wv, b0);
+                c0 = _mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), wv, c0);
+                d0 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), wv, d0);
+            }
             float acc[4] = {reduce8(_mm256_add_ps(a0, a1)),
                             reduce8(_mm256_add_ps(b0, b1)),
                             reduce8(_mm256_add_ps(c0, c1)),
                             reduce8(_mm256_add_ps(d0, d1))};
-            for (; i + 8 <= I; i += 8) {
-                __m256 wv = _mm256_loadu_ps(wr + i);
-                acc[0] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), wv,
-                                                 _mm256_setzero_ps())) + acc[0];
-                acc[1] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), wv,
-                                                 _mm256_setzero_ps())) + acc[1];
-                acc[2] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x2 + i), wv,
-                                                 _mm256_setzero_ps())) + acc[2];
-                acc[3] = reduce8(_mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), wv,
-                                                 _mm256_setzero_ps())) + acc[3];
-            }
             for (; i < I; ++i) {
                 acc[0] += x0[i] * wr[i]; acc[1] += x1[i] * wr[i];
                 acc[2] += x2[i] * wr[i]; acc[3] += x3[i] * wr[i];

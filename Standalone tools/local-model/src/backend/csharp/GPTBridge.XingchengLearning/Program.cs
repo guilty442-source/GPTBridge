@@ -746,6 +746,51 @@ internal static class Program
                             ? gkv : "", "GRAPH_KEY_INVALID")));
             if (flags.Contains("fused-adamw-status"))
                 return Emit(CudaTrainingPlane.FusedAdamWStatus());
+            // ---- Autonomous Training Mainline Convergence (§0-§86):
+            //      effective policy, mutation lease, capacity proof,
+            //      sequence consistency, binary provenance.
+            if (flags.Contains("effective-policy"))
+                return Emit(MainlineConvergence.EffectivePolicy(toolRoot));
+            if (flags.Contains("mutation-lease-status"))
+                return Emit(MainlineConvergence.LeaseStatus(toolRoot));
+            if (flags.Contains("mutation-lease-acquire"))
+                return Emit(MainlineConvergence.Acquire(
+                    toolRoot,
+                    opts.TryGetValue("generation", out string? lg)
+                        ? lg : "",
+                    opts.TryGetValue("candidate", out string? lc)
+                        ? lc : "",
+                    opts.TryGetValue("model-version", out string? lmv)
+                        ? lmv : "",
+                    opts.TryGetValue("source-ckpt-sha256",
+                        out string? lss) ? lss : "",
+                    opts.TryGetValue("arch-hash", out string? lah)
+                        ? lah : "",
+                    opts.TryGetValue("mutation", out string? lm)
+                        ? lm : "SFT"));
+            if (flags.Contains("mutation-lease-commit"))
+                return Emit(MainlineConvergence.Settle(
+                    toolRoot,
+                    opts.TryGetValue("candidate", out string? sc)
+                        ? sc : "", "COMMIT_MUTATION",
+                    opts.TryGetValue("evidence", out string? se)
+                        ? se : null));
+            if (flags.Contains("mutation-lease-abort"))
+                return Emit(MainlineConvergence.Settle(
+                    toolRoot,
+                    opts.TryGetValue("candidate", out string? ac)
+                        ? ac : "", "ABORT_MUTATION",
+                    opts.TryGetValue("evidence", out string? ae)
+                        ? ae : null));
+            if (flags.Contains("capacity-proof"))
+                return Emit(MainlineConvergence.CapacityProof(
+                    opts.TryGetValue("bundle", out string? cpb)
+                        ? cpb : toolRoot));
+            if (flags.Contains("sequence-check"))
+                return Emit(MainlineConvergence.SequenceCheck(toolRoot));
+            if (flags.Contains("binary-provenance"))
+                return Emit(MainlineConvergence.BinaryProvenance(
+                    toolRoot));
             // ---- AutonomousCapabilityRecoveryLoop (§0-§85):
             //      contract emission, mode/stage admission, failure
             //      classification, dataset purity, training trigger,
