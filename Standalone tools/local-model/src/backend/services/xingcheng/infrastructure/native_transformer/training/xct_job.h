@@ -66,6 +66,43 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
         if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
         if (e.ids.size() >= 2) out.push_back(std::move(e));
     }
+    // Sequence packing (data.pack > 0): consecutive short rows share one
+    // training sequence up to `pack` tokens so a single fwd/bwd/optimizer
+    // step amortizes per-example overhead over ~pack tokens (larger GEMM
+    // M). Semantics: token-level CE is unchanged, but one optimizer step
+    // now covers several examples — effective batch grows, so lanes using
+    // pack must set max_steps/lr accordingly (governed decision, not a
+    // silent default). pack_sep inserts a boundary token id between docs
+    // (its own position is ignored via -100; the pretrain shifted-label
+    // path still teaches doc->sep and sep->next-doc transitions, matching
+    // the standard EOS-separated packing convention). Vision rows and
+    // dpo/grpo formats are never packed.
+    const int pack = j_int(d, "pack", 0);
+    if (pack > 0 && (fmt == "sft" || fmt == "pretrain")) {
+        const int target = std::min(pack, max_len);
+        const int sep = j_int(d, "pack_sep", -1);
+        std::vector<Example> packed;
+        packed.reserve(out.size());
+        Example cur;
+        auto flush = [&] {
+            if (cur.ids.size() >= 2) packed.push_back(std::move(cur));
+            cur = Example{};
+        };
+        for (auto& e : out) {
+            if (!e.vision.empty()) { flush(); packed.push_back(std::move(e)); continue; }
+            const int need = (int)e.ids.size() +
+                             (sep >= 0 && !cur.ids.empty() ? 1 : 0);
+            if (!cur.ids.empty() && (int)cur.ids.size() + need > target) flush();
+            if (!cur.ids.empty() && sep >= 0) {
+                cur.ids.push_back(sep);
+                cur.labels.push_back(-100);
+            }
+            cur.ids.insert(cur.ids.end(), e.ids.begin(), e.ids.end());
+            cur.labels.insert(cur.labels.end(), e.labels.begin(), e.labels.end());
+        }
+        flush();
+        out = std::move(packed);
+    }
     return out;
 }
 
