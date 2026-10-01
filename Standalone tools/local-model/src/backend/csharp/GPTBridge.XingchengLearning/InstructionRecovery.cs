@@ -3989,10 +3989,11 @@ internal static class InstructionRecovery
     /// rule gate; train/val are disjoint by normalized-content hash; the
     /// eval suite shares no prompt string with either split.</summary>
     public static Dictionary<string, object?> BuildDataset(
-        string outDir, int count, int seed)
+        string outDir, int count, int seed,
+        double replayRatio = 0, string? excludeSuitePath = null)
     {
         Directory.CreateDirectory(outDir);
-        var all = Capability switch
+        var all = (Capability switch
         {
             "context_tracking" => GenerateContext(seed, count),
             "multi_turn" => GenerateMultiTurn(seed, count),
@@ -4003,13 +4004,53 @@ internal static class InstructionRecovery
             "math" => GenerateMath(seed, count),
             "coding" => GenerateCoding(seed, count),
             _ => Generate(seed, count),
-        };
+        }).ToList();
+
+        // Replay slice: a deterministic fraction of non-capability rows
+        // keeps general capabilities (math, instruction) from collapsing
+        // while the lane trains exactly one capability. Prompts/eval_text
+        // overlapping the governed regression suite are dropped — replay
+        // must preserve, never teach the test.
+        var excludePrompts = new HashSet<string>(StringComparer.Ordinal);
+        if (excludeSuitePath != null && File.Exists(excludeSuitePath))
+            try
+            {
+                using var doc = JsonDocument.Parse(
+                    File.ReadAllText(excludeSuitePath));
+                foreach (var it in doc.RootElement
+                                  .GetProperty("items").EnumerateArray())
+                    foreach (var key in new[] { "prompt", "eval_text" })
+                        if (it.TryGetProperty(key, out var pp))
+                            excludePrompts.Add(
+                                (pp.GetString() ?? "").Trim());
+            }
+            catch { /* unreadable suite: no exclusions */ }
+        if (replayRatio > 0)
+        {
+            replayRatio = Math.Min(replayRatio, 0.5);
+            int replayN = (int)Math.Round(
+                count * replayRatio / (1 - replayRatio));
+            int mathN = replayN * 3 / 4;
+            var replay = new List<Row>();
+            replay.AddRange(GenerateMath(seed ^ 0x5f3759df, mathN));
+            replay.AddRange(Generate(seed ^ 0x2c1b3c6d, replayN - mathN));
+            foreach (var r in replay) r.Source = "replay";
+            all.AddRange(replay);
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var rows = new List<Row>();
         int dropped = 0;
         var dropReasons = new Dictionary<string, int>();
         foreach (var row in all)
         {
+            if (excludePrompts.Contains(row.Prompt.Trim()))
+            {
+                dropped++;
+                dropReasons["suite_overlap"] =
+                    dropReasons.GetValueOrDefault("suite_overlap") + 1;
+                continue;
+            }
             if (!QualityOk(row, out string reason))
             {
                 dropped++;
@@ -4381,7 +4422,9 @@ internal static class InstructionRecovery
                 dataDir,
                 TransformerTrainingRepository.Int(plan, "dataset_count")
                     is int dc && dc > 0 ? dc : 2800,
-                seed);
+                seed,
+                TransformerTrainingRepository.Num(plan, "replay_ratio"),
+                regressionSuite);
         }
         Led("dataset", new Dictionary<string, object?>
         {
