@@ -63,7 +63,10 @@ internal static class NativeTools
     /// non-zero exit the stderr tail becomes the error message.
     /// <paramref name="lowPriority"/> drops the child to BelowNormal so
     /// batch training yields CPU to interactive work and live inference
-    /// (governor A598: training sheds first).</summary>
+    /// (governor A598: training sheds first). <paramref name="env"/>
+    /// injects per-invocation environment variables (e.g. the trainer's
+    /// XINGCHENG_TRAINER_CUDA_OPT device-opt gate) — the child inherits
+    /// the parent environment plus these overrides.</summary>
     public static RunResult Run(
         string exe,
         IEnumerable<string> args,
@@ -72,7 +75,8 @@ internal static class NativeTools
         double timeoutS = 14400,
         double rssBudgetMb = 0,
         double sampleIntervalS = 5,
-        bool lowPriority = false)
+        bool lowPriority = false,
+        IReadOnlyDictionary<string, string>? env = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -87,6 +91,9 @@ internal static class NativeTools
         };
         foreach (string arg in args)
             psi.ArgumentList.Add(arg);
+        if (env != null)
+            foreach (var kv in env)
+                psi.Environment[kv.Key] = kv.Value;
 
         Directory.CreateDirectory(Path.GetDirectoryName(stderrLogPath)!);
         var stderrBuffer = new StringBuilder();

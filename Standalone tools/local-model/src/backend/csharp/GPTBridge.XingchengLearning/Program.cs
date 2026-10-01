@@ -2,6 +2,8 @@
 //
 // CLI surface preserves the retired Python module's contract:
 //   --status              policy + state + training-window snapshot
+//   --preflight           resource gate preview (inference + governor
+//                         quota -> trainer threads), read-only
 //   --run-once [--force]  one governed self-learning cycle
 //   --enable / --disable  policy kill switch (fail-closed when off)
 //   --retention           dry-run sweep (default) | --apply | --status
@@ -46,6 +48,8 @@ internal static class Program
         {
             if (flags.Contains("status") && !flags.Contains("retention"))
                 return Emit(Status(toolRoot));
+            if (flags.Contains("preflight"))
+                return Emit(Preflight(toolRoot));
             if (flags.Contains("run-once"))
                 return Emit(SelfLearning.RunCycle(
                     toolRoot, force: flags.Contains("force")));
@@ -1622,7 +1626,7 @@ internal static class Program
     {
         Console.Error.WriteLine(
             "GPTBridge.XingchengLearning [--tool-root <dir>] " +
-            "(--status | --run-once [--force] | --enable | --disable | " +
+            "(--status | --preflight | --run-once [--force] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
             "--job <id> | --self-test | --converge-check | " +
             "--maturation-status | --maturation-freeze --capability " +
@@ -1845,6 +1849,15 @@ internal static class Program
             ["retention_policy"] = RetentionPolicy.Load(toolRoot).ToDict(),
             ["checked_at"] = XcPaths.IsoNow(),
         };
+    }
+
+    /// <summary>Read-only training resource gate preview: inference
+    /// liveness + governor training quota -> trainer threads. Same
+    /// inputs RunJob enforces, without touching any job.</summary>
+    private static Dictionary<string, object?> Preflight(string toolRoot)
+    {
+        var repo = new TransformerTrainingRepository(toolRoot);
+        return new TrainingJobExecutor(repo, toolRoot).PreflightStatus();
     }
 
     private static Dictionary<string, object?> SetEnabled(string toolRoot, bool on)

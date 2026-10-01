@@ -428,8 +428,10 @@ internal sealed class TrainingJobExecutor
     /// A missing/unreadable governor state file is fail-open (trainer
     /// auto threads), per the budget contract: no state, expired or
     /// kill-switch falls back to static limits. Returns the trainer
-    /// thread count derived from the training quota (0 = auto).</summary>
-    private int PreflightResourceGate()
+    /// thread count derived from the training quota (0 = auto) plus the
+    /// GPU admission decision for the job's requested device.</summary>
+    private (int threads, GpuPlan gpu) PreflightResourceGate(
+        Dictionary<string, object?> configuration)
     {
         var status = PreflightStatus();
         if (status.TryGetValue("would_block", out object? wb) &&
@@ -437,7 +439,8 @@ internal sealed class TrainingJobExecutor
             throw new ExecutorError(
                 (string)status["error_code"]!,
                 (string)status["reason"]!);
-        return (int)status["trainer_threads"]!;
+        return ((int)status["trainer_threads"]!,
+                ResolveGpuPlan(configuration));
     }
 
     /// <summary>Read-only view of the same gate for operators
@@ -447,12 +450,22 @@ internal sealed class TrainingJobExecutor
     public Dictionary<string, object?> PreflightStatus()
     {
         bool? inferenceActive = Collectors.InferenceActive(_toolRoot);
+        var (governorMode, gpuEnabled, vramPct, vramMb) =
+            GovernorGpuPolicy();
         var status = new Dictionary<string, object?>
         {
             ["ok"] = true,
             ["format"] = "star-training-preflight/v1",
             ["inference_active"] = inferenceActive,
             ["governor_state"] = GovernorStatePath(),
+            ["governor_mode"] = governorMode,
+            ["gpu"] = new Dictionary<string, object?>
+            {
+                ["gpu_enabled"] = gpuEnabled,
+                ["vram_budget_percent"] = vramPct,
+                ["vram_budget_mb"] = vramMb,
+                ["probe"] = ProbeCuda()?.ToDict(),
+            },
             ["training_quota"] = null,
             ["training_state"] = null,
             ["pressure"] = null,
@@ -532,6 +545,217 @@ internal sealed class TrainingJobExecutor
         {
             return (-1, "", "");
         }
+    }
+
+    /// <summary>GPU admission decision for one job. The trainer's CUDA
+    /// lane is opt-in (XINGCHENG_TRAINER_CUDA_OPT); this record is the
+    /// audit trail of why a requested device did or did not get it.</summary>
+    private sealed class GpuPlan
+    {
+        public bool Requested;         // configuration["device"] asks cuda
+        public string Mode = "";       // governor mode observed
+        public bool GpuEnabled;        // rules modes[mode].gpu_enabled
+        public int VramBudgetPercent;  // rules modes[mode].vram_budget_percent
+        public bool? ProbeAvailable;   // xc_modeltool probe-cuda
+        public long ProbeFreeMb;
+        public long ProbeTotalMb;
+        public bool Admitted;          // -> XINGCHENG_TRAINER_CUDA_OPT=1
+        public string Reason = "";
+
+        public Dictionary<string, object?> ToDict() => new()
+        {
+            ["requested"] = Requested,
+            ["governor_mode"] = Mode.Length > 0 ? Mode : null,
+            ["gpu_enabled"] = GpuEnabled,
+            ["vram_budget_percent"] = VramBudgetPercent,
+            ["probe_available"] = ProbeAvailable,
+            ["probe_vram_free_mb"] = ProbeAvailable == true ? ProbeFreeMb : null,
+            ["probe_vram_total_mb"] = ProbeAvailable == true ? ProbeTotalMb : null,
+            ["admitted"] = Admitted,
+            ["reason"] = Reason,
+        };
+    }
+
+    /// <summary>Resolve the GPU admission for a job's requested device.
+    /// Chain: device request -> governor mode gpu_enabled (rules file is
+    /// the tunables source; unreadable/missing mode entry is fail-closed
+    /// disabled) -> live probe-cuda -> free-VRAM headroom check. A denied
+    /// request is never fatal — the trainer simply runs its CPU lanes;
+    /// denial is recorded for audit.</summary>
+    private GpuPlan ResolveGpuPlan(Dictionary<string, object?> configuration)
+    {
+        var plan = new GpuPlan();
+        string req = (TransformerTrainingRepository.Str(
+            configuration, "device") ?? "").Trim().ToLowerInvariant();
+        plan.Requested = req is "cuda" or "gpu" or "auto";
+        var (mode, enabled, pct, _) = GovernorGpuPolicy();
+        plan.Mode = mode;
+        plan.GpuEnabled = enabled;
+        plan.VramBudgetPercent = pct;
+        if (!plan.Requested)
+        {
+            plan.Reason = "device-not-requested";
+            return plan;
+        }
+        if (!enabled)
+        {
+            plan.Reason = mode.Length > 0
+                ? $"governor-mode-{mode}-gpu-disabled"
+                : "governor-gpu-policy-unavailable";
+            return plan;
+        }
+        var probe = ProbeCuda();
+        if (probe == null || probe.Available != true)
+        {
+            plan.ProbeAvailable = probe?.Available;
+            plan.Reason = "cuda-probe-unavailable";
+            return plan;
+        }
+        plan.ProbeAvailable = true;
+        plan.ProbeFreeMb = probe.FreeMb;
+        plan.ProbeTotalMb = probe.TotalMb;
+        // Headroom: the resident w/m/v AdamW lane needs ~3x params fp32
+        // plus context; train_cuda_min_free_mb tunes the floor (default
+        // 2048MB covers the ~1.2GB optimizer footprint of a 100M model).
+        int requiredMb = TransformerTrainingRepository.Int(
+            configuration, "train_cuda_min_free_mb");
+        if (requiredMb <= 0) requiredMb = 2048;
+        if (pct > 0 && probe.TotalMb > 0)
+        {
+            long budgetMb = probe.TotalMb * pct / 100;
+            if (requiredMb > budgetMb) requiredMb = (int)budgetMb;
+        }
+        if (probe.FreeMb < requiredMb)
+        {
+            plan.Reason =
+                $"vram-headroom-{probe.FreeMb}mb-below-{requiredMb}mb";
+            return plan;
+        }
+        plan.Admitted = true;
+        plan.Reason = "admitted";
+        return plan;
+    }
+
+    /// <summary>Governor mode -> GPU policy. The mode comes from the
+    /// governor state file; gpu_enabled/vram_budget_percent are resolved
+    /// from the same rules file the governor consumed (colocated under
+    /// main-system/config). Fail-closed: any missing piece disables GPU.</summary>
+    private (string mode, bool gpuEnabled, int vramPct, long vramMb)
+        GovernorGpuPolicy()
+    {
+        string? statePath = GovernorStatePath();
+        if (statePath == null) return ("", false, 0, 0);
+        try
+        {
+            using var state = JsonDocument.Parse(
+                File.ReadAllText(statePath));
+            string mode = "";
+            if (state.RootElement.TryGetProperty("mode", out var m) &&
+                m.ValueKind == JsonValueKind.String)
+                mode = m.GetString() ?? "";
+            if (mode.Length == 0 &&
+                state.RootElement.TryGetProperty("features", out var f) &&
+                f.ValueKind == JsonValueKind.Object &&
+                f.TryGetProperty("mode", out var fm) &&
+                fm.ValueKind == JsonValueKind.String)
+                mode = fm.GetString() ?? "";
+            string rulesPath = Path.GetFullPath(Path.Combine(
+                Path.GetDirectoryName(statePath)!, "..", "..", "config",
+                "resource-governor-rules.json"));
+            if (!File.Exists(rulesPath) || mode.Length == 0)
+                return (mode, false, 0, 0);
+            using var rules = JsonDocument.Parse(
+                File.ReadAllText(rulesPath));
+            if (!rules.RootElement.TryGetProperty("modes", out var modes) ||
+                modes.ValueKind != JsonValueKind.Object ||
+                !modes.TryGetProperty(mode, out var mo) ||
+                mo.ValueKind != JsonValueKind.Object)
+                return (mode, false, 0, 0);
+            bool en = mo.TryGetProperty("gpu_enabled", out var ge) &&
+                      ge.ValueKind == JsonValueKind.True;
+            int pct = mo.TryGetProperty("vram_budget_percent", out var vp) &&
+                      vp.ValueKind == JsonValueKind.Number &&
+                      vp.TryGetInt32(out int n) ? Math.Clamp(n, 0, 100) : 0;
+            long mb = 0;
+            if (en && pct > 0)
+            {
+                var probe = ProbeCuda();
+                if (probe?.TotalMb > 0)
+                    mb = probe.TotalMb * pct / 100;
+            }
+            return (mode, en, pct, mb);
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or
+            UnauthorizedAccessException)
+        {
+            return ("", false, 0, 0);
+        }
+    }
+
+    /// <summary>Live CUDA probe through the governed model tool
+    /// (probe-cuda -> xcuda_probe). Null when the tool is missing or the
+    /// probe cannot run — callers treat null as unavailable.</summary>
+    private GpuProbe? ProbeCuda()
+    {
+        try
+        {
+            string tmp = Path.Combine(Path.GetTempPath(),
+                $"xc-probe-cuda-{Environment.ProcessId}.log");
+            var run = NativeTools.Run(
+                NativeTools.ModelToolExe(_toolRoot),
+                new[] { "probe-cuda" }, _toolRoot, tmp,
+                timeoutS: 60, rssBudgetMb: 0, lowPriority: true);
+            try { File.Delete(tmp); } catch { }
+            if (run.ExitCode != 0) return null;
+            // The probe emits one JSON document as its last stdout line;
+            // nested braces make the shared tail-slice helper pick the
+            // wrong root, so parse the last non-empty line directly.
+            string? line = run.StdoutTail
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries |
+                              StringSplitOptions.TrimEntries)
+                .LastOrDefault(l => l.StartsWith('{'));
+            if (line == null) return null;
+            using var doc = JsonDocument.Parse(line);
+            if (!doc.RootElement.TryGetProperty("cuda", out var c) ||
+                c.ValueKind != JsonValueKind.Object)
+                return null;
+            return new GpuProbe
+            {
+                Available = c.TryGetProperty("available", out var a) &&
+                            a.ValueKind == JsonValueKind.True,
+                FreeMb = c.TryGetProperty("vram_free_mb", out var fb) &&
+                         fb.TryGetInt64(out long f1) ? f1 : 0,
+                TotalMb = c.TryGetProperty("vram_total_mb", out var tb) &&
+                          tb.TryGetInt64(out long t1) ? t1 : 0,
+                CcMajor = c.TryGetProperty("cc_major", out var cm) &&
+                          cm.TryGetInt32(out int cma) ? cma : 0,
+                CcMinor = c.TryGetProperty("cc_minor", out var cn) &&
+                          cn.TryGetInt32(out int cmi) ? cmi : 0,
+            };
+        }
+        catch (Exception ex) when (ex is ExecutorError or IOException or
+            JsonException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private sealed class GpuProbe
+    {
+        public bool Available;
+        public long FreeMb;
+        public long TotalMb;
+        public int CcMajor;
+        public int CcMinor;
+
+        public Dictionary<string, object?> ToDict() => new()
+        {
+            ["available"] = Available,
+            ["vram_free_mb"] = FreeMb,
+            ["vram_total_mb"] = TotalMb,
+            ["cc_major"] = CcMajor,
+            ["cc_minor"] = CcMinor,
+        };
     }
 
     /// <summary>Locate the governor state file by walking ancestors for
@@ -642,7 +866,8 @@ internal sealed class TrainingJobExecutor
         List<Dictionary<string, object?>> valDocs,
         Dictionary<string, object?> configuration,
         string outputDir,
-        int trainerThreads)
+        int trainerThreads,
+        GpuPlan gpu)
     {
         string kind = (string)configuration["training_kind"]!;
         string toolRoot = _toolRoot;
@@ -803,11 +1028,20 @@ internal sealed class TrainingJobExecutor
         if (sampleInterval <= 0) sampleInterval = 5;
 
         var started = Stopwatch.StartNew();
+        // NativeCudaTrainingPlane §26: admitted jobs get the resident
+        // w/m/v fused-AdamW lane via the trainer's opt-in env flag. The
+        // flag alone is harmless — the trainer probes at runtime and
+        // falls back per-tensor to scalar AdamW when the device lane is
+        // unavailable; forward/backward stay on CPU lanes either way.
         var run = NativeTools.Run(
             NativeTools.TrainerExe(toolRoot),
             new[] { "--job", jobSpecPath, "--report", reportPath },
             toolRoot, stderrLog, timeoutS, rssBudget, sampleInterval,
-            lowPriority: true);
+            lowPriority: true,
+            env: gpu.Admitted
+                ? new Dictionary<string, string>
+                    { ["XINGCHENG_TRAINER_CUDA_OPT"] = "1" }
+                : null);
         if (run.ExitCode != 0)
             throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
                 $"trainer exited {run.ExitCode} " +
@@ -876,7 +1110,18 @@ internal sealed class TrainingJobExecutor
             },
             ["requested_device"] =
                 TransformerTrainingRepository.Str(configuration, "device") ?? "",
+            // Forward/backward still execute on the trainer's CPU lanes;
+            // an admitted request accelerates only the optimizer via the
+            // resident w/m/v fused-AdamW device lane (Phase 0 of the
+            // heterogeneous plan). Evidence is admission + env flag —
+            // the trainer report does not yet echo which lane ran, so
+            // optimizer_lane records what was enabled, not a verified
+            // post-hoc measurement.
             ["executed_device"] = "cpu-native",
+            ["optimizer_lane"] =
+                gpu.Admitted ? "cuda-adamw" : "cpu-native",
+            ["optimizer_lane_evidence"] = "admission+env-flag",
+            ["cuda"] = gpu.ToDict(),
             ["trainer_threads"] = trainerThreads,
             ["train_ids"] = trainIds,
             ["val_ids"] = valIds,
@@ -986,7 +1231,8 @@ internal sealed class TrainingJobExecutor
             // Resource preflight before any snapshot IO: inference
             // exclusion + governor training quota. EXECUTOR_GPU_BUSY keeps
             // the job queued and arms the self-learning gpu-busy backoff.
-            int trainerThreads = PreflightResourceGate();
+            var (trainerThreads, gpuPlan) =
+                PreflightResourceGate(configuration);
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
             // §1 recovery lane defense-in-depth: under
@@ -1041,13 +1287,14 @@ internal sealed class TrainingJobExecutor
                     ["max_train_vram_mb"] =
                         TransformerTrainingRepository.Int(
                             configuration, "max_train_vram_mb"),
+                    ["cuda_opt_admitted"] = gpuPlan.Admitted,
                 });
             Dictionary<string, object?> summary;
             try
             {
                 summary = InvokeTrainerNative(
                     trainDocs, valDocs, configuration, outputDir,
-                    trainerThreads);
+                    trainerThreads, gpuPlan);
             }
             catch (ExecutorError)
             {

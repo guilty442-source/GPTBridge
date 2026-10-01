@@ -1,10 +1,10 @@
 {
   "artifact": "codex-amendment-request",
   "authority": "request-only",
-  "amendment_id": "codex-amendment-request-stale-python-reference-convergence-20261001-r2",
-  "request_id": "stale-python-reference-convergence-20261001-r2",
+  "amendment_id": "codex-amendment-request-stale-python-reference-convergence-20261001-r3",
+  "request_id": "stale-python-reference-convergence-20261001-r3",
   "requested_by": "decision-sovereign",
-  "origin": "direct human-governor instruction: active provisions still reference retired Python implementations and B72 retains a blanket new-authored-JavaScript-ESM-source ban that contradicts the B166 managed UI-surface exception; converge references to current stable identities (star-tool-call/v2, star-pretrain-corpus/v1, C# audit chain). r2 resubmission after r1 STALE_PREDECESSOR_VERSION rejection.",
+  "origin": "direct human-governor instruction: active provisions still reference retired Python implementations and B72 retains a blanket new-authored-JavaScript-ESM-source ban that contradicts the B166 managed UI-surface exception; converge references to current stable identities (star-tool-call/v2, star-pretrain-corpus/v1, C# audit chain). Re-issued on live lineage after rev 189; r2 is terminal-rejected and cannot be reused.",
   "change_class": "architecture-authority",
   "required_review": "five-sovereign-audit-unanimous-pass",
   "flow": "A382/A488-non-disruptive-amendment-flow",
