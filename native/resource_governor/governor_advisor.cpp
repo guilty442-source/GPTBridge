@@ -93,7 +93,15 @@ AdvisorPolicy parse_advisor_policy(const jsonlite::JsonValue* auto_obj,
         policy.demand_factor =
             std::clamp(num_or(auto_obj, "demand_factor", 0.8), 0.05, 1.0);
     }
-    if (!valid_modes.empty() && valid_modes.count(policy.ceiling) == 0) {
+    /* ceiling 僅在啟用或顯式宣告時驗證——未啟用且未宣告的預設值不應
+     * 讓不含該檔位的 rules 檔報錯（fail-open 於停用態，fail-closed
+     * 於啟用態）。 */
+    const bool ceiling_declared =
+        auto_obj != nullptr &&
+        auto_obj->type == jsonlite::JsonValue::Type::Object &&
+        auto_obj->get("ceiling") != nullptr;
+    if (!valid_modes.empty() && (policy.enabled || ceiling_declared) &&
+        valid_modes.count(policy.ceiling) == 0) {
         error = "auto: unknown ceiling '" + policy.ceiling + "'";
         return policy;
     }
@@ -111,7 +119,12 @@ AdvisorPolicy parse_advisor_policy(const jsonlite::JsonValue* auto_obj,
         policy.schedule_end_min =
             parse_hhmm(schedule_obj->get("end"), policy.schedule_end_min);
     }
-    if (!valid_modes.empty() &&
+    const bool schedule_declared =
+        schedule_obj != nullptr &&
+        schedule_obj->type == jsonlite::JsonValue::Type::Object &&
+        schedule_obj->get("mode") != nullptr;
+    if (!valid_modes.empty() && policy.schedule_enabled &&
+        (policy.enabled || schedule_declared) &&
         valid_modes.count(policy.schedule_mode) == 0) {
         error = "power_saving_schedule: unknown mode '" +
                 policy.schedule_mode + "'";
