@@ -487,17 +487,20 @@ static JsonValue run_job(const JsonValue& job) {
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
                 if (std::getenv("XCT_DUMP_G")) {
-                    uint64_t h = 1469598103934665603ull;
-                    for (auto& n : p.order) {
-                        auto it = p.g.find(n);
-                        if (it == p.g.end()) continue;
-                        for (float x : it->second.d) {
-                            uint32_t u; std::memcpy(&u, &x, 4);
-                            h ^= u; h *= 1099511628211ull;
+                    const int dstep = std::atoi(std::getenv("XCT_DUMP_G"));
+                    if (step == dstep)
+                        for (auto& n : p.order) {
+                            auto it = p.g.find(n);
+                            if (it == p.g.end()) continue;
+                            uint64_t h = 1469598103934665603ull;
+                            for (float x : it->second.d) {
+                                uint32_t u; std::memcpy(&u, &x, 4);
+                                h ^= u; h *= 1099511628211ull;
+                            }
+                            std::fprintf(stderr, "G %s %zu %016llx\n",
+                                       n.c_str(), it->second.d.size(),
+                                       (unsigned long long)h);
                         }
-                    }
-                    std::fprintf(stderr, "GS %d %016llx\n", (int)step,
-                               (unsigned long long)h);
                 }
             }
             // grad clip (global norm over trainable params only —
