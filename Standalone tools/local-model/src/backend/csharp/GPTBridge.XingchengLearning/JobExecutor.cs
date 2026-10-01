@@ -125,8 +125,30 @@ internal sealed class TrainingJobExecutor
         // narrows the freeze to exactly one declared-capability SFT job.
         cfg["capability"] =
             TransformerTrainingRepository.Str(cfg, "capability") ?? "";
+        var freezePol = SelfLearningPolicy.Load(_toolRoot);
         CapabilityFreeze.GuardJob(kind, (string)cfg["capability"]!,
-                                  SelfLearningPolicy.Load(_toolRoot));
+                                  freezePol);
+        if (kind == "pretrain" && CapabilityFreeze.CAPABILITY_TRAINING_FROZEN)
+        {
+            // star-canonical-pretrain/v1: while the freeze holds, the
+            // lane admits pretrain only when the policy declares the
+            // canonical-pretrain mode AND the job's model block pins the
+            // canonical generation — a generic or non-canonical pretrain
+            // stays frozen.
+            if (!CapabilityFreeze.CanonicalPretrainLaneOpen(freezePol))
+                throw new ExecutorError("CANONICAL_PRETRAIN_DENIED",
+                    "pretrain requires architecture_pretrain_mode " +
+                    "XC_FUSED_1 while capability training is frozen");
+            string? gen = cfg.TryGetValue("model", out object? mdl) &&
+                          mdl is Dictionary<string, object?> mdict
+                ? TransformerTrainingRepository.Str(mdict, "generation")
+                : null;
+            if (!string.Equals(gen, ArchitectureTaxonomy.CanonicalArchitecture,
+                               StringComparison.Ordinal))
+                throw new ExecutorError("CANONICAL_PRETRAIN_DENIED",
+                    "canonical pretrain lane requires model.generation " +
+                    $"== {ArchitectureTaxonomy.CanonicalArchitecture}");
+        }
         // §4/§50 maturation order: even when the freeze lane admits the
         // job, the declared capability must be the current sequence head
         // (instruction_following first); out-of-order capabilities are
@@ -839,7 +861,8 @@ internal sealed class TrainingJobExecutor
         // NormalizeConfiguration denies everything else.
         var freezePolicy = SelfLearningPolicy.Load(_toolRoot);
         if (freezePolicy.CapabilityTrainingFrozen &&
-            !CapabilityFreeze.RecoveryLaneOpen(freezePolicy))
+            !CapabilityFreeze.RecoveryLaneOpen(freezePolicy) &&
+            !CapabilityFreeze.CanonicalPretrainLaneOpen(freezePolicy))
             throw new ExecutorError("EXECUTOR_TRAINING_FROZEN",
                 $"capability training is frozen; job {jobId} stays queued");
         var row = _repo.JobRow(jobId)
