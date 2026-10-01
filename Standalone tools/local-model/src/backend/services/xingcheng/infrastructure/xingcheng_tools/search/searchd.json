@@ -1,21 +1,9 @@
 {
-  "log": {
-    "$ref": "logging.getLogger"
-  },
-  "NETWORK_DESTINATION_ALLOWLIST": {
-    "$call": "frozenset",
-    "$args": [
-      [
-        "127.0.0.1",
-        "localhost",
-        "::1"
-      ]
-    ],
-    "$kw": {}
-  },
+  "NETWORK_DESTINATION_ALLOWLIST": [
+    "127.0.0.1",
+    "localhost",
+    "::1"
+  ],
   "CONTRACT": "xingcheng-searchd/v1",
-  "DEFAULT_URL": "http://127.0.0.1:8091",
-  "__all__": [
-    "SearchdProvider"
-  ]
+  "DEFAULT_URL": "http://127.0.0.1:8091"
 }
