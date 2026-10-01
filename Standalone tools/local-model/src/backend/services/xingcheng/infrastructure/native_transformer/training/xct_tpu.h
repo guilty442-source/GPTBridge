@@ -480,3 +480,106 @@ static double tpu_sumsq(const float* x, int64_t n) {
     for (int64_t c = 0; c < NC; ++c) s += part[c];
     return s;
 }
+
+// ---------------------------------------------------------- gemm bench ---
+
+// star-cpu-gemm-benchmark/v1: legacy vs tile4 across the production
+// training shapes (300M xc-fused-1 GEMM dims) and the T sweep. Each
+// cell reports GFLOP/s for forward and backward plus a bitwise-parity
+// flag — the tile4 lane MUST be bitwise identical to the legacy lane
+// per element, so a parity failure fails the mode (exit 2).
+// Threads come from XCT_TPU_THREADS (g_tpu.threads) — run the mode once
+// per thread count; the artifact records the count verbatim.
+static int gemmbench() {
+    if (const char* e = std::getenv("XCT_TPU_THREADS"))
+        g_tpu.threads = std::atoi(e);
+    if (const char* e = std::getenv("XCT_TPU_SIMD"))
+        g_tpu.simd = !(e[0] == '0' && e[1] == '\0');
+
+    const int threads = tpu_threads();
+    const int dims[][2] = {
+        {768, 768}, {768, 2048}, {2048, 768}, {768, 1024}, {768, 8192}};
+    const int Ts[] = {8, 16, 32, 64, 128, 512};
+
+    std::mt19937 rng(0x5eedu);
+    std::uniform_real_distribution<float> uf(-1.0f, 1.0f);
+    auto fill = [&](std::vector<float>& v) {
+        for (auto& x : v) x = uf(rng);
+    };
+    auto clock_ms = [](auto&& fn, int reps) {
+        fn();   // warmup: pool start + page-in
+        const auto t0 = std::chrono::steady_clock::now();
+        for (int i = 0; i < reps; ++i) fn();
+        const auto t1 = std::chrono::steady_clock::now();
+        return std::chrono::duration<double, std::milli>(t1 - t0)
+                   .count() / reps;
+    };
+
+    bool all_parity = true;
+    std::string entries;
+    for (const auto& dm : dims) {
+        const int I = dm[0], O = dm[1];
+        std::vector<float> w((size_t)I * O);
+        fill(w);
+        for (const int T : Ts) {
+            std::vector<float> x((size_t)T * I), dy((size_t)T * O);
+            std::vector<float> y0((size_t)T * O), y1((size_t)T * O);
+            std::vector<float> dx0((size_t)T * I), dx1((size_t)T * I);
+            std::vector<float> dW0((size_t)O * I), dW1((size_t)O * I);
+            fill(x); fill(dy);
+
+            const double fwd_flops = 2.0 * T * I * O;
+            const double bwd_flops = 2.0 * fwd_flops;
+            const int reps = (int)std::max<int64_t>(
+                1, std::min<int64_t>(50,
+                    (int64_t)(3.0e8 / fwd_flops)));
+
+            const double lf_ms = clock_ms([&] {
+                tpu_linear_legacy(x.data(), w.data(), y0.data(),
+                                  T, I, O);
+            }, reps);
+            const double tf_ms = clock_ms([&] {
+                tpu_linear_tile4(x.data(), w.data(), y1.data(),
+                                 T, I, O);
+            }, reps);
+            const double lb_ms = clock_ms([&] {
+                tpu_linear_bwd_legacy(dy.data(), x.data(), w.data(),
+                                      dx0.data(), dW0.data(), T, I, O);
+            }, reps);
+            const double tb_ms = clock_ms([&] {
+                tpu_linear_bwd_tile4(dy.data(), x.data(), w.data(),
+                                     dx1.data(), dW1.data(), T, I, O);
+            }, reps);
+
+            const bool par =
+                std::memcmp(y0.data(), y1.data(),
+                            y0.size() * sizeof(float)) == 0 &&
+                std::memcmp(dx0.data(), dx1.data(),
+                            dx0.size() * sizeof(float)) == 0 &&
+                std::memcmp(dW0.data(), dW1.data(),
+                            dW0.size() * sizeof(float)) == 0;
+            if (!par) all_parity = false;
+            if (!entries.empty()) entries += ',';
+            char buf[768];
+            std::snprintf(buf, sizeof buf,
+                "{\"shape\":\"%dx%d\",\"T\":%d,\"reps\":%d,"
+                "\"legacy_fwd_gflops\":%.2f,\"tile4_fwd_gflops\":%.2f,"
+                "\"fwd_speedup\":%.3f,"
+                "\"legacy_bwd_gflops\":%.2f,\"tile4_bwd_gflops\":%.2f,"
+                "\"bwd_speedup\":%.3f,\"bitwise_parity\":%s}",
+                I, O, T, reps,
+                fwd_flops / (lf_ms * 1e6),
+                fwd_flops / (tf_ms * 1e6), lf_ms / tf_ms,
+                bwd_flops / (lb_ms * 1e6),
+                bwd_flops / (tb_ms * 1e6), lb_ms / tb_ms,
+                par ? "true" : "false");
+            entries += buf;
+        }
+    }
+    std::printf(
+        "{\"format\":\"star-cpu-gemm-benchmark/v1\",\"threads\":%d,"
+        "\"simd\":\"%s\",\"bitwise_parity\":%s,\"entries\":[%s]}\n",
+        threads, tpu_simd_name(), all_parity ? "true" : "false",
+        entries.c_str());
+    return all_parity ? 0 : 2;
+}
