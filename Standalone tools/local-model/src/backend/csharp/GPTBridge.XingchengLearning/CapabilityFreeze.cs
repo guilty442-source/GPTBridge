@@ -58,6 +58,12 @@ internal static class CapabilityFreeze
                                 SelfLearningPolicy policy)
     {
         if (!CAPABILITY_TRAINING_FROZEN) return;
+        // §33 unfreeze order: the human governor lifts the phase freeze
+        // by setting capability_training_frozen=false in
+        // runtime/settings/self-learning.json. The policy flag is
+        // authoritative for job admission; the const remains the
+        // phase default when the flag is absent or true.
+        if (!policy.CapabilityTrainingFrozen) return;
         // The lane is admitted by the MODE declaration, not by the frozen
         // flag. frozen=false without the mode falls through to the plain
         // guard and stays denied.
