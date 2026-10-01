@@ -1012,6 +1012,21 @@ internal sealed class TrainingJobExecutor
                 ["max_len"] = maxLen,
             },
         };
+        // Token packing passthrough: pack_tokens > 0 concatenates several
+        // examples into one training sequence (fewer optimizer steps,
+        // larger GEMM M). opt-in per job — lanes enabling it size
+        // max_steps/lr accordingly (governed decision, not a silent
+        // default). pack_sep < 0 disables the boundary token.
+        int packTokens = TransformerTrainingRepository.Int(
+            configuration, "pack_tokens");
+        if (packTokens > 0)
+        {
+            var dataSpec = (Dictionary<string, object?>)jobSpec["data"]!;
+            dataSpec["pack"] = packTokens;
+            int packSep = TransformerTrainingRepository.Int(
+                configuration, "pack_sep");
+            if (packSep >= 0) dataSpec["pack_sep"] = packSep;
+        }
         string jobSpecPath = Path.Combine(outputDir, "job.json");
         File.WriteAllText(jobSpecPath,
             CanonicalJson.PrettyDict(jobSpec) + "\n",
@@ -1231,6 +1246,16 @@ internal sealed class TrainingJobExecutor
         if ((string?)row["status"] != "queued")
             throw new ExecutorError("EXECUTOR_JOB_NOT_QUEUED",
                 $"job is {row["status"]}, not queued");
+        // Serial execution contract: at most one governed training job
+        // in flight at a time (policy: 同時訓練上限 = 1). A sibling in
+        // preflight/training/validating keeps this job queued — the
+        // caller retries it on the next drain instead of racing resource
+        // supervision. RunJobs is already a sequential drain; this guard
+        // also covers --job entry and concurrent executor processes.
+        if (_repo.ActiveJobs(2).Count > 0)
+            throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                $"another governed training job is in flight; " +
+                $"{jobId} stays queued");
         _repo.TransitionTrainingJob(jobId, "preflight");
         ModelLifecycle? lifecycle = null;
         Dictionary<string, object?>? configuration = null;
