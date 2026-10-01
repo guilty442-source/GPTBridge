@@ -347,40 +347,6 @@ static void tpu_dot2(const float* x0, const float* x1, const float* w,
     y2[0] = tpu_dot(x0, w, n); y2[1] = tpu_dot(x1, w, n);
 }
 
-// Two-row variant: 4 accumulators instead of 8 — measured at the
-// canonical lm_head shape (T=2048, O=8192, y = 64 MB) tile4 spills its
-// accumulator set and collapses to 0.26x while tile2 still wins 1.15x;
-// the strided-row write streams stay under two per direction. Same
-// dual-accumulator association, bitwise identical to tpu_dot rows.
-static void tpu_dot2(const float* x0, const float* x1, const float* w,
-                     float* y2, int64_t n) {
-#if XCT_TPU_X64 && defined(_MSC_VER)
-    if (tpu_has_avx2_fma()) {
-        const __m256 z = _mm256_setzero_ps();
-        __m256 a00 = z, a01 = z, a10 = z, a11 = z;
-        int64_t i = 0;
-        for (; i + 16 <= n; i += 16) {
-            const __m256 w0 = _mm256_loadu_ps(w + i);
-            const __m256 w1 = _mm256_loadu_ps(w + i + 8);
-            a00 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), w0, a00);
-            a01 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i + 8), w1, a01);
-            a10 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), w0, a10);
-            a11 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i + 8), w1, a11);
-        }
-        if (i + 8 <= n) {
-            const __m256 w0 = _mm256_loadu_ps(w + i);
-            a00 = _mm256_fmadd_ps(_mm256_loadu_ps(x0 + i), w0, a00);
-            a10 = _mm256_fmadd_ps(_mm256_loadu_ps(x1 + i), w0, a10);
-            i += 8;
-        }
-        y2[0] = tpu_hsum2(a00, a01); y2[1] = tpu_hsum2(a10, a11);
-        for (; i < n; ++i) { y2[0] += x0[i] * w[i]; y2[1] += x1[i] * w[i]; }
-        return;
-    }
-#endif
-    y2[0] = tpu_dot(x0, w, n); y2[1] = tpu_dot(x1, w, n);
-}
-
 // Legacy linear lane: y[t,o] = x[t,:] . w[o,:] over the flat output
 // space — one full W-row stream per output element. Kept verbatim as
 // the small-T path (tile4 is a measured 0.31x loss at T=8) and as the
