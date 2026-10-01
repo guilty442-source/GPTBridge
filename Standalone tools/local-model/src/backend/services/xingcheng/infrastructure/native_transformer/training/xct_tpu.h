@@ -345,8 +345,16 @@ static void tpu_linear_tile4(const float* x, const float* w, float* y,
             for (int64_t o = 0; o < O; ++o) {
                 const float* wr = w + (size_t)o * I;
                 if (nr == 4) {
+                    // The four rows produce column-o outputs strided by O
+                    // — dot4 results go to a scratch quad and scatter;
+                    // writing them contiguously would corrupt the layout.
+                    float q4[4];
                     tpu_dot4(xb, xb + I, xb + 2 * I, xb + 3 * I,
-                             wr, yb + o, I);
+                             wr, q4, I);
+                    yb[o] = q4[0];
+                    yb[(size_t)O + o] = q4[1];
+                    yb[(size_t)2 * O + o] = q4[2];
+                    yb[(size_t)3 * O + o] = q4[3];
                 } else {
                     for (int j = 0; j < nr; ++j)
                         yb[(size_t)j * O + o] =
