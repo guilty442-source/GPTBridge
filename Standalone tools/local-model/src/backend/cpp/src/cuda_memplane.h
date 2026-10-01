@@ -277,7 +277,7 @@ struct Manager {
         if (cudaHostAlloc(&p, (size_t)bytes,
                           cudaHostAllocDefault) != cudaSuccess)
             return nullptr;
-        pinned_extra.push_back(p);
+        pinned_extra.emplace_back(p, bytes);
         pinned_host_bytes += bytes;
         return p;
 #else
@@ -285,11 +285,32 @@ struct Manager {
 #endif
     }
 
-    std::vector<void*> pinned_extra;   // managed non-ring pinned bufs
+    // managed non-ring pinned bufs (ptr, bytes)
+    std::vector<std::pair<void*, int64_t>> pinned_extra;
+
+    /// Individually free a managed-extra pinned allocation; ring bump
+    /// space is not individually freeable — its accounting stays
+    /// honest until pinned_release_all.
+    void pinned_free(void* p) {
+#if defined(XINGCHENG_CUDA)
+        if (p == nullptr) return;
+        for (auto it = pinned_extra.begin(); it != pinned_extra.end();
+             ++it) {
+            if (it->first == p) {
+                pinned_host_bytes -= it->second;
+                cudaFreeHost(it->first);
+                pinned_extra.erase(it);
+                return;
+            }
+        }
+#else
+        (void)p;
+#endif
+    }
 
     void pinned_release_all() {
 #if defined(XINGCHENG_CUDA)
-        for (void* p : pinned_extra) cudaFreeHost(p);
+        for (auto& e : pinned_extra) cudaFreeHost(e.first);
         pinned_extra.clear();
 #endif
         pinned_ring_off = 0;
