@@ -101,6 +101,9 @@ internal static class Evaluation
         string stderrLog = Path.Combine(
             repo.ToolRoot, "runtime", "logs",
             $"eval-stderr-{Environment.ProcessId}-{Guid.NewGuid():N}.log");
+        // repo.ToolRoot is <tool>/xingcheng; the native exes live under the
+        // outer tool root's src/backend tree.
+        string execRoot = Path.GetDirectoryName(repo.ToolRoot)!;
         Dictionary<string, object?> suite;
         try
         {
@@ -147,7 +150,7 @@ internal static class Evaluation
                         Path.GetTempPath(),
                         $"xc-cap-base-{Guid.NewGuid():N}.json");
                     var baseRun = NativeTools.Run(
-                        NativeTools.ModelToolExe(repo.ToolRoot),
+                        NativeTools.ModelToolExe(execRoot),
                         new[] { "capability", "--bundle", baselineBundle,
                                 "--suite", suitePath },
                         repo.ToolRoot, stderrLog, timeoutS: 7200);
@@ -173,7 +176,7 @@ internal static class Evaluation
                         args.AddRange(new[] { "--corpus-manifest", corpusManifest });
                     if (chat) args.Add("--chat");
                     var run = NativeTools.Run(
-                        NativeTools.ModelToolExe(repo.ToolRoot), args,
+                        NativeTools.ModelToolExe(execRoot), args,
                         repo.ToolRoot, stderrLog, timeoutS: 7200);
                     var output = ParseStdoutJson(run, "EVAL_TOOL_FAILED");
                     passed = run.ExitCode == 0 &&
@@ -201,7 +204,7 @@ internal static class Evaluation
                 if (baselineBundle.Length > 0)
                     args.AddRange(new[] { "--baseline-bundle", baselineBundle });
                 var run = NativeTools.Run(
-                    NativeTools.ModelToolExe(repo.ToolRoot), args,
+                    NativeTools.ModelToolExe(execRoot), args,
                     repo.ToolRoot, stderrLog, timeoutS: 7200);
                 var output = ParseStdoutJson(run, "EVAL_TOOL_FAILED");
                 if (run.ExitCode != 0 && run.ExitCode != 2)
