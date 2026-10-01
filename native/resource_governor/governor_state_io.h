@@ -24,4 +24,16 @@ void write_state(const fs::path& state_path,
                  const gptbridge::governor::Snapshot& snap,
                  bool stopped = false, const std::string& reason = {});
 
+/* 自動模式顧問持久化（後端 resource_mode.rs 契約）：
+ *  - resource-mode-advisor.json：最近一次評估記錄（at/target/reason/
+ *    streak/applied…），原子寫入；
+ *  - resource-mode-audit.jsonl：模式切換稽核（timestamp 欄位同 Rust
+ *    append_audit_record），僅 changed 週期附加。 */
+void load_advisor_state(const fs::path& advisor_path,
+                        gptbridge::governor::AdvisorState& state);
+void write_advisor_state(const fs::path& advisor_path,
+                         const gptbridge::governor::Snapshot& snap);
+void append_mode_audit(const fs::path& audit_path,
+                       const gptbridge::governor::Snapshot& snap);
+
 }  // namespace governor_host

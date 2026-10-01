@@ -56,4 +56,55 @@ void write_state(const fs::path& state_path, const governor::Snapshot& snap,
     write_atomic(state_path, jsonlite::json_serialize(body));
 }
 
+void load_advisor_state(const fs::path& advisor_path,
+                        governor::AdvisorState& state) {
+    bool ok = false;
+    const std::string text = read_file_text(advisor_path, ok);
+    if (!ok) return;
+    try {
+        const jsonlite::JsonValue doc = jsonlite::JsonParser(text).parse();
+        if (doc.type != jsonlite::JsonValue::Type::Object) return;
+        auto str_of = [&](const char* key) -> std::string {
+            const jsonlite::JsonValue* value = doc.get(key);
+            return value != nullptr &&
+                           value->type == jsonlite::JsonValue::Type::String
+                       ? value->string
+                       : std::string{};
+        };
+        /* 只復原 "applied"（native 新增鍵）；舊 Python 記錄無此鍵 →
+         * 保持未接管，首次評估重新決定（fail-closed 到 rules.mode）。 */
+        state.applied_mode = str_of("applied");
+        state.last_target = str_of("target");
+        if (const jsonlite::JsonValue* streak = doc.get("streak");
+            streak != nullptr &&
+            streak->type == jsonlite::JsonValue::Type::Number)
+            state.streak = static_cast<int>(streak->number);
+        if (const jsonlite::JsonValue* switched = doc.get("last_switch_at");
+            switched != nullptr &&
+            switched->type == jsonlite::JsonValue::Type::Number)
+            state.last_switch_unix = switched->number;
+    } catch (const jsonlite::JsonError&) {
+    }
+}
+
+void write_advisor_state(const fs::path& advisor_path,
+                         const governor::Snapshot& snap) {
+    if (!snap.advisor.has_value()) return;
+    using namespace governor::detail;
+    jsonlite::JsonValue body = *snap.advisor;
+    if (body.type == jsonlite::JsonValue::Type::Object)
+        body.object.insert(body.object.begin(), {"at", jstr(utc_now_iso())});
+    write_atomic(advisor_path, jsonlite::json_serialize(body));
+}
+
+void append_mode_audit(const fs::path& audit_path,
+                       const governor::Snapshot& snap) {
+    if (!snap.mode_audit.has_value()) return;
+    using namespace governor::detail;
+    jsonlite::JsonValue row = *snap.mode_audit;
+    if (row.type == jsonlite::JsonValue::Type::Object)
+        row.object.emplace_back("timestamp", jstr(utc_now_iso()));
+    append_log(audit_path, jsonlite::json_serialize(row));
+}
+
 }  // namespace governor_host

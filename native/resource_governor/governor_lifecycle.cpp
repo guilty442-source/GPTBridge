@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <ctime>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -34,6 +35,26 @@ namespace {
 
 std::atomic<bool> g_running{true};
 
+/* 顧問輸入的壁鐘/本地時間（與 resource_mode.rs local_minutes 同源）。 */
+double unix_seconds() {
+    return std::chrono::duration<double>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
+int local_minutes_of_day() {
+    const std::time_t now = std::time(nullptr);
+    std::tm tm{};
+    if (::localtime_s(&tm, &now) != 0) return -1;
+    return tm.tm_hour * 60 + tm.tm_min;
+}
+
+void refresh_ctx_time(governor::CycleContext& ctx) {
+    ctx.now_mono = monotonic_seconds();
+    ctx.now_unix = unix_seconds();
+    ctx.local_minutes = local_minutes_of_day();
+}
+
 BOOL WINAPI ctrl_handler(DWORD event) {
     if (event == CTRL_C_EVENT || event == CTRL_BREAK_EVENT ||
         event == CTRL_CLOSE_EVENT) {
@@ -52,13 +73,18 @@ void watch_cycle(const governor::GovernorConfig& config,
                  const fs::path& log_file) {
     using namespace governor::detail;
     try {
-        ctx.now_mono = monotonic_seconds();
+        refresh_ctx_time(ctx);
         const governor::RulesDoc rules = load_rules_file(rules_path);
         std::vector<jsonlite::JsonValue> logs;
         const governor::Snapshot snap = governor::govern_once(
             config, rules, engine, records, regulation, ctx, logs);
         emit_logs(log_file, logs);
         write_state(state_file, snap);
+        /* 顧問檔案契約（resource-mode-advisor.json / -audit.jsonl）
+         * 與主狀態檔同目錄；失敗不影響主寫入（best-effort 同 Rust）。 */
+        const fs::path state_dir = state_file.parent_path();
+        write_advisor_state(state_dir / "resource-mode-advisor.json", snap);
+        append_mode_audit(state_dir / "resource-mode-audit.jsonl", snap);
     } catch (const std::exception& error) {
         const std::vector<jsonlite::JsonValue> single = {
             jobj({{"action", jstr("cycle-error")},
@@ -203,15 +229,23 @@ int run_once(const governor::GovernorConfig& config,
              const fs::path& log_file) {
     std::this_thread::sleep_for(std::chrono::duration<double>(
         std::max(1.0, std::min(config.interval, 5.0))));
-    ctx.now_mono = monotonic_seconds();
+    refresh_ctx_time(ctx);
     governor::RecordMap records;
     governor::RegState regulation;
+    load_advisor_state(state_file.parent_path() / "resource-mode-advisor.json",
+                       regulation.advisor);
     std::vector<jsonlite::JsonValue> logs;
     const governor::RulesDoc rules = load_rules_file(rules_path);
     const governor::Snapshot snap =
         governor::govern_once(config, rules, engine, records, regulation, ctx, logs);
     emit_logs(log_file, logs);
     write_state(state_file, snap);
+    write_advisor_state(state_file.parent_path() /
+                            "resource-mode-advisor.json",
+                        snap);
+    append_mode_audit(state_file.parent_path() /
+                          "resource-mode-audit.jsonl",
+                      snap);
     std::cout << jsonlite::json_serialize(governor::snapshot_to_json(snap))
               << "\n";
     return 0;
@@ -233,6 +267,9 @@ int run_watch(const governor::GovernorConfig& config,
               << "s); Ctrl+C to stop\n";
     governor::RecordMap records;
     governor::RegState regulation;
+    /* 顧問滯回狀態跨重啟（streak/last_switch/applied）。 */
+    load_advisor_state(state_file.parent_path() / "resource-mode-advisor.json",
+                       regulation.advisor);
     while (g_running) {
         watch_cycle(config, ctx, engine, records, regulation, rules_path,
                     state_file, log_file);
