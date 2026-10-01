@@ -7,14 +7,13 @@
 
 mod audit;
 mod auth;
+mod automation_host;
 mod channel_host;
 mod fault;
 mod health;
 mod outbox;
 mod pending_actions;
 mod pg;
-mod permission_host;
-mod pipeline_host;
 mod resident;
 mod resource_mode;
 mod saga;
@@ -461,12 +460,11 @@ fn main() {
     // shared-layer channel host (shared-layer/manifest.json
     // ``background_service`` contract, managed_by=main-system).
     channel_host::start(port);
-    // Pipeline automation: supervise the governed CodexPipeline watch
-    // host (automation-flows.json codex-* flows, managed_by=main-system).
-    pipeline_host::start();
-    // Permission automation: supervise the governed GPTBridge.Permission
-    // watch host (automation-flows.json permission-automation-* flows).
-    permission_host::start();
+    // Governed automation: supervise the single unified host
+    // (GPTBridge.Automation --watch — the resident-core.json
+    // ``periodic_scheduler``; git/codex/permission planes run
+    // in-process under per-plane defer/retry/park supervision).
+    automation_host::start();
     println!("gptbridge-backend listening on 127.0.0.1:{port}");
     for stream in listener.incoming() {
         match stream {

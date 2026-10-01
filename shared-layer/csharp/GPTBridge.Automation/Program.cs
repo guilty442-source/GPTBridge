@@ -138,33 +138,43 @@ internal static class Program
     private static async Task<int> Once(string root)
     {
         var result = new JsonObject();
+        async Task Plane(string name, Func<Task<object?>> body)
+        {
+            try
+            {
+                result[name] = JsonNode.Parse(
+                    JsonSerializer.Serialize(await body()));
+            }
+            catch (Exception error)
+            {
+                result[name] = $"error:{error.GetType().Name}";
+            }
+        }
         if (Planes.FlowEnabled(root, "codex-pin-sync"))
-            result["codex-pin-sync"] = JsonNode.Parse(
-                JsonSerializer.Serialize(CodexAutomation.PinSync()));
+            await Plane("codex-pin-sync",
+                () => Task.FromResult<object?>(
+                    CodexAutomation.PinSync()));
         if (Planes.FlowEnabled(root, "codex-maintenance"))
-            result["codex-maintenance"] = JsonNode.Parse(
-                JsonSerializer.Serialize(CodexAutomation.Maintain()));
+            await Plane("codex-maintenance",
+                () => Task.FromResult<object?>(
+                    CodexAutomation.Maintain()));
         if (Planes.FlowEnabled(root, "codex-amendment-intake"))
         {
             CodexRepo.SetRoot(root);
-            var outcomes = await CodexDriver.AdvanceAll(
-                autoExecute: Planes.AutoExecute(
-                    root, "codex-amendment-intake"));
-            result["codex-amendment-intake"] = JsonNode.Parse(
-                JsonSerializer.Serialize(outcomes));
+            await Plane("codex-amendment-intake",
+                async () => await CodexDriver.AdvanceAll(
+                    autoExecute: Planes.AutoExecute(
+                        root, "codex-amendment-intake")));
         }
-        if (Planes.FlowEnabled(root, "permission-automation-compile")
-            || Planes.FlowEnabled(root,
-                "permission-automation-generate"))
-        {
-            PermissionAutomation.SetRoot(root);
-            result["permission-automation"] = JsonNode.Parse(
-                JsonSerializer.Serialize(
-                    await PermissionAutomation.RunOnceAll()));
-        }
+        // RunOnceAll already honours each permission-automation-*
+        // flow's manifest kill switch internally; the returned code
+        // aggregates per-flow health.
+        PermissionAutomation.SetRoot(root);
+        await Plane("permission-automation",
+            async () => await PermissionAutomation.RunOnceAll());
         if (Planes.FlowEnabled(root, "git-automation"))
-            result["git-automation"] =
-                await GitProgram.RunOnce(root);
+            await Plane("git-automation",
+                async () => await GitProgram.RunOnce(root));
         Console.WriteLine(result.ToJsonString());
         return 0;
     }

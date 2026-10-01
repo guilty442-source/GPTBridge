@@ -8,7 +8,7 @@
   },
   "flows": {
     "git-automation": {
-      "owner": "GPTBridge.GitAutomation.exe --watch (C# resident host; Python tasks/git_automation.py retired)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; git plane in-process; Python tasks/git_automation.py retired)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
@@ -23,7 +23,7 @@
         "lock_wait_s": 30,
         "max_parallel_suites": 4
       },
-      "description": "C# host 內含 worktree self-commit sweep（debounce）＋workspace sync cycle；Python task 只 spawn/活性探測/有界 respawn，不執行 git 工作（C66 單一編排器）；host 每週期重讀 enabled＋runtime override，sentinel 檔觸發優雅停止；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS＋強制測試 PASS 才推；推送與 ahead==0 收斂證據入帳）"
+      "description": "統一 automation host 的 git 平面內含 worktree self-commit sweep（debounce）＋workspace sync cycle（C66 單一編排器；原獨立 --watch 行程已併入 GPTBridge.Automation，git-automation.lock 單例仲裁）；平面每週期重讀 enabled＋runtime override，sentinel 檔觸發優雅停止；push=協調者推送 main→origin（§10.69-E①：非 force、ancestor 檢查、稽核 PASS＋強制測試 PASS 才推；推送與 ahead==0 收斂證據入帳）"
     },
     "daily-global-cleaner": {
       "owner": "daily-global-cleaner service（executor-retired B167/B38）",
@@ -66,7 +66,7 @@
       "description": "retired (B167/B38): Python CanonicalRagPipeline removed with the Python lane; RAG maintenance duty recorded for a native port. 原職責：canonical RAG 維護循環（outbox 租約回收＋未完成工作 drain＋tombstone 驗證後 purge＋慢頻 parity 修復）。"
     },
     "permission-automation-lifecycle": {
-      "owner": "GPTBridge.Permission.PermissionLifecycleAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; GPTBridge.Permission.PermissionLifecycleAutomation in-process)",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
@@ -74,7 +74,7 @@
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — grant expiry sweep, delegated auto-renew adjudication, revoke/suspend, 30-day terminal cleanup; stays disabled until a resident automation host registers it. 原職責：權限授予過期／自動續期檢查（發權/收權/停權）。"
     },
     "permission-automation-directory": {
-      "owner": "GPTBridge.Permission.DirectorySyncAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; GPTBridge.Permission.DirectorySyncAutomation in-process)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
@@ -82,7 +82,7 @@
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — managed-registry sync hash (code-rules initial version + authority current version + sealed identity count); stays disabled until a resident automation host registers it. 原職責：受管目錄快照同步（雜湊比對）。"
     },
     "permission-automation-compliance": {
-      "owner": "GPTBridge.Permission.ComplianceMonitorAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; GPTBridge.Permission.ComplianceMonitorAutomation in-process)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
@@ -90,7 +90,7 @@
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — violation ingestion/dedup/severity, directory integrity, ledger-vs-directory drift (A436), hourly risk-score decay; stays disabled until a resident automation host registers it. 原職責：合規檢查／違規處理／風險評分。"
     },
     "permission-automation-healing": {
-      "owner": "GPTBridge.Permission.SelfHealingAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; GPTBridge.Permission.SelfHealingAutomation in-process)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
@@ -98,7 +98,7 @@
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — four health checks (registry access, governance connection, sovereign state, directory permissions) with injected governed repair delegates (A297); stays disabled until a resident automation host registers it. 原職責：權限平面自我修復健康檢查。"
     },
     "permission-automation-audit": {
-      "owner": "GPTBridge.Permission.AuditSchedulerAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; GPTBridge.Permission.AuditSchedulerAutomation in-process)",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
@@ -106,7 +106,7 @@
       "description": "native port delivered (B167/B38): shared-layer/csharp/GPTBridge.Permission — bounded native audit-engine invocation (60s timeout, metadata-only history records); stays disabled until a resident automation host registers it. 原職責：定期治理審計子行程。"
     },
     "permission-automation-identity": {
-      "owner": "GPTBridge.Permission.IdentityGroupLifecycleAutomation (C# library; RunOnceAsync driven by the automation host)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; GPTBridge.Permission.IdentityGroupLifecycleAutomation in-process)",
       "kind": "periodic",
       "interval_s": 300,
       "pausable": true,
@@ -153,21 +153,13 @@
       "enabled": true,
       "description": "通道層自動化：依 shared-layer/manifest.json background_service 契約（managed_by=main-system、auto_restart、max_restart_attempts=5、restart_backoff_seconds=1）由原生後端 spawn＋監督受管 GPTBridge.ChannelHost.exe（A263 通道）；受管關閉抑制重啟、預算耗盡 fail-closed；狀態檔 runtime/state/channel-host.json、稽核 channel-host.jsonl。監督者位於被監督行程之外（A170 邊界）"
     },
-    "codex-pipeline-supervision": {
-      "owner": "gptbridge-backend pipeline_host（main-system/src-tauri/crates/gptbridge-backend/src/pipeline_host.rs）",
+    "automation-host-supervision": {
+      "owner": "gptbridge-backend automation_host（main-system/src-tauri/crates/gptbridge-backend/src/automation_host.rs）",
       "kind": "supervision-plane",
       "interval_s": null,
       "pausable": false,
       "enabled": true,
-      "description": "管線自動化：由原生後端 spawn＋監督 GPTBridge.CodexPipeline.exe --watch 常駐 host（codex-amendment-intake / codex-pin-sync / codex-maintenance 三 flow 的執行主體；flow 級 kill switch 在 watch loop 內逐 tick 生效）。重啟預算同 channel-host 契約（5 次／1s backoff，外部 force-close 仍重啟）；preflight 以 codex-automation.lock 單例鎖仲裁——外部實例持有時延後接管而不耗預算。缺 exe 或 GPTBRIDGE_POSTGRES_DSN 時 fail-closed。狀態檔 runtime/state/codex-pipeline.json、稽核 codex-pipeline.jsonl；host 自身狀態 codex-automation.json"
-    },
-    "permission-host-supervision": {
-      "owner": "gptbridge-backend permission_host（main-system/src-tauri/crates/gptbridge-backend/src/permission_host.rs）",
-      "kind": "supervision-plane",
-      "interval_s": null,
-      "pausable": false,
-      "enabled": true,
-      "description": "監督面自動化：由原生後端 spawn＋監督 GPTBridge.Permission.exe --watch 常駐 host（permission-automation-lifecycle/directory/compliance/healing/audit/identity 六 flow 的執行主體；各 flow 的 kill switch 在 watch loop 內逐 tick 生效）。重啟預算同 channel-host 契約（5 次、1s backoff，外部 force-close 仍重啟）；preflight 以 permission-automation.lock 仲裁——外部實例持有時延後、釋放後收編，避免重複實例燒光重啟預算。缺 publish exe 即 fail-closed。狀態：runtime/state/permission-host.json＋稽核 permission-host.jsonl；host 自身狀態 permission-automation.json"
+      "description": "統一自動化監督（resident-core.json periodic_scheduler／R3 合併，取代 codex-pipeline-supervision＋permission-host-supervision）：由原生後端 spawn＋監督 GPTBridge.Automation.exe --watch 常駐 host——單一行程內載 git（sweep+sync）、codex（amendment-intake/pin-sync/maintenance）與 permission（六 flow）三平面，各 flow kill switch 仍於 watch loop 逐 tick 生效。重啟預算同 channel-host 契約（5 次／1s backoff，外部 force-close 仍重啟）；preflight 以 automation-host.lock 單例鎖仲裁——外部實例持有時延後接管而不耗預算；行程內每平面另持 codex-automation.lock／permission-automation.lock／git-automation.lock，外部獨立 watcher 佔有該平面時僅延後該平面、釋放後收編，平面故障走有界重試＋park 不拖累兄弟平面。缺 publish exe 即 fail-closed；缺 GPTBRIDGE_POSTGRES_DSN 只降級 codex 平面不阻斷 host。狀態檔 runtime/state/automation-host.json、稽核 automation-host.jsonl；平面遷移稽核 automation-host-planes.jsonl；各平面自身狀態 codex-automation.json／permission-automation.json／git-automation.json"
     },
     "resource-governor": {
       "owner": "resource governor",
@@ -370,7 +362,7 @@
       "description": "retired (B167/B38): Python codex_sync_drivers removed with the Python lane; artifact-hash drift detection duty remains recorded for a native driver port. 原職責：對 architecture_diagram_artifact_registry active 列做 byte-level SHA-256 比對，漂移時產生 codex-amendment-request。"
     },
     "codex-pin-sync": {
-      "owner": "GPTBridge.CodexPipeline.exe --watch (C# resident host; CodexAutomation.PinSync)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; CodexAutomation.PinSync in-process)",
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
@@ -378,7 +370,7 @@
       "description": "Release contract 法典釘定收斂：每 tick 讀 PostgreSQL 權威 authority_state，與 shared-layer/release-dependencies.json 的 governance_references codex_version/codex_sha256 比對，漂移時外科式改寫該兩欄位（實作面檔案，非權威寫入；落盤由 self-commit 收檔）。kill switch：本 flow enabled=false"
     },
     "codex-maintenance": {
-      "owner": "GPTBridge.CodexPipeline.exe --watch (C# resident host; CodexAutomation.Maintain)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; CodexAutomation.Maintain in-process)",
       "kind": "periodic",
       "interval_s": 600,
       "pausable": true,
@@ -386,7 +378,7 @@
       "description": "Codex 產物/投影維護（SQL 全自動化）：每 tick 檢查 governance_codex.sql 產物存在性 → verify-parity（隔離 stage schema 比對 218 表）→ codex_search_document 污染探針（??）→ zh-TW 鏡像一致性。drift 時先 repair-projections 重建 live 衍生表再複驗；權威本身已合法漂移才重新 export 產物並重算鏡像（AtomicReplace 唯讀復原）。本 pass 永不寫入權威表。kill switch：本 flow enabled=false"
     },
     "codex-amendment-intake": {
-      "owner": "GPTBridge.CodexPipeline.exe --watch (C# resident host; codex-amendment-intake tick → Driver.AdvanceAll)",
+      "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; codex-amendment-intake tick → Driver.AdvanceAll in-process)",
       "kind": "periodic",
       "pausable": false,
       "enabled": true,
