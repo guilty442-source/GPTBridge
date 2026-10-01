@@ -400,8 +400,11 @@ survives the deleted runtime.
 
 ## 星澄 Capability Trace (`star-capability-trace/v1` / `star-capability-result/v1`)
 
-> Convergence freeze (capability_training_frozen=true): two-level
-> observability only — records never feed a trainer job.
+> Human-governor directive 2026-10-01: capability training is unfrozen.
+> `capability_training_frozen=false` and
+> `capability_training_mode=ALL_CAPABILITIES`; capability traces may feed
+> governed training only through the existing quality, permission,
+> resource, evaluation, rollback and activation gates.
 
 - Level 2 request trace (`xingcheng/runtime/logs/capability-trace.jsonl`):
   `request_id`, `intent`, `service_expert`, `model_generation`,
