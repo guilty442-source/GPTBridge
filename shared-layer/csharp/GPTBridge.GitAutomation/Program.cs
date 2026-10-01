@@ -37,6 +37,7 @@ internal static partial class Program
         public string? Mode;
         public string Root = Environment.CurrentDirectory;
         public string Hook = "";
+        public readonly List<string> HookArgs = new();
         public bool Push;
         public bool CommitDirty = true;
         public double SweepInterval = 60;
@@ -127,6 +128,15 @@ internal static partial class Program
                             System.Globalization.CultureInfo.InvariantCulture);
                     break;
                 default:
+                    // Hook mode: git passes positional args after the
+                    // hook name (pre-push: <remote> <url>; pre-receive:
+                    // none — refs arrive on stdin).  They are payload,
+                    // not CLI errors.
+                    if (options.Mode == "hook")
+                    {
+                        options.HookArgs.Add(arg);
+                        break;
+                    }
                     options.Errors.Add(arg.StartsWith("--")
                         ? $"unknown option '{arg}'"
                         : $"unrecognized argument '{arg}' — commands " +
@@ -198,7 +208,8 @@ internal static partial class Program
                     {
                         "pre-commit" or "pre-merge-commit" =>
                             Hooks.Commit(projectRoot, worktree),
-                        "pre-push" => Hooks.Push(projectRoot, worktree),
+                        "pre-push" => Hooks.Push(projectRoot, worktree,
+                            options.HookArgs.FirstOrDefault()),
                         "pre-receive" => Hooks.Receive(projectRoot, worktree),
                         _ => Fail($"unknown hook '{options.Hook}'"),
                     };

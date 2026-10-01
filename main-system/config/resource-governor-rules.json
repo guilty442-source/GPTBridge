@@ -200,11 +200,11 @@
       "pool": "compute"
     },
     "xc-learning.exe": {
-      "exclude": true,
+      "exclude": false,
       "pool": "compute"
     },
     "xingcheng_trainer.exe": {
-      "exclude": true,
+      "exclude": false,
       "pool": "compute"
     }
   },

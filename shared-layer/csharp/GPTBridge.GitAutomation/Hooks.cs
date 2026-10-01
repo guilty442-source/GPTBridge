@@ -63,11 +63,14 @@ internal static class Hooks
 
     /// <summary>pre-push gate: delete / tag-rewrite / non-fast-forward
     /// need GOVERNANCE_AUTHORITY_APPROVAL.</summary>
-    public static int Push(string projectRoot, string worktree)
+    public static int Push(string projectRoot, string worktree,
+                           string? remoteArg = null)
     {
         var actor = Actor();
-        var remote = Environment.GetCommandLineArgs().SkipWhile(
-            a => a != "--remote").Skip(1).FirstOrDefault() ?? "unknown";
+        var remote = remoteArg
+            ?? Environment.GetCommandLineArgs().SkipWhile(
+                a => a != "--remote").Skip(1).FirstOrDefault()
+            ?? "unknown";
         var highRisk = new List<string>();
         string? line;
         while ((line = Console.In.ReadLine()) is not null)
