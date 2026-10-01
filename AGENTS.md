@@ -148,6 +148,21 @@ former in-process `GitAutomationService`
 (`main-system/src-core/tasks/git_automation.py`) and the
 `scripts/git-*.py` entry points are retired with the Python lane.
 
+Production residency: `gptbridge-backend` supervises the **unified**
+automation host `GPTBridge.Automation.exe --watch`
+(`shared-layer/csharp/GPTBridge.Automation`) — the `resident-core.json`
+`periodic_scheduler`. One process hosts the git plane (same
+sweep+sync loop, in-process via `Program.WatchService`), the codex
+plane (`CodexAutomation.RunWatch`) and the permission plane
+(`PermissionAutomation.RunWatch`); per-plane state files, kill
+switches and single-instance locks (`codex-automation.lock` /
+`permission-automation.lock` / `git-automation.lock`) are unchanged,
+plus one top-level `automation-host.lock`. The standalone
+`GPTBridge.GitAutomation.exe` stays the manual/one-shot CLI
+(`--once`/`--sweep`/`--sync`/`--status` never take the lock; a
+standalone `--watch` keeps ownership of just the git plane — the
+unified host defers it and adopts it on release).
+
 - **Commit sweep** every 60 s: `SelfCommit.RunOnce` per registered
   worktree, but only after the dirty-state marker has been stable for a
   60 s debounce — same stability contract as the old watchers, zero extra

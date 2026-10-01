@@ -18,8 +18,10 @@ namespace GPTBridge.Permission;
 ///
 /// Single instance is enforced by ``permission-automation.lock`` in
 /// ``main-system/runtime/state``; process lifetime is supervised by the
-/// Rust ``permission_host`` lane (managed_by=main-system), cadence is
-/// owned here.
+/// Rust ``automation_host`` lane via the unified
+/// ``GPTBridge.Automation --watch`` host (managed_by=main-system) —
+/// a standalone ``--watch`` still works and owns just this plane's
+/// lock until it exits.  Cadence is owned here.
 /// </summary>
 internal static class Program
 {
