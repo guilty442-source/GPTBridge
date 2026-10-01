@@ -95,7 +95,12 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             if (!cur.ids.empty() && (int)cur.ids.size() + need > target) flush();
             if (!cur.ids.empty() && sep >= 0) {
                 cur.ids.push_back(sep);
-                cur.labels.push_back(-100);
+                // pretrain labels are unshifted ids (shift_labels runs on
+                // the packed row), so push sep to keep doc-end->sep and
+                // sep->next-doc both taught; sft labels are pre-aligned
+                // targets — mask the sep position so packing never
+                // teaches a cross-doc transition.
+                cur.labels.push_back(fmt == "pretrain" ? sep : -100);
             }
             cur.ids.insert(cur.ids.end(), e.ids.begin(), e.ids.end());
             cur.labels.insert(cur.labels.end(), e.labels.begin(), e.labels.end());

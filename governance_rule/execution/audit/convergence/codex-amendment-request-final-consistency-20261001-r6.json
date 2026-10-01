@@ -1,8 +1,8 @@
 {
   "artifact": "codex-amendment-request",
   "authority": "request-only",
-  "amendment_id": "codex-amendment-request-final-consistency-20261001-r5",
-  "request_id": "final-consistency-convergence-20261001-r5",
+  "amendment_id": "codex-amendment-request-final-consistency-20261001-r6",
+  "request_id": "final-consistency-convergence-20261001-r6",
   "requested_by": "human-governor",
   "origin": "direct user order to execute whole-Codex deficiency closure",
   "change_class": "architecture-authority",
