@@ -37,6 +37,17 @@ internal static class CapabilityFreeze
             $"operation '{operation}' requires capability training which is frozen");
     }
 
+    /// <summary>Canonical-architecture pretrain lane
+    /// (star-canonical-pretrain/v1): while the freeze holds, a policy may
+    /// declare architecture_pretrain_mode = "XC_FUSED_1" to admit jobs
+    /// whose training_kind is "pretrain" — the executor additionally
+    /// pins model.generation to the canonical contract, so the lane can
+    /// only bootstrap canonical architecture weights. It admits
+    /// architecture bootstrap, never capability training.</summary>
+    public static bool CanonicalPretrainLaneOpen(SelfLearningPolicy policy) =>
+        string.Equals(policy.ArchitecturePretrainMode, "XC_FUSED_1",
+                      StringComparison.OrdinalIgnoreCase);
+
     /// <summary>True while the policy declares the single-capability
     /// recovery lane — the lane is admitted by the MODE declaration,
     /// not by the frozen flag.</summary>
@@ -58,6 +69,12 @@ internal static class CapabilityFreeze
                                 SelfLearningPolicy policy)
     {
         if (!CAPABILITY_TRAINING_FROZEN) return;
+        // Canonical architecture bootstrap: a declared
+        // architecture_pretrain_mode admits exactly the "pretrain" kind;
+        // the executor pins model.generation to xc-fused-1 so the lane
+        // cannot be used for generic pretraining.
+        if (operation == "pretrain" && CanonicalPretrainLaneOpen(policy))
+            return;
         // The lane is admitted by the MODE declaration, not by the frozen
         // flag. frozen=false without the mode falls through to the plain
         // guard and stays denied.
