@@ -1156,8 +1156,18 @@ $"gate-stderr-{Environment.ProcessId}.log";
                     : Path.GetFullPath(Path.Combine(
                         toolRoot, "xingcheng", p)))
                 .ToList();
-            string absA = Path.GetFullPath(snapA);
-            if (!registered.Contains(absA))
+            // The registry is shared across worktrees: a dedup hit may
+            // return a snapshot_path owned by another checkout. Assert
+            // the row's own stored path is registered (that is the path
+            // retention must protect), not this worktree's scratch file.
+            string storedA = (string?)r1["snapshot_path"] ?? "";
+            string absRegA = storedA.Length == 0
+                ? ""
+                : (Path.IsPathRooted(storedA)
+                    ? Path.GetFullPath(storedA)
+                    : Path.GetFullPath(Path.Combine(
+                        toolRoot, "xingcheng", storedA)));
+            if (absRegA.Length == 0 || !registered.Contains(absRegA))
                 return Fail("REGISTERED_SNAPSHOT_MISSING",
                             "dataset snapshot path absent from registry");
             var plan = Retention.ApplyRetention(toolRoot, dryRun: true);

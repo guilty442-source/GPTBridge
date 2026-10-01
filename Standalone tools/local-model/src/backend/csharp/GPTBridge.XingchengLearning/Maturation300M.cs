@@ -335,6 +335,45 @@ internal static class Maturation300M
         };
     }
 
+    /// <summary>Governor-ordered reopen of a frozen capability: the
+    /// capability returns to "pending" and becomes the sequence head
+    /// again so a new bounded lane may run. The prior freeze record is
+    /// preserved under "history" — reopen never erases evidence.
+    /// Requires a reason (governor order reference).</summary>
+    public static Dictionary<string, object?> Reopen(
+        string toolRoot, string capability, string reason)
+    {
+        var state = LoadState(toolRoot);
+        if (IndexOf(capability) < 0)
+            throw new ExecutorError("CAPABILITY_UNKNOWN",
+                $"capability '{capability}' is not in the 300M " +
+                "maturation sequence");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
+                "reopen requires a reason (governor order reference)");
+        var caps = (Dictionary<string, object?>)state["capabilities"]!;
+        object? prior = caps.TryGetValue(capability, out object? p)
+            ? p : null;
+        caps[capability] = new Dictionary<string, object?>
+        {
+            ["status"] = "pending",
+            ["reopened_from"] =
+                prior is Dictionary<string, object?> pd
+                    ? pd.GetValueOrDefault("status")?.ToString() : null,
+            ["prior"] = prior,
+            ["reason"] = reason,
+            ["reopened_at"] = XcPaths.IsoNow(),
+        };
+        SaveState(toolRoot, state);
+        CapabilitySpec? next = Head(state);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["reopened"] = capability,
+            ["head"] = next?.Id,
+        };
+    }
+
     /// <summary>Resolve the head capability as unsupported — used when
     /// the governed evidence itself proves the capability cannot be
     /// exercised on this bundle (e.g. every vision-suite item is

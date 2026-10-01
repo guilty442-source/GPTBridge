@@ -55,12 +55,12 @@ std::string sha256_hex(const unsigned char* data, size_t size) {
         throw InferenceError("SHA256_INIT_FAILED");
     }
     // BCryptHashData takes a 32-bit ULONG length — hash in chunks so
-    // bundles past 4 GiB verify correctly instead of truncating to
-    // size mod 2^32.
+    // bundles past 4 GiB (e.g. the ~7.8 GB 1B weights.bin) verify
+    // correctly instead of truncating to size mod 2^32.
     NTSTATUS update_status = 0;
     for (size_t off = 0; off < size; ) {
-        const ULONG chunk = static_cast<ULONG>(
-            size - off < 0x40000000ULL ? size - off : 0x40000000ULL);
+        const ULONG chunk =
+            static_cast<ULONG>(std::min<size_t>(size - off, 0x40000000));
         update_status = BCryptHashData(
             hash, const_cast<unsigned char*>(data) + off, chunk, 0);
         if (update_status != 0) break;

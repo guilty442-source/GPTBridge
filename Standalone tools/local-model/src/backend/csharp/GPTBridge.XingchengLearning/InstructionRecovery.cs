@@ -351,41 +351,6 @@ internal static class InstructionRecovery
         };
     }
 
-    /// <summary>Echo-format arithmetic replay rows (請計算：a + b = →
-    /// a + b = c) matching the governed regression suite's surface
-    /// convention — disjoint operands, never suite prompts.</summary>
-    private static IEnumerable<Row> GenerateMathEcho(int seed, int count)
-    {
-        var r = new Random(seed);
-        for (int i = 0; i < count; i++)
-        {
-            bool zh = r.Next(3) != 0;
-            int a = r.Next(2) == 0 ? 1 + r.Next(99) : 100 + r.Next(900);
-            int b = 1 + r.Next(399);
-            string sym;
-            int ans;
-            switch (r.Next(3))
-            {
-                case 0: sym = "+"; ans = a + b; break;
-                case 1:
-                    sym = zh ? "×" : "*";
-                    a = 2 + r.Next(48); b = 2 + r.Next(30);
-                    ans = a * b; break;
-                default:
-                    sym = "-"; if (a < b) (a, b) = (b, a);
-                    ans = a - b; break;
-            }
-            string c = $"{a} {sym} {b} = {ans}";
-            yield return new Row
-            {
-                Prompt = zh ? $"請計算：{a} {sym} {b} = "
-                            : $"Compute: {a} {sym} {b} = ",
-                Completion = c, Category = "A",
-                Rule = $"exact:{c}", Source = "replay",
-            };
-        }
-    }
-
     private static T Take<T>(Random r, T[] xs) => xs[r.Next(xs.Length)];
 
     private static string[] SampleItems(Random r, string[] pool, int n)
@@ -4023,12 +3988,15 @@ internal static class InstructionRecovery
     /// outDir. Deterministic under `seed`; every emitted row passed the
     /// rule gate; train/val are disjoint by normalized-content hash; the
     /// eval suite shares no prompt string with either split.</summary>
-    public static Dictionary<string, object?> BuildDataset(
-        string outDir, int count, int seed,
-        double replayRatio = 0, string? excludeSuitePath = null)
-    {
-        Directory.CreateDirectory(outDir);
-        var all = (Capability switch
+    // Replay sources: capability id -> dataset generator. Used by the
+    // plan's replay_count/replay_capabilities fields to interleave
+    // other capabilities' rows into the training split — single-
+    // capability SFT at a real parameter slice otherwise regresses
+    // neighbouring capabilities (measured: math 0.36 -> 0.09 on a 16%
+    // slice at lr 2e-4, 0.27 on a 6% slice at lr 1e-4).
+    private static IEnumerable<Row> GeneratorFor(string capability,
+                                                 int seed, int count) =>
+        capability switch
         {
             "context_tracking" => GenerateContext(seed, count),
             "multi_turn" => GenerateMultiTurn(seed, count),
@@ -4038,74 +4006,51 @@ internal static class InstructionRecovery
             "rag" => GenerateRag(seed, count),
             "math" => GenerateMath(seed, count),
             "coding" => GenerateCoding(seed, count),
-            _ => Generate(seed, count),
-        }).ToList();
+            "instruction_following" => Generate(seed, count),
+            _ => throw new ExecutorError("RECOVERY_REPLAY_CAPABILITY",
+                $"replay capability '{capability}' is not in the " +
+                "supported set"),
+        };
 
-        // Replay slice: a deterministic fraction of non-capability rows
-        // keeps general capabilities (math, instruction) from collapsing
-        // while the lane trains exactly one capability. Prompts/eval_text
-        // overlapping the governed regression suite are dropped — replay
-        // must preserve, never teach the test.
-        var excludePrompts = new HashSet<string>(StringComparer.Ordinal);
-        if (excludeSuitePath != null && File.Exists(excludeSuitePath))
-            try
-            {
-                using var doc = JsonDocument.Parse(
-                    File.ReadAllText(excludeSuitePath));
-                foreach (var it in doc.RootElement
-                                  .GetProperty("items").EnumerateArray())
-                    foreach (var key in new[] { "prompt", "eval_text" })
-                        if (it.TryGetProperty(key, out var pp))
-                            excludePrompts.Add(
-                                (pp.GetString() ?? "").Trim());
-            }
-            catch { /* unreadable suite: no exclusions */ }
-        if (replayRatio > 0)
+    public static Dictionary<string, object?> BuildDataset(
+        string outDir, int count, int seed,
+        int replayCount = 0, string[]? replayCaps = null)
+    {
+        Directory.CreateDirectory(outDir);
+        var all = GeneratorFor(Capability, seed, count).ToList();
+        var replayManifest = new Dictionary<string, int>();
+        if (replayCount > 0)
         {
-            replayRatio = Math.Min(replayRatio, 0.5);
-            int replayN = (int)Math.Round(
-                count * replayRatio / (1 - replayRatio));
-            int mathN = replayN / 3;
-            int echoN = replayN / 3;
-            var replay = new List<Row>();
-            replay.AddRange(GenerateMath(seed ^ 0x5f3759df, mathN));
-            // Echo-format arithmetic matches the regression suite's
-            // surface convention (請計算：a + b = → a + b = c); bare
-            // "number only" replay rows actively retrain away from it.
-            replay.AddRange(GenerateMathEcho(seed ^ 0x3b9aca07, echoN));
-            replay.AddRange(
-                Generate(seed ^ 0x2c1b3c6d, replayN - mathN - echoN));
-            foreach (var r in replay) r.Source = "replay";
-            all.AddRange(replay);
-        }
-
-        // Interleave replay through the stream: the trainer consumes
-        // train.jsonl in order, so appended-at-tail replay rows would
-        // only be seen after a full capability-data prefix — too late
-        // to protect against early forgetting. Seeded shuffle keeps
-        // the order deterministic.
-        {
-            var sh = new Random(seed ^ 0x1f123bb5);
-            for (int i = all.Count - 1; i > 0; --i)
+            var caps = replayCaps is { Length: > 0 }
+                ? replayCaps
+                : SupportedCapabilities
+                      .Where(c => c != Capability).ToArray();
+            foreach (var cap in caps)
+                if (cap == Capability)
+                    throw new ExecutorError("RECOVERY_REPLAY_CAPABILITY",
+                        $"replay capability '{cap}' equals the active " +
+                        "capability — replay rows must come from other " +
+                        "capabilities");
+            // Draw evenly across the replay capabilities; each
+            // generator yields its full sequence so Take() picks a
+            // deterministic prefix per capability.
+            int per = Math.Max(1, replayCount / caps.Length);
+            var rr = new Random(seed ^ 0x5f5f);
+            foreach (var cap in caps)
             {
-                int j = sh.Next(i + 1);
-                (all[i], all[j]) = (all[j], all[i]);
+                var bucket = GeneratorFor(cap, seed + 7919, per * 4)
+                    .OrderBy(_ => rr.Next()).Take(per).ToList();
+                foreach (var row in bucket) row.Source = "replay:" + cap;
+                replayManifest[cap] = bucket.Count;
+                all.AddRange(bucket);
             }
         }
-
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var rows = new List<Row>();
         int dropped = 0;
         var dropReasons = new Dictionary<string, int>();
         foreach (var row in all)
         {
-            if (excludePrompts.Contains(row.Prompt.Trim()))
-            {
-                dropped++;
-                dropReasons["suite_overlap"] =
-                    dropReasons.GetValueOrDefault("suite_overlap") + 1;
-                continue;
-            }
             if (!QualityOk(row, out string reason))
             {
                 dropped++;
@@ -4121,6 +4066,12 @@ internal static class InstructionRecovery
                 continue; }
             rows.Add(row);
         }
+
+        // Deterministic interleave: replay rows must land throughout
+        // the training stream (the trainer consumes rows in file
+        // order), not appended as a trailing block.
+        var shuffleRng = new Random(seed ^ 0x3c3c);
+        rows = rows.OrderBy(_ => shuffleRng.Next()).ToList();
 
         // deterministic split — 18% held out, stratified by hashing.
         var train = new List<Row>();
@@ -4192,6 +4143,10 @@ internal static class InstructionRecovery
                 (double)val.Count / Math.Max(1, rows.Count), 4),
             ["zh_tw_rows"] = zhCount,
             ["en_rows"] = rows.Count - zhCount,
+            ["replay"] = replayManifest.Count > 0
+                ? replayManifest.ToDictionary(
+                      kv => kv.Key, kv => (object?)kv.Value)
+                : null,
             ["by_category"] = byCat,
             ["by_source"] = bySrc,
             ["dropped"] = dropped,
@@ -4245,7 +4200,8 @@ internal static class InstructionRecovery
         string? outPath = null)
     {
         string stderrLog = Path.Combine(
-            toolRoot, XcPaths.LogsRel, "recovery-eval-stderr.log");
+            toolRoot, XcPaths.LogsRel,
+            $"recovery-eval-stderr-{Environment.ProcessId}-{Guid.NewGuid():N}.log");
         var run = NativeTools.Run(
             NativeTools.ModelToolExe(toolRoot),
             new[] { "capability", "--bundle", bundle,
@@ -4280,9 +4236,8 @@ internal static class InstructionRecovery
             double pr = 0;
             if (cats.TryGetValue(metric, out var mv) &&
                 mv is Dictionary<string, object?> md &&
-                md.ContainsKey("pass_rate"))
-            { pr = TransformerTrainingRepository.Num(md, "pass_rate");
-              wfound += w; }
+                md["pass_rate"] is double d)
+            { pr = d; wfound += w; }
             metrics[metric] = pr;
             score += w * pr;
             wsum += w;
@@ -4473,13 +4428,40 @@ internal static class InstructionRecovery
         }
         else
         {
+            // Replay mix (optional): plan.replay_count rows drawn from
+            // plan.replay_capabilities (default: every other supported
+            // capability) are interleaved into the training stream —
+            // the anti-forgetting surface. Bounded: non-negative,
+            // <= dataset_count, capability ids validated by
+            // GeneratorFor.
+            int replayCount =
+                TransformerTrainingRepository.Int(plan, "replay_count")
+                    is int rc && rc > 0 ? rc : 0;
+            string[]? replayCaps = null;
+            if (plan.TryGetValue("replay_capabilities",
+                    out object? rcaps) && rcaps is not null)
+            {
+                if (rcaps is not System.Collections.IEnumerable capList
+                    || rcaps is string)
+                    throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
+                        "replay_capabilities must be an array of " +
+                        "capability ids");
+                var list = new List<string>();
+                foreach (object? item in capList)
+                {
+                    if (item is not string rid || rid.Length == 0)
+                        throw new ExecutorError("EXECUTOR_CONFIG_INVALID",
+                            "replay_capabilities entries must be " +
+                            "non-empty capability ids");
+                    list.Add(rid);
+                }
+                replayCaps = list.ToArray();
+            }
             manifest = BuildDataset(
                 dataDir,
                 TransformerTrainingRepository.Int(plan, "dataset_count")
                     is int dc && dc > 0 ? dc : 2800,
-                seed,
-                TransformerTrainingRepository.Num(plan, "replay_ratio"),
-                regressionSuite);
+                seed, replayCount, replayCaps);
         }
         Led("dataset", new Dictionary<string, object?>
         {
