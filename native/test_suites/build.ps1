@@ -188,7 +188,8 @@ $suites = @(
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
-            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp")
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_advisor.cpp")
         )
     },
     @{
@@ -199,7 +200,8 @@ $suites = @(
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
-            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp")
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_advisor.cpp")
         )
     },
     @{
@@ -210,7 +212,21 @@ $suites = @(
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
-            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp")
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_advisor.cpp")
+        )
+    },
+    @{
+        src = "suite_resource_governor_advisor.cpp"; exe = "resource_governor_advisor_suite.exe"
+        # B167/B38 原生接替＋B3 有界自適應：ceiling 上限、streak/cooldown、
+        # 夜間省電窗口、fail-closed（純函式＋假引擎，零副作用）。
+        extra = @(
+            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_advisor.cpp")
         )
     }
 )
