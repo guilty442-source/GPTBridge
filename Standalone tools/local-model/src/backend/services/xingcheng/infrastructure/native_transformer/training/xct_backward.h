@@ -37,6 +37,9 @@ struct BwdWs {
     std::vector<std::vector<float>> dkr_lanes;
     std::vector<float> dgate, dq, dk, diq, dsbuf, dk_csa, dv_csa,
                        mkr_all, dq_raw, dk_raw, cvec_k, cvec_v;
+    // mtp_bwd shares the same workspace — it runs before the trunk layer
+    // loop and every field is re-initialized before use.
+    std::vector<float> dlm, dout, dx2, dz_res, dcin, dnh, dne;
 };
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
@@ -1292,24 +1295,33 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     const int PT = (int)ids.size(), P = o.vision_patches;
     const int H = c.hidden, hd = H / c.heads;
     const int kvh = c.kv_heads, Hkvl = kvh * hd, Hq = c.heads * hd;
-    std::vector<float> dlm;
+    static thread_local BwdWs ws;
+    auto& dlm = ws.dlm;
+    dlm.clear();
     ce_loss(M.logits, M.lab, PT, c.vocab, dlm);
     const float sc = c.mtp_loss_weight * aux_scale;
     tpu_scale(dlm.data(), sc, (int64_t)dlm.size());
-    std::vector<float> dout((size_t)PT * H, 0.0f);
+    auto& dout = ws.dout;
+    dout.assign((size_t)PT * H, 0.0f);
     linear_bwd(dlm.data(), M.out.data(), p.w.at("lm_head"), dout.data(),
                p.dw("lm_head"), PT, H, c.vocab);
     const LayerCache& L = M.lc;
-    std::vector<float> dx2((size_t)PT * H, 0.0f);
+    auto& dx2 = ws.dx2;
+    dx2.assign((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dout.data(), M.res2.data(),
                 p.w.at("mtp.norm_out").d.data(), M.out_rms.data(),
                 dx2.data(), p.dw("mtp.norm_out"), PT, H);
     // residual split: ffn path + x_res skip
-    std::vector<float> dx_res = dx2;
-    std::vector<float> dn2((size_t)PT * H, 0.0f);
-    std::vector<float> dfh((size_t)PT * c.inter, 0.0f),
-                       dfa((size_t)PT * c.inter, 0.0f),
-                       dfb((size_t)PT * c.inter, 0.0f);
+    auto& dx_res = ws.dx_res;
+    dx_res = dx2;
+    auto& dn2 = ws.dn2;
+    auto& dfh = ws.dfh;
+    auto& dfa = ws.dfa;
+    auto& dfb = ws.dfb;
+    dn2.assign((size_t)PT * H, 0.0f);
+    dfh.assign((size_t)PT * c.inter, 0.0f);
+    dfa.assign((size_t)PT * c.inter, 0.0f);
+    dfb.assign((size_t)PT * c.inter, 0.0f);
     linear_bwd(dx2.data(), L.fh.data(), p.w.at("mtp.w2"), dfh.data(),
                p.dw("mtp.w2"), PT, c.inter, H);
     tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
@@ -1321,24 +1333,31 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
                p.dw("mtp.w1"), PT, H, c.inter);
     linear_bwd(dfb.data(), L.n2.data(), p.w.at("mtp.w3"), dn2.data(),
                p.dw("mtp.w3"), PT, H, c.inter);
-    std::vector<float> dxres2((size_t)PT * H, 0.0f);
+    auto& dxres2 = ws.dxres2;
+    dxres2.assign((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dn2.data(), L.x_res.data(),
                 p.w.at("mtp.norm2").d.data(), L.rms2.data(),
                 dxres2.data(), p.dw("mtp.norm2"), PT, H);
-    std::vector<float> dpre((size_t)PT * H);
+    auto& dpre = ws.dpre;
+    dpre.assign((size_t)PT * H, 0.0f);
     tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
         dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
     });
     // plain causal attention backward
-    std::vector<float> dz_res = dpre;             // residual to z
-    std::vector<float> dao((size_t)PT * Hq, 0.0f);
+    auto& dz_res = ws.dz_res;
+    dz_res = dpre;                                  // residual to z
+    auto& dao = ws.dao;
+    dao.assign((size_t)PT * Hq, 0.0f);
     linear_bwd(dpre.data(), L.attn_out.data(), p.w.at("mtp.wo"),
                dao.data(), p.dw("mtp.wo"), PT, Hq, H);
     const int group = c.heads / kvh;
     const float scale = 1.0f / std::sqrt((float)hd);
-    std::vector<float> dq((size_t)PT * Hq, 0.0f),
-                       dk((size_t)PT * Hkvl, 0.0f),
-                       dv((size_t)PT * Hkvl, 0.0f);
+    auto& dq = ws.dq;
+    auto& dk = ws.dk;
+    auto& dv = ws.dv;
+    dq.assign((size_t)PT * Hq, 0.0f);
+    dk.assign((size_t)PT * Hkvl, 0.0f);
+    dv.assign((size_t)PT * Hkvl, 0.0f);
     parallel_for(kvh, [&](int64_t gb, int64_t ge) {
         std::vector<float> dsc((size_t)4 * PT);
         for (int64_t g = gb; g < ge; ++g)
@@ -1374,21 +1393,24 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     });
     rope(dq.data(), PT, c.heads, hd, c.rope_theta, true, &c);
     rope(dk.data(), PT, kvh, hd, c.rope_theta, true, &c);
-    std::vector<float> dn1((size_t)PT * H, 0.0f);
+    auto& dn1 = ws.dn1;
+    dn1.assign((size_t)PT * H, 0.0f);
     linear_bwd(dq.data(), L.n1.data(), p.w.at("mtp.wq"), dn1.data(),
                p.dw("mtp.wq"), PT, H, Hq);
     linear_bwd(dk.data(), L.n1.data(), p.w.at("mtp.wk"), dn1.data(),
                p.dw("mtp.wk"), PT, H, Hkvl);
     linear_bwd(dv.data(), L.n1.data(), p.w.at("mtp.wv"), dn1.data(),
                p.dw("mtp.wv"), PT, H, Hkvl);
-    std::vector<float> dz((size_t)PT * H, 0.0f);
+    auto& dz = ws.dz;
+    dz.assign((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at("mtp.norm1").d.data(),
                 L.rms1.data(), dz.data(), p.dw("mtp.norm1"), PT, H);
     tpu_elementwise((int64_t)dz.size(), [&](int64_t i) {
         dz[(size_t)i] += dz_res[(size_t)i];
     });
     // w_proj input split: normed hidden half + normed embed half
-    std::vector<float> dcin((size_t)PT * 2 * H, 0.0f);
+    auto& dcin = ws.dcin;
+    dcin.assign((size_t)PT * 2 * H, 0.0f);
     linear_bwd(dz.data(), M.cin.data(), p.w.at("mtp.w_proj"), dcin.data(),
                p.dw("mtp.w_proj"), PT, 2 * H, H);
     // Column lanes over H: each worker owns a disjoint channel range
@@ -1400,7 +1422,10 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     float* gnh = p.dw("mtp.norm_h");
     float* gne = p.dw("mtp.norm_e");
     float* ger = p.dw("embed");
-    std::vector<float> dnh((size_t)PT), dne((size_t)PT);
+    auto& dnh = ws.dnh;
+    auto& dne = ws.dne;
+    dnh.assign((size_t)PT, 0.0f);
+    dne.assign((size_t)PT, 0.0f);
     parallel_for(PT, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) {
             const float* xr = M.nh_src.data() + (size_t)i * H;
