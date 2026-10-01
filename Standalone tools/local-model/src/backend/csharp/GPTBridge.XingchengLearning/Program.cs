@@ -2201,6 +2201,16 @@ internal static class Program
         {
             executeDeniedFrozen = true;
         }
+        // A completed maturation sequence is also a sealed lane: the
+        // sequence head has no remaining capability, so SFT denial via
+        // MATURATION_SEQUENCE_COMPLETE is the correct fail-closed
+        // outcome and exercises the same downstream paths.
+        if (report != null &&
+            !TransformerTrainingRepository.Truthy(report["ok"]) &&
+            report["job"] is Dictionary<string, object?> jr &&
+            (string?)jr.GetValueOrDefault("error_code") ==
+                "MATURATION_SEQUENCE_COMPLETE")
+            executeDeniedFrozen = true;
         steps.Add(new Dictionary<string, object?>
         {
             ["step"] = "execute",
