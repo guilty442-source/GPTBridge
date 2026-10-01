@@ -15,8 +15,8 @@
 
 static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o) {
-    o.mtp_stack.clear();
-    if (c.mtp_depth <= 0) return;
+    if (c.mtp_depth <= 0) { o.mtp_stack.clear(); return; }
+    o.mtp_stack.resize(0);   // keep capacity across calls
     const int PT = (int)ids.size();
     const int P = o.vision_patches;
     const int H = c.hidden, hd = H / c.heads;
@@ -29,9 +29,10 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
     // the cache fields (M.*) still own their persistent storage.
     static thread_local std::vector<float> ehn, een, aproj, fproj;
     for (int d = 0; d < c.mtp_depth; ++d) {
-        MtpStackCache M;
+        o.mtp_stack.resize((size_t)d + 1);
+        MtpStackCache& M = o.mtp_stack.back();
         const int R = PT - 2 - d;
-        if (R <= 0) { o.mtp_stack.push_back(std::move(M)); break; }
+        if (R <= 0) { M.rows = 0; break; }
         M.rows = R;
         const std::string b = "mtp." + std::to_string(d) + ".";
         // prev stream: d=0 reads trunk hidden at row P+t (text positions);
@@ -149,7 +150,6 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
         M.logits.resize((size_t)R * c.vocab);
         linear_fwd(M.hn.data(), p.w.at("lm_head"), M.logits.data(),
                    R, H, c.vocab);
-        o.mtp_stack.push_back(std::move(M));
     }
 }
 

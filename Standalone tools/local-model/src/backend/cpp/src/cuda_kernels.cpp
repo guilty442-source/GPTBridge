@@ -56,6 +56,7 @@ typedef void* CUmodule_t;
 typedef void* CUfunction_t;
 typedef unsigned long long CUdevptr_t;
 typedef unsigned long long CUstream_t;
+typedef void* CUevent_t;
 typedef void* CUgraph_t;
 typedef void* CUgraphExec_t;
 typedef void* nvrtcProgram_t;
@@ -106,6 +107,14 @@ struct DriverApi {
     CUresult_t (*graph_launch)(CUgraphExec_t, CUstream_t) = nullptr;
     CUresult_t (*graph_exec_destroy)(CUgraphExec_t) = nullptr;
     CUresult_t (*graph_destroy)(CUgraph_t) = nullptr;
+    // §26 batch-pipeline plane — optional like the graph set: missing
+    // event symbols only drop the pipelined wave path back to the
+    // serial sync path, never the AdamW lane itself.
+    CUresult_t (*event_create)(CUevent_t*, unsigned int) = nullptr;
+    CUresult_t (*event_record)(CUevent_t, CUstream_t) = nullptr;
+    CUresult_t (*stream_wait_event)(CUstream_t, CUevent_t,
+                                    unsigned int) = nullptr;
+    CUresult_t (*event_destroy)(CUevent_t) = nullptr;
 };
 
 struct NvrtcApi {
@@ -232,6 +241,14 @@ bool api_init() {
     resolve(g_drv.dll, &g_drv.graph_exec_destroy, "cuGraphExecDestroy_v2",
             "cuGraphExecDestroy");
     resolve(g_drv.dll, &g_drv.graph_destroy, "cuGraphDestroy", nullptr);
+    // Optional event plane for the §26 batch pipeline — same contract:
+    // unresolved symbols leave pipeline_api_ready()==false.
+    resolve(g_drv.dll, &g_drv.event_create, "cuEventCreate", nullptr);
+    resolve(g_drv.dll, &g_drv.event_record, "cuEventRecord", nullptr);
+    resolve(g_drv.dll, &g_drv.stream_wait_event, "cuStreamWaitEvent",
+            nullptr);
+    resolve(g_drv.dll, &g_drv.event_destroy, "cuEventDestroy_v2",
+            "cuEventDestroy");
 
     const char* cp = getenv("CUDA_PATH");
     std::vector<std::string> nvrtc_names = {"nvrtc64_120_0.dll"};

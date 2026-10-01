@@ -539,10 +539,11 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
 static float mtp_stack_aux_loss(const ModelConfig& c,
                                 const std::vector<int>& ids, const Fwd& fw,
                                 std::vector<std::vector<float>>& dmtp);
+struct BwdWs;
 static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                           const std::vector<int>& ids, Fwd& o,
                           const std::vector<std::vector<float>>& dm,
-                          float* dh_main);
+                          float* dh_main, BwdWs& ws);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,

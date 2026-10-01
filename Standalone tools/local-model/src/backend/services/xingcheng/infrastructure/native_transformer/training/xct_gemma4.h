@@ -252,7 +252,9 @@ static void bwd_g4(Params& p, const ModelConfig& c,
     const float emb_scale = std::sqrt((float)H);
     const char* lm_name = c.tie_embed ? "embed" : "lm_head";
 
-    std::vector<float> dz = dlogits;
+    static thread_local G4Ws ws;
+    auto& dz = ws.dz;
+    dz = dlogits;
     const float cap = c.final_logit_softcapping;
     if (cap > 0.0f) {
         tpu_elementwise((int64_t)dz.size(), [&](int64_t i) {
@@ -260,21 +262,32 @@ static void bwd_g4(Params& p, const ModelConfig& c,
             dz[(size_t)i] *= 1.0f - t * t;
         });
     }
-    std::vector<float> dh((size_t)T * H, 0.0f);
+    auto& dh = ws.dh;
+    dh.assign((size_t)T * H, 0.0f);
     linear_bwd(dz.data(), o.hidden.data(), p.w.at(lm_name),
                dh.data(), p.dw(lm_name), T, H, c.vocab);
-    std::vector<float> dx((size_t)T * H, 0.0f);
+    auto& dx = ws.dx;
+    dx.assign((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx.data(), p.dw("norm_f"), T, H);
 
     // dk/dv contributions land in the owner's post-rope/post-norm
     // buffers; shared layers add theirs before the owner un-does its
     // norm/rope once — one gradient site per anchor, like HF.
-    std::vector<std::vector<float>> dk_acc(c.layers), dv_acc(c.layers);
-    std::vector<float> dple_in;
+    // clear() keeps each owner's capacity across examples; the first
+    // touch per call re-zeroes through assign, as before.
+    auto& dk_acc = ws.dk_acc;
+    auto& dv_acc = ws.dv_acc;
+    dk_acc.resize((size_t)c.layers);
+    dv_acc.resize((size_t)c.layers);
+    for (auto& v : dk_acc) v.clear();
+    for (auto& v : dv_acc) v.clear();
+    auto& dple_in = ws.dple_in;
     if (ple > 0) dple_in.assign((size_t)T * c.layers * ple, 0.0f);
+    else dple_in.clear();
 
-    std::vector<float> buf((size_t)T * H);
+    auto& buf = ws.buf;
+    buf.assign((size_t)T * H, 0.0f);
     for (int l = c.layers - 1; l >= 0; --l) {
         G4Layer& L = o.g4l[l];
         const int hd = c.hd_at(l);
@@ -292,16 +305,19 @@ static void bwd_g4(Params& p, const ModelConfig& c,
 
         if (ple > 0) {
             // x = x_ple + ple_norm(ple_p); ple_p = ple_ga @ ple_proj
-            std::vector<float> dp((size_t)T * H, 0.0f);
+            auto& dp = ws.dp;
+            dp.assign((size_t)T * H, 0.0f);
             rmsnorm_bwd(dx.data(), L.ple_p.data(),
                         p.w.at(ln(l, "ple_post")).d.data(),
                         L.rms_ple.data(), dp.data(),
                         p.dw(ln(l, "ple_post")), T, H);
-            std::vector<float> dga((size_t)T * ple, 0.0f);
+            auto& dga = ws.dga;
+            dga.assign((size_t)T * ple, 0.0f);
             linear_bwd(dp.data(), L.ple_ga.data(),
                        p.w.at(ln(l, "ple_proj")), dga.data(),
                        p.dw(ln(l, "ple_proj")), T, ple, H);
-            std::vector<float> dg((size_t)T * ple, 0.0f);
+            auto& dg = ws.dg;
+            dg.assign((size_t)T * ple, 0.0f);
             tpu_elementwise((int64_t)T * ple, [&](int64_t i) {
                 const size_t pl_i =
                     ((size_t)(i / ple) * c.layers + l) * ple +
@@ -311,7 +327,8 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                 dg[(size_t)i] = du * o.g4_ple_in[pl_i] * gelu_tanh_d(g);
                 dple_in[pl_i] += du * gelu_tanh_f(g);
             });
-            std::vector<float> dxb((size_t)T * H, 0.0f);
+            auto& dxb = ws.dxb;
+            dxb.assign((size_t)T * H, 0.0f);
             linear_bwd(dg.data(), L.x_ple.data(),
                        p.w.at(ln(l, "ple_gate")), dxb.data(),
                        p.dw(ln(l, "ple_gate")), T, H, ple);
@@ -321,24 +338,29 @@ static void bwd_g4(Params& p, const ModelConfig& c,
         }
         {
             // x_ple = x_mid + ffn_norm(ffn_pre)
-            std::vector<float> dproj((size_t)T * H, 0.0f);
+            auto& dproj = ws.dproj;
+            dproj.assign((size_t)T * H, 0.0f);
             rmsnorm_bwd(dx.data(), L.ffn_pre.data(),
                         p.w.at(ln(l, "norm_ffn")).d.data(),
                         L.rms_ffn.data(), dproj.data(),
                         p.dw(ln(l, "norm_ffn")), T, H);
-            std::vector<float> dfh((size_t)T * inter, 0.0f);
+            auto& dfh = ws.dfh;
+            dfh.assign((size_t)T * inter, 0.0f);
             linear_bwd(dproj.data(), L.fh.data(), p.w.at(ln(l, "w2")),
                        dfh.data(), p.dw(ln(l, "w2")),
                        T, inter, H);
-            std::vector<float> dfa((size_t)T * inter, 0.0f);
-            std::vector<float> dfb((size_t)T * inter, 0.0f);
+            auto& dfa = ws.dfa;
+            auto& dfb = ws.dfb;
+            dfa.assign((size_t)T * inter, 0.0f);
+            dfb.assign((size_t)T * inter, 0.0f);
             tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
                 const float a = L.fa[(size_t)i], b = L.fb[(size_t)i],
                             d = dfh[(size_t)i];
                 dfa[(size_t)i] += d * b * act_d(c, a);
                 dfb[(size_t)i] += d * act_f(c, a);
             });
-            std::vector<float> dn2((size_t)T * H, 0.0f);
+            auto& dn2 = ws.dn2;
+            dn2.assign((size_t)T * H, 0.0f);
             linear_bwd(dfa.data(), L.n2.data(), p.w.at(ln(l, "w1")),
                        dn2.data(), p.dw(ln(l, "w1")),
                        T, H, inter);
@@ -356,16 +378,19 @@ static void bwd_g4(Params& p, const ModelConfig& c,
         }
         {
             // x_mid = x_in + attn_norm(o_pre); o_pre = attn_out @ wo
-            std::vector<float> dproj((size_t)T * H, 0.0f);
+            auto& dproj = ws.dproj;
+            dproj.assign((size_t)T * H, 0.0f);
             rmsnorm_bwd(dx.data(), L.o_pre.data(),
                         p.w.at(ln(l, "norm_attn")).d.data(),
                         L.rms_attn.data(), dproj.data(),
                         p.dw(ln(l, "norm_attn")), T, H);
-            std::vector<float> dao((size_t)T * Hq, 0.0f);
+            auto& dao = ws.dao;
+            dao.assign((size_t)T * Hq, 0.0f);
             linear_bwd(dproj.data(), L.attn_out.data(),
                        p.w.at(ln(l, "wo")), dao.data(),
                        p.dw(ln(l, "wo")), T, Hq, H);
-            std::vector<float> dq((size_t)T * Hq, 0.0f);
+            auto& dq = ws.dq;
+            dq.assign((size_t)T * Hq, 0.0f);
             if (dk_acc[owner].empty()) {
                 dk_acc[owner].assign((size_t)T * Hkv, 0.0f);
                 dv_acc[owner].assign((size_t)T * Hkv, 0.0f);
@@ -419,8 +444,10 @@ static void bwd_g4(Params& p, const ModelConfig& c,
             });
             // un-rope + un-norm q (always own); k/v only at the owner.
             rope_ex(dq.data(), T, c.heads, hd, theta, rotary, true);
-            std::vector<float> dn1((size_t)T * H, 0.0f);
-            std::vector<float> dqp((size_t)T * Hq, 0.0f);
+            auto& dn1 = ws.dn1;
+            dn1.assign((size_t)T * H, 0.0f);
+            auto& dqp = ws.dqp;
+            dqp.assign((size_t)T * Hq, 0.0f);
             rmsnorm_bwd(dq.data(), L.q_proj.data(),
                         p.w.at(ln(l, "q_norm")).d.data(),
                         L.rms_q.data(), dqp.data(),
@@ -428,7 +455,8 @@ static void bwd_g4(Params& p, const ModelConfig& c,
             linear_bwd(dqp.data(), L.n1.data(), p.w.at(ln(l, "wq")),
                        dn1.data(), p.dw(ln(l, "wq")), T, H, Hq);
             if (!shared) {
-                std::vector<float> dkp((size_t)T * Hkv, 0.0f);
+                auto& dkp = ws.dkp;
+                dkp.assign((size_t)T * Hkv, 0.0f);
                 rope_ex(dk_acc[l].data(), T, c.kv_heads, hd,
                         theta, rotary, true);
                 rmsnorm_bwd(dk_acc[l].data(), L.k_proj.data(),
@@ -439,9 +467,10 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                 linear_bwd(dkp.data(), L.n1.data(),
                            p.w.at(ln(l, "wk")), dn1.data(),
                            p.dw(ln(l, "wk")), T, H, Hkv);
-                static std::vector<float> ones_buf;
+                auto& ones_buf = ws.ones_buf;
                 if ((int)ones_buf.size() < hd) ones_buf.assign(hd, 1.0f);
-                std::vector<float> dvp((size_t)T * Hkv, 0.0f);
+                auto& dvp = ws.dvp;
+                dvp.assign((size_t)T * Hkv, 0.0f);
                 rmsnorm_bwd(dv_acc[l].data(), L.v_proj.data(),
                             ones_buf.data(), L.rms_v.data(), dvp.data(),
                             nullptr, T * c.kv_heads, hd);
@@ -461,13 +490,15 @@ static void bwd_g4(Params& p, const ModelConfig& c,
     }
 
     // PLE model-level backward: dple_in -> (ctx-norm chain, embed_ple).
-    std::vector<float> dx0 = dx;                   // grad wrt x0
+    auto& dx0 = ws.dx0;
+    dx0 = dx;                                      // grad wrt x0
     if (ple > 0) {
         const int L = c.layers;
         const float mix = std::pow(2.0f, -0.5f);
         const float tok_scale = std::sqrt((float)ple);
         const float ctx_scale = 1.0f / std::sqrt((float)H);
-        std::vector<float> dctxn(dple_in.size());
+        auto& dctxn = ws.dctxn;
+        dctxn.assign(dple_in.size(), 0.0f);
         float* gepl = p.dw("embed_ple");
         // Column lanes over L*ple: each worker owns a disjoint channel
         // range across all rows, so repeated-token embed_ple accumulations
@@ -482,7 +513,8 @@ static void bwd_g4(Params& p, const ModelConfig& c,
                             dv * mix * tok_scale;
                 }
         });
-        std::vector<float> dctx(dctxn.size(), 0.0f);
+        auto& dctx = ws.dctx;
+        dctx.assign(dctxn.size(), 0.0f);
         rmsnorm_bwd(dctxn.data(), o.g4_ctx_in.data(),
                     p.w.at("ple_proj_norm").d.data(),
                     o.g4_ctx_rms.data(), dctx.data(),
