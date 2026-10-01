@@ -208,68 +208,73 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                   eo_slot.data() + (size_t)sl[(size_t)j] * H);
                 }
             }
-            for (int t = 0; t < T; ++t) {
-                const float* xr = L.n2.data() + (size_t)t * H;
-                float* dxr = dn2.data() + (size_t)t * H;
-                // recompute wsum for router-weight grads
-                const float* gp = L.gate_probs.data() + (size_t)t * E;
-                float wsum = 0.0f;
-                for (int s = 0; s < K; ++s) wsum += gp[L.moe_idx[(size_t)t * K + s]];
-                for (int s = 0; s < K; ++s) {
-                    int e = L.moe_idx[(size_t)t * K + s];
-                    const int slot = t * K + s;
-                    const float* dpr = dproj.data() + (size_t)t * H;
-                    const float* d1 = dx1_slot.data() + (size_t)slot * H;
-                    const float* d3 = dx3_slot.data() + (size_t)slot * H;
-                    for (int i = 0; i < H; ++i) { dxr[i] += d1[i]; dxr[i] += d3[i]; }
-                    // router weight grad: d(wgt * eo)/d gp[e]
-                    float dot = 0.0f;
-                    const float* eo = eo_slot.data() + (size_t)slot * H;
-                    // dout/d(gp[e]) = eo/wsum - sum_s(wgt_s*eo_s)*gp[e]/wsum^2 + aux
-                    for (int i = 0; i < H; ++i) dot += dpr[i] * eo[i];
-                    float dlogit = dot / wsum;            // contribution via this slot
-                    dgl[(size_t)t * E + e] += dlogit;
-                }
-                if (!c.moe_auxfree_balance)
-                    for (int e = 0; e < E; ++e)
-                        dgl[(size_t)t * E + e] += lb_step * moe_f[(size_t)e];
-                // Router backward (aux + weighted path share the logit
-                // grads approximated by direct slot contribution):
-                // softmax mode uses the full Jacobian p⊙(din−⟨p,din⟩);
-                // v28 sigmoid mode is diagonal — scores are per-expert
-                // independent, dσ/dz = s(1−s).
-                float* gpl = L.gate_probs.data() + (size_t)t * E;
-                const float* dglr = dgl.data() + (size_t)t * E;
-                std::vector<float> din(E);
-                if (c.moe_router_sigmoid) {
-                    for (int e = 0; e < E; ++e)
-                        din[e] = gpl[e] * (1.0f - gpl[e]) * dglr[e];
-                } else {
-                    float dotp = 0.0f;
-                    for (int e = 0; e < E; ++e) dotp += dglr[e] * gpl[e];
-                    for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
-                }
-                // Router z-loss (B133): z = aux_scale·w·mean_t lse_t² —
-                // dz/dlogit_e = 2·w·lse_t·softmax_e/T lands post-Jacobian on
-                // the raw gate logits.
-                if (aux_scale != 0.0f && c.moe_zloss_w != 0.0f) {
-                    const float* glr = L.gate_logits.data() + (size_t)t * E;
-                    float mx = *std::max_element(glr, glr + E), zs = 0.0f;
-                    for (int e = 0; e < E; ++e) zs += std::exp(glr[e] - mx);
-                    float lse = mx + std::log(zs);
-                    float cz = aux_scale * c.moe_zloss_w * 2.0f * lse /
-                               (float)std::max(1, T);
-                    for (int e = 0; e < E; ++e) {
-                        float pm = c.moe_router_sigmoid
-                                       ? std::exp(glr[e] - mx) / zs
-                                       : gpl[e];
-                        din[e] += cz * pm;
+            // Token lanes: each t's slot-grad fold into dn2/dgl touches
+            // only that row, so it parallelizes over T; the gate itself
+            // then runs as ONE T-row linear_bwd — dx rows are disjoint and
+            // dW accumulates t-ascending, the same per-element order as
+            // the serial per-token calls.
+            std::vector<float> din_all((size_t)T * E, 0.0f);
+            parallel_for(T, [&](int64_t tb, int64_t te) {
+                for (int64_t t = tb; t < te; ++t) {
+                    float* dxr = dn2.data() + (size_t)t * H;
+                    // recompute wsum for router-weight grads
+                    const float* gp = L.gate_probs.data() + (size_t)t * E;
+                    float wsum = 0.0f;
+                    for (int s = 0; s < K; ++s) wsum += gp[L.moe_idx[(size_t)t * K + s]];
+                    for (int s = 0; s < K; ++s) {
+                        int e = L.moe_idx[(size_t)t * K + s];
+                        const int slot = (int)t * K + s;
+                        const float* dpr = dproj.data() + (size_t)t * H;
+                        tpu_axpy(dxr, 1.0f,
+                                 dx1_slot.data() + (size_t)slot * H, H);
+                        tpu_axpy(dxr, 1.0f,
+                                 dx3_slot.data() + (size_t)slot * H, H);
+                        // router weight grad: d(wgt * eo)/d gp[e]
+                        const float* eo = eo_slot.data() + (size_t)slot * H;
+                        // dout/d(gp[e]) = eo/wsum - sum_s(wgt_s*eo_s)*gp[e]/wsum^2 + aux
+                        dgl[(size_t)t * E + e] += tpu_dot(dpr, eo, H) / wsum;
+                    }
+                    if (!c.moe_auxfree_balance)
+                        for (int e = 0; e < E; ++e)
+                            dgl[(size_t)t * E + e] += lb_step * moe_f[(size_t)e];
+                    // Router backward (aux + weighted path share the logit
+                    // grads approximated by direct slot contribution):
+                    // softmax mode uses the full Jacobian p⊙(din−⟨p,din⟩);
+                    // v28 sigmoid mode is diagonal — scores are per-expert
+                    // independent, dσ/dz = s(1−s).
+                    const float* gpl = L.gate_probs.data() + (size_t)t * E;
+                    const float* dglr = dgl.data() + (size_t)t * E;
+                    float* din = din_all.data() + (size_t)t * E;
+                    if (c.moe_router_sigmoid) {
+                        for (int e = 0; e < E; ++e)
+                            din[e] = gpl[e] * (1.0f - gpl[e]) * dglr[e];
+                    } else {
+                        float dotp = 0.0f;
+                        for (int e = 0; e < E; ++e) dotp += dglr[e] * gpl[e];
+                        for (int e = 0; e < E; ++e) din[e] = gpl[e] * (dglr[e] - dotp);
+                    }
+                    // Router z-loss (B133): z = aux_scale·w·mean_t lse_t² —
+                    // dz/dlogit_e = 2·w·lse_t·softmax_e/T lands
+                    // post-Jacobian on the raw gate logits.
+                    if (aux_scale != 0.0f && c.moe_zloss_w != 0.0f) {
+                        const float* glr = L.gate_logits.data() + (size_t)t * E;
+                        float mx = *std::max_element(glr, glr + E), zs = 0.0f;
+                        for (int e = 0; e < E; ++e) zs += std::exp(glr[e] - mx);
+                        float lse = mx + std::log(zs);
+                        float cz = aux_scale * c.moe_zloss_w * 2.0f * lse /
+                                   (float)std::max(1, T);
+                        for (int e = 0; e < E; ++e) {
+                            float pm = c.moe_router_sigmoid
+                                           ? std::exp(glr[e] - mx) / zs
+                                           : gpl[e];
+                            din[e] += cz * pm;
+                        }
                     }
                 }
-                linear_bwd(din.data(), xr, p.w.at(ln(l, "gate")),
-                           dxr, p.dw(ln(l, "gate")), 1, H, E);
-                (void)aux_scale;
-            }
+            });
+            linear_bwd(din_all.data(), L.n2.data(), p.w.at(ln(l, "gate")),
+                       dn2.data(), p.dw(ln(l, "gate")), T, H, E);
+            (void)aux_scale;
             // Shared experts (v26): always-on SwiGLU backward — the shared
             // output adds into proj with weight 1.0, so dproj flows through
             // each shared FFN identically to the dense FFN backward.
@@ -327,10 +332,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             }
             if (sgated) {
                 std::vector<float> dsg_logit((size_t)T);
-                for (int t = 0; t < T; ++t) {
-                    float s = L.shared_gate_sig[(size_t)t];
+                tpu_elementwise(T, [&](int64_t t) {
+                    const float s = L.shared_gate_sig[(size_t)t];
                     dsg_logit[(size_t)t] = dsg[(size_t)t] * s * (1.0f - s);
-                }
+                });
                 linear_bwd(dsg_logit.data(), L.n2.data(),
                            p.w.at(ln(l, "shared_gate")), dn2.data(),
                            p.dw(ln(l, "shared_gate")), T, H, 1);
@@ -405,7 +410,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             parallel_for(vh, [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
                 std::vector<float> dS(ssz, 0.0f);  // carry: dL/dS_t
-                std::vector<float> Sd(ssz), u(vd), kvm(vd), du(vd), dkv(vd);
+                std::vector<float> Sd(ssz), u(vd), kvm(vd), du(vd),
+                                   dkv(vd), vmkv(vd);
                 for (int t = T - 1; t >= 0; --t) {
                     const float* S_t = L.lin_S.data() + ((size_t)(t + 1) * vh + h) * ssz;
                     const float* S_prev = L.lin_S.data() + ((size_t)t * vh + h) * ssz;
@@ -435,12 +441,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     for (int d = 0; d < kd; ++d)
                         dkr[d] += tpu_dot(dS.data() + (size_t)d * vd, u.data(), vd);
                     // u = β(v − kv_mem)
-                    float dbt = 0.0f;
-                    for (int i = 0; i < vd; ++i) {
-                        float vmkv = vr[i] - kvm[i];
-                        dv[(size_t)((size_t)t * vh + h) * vd + i] += bt * du[i];
-                        dbt += vmkv * du[i];
-                    }
+                    tpu_axpy(dv.data() + ((size_t)t * vh + h) * vd,
+                             bt, du.data(), vd);
+                    for (int i = 0; i < vd; ++i) vmkv[i] = vr[i] - kvm[i];
+                    const float dbt = tpu_dot(vmkv.data(), du.data(), vd);
                     db_raw[(size_t)t * vh + h] += dbt * bt * (1.0f - bt);
                     // kv_mem = S̃ᵀk → dS̃ += k⊗dkv ; dk += S̃·dkv
                     for (int i = 0; i < vd; ++i) dkv[i] = -bt * du[i];
@@ -509,7 +513,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                         }
                 });
                 // qn is l2normed then scaled — undo scale for l2norm_bwd
-                for (auto& x : qn_kh) x /= qscale;
+                tpu_elementwise((int64_t)qn_kh.size(), [&](int64_t i) {
+                    qn_kh[(size_t)i] /= qscale;
+                });
                 l2norm_bwd(dqk_raw.data(), qn_kh.data(), qr_kh.data(),
                            dq_pre.data(), T * kh, kd);
                 l2norm_bwd(dkk_raw.data(), kn_kh.data(), kr_kh.data(),
@@ -871,35 +877,55 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 const float w = aux_scale * c.csa_indexer_w /
                                 (std::max(1, T) * (float)c.heads);
                 std::vector<float> diq((size_t)T * hd, 0.0f);
-                for (int t = 0; t < T; ++t) {
-                    const int cn = L.csa_ncand[(size_t)t];
-                    if (cn <= 0) continue;
-                    const float* isc =
-                        L.csa_isc.data() + (size_t)t * csa_nc;
-                    float imx = -1e30f;
-                    for (int cc = 0; cc < cn; ++cc)
-                        imx = std::max(imx, isc[cc]);
-                    float isum = 0.0f;
-                    for (int cc = 0; cc < cn; ++cc)
-                        isum += std::exp(isc[cc] - imx);
-                    float iinv = 1.0f / isum;
-                    const float* iqr = L.csa_iq.data() + (size_t)t * hd;
-                    float* diqr = diq.data() + (size_t)t * hd;
-                    for (int cc = 0; cc < cn; ++cc) {
-                        float sig = std::exp(isc[cc] - imx) * iinv;
-                        float tgt = 0.0f;
-                        for (int h = 0; h < c.heads; ++h)
-                            tgt += L.csa_msc[((size_t)t * c.heads + h) *
-                                             csa_nc + cc];
-                        float ds = w * (sig - tgt / (float)c.heads);
-                        if (ds == 0.0f) continue;
-                        const float* ikr = csa_prod->csa_ik.data() +
-                            (size_t)cc * hd;
-                        tpu_axpy(diqr, ds, ikr, hd);
-                        tpu_axpy(csa_prod->csa_dik.data() + (size_t)cc * hd,
-                                 ds, iqr, hd);
+                // Pass 1 (token lanes): per-t ds into scratch + diq —
+                // both writes are row-disjoint. Pass 2 (chunk lanes):
+                // csa_dik[cc] accumulates ds·iq over t in ascending order,
+                // skipping exact zeros — the same add sequence per
+                // element as the fused serial loop.
+                std::vector<float> dsbuf((size_t)T * csa_nc, 0.0f);
+                parallel_for(T, [&](int64_t tb, int64_t te) {
+                    for (int64_t t = tb; t < te; ++t) {
+                        const int cn = L.csa_ncand[(size_t)t];
+                        if (cn <= 0) continue;
+                        const float* isc =
+                            L.csa_isc.data() + (size_t)t * csa_nc;
+                        float imx = -1e30f;
+                        for (int cc = 0; cc < cn; ++cc)
+                            imx = std::max(imx, isc[cc]);
+                        float isum = 0.0f;
+                        for (int cc = 0; cc < cn; ++cc)
+                            isum += std::exp(isc[cc] - imx);
+                        float iinv = 1.0f / isum;
+                        const float* iqr = L.csa_iq.data() + (size_t)t * hd;
+                        float* diqr = diq.data() + (size_t)t * hd;
+                        for (int cc = 0; cc < cn; ++cc) {
+                            float sig = std::exp(isc[cc] - imx) * iinv;
+                            float tgt = 0.0f;
+                            for (int h = 0; h < c.heads; ++h)
+                                tgt += L.csa_msc[((size_t)t * c.heads + h) *
+                                                 csa_nc + cc];
+                            float ds = w * (sig - tgt / (float)c.heads);
+                            dsbuf[(size_t)t * csa_nc + cc] = ds;
+                            if (ds == 0.0f) continue;
+                            tpu_axpy(diqr, ds,
+                                     csa_prod->csa_ik.data() +
+                                         (size_t)cc * hd, hd);
+                        }
                     }
-                }
+                });
+                parallel_for(csa_nc, [&](int64_t cb, int64_t ce) {
+                    for (int64_t cc = cb; cc < ce; ++cc) {
+                        float* dikr =
+                            csa_prod->csa_dik.data() + (size_t)cc * hd;
+                        for (int64_t t = 0; t < T; ++t) {
+                            const float ds =
+                                dsbuf[(size_t)t * csa_nc + cc];
+                            if (ds == 0.0f) continue;
+                            tpu_axpy(dikr, ds,
+                                     L.csa_iq.data() + (size_t)t * hd, hd);
+                        }
+                    }
+                });
                 linear_bwd(diq.data(), L.n1.data(), p.w.at(ln(l, "wiq")),
                            dn1.data(), p.dw(ln(l, "wiq")), T, H, hd);
             }
@@ -921,31 +947,50 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 if (c.csa_indexer && !L.csa_dik.empty()) {
                     const float* wik = p.w.at(ln(l, "wik")).d.data();
                     float* gwik = p.dw(ln(l, "wik"));
-                    for (int cc = 0; cc < csa_nc; ++cc) {
-                        const float* dik = L.csa_dik.data() + (size_t)cc * hd;
-                        std::vector<float> mkr((size_t)hd, 0.0f);
-                        for (int gg = 0; gg < kvh; ++gg)
-                            tpu_axpy(mkr.data(), 1.0f / (float)kvh,
-                                     L.csa_ckr.data() +
-                                         ((size_t)cc * kvh + gg) * hd,
-                                     hd);
-                        // dwik += dik ⊗ mk ; dmk = wikᵀ·dik
-                        if (gwik)
+                    // dmk rows are disjoint per (cc,gg): lane over pairs.
+                    // tmp[ii] accumulates oi-ascending like the serial
+                    // matvec, then folds into dck — per-element order
+                    // unchanged.
+                    std::vector<float> mkr_all((size_t)csa_nc * hd);
+                    parallel_for(csa_nc, [&](int64_t cb, int64_t ce) {
+                        for (int64_t cc = cb; cc < ce; ++cc) {
+                            float* mkr = mkr_all.data() + (size_t)cc * hd;
+                            for (int gg = 0; gg < kvh; ++gg)
+                                tpu_axpy(mkr, 1.0f / (float)kvh,
+                                         L.csa_ckr.data() +
+                                             ((size_t)cc * kvh + gg) * hd,
+                                         hd);
+                        }
+                    });
+                    // dwik += Σ_cc dik ⊗ mk — cc-ascending serial fold.
+                    if (gwik)
+                        for (int cc = 0; cc < csa_nc; ++cc) {
+                            const float* dik =
+                                L.csa_dik.data() + (size_t)cc * hd;
+                            const float* mkr =
+                                mkr_all.data() + (size_t)cc * hd;
                             for (int oi = 0; oi < hd; ++oi)
-                                for (int ii = 0; ii < hd; ++ii)
-                                    gwik[(size_t)oi * hd + ii] +=
-                                        dik[oi] * mkr[ii];
-                        for (int gg = 0; gg < kvh; ++gg) {
+                                tpu_axpy(gwik + (size_t)oi * hd, dik[oi],
+                                         mkr, hd);
+                        }
+                    parallel_for((int64_t)csa_nc * kvh,
+                                 [&](int64_t b, int64_t e) {
+                        std::vector<float> tmp((size_t)hd);
+                        for (int64_t p2 = b; p2 < e; ++p2) {
+                            const int cc = (int)(p2 / kvh);
+                            const int gg = (int)(p2 % kvh);
+                            const float* dik =
+                                L.csa_dik.data() + (size_t)cc * hd;
+                            std::fill(tmp.begin(), tmp.end(), 0.0f);
+                            for (int oi = 0; oi < hd; ++oi)
+                                tpu_axpy(tmp.data(), dik[oi],
+                                         wik + (size_t)oi * hd, hd);
                             float* dck = L.csa_dck.data() +
                                 ((size_t)cc * kvh + gg) * hd;
-                            for (int ii = 0; ii < hd; ++ii) {
-                                float s = 0.0f;
-                                for (int oi = 0; oi < hd; ++oi)
-                                    s += wik[(size_t)oi * hd + ii] * dik[oi];
-                                dck[ii] += s / (float)kvh;
-                            }
+                            for (int ii = 0; ii < hd; ++ii)
+                                dck[ii] += tmp[ii] / (float)kvh;
                         }
-                    }
+                    });
                 }
                 // compressor scatter: dck_raw/dcv per (chunk, kv-head) →
                 // member-token grads in pre-rope space + wck/wcv grads.
@@ -956,63 +1001,72 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 const float* wcv = p.w.at(ln(l, "wcv")).d.data();
                 float* gwck = p.dw(ln(l, "wck"));
                 float* gwcv = p.dw(ln(l, "wcv"));
-                std::vector<float> cvec((size_t)rr * hd);
-                for (int cc = 0; cc < csa_nc; ++cc)
-                    for (int gg = 0; gg < kvh; ++gg) {
-                        const float* dck =
-                            L.csa_dck.data() + ((size_t)cc * kvh + gg) * hd;
-                        const float* dcv =
-                            L.csa_dcv.data() + ((size_t)cc * kvh + gg) * hd;
-                        for (int j = 0; j < rr; ++j) {
-                            const size_t mrow =
-                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
-                            std::copy(L.csa_kpre.data() + mrow,
-                                      L.csa_kpre.data() + mrow + hd,
-                                      cvec.data() + (size_t)j * hd);
-                        }
-                        // dwck += dck ⊗ cvec ; dvec = wckᵀ dck
-                        if (gwck)
-                            for (int oi = 0; oi < hd; ++oi)
-                                for (int ii = 0; ii < rr * hd; ++ii)
-                                    gwck[(size_t)oi * (size_t)(rr * hd) + ii] +=
-                                        dck[oi] * cvec[ii];
-                        for (int j = 0; j < rr; ++j) {
-                            float* dm =
-                                dk_csa.data() +
-                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
-                            for (int ii = 0; ii < hd; ++ii) {
-                                float s = 0.0f;
-                                for (int oi = 0; oi < hd; ++oi)
-                                    s += wck[(size_t)oi * (size_t)(rr * hd) +
-                                             (size_t)j * hd + ii] * dck[oi];
-                                dm[ii] += s;
-                            }
-                        }
-                        for (int j = 0; j < rr; ++j) {
-                            const size_t mrow =
-                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
-                            std::copy(L.v.data() + mrow,
-                                      L.v.data() + mrow + hd,
-                                      cvec.data() + (size_t)j * hd);
-                        }
-                        if (gwcv)
-                            for (int oi = 0; oi < hd; ++oi)
-                                for (int ii = 0; ii < rr * hd; ++ii)
-                                    gwcv[(size_t)oi * (size_t)(rr * hd) + ii] +=
-                                        dcv[oi] * cvec[ii];
-                        for (int j = 0; j < rr; ++j) {
-                            float* dm =
-                                dv_csa.data() +
-                                ((size_t)(cc * rr + j) * kvh + gg) * hd;
-                            for (int ii = 0; ii < hd; ++ii) {
-                                float s = 0.0f;
-                                for (int oi = 0; oi < hd; ++oi)
-                                    s += wcv[(size_t)oi * (size_t)(rr * hd) +
-                                             (size_t)j * hd + ii] * dcv[oi];
-                                dm[ii] += s;
-                            }
-                        }
+                // Pair lanes: member-block gathers and member-grad
+                // matvecs are disjoint per (cc,gg,j); the wck/wcv weight
+                // grads keep their serial (cc,gg)-ascending axpy fold.
+                const int np2 = csa_nc * kvh;
+                const size_t R2 = (size_t)rr * hd;
+                std::vector<float> cvec_k((size_t)np2 * R2),
+                                   cvec_v((size_t)np2 * R2);
+                parallel_for((int64_t)np2 * rr, [&](int64_t b, int64_t e) {
+                    for (int64_t q = b; q < e; ++q) {
+                        const int p2 = (int)(q / rr), j = (int)(q % rr);
+                        const int cc = p2 / kvh, gg = p2 % kvh;
+                        const size_t mrow =
+                            ((size_t)(cc * rr + j) * kvh + gg) * hd;
+                        std::copy(L.csa_kpre.data() + mrow,
+                                  L.csa_kpre.data() + mrow + hd,
+                                  cvec_k.data() + (size_t)q * hd);
+                        std::copy(L.v.data() + mrow,
+                                  L.v.data() + mrow + hd,
+                                  cvec_v.data() + (size_t)q * hd);
                     }
+                });
+                if (gwck)
+                    for (int p2 = 0; p2 < np2; ++p2) {
+                        const float* dck =
+                            L.csa_dck.data() + (size_t)p2 * hd;
+                        const float* cv_ = cvec_k.data() + (size_t)p2 * R2;
+                        for (int oi = 0; oi < hd; ++oi)
+                            tpu_axpy(gwck + (size_t)oi * R2, dck[oi],
+                                     cv_, (int64_t)R2);
+                    }
+                if (gwcv)
+                    for (int p2 = 0; p2 < np2; ++p2) {
+                        const float* dcv =
+                            L.csa_dcv.data() + (size_t)p2 * hd;
+                        const float* cv_ = cvec_v.data() + (size_t)p2 * R2;
+                        for (int oi = 0; oi < hd; ++oi)
+                            tpu_axpy(gwcv + (size_t)oi * R2, dcv[oi],
+                                     cv_, (int64_t)R2);
+                    }
+                parallel_for((int64_t)np2 * rr, [&](int64_t b, int64_t e) {
+                    std::vector<float> tmp((size_t)hd);
+                    for (int64_t q = b; q < e; ++q) {
+                        const int p2 = (int)(q / rr), j = (int)(q % rr);
+                        const int cc = p2 / kvh, gg = p2 % kvh;
+                        const size_t mrow =
+                            ((size_t)(cc * rr + j) * kvh + gg) * hd;
+                        const float* dck =
+                            L.csa_dck.data() + (size_t)p2 * hd;
+                        const float* dcv =
+                            L.csa_dcv.data() + (size_t)p2 * hd;
+                        std::fill(tmp.begin(), tmp.end(), 0.0f);
+                        for (int oi = 0; oi < hd; ++oi)
+                            tpu_axpy(tmp.data(), dck[oi],
+                                     wck + (size_t)oi * R2 +
+                                          (size_t)j * hd, hd);
+                        for (int ii = 0; ii < hd; ++ii)
+                            dk_csa[mrow + ii] += tmp[ii];
+                        std::fill(tmp.begin(), tmp.end(), 0.0f);
+                        for (int oi = 0; oi < hd; ++oi)
+                            tpu_axpy(tmp.data(), dcv[oi],
+                                     wcv + (size_t)oi * R2 +
+                                          (size_t)j * hd, hd);
+                        for (int ii = 0; ii < hd; ++ii)
+                            dv_csa[mrow + ii] += tmp[ii];
+                    }
+                });
             }
             const int rd = c.rotary_dim_at(l);
             const float th = c.rope_theta_at(l);
@@ -1133,7 +1187,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     std::vector<float> dlm;
     ce_loss(M.logits, M.lab, PT, c.vocab, dlm);
     const float sc = c.mtp_loss_weight * aux_scale;
-    for (auto& d : dlm) d *= sc;
+    tpu_scale(dlm.data(), sc, (int64_t)dlm.size());
     std::vector<float> dout((size_t)PT * H, 0.0f);
     linear_bwd(dlm.data(), M.out.data(), p.w.at("lm_head"), dout.data(),
                p.dw("lm_head"), PT, H, c.vocab);
@@ -1229,25 +1283,56 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     std::vector<float> dcin((size_t)PT * 2 * H, 0.0f);
     linear_bwd(dz.data(), M.cin.data(), p.w.at("mtp.w_proj"), dcin.data(),
                p.dw("mtp.w_proj"), PT, 2 * H, H);
-    for (int i = 0; i < PT; ++i) {
-        rmsnorm_bwd(dcin.data() + (size_t)i * 2 * H,
-                    M.nh_src.data() + (size_t)i * H,
-                    p.w.at("mtp.norm_h").d.data(), M.nh_rms.data() + i,
-                    dh.data() + (size_t)(P + i) * H,
-                    p.dw("mtp.norm_h"), 1, H);
-        if (M.ne_ids[(size_t)i] >= 0) {
-            std::vector<float> demb((size_t)H, 0.0f);
-            rmsnorm_bwd(dcin.data() + (size_t)i * 2 * H + H,
-                        M.ne_src.data() + (size_t)i * H,
-                        p.w.at("mtp.norm_e").d.data(), M.ne_rms.data() + i,
-                        demb.data(), p.dw("mtp.norm_e"), 1, H);
-            float* ger = p.dw("embed");
-            if (ger) {
-                ger += (size_t)M.ne_ids[(size_t)i] * H;
-                for (int j = 0; j < H; ++j) ger[j] += demb[(size_t)j];
+    // Column lanes over H: each worker owns a disjoint channel range
+    // across all rows, so the shared accumulations (norm_h/norm_e dw,
+    // dh rows, embed.g) replay in i-ascending order per element —
+    // bitwise identical to the serial per-row rmsnorm_bwd calls.
+    const float* wh_ = p.w.at("mtp.norm_h").d.data();
+    const float* we_ = p.w.at("mtp.norm_e").d.data();
+    float* gnh = p.dw("mtp.norm_h");
+    float* gne = p.dw("mtp.norm_e");
+    float* ger = p.dw("embed");
+    std::vector<float> dnh((size_t)PT), dne((size_t)PT);
+    parallel_for(PT, [&](int64_t b, int64_t e) {
+        for (int64_t i = b; i < e; ++i) {
+            const float* xr = M.nh_src.data() + (size_t)i * H;
+            const float* dyr = dcin.data() + (size_t)i * 2 * H;
+            float d = 0.0f;
+            for (int j = 0; j < H; ++j)
+                d += dyr[j] * xr[j] * wh_[j];
+            dnh[(size_t)i] = d;
+            if (M.ne_ids[(size_t)i] >= 0) {
+                const float* xr2 = M.ne_src.data() + (size_t)i * H;
+                const float* dyr2 = dyr + H;
+                float d2 = 0.0f;
+                for (int j = 0; j < H; ++j)
+                    d2 += dyr2[j] * xr2[j] * we_[j];
+                dne[(size_t)i] = d2;
             }
         }
-    }
+    });
+    parallel_for(H, [&](int64_t b, int64_t e) {
+        for (int64_t j = b; j < e; ++j)
+            for (int64_t i = 0; i < PT; ++i) {
+                const float inv = 1.0f / M.nh_rms[(size_t)i];
+                const float dyj = dcin[(size_t)i * 2 * H + j];
+                const float xj = M.nh_src[(size_t)i * H + j];
+                if (gnh) gnh[j] += dyj * xj * inv;
+                dh[(size_t)(P + i) * H + j] +=
+                    (dyj * wh_[j] -
+                     xj * dnh[(size_t)i] * inv * inv / H) * inv;
+                if (M.ne_ids[(size_t)i] >= 0) {
+                    const float inv2 = 1.0f / M.ne_rms[(size_t)i];
+                    const float dyj2 = dcin[(size_t)i * 2 * H + H + j];
+                    const float xj2 = M.ne_src[(size_t)i * H + j];
+                    if (gne) gne[j] += dyj2 * xj2 * inv2;
+                    if (ger)
+                        ger[(size_t)M.ne_ids[(size_t)i] * H + j] +=
+                            (dyj2 * we_[j] -
+                             xj2 * dne[(size_t)i] * inv2 * inv2 / H) * inv2;
+                }
+            }
+    });
 }
 
 // ------------------------------------------------------------ losses/API --
