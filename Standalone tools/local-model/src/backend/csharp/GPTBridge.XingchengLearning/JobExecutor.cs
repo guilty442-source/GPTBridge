@@ -128,12 +128,13 @@ internal sealed class TrainingJobExecutor
         var freezePol = SelfLearningPolicy.Load(_toolRoot);
         CapabilityFreeze.GuardJob(kind, (string)cfg["capability"]!,
                                   freezePol);
-        if (kind == "pretrain")
+        if (kind == "pretrain" && CapabilityFreeze.CAPABILITY_TRAINING_FROZEN)
         {
-            // star-canonical-pretrain/v1: the freeze lane admits pretrain
-            // only when the policy declares the canonical-pretrain mode
-            // AND the job's model block pins the canonical generation —
-            // a generic or non-canonical pretrain stays frozen.
+            // star-canonical-pretrain/v1: while the freeze holds, the
+            // lane admits pretrain only when the policy declares the
+            // canonical-pretrain mode AND the job's model block pins the
+            // canonical generation — a generic or non-canonical pretrain
+            // stays frozen.
             if (!CapabilityFreeze.CanonicalPretrainLaneOpen(freezePol))
                 throw new ExecutorError("CANONICAL_PRETRAIN_DENIED",
                     "pretrain requires architecture_pretrain_mode " +

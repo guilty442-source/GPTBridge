@@ -13,6 +13,7 @@ namespace GPTBridge.XingchengLearning;
 internal static class SftDataset
 {
     public const string SftFormatVersion = "star-transformer-sft/v1";
+    public const string PretrainFormatVersion = "star-transformer-pretrain/v1";
     public const string PreferenceSnapshotFormat = "star-transformer-dpo/v1";
     public const string PreferenceSourceType = "preference-pair-governed";
     public const double PairQuality = 0.9;
@@ -68,6 +69,149 @@ internal static class SftDataset
             ["collected_at"] =
                 TransformerTrainingRepository.Str(example, "collected_at") ?? "",
             ["validation_state"] = "collected",
+        };
+    }
+
+    /// <summary>Pretrain document example (star-transformer-pretrain/v1):
+    /// rows carry raw ``text`` plus provenance; the snapshot record keeps
+    /// ``text`` (the executor's pretrain row source) and the registered
+    /// example carries the same split/scope/hash contract as SFT.</summary>
+    public static Dictionary<string, object?> SerializePretrainExample(
+        IReadOnlyDictionary<string, object?> example)
+    {
+        string text = (TransformerTrainingRepository.Str(example, "text") ?? "").Trim();
+        if (text.Length == 0)
+            throw new ArgumentException(
+                "pretrain example requires non-empty text");
+        return new Dictionary<string, object?>
+        {
+            ["source"] = TransformerTrainingRepository.Str(example, "source_type") ?? "",
+            ["sha256"] = Sha256Text(text),
+            ["text"] = text,
+            ["source_example_id"] =
+                TransformerTrainingRepository.Str(example, "example_id") ?? "",
+            ["source_revision"] =
+                TransformerTrainingRepository.Int(example, "revision"),
+            ["quality_score"] =
+                TransformerTrainingRepository.Num(example, "quality_score"),
+            ["generation"] =
+                TransformerTrainingRepository.Str(example, "generation") ?? "",
+            ["model_version"] =
+                TransformerTrainingRepository.Str(example, "model_version") ?? "",
+            ["validation_state"] = "collected",
+        };
+    }
+
+    /// <summary>Pretrain snapshot builder: same deterministic hash-permille
+    /// split and snapshot serialization as the SFT lane, but documents are
+    /// raw text (no prompt/completion structure).</summary>
+    public static Dictionary<string, object?> BuildPretrainDataset(
+        string outputPath,
+        IReadOnlyDictionary<string, List<Dictionary<string, object?>>> examplesByScope,
+        int valPermille = 50,
+        string generation = "",
+        string modelVersion = "")
+    {
+        string target = Path.GetFullPath(outputPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        if (valPermille <= 0 || valPermille >= 1000)
+            throw new ArgumentException("val_permille must be in (0, 1000)");
+
+        var registered = new List<Dictionary<string, object?>>();
+        var records = new List<Dictionary<string, object?>>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (scope, examples) in examplesByScope)
+        {
+            if (!ScopeMap.TryGetValue(scope, out string? databaseScope))
+                throw new ArgumentException($"unsupported database_scope: {scope}");
+            foreach (var example in examples)
+            {
+                var record = SerializePretrainExample(example);
+                if (generation.Length > 0 &&
+                    (string?)record["generation"] == "")
+                    record["generation"] = generation;
+                if (modelVersion.Length > 0 &&
+                    (string?)record["model_version"] == "")
+                    record["model_version"] = modelVersion;
+                string hash = (string)record["sha256"]!;
+                if (!seen.Add(hash))
+                    continue;
+                string split =
+                    Convert.ToInt32(hash[..8], 16) % 1000 < valPermille
+                        ? "validation" : "train";
+                record["split"] = split;
+                records.Add(record);
+                registered.Add(new Dictionary<string, object?>
+                {
+                    ["split"] = split,
+                    ["owner_model_id"] =
+                        TransformerTrainingRepository.Str(example, "owner_model_id")
+                        ?? "star-main-native-model",
+                    ["database_scope"] = databaseScope,
+                    ["source_example_id"] = record["source_example_id"],
+                    ["source_revision"] = record["source_revision"],
+                    ["content_sha256"] = hash,
+                    ["source_type"] = record["source"],
+                    ["quality_score"] = record["quality_score"],
+                    ["generation"] = record["generation"],
+                    ["model_version"] = record["model_version"],
+                });
+            }
+        }
+
+        if (records.Count == 0)
+            throw new ArgumentException(
+                "no approved pretrain documents supplied");
+        if (!records.Any(r => (string?)r["split"] == "train") ||
+            !records.Any(r => (string?)r["split"] == "validation"))
+            throw new ArgumentException(
+                "dataset requires train and validation examples");
+
+        using (var writer = new StreamWriter(target, append: false,
+                                             new UTF8Encoding(false)))
+            foreach (var record in records)
+                writer.WriteLine(CanonicalJson.PlainDict(record));
+
+        var sortedHashes = records.Select(r => (string)r["sha256"]!)
+            .OrderBy(h => h, StringComparer.Ordinal).ToList();
+        var sb = new StringBuilder("[");
+        for (int i = 0; i < sortedHashes.Count; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            CanonicalJson.WriteValue(sortedHashes[i], sb, canonical: false, depth: 0);
+        }
+        sb.Append(']');
+        string contentSha256 = Sha256Text(sb.ToString());
+
+        string snapshotSha256 = TransformerTrainingRepository.Sha256File(target);
+        var scopes = examplesByScope
+            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .ToDictionary(kv => kv.Key, kv => (object?)kv.Value.Count);
+        var manifest = new Dictionary<string, object?>
+        {
+            ["format_version"] = PretrainFormatVersion,
+            ["snapshot_path"] = target,
+            ["snapshot_sha256"] = snapshotSha256,
+            ["content_sha256"] = contentSha256,
+            ["example_count"] = records.Count,
+            ["train_count"] = records.Count(r => (string?)r["split"] == "train"),
+            ["validation_count"] = records.Count(r => (string?)r["split"] == "validation"),
+            ["scopes"] = scopes,
+        };
+        return new Dictionary<string, object?>
+        {
+            ["format_version"] = PretrainFormatVersion,
+            ["snapshot_path"] = target,
+            ["snapshot_sha256"] = snapshotSha256,
+            ["content_sha256"] = contentSha256,
+            ["examples"] = registered,
+            ["source_manifest"] = new Dictionary<string, object?>
+            {
+                ["format"] = PretrainFormatVersion,
+                ["scopes"] = scopes,
+                ["val_permille"] = valPermille,
+            },
+            ["manifest"] = manifest,
         };
     }
 

@@ -1941,8 +1941,13 @@ internal static class Program
         string snapshotPath = Path.Combine(
             toolRoot, XcPaths.SelfLearningSnapshotRel,
             $"queue-job-{DateTime.UtcNow:yyyyMMdd-HHmmss}.jsonl");
-        var snapshot = SftDataset.BuildSftDataset(
-            snapshotPath, byScope, valPermille);
+        bool isPretrain =
+            configuration.TryGetValue("training_kind", out object? tk) &&
+            tk is string tkStr &&
+            string.Equals(tkStr, "pretrain", StringComparison.OrdinalIgnoreCase);
+        var snapshot = isPretrain
+            ? SftDataset.BuildPretrainDataset(snapshotPath, byScope, valPermille)
+            : SftDataset.BuildSftDataset(snapshotPath, byScope, valPermille);
         var repo = new TransformerTrainingRepository(toolRoot);
         var dataset = repo.CreateDataset(
             contentSha256: (string)snapshot["content_sha256"]!,
@@ -1951,14 +1956,17 @@ internal static class Program
             examples: (List<Dictionary<string, object?>>)snapshot["examples"]!,
             sourceManifest: new Dictionary<string, object?>
             {
-                ["format"] = SftDataset.SftFormatVersion,
+                ["format"] = isPretrain ? SftDataset.PretrainFormatVersion
+                                        : SftDataset.SftFormatVersion,
                 ["origin"] = "queue-job",
                 ["rows_source"] = string.IsNullOrWhiteSpace(rowsPath)
                     ? null : Path.GetFileName(rowsPath),
                 ["include_collected"] = includeCollected,
                 ["collected_examples"] = collected,
             },
-            createdBy: "queue-job");
+            createdBy: "queue-job",
+            formatVersion: isPretrain ? SftDataset.PretrainFormatVersion
+                                      : SftDataset.SftFormatVersion);
         var job = repo.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
             configuration: configuration,
