@@ -437,9 +437,10 @@ internal static class MainlineConvergence
             ["unclassified_tensors"] = unknown,
             ["storage_bytes"] = storageBytes,
             ["precision_profile"] =
-                TransformerTrainingRepository.Str(
-                    ModelLifecycle.Decode(root)!, "quantization") ??
-                "unknown",
+                ModelLifecycle.Decode(root) is
+                    Dictionary<string, object?> mm &&
+                TransformerTrainingRepository.Str(mm, "quantization")
+                    is string qq ? qq : "unknown",
             ["moe_top_k"] = topK,
             ["moe_num_experts"] = numExperts,
             ["basis"] = "recomputed from manifest tensor table, " +
@@ -537,12 +538,11 @@ internal static class MainlineConvergence
             // reopened capability.
             var caps = (Dictionary<string, object?>)
                 state["capabilities"]!;
-            bool receipt =
-                caps.TryGetValue(policy.ActiveCapability,
-                                 out object? c) &&
-                c is Dictionary<string, object?> cd &&
-                cd.ContainsKey("reopened_from") &&
-                cd["reopened_from"] != null;
+            caps.TryGetValue(policy.ActiveCapability, out object? c);
+            var cd = c as Dictionary<string, object?>;
+            bool receipt = cd != null &&
+                           cd.ContainsKey("reopened_from") &&
+                           cd["reopened_from"] != null;
             if (!receipt)
                 throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                     $"active_capability '{policy.ActiveCapability}' " +
