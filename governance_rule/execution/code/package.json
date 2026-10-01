@@ -1,0 +1,6 @@
+{
+  "name": "gptbridge-governance-checkers",
+  "private": true,
+  "type": "module",
+  "description": "C55 registered governance checker subtree (JavaScript-ESM). READONLY-V1: checkers scan+resolve+classify+compare+evidence+PASS/WARN/FAIL only; policies and registry are immutable declarative data."
+}
