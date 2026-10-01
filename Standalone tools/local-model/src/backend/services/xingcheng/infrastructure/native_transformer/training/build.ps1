@@ -10,19 +10,18 @@ $inc = Join-Path $repoRoot 'native\include'
 $src = Join-Path $root 'xingcheng_trainer.cpp'
 $exe = Join-Path $root 'xingcheng_trainer.exe'
 
-# NativeCudaTrainingPlane (optional): when the CUDA toolkit is present the
-# trainer links the native kernel TU so the fused-AdamW device path is
-# available behind XINGCHENG_TRAINER_CUDA_OPT. CUDA driver/NVRTC bind
-# dynamically at runtime — a host without NVIDIA still runs identically.
-# Without a toolkit the same sources build CPU-only (stub path).
+# NativeCudaTrainingPlane: the fused-AdamW device path is compiled in
+# whenever the kernel TU is present — it needs no CUDA toolkit at all.
+# nvcuda.dll binds dynamically at run time and the in-tree PTX is JIT'd
+# by the installed driver; a host without an NVIDIA driver still runs
+# the identical CPU lane fail-closed (B132). Toolkit headers/libs/dlls
+# are never referenced.
 $backend = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $root))))
 $cppSrc = Join-Path $backend 'cpp\src'
 $knl = Join-Path $cppSrc 'cuda_kernels.cpp'
-$cudaInc = if ($env:CUDA_PATH) { Join-Path $env:CUDA_PATH 'include' } else { $null }
-$cudaLib = if ($env:CUDA_PATH) { Join-Path $env:CUDA_PATH 'lib\x64\cudart_static.lib' } else { $null }
-$useCuda = (Test-Path -LiteralPath $knl) -and $cudaInc -and (Test-Path -LiteralPath $cudaInc) -and (Test-Path -LiteralPath $cudaLib)
+$useCuda = Test-Path -LiteralPath $knl
 if ($useCuda) {
-    cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc /DXINGCHENG_CUDA /DXINGCHENG_CUDA_KERNELS /I`"$inc`" /I`"$cppSrc`" /I`"$cudaInc`" /Fe`"$exe`" `"$src`" `"$knl`" /Fo`"$root\obj\\`" /link `"$cudaLib`""
+    cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc /DXINGCHENG_CUDA /DXINGCHENG_CUDA_KERNELS /I`"$inc`" /I`"$cppSrc`" /Fe`"$exe`" `"$src`" `"$knl`" /Fo`"$root\obj\\`""
 } else {
     cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc /I`"$inc`" /Fe`"$exe`" `"$src`" /Fo`"$root\obj\\`""
 }
