@@ -476,14 +476,16 @@ static JsonValue run_job(const JsonValue& job) {
                     // completion positions only.
                     std::vector<float> dl(fw.logits.size(), 0.0f);
                     const float scale = (r.adv - tc.kl_coef) / (float)ntok;
-                    for (int t = P - 1; t < T - 1; ++t) {
-                        const int y = full[(size_t)t + 1];
-                        if (y < 0 || y >= c.vocab) continue;
-                        soft_grad_row(
-                            fw.logits.data() + (size_t)t * c.vocab,
-                            c.vocab, y, scale,
-                            dl.data() + (size_t)t * c.vocab);
-                    }
+                    parallel_for((int64_t)T - P, [&](int64_t b, int64_t e) {
+                        for (int64_t t = (P - 1) + b; t < (P - 1) + e; ++t) {
+                            const int y = full[(size_t)t + 1];
+                            if (y < 0 || y >= c.vocab) continue;
+                            soft_grad_row(
+                                fw.logits.data() + (size_t)t * c.vocab,
+                                c.vocab, y, scale,
+                                dl.data() + (size_t)t * c.vocab);
+                        }
+                    });
                     bwd(p, c,
                         std::vector<int>(full.begin(), full.end() - 1),
                         fw, dl, 0.0f);
