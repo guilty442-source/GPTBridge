@@ -31,8 +31,20 @@ std::expected<RulesDoc, std::string> parse_rules(std::string_view text) {
         for (const auto& [key, value] : raw_defaults->object)
             doc.defaults.emplace(key, value);
     }
+    if (const JsonValue* raw_defaults = root.get("defaults");
+        raw_defaults != nullptr && raw_defaults->type == T::Object) {
+        for (const auto& [key, value] : raw_defaults->object)
+            doc.explicit_defaults.emplace(key, value);
+    }
     if (const JsonValue* raw_modes = root.get("modes");
         raw_modes != nullptr && raw_modes->type == T::Object) {
+        for (const auto& [name, preset] : raw_modes->object) {
+            if (name.empty() || preset.type != T::Object) continue;
+            std::map<std::string, JsonValue> entries;
+            for (const auto& [key, value] : preset.object)
+                entries.emplace(key, value);
+            doc.modes.emplace(name, std::move(entries));
+        }
         std::string raw_mode = "medium";
         if (const JsonValue* mode_value = root.get("mode");
             mode_value != nullptr && mode_value->type == T::String &&
@@ -58,6 +70,20 @@ std::expected<RulesDoc, std::string> parse_rules(std::string_view text) {
                     doc.defaults[key] = value;
             }
         }
+    }
+    /* 自動模式顧問：auto_mode 開關＋auto 區塊（ceiling 上限等旋鈕）＋
+     * power_saving_schedule；ceiling/schedule mode 須為已定義檔位。 */
+    doc.auto_mode = json_is_true(root.get("auto_mode"));
+    {
+        std::set<std::string> valid_modes;
+        for (const auto& [name, preset] : doc.modes) valid_modes.insert(name);
+        std::string advisor_error;
+        doc.advisor =
+            parse_advisor_policy(root.get("auto"),
+                                 root.get("power_saving_schedule"),
+                                 doc.auto_mode, valid_modes, advisor_error);
+        if (doc.error.empty() && !advisor_error.empty())
+            doc.error = advisor_error;
     }
     if (const JsonValue* raw_programs = root.get("programs");
         raw_programs != nullptr && raw_programs->type == T::Object) {

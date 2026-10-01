@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "governor_advisor.h"
 #include "governor_json_utils.h"
 
 namespace gptbridge {
@@ -36,6 +37,9 @@ struct RegState {
     /* A590/A622：concurrency-budget 世代綁定（跨 watch 週期持續）。 */
     long long budget_generation = 0;
     std::string budget_signature;
+    /* 自動模式顧問跨週期滯回狀態（B167/B38 原生接替；
+     * streak/last_switch 另經 resource-mode-advisor.json 跨重啟）。 */
+    AdvisorState advisor;
 };
 
 enum class RegEvent { PreEntered, Entered, Released, PreReleased };

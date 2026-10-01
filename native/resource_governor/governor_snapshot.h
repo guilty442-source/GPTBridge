@@ -121,6 +121,11 @@ struct Snapshot {
     bool rules_loaded = false;
     std::string rules_error;
     bool worker_admission_hold = false;
+    /* 自動模式顧問：auto_mode 開關＋本週期決策記錄（resource-mode-
+     * advisor.json 形狀）＋模式切換稽核條目（僅切換週期設定）。 */
+    bool auto_mode = false;
+    std::optional<jsonlite::JsonValue> advisor;
+    std::optional<jsonlite::JsonValue> mode_audit;
     /* A590/A593：全域 concurrency 配額（concurrency-budget/v1；
      * rules 關閉 concurrency_budget 時為 nullopt → JSON null）。 */
     std::optional<ConcurrencyBudget> concurrency_budget;
@@ -268,6 +273,8 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
                {"rules_error", snap.rules_error.empty() ? jnull()
                                                         : jstr(snap.rules_error)}})},
         {"worker_admission_hold", jbool(snap.worker_admission_hold)},
+        {"auto_mode", jbool(snap.auto_mode)},
+        {"advisor", snap.advisor ? *snap.advisor : jnull()},
         {"concurrency_budget", snap.concurrency_budget
                                    ? budget_to_json(*snap.concurrency_budget)
                                    : jnull()},

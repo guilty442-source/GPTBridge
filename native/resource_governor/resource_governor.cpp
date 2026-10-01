@@ -20,14 +20,23 @@ namespace {
 
 using namespace detail;
 
-/* 週期前置：快照前置欄位＋rules 錯誤記錄（fail-closed 僅監控）。 */
+/* 週期前置：快照前置欄位＋rules 錯誤記錄（fail-closed 僅監控）。
+ * 有效模式：auto_mode 且 advisor 已接管時用其 applied_mode（該檔位
+ * 必須在 modes 中定義），否則用 rules.mode；defaults 依有效模式重組。 */
 void cycle_init(CycleEnv& env) {
     env.snap.interval = env.config.interval;
     env.snap.disabled = env.ctx.disabled;
     env.snap.dry_run = env.config.dry_run || env.ctx.disabled;
     env.dry_run = env.snap.dry_run;
-    env.snap.mode = env.rules.mode;
-    env.snap.has_mode = env.rules.has_mode;
+    env.effective_mode = env.rules.mode;
+    const AdvisorState& advisor = env.regulation.advisor;
+    if (env.rules.auto_mode && !advisor.applied_mode.empty() &&
+        env.rules.modes.count(advisor.applied_mode) != 0)
+        env.effective_mode = advisor.applied_mode;
+    env.eff_defaults = env.rules.defaults_for(env.effective_mode);
+    env.snap.mode = env.effective_mode;
+    env.snap.has_mode = env.rules.has_mode || !env.effective_mode.empty();
+    env.snap.auto_mode = env.rules.auto_mode;
     env.snap.rules_path = env.config.rules_path;
     env.snap.rules_loaded = !env.rules.defaults.empty() || !env.rules.programs.empty();
     env.snap.rules_error = env.rules.error;
@@ -43,9 +52,9 @@ void cycle_init(CycleEnv& env) {
 void cycle_prepare(CycleEnv& env) {
     env.sys = env.engine.system();
     env.logical = std::max(1, env.sys.logical);
-    env.features = resolve_features(env.config, env.rules.defaults,
+    env.features = resolve_features(env.config, env.eff_defaults,
                                     env.sys.total_ram_bytes);
-    env.thr = resolve_thresholds(env.config, env.rules.defaults);
+    env.thr = resolve_thresholds(env.config, env.eff_defaults);
     env.snap.features = env.features;
     env.snap.thresholds = env.thr;
 
@@ -224,7 +233,7 @@ void fill_snapshot_state(CycleEnv& env) {
  * 整機過載推得壓力層級，發佈 8 類 quota；配額變動才遞增 generation 並在
  * 日誌留下變更證據（A622 generation 綁定＋before/after 簽章）。 */
 void fill_concurrency_budget(CycleEnv& env) {
-    const BudgetPolicy policy = resolve_budget_policy(env.rules.defaults);
+    const BudgetPolicy policy = resolve_budget_policy(env.eff_defaults);
     if (!policy.enabled) return;
     const bool machine_hot =
         env.sys.cpu_load_machine > kGlobalCpuLimitPct ||
@@ -251,6 +260,83 @@ void fill_concurrency_budget(CycleEnv& env) {
         env.regulation.budget_signature = sig;
     }
     env.snap.concurrency_budget = budget;
+}
+
+/* 自動模式顧問（週期末）：以本週期已量測信號評估目標檔位；決策經
+ * snap.advisor／snap.mode_audit 交由宿主層寫 advisor 狀態檔與
+ * resource-mode-audit 稽核（本層純計算，不觸碰檔案）。 */
+void advisor_step(CycleEnv& env) {
+    AdvisorSignals sig;
+    sig.configured_mode = env.rules.mode;
+    for (const auto& [name, preset] : env.rules.modes)
+        sig.valid_modes.insert(name);
+    sig.rules_error = !env.rules.error.empty();
+    sig.strained = env.strained;
+    sig.cpu_load_pct = env.sys.cpu_load_machine;
+    sig.mem_used_pct = env.sys.mem_used_pct;
+    sig.admission_hold = env.snap.worker_admission_hold;
+    sig.reg_pre = env.regulation.pre;
+    sig.reg_active = env.regulation.active;
+    sig.worker_cpu_pct = env.snap.worker_cpu_pct;
+    sig.worker_ram_pct = env.snap.worker_ram_pct;
+    sig.budget_cpu_pct = env.thr.worker_cpu_budget;
+    sig.budget_ram_pct = env.thr.worker_ram_budget;
+    sig.local_minutes = env.ctx.local_minutes;
+    sig.now_unix = env.ctx.now_unix;
+    sig.now_mono = env.ctx.now_mono;
+    AdvisorState& advisor = env.regulation.advisor;
+    const AdvisorDecision decision =
+        evaluate_advisor(env.rules.advisor, sig, advisor);
+    if (!decision.evaluated) return;
+
+    char hhmm[8] = "--:--";
+    if (sig.local_minutes >= 0)
+        std::snprintf(hhmm, sizeof(hhmm), "%02d:%02d",
+                      sig.local_minutes / 60, sig.local_minutes % 60);
+    const AdvisorPolicy& policy = env.rules.advisor;
+    env.snap.advisor = jobj({
+        {"enabled", jbool(env.rules.auto_mode)},
+        {"target", decision.target.empty() ? jnull() : jstr(decision.target)},
+        {"streak", jint(decision.streak)},
+        {"changed", jbool(decision.changed)},
+        {"reason", jstr(decision.reason)},
+        {"current",
+         decision.current.empty() ? jnull() : jstr(decision.current)},
+        {"applied", advisor.applied_mode.empty()
+                        ? jnull()
+                        : jstr(advisor.applied_mode)},
+        {"last_switch_at", jnum(advisor.last_switch_unix)},
+        {"power_saving",
+         jobj({{"enabled", jbool(policy.schedule_enabled)},
+               {"start", jstr(policy.schedule_start)},
+               {"end", jstr(policy.schedule_end)},
+               {"mode", jstr(policy.schedule_mode)},
+               {"active", jbool(decision.schedule_active)},
+               {"now", jstr(hhmm)}})},
+        {"signals",
+         jobj({{"strained", jbool(sig.strained)},
+               {"cpu_load_pct", jnum(round1(sig.cpu_load_pct))},
+               {"mem_used_pct", jnum(round1(sig.mem_used_pct))},
+               {"worker_demand", jbool(decision.demand)},
+               {"headroom", jbool(decision.headroom)},
+               {"worker_cpu_pct", jnum(round1(sig.worker_cpu_pct))},
+               {"worker_ram_pct", jnum(round1(sig.worker_ram_pct))},
+               {"power_saving_active", jbool(decision.schedule_active)}})},
+    });
+    if (decision.changed) {
+        env.snap.mode_audit =
+            jobj({{"actor", jstr("resource-mode-advisor")},
+                  {"auto_mode", jbool(true)},
+                  {"mode", jstr(decision.target)},
+                  {"previous", decision.current.empty()
+                                   ? jnull()
+                                   : jstr(decision.current)}});
+        env.logs.push_back(jobj({{"action", jstr("advisor-mode")},
+                                 {"from", jstr(decision.current)},
+                                 {"to", jstr(decision.target)},
+                                 {"reason", jstr(decision.reason)},
+                                 {"urgent", jbool(decision.urgent)}}));
+    }
 }
 
 void maybe_log_sample(CycleEnv& env) {
@@ -293,6 +379,7 @@ Snapshot govern_once(const GovernorConfig& config, const RulesDoc& rules,
     fill_concurrency_budget(env);
     fill_snapshot_core(env, update);
     fill_snapshot_state(env);
+    advisor_step(env);
     maybe_log_sample(env);
     return snap;
 }

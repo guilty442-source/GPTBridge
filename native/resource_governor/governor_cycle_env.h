@@ -35,6 +35,9 @@ struct CycleEnv {
     Features features;
     Thresholds thr;
     SysInfo sys;
+    /* 有效模式（advisor 接管時 ≠ rules.mode）與其合成 defaults。 */
+    std::string effective_mode;
+    std::map<std::string, jsonlite::JsonValue> eff_defaults;
     int logical = 1;
     int foreground = -1;
     bool dry_run = false;

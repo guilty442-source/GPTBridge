@@ -129,10 +129,12 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         state.applied_mode.clear();
         state.streak = 0;
         state.last_target.clear();
+        out.evaluated = true; /* 記錄 enabled=false（同 Python 每 tick 落盤） */
         out.reason = "auto-disabled";
         return out;
     }
     if (sig.rules_error) {
+        out.evaluated = true;
         out.reason = "rules-error";
         return out;
     }

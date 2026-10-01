@@ -44,6 +44,9 @@ struct CycleContext {
     std::string system_root_lower = "c:\\windows";
     double now_mono = 0.0;
     bool disabled = false;
+    /* 顧問輸入：本地時間分鐘（夜間省電窗口）與壁鐘秒（降檔 cooldown）。 */
+    int local_minutes = -1;
+    double now_unix = 0.0;
 };
 
 Snapshot govern_once(const GovernorConfig& config, const RulesDoc& rules,

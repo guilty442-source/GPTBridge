@@ -1,9 +1,11 @@
 /* governor_rules.h — 行程平面歸因、Rules 檔解析與組態解析。
  *
- * 由 resource_governor.h 依 A185 拆分而來；內容原樣平移，語義不變：
+ * 由 resource_governor.h 依 A185 拆分而來：
  *  - Plane/classify_plane：§10.64 worker-plane 歸因。
  *  - ProgramRule/RulesDoc/parse_rules：Process Lasso 式常駐規則；
- *    所有可失敗解析以 expected<T, std::string> 回傳，fail-closed。
+ *    所有可失敗解析以 expected<T, std::string> 回傳，fail-closed；
+ *    2026-10-01 起另解析 auto_mode/auto/power_saving_schedule
+ *    （顧問政策）並保留 modes presets 供有效模式重組。
  *  - GovernorConfig/Features/Thresholds 與 resolve_*：CLI > defaults >
  *    modes preset > 常數 的優先序與 Python 一致。
  */
@@ -18,6 +20,7 @@
 #include <string_view>
 #include <vector>
 
+#include "governor_advisor.h"
 #include "governor_json_utils.h"
 
 namespace gptbridge {
@@ -135,6 +138,26 @@ struct RulesDoc {
     std::string error;
     std::string mode;
     bool has_mode = false;
+    /* 自動模式顧問（governor_advisor.*）：raw presets＋顯式 defaults
+     * 供有效模式重組；advisor 為已解析政策（含 ceiling 上限）。 */
+    std::map<std::string, std::map<std::string, jsonlite::JsonValue>> modes;
+    std::map<std::string, jsonlite::JsonValue> explicit_defaults;
+    bool auto_mode = false;
+    AdvisorPolicy advisor;
+
+    /* 指定模式的合成 defaults（preset 併入 explicit defaults 覆寫；
+     * 未知/無 modes 時回退已解析的 defaults）。 */
+    std::map<std::string, jsonlite::JsonValue> defaults_for(
+        const std::string& mode) const {
+        if (mode == this->mode || modes.empty()) return defaults;
+        std::map<std::string, jsonlite::JsonValue> merged;
+        auto it = modes.find(mode);
+        if (it == modes.end()) return defaults;
+        merged = it->second;
+        for (const auto& [key, value] : explicit_defaults)
+            merged[key] = value;
+        return merged;
+    }
 };
 
 /* 池歸因：program rule 顯式 pool > pools.members 子串比對 > None。
