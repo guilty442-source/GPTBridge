@@ -1,0 +1,43 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "xingcheng-model-scale-boundary-20261001-r2",
+  "title": "Xingcheng model scale boundary",
+  "summary": "Set the total model scale to 300M through 20B parameters and prohibit a full-capability baseline below 300M.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-10-01",
+  "change_class": "provision-scope",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-09-29T15:47:57Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "3b4443a487d901e3a7fa3fc9815ac0f561fabc3ea1ec0ea2b54dafaadc316bc7",
+    "revision_sequence": 181
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "B135" },
+      "field": "rule",
+      "proposed": "XINGCHENG-MODEL-SCALE:every publishable Xingcheng model configuration has total_parameter_count between 300M and 20B inclusive;below 300M and above 20B are prohibited for formal models;FULL-CAPABILITY-BASELINE:every configuration represented as a full-capability baseline has total_parameter_count at least 300M;PARAMETER-COUNT-SEMANTICS:parameter count establishes only scale and resource boundaries and never proves maturity,quality or capability;all capability,quality,compatibility,resource and rollback gates remain independently mandatory;OWNER:XINGCHENG may adapt architecture,density,MoE activation and internal tiering only inside these bounds and current Codex authority,permission and resource limits."
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_LOCAL_MODEL" },
+      "set": {
+        "content_hash": "413b83de89a123ee213cf2f3c63bb82f7eebfb3afdf87af7926595ddd26c4fb4",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "<successor-version>",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ]
+}

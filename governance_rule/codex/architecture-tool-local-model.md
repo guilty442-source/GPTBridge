@@ -27,3 +27,6 @@ flowchart TB
 世代繼任契約（能力／架構升級後刪除前代）：新代權重 `activate` 時 `ModelLifecycle` 自動把前代完整記錄——version、sha256、path 與全份 metadata（dataset_id／job／eval 資料血統）——攜入新代 `metadata["succeeded_from"]` 並記 `weights_succession` 事件；實體刪除前代 bundle 必須先完成繼任記錄且 lifecycle 已持久化（`PruneSupersededGeneration`，缺繼任記錄 fail-closed 保留），刪除成功後前代條目由 versions 移入 retired 並標記 `succeeded_by`/`data_carried_to`/`deleted_at`，活版本表不留死路徑、retired 保留完整資料。在役世代經 `RetireWeightVersion` 永不退休（fail-closed）。
 
 Ollama 只作登錄的本地教師或專家，不取代星澄。視窗關閉須在 5 秒內停止 `local-model` 自身後端及其擁有的模型程序，但不得停止獨立的星澄服務。
+## 星澄模型規模邊界
+
+星澄所有可發布模型組態的總參數量必須介於 300M 與 20B（含）之間；低於 300M 或高於 20B 均不得成為正式模型。任何宣稱具備完整能力的基線組態不得低於 300M。參數量只界定規模與資源邊界，不得取代能力測試、品質證據或發布條件。
