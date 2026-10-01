@@ -300,17 +300,8 @@ static void tpu_dot4(const float* x0, const float* x1, const float* x2,
             a30 = _mm256_fmadd_ps(_mm256_loadu_ps(x3 + i), w0, a30);
             i += 8;
         }
-        auto hsum = [](__m256 s0, __m256 s1) {
-            __m256 s = _mm256_add_ps(s0, s1);
-            __m128 lo = _mm256_castps256_ps128(s);
-            __m128 hi = _mm256_extractf128_ps(s, 1);
-            lo = _mm_add_ps(lo, hi);
-            lo = _mm_add_ps(lo, _mm_movehl_ps(lo, lo));
-            lo = _mm_add_ss(lo, _mm_shuffle_ps(lo, lo, 1));
-            return _mm_cvtss_f32(lo);
-        };
-        y4[0] = hsum(a00, a01); y4[1] = hsum(a10, a11);
-        y4[2] = hsum(a20, a21); y4[3] = hsum(a30, a31);
+        y4[0] = tpu_hsum2(a00, a01); y4[1] = tpu_hsum2(a10, a11);
+        y4[2] = tpu_hsum2(a20, a21); y4[3] = tpu_hsum2(a30, a31);
         for (; i < n; ++i) {
             y4[0] += x0[i] * w[i]; y4[1] += x1[i] * w[i];
             y4[2] += x2[i] * w[i]; y4[3] += x3[i] * w[i];
@@ -322,12 +313,28 @@ static void tpu_dot4(const float* x0, const float* x1, const float* x2,
     for (int j = 0; j < 4; ++j) y4[j] = tpu_dot(xs[j], w, n);
 }
 
-// Tiled linear lane: y[t,o] = x[t,:] . w[o,:]. Lanes own t-blocks of 4
-// rows and sweep all outputs serially, so each weight row is fetched
-// once per 4 x-rows instead of once per element. Per-element results
-// are lane-count independent and bitwise identical to tpu_dot rows.
-static void tpu_linear(const float* x, const float* w, float* y,
-                       int T, int I, int O) {
+// Legacy linear lane: y[t,o] = x[t,:] . w[o,:] over the flat output
+// space — one full W-row stream per output element. Kept verbatim as
+// the small-T path (tile4 is a measured 0.31x loss at T=8) and as the
+// bitwise-parity oracle for the benchmark artifact.
+static void tpu_linear_legacy(const float* x, const float* w, float* y,
+                              int T, int I, int O) {
+    parallel_for((int64_t)T * O, [&](int64_t b, int64_t e) {
+        int64_t t = b / O, o = b % O;
+        for (int64_t p = b; p < e; ++p) {
+            y[p] = tpu_dot(x + (size_t)t * I, w + (size_t)o * I, I);
+            if (++o == O) { o = 0; ++t; }
+        }
+    });
+}
+
+// Tiled linear lane (tile4): y[t,o] = x[t,:] . w[o,:]. Lanes own
+// t-blocks of 4 rows and sweep all outputs serially, so each weight row
+// is fetched once per 4 x-rows instead of once per element. Per-element
+// results are lane-count independent and bitwise identical to tpu_dot
+// rows.
+static void tpu_linear_tile4(const float* x, const float* w, float* y,
+                             int T, int I, int O) {
     const int64_t nb = (T + 3) / 4;
     parallel_for(nb, [&](int64_t b, int64_t e) {
         for (int64_t tb = b; tb < e; ++tb) {
@@ -350,15 +357,40 @@ static void tpu_linear(const float* x, const float* w, float* y,
     });
 }
 
-// Split backward GEMM into two disjoint partitions — dW over output-row
+// Legacy backward lane: dW over output rows (t-ascending axpy), dx over
+// input rows (o-ascending axpy) — the pre-tile4 reference order, kept as
+// the small-T path and the bitwise-parity oracle.
+static void tpu_linear_bwd_legacy(const float* dy, const float* x,
+                                  const float* w, float* dx, float* dW,
+                                  int T, int I, int O) {
+    if (dW) parallel_for(O, [&](int64_t b, int64_t e) {
+        for (int64_t o = b; o < e; ++o) {
+            float* dw = dW + (size_t)o * I;
+            for (int64_t t = 0; t < T; ++t)
+                tpu_axpy(dw, dy[(size_t)t * O + o], x + (size_t)t * I, I);
+        }
+    });
+    if (!dx) return;
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            float* dxr = dx + (size_t)t * I;
+            const float* dyr = dy + (size_t)t * O;
+            for (int64_t o = 0; o < O; ++o)
+                tpu_axpy(dxr, dyr[o], w + (size_t)o * I, I);
+        }
+    });
+}
+
+// Tiled backward (tile4): two disjoint partitions — dW over output-row
 // blocks, dx over input-row blocks — matching the reference accumulation
 // order per element (t-ascending for dW, o-ascending for dx; the row-
 // block interleave only changes which row each FMA lands in, never the
 // add order within an element). Row blocks share the streamed operand:
 // x rows are read once per 4 dW rows, W rows once per 4 dx rows —
 // quartering the L3/DRAM traffic of the per-row lanes.
-static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
-                           float* dx, float* dW, int T, int I, int O) {
+static void tpu_linear_bwd_tile4(const float* dy, const float* x,
+                                 const float* w, float* dx, float* dW,
+                                 int T, int I, int O) {
     if (dW) {
         const int64_t nob = (O + 3) / 4;
         parallel_for(nob, [&](int64_t b, int64_t e) {
@@ -390,6 +422,32 @@ static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
             }
         }
     });
+}
+
+// Shape dispatcher (fixed rule): T >= 16 -> tile4; T < 16 -> legacy.
+// Measured on the production microbenchmark: tile4 is a strict loss at
+// T=8 (0.31x — setup overhead beats the stream saving), so the small-T
+// cutoff is a hard rule, not a heuristic. The same rule covers grouped
+// expert linear (dispatch sees Te as T). XCT_TPU_TILE4=0 forces legacy
+// for A/B measurement only — it is not a production switch.
+static constexpr int kTpuTile4MinT = 16;
+
+static void tpu_linear(const float* x, const float* w, float* y,
+                       int T, int I, int O) {
+    if (g_tpu.tile4 && T >= kTpuTile4MinT) {
+        tpu_linear_tile4(x, w, y, T, I, O);
+        return;
+    }
+    tpu_linear_legacy(x, w, y, T, I, O);
+}
+
+static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
+                           float* dx, float* dW, int T, int I, int O) {
+    if (g_tpu.tile4 && T >= kTpuTile4MinT) {
+        tpu_linear_bwd_tile4(dy, x, w, dx, dW, T, I, O);
+        return;
+    }
+    tpu_linear_bwd_legacy(dy, x, w, dx, dW, T, I, O);
 }
 
 // Elementwise lane: dst[i] = f(i) over a flat range (AdamW / gate loops).
