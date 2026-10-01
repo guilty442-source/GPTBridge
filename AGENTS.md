@@ -219,7 +219,11 @@ through the same governed pipeline used for manual training:
    and prune the previous generation (only the latest generation is kept).
 
 Any failure is fail-closed: the active weights, the runtime checkpoint and
-the adapter registry stay untouched. Policy: `runtime/settings/self-learning.json`
+the adapter registry stay untouched. Once the 300M maturation sequence
+governs admission, a cycle whose SFT job cannot be admitted (no declared
+capability vs sequence head / sequence complete) reports `action=sealed`
+and keeps the collected dataset registered — no doomed job is queued and
+`consecutive_failures` is not incremented. Policy: `runtime/settings/self-learning.json`
 (`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
 reports: `xingcheng/runtime/logs/self-learning-*.json`.
 
