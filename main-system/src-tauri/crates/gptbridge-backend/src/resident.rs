@@ -11,9 +11,12 @@
 //!
 //! - ``channel-host``    — shared-layer ``background_service`` contract
 //!   (``shared-layer/manifest.json``); C# A263 channel runtime.
-//! - ``codex-pipeline``  — ``automation-flows.json`` resident host
-//!   (``GPTBridge.CodexPipeline.exe --watch``); codex amendment intake,
-//!   pin-sync, and maintenance flows.
+//! - ``automation-host`` — the ``resident-core.json``
+//!   ``periodic_scheduler`` (``GPTBridge.Automation.exe --watch``): one
+//!   process hosting every ``automation-flows.json`` periodic flow —
+//!   git sweep+sync, codex amendment intake / pin-sync / maintenance,
+//!   and the six permission-automation flows — replacing the retired
+//!   ``codex-pipeline`` and ``permission-host`` supervisors.
 //!
 //! State: ``main-system/runtime/state/<service>.json``; lifecycle events
 //! append to the ``<service>`` audit ledger.

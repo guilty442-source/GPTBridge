@@ -36,17 +36,33 @@ static void rmsnorm_fwd(const float* x, const float* w, float* y, float* rms,
 
 static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
                         const float* rms, float* dx, float* dw, int T, int H) {
-    for (int t = 0; t < T; ++t) {
-        const float* xr = x + (size_t)t * H;
-        const float* dyr = dy + (size_t)t * H;
-        float inv = 1.0f / rms[t];
-        float dot = 0.0f;
-        for (int i = 0; i < H; ++i) dot += dyr[i] * xr[i] * w[i];
-        for (int i = 0; i < H; ++i) {
-            if (dw) dw[i] += dyr[i] * xr[i] * inv;
-            dx[(size_t)t * H + i] += (dyr[i] * w[i] - xr[i] * dot * inv * inv / H) * inv;
+    // Two-phase lane split: phase 1 folds each row's scalar contraction
+    // (per-row value identical to the serial dot), phase 2 partitions the
+    // channel axis — dw[i] accumulates t-ascending inside one lane, so
+    // the per-element order matches the serial row loop exactly.
+    std::vector<float> dots((size_t)T);
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            const float* xr = x + (size_t)t * H;
+            const float* dyr = dy + (size_t)t * H;
+            float dot = 0.0f;
+            for (int i = 0; i < H; ++i) dot += dyr[i] * xr[i] * w[i];
+            dots[(size_t)t] = dot;
         }
-    }
+    });
+    parallel_for(H, [&](int64_t b, int64_t e) {
+        for (int64_t i = b; i < e; ++i) {
+            float acc = 0.0f;
+            for (int t = 0; t < T; ++t) {
+                const float inv = 1.0f / rms[t];
+                if (dw) acc += dy[(size_t)t * H + i] * x[(size_t)t * H + i] * inv;
+                dx[(size_t)t * H + i] +=
+                    (dy[(size_t)t * H + i] * w[i] -
+                     x[(size_t)t * H + i] * dots[(size_t)t] * inv * inv / H) * inv;
+            }
+            if (dw) dw[i] += acc;
+        }
+    });
 }
 
 // YaRN per-channel frequency blend (Qwen3-Coder context extension):
@@ -121,10 +137,11 @@ static void rope_ex(float* v, int T, int nh, int hd, float theta,
                     int rotary, bool inverse,
                     const ModelConfig* mc = nullptr) {
     const RopeCs& cs = rope_cs(T, hd, theta, mc);
-    for (int t = 0; t < T; ++t)
-        for (int h = 0; h < nh; ++h) {
+    const int lim = std::min(hd, rotary);
+    parallel_for((int64_t)T * nh, [&](int64_t b, int64_t e) {
+        int64_t t = b / nh, h = b % nh;
+        for (int64_t p = b; p < e; ++p) {
             float* r = v + ((size_t)t * nh + h) * hd;
-            const int lim = std::min(hd, rotary);
             for (int i = 0; i + 1 < lim; i += 2) {
                 float c = cs.c[(size_t)t * (hd / 2) + i / 2];
                 float s = cs.s[(size_t)t * (hd / 2) + i / 2];
@@ -133,7 +150,9 @@ static void rope_ex(float* v, int T, int nh, int hd, float theta,
                 r[i] = a * c - b * s;
                 r[i + 1] = a * s + b * c;
             }
+            if (++h == nh) { h = 0; ++t; }
         }
+    });
 }
 
 static void rope(float* v, int T, int nh, int hd, float theta, bool inverse,
@@ -176,8 +195,9 @@ static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
                             const ModelConfig* mc = nullptr) {
     const int half = rd / 2;
     const RopeCs& cs = rope_cs(T, rd, theta, mc);
-    for (int t = 0; t < T; ++t)
-        for (int h = 0; h < nh; ++h) {
+    parallel_for((int64_t)T * nh, [&](int64_t b, int64_t e) {
+        int64_t t = b / nh, h = b % nh;
+        for (int64_t p = b; p < e; ++p) {
             float* r = v + ((size_t)t * nh + h) * hd;
             for (int i = 0; i < half; ++i) {
                 float c = cs.c[(size_t)t * half + i];
@@ -187,68 +207,87 @@ static void rope_hf_partial(float* v, int T, int nh, int hd, int rd,
                 r[i] = a * c - b * s;
                 r[i + half] = a * s + b * c;
             }
+            if (++h == nh) { h = 0; ++t; }
         }
+    });
 }
 
 // Depthwise causal conv1d (kernel K, no bias) + SiLU over flat [T, D]
 // activations; out_pre keeps the pre-activation for backward.
 static void conv1d_causal_fwd(const float* x, const float* w, float* y,
                               float* y_pre, int T, int D, int K) {
-    for (int t = 0; t < T; ++t)
-        for (int c = 0; c < D; ++c) {
-            float s = 0.0f;
-            for (int j = 0; j < K && t - j >= 0; ++j)
-                s += w[(size_t)c * K + j] * x[(size_t)(t - j) * D + c];
-            float v = silu_f(s);
-            if (y_pre) y_pre[(size_t)t * D + c] = s;
-            y[(size_t)t * D + c] = v;
-        }
+    // rows are disjoint outputs — lane per t-block; the j-accumulation
+    // order is unchanged.
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t)
+            for (int c = 0; c < D; ++c) {
+                float s = 0.0f;
+                for (int j = 0; j < K && t - j >= 0; ++j)
+                    s += w[(size_t)c * K + j] *
+                         x[(size_t)(t - j) * D + c];
+                float v = silu_f(s);
+                if (y_pre) y_pre[(size_t)t * D + c] = s;
+                y[(size_t)t * D + c] = v;
+            }
+    });
 }
 
 static void conv1d_causal_bwd(const float* dy, const float* y_pre,
                               const float* x, const float* w,
                               float* dx, float* dw, int T, int D, int K) {
     std::vector<float> dpre((size_t)T * D);
-    for (size_t i = 0; i < (size_t)T * D; ++i) {
-        float s = sigmoid_f(y_pre[i]);
-        dpre[i] = dy[i] * s * (1.0f + y_pre[i] * (1.0f - s));
-    }
-    for (int t = 0; t < T; ++t)
-        for (int c = 0; c < D; ++c) {
-            float d = dpre[(size_t)t * D + c];
-            for (int j = 0; j < K && t - j >= 0; ++j) {
-                if (dw) dw[(size_t)c * K + j] += d * x[(size_t)(t - j) * D + c];
-                dx[(size_t)(t - j) * D + c] += d * w[(size_t)c * K + j];
+    tpu_elementwise((int64_t)T * D, [&](int64_t i) {
+        float s = sigmoid_f(y_pre[(size_t)i]);
+        dpre[(size_t)i] =
+            dy[(size_t)i] * s * (1.0f + y_pre[(size_t)i] * (1.0f - s));
+    });
+    // Channels are disjoint lanes: dx[t*D+c] and dw[c*K+j] are owned by
+    // the channel lane, so the t/j accumulation order is unchanged.
+    parallel_for(D, [&](int64_t b, int64_t e) {
+        for (int64_t c = b; c < e; ++c)
+            for (int t = 0; t < T; ++t) {
+                float d = dpre[(size_t)t * D + c];
+                for (int j = 0; j < K && t - j >= 0; ++j) {
+                    if (dw)
+                        dw[(size_t)c * K + j] +=
+                            d * x[(size_t)(t - j) * D + c];
+                    dx[(size_t)(t - j) * D + c] +=
+                        d * w[(size_t)c * K + j];
+                }
             }
-        }
+    });
 }
 
 static void l2norm_fwd(float* v, int rows, int dim, float eps,
                        float* norms_out) {
-    for (int t = 0; t < rows; ++t) {
-        float* r = v + (size_t)t * dim;
-        float ss = 0.0f;
-        for (int i = 0; i < dim; ++i) ss += r[i] * r[i];
-        float n = std::sqrt(ss + eps);
-        if (norms_out) norms_out[t] = n;
-        float inv = 1.0f / n;
-        for (int i = 0; i < dim; ++i) r[i] *= inv;
-    }
+    parallel_for(rows, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            float* r = v + (size_t)t * dim;
+            float ss = 0.0f;
+            for (int i = 0; i < dim; ++i) ss += r[i] * r[i];
+            float n = std::sqrt(ss + eps);
+            if (norms_out) norms_out[t] = n;
+            float inv = 1.0f / n;
+            for (int i = 0; i < dim; ++i) r[i] *= inv;
+        }
+    });
 }
 
 // L2-norm backward: y = x/||x|| → dx = (dy − ŷ(ŷ·dy)) / ||x||.
 // norms holds the forward ||x|| per row.
 static void l2norm_bwd(const float* dy, const float* x_normed,
                        const float* norms, float* dx, int rows, int dim) {
-    for (int t = 0; t < rows; ++t) {
-        const float* xr = x_normed + (size_t)t * dim;
-        const float* dr = dy + (size_t)t * dim;
-        float dot = 0.0f;
-        for (int i = 0; i < dim; ++i) dot += xr[i] * dr[i];
-        float inv = 1.0f / norms[t];
-        for (int i = 0; i < dim; ++i)
-            dx[(size_t)t * dim + i] = (dr[i] - xr[i] * dot) * inv;
-    }
+    parallel_for(rows, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            const float* xr = x_normed + (size_t)t * dim;
+            const float* dr = dy + (size_t)t * dim;
+            float dot = 0.0f;
+            for (int i = 0; i < dim; ++i) dot += xr[i] * dr[i];
+            float inv = 1.0f / norms[t];
+            for (int i = 0; i < dim; ++i)
+                dx[(size_t)t * dim + i] = (dr[i] - xr[i] * dot) * inv;
+        }
+    });
 }
 
 // --------------------------------------------------------- RL sampling ----
@@ -490,6 +529,9 @@ static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,
                 const std::vector<float>* vision = nullptr,
                 int vision_count = 0) {
+    // Per-call scalar accumulators: reset here so a persistent Fwd (cache
+    // reuse across steps) carries no stale aux terms.
+    o.moe_aux = 0.0f; o.moe_zloss = 0.0f; o.csa_idx = 0.0f;
     if (c.is_gemma4()) {
         if (vision != nullptr) throw "vision: gemma4 has no vision path";
         fwd_g4(p, c, ids, o);
@@ -517,10 +559,18 @@ static void fwd(const Params& p, const ModelConfig& c,
         o.vision_in.clear();
         o.vision_patches = 0;
     }
-    for (int t = 0; t < PT; ++t) {
-        const float* er = p.w.at("embed").d.data() + (size_t)ids[t] * H;
-        std::copy(er, er + H, x.data() + (size_t)(P + t) * H);
+    {
+        const float* emb = p.w.at("embed").d.data();
+        parallel_for(PT, [&](int64_t b, int64_t e) {
+            for (int64_t t = b; t < e; ++t)
+                std::copy(emb + (size_t)ids[(size_t)t] * H,
+                          emb + (size_t)ids[(size_t)t] * H + H,
+                          x.data() + (size_t)(P + t) * H);
+        });
     }
+    // Layer caches persist across steps: every field is fully rewritten
+    // under the same config-gated conditions each call, so keeping the
+    // vectors only skips the realloc+first-touch churn.
     o.layers.resize(c.layers);
     for (int l = 0; l < c.layers; ++l) {
         LayerCache& L = o.layers[l];
@@ -731,36 +781,36 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * c.heads * hd, 0.0f);
             parallel_for(c.heads, [&](int64_t hb, int64_t he) {
-                for (int64_t h = hb; h < he; ++h)
-                for (int t = 0; t < T; ++t) {
-                    float* pr = L.probs.data() + ((size_t)h * T + t) * T;
-                    const int s0 = win > 0 ? std::max(0, t - win + 1) : 0;
-                    float mx = -1e30f;
-                    const float* qnr = L.mla_qn.data() +
-                                       ((size_t)t * c.heads + h) * kn;
-                    const float* qrr = L.mla_qr.data() +
-                                       ((size_t)t * c.heads + h) * kr;
-                    for (int s = s0; s <= t; ++s) {
-                        const float* knr = L.mla_kn.data() +
-                                           ((size_t)s * c.heads + h) * kn;
-                        const float* krr = L.mla_kr.data() + (size_t)s * kr;
-                        pr[s] = (tpu_dot(qnr, knr, kn) +
-                                 tpu_dot(qrr, krr, kr)) * scale;
-                        mx = std::max(mx, pr[s]);
+                for (int64_t h = hb; h < he; ++h) {
+                // MLA scores split into nope+rope dots — two dot4 lanes
+                // summed keep the per-element order of the serial dots.
+                auto score4 = [&](int t0, int s, float* y) {
+                    const float* qn[4], *qr2[4];
+                    for (int j = 0; j < 4; ++j) {
+                        const int t = std::min(t0 + j, T - 1);
+                        qn[j] = L.mla_qn.data() +
+                                ((size_t)t * c.heads + h) * kn;
+                        qr2[j] = L.mla_qr.data() +
+                                 ((size_t)t * c.heads + h) * kr;
                     }
-                    float sum = 0.0f;
-                    for (int s = s0; s <= t; ++s) {
-                        pr[s] = std::exp(pr[s] - mx); sum += pr[s];
-                    }
-                    float inv = 1.0f / sum;
-                    float* ao = L.attn_out.data() +
-                                ((size_t)t * c.heads + h) * hd;
-                    for (int s = s0; s <= t; ++s) {
-                        pr[s] *= inv;
-                        const float* vr = L.v.data() +
-                                          ((size_t)s * c.heads + h) * hd;
-                        tpu_axpy(ao, pr[s], vr, hd);
-                    }
+                    float ya[4], yb[4];
+                    tpu_dot4(qn[0], qn[1], qn[2], qn[3],
+                             L.mla_kn.data() +
+                                 ((size_t)s * c.heads + h) * kn,
+                             ya, kn);
+                    tpu_dot4(qr2[0], qr2[1], qr2[2], qr2[3],
+                             L.mla_kr.data() + (size_t)s * kr,
+                             yb, kr);
+                    for (int j = 0; j < 4; ++j) y[j] = ya[j] + yb[j];
+                };
+                tpu_attn_core(
+                    L.probs.data() + (size_t)h * T * T,
+                    L.attn_out.data() + (size_t)h * hd,
+                    (int64_t)c.heads * hd, T, hd, win, scale, score4,
+                    [&](int s) {
+                        return L.v.data() +
+                               ((size_t)s * c.heads + h) * hd;
+                    });
                 }
             });
             linear_fwd(L.attn_out.data(), p.w.at(b + "wo"),
@@ -822,22 +872,14 @@ static void fwd(const Params& p, const ModelConfig& c,
                 L.qk_qraw = L.q; L.qk_kraw = L.k;
                 L.qk_qrms.resize((size_t)T * c.heads);
                 L.qk_krms.resize((size_t)T * kvh);
-                for (int t = 0; t < T; ++t) {
-                    for (int h = 0; h < c.heads; ++h) {
-                        float* qr = L.q.data() + ((size_t)t * c.heads + h) * hd;
-                        float rms;
-                        rmsnorm_fwd(qr, p.w.at(ln(l, "q_norm")).d.data(), qr,
-                                    &rms, 1, hd, c.rms_eps);
-                        L.qk_qrms[(size_t)t * c.heads + h] = rms;
-                    }
-                    for (int h = 0; h < kvh; ++h) {
-                        float* kr = L.k.data() + ((size_t)t * kvh + h) * hd;
-                        float rms;
-                        rmsnorm_fwd(kr, p.w.at(ln(l, "k_norm")).d.data(), kr,
-                                    &rms, 1, hd, c.rms_eps);
-                        L.qk_krms[(size_t)t * kvh + h] = rms;
-                    }
-                }
+                // batched row-norm: (t,h) rows in flat order = the serial
+                // loop's row order; each row is normalized in place.
+                rmsnorm_fwd(L.q.data(), p.w.at(ln(l, "q_norm")).d.data(),
+                            L.q.data(), L.qk_qrms.data(), T * c.heads, hd,
+                            c.rms_eps);
+                rmsnorm_fwd(L.k.data(), p.w.at(ln(l, "k_norm")).d.data(),
+                            L.k.data(), L.qk_krms.data(), T * kvh, hd,
+                            c.rms_eps);
             }
             // CSA2: the compressor consumes normalized PRE-rope keys —
             // positional rotation belongs to the attention slots, not to
@@ -1017,6 +1059,29 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.attn_out.assign((size_t)T * Hq, 0.0f);
             // TPU lanes: heads are disjoint lanes (probs per-h slice,
             // attn_out per-h column slice); per-element order unchanged.
+            if (crole < 0 || nc == 0) {
+                parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                    for (int64_t h = hb; h < he; ++h) {
+                        const int kh2 = (int)h / group;
+                        tpu_attn_fwd(
+                            L.probs.data() + (size_t)h * T * T,
+                            L.attn_out.data() + (size_t)h * hd,
+                            (int64_t)c.heads * hd, T, hd, win, scale,
+                            [&](int t) {
+                                return L.q.data() +
+                                       ((size_t)t * c.heads + h) * hd;
+                            },
+                            [&](int s) {
+                                return L.k.data() +
+                                       ((size_t)s * kvh + kh2) * hd;
+                            },
+                            [&](int s) {
+                                return L.v.data() +
+                                       ((size_t)s * kvh + kh2) * hd;
+                            });
+                    }
+                });
+            } else
             parallel_for(c.heads, [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h) {
                 int kh2 = (int)h / group;
@@ -1126,7 +1191,9 @@ static void fwd(const Params& p, const ModelConfig& c,
             }
         }
         L.x_res.resize((size_t)T * H);
-        for (size_t i = 0; i < (size_t)T * H; ++i) L.x_res[i] = x[i] + proj[i];
+        tpu_elementwise((int64_t)T * H, [&](int64_t i) {
+            L.x_res[(size_t)i] = x[(size_t)i] + proj[(size_t)i];
+        });
         L.n2.resize((size_t)T * H); L.rms2.resize(T);
         rmsnorm_fwd(L.x_res.data(), p.w.at(ln(l, "norm2")).d.data(),
                     L.n2.data(), L.rms2.data(), T, H, c.rms_eps);
@@ -1221,8 +1288,11 @@ static void fwd(const Params& p, const ModelConfig& c,
                                Te, H, EI);
                     linear_fwd(X.data(), p.w.at(b + "w3"), FB.data(),
                                Te, H, EI);
-                    for (size_t i = 0; i < Fh.size(); ++i)
-                        Fh[i] = gate_act_f(FA[i], c.ffn_act) * FB[i];
+                    tpu_elementwise((int64_t)Fh.size(), [&](int64_t i) {
+                        Fh[(size_t)i] = gate_act_f(FA[(size_t)i],
+                                                   c.ffn_act) *
+                                        FB[(size_t)i];
+                    });
                     linear_fwd(Fh.data(), p.w.at(b + "w2"), EO.data(),
                                Te, EI, H);
                     for (int j = 0; j < Te; ++j) {
@@ -1282,13 +1352,15 @@ static void fwd(const Params& p, const ModelConfig& c,
                 std::vector<float> so((size_t)T * H);
                 linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
                 if (L.shared_gate_sig.empty())
-                    for (size_t i = 0; i < so.size(); ++i) proj[i] += so[i];
+                    tpu_elementwise((int64_t)so.size(), [&](int64_t i) {
+                        proj[(size_t)i] += so[(size_t)i];
+                    });
                 else
-                    for (int t = 0; t < T; ++t) {
-                        float g = L.shared_gate_sig[(size_t)t];
-                        for (int i = 0; i < H; ++i)
-                            proj[(size_t)t * H + i] += g * so[(size_t)t * H + i];
-                    }
+                    tpu_elementwise((int64_t)T * H, [&](int64_t i) {
+                        const int t = (int)(i / H);
+                        proj[(size_t)i] +=
+                            L.shared_gate_sig[(size_t)t] * so[(size_t)i];
+                    });
             }
             // Auxiliary load-balancing loss (Switch-Transformer form):
             //   L_lb = E · Σ_i f_i·P_i
@@ -1338,7 +1410,9 @@ static void fwd(const Params& p, const ModelConfig& c,
                         T, H, c.rms_eps);
             proj = L.post_ffn;
         }
-        for (size_t i = 0; i < (size_t)T * H; ++i) x[i] = L.x_res[i] + proj[i];
+        tpu_elementwise((int64_t)T * H, [&](int64_t i) {
+            x[(size_t)i] = L.x_res[(size_t)i] + proj[(size_t)i];
+        });
     }
     o.x_fin = x;
     o.hidden.resize((size_t)T * H); o.rmsf.resize(T);
@@ -1423,38 +1497,28 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     L.attn_out.assign((size_t)PT * Hq, 0.0f);
     parallel_for(c.heads, [&](int64_t hb, int64_t he) {
         for (int64_t h = hb; h < he; ++h) {
-            int kh2 = (int)h / group;
-            for (int t = 0; t < PT; ++t) {
-                float* pr = L.probs.data() + ((size_t)h * PT + t) * PT;
-                float mx = -1e30f;
-                const float* qr = L.q.data() +
-                                  ((size_t)t * c.heads + h) * hd;
-                for (int s = 0; s <= t; ++s) {
-                    const float* kr = L.k.data() +
-                                      ((size_t)s * kvh + kh2) * hd;
-                    pr[s] = tpu_dot(qr, kr, hd) * scale;
-                    mx = std::max(mx, pr[s]);
-                }
-                float sum = 0.0f;
-                for (int s = 0; s <= t; ++s) {
-                    pr[s] = std::exp(pr[s] - mx); sum += pr[s];
-                }
-                float inv = 1.0f / sum;
-                float* ao = L.attn_out.data() +
-                            ((size_t)t * c.heads + h) * hd;
-                for (int s = 0; s <= t; ++s) {
-                    pr[s] *= inv;
-                    const float* vr = L.v.data() +
-                                      ((size_t)s * kvh + kh2) * hd;
-                    tpu_axpy(ao, pr[s], vr, hd);
-                }
-            }
+            const int kh2 = (int)h / group;
+            tpu_attn_fwd(
+                L.probs.data() + (size_t)h * PT * PT,
+                L.attn_out.data() + (size_t)h * hd,
+                (int64_t)c.heads * hd, PT, hd, 0, scale,
+                [&](int t) {
+                    return L.q.data() + ((size_t)t * c.heads + h) * hd;
+                },
+                [&](int s) {
+                    return L.k.data() + ((size_t)s * kvh + kh2) * hd;
+                },
+                [&](int s) {
+                    return L.v.data() + ((size_t)s * kvh + kh2) * hd;
+                });
         }
     });
     std::vector<float> proj((size_t)PT * H);
     linear_fwd(L.attn_out.data(), p.w.at("mtp.wo"), proj.data(), PT, Hq, H);
     L.x_res.resize((size_t)PT * H);
-    for (size_t i = 0; i < L.x_res.size(); ++i) L.x_res[i] = M.z[i] + proj[i];
+    tpu_elementwise((int64_t)L.x_res.size(), [&](int64_t i) {
+        L.x_res[(size_t)i] = M.z[(size_t)i] + proj[(size_t)i];
+    });
     L.n2.resize((size_t)PT * H); L.rms2.resize(PT);
     rmsnorm_fwd(L.x_res.data(), p.w.at("mtp.norm2").d.data(), L.n2.data(),
                 L.rms2.data(), PT, H, c.rms_eps);
@@ -1469,8 +1533,9 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     std::fill(proj.begin(), proj.end(), 0.0f);
     linear_fwd(L.fh.data(), p.w.at("mtp.w2"), proj.data(), PT, c.inter, H);
     M.res2.resize((size_t)PT * H);
-    for (size_t i = 0; i < M.res2.size(); ++i)
-        M.res2[i] = L.x_res[i] + proj[i];
+    tpu_elementwise((int64_t)M.res2.size(), [&](int64_t i) {
+        M.res2[(size_t)i] = L.x_res[(size_t)i] + proj[(size_t)i];
+    });
     M.out.resize((size_t)PT * H); M.out_rms.resize(PT);
     rmsnorm_fwd(M.res2.data(), p.w.at("mtp.norm_out").d.data(), M.out.data(),
                 M.out_rms.data(), PT, H, c.rms_eps);

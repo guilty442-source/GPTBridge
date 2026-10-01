@@ -381,18 +381,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 donorm[(size_t)i] = don[(size_t)i] * z * sg;
                 dz[(size_t)i] = don[(size_t)i] * L.lin_onorm[(size_t)i] * sg * (1.0f + z * (1.0f - sg));
             });
+            // Batched row-norm backward: rmsnorm_bwd's two-phase lane
+            // split keeps dW's per-element t-ascending fold order, so
+            // batching T*vh rows is bitwise identical to the serial
+            // per-(t,h) calls.
             std::vector<float> do_((size_t)T * val_dim, 0.0f);
-            for (int t = 0; t < T; ++t)
-                for (int h = 0; h < vh; ++h) {
-                    const size_t off = ((size_t)t * vh + h) * (size_t)vd;
-                    rmsnorm_bwd(donorm.data() + off, L.lin_o.data() + off,
-                                p.w.at(lb + "norm").d.data(),
-                                L.lin_orms.data() + (size_t)t * vh + h,
-                                do_.data() + off,
-                                p.dw(lb + "norm"), 1, vd);
-                }
-            // (kept serial: rmsnorm_bwd folds a shared dw row into
-            // p.g[lb+"norm"] — partitioning it would reorder the fold.)
+            rmsnorm_bwd(donorm.data(), L.lin_o.data(),
+                        p.w.at(lb + "norm").d.data(), L.lin_orms.data(),
+                        do_.data(), p.dw(lb + "norm"), T * vh, vd);
             // recurrent scan backward (reverse-time). TPU lanes: heads are
             // disjoint lanes — dS carry, dqn/dkn/dv/da_raw/db_raw and the
             // A_log/dt_bias slots are all indexed by h.
@@ -653,13 +649,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                            dcq.data(), p.dw(b + "w_uq"),
                            T, qr, c.heads * qd);
                 std::vector<float> dcq_raw((size_t)T * qr, 0.0f);
-                for (int t = 0; t < T; ++t)
-                    rmsnorm_bwd(dcq.data() + (size_t)t * qr,
-                                L.mla_cq_raw.data() + (size_t)t * qr,
-                                p.w.at(b + "norm_ql").d.data(),
-                                L.mla_cq_rms.data() + t,
-                                dcq_raw.data() + (size_t)t * qr,
-                                p.dw(b + "norm_ql"), 1, qr);
+                rmsnorm_bwd(dcq.data(), L.mla_cq_raw.data(),
+                            p.w.at(b + "norm_ql").d.data(),
+                            L.mla_cq_rms.data(), dcq_raw.data(),
+                            p.dw(b + "norm_ql"), T, qr);
                 linear_bwd(dcq_raw.data(), L.n1.data(), p.w.at(b + "w_dq"),
                            dn1.data(), p.dw(b + "w_dq"), T, H, qr);
             } else {
@@ -679,13 +672,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             linear_bwd(dkr.data(), L.n1.data(), p.w.at(b + "w_kr"),
                        dn1.data(), p.dw(b + "w_kr"), T, H, kr);
             std::vector<float> dckv_raw((size_t)T * rank, 0.0f);
-            for (int t = 0; t < T; ++t)
-                rmsnorm_bwd(dckv.data() + (size_t)t * rank,
-                            L.mla_ckv_raw.data() + (size_t)t * rank,
-                            p.w.at(b + "norm_kvl").d.data(),
-                            L.mla_ckv_rms.data() + t,
-                            dckv_raw.data() + (size_t)t * rank,
-                            p.dw(b + "norm_kvl"), 1, rank);
+            rmsnorm_bwd(dckv.data(), L.mla_ckv_raw.data(),
+                        p.w.at(b + "norm_kvl").d.data(),
+                        L.mla_ckv_rms.data(), dckv_raw.data(),
+                        p.dw(b + "norm_kvl"), T, rank);
             linear_bwd(dckv_raw.data(), L.n1.data(), p.w.at(b + "w_dkv"),
                        dn1.data(), p.dw(b + "w_dkv"), T, H, rank);
         } else {
@@ -732,6 +722,51 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // disjoint across lanes; per-element order is unchanged. CSA:
             // the compressed-KV grad accumulators are also sliced by kv
             // head, so the same grouping keeps them lane-disjoint.
+            if (crole < 0 || csa_nc == 0) {
+                // Blocked path: 4-row t blocks share each streamed v/k
+                // row; dk/dv land in kv-head space so the g-group lanes
+                // stay disjoint. Per-element order unchanged.
+                parallel_for(kvh, [&](int64_t gb, int64_t ge) {
+                std::vector<float> dsc((size_t)4 * T);
+                for (int64_t g = gb; g < ge; ++g)
+                for (int h = (int)g * group;
+                     h < std::min((int)(g + 1) * group, c.heads); ++h) {
+                    const int kh2 = h / group;
+                    tpu_attn_bwd(
+                        L.probs.data() + (size_t)h * T * T,
+                        T, hd, win, scale,
+                        [&](int t) {
+                            return dao.data() +
+                                   ((size_t)t * c.heads + h) * hd;
+                        },
+                        [&](int t) {
+                            return L.q.data() +
+                                   ((size_t)t * c.heads + h) * hd;
+                        },
+                        [&](int s) {
+                            return L.k.data() +
+                                   ((size_t)s * kvh + kh2) * hd;
+                        },
+                        [&](int s) {
+                            return L.v.data() +
+                                   ((size_t)s * kvh + kh2) * hd;
+                        },
+                        [&](int t) {
+                            return dq.data() +
+                                   ((size_t)t * c.heads + h) * hd;
+                        },
+                        [&](int s) {
+                            return dk.data() +
+                                   ((size_t)s * kvh + kh2) * hd;
+                        },
+                        [&](int s) {
+                            return dvv.data() +
+                                   ((size_t)s * kvh + kh2) * hd;
+                        },
+                        dsc.data());
+                }
+                });
+            } else
             parallel_for(kvh, [&](int64_t gb, int64_t ge) {
             for (int64_t g = gb; g < ge; ++g)
             for (int h = (int)g * group;
@@ -970,26 +1005,18 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 for (size_t i = 0; i < dvv.size(); ++i) dvv[i] += dv_csa[i];
             }
             if (c.qk_norm) {
+                // Batched row-norm backward over (t,h) — same per-element
+                // fold order as the nested 1-row calls.
                 std::vector<float> dq_raw((size_t)T * Hq, 0.0f),
                                    dk_raw((size_t)T * Hkvl, 0.0f);
-                for (int t = 0; t < T; ++t) {
-                    for (int h = 0; h < c.heads; ++h) {
-                        size_t off = ((size_t)t * c.heads + h) * (size_t)hd;
-                        rmsnorm_bwd(dq.data() + off, L.qk_qraw.data() + off,
-                                    p.w.at(ln(l, "q_norm")).d.data(),
-                                    L.qk_qrms.data() + (size_t)t * c.heads + h,
-                                    dq_raw.data() + off,
-                                    p.dw(ln(l, "q_norm")), 1, hd);
-                    }
-                    for (int h = 0; h < kvh; ++h) {
-                        size_t off = ((size_t)t * kvh + h) * (size_t)hd;
-                        rmsnorm_bwd(dk.data() + off, L.qk_kraw.data() + off,
-                                    p.w.at(ln(l, "k_norm")).d.data(),
-                                    L.qk_krms.data() + (size_t)t * kvh + h,
-                                    dk_raw.data() + off,
-                                    p.dw(ln(l, "k_norm")), 1, hd);
-                    }
-                }
+                rmsnorm_bwd(dq.data(), L.qk_qraw.data(),
+                            p.w.at(ln(l, "q_norm")).d.data(),
+                            L.qk_qrms.data(), dq_raw.data(),
+                            p.dw(ln(l, "q_norm")), T * c.heads, hd);
+                rmsnorm_bwd(dk.data(), L.qk_kraw.data(),
+                            p.w.at(ln(l, "k_norm")).d.data(),
+                            L.qk_krms.data(), dk_raw.data(),
+                            p.dw(ln(l, "k_norm")), T * kvh, hd);
                 dq.swap(dq_raw); dk.swap(dk_raw);
             }
             if (c.attn_output_gate) {
@@ -1114,39 +1141,36 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
                        dk((size_t)PT * Hkvl, 0.0f),
                        dv((size_t)PT * Hkvl, 0.0f);
     parallel_for(kvh, [&](int64_t gb, int64_t ge) {
+        std::vector<float> dsc((size_t)4 * PT);
         for (int64_t g = gb; g < ge; ++g)
         for (int h = (int)g * group;
              h < std::min((int)(g + 1) * group, c.heads); ++h) {
-            int kh2 = (int)h / group;
-            std::vector<float> dscore;
-            for (int t = 0; t < PT; ++t) {
-                const float* pr = L.probs.data() +
-                                  ((size_t)h * PT + t) * PT;
-                const float* dao_r = dao.data() +
-                                     ((size_t)t * c.heads + h) * hd;
-                dscore.assign((size_t)t + 1, 0.0f);
-                for (int s = 0; s <= t; ++s) {
-                    const float* vr = L.v.data() +
-                                      ((size_t)s * kvh + kh2) * hd;
-                    dscore[(size_t)s] = tpu_dot(dao_r, vr, hd);
-                }
-                float dsum = 0.0f;
-                for (int s = 0; s <= t; ++s) dsum += dscore[(size_t)s] * pr[s];
-                for (int s = 0; s <= t; ++s)
-                    dscore[(size_t)s] = pr[s] * (dscore[(size_t)s] - dsum) * scale;
-                const float* qr = L.q.data() +
-                                  ((size_t)t * c.heads + h) * hd;
-                float* dqr = dq.data() + ((size_t)t * c.heads + h) * hd;
-                for (int s = 0; s <= t; ++s) {
-                    const float* kr = L.k.data() +
-                                      ((size_t)s * kvh + kh2) * hd;
-                    float* dkr = dk.data() + ((size_t)s * kvh + kh2) * hd;
-                    tpu_axpy(dqr, dscore[(size_t)s], kr, hd);
-                    tpu_axpy(dkr, dscore[(size_t)s], qr, hd);
-                    float* dvr = dv.data() + ((size_t)s * kvh + kh2) * hd;
-                    tpu_axpy(dvr, pr[s], dao_r, hd);
-                }
-            }
+            const int kh2 = (int)h / group;
+            tpu_attn_bwd(
+                L.probs.data() + (size_t)h * PT * PT,
+                PT, hd, 0, scale,
+                [&](int t) {
+                    return dao.data() + ((size_t)t * c.heads + h) * hd;
+                },
+                [&](int t) {
+                    return L.q.data() + ((size_t)t * c.heads + h) * hd;
+                },
+                [&](int s) {
+                    return L.k.data() + ((size_t)s * kvh + kh2) * hd;
+                },
+                [&](int s) {
+                    return L.v.data() + ((size_t)s * kvh + kh2) * hd;
+                },
+                [&](int t) {
+                    return dq.data() + ((size_t)t * c.heads + h) * hd;
+                },
+                [&](int s) {
+                    return dk.data() + ((size_t)s * kvh + kh2) * hd;
+                },
+                [&](int s) {
+                    return dv.data() + ((size_t)s * kvh + kh2) * hd;
+                },
+                dsc.data());
         }
     });
     rope(dq.data(), PT, c.heads, hd, c.rope_theta, true, &c);
@@ -1195,35 +1219,69 @@ static float ce_loss(const std::vector<float>& logits,
                      const std::vector<int>& labels, int T, int V,
                      std::vector<float>& dlogits) {
     dlogits.assign(logits.size(), 0.0f);
+    // Rows are disjoint lanes; per-row softmax math is unchanged. The
+    // scalar loss stays a serial t-ascending accumulate over per-row
+    // contributions, so the value is bitwise identical to the serial loop.
+    std::vector<float> contrib((size_t)T, 0.0f);
+    std::vector<int> lab_row((size_t)T, 0);
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            int y = labels[(size_t)t];
+            if (y < 0 || y >= V) continue;
+            const float* lr = logits.data() + (size_t)t * V;
+            float mx = *std::max_element(lr, lr + V), sum = 0.0f;
+            float* dl = dlogits.data() + (size_t)t * V;
+            for (int i = 0; i < V; ++i) {
+                dl[i] = std::exp(lr[i] - mx); sum += dl[i];
+            }
+            contrib[(size_t)t] = std::log(sum) - (lr[y] - mx);
+            lab_row[(size_t)t] = 1;
+            for (int i = 0; i < V; ++i) dl[i] /= sum;
+            dl[y] -= 1.0f;
+        }
+    });
     float loss = 0.0f; int cnt = 0;
     for (int t = 0; t < T; ++t) {
-        int y = labels[t];
-        if (y < 0 || y >= V) continue;
-        ++cnt;
-        const float* lr = logits.data() + (size_t)t * V;
-        float mx = *std::max_element(lr, lr + V), sum = 0.0f;
-        float* dl = dlogits.data() + (size_t)t * V;
-        for (int i = 0; i < V; ++i) { dl[i] = std::exp(lr[i] - mx); sum += dl[i]; }
-        loss += std::log(sum) - (lr[y] - mx);
-        for (int i = 0; i < V; ++i) dl[i] /= sum;
-        dl[y] -= 1.0f;
+        if (!lab_row[(size_t)t]) continue;
+        ++cnt; loss += contrib[(size_t)t];
     }
     if (!cnt) return 0.0f;
     float inv = 1.0f / cnt;
-    for (auto& d : dlogits) d *= inv;
+    tpu_elementwise((int64_t)dlogits.size(), [&](int64_t i) {
+        dlogits[(size_t)i] *= inv;
+    });
     return loss * inv;
 }
 
 static float seq_logprob(const std::vector<float>& logits,
                          const std::vector<int>& labels, int T, int V) {
+    std::vector<float> contrib((size_t)T, 0.0f);
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            int y = labels[(size_t)t];
+            if (y < 0 || y >= V) continue;
+            const float* lr = logits.data() + (size_t)t * V;
+            float mx = *std::max_element(lr, lr + V), sum = 0.0f;
+            for (int i = 0; i < V; ++i) sum += std::exp(lr[i] - mx);
+            contrib[(size_t)t] = (lr[y] - mx) - std::log(sum);
+        }
+    });
     float lp = 0.0f;
-    for (int t = 0; t < T; ++t) {
-        int y = labels[t];
-        if (y < 0 || y >= V) continue;
-        const float* lr = logits.data() + (size_t)t * V;
-        float mx = *std::max_element(lr, lr + V), sum = 0.0f;
-        for (int i = 0; i < V; ++i) sum += std::exp(lr[i] - mx);
-        lp += (lr[y] - mx) - std::log(sum);
-    }
+    for (int t = 0; t < T; ++t) lp += contrib[(size_t)t];
     return lp;
+}
+
+// soft_grad over all rows: dl[t] = scale*(softmax(lr_t) - 1[y_t]) —
+// the DPO/GRPO shared kernel (rows are disjoint lanes).
+static void soft_grad(const std::vector<float>& logits,
+                      const std::vector<int>& labels, int T, int V,
+                      float scale, std::vector<float>& dl) {
+    parallel_for(T, [&](int64_t b, int64_t e) {
+        for (int64_t t = b; t < e; ++t) {
+            int y = labels[(size_t)t];
+            if (y < 0 || y >= V) continue;
+            soft_grad_row(logits.data() + (size_t)t * V, V, y, scale,
+                          dl.data() + (size_t)t * V);
+        }
+    });
 }

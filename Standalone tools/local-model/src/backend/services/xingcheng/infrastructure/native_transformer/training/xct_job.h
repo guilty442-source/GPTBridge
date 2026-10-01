@@ -217,15 +217,11 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
                 }
             }
         }
-        tpu_elementwise((int64_t)w.d.size(), [&](int64_t i) {
-            float gi = g.d[(size_t)i] * gscale;
-            g.d[(size_t)i] = 0.0f;   // consumed: fused zero_grad
-            m.d[(size_t)i] = b1 * m.d[(size_t)i] + (1 - b1) * gi;
-            v.d[(size_t)i] = b2 * v.d[(size_t)i] + (1 - b2) * gi * gi;
-            float mh = m.d[(size_t)i] / bc1, vh = v.d[(size_t)i] / bc2;
-            w.d[(size_t)i] -=
-                lr_t * (mh / (std::sqrt(vh) + eps) + wd * w.d[(size_t)i]);
-        });
+        // Fused lane: same op-for-op math as the scalar loop (g consumed
+        // and zeroed, m/v updated, w stepped) — bitwise per element.
+        tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
+                  (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
+                  bc1, bc2, eps);
     }
     p.touched.clear();
 }
