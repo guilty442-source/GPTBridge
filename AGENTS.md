@@ -518,9 +518,11 @@ Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
 
 ## 星澄 Language Architecture（local-model 收斂目標）
 
-> Owner-local implementation contract（Codex B81 ARCHITECTURE-EXCLUSION /
-> rev 194：架構不寫入法典）。在 `Standalone tools/local-model` 樹內覆寫
-> 上方 Execution Plane Ownership 的 repo 全域預設。
+> Normative authority: Codex B81 `LANGUAGE-OWNERSHIP`（rev 196，語言-
+> 職責指派入專法）。實作層（檔案、API、kernel 劃分）仍為 owner-local
+> （B81 `ARCHITECTURE-EXCLUSION`）。此表為專法條文的操作手冊投影；
+> 在 `Standalone tools/local-model` 樹內覆寫上方 Execution Plane
+> Ownership 的 repo 全域預設。
 
 | 語言 | 角色 | 比重 | 判斷 |
 | --- | --- | --- | --- |
