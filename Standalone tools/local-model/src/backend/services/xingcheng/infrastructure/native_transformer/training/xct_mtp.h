@@ -245,9 +245,14 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         dq.assign((size_t)R * Hq, 0.0f);
         dk.assign((size_t)R * Hkv, 0.0f);
         dvv.assign((size_t)R * Hkv, 0.0f);
-        parallel_for(c.heads, (int64_t)R * R * hd,
-                     [&](int64_t hb, int64_t he) {
-            for (int64_t h = hb; h < he; ++h) {
+        // kv-group lanes: q-heads of a GQA group share dk/dvv slices, so
+        // lanes own whole groups; per-element order identical to serial
+        // h-ascending.
+        parallel_for(kvh, (int64_t)R * R * hd * group,
+                     [&](int64_t gb, int64_t ge) {
+            for (int64_t g = gb; g < ge; ++g)
+            for (int h = (int)g * group;
+                 h < std::min((int)(g + 1) * group, c.heads); ++h) {
                 int kh2 = (int)h / group;
                 std::vector<float> dscore;
                 for (int t = 0; t < R; ++t) {
