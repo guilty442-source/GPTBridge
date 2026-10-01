@@ -4184,8 +4184,9 @@ internal static class InstructionRecovery
             double pr = 0;
             if (cats.TryGetValue(metric, out var mv) &&
                 mv is Dictionary<string, object?> md &&
-                md["pass_rate"] is double d)
-            { pr = d; wfound += w; }
+                md.ContainsKey("pass_rate"))
+            { pr = TransformerTrainingRepository.Num(md, "pass_rate");
+              wfound += w; }
             metrics[metric] = pr;
             score += w * pr;
             wsum += w;
