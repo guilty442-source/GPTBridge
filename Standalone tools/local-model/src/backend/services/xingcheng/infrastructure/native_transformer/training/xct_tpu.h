@@ -466,17 +466,51 @@ static void tpu_linear_bwd_tile4(const float* dy, const float* x,
     });
 }
 
-// Shape dispatcher (fixed rule): T >= 16 -> tile4; T < 16 -> legacy.
+// Tiled linear lane (tile2): identical structure to tile4 but two x
+// rows per block — for very large outputs (T*O past ~16M elements,
+// e.g. the lm_head at T=2048/O=8192) tile4's eight-accumulator set
+// spills and measures 0.26x of legacy while tile2 still wins.
+static void tpu_linear_tile2(const float* x, const float* w, float* y,
+                             int T, int I, int O) {
+    const int64_t nb = (T + 1) / 2;
+    parallel_for(nb, [&](int64_t b, int64_t e) {
+        for (int64_t tb = b; tb < e; ++tb) {
+            const int64_t t0 = tb * 2;
+            const int nr = (int)std::min<int64_t>(2, T - t0);
+            const float* xb = x + (size_t)t0 * I;
+            float* yb = y + (size_t)t0 * O;
+            for (int64_t o = 0; o < O; ++o) {
+                const float* wr = w + (size_t)o * I;
+                if (nr == 2) {
+                    float q2[2];
+                    tpu_dot2(xb, xb + I, wr, q2, I);
+                    yb[o] = q2[0]; yb[(size_t)O + o] = q2[1];
+                } else {
+                    yb[o] = tpu_dot(xb, wr, I);
+                }
+            }
+        }
+    });
+}
+
+// Shape dispatcher (fixed rules): T >= 16 -> tiled; T < 16 -> legacy.
 // Measured on the production microbenchmark: tile4 is a strict loss at
 // T=8 (0.31x — setup overhead beats the stream saving), so the small-T
-// cutoff is a hard rule, not a heuristic. The same rule covers grouped
-// expert linear (dispatch sees Te as T). XCT_TPU_TILE4=0 forces legacy
-// for A/B measurement only — it is not a production switch.
+// cutoff is a hard rule, not a heuristic. Huge outputs (T*O >= 16M,
+// the lm_head shape) use tile2 — tile4 spills its eight accumulators
+// there and measured 0.26x. The same rules cover grouped expert linear
+// (dispatch sees Te as T). XCT_TPU_TILE4=0 forces legacy for A/B
+// measurement only — it is not a production switch.
 static constexpr int kTpuTile4MinT = 16;
+static constexpr int64_t kTpuTile4MaxOut = 16LL * 1024 * 1024;
 
 static void tpu_linear(const float* x, const float* w, float* y,
                        int T, int I, int O) {
     if (g_tpu.tile4 && T >= kTpuTile4MinT) {
+        if ((int64_t)T * O >= kTpuTile4MaxOut) {
+            tpu_linear_tile2(x, w, y, T, I, O);
+            return;
+        }
         tpu_linear_tile4(x, w, y, T, I, O);
         return;
     }
