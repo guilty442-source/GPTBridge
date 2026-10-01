@@ -1277,6 +1277,30 @@ long long g_max_len = 0;
 size_t g_qcap = 0;
 size_t g_ocap = 0;
 
+// KV lane pinned staging — host sources are caller-owned pageable
+// memory, so async copies stage through persistent pinned buffers
+// ordered on the DECODE_HIGH lane (the same stream graph replays
+// use: FIFO ordering between KV writes and the attention kernel,
+// no per-call context sync on the token path).
+double* g_kv_wpin = nullptr;
+double* g_kv_qpin = nullptr;
+double* g_kv_opin = nullptr;
+size_t g_kv_wcap = 0;
+size_t g_kv_qcap = 0;
+size_t g_kv_ocap = 0;
+
+bool kv_pin_grow(double** pp, size_t* cap, size_t bytes) {
+    if (*cap >= bytes) return true;
+    if (*pp != nullptr) mp::mgr().pinned_free(*pp);
+    *pp = nullptr;
+    *cap = 0;
+    void* p = mp::mgr().pinned_alloc(static_cast<int64_t>(bytes));
+    if (p == nullptr) return false;
+    *pp = static_cast<double*>(p);
+    *cap = bytes;
+    return true;
+}
+
 bool grow_scratch(CUdevptr_t* buf, size_t* cap, size_t need_elems) {
     if (*cap >= need_elems) return true;
     dev_free(*buf);
@@ -1297,6 +1321,11 @@ void kv_free_locked() {
     g_k = g_v = g_qbuf = g_obuf = 0;
     g_qcap = g_ocap = 0;
     g_layers = g_kv_heads = g_head_dim = g_max_len = 0;
+    if (g_kv_wpin != nullptr) mp::mgr().pinned_free(g_kv_wpin);
+    if (g_kv_qpin != nullptr) mp::mgr().pinned_free(g_kv_qpin);
+    if (g_kv_opin != nullptr) mp::mgr().pinned_free(g_kv_opin);
+    g_kv_wpin = g_kv_qpin = g_kv_opin = nullptr;
+    g_kv_wcap = g_kv_qcap = g_kv_ocap = 0;
 }
 
 // ------------------------------------------------- fused AdamW state --
@@ -1549,10 +1578,30 @@ int xcuda_kv_write_rows(int is_k, long long layer, long long head,
         static_cast<CUdevptr_t>(
             (layer * g_kv_heads + head) * g_max_len + pos0) *
             static_cast<CUdevptr_t>(g_head_dim) * sizeof(double);
-    if (xmemcpy_htod(
-            base, src,
-            static_cast<size_t>(rows) * static_cast<size_t>(g_head_dim) *
-                sizeof(double)) != kCudaSuccess) {
+    const size_t bytes = static_cast<size_t>(rows) *
+                         static_cast<size_t>(g_head_dim) *
+                         sizeof(double);
+    // Async lane: stage through pinned memory and enqueue on
+    // DECODE_HIGH — the same stream the attention kernel and the
+    // bf16 graph replays run on, so writes are FIFO-ordered before
+    // every consumer without a per-call context sync.
+    const CUstream_t s = g_drv.memcpy_htod_async != nullptr &&
+                                 mp::mgr().ensure()
+                             ? decode_stream()
+                             : 0;
+    if (s != 0 && kv_pin_grow(&g_kv_wpin, &g_kv_wcap, bytes)) {
+        std::memcpy(g_kv_wpin, src, bytes);
+        if (g_drv.memcpy_htod_async(base, g_kv_wpin, bytes, s) ==
+            kCudaSuccess) {
+            mp::mgr().h2d_bytes += static_cast<int64_t>(bytes);
+            return 0;
+        }
+    }
+    // Sync fallback: drain the lane first so the legacy-stream copy
+    // cannot pass earlier enqueued writes.
+    if (s != 0 && g_drv.stream_sync != nullptr)
+        g_drv.stream_sync(s);
+    if (xmemcpy_htod(base, src, bytes) != kCudaSuccess) {
         return 2;
     }
     return 0;
@@ -1585,40 +1634,71 @@ int xcuda_kv_attention(long long layer, const double* q_host,
         !grow_scratch(&g_obuf, &g_ocap, o_elems)) {
         return 2;
     }
-    if (xmemcpy_htod(g_qbuf, q_host, q_elems * sizeof(double)) !=
-        kCudaSuccess) {
-        return 2;
-    }
     const unsigned int shmem = static_cast<unsigned int>(
         (static_cast<size_t>(kKvTile) + static_cast<size_t>(head_dim) +
          32 + 5) * sizeof(double));
-    {
-        long long h_ll = heads, s_ll = seq, kh_ll = kv_heads,
-                  hd_ll = head_dim, ml_ll = g_max_len,
-                  po_ll = position_offset, os_ll = out_stride;
-        CUdevptr_t kbase = g_k +
-            static_cast<CUdevptr_t>(layer) *
-                static_cast<CUdevptr_t>(g_kv_heads * g_max_len *
-                                        g_head_dim) *
-                sizeof(double);
-        CUdevptr_t vbase = g_v +
-            static_cast<CUdevptr_t>(layer) *
-                static_cast<CUdevptr_t>(g_kv_heads * g_max_len *
-                                        g_head_dim) *
-                sizeof(double);
-        void* params[] = {&g_qbuf, &kbase, &vbase,
-                          &h_ll, &s_ll, &kh_ll, &hd_ll,
-                          &ml_ll, &po_ll, &g_obuf, &os_ll};
-        if (!launch(g_f_kv_attn,
-                    static_cast<unsigned int>(heads * seq), 1,
-                    static_cast<unsigned int>(kKvThreads), 1, shmem,
-                    params)) {
-            return 3;
+    long long h_ll = heads, s_ll = seq, kh_ll = kv_heads,
+              hd_ll = head_dim, ml_ll = g_max_len,
+              po_ll = position_offset, os_ll = out_stride;
+    CUdevptr_t kbase = g_k +
+        static_cast<CUdevptr_t>(layer) *
+            static_cast<CUdevptr_t>(g_kv_heads * g_max_len *
+                                    g_head_dim) *
+            sizeof(double);
+    CUdevptr_t vbase = g_v +
+        static_cast<CUdevptr_t>(layer) *
+            static_cast<CUdevptr_t>(g_kv_heads * g_max_len *
+                                    g_head_dim) *
+            sizeof(double);
+    void* params[] = {&g_qbuf, &kbase, &vbase,
+                      &h_ll, &s_ll, &kh_ll, &hd_ll,
+                      &ml_ll, &po_ll, &g_obuf, &os_ll};
+    // Async lane: q staged through pinned memory, H2D + kernel + D2H
+    // all ordered on DECODE_HIGH — one lane sync replaces the
+    // whole-context drain, and the kernel sees every KV row written
+    // earlier on the same stream.
+    const size_t q_bytes = q_elems * sizeof(double);
+    const size_t o_bytes = o_elems * sizeof(double);
+    const CUstream_t s =
+        g_drv.memcpy_htod_async != nullptr &&
+                g_drv.memcpy_dtoh_async != nullptr &&
+                g_drv.stream_sync != nullptr && mp::mgr().ensure()
+            ? decode_stream()
+            : 0;
+    if (s != 0 && kv_pin_grow(&g_kv_qpin, &g_kv_qcap, q_bytes) &&
+        kv_pin_grow(&g_kv_opin, &g_kv_ocap, o_bytes)) {
+        std::memcpy(g_kv_qpin, q_host, q_bytes);
+        if (g_drv.memcpy_htod_async(g_qbuf, g_kv_qpin, q_bytes, s) ==
+                kCudaSuccess &&
+            launch_s(g_f_kv_attn,
+                     static_cast<unsigned int>(heads * seq), 1,
+                     static_cast<unsigned int>(kKvThreads), 1, shmem,
+                     params, s) &&
+            g_drv.memcpy_dtoh_async(g_kv_opin, g_obuf, o_bytes, s) ==
+                kCudaSuccess &&
+            g_drv.stream_sync(s) == kCudaSuccess) {
+            std::memcpy(out_host, g_kv_opin, o_bytes);
+            mp::mgr().h2d_bytes += static_cast<int64_t>(q_bytes);
+            mp::mgr().d2h_bytes += static_cast<int64_t>(o_bytes);
+            return 0;
         }
+        if (g_drv.stream_sync(s) != kCudaSuccess) return 3;
+        return 3;
+    }
+    // Sync fallback: drain the decode lane first — pending async KV
+    // writes must be visible before the stream-0 kernel reads them.
+    if (s != 0) g_drv.stream_sync(s);
+    if (xmemcpy_htod(g_qbuf, q_host, q_bytes) != kCudaSuccess) {
+        return 2;
+    }
+    if (!launch(g_f_kv_attn,
+                static_cast<unsigned int>(heads * seq), 1,
+                static_cast<unsigned int>(kKvThreads), 1, shmem,
+                params)) {
+        return 3;
     }
     if (g_drv.ctx_sync() != kCudaSuccess) return 3;
-    if (xmemcpy_dtoh(out_host, g_obuf, o_elems * sizeof(double)) !=
-        kCudaSuccess) {
+    if (xmemcpy_dtoh(out_host, g_obuf, o_bytes) != kCudaSuccess) {
         return 3;
     }
     return 0;

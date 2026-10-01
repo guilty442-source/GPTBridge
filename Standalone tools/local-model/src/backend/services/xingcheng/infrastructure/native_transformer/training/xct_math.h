@@ -1200,6 +1200,7 @@ static void fwd(const Params& p, const ModelConfig& c,
                 std::vector<std::vector<int>> slots((size_t)E);
                 for (size_t a = 0; a < L.moe_idx.size(); ++a)
                     slots[(size_t)L.moe_idx[a]].push_back((int)a);
+                std::vector<float> eos((size_t)T * K * H);
                 std::vector<float> X, FA, FB, Fh, EO;
                 for (int e = 0; e < E; ++e) {
                     auto& sl = slots[(size_t)e];
@@ -1226,8 +1227,6 @@ static void fwd(const Params& p, const ModelConfig& c,
                                Te, EI, H);
                     for (int j = 0; j < Te; ++j) {
                         const int slot = sl[(size_t)j];
-                        const int t = slot / K;
-                        const float wgt = L.moe_w[(size_t)slot];
                         auto& fa = L.mfa[(size_t)slot];
                         auto& fb = L.mfb[(size_t)slot];
                         auto& fh = L.mfh[(size_t)slot];
@@ -1237,10 +1236,18 @@ static void fwd(const Params& p, const ModelConfig& c,
                                   FB.begin() + (ptrdiff_t)(j + 1) * EI);
                         fh.assign(Fh.begin() + (ptrdiff_t)j * EI,
                                   Fh.begin() + (ptrdiff_t)(j + 1) * EI);
-                        float* pr = proj.data() + (size_t)t * H;
-                        const float* er = EO.data() + (size_t)j * H;
-                        for (int i = 0; i < H; ++i) pr[i] += wgt * er[i];
+                        std::copy(EO.data() + (size_t)j * H,
+                                  EO.data() + (size_t)(j + 1) * H,
+                                  eos.data() + (size_t)slot * H);
                     }
+                }
+                // Weighted sum lands in slot order (t, s) — the same
+                // accumulation order as the per-pair path.
+                for (int slot = 0; slot < T * K; ++slot) {
+                    float* pr = proj.data() + (size_t)(slot / K) * H;
+                    const float* er = eos.data() + (size_t)slot * H;
+                    const float wgt = L.moe_w[(size_t)slot];
+                    for (int i = 0; i < H; ++i) pr[i] += wgt * er[i];
                 }
             }
             // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
