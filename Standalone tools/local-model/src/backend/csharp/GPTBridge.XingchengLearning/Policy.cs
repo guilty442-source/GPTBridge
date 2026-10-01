@@ -91,6 +91,15 @@ internal sealed class SelfLearningPolicy
     public bool CapabilityTrainingFrozen = true;
     public string CapabilityTrainingMode = "FROZEN";
     public string ActiveCapability = "";
+    // Canonical-architecture pretrain lane (star-canonical-pretrain/v1):
+    // while the capability freeze holds, a policy may declare
+    // architecture_pretrain_mode = "XC_FUSED_1" to admit jobs with
+    // training_kind=pretrain whose model.generation is the canonical
+    // architecture contract. The lane exists so a genuine canonical
+    // weight bootstrap can run under governance; it never widens the
+    // capability freeze (SFT/DPO stay governed by CapabilityTrainingMode
+    // and the recovery lane). Default DISABLED — fail-closed.
+    public string ArchitecturePretrainMode = "DISABLED";
     // AutonomousCapabilityRecoveryLoop §3: OFF / COLLECT_ONLY /
     // DATASET_BUILD / PILOT_ONLY / GOVERNED_AUTONOMOUS. Production
     // starts COLLECT_ONLY; promotion to a higher lane requires every
@@ -148,6 +157,7 @@ internal sealed class SelfLearningPolicy
             ["capability_training_frozen"] = CapabilityTrainingFrozen,
             ["capability_training_mode"] = CapabilityTrainingMode,
             ["active_capability"] = ActiveCapability,
+            ["architecture_pretrain_mode"] = ArchitecturePretrainMode,
             ["self_training_mode"] = SelfTrainingMode,
         };
         return d;
@@ -236,6 +246,8 @@ internal sealed class SelfLearningPolicy
                                                 policy.CapabilityTrainingMode);
             policy.ActiveCapability = Get(root, "active_capability",
                                           policy.ActiveCapability);
+            policy.ArchitecturePretrainMode = Get(root,
+                "architecture_pretrain_mode", policy.ArchitecturePretrainMode);
             policy.SelfTrainingMode = Get(root, "self_training_mode",
                                           policy.SelfTrainingMode);
         }
