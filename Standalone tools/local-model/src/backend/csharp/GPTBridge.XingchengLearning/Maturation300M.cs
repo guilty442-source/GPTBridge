@@ -41,6 +41,11 @@ internal static class Maturation300M
     public const string ActiveGeneration = "gen-2-consolidated";
 
     public const string PhaseId = "300M_MODEL_MATURATION";
+    /// <summary>Governor-stamped terminal phase: set by Complete() once
+    /// every capability resolved. GuardSequence only enforces order
+    /// while phase == PhaseId — a completed phase releases generic
+    /// (capability-undeclared) SFT admission again.</summary>
+    public const string PhaseComplete = "300M_MATURATION_COMPLETE";
 
     // §64 single primary change class per candidate.
     public static readonly string[] ChangeClasses =
@@ -191,9 +196,22 @@ internal static class Maturation300M
             var state = new Dictionary<string, object?>
             {
                 ["format"] = StateFormat,
-                ["phase"] = PhaseId,
+                // Preserve the stored phase stamp: Complete() writes
+                // PhaseComplete and GuardSequence honors it. A file
+                // without a phase field defaults to the active phase.
+                ["phase"] =
+                    doc.RootElement.TryGetProperty("phase", out var ph) &&
+                    ph.ValueKind == JsonValueKind.String
+                        ? ph.GetString() ?? PhaseId
+                        : PhaseId,
                 ["model_scale"] = ModelScale,
             };
+            // Completion evidence fields ride along so a load+save cycle
+            // (Freeze/Reopen/Complete) never drops the governor stamp.
+            foreach (var k in new[] { "completed_at", "completed_reason" })
+                if (doc.RootElement.TryGetProperty(k, out var cv) &&
+                    cv.ValueKind == JsonValueKind.String)
+                    state[k] = cv.GetString();
             var capsDict = new Dictionary<string, object?>();
             foreach (var p in caps.EnumerateObject())
                 capsDict[p.Name] = ModelLifecycle.Decode(p.Value);
@@ -283,6 +301,16 @@ internal static class Maturation300M
     public static void GuardSequence(string toolRoot, string capability)
     {
         var state = LoadState(toolRoot);
+        // Phase-complete release: the ordered-activation guard governs
+        // admission only while the maturation phase is active. Once the
+        // governor stamps PhaseComplete (all capabilities resolved), SFT
+        // jobs no longer carry a sequence obligation — including the
+        // capability-undeclared self-learning cycle.
+        if (!string.Equals(
+                state.TryGetValue("phase", out object? ph)
+                    ? ph?.ToString() : null,
+                PhaseId, StringComparison.Ordinal))
+            return;
         CapabilitySpec? head = Head(state);
         if (head == null)
             throw new ExecutorError("MATURATION_SEQUENCE_COMPLETE",
@@ -354,6 +382,15 @@ internal static class Maturation300M
         var caps = (Dictionary<string, object?>)state["capabilities"]!;
         object? prior = caps.TryGetValue(capability, out object? p)
             ? p : null;
+        // Reopen re-arms the ordered lane: after a completed phase the
+        // guard only stays consistent if the sequence is live again —
+        // the reopened capability becomes head and GuardSequence
+        // resumes enforcing admission order until it re-freezes.
+        // The stale completion stamp is lifted with the phase flip —
+        // history survives under the reopened capability's "prior".
+        state["phase"] = PhaseId;
+        state.Remove("completed_at");
+        state.Remove("completed_reason");
         caps[capability] = new Dictionary<string, object?>
         {
             ["status"] = "pending",
@@ -415,6 +452,48 @@ internal static class Maturation300M
             ["unsupported"] = capability,
             ["reason"] = reason,
             ["next_capability"] = next?.Id,
+        };
+    }
+
+    /// <summary>Governor-ordered phase completion: stamps the state
+    /// PhaseComplete once every capability resolved (Head == null),
+    /// releasing GuardSequence for capability-undeclared lanes. All
+    /// freeze/unsupported evidence is preserved verbatim — completion
+    /// records a phase stamp, never erases history. Requires a reason
+    /// (governor order reference); refuse while any capability is still
+    /// pending — the sequence must earn completion, not be waved.</summary>
+    public static Dictionary<string, object?> Complete(
+        string toolRoot, string reason)
+    {
+        var state = LoadState(toolRoot);
+        string phase = state.TryGetValue("phase", out object? ph)
+            ? ph?.ToString() ?? PhaseId : PhaseId;
+        if (!string.Equals(phase, PhaseId, StringComparison.Ordinal))
+            return new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["already_complete"] = true,
+                ["phase"] = phase,
+            };
+        CapabilitySpec? head = Head(state);
+        if (head != null)
+            throw new ExecutorError("MATURATION_INCOMPLETE",
+                $"cannot complete the phase: sequence head is " +
+                $"'{head.Id}'; freeze or mark-unsupported first");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
+                "phase completion requires a reason (governor order)");
+        state["phase"] = PhaseComplete;
+        state["completed_at"] = XcPaths.IsoNow();
+        state["completed_reason"] = reason;
+        SaveState(toolRoot, state);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["phase"] = PhaseComplete,
+            ["reason"] = reason,
+            ["capabilities_resolved"] =
+                ((Dictionary<string, object?>)state["capabilities"]!).Count,
         };
     }
 

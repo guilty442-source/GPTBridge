@@ -91,6 +91,11 @@ internal static class Program
                         ? mue : "",
                     opts.TryGetValue("reason", out string? mur)
                         ? mur : ""));
+            if (flags.Contains("maturation-complete"))
+                return Emit(Maturation300M.Complete(
+                    toolRoot,
+                    opts.TryGetValue("reason", out string? mcr)
+                        ? mcr : ""));
             if (flags.Contains("maturation-baseline"))
                 return Emit(MaturationBaseline(toolRoot, opts));
             // §15/§16: thinking OFF/ON comparison over identical-suite
@@ -1629,6 +1634,7 @@ internal static class Program
             "<id> --evidence <ref> | --maturation-reopen --capability " +
             "<id> --reason <text> | --maturation-unsupported " +
             "--capability <id> --evidence <ref> --reason <text> | " +
+            "--maturation-complete --reason <text> | " +
             "--maturation-baseline --weights " +
             "<ref> --weights-sha256 <sha> --model <f> --runtime <f> " +
             "--service <f> | " +
@@ -2075,7 +2081,16 @@ internal static class Program
         return new Dictionary<string, object?>
         {
             ["ok"] = true,
-            ["phase"] = Maturation300M.PhaseId,
+            // Report the persisted phase — PhaseComplete after the
+            // governor stamps completion, PhaseId while ordered
+            // activation is live.
+            ["phase"] = state.TryGetValue("phase", out object? ph)
+                ? ph?.ToString() ?? Maturation300M.PhaseId
+                : Maturation300M.PhaseId,
+            ["completed_at"] =
+                state.GetValueOrDefault("completed_at"),
+            ["completed_reason"] =
+                state.GetValueOrDefault("completed_reason"),
             ["model_scale"] = Maturation300M.ModelScale,
             ["architecture_generation"] =
                 Maturation300M.ArchitectureGeneration,
