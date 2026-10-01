@@ -486,36 +486,6 @@ static JsonValue run_job(const JsonValue& job) {
                         mtp_stack_aux_loss(c, ex.ids, fw, dmtp);
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
-                if (std::getenv("XCT_DUMP_G")) {
-                    const int dstep = std::atoi(std::getenv("XCT_DUMP_G"));
-                    const char* dtname = std::getenv("XCT_DUMP_T");
-                    if (step == dstep)
-                        for (auto& n : p.order) {
-                            auto it = p.g.find(n);
-                            if (it == p.g.end()) continue;
-                            if (dtname && n == dtname) {
-                                std::string fp = std::string("gdump-") +
-                                    (std::getenv("XCT_DUMP_TAG")
-                                         ? std::getenv("XCT_DUMP_TAG")
-                                         : std::string("x")) + ".bin";
-                                FILE* f = std::fopen(fp.c_str(), "wb");
-                                if (f) {
-                                    std::fwrite(it->second.d.data(),
-                                                sizeof(float),
-                                                it->second.d.size(), f);
-                                    std::fclose(f);
-                                }
-                            }
-                            uint64_t h = 1469598103934665603ull;
-                            for (float x : it->second.d) {
-                                uint32_t u; std::memcpy(&u, &x, 4);
-                                h ^= u; h *= 1099511628211ull;
-                            }
-                            std::fprintf(stderr, "G %s %zu %016llx\n",
-                                       n.c_str(), it->second.d.size(),
-                                       (unsigned long long)h);
-                        }
-                }
             }
             // grad clip (global norm over trainable params only —
             // frozen grads would inflate the norm and shrink the

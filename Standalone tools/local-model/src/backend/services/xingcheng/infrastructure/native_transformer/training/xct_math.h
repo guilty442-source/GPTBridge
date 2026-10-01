@@ -1193,9 +1193,9 @@ static void fwd(const Params& p, const ModelConfig& c,
             // Grouped expert forward: tokens sharing an expert run as one
             // GEMM (T_e rows) instead of K matvecs per token — the expert
             // weights are read once per layer instead of once per pair.
-            // Fwd caches keep the per-(t,s) layout backward expects and
-            // per-row dot order is unchanged, so results are bitwise
-            // identical to the per-pair path.
+            // Fwd caches keep the per-(t,s) layout backward expects,
+            // per-row dots are identical, and the weighted sum lands in
+            // slot order — bitwise identical to the per-pair path.
             {
                 std::vector<std::vector<int>> slots((size_t)E);
                 for (size_t a = 0; a < L.moe_idx.size(); ++a)

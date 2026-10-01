@@ -118,9 +118,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                                   (float)std::max(1, T);
             // Grouped expert backward: slots sharing an expert run w1/w2/w3
             // as one GEMM (T_e rows) instead of one matvec per (t,s) pair.
-            // dW accumulation stays in ascending slot order and dn2 receives
-            // slot-ordered scatter-adds, so results are bitwise identical to
-            // the per-pair path.
+            // dW accumulation stays in ascending slot order; dn2 receives
+            // slot-ordered scatter-adds of per-slot folded sums — an FP
+            // reassociation vs the per-pair path (x + fold(0,p) instead of
+            // fold(x,p)), so gradients are deterministic and numerically
+            // equivalent but not bitwise identical (gradcheck-verified).
             std::vector<std::vector<int>> gslots((size_t)E);
             for (size_t a = 0; a < L.moe_idx.size(); ++a)
                 gslots[(size_t)L.moe_idx[a]].push_back((int)a);
