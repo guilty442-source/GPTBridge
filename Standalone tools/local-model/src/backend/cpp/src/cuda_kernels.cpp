@@ -1282,12 +1282,24 @@ size_t g_ocap = 0;
 // ordered on the DECODE_HIGH lane (the same stream graph replays
 // use: FIFO ordering between KV writes and the attention kernel,
 // no per-call context sync on the token path).
+//
+// Staging reuse hazard: an enqueued cuMemcpyHtoDAsync may still be
+// reading its pinned source when the next call wants to overwrite
+// it. Small writes rotate through a fixed slot ring — a wrap drains
+// the lane once per kKvSlotN writes instead of once per write;
+// large writes use the growable buffer with a sync before each
+// reuse (writes this size are prefill-scale and rare).
+constexpr int kKvSlotN = 8;
+constexpr size_t kKvSlotBytes = 64 * 1024;
+double* g_kv_wslot[kKvSlotN] = {};
+long long g_kv_wseq = 0;
 double* g_kv_wpin = nullptr;
 double* g_kv_qpin = nullptr;
 double* g_kv_opin = nullptr;
 size_t g_kv_wcap = 0;
 size_t g_kv_qcap = 0;
 size_t g_kv_ocap = 0;
+bool g_kv_wpend = false;
 
 bool kv_pin_grow(double** pp, size_t* cap, size_t bytes) {
     if (*cap >= bytes) return true;
@@ -1324,8 +1336,14 @@ void kv_free_locked() {
     if (g_kv_wpin != nullptr) mp::mgr().pinned_free(g_kv_wpin);
     if (g_kv_qpin != nullptr) mp::mgr().pinned_free(g_kv_qpin);
     if (g_kv_opin != nullptr) mp::mgr().pinned_free(g_kv_opin);
+    for (double*& slot : g_kv_wslot) {
+        if (slot != nullptr) mp::mgr().pinned_free(slot);
+        slot = nullptr;
+    }
     g_kv_wpin = g_kv_qpin = g_kv_opin = nullptr;
     g_kv_wcap = g_kv_qcap = g_kv_ocap = 0;
+    g_kv_wseq = 0;
+    g_kv_wpend = false;
 }
 
 // ------------------------------------------------- fused AdamW state --
@@ -1589,18 +1607,57 @@ int xcuda_kv_write_rows(int is_k, long long layer, long long head,
                                  mp::mgr().ensure()
                              ? decode_stream()
                              : 0;
-    if (s != 0 && kv_pin_grow(&g_kv_wpin, &g_kv_wcap, bytes)) {
-        std::memcpy(g_kv_wpin, src, bytes);
-        if (g_drv.memcpy_htod_async(base, g_kv_wpin, bytes, s) ==
-            kCudaSuccess) {
-            mp::mgr().h2d_bytes += static_cast<int64_t>(bytes);
-            return 0;
+    if (s != 0 && g_drv.stream_sync != nullptr) {
+        if (bytes <= kKvSlotBytes) {
+            const int slot =
+                static_cast<int>(g_kv_wseq % kKvSlotN);
+            if (g_kv_wseq >= kKvSlotN && slot == 0) {
+                // Ring wrap: one lane drain retires every staged
+                // copy; the previous occupant of each slot is then
+                // safe to overwrite.
+                g_drv.stream_sync(s);
+            }
+            if (g_kv_wslot[slot] == nullptr) {
+                g_kv_wslot[slot] = static_cast<double*>(
+                    mp::mgr().pinned_alloc(
+                        static_cast<int64_t>(kKvSlotBytes)));
+            }
+            if (g_kv_wslot[slot] != nullptr) {
+                std::memcpy(g_kv_wslot[slot], src, bytes);
+                if (g_drv.memcpy_htod_async(
+                        base, g_kv_wslot[slot], bytes, s) ==
+                    kCudaSuccess) {
+                    ++g_kv_wseq;
+                    mp::mgr().h2d_bytes +=
+                        static_cast<int64_t>(bytes);
+                    return 0;
+                }
+            }
+        } else {
+            if (g_kv_wpend) {
+                g_drv.stream_sync(s);
+                g_kv_wpend = false;
+            }
+            if (kv_pin_grow(&g_kv_wpin, &g_kv_wcap, bytes)) {
+                std::memcpy(g_kv_wpin, src, bytes);
+                if (g_drv.memcpy_htod_async(
+                        base, g_kv_wpin, bytes, s) ==
+                    kCudaSuccess) {
+                    g_kv_wpend = true;
+                    mp::mgr().h2d_bytes +=
+                        static_cast<int64_t>(bytes);
+                    return 0;
+                }
+            }
         }
     }
     // Sync fallback: drain the lane first so the legacy-stream copy
     // cannot pass earlier enqueued writes.
-    if (s != 0 && g_drv.stream_sync != nullptr)
+    if (s != 0 && g_drv.stream_sync != nullptr) {
         g_drv.stream_sync(s);
+        g_kv_wpend = false;
+        g_kv_wseq = 0;   // all staged copies retired
+    }
     if (xmemcpy_htod(base, src, bytes) != kCudaSuccess) {
         return 2;
     }
