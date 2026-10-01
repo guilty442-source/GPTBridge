@@ -1012,6 +1012,38 @@ internal static class SelfLearning
                          total, newExamples) is { } frozenSft)
             return frozenSft;
 
+        // §4/§50 admission parity: the executor runs
+        // Maturation300M.GuardSequence on every SFT job — a
+        // self-learning cycle declares no capability, so once the
+        // maturation phase is active (head!=cap or sequence sealed)
+        // the job can never be admitted. Mirror the gate before
+        // queueing: the dataset stays registered in the canonical
+        // pool but the cycle reports sealed instead of accumulating
+        // denied jobs + consecutive_failures.
+        try
+        {
+            Maturation300M.GuardSequence(tool, "");
+        }
+        catch (ExecutorError sealedDeny)
+        {
+            SelfLearningState.Save(tool, new Dictionary<string, object?>(state)
+            {
+                ["last_run_at"] = IsoNow(),
+                ["last_action"] = "sealed",
+                ["active_weights_version"] = lifecycle.ActiveWeightsVersion,
+            });
+            return new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["action"] = "sealed",
+                ["reason"] = sealedDeny.ErrorCode,
+                ["dataset_id"] = dataset["dataset_id"],
+                ["total_examples"] = total,
+                ["new_examples"] = newExamples,
+                ["checked_at"] = IsoNow(),
+            };
+        }
+
         var job = repository.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
             configuration: new Dictionary<string, object?>

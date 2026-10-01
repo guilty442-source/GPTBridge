@@ -431,22 +431,66 @@ internal sealed class TrainingJobExecutor
     /// thread count derived from the training quota (0 = auto).</summary>
     private int PreflightResourceGate()
     {
+        var status = PreflightStatus();
+        if (status.TryGetValue("would_block", out object? wb) &&
+            wb is bool blocked && blocked)
+            throw new ExecutorError(
+                (string)status["error_code"]!,
+                (string)status["reason"]!);
+        return (int)status["trainer_threads"]!;
+    }
+
+    /// <summary>Read-only view of the same gate for operators
+    /// (--preflight): inference liveness, governor budget, and the
+    /// derived trainer thread count. Never throws ExecutorError —
+    /// a would-be refusal is reported as would_block + reason.</summary>
+    public Dictionary<string, object?> PreflightStatus()
+    {
         bool? inferenceActive = Collectors.InferenceActive(_toolRoot);
+        var status = new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-training-preflight/v1",
+            ["inference_active"] = inferenceActive,
+            ["governor_state"] = GovernorStatePath(),
+            ["training_quota"] = null,
+            ["training_state"] = null,
+            ["pressure"] = null,
+            ["trainer_threads"] = 0,
+            ["would_block"] = false,
+        };
         if (inferenceActive != false)
-            throw new ExecutorError("EXECUTOR_GPU_BUSY",
-                inferenceActive == true
-                    ? "inference session active — training deferred"
-                    : "inference state unavailable — training deferred " +
-                      "(fail-closed)");
-        return GovernorTrainingThreads();
+        {
+            status["would_block"] = true;
+            status["error_code"] = "EXECUTOR_GPU_BUSY";
+            status["reason"] = inferenceActive == true
+                ? "inference session active — training deferred"
+                : "inference state unavailable — training deferred " +
+                  "(fail-closed)";
+            return status;
+        }
+        var (quota, trainingState, pressure) = GovernorTrainingBudget();
+        status["training_quota"] = quota;
+        status["training_state"] = trainingState;
+        status["pressure"] = pressure;
+        if (quota == 0 || trainingState == "paused")
+        {
+            status["would_block"] = true;
+            status["error_code"] = "EXECUTOR_GPU_BUSY";
+            status["reason"] = "resource governor paused training " +
+                $"(pressure {pressure}) — job stays queued with " +
+                "gpu-busy backoff";
+            return status;
+        }
+        if (quota > 0)
+            status["trainer_threads"] = Math.Clamp(quota, 1, 16);
+        return status;
     }
 
     /// <summary>Read the governor's concurrency budget for the training
-    /// class. Paused (quota 0) refuses the job with EXECUTOR_GPU_BUSY;
-    /// throttled/normal maps quota -&gt; trainer threads, clamped to the
-    /// trainer's [1,16] lane range. Missing/unreadable/corrupt state is
-    /// fail-open (0 = trainer auto).</summary>
-    private int GovernorTrainingThreads()
+    /// class. Unknown/missing/corrupt state yields quota -1 (fail-open:
+    /// trainer auto threads).</summary>
+    private (int quota, string state, string pressure) GovernorTrainingBudget()
     {
         string? statePath = GovernorStatePath();
         if (statePath == null) return 0;
