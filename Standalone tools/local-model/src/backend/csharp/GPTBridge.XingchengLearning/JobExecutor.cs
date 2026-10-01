@@ -1041,6 +1041,13 @@ internal sealed class TrainingJobExecutor
             env: gpu.Admitted
                 ? new Dictionary<string, string>
                     { ["XINGCHENG_TRAINER_CUDA_OPT"] = "1" }
+                : null,
+            // VRAM telemetry rides the existing RSS sample ticks whenever
+            // a GPU device was requested — admitted runs measure the
+            // device lane's footprint; denied runs record the contention
+            // that produced the denial.
+            vramProbeMb: gpu.Requested
+                ? () => (double?)ProbeCuda()?.FreeMb
                 : null);
         if (run.ExitCode != 0)
             throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
@@ -1106,6 +1113,8 @@ internal sealed class TrainingJobExecutor
                 ["peak_rss_mb"] = run.PeakRssMb,
                 ["rss_budget_mb"] = rssBudget > 0 ? rssBudget : null,
                 ["rss_samples"] = run.RssSamples,
+                ["vram_free_min_mb"] = run.MinVramFreeMb,
+                ["vram_samples"] = run.VramSamples,
                 ["elapsed_s"] = Math.Round(run.ElapsedS, 1),
             },
             ["requested_device"] =

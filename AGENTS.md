@@ -813,6 +813,20 @@ Manual mode selection via `app:set-resource-mode` sets `auto_mode=false`
 to `runtime/state/resource-mode-audit.jsonl` (same ledger the Rust backend
 writes for manual changes).
 
+**GPU/VRAM mode keys**: each `modes.<name>` preset declares `gpu_enabled`
+and `vram_budget_percent` (`sleep`/`low` are CPU-only; `medium` 40%,
+`high` 70%).  The Xingcheng training lane resolves the governor's current
+`mode` from the state file, reads the same rules file, and admits the
+trainer's opt-in CUDA lane (`XINGCHENG_TRAINER_CUDA_OPT` — resident w/m/v
+fused AdamW) only when all of: the job requests `device: cuda|auto`, the
+mode's `gpu_enabled` is true, `xc_modeltool probe-cuda` reports a device,
+and free VRAM clears `train_cuda_min_free_mb` (default 2048, clamped to
+the mode budget).  Denial is fail-closed to CPU lanes and recorded in the
+job summary `cuda` block plus the resource-action ledger; `optimizer_lane`
+in the summary reports `cuda-adamw` vs `cpu-native` (evidence =
+admission+env-flag until the trainer report echoes the lane it ran).
+`xc-learning --preflight` previews the whole gate read-only.
+
 Implementation: `native/resource_governor/` (C++23, Codex A137) — the Python
 `scripts/resource-governor.py` and `resource_mode_advisor` lane were retired
 on migration; the advisor control law now lives in

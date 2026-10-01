@@ -56,6 +56,8 @@ internal static class NativeTools
         public double ElapsedS;
         public double? PeakRssMb;
         public int RssSamples;
+        public double? MinVramFreeMb;
+        public int VramSamples;
         public string StdoutTail = "";
     }
 
@@ -66,7 +68,11 @@ internal static class NativeTools
     /// (governor A598: training sheds first). <paramref name="env"/>
     /// injects per-invocation environment variables (e.g. the trainer's
     /// XINGCHENG_TRAINER_CUDA_OPT device-opt gate) — the child inherits
-    /// the parent environment plus these overrides.</summary>
+    /// the parent environment plus these overrides.
+    /// <paramref name="vramProbeMb"/> is an optional sampler invoked on
+    /// each RSS sample tick; it should return system-wide free VRAM in MB
+    /// (or null when the probe fails) so summaries can record the minimum
+    /// headroom the run observed.</summary>
     public static RunResult Run(
         string exe,
         IEnumerable<string> args,
@@ -76,7 +82,8 @@ internal static class NativeTools
         double rssBudgetMb = 0,
         double sampleIntervalS = 5,
         bool lowPriority = false,
-        IReadOnlyDictionary<string, string>? env = null)
+        IReadOnlyDictionary<string, string>? env = null,
+        Func<double?>? vramProbeMb = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -138,6 +145,8 @@ internal static class NativeTools
         double deadline = timeoutS > 0 ? timeoutS : double.MaxValue;
         double peakRss = 0;
         int samples = 0;
+        double minVramFree = double.MaxValue;
+        int vramSamples = 0;
         try
         {
             while (true)
@@ -168,6 +177,17 @@ internal static class NativeTools
                             $"{rss.Value:F0}MB > {rssBudgetMb:F0}MB");
                     }
                 }
+                if (vramProbeMb != null)
+                {
+                    double? free = null;
+                    try { free = vramProbeMb(); }
+                    catch { /* sampler failure must not kill supervision */ }
+                    if (free.HasValue)
+                    {
+                        vramSamples++;
+                        minVramFree = Math.Min(minVramFree, free.Value);
+                    }
+                }
             }
         }
         finally
@@ -187,6 +207,9 @@ internal static class NativeTools
             ElapsedS = started.Elapsed.TotalSeconds,
             PeakRssMb = samples > 0 ? Math.Round(peakRss, 1) : null,
             RssSamples = samples,
+            MinVramFreeMb = vramSamples > 0
+                ? Math.Round(minVramFree, 1) : null,
+            VramSamples = vramSamples,
             StdoutTail = stdoutTail.ToString(),
         };
         return result;
