@@ -116,6 +116,96 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             }
             const float lb_step = aux_scale * c.moe_aux_w * (float)E /
                                   (float)std::max(1, T);
+            // Grouped expert backward: slots sharing an expert run w1/w2/w3
+            // as one GEMM (T_e rows) instead of one matvec per (t,s) pair.
+            // dW accumulation stays in ascending slot order and dn2 receives
+            // slot-ordered scatter-adds, so results are bitwise identical to
+            // the per-pair path.
+            std::vector<std::vector<int>> gslots((size_t)E);
+            for (size_t a = 0; a < L.moe_idx.size(); ++a)
+                gslots[(size_t)L.moe_idx[a]].push_back((int)a);
+            const int TK = T * K;
+            std::vector<float> dx1_slot((size_t)TK * H, 0.0f);
+            std::vector<float> dx3_slot((size_t)TK * H, 0.0f);
+            std::vector<float> eo_slot((size_t)TK * H, 0.0f);
+            {
+                std::vector<float> X, Deo, Fh, Dfh, Dfa, Dfb, Dxt, EOg;
+                for (int e = 0; e < E; ++e) {
+                    auto& sl = gslots[(size_t)e];
+                    const int Te = (int)sl.size();
+                    if (!Te) continue;
+                    std::string b =
+                        ln(l, "experts.") + std::to_string(e) + ".";
+                    // §44: a selected expert owns a weight update this
+                    // step — mark its tensors so adamw_step skips the
+                    // per-expert nonzero scan for dormant experts.
+                    p.touched.insert(b + "w1");
+                    p.touched.insert(b + "w2");
+                    p.touched.insert(b + "w3");
+                    X.resize((size_t)Te * H); Deo.resize((size_t)Te * H);
+                    Fh.resize((size_t)Te * EI);
+                    Dfh.assign((size_t)Te * EI, 0.0f);
+                    Dfa.assign((size_t)Te * EI, 0.0f);
+                    Dfb.assign((size_t)Te * EI, 0.0f);
+                    EOg.resize((size_t)Te * H);
+                    for (int j = 0; j < Te; ++j) {
+                        const int slot = sl[(size_t)j];
+                        const int t = slot / K;
+                        const float* xr = L.n2.data() + (size_t)t * H;
+                        const float* dpr = dproj.data() + (size_t)t * H;
+                        const float wgt = L.moe_w[(size_t)slot];
+                        float* xj = X.data() + (size_t)j * H;
+                        float* dj = Deo.data() + (size_t)j * H;
+                        for (int i = 0; i < H; ++i) {
+                            xj[i] = xr[i];
+                            dj[i] = dpr[i] * wgt;
+                        }
+                        const auto& fh = L.mfh[(size_t)slot];
+                        std::copy(fh.begin(), fh.end(),
+                                  Fh.data() + (size_t)j * EI);
+                    }
+                    linear_bwd(Deo.data(), Fh.data(), p.w.at(b + "w2"),
+                               Dfh.data(), p.dw(b + "w2"), Te, EI, H);
+                    for (int j = 0; j < Te; ++j) {
+                        const int slot = sl[(size_t)j];
+                        const auto& fa = L.mfa[(size_t)slot];
+                        const auto& fb = L.mfb[(size_t)slot];
+                        float* da = Dfa.data() + (size_t)j * EI;
+                        float* db = Dfb.data() + (size_t)j * EI;
+                        const float* dh = Dfh.data() + (size_t)j * EI;
+                        for (int i = 0; i < EI; ++i) {
+                            float a = fa[i], bb = fb[i], d = dh[i];
+                            da[i] += d * bb * gate_act_df(a, c.ffn_act);
+                            db[i] += d * gate_act_f(a, c.ffn_act);
+                        }
+                    }
+                    // Separate dx buffers for w1/w3: dn2 must receive the
+                    // two adds in the same order as the per-pair path
+                    // ((x+w1)+w3), not (x+(w1+w3)).
+                    Dxt.assign((size_t)Te * H, 0.0f);
+                    linear_bwd(Dfa.data(), X.data(), p.w.at(b + "w1"),
+                               Dxt.data(), p.dw(b + "w1"), Te, H, EI);
+                    for (int j = 0; j < Te; ++j)
+                        std::copy(Dxt.data() + (size_t)j * H,
+                                  Dxt.data() + (size_t)(j + 1) * H,
+                                  dx1_slot.data() + (size_t)sl[(size_t)j] * H);
+                    Dxt.assign((size_t)Te * H, 0.0f);
+                    linear_bwd(Dfb.data(), X.data(), p.w.at(b + "w3"),
+                               Dxt.data(), p.dw(b + "w3"), Te, H, EI);
+                    for (int j = 0; j < Te; ++j)
+                        std::copy(Dxt.data() + (size_t)j * H,
+                                  Dxt.data() + (size_t)(j + 1) * H,
+                                  dx3_slot.data() + (size_t)sl[(size_t)j] * H);
+                    // eo = W2 @ fh recomputed once per expert for the
+                    // router-weight grads below.
+                    linear_fwd(Fh.data(), p.w.at(b + "w2"), EOg.data(),
+                               Te, EI, H);
+                    for (int j = 0; j < Te; ++j)
+                        std::copy(EOg.data() + (size_t)j * H,
+                                  EOg.data() + (size_t)(j + 1) * H,
+                                  eo_slot.data() + (size_t)sl[(size_t)j] * H);
+                }
+            }
             for (int t = 0; t < T; ++t) {
                 const float* xr = L.n2.data() + (size_t)t * H;
                 float* dxr = dn2.data() + (size_t)t * H;
@@ -125,42 +215,15 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 for (int s = 0; s < K; ++s) wsum += gp[L.moe_idx[(size_t)t * K + s]];
                 for (int s = 0; s < K; ++s) {
                     int e = L.moe_idx[(size_t)t * K + s];
-                    float wgt = L.moe_w[(size_t)t * K + s];
-                    std::string b = ln(l, "experts.") + std::to_string(e) + ".";
-                    // §44: a selected expert owns a weight update this
-                    // step — mark its tensors so adamw_step skips the
-                    // per-expert nonzero scan for dormant experts.
-                    p.touched.insert(b + "w1");
-                    p.touched.insert(b + "w2");
-                    p.touched.insert(b + "w3");
-                    const std::vector<float>& fh = L.mfh[(size_t)t * K + s];
-                    const std::vector<float>& fa = L.mfa[(size_t)t * K + s];
-                    const std::vector<float>& fb = L.mfb[(size_t)t * K + s];
+                    const int slot = t * K + s;
                     const float* dpr = dproj.data() + (size_t)t * H;
-                    std::vector<float> deo(H);
-                    for (int i = 0; i < H; ++i) deo[i] = dpr[i] * wgt;
-                    std::vector<float> dfh((size_t)EI, 0.0f);
-                    linear_bwd(deo.data(), fh.data(), p.w.at(b + "w2"),
-                               dfh.data(), p.dw(b + "w2"), 1, EI, H);
-                    std::vector<float> dfa((size_t)EI, 0.0f), dfb((size_t)EI, 0.0f);
-                    for (int i = 0; i < EI; ++i) {
-                        float a = fa[i], bb = fb[i], d = dfh[i];
-                        dfa[i] += d * bb * gate_act_df(a, c.ffn_act);
-                        dfb[i] += d * gate_act_f(a, c.ffn_act);
-                    }
-                    linear_bwd(dfa.data(), xr, p.w.at(b + "w1"),
-                               dxr, p.dw(b + "w1"), 1, H, EI);
-                    linear_bwd(dfb.data(), xr, p.w.at(b + "w3"),
-                               dxr, p.dw(b + "w3"), 1, H, EI);
+                    const float* d1 = dx1_slot.data() + (size_t)slot * H;
+                    const float* d3 = dx3_slot.data() + (size_t)slot * H;
+                    for (int i = 0; i < H; ++i) { dxr[i] += d1[i]; dxr[i] += d3[i]; }
                     // router weight grad: d(wgt * eo)/d gp[e]
                     float dot = 0.0f;
-                    for (int i = 0; i < H; ++i) {
-                        // eo = W2 @ fh recomputed cheaply via fwd cache
-                    }
+                    const float* eo = eo_slot.data() + (size_t)slot * H;
                     // dout/d(gp[e]) = eo/wsum - sum_s(wgt_s*eo_s)*gp[e]/wsum^2 + aux
-                    // compute eo once:
-                    std::vector<float> eo(H);
-                    linear_fwd(fh.data(), p.w.at(b + "w2"), eo.data(), 1, EI, H);
                     for (int i = 0; i < H; ++i) dot += dpr[i] * eo[i];
                     float dlogit = dot / wsum;            // contribution via this slot
                     dgl[(size_t)t * E + e] += dlogit;
