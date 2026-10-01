@@ -115,6 +115,7 @@ struct DriverApi {
     CUresult_t (*stream_wait_event)(CUstream_t, CUevent_t,
                                     unsigned int) = nullptr;
     CUresult_t (*event_destroy)(CUevent_t) = nullptr;
+    CUresult_t (*event_query)(CUevent_t) = nullptr;
 };
 
 struct NvrtcApi {
@@ -249,6 +250,7 @@ bool api_init() {
             nullptr);
     resolve(g_drv.dll, &g_drv.event_destroy, "cuEventDestroy_v2",
             "cuEventDestroy");
+    resolve(g_drv.dll, &g_drv.event_query, "cuEventQuery", nullptr);
 
     const char* cp = getenv("CUDA_PATH");
     std::vector<std::string> nvrtc_names = {"nvrtc64_120_0.dll"};
@@ -1948,6 +1950,7 @@ static bool adamw_pipe_ready() {
     return g_drv.event_create != nullptr &&
            g_drv.event_record != nullptr &&
            g_drv.stream_wait_event != nullptr &&
+           g_drv.event_query != nullptr &&
            g_drv.memcpy_htod_async != nullptr &&
            g_drv.memcpy_dtoh_async != nullptr &&
            g_drv.stream_sync != nullptr && mp::mgr().ensure();
@@ -2021,7 +2024,9 @@ static int adamw_step_serial(AdamwState& st, const float* g_host,
 // One call consumes a whole step: per item the gradient goes H2D, the
 // fused kernel updates resident w/m/v, and the updated w comes back D2H
 // (host forward still reads host weights this phase). rc per item: 0
-// consumed, 2 bad args, 3 device/copy failure, 4 unbound key. Return is
+// consumed incl. read-back; 2 bad args; 3 device untouched — caller may
+// recompute on host; 4 unbound key; 6 kernel ran — device state is
+// authoritative, caller pulls w/m/v but must NOT recompute. Return is
 // transport-level — 0 means the batch ran and per-item rc is the
 // verdict; nonzero means nothing was consumed and the caller's scalar
 // path still owns every tensor.
@@ -2123,7 +2128,11 @@ int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
                 std::min<long long>((n + 255) / 256, 65535));
             // Ordered enqueue — a stage failure stops this item's chain
             // before later stages could wait on an unrecorded event or
-            // run on a gradient that never landed.
+            // run on a gradient that never landed. rc=3 means the device
+            // was untouched (caller may recompute on host); rc=6 means
+            // the kernel was enqueued — device state is authoritative
+            // and the caller must pull, never recompute (a recompute
+            // would double-apply the update).
             bool ok = g_drv.memcpy_htod_async(
                           st.dg,
                           reinterpret_cast<const char*>(g_adamw_pin_in) + off,
@@ -2135,23 +2144,42 @@ int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
                              0u) == kCudaSuccess;
             if (ok) ok = launch_s(g_f_adamw, blocks, 1, 256, 1, 0,
                                   params, s_cmp);
-            if (ok) ok = g_drv.event_record(g_adamw_ev_k[slot],
-                                            s_cmp) == kCudaSuccess;
-            if (ok) ok = g_drv.stream_wait_event(
-                             s_d2h, g_adamw_ev_k[slot],
-                             0u) == kCudaSuccess;
-            if (ok) ok = g_drv.memcpy_dtoh_async(
-                             reinterpret_cast<char*>(g_adamw_pin_out) + off,
-                             st.dw, bytes, s_d2h) == kCudaSuccess;
-            it.rc = ok ? -2 : 3;   // -2 = enqueued, awaiting wave drain
+            if (!ok) {
+                it.rc = 3;
+                off += bytes;
+                ++slot;
+                continue;
+            }
+            // Kernel enqueued — from here on the device owns this item's
+            // update even if the read-back stages fail.
+            it.rc = 6;
+            if (g_drv.event_record(g_adamw_ev_k[slot], s_cmp) ==
+                    kCudaSuccess &&
+                g_drv.stream_wait_event(s_d2h, g_adamw_ev_k[slot], 0u) ==
+                    kCudaSuccess &&
+                g_drv.memcpy_dtoh_async(
+                    reinterpret_cast<char*>(g_adamw_pin_out) + off,
+                    st.dw, bytes, s_d2h) == kCudaSuccess)
+                it.rc = -2;    // fully enqueued, awaiting wave drain
             off += bytes;
             ++slot;
         }
         // One drain per wave, then write every staged weight back to its
-        // host destination.
+        // host destination. On a drain failure the kernel event
+        // disambiguates: complete => device applied the update (rc=6,
+        // pull-only); not complete => device untouched (rc=3,
+        // pull + host recompute stays consistent because the kernel's
+        // math is bitwise-identical to the scalar lane).
         if (g_drv.stream_sync(s_d2h) != kCudaSuccess) {
-            for (long long wi : wave)
-                if (items[wi].rc == -2) items[wi].rc = 3;
+            size_t slot2 = 0;
+            for (long long wi : wave) {
+                XcudaAdamwItem& it = items[wi];
+                if (it.rc == -2 &&
+                    g_drv.event_query(g_adamw_ev_k[slot2]) !=
+                        kCudaSuccess)
+                    it.rc = 3;   // 6 stays 6 — kernel ran
+                ++slot2;
+            }
             continue;
         }
         off = 0;
@@ -2186,6 +2214,21 @@ int xcuda_adamw_release() {
     dev_pool_release(g_adamw_norm_part);
     g_adamw_norm_host.clear();
     g_adamw_norm_host.shrink_to_fit();
+    // Batch pipeline teardown: driver events are owned objects — always
+    // destroy; the pinned slabs came from the manager, which frees them
+    // via pinned_free (extras) or pinned_release_all (ring).
+    if (g_drv.event_destroy != nullptr) {
+        for (CUevent_t e : g_adamw_ev_h) g_drv.event_destroy(e);
+        for (CUevent_t e : g_adamw_ev_k) g_drv.event_destroy(e);
+    }
+    g_adamw_ev_h.clear();
+    g_adamw_ev_k.clear();
+    if (g_adamw_pin_in != nullptr)
+        mp::mgr().pinned_free(g_adamw_pin_in);
+    if (g_adamw_pin_out != nullptr)
+        mp::mgr().pinned_free(g_adamw_pin_out);
+    g_adamw_pin_in = g_adamw_pin_out = nullptr;
+    g_adamw_pin_cap = 0;
     return 0;
 }
 

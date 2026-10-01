@@ -237,7 +237,14 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             const std::string& n = *names[i];
             Tensor& w = p.w[n]; Tensor& g = p.g[n];
             Tensor& m = p.m[n]; Tensor& v = p.v[n];
-            if (batch_rc == 0 && items[i].rc == 0) {
+            const int irc = batch_rc == 0 ? items[i].rc : 3;
+            if (irc == 0 || irc == 6) {
+                if (irc == 6)
+                    // kernel ran but the staged read-back did not land —
+                    // pull the authoritative device state; do NOT
+                    // recompute, the update was already applied.
+                    xcuda_adamw_sync(w.d.data(), w.d.data(),
+                                     m.d.data(), v.d.data());
                 // consumed: the fused-zero contract clears the host
                 // gradient so the next step's backward starts clean.
                 std::fill(g.d.begin(), g.d.end(), 0.0f);
