@@ -4,47 +4,14 @@
 
 // -------------------------------------------------------------- backward --
 
-struct BwdWs;
-
 static void mtp_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o, float aux_scale,
-                    std::vector<float>& dh, BwdWs& ws);
+                    std::vector<float>& dh);
 // v29 MTP stack — defined in xct_mtp.h (included after this header)
 static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                         const std::vector<int>& ids, Fwd& o,
                         const std::vector<std::vector<float>>& dmtp,
-                        float* dh_main, BwdWs& ws);
-
-// Backward workspace: the per-layer temporaries total tens of MB and
-// were malloc'd + first-touched every layer of every example. Holding
-// them in a thread_local workspace keeps capacity across layers, calls
-// and examples; every field is re-initialized (assign/clear) at its use
-// site, so semantics are identical. bwd only ever runs on the caller
-// thread — never inside a TPU lane — so one workspace per thread is
-// safe. Lane-private vectors inside parallel_for lambdas stay local.
-struct BwdWs {
-    std::vector<float> dlog, dh, dx_fin, dx;
-    std::vector<float> dx_res, dproj, dn2, dxres2, dpre, dproj_attn,
-                       dx_attn_in, dn1, dx_in2;
-    std::vector<float> dfh, dfa, dfb;
-    std::vector<float> dgl, moe_f, dx1_slot, dx3_slot, eo_slot;
-    std::vector<std::vector<int>> gslots;
-    std::vector<float> X, Deo, Fh, Dfh, Dfa, Dfb, Dxt, EOg, din_all;
-    std::vector<float> dsg, dsh, dsg_in, dsa, dsb, so, dsg_logit;
-    std::vector<float> don, donorm, dz, do_, dqn, dkn, dv, dvv, da_raw,
-                       db_raw, dqk_raw, dkk_raw, dq_pre, dk_pre,
-                       qn_kh, kn_kh, qr_kh, kr_kh, dconv_out, dconv_in,
-                       dqkvz;
-    std::vector<float> dao, dqr, dkr, dqf, dcq, dcq_raw, dckv, dckv_raw;
-    std::vector<std::vector<float>> dkr_lanes;
-    std::vector<float> dgate, dq, dk, diq, dsbuf, dk_csa, dv_csa,
-                       mkr_all, dq_raw, dk_raw, cvec_k, cvec_v;
-    // mtp_bwd/mtp_stack_bwd share the same workspace — they run before
-    // the trunk layer loop and every field is re-initialized before use.
-    std::vector<float> dlm, dout, dx2, dz_res, dcin, dnh, dne;
-    std::vector<float> dhn, dx1, dx1n, du, dcat, deh, dee,
-                       dhprev, demb, carry;
-};
+                        float* dh_main);
 
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale,
@@ -67,11 +34,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd;
-    static thread_local BwdWs ws;
     // Gemma final logit softcap: y = cap*tanh(z/cap) — chain the incoming
     // dlogits through dz = dy * (1 - (y/cap)^2) (recoverable from the
     // capped logits themselves).
-    auto& dlog = ws.dlog;
+    std::vector<float> dlog;
     const float* dlp = dlogits.data();
     if (c.final_logit_softcap > 0.0f) {
         dlog = dlogits;
@@ -82,32 +48,28 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         });
         dlp = dlog.data();
     }
-    auto& dh = ws.dh;
-    dh.assign((size_t)T * H, 0.0f);
+    std::vector<float> dh((size_t)T * H, 0.0f);
     linear_bwd(dlp, o.hidden.data(), p.w.at("lm_head"),
                dh.data(), p.dw("lm_head"), T, H, c.vocab);
     // DeepSeek MTP: the module's CE also reaches the shared lm_head /
     // embed and the trunk hidden states (dh rows over text positions).
     // aux_scale==0 (DPO) keeps MTP out of the preference gradient.
-    mtp_bwd(p, c, ids, o, aux_scale, dh, ws);
+    mtp_bwd(p, c, ids, o, aux_scale, dh);
     // v29 MTP stack: folds its dh contribution onto the trunk hidden rows
     // (post-final-norm input) before the norm_f backward, and accumulates
     // the shared embed/lm_head + mtp.* parameter grads.
     if (dmtp != nullptr && !dmtp->empty() && c.mtp_depth > 0)
-        mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data(), ws);
-    auto& dx_fin = ws.dx_fin;
-    dx_fin.assign((size_t)T * H, 0.0f);
+        mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data());
+    std::vector<float> dx_fin((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx_fin.data(), p.dw("norm_f"), T, H);
-    auto& dx = ws.dx;
-    dx = dx_fin;
+    std::vector<float> dx = dx_fin;
     for (int l = c.layers - 1; l >= 0; --l) {
         LayerCache& L = o.layers[l];
         bool moe = c.moe_experts > 0 && (l % c.moe_layer_interval == 0);
         // residual split: dx flows to ffn path (through dproj) and to x_res.
-        auto& dx_res = ws.dx_res;
-        dx_res = dx;                                    // residual branch
-        auto& dproj = ws.dproj;
+        std::vector<float> dx_res = dx;                   // residual branch
+        std::vector<float> dproj;
         if (c.post_ffw_norm) {
             // Gemma sandwich: x_out = x_res + rmsnorm(ffn_proj) — route dx
             // through the post norm backward to reach the raw FFN output.
@@ -119,17 +81,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         } else {
             dproj = dx;                                 // [T,H]
         }
-        auto& dn2 = ws.dn2;
-        dn2.assign((size_t)T * H, 0.0f);
+        std::vector<float> dn2((size_t)T * H, 0.0f);
         if (!moe) {
-            auto& dfh = ws.dfh;
-            dfh.assign((size_t)T * c.inter, 0.0f);
+            std::vector<float> dfh((size_t)T * c.inter, 0.0f);
             linear_bwd(dproj.data(), L.fh.data(), p.w.at(ln(l, "w2")),
                        dfh.data(), p.dw(ln(l, "w2")), T, c.inter, H);
-            auto& dfa = ws.dfa;
-            auto& dfb = ws.dfb;
-            dfa.assign((size_t)T * c.inter, 0.0f);
-            dfb.assign((size_t)T * c.inter, 0.0f);
+            std::vector<float> dfa((size_t)T * c.inter, 0.0f), dfb((size_t)T * c.inter, 0.0f);
             tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
                 float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
                 dfa[(size_t)i] += d * b * gate_act_df(a, c.ffn_act);
@@ -143,16 +100,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const int E = c.moe_experts, K = c.moe_top_k;
             const int EI = c.expert_inter();
             const int SI = c.shared_inter();
-            auto& dgl = ws.dgl;
-            dgl.assign((size_t)T * E, 0.0f);
+            std::vector<float> dgl((size_t)T * E, 0.0f);
             // Load-balance aux gradient (Switch Transformer): the layer
             // contributes aux_scale·moe_aux_w·E·Σ_i f_i·P_i where
             // P_i = mean_t gp[t,i] and f_i (assignment share) is a
             // piecewise-constant routing statistic — so
             // ∂L/∂gp[t,i] += aux_scale·moe_aux_w·E·f_i/T, added to dgl
             // before the softmax backward below.
-            auto& moe_f = ws.moe_f;
-            moe_f.assign((size_t)E, 0.0f);
+            std::vector<float> moe_f((size_t)E, 0.0f);
             if (aux_scale != 0.0f && c.moe_aux_w != 0.0f &&
                 !c.moe_auxfree_balance) {
                 for (size_t a = 0; a < L.moe_idx.size(); ++a)
@@ -168,21 +123,15 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // reassociation vs the per-pair path (x + fold(0,p) instead of
             // fold(x,p)), so gradients are deterministic and numerically
             // equivalent but not bitwise identical (gradcheck-verified).
-            auto& gslots = ws.gslots;
-            gslots.assign((size_t)E, std::vector<int>());
+            std::vector<std::vector<int>> gslots((size_t)E);
             for (size_t a = 0; a < L.moe_idx.size(); ++a)
                 gslots[(size_t)L.moe_idx[a]].push_back((int)a);
             const int TK = T * K;
-            auto& dx1_slot = ws.dx1_slot;
-            auto& dx3_slot = ws.dx3_slot;
-            auto& eo_slot = ws.eo_slot;
-            dx1_slot.assign((size_t)TK * H, 0.0f);
-            dx3_slot.assign((size_t)TK * H, 0.0f);
-            eo_slot.assign((size_t)TK * H, 0.0f);
+            std::vector<float> dx1_slot((size_t)TK * H, 0.0f);
+            std::vector<float> dx3_slot((size_t)TK * H, 0.0f);
+            std::vector<float> eo_slot((size_t)TK * H, 0.0f);
             {
-                auto& X = ws.X; auto& Deo = ws.Deo; auto& Fh = ws.Fh;
-                auto& Dfh = ws.Dfh; auto& Dfa = ws.Dfa; auto& Dfb = ws.Dfb;
-                auto& Dxt = ws.Dxt; auto& EOg = ws.EOg;
+                std::vector<float> X, Deo, Fh, Dfh, Dfa, Dfb, Dxt, EOg;
                 for (int e = 0; e < E; ++e) {
                     auto& sl = gslots[(size_t)e];
                     const int Te = (int)sl.size();
@@ -264,8 +213,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // then runs as ONE T-row linear_bwd — dx rows are disjoint and
             // dW accumulates t-ascending, the same per-element order as
             // the serial per-token calls.
-            auto& din_all = ws.din_all;
-            din_all.assign((size_t)T * E, 0.0f);
+            std::vector<float> din_all((size_t)T * E, 0.0f);
             parallel_for(T, [&](int64_t tb, int64_t te) {
                 for (int64_t t = tb; t < te; ++t) {
                     float* dxr = dn2.data() + (size_t)t * H;
@@ -334,17 +282,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // sigmoid(Wx) ⊙ shared — dproj must be scaled by the gate and the
             // gate itself gets a logit gradient.
             const bool sgated = !L.shared_gate_sig.empty();
-            auto& dsg = ws.dsg;
-            dsg.assign((size_t)T, 0.0f);
+            std::vector<float> dsg((size_t)T, 0.0f);
             for (int se = 0; se < c.moe_shared_experts; ++se) {
                 std::string b = ln(l, "shared.") + std::to_string(se) + ".";
                 const auto& sfa = L.sfa[(size_t)se];
                 const auto& sfb = L.sfb[(size_t)se];
                 const auto& sfh = L.sfh[(size_t)se];
-                auto& dsh = ws.dsh;
-                dsh.assign((size_t)T * SI, 0.0f);
-                auto& dsg_in = ws.dsg_in;
-                dsg_in.clear();
+                std::vector<float> dsh((size_t)T * SI, 0.0f);
+                std::vector<float> dsg_in;
                 const float* dproj_use = dproj.data();
                 if (sgated) {
                     dsg_in.assign((size_t)T * H, 0.0f);
@@ -360,10 +305,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
                 linear_bwd(dproj_use, sfh.data(), p.w.at(b + "w2"),
                            dsh.data(), p.dw(b + "w2"), T, SI, H);
-                auto& dsa = ws.dsa;
-                auto& dsb = ws.dsb;
-                dsa.assign((size_t)T * SI, 0.0f);
-                dsb.assign((size_t)T * SI, 0.0f);
+                std::vector<float> dsa((size_t)T * SI, 0.0f);
+                std::vector<float> dsb((size_t)T * SI, 0.0f);
                 tpu_elementwise((int64_t)sfh.size(), [&](int64_t i) {
                     float a = sfa[(size_t)i], bb = sfb[(size_t)i], d = dsh[(size_t)i];
                     dsa[(size_t)i] += d * bb * gate_act_df(a, c.ffn_act);
@@ -376,8 +319,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 if (sgated) {
                     // gate grad: dsg[t] = Σ_i dproj[t,i] · so[t,i]; need so —
                     // recompute so = w2 @ sfh (cheap relative to the FFN bwd).
-                    auto& so = ws.so;
-                    so.assign((size_t)T * H, 0.0f);
+                    std::vector<float> so((size_t)T * H);
                     linear_fwd(sfh.data(), p.w.at(b + "w2"), so.data(),
                                T, SI, H);
                     parallel_for(T, [&](int64_t b2, int64_t e2) {
@@ -389,8 +331,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
             }
             if (sgated) {
-                auto& dsg_logit = ws.dsg_logit;
-                dsg_logit.assign((size_t)T, 0.0f);
+                std::vector<float> dsg_logit((size_t)T);
                 tpu_elementwise(T, [&](int64_t t) {
                     const float s = L.shared_gate_sig[(size_t)t];
                     dsg_logit[(size_t)t] = dsg[(size_t)t] * s * (1.0f - s);
@@ -401,17 +342,15 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             }
         }
         // norm2 backward: dn2 -> dx_res (accumulate into residual branch)
-        auto& dxres2 = ws.dxres2;
-        dxres2.assign((size_t)T * H, 0.0f);
+        std::vector<float> dxres2((size_t)T * H, 0.0f);
         rmsnorm_bwd(dn2.data(), L.x_res.data(), p.w.at(ln(l, "norm2")).d.data(),
                     L.rms2.data(), dxres2.data(), p.dw(ln(l, "norm2")), T, H);
-        auto& dpre = ws.dpre;
-        dpre.assign((size_t)T * H, 0.0f);
+        std::vector<float> dpre((size_t)T * H);
         tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
             dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
         });
         // attention block: dpre splits into attn path + layer-input residual
-        auto& dproj_attn = ws.dproj_attn;
+        std::vector<float> dproj_attn;
         if (!L.post_attn.empty()) {
             // Gemma sandwich: x_res = x + rmsnorm(attn_proj) — route dpre
             // through the post norm backward to reach the raw proj output.
@@ -423,10 +362,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         } else {
             dproj_attn = dpre;                          // through output proj
         }
-        auto& dx_attn_in = ws.dx_attn_in;
-        dx_attn_in = dpre;                            // residual to x_in
-        auto& dn1 = ws.dn1;
-        dn1.assign((size_t)T * H, 0.0f);
+        std::vector<float> dx_attn_in = dpre;             // residual to x_in
+        std::vector<float> dn1((size_t)T * H, 0.0f);
         if (c.is_linear(l)) {
             // -------- gated deltanet backward --------
             const int kd = c.lin_key_dim, vd = c.lin_value_dim;
@@ -438,16 +375,13 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const size_t ssz = (size_t)kd * vd;
             const std::string lb = ln(l, "lin.");
             // out_proj
-            auto& don = ws.don;
-            don.assign((size_t)T * val_dim, 0.0f);
+            std::vector<float> don((size_t)T * val_dim, 0.0f);
             linear_bwd(dproj_attn.data(), L.lin_on.data(),
                        p.w.at(lb + "out_proj"), don.data(),
                        p.dw(lb + "out_proj"), T, val_dim, H);
             // silu(z) gate then gated-RMSNorm backward
-            auto& donorm = ws.donorm;
-            auto& dz = ws.dz;
-            donorm.assign((size_t)T * val_dim, 0.0f);
-            dz.assign((size_t)T * val_dim, 0.0f);
+            std::vector<float> donorm((size_t)T * val_dim),
+                               dz((size_t)T * val_dim);
             tpu_elementwise((int64_t)don.size(), [&](int64_t i) {
                 float z = L.lin_z[(size_t)i];
                 float sg = sigmoid_f(z);
@@ -458,24 +392,18 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // split keeps dW's per-element t-ascending fold order, so
             // batching T*vh rows is bitwise identical to the serial
             // per-(t,h) calls.
-            auto& do_ = ws.do_;
-            do_.assign((size_t)T * val_dim, 0.0f);
+            std::vector<float> do_((size_t)T * val_dim, 0.0f);
             rmsnorm_bwd(donorm.data(), L.lin_o.data(),
                         p.w.at(lb + "norm").d.data(), L.lin_orms.data(),
                         do_.data(), p.dw(lb + "norm"), T * vh, vd);
             // recurrent scan backward (reverse-time). TPU lanes: heads are
             // disjoint lanes — dS carry, dqn/dkn/dv/da_raw/db_raw and the
             // A_log/dt_bias slots are all indexed by h.
-            auto& dqn = ws.dqn;
-            auto& dkn = ws.dkn;
-            auto& dv = ws.dv;
-            auto& da_raw = ws.da_raw;
-            auto& db_raw = ws.db_raw;
-            dqn.assign((size_t)T * vh * kd, 0.0f);
-            dkn.assign((size_t)T * vh * kd, 0.0f);
-            dv.assign((size_t)T * val_dim, 0.0f);
-            da_raw.assign((size_t)T * vh, 0.0f);
-            db_raw.assign((size_t)T * vh, 0.0f);
+            std::vector<float> dqn((size_t)T * vh * kd, 0.0f),
+                               dkn((size_t)T * vh * kd, 0.0f),
+                               dv((size_t)T * val_dim, 0.0f),
+                               da_raw((size_t)T * vh, 0.0f),
+                               db_raw((size_t)T * vh, 0.0f);
             float* dA_log = p.dw(lb + "A_log");
             float* ddt_bias = p.dw(lb + "dt_bias");
             const float* A_log = p.w.at(lb + "A_log").d.data();
@@ -540,10 +468,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             });
             // fold v-head grads back to k-heads (repeat_interleave inverse)
             const float qscale = 1.0f / std::sqrt((float)kd);
-            auto& dqk_raw = ws.dqk_raw;
-            auto& dkk_raw = ws.dkk_raw;
-            dqk_raw.assign((size_t)T * kh * kd, 0.0f);
-            dkk_raw.assign((size_t)T * kh * kd, 0.0f);
+            std::vector<float> dqk_raw((size_t)T * kh * kd, 0.0f),
+                               dkk_raw((size_t)T * kh * kd, 0.0f),
+                               dconv_v((size_t)T * val_dim);
             // fold v-head grads back to k-heads — lane per t keeps the
             // r-order fold identical; (t,g) slots stay single-lane.
             parallel_for(T, [&](int64_t b, int64_t e) {
@@ -560,22 +487,15 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             });
             // undo q scale then l2norm backward on q and k
             tpu_scale(dqk_raw.data(), qscale, (int64_t)dqk_raw.size());
-            auto& dq_pre = ws.dq_pre;
-            auto& dk_pre = ws.dk_pre;
-            dq_pre.assign((size_t)T * kh * kd, 0.0f);
-            dk_pre.assign((size_t)T * kh * kd, 0.0f);
+            std::vector<float> dq_pre((size_t)T * kh * kd),
+                               dk_pre((size_t)T * kh * kd);
             {
                 // l2norm_bwd expects per-row normed input + norms — our
                 // caches are v-head-expanded; take the first replica per
                 // group (normed values are identical across replicas).
-                auto& qn_kh = ws.qn_kh;
-                auto& kn_kh = ws.kn_kh;
-                auto& qr_kh = ws.qr_kh;
-                auto& kr_kh = ws.kr_kh;
-                qn_kh.assign((size_t)T * kh * kd, 0.0f);
-                kn_kh.assign((size_t)T * kh * kd, 0.0f);
-                qr_kh.assign((size_t)T * kh, 0.0f);
-                kr_kh.assign((size_t)T * kh, 0.0f);
+                std::vector<float> qn_kh((size_t)T * kh * kd),
+                                   kn_kh((size_t)T * kh * kd),
+                                   qr_kh((size_t)T * kh), kr_kh((size_t)T * kh);
                 parallel_for(T, [&](int64_t tb, int64_t te) {
                     for (int64_t t = tb; t < te; ++t)
                         for (int g = 0; g < kh; ++g) {
@@ -601,13 +521,9 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 l2norm_bwd(dkk_raw.data(), kn_kh.data(), kr_kh.data(),
                            dk_pre.data(), T * kh, kd);
             }
-            // dv is dead past this point — reuse it directly as the
-            // conv-v grad slice (a move would drain ws.dv's capacity and
-            // force a fresh alloc every layer).
-            auto& dconv_v = dv;
+            dconv_v = std::move(dv);
             // conv output grad: [T, q_flat|k_flat|v_flat]
-            auto& dconv_out = ws.dconv_out;
-            dconv_out.assign((size_t)T * conv_dim, 0.0f);
+            std::vector<float> dconv_out((size_t)T * conv_dim, 0.0f);
             parallel_for(T, [&](int64_t tb, int64_t te) {
                 for (int64_t t = tb; t < te; ++t) {
                     float* dr = dconv_out.data() + (size_t)t * conv_dim;
@@ -621,16 +537,14 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                               dr + key_dim * 2);
                 }
             });
-            auto& dconv_in = ws.dconv_in;
-            dconv_in.assign((size_t)T * conv_dim, 0.0f);
+            std::vector<float> dconv_in((size_t)T * conv_dim, 0.0f);
             conv1d_causal_bwd(dconv_out.data(), L.lin_conv_pre.data(),
                               L.lin_conv_in.data(),
                               p.w.at(lb + "conv1d").d.data(), dconv_in.data(),
                               p.dw(lb + "conv1d"), T, conv_dim,
                               c.lin_conv_kernel);
             // repack flat conv-in grads → per-k-head grouped qkvz layout
-            auto& dqkvz = ws.dqkvz;
-            dqkvz.assign((size_t)T * kh * group_sz, 0.0f);
+            std::vector<float> dqkvz((size_t)T * kh * group_sz, 0.0f);
             parallel_for(T, [&](int64_t tb, int64_t te) {
                 for (int64_t t = tb; t < te; ++t) {
                     const float* src = dconv_in.data() + (size_t)t * conv_dim;
@@ -664,29 +578,22 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const std::string b = ln(l, "");
             const int win = c.is_local_attn(l) ? c.sliding_window : 0;
             const float scale = 1.0f / std::sqrt((float)qd);
-            auto& dao = ws.dao;
-            dao.assign((size_t)T * c.heads * hd, 0.0f);
+            std::vector<float> dao((size_t)T * c.heads * hd, 0.0f);
             linear_bwd(dproj_attn.data(), L.attn_out.data(),
                        p.w.at(b + "wo"), dao.data(),
                        p.dw(b + "wo"), T, c.heads * hd, H);
-            auto& dqn = ws.dqn;
-            auto& dqr = ws.dqr;
-            auto& dkn = ws.dkn;
-            auto& dkr = ws.dkr;
-            auto& dvv = ws.dvv;
-            dqn.assign((size_t)T * c.heads * kn, 0.0f);
-            dqr.assign((size_t)T * c.heads * kr, 0.0f);
-            dkn.assign((size_t)T * c.heads * kn, 0.0f);
-            dkr.assign((size_t)T * kr, 0.0f);
-            dvv.assign((size_t)T * c.heads * hd, 0.0f);
+            std::vector<float> dqn((size_t)T * c.heads * kn, 0.0f),
+                               dqr((size_t)T * c.heads * kr, 0.0f),
+                               dkn((size_t)T * c.heads * kn, 0.0f),
+                               dkr((size_t)T * kr, 0.0f),
+                               dvv((size_t)T * c.heads * hd, 0.0f);
             // The rope key is shared across heads in MLA, so dkr rows
             // would race under a plain head partition. Fixed 64 chunk
             // lanes each own a private dkr buffer; the serial merge in
             // chunk order replays the h-ascending accumulation, so every
             // element is bitwise identical to the serial loop.
             constexpr int MLA_LANES = 64;
-            auto& dkr_lanes = ws.dkr_lanes;
-            dkr_lanes.assign(
+            std::vector<std::vector<float>> dkr_lanes(
                 MLA_LANES, std::vector<float>((size_t)T * kr, 0.0f));
             parallel_for(MLA_LANES, [&](int64_t cb, int64_t ce) {
                 for (int64_t cl = cb; cl < ce; ++cl) {
@@ -752,8 +659,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             rope_hf_partial(dkr.data(), T, 1, kr, kr, th, true, &c);
             // q path: repack [nope|rope] per head, then direct wq or the
             // low-rank chain W_uq -> latent norm -> W_dq.
-            auto& dqf = ws.dqf;
-            dqf.assign((size_t)T * c.heads * qd, 0.0f);
+            std::vector<float> dqf((size_t)T * c.heads * qd, 0.0f);
             parallel_for(c.heads, [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h)
                     for (int t = 0; t < T; ++t) {
@@ -771,13 +677,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     }
             });
             if (qr > 0) {
-                auto& dcq = ws.dcq;
-                dcq.assign((size_t)T * qr, 0.0f);
+                std::vector<float> dcq((size_t)T * qr, 0.0f);
                 linear_bwd(dqf.data(), L.mla_cq.data(), p.w.at(b + "w_uq"),
                            dcq.data(), p.dw(b + "w_uq"),
                            T, qr, c.heads * qd);
-                auto& dcq_raw = ws.dcq_raw;
-                dcq_raw.assign((size_t)T * qr, 0.0f);
+                std::vector<float> dcq_raw((size_t)T * qr, 0.0f);
                 rmsnorm_bwd(dcq.data(), L.mla_cq_raw.data(),
                             p.w.at(b + "norm_ql").d.data(),
                             L.mla_cq_rms.data(), dcq_raw.data(),
@@ -791,8 +695,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             }
             // kv path: dkn/dv fold into the shared latent grad; shared
             // rope key flows straight to w_kr.
-            auto& dckv = ws.dckv;
-            dckv.assign((size_t)T * rank, 0.0f);
+            std::vector<float> dckv((size_t)T * rank, 0.0f);
             linear_bwd(dkn.data(), L.mla_ckv.data(), p.w.at(b + "w_uk"),
                        dckv.data(), p.dw(b + "w_uk"),
                        T, rank, c.heads * kn);
@@ -801,8 +704,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                        T, rank, c.heads * hd);
             linear_bwd(dkr.data(), L.n1.data(), p.w.at(b + "w_kr"),
                        dn1.data(), p.dw(b + "w_kr"), T, H, kr);
-            auto& dckv_raw = ws.dckv_raw;
-            dckv_raw.assign((size_t)T * rank, 0.0f);
+            std::vector<float> dckv_raw((size_t)T * rank, 0.0f);
             rmsnorm_bwd(dckv.data(), L.mla_ckv_raw.data(),
                         p.w.at(b + "norm_kvl").d.data(),
                         L.mla_ckv_rms.data(), dckv_raw.data(),
@@ -811,14 +713,12 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                        dn1.data(), p.dw(b + "w_dkv"), T, H, rank);
         } else {
             // -------- full attention backward --------
-            auto& dao = ws.dao;
-            dao.assign((size_t)T * Hq, 0.0f);
+            std::vector<float> dao((size_t)T * Hq, 0.0f);
             const float* wo_in = c.attn_output_gate ? L.attn_gated.data()
                                                     : L.attn_out.data();
             linear_bwd(dproj_attn.data(), wo_in, p.w.at(ln(l, "wo")),
                        dao.data(), p.dw(ln(l, "wo")), T, Hq, H);
-            auto& dgate = ws.dgate;
-            dgate.clear();
+            std::vector<float> dgate;
             if (c.attn_output_gate) {
                 // dao currently flows to gated output; split into raw
                 // attention grad and gate-logit grad.
@@ -848,12 +748,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             }
             int group = c.heads / kvh;
             float scale = 1.0f / std::sqrt((float)hd);
-            auto& dq = ws.dq;
-            auto& dk = ws.dk;
-            auto& dvv = ws.dvv;
-            dq.assign((size_t)T * Hq, 0.0f);
-            dk.assign((size_t)T * Hkvl, 0.0f);
-            dvv.assign((size_t)T * Hkvl, 0.0f);
+            std::vector<float> dq((size_t)T * Hq, 0.0f), dk((size_t)T * Hkvl, 0.0f),
+                                dvv((size_t)T * Hkvl, 0.0f);
             // TPU lanes: one lane per kv-head group — the q-heads of a GQA
             // group share its k/v slices, so grouping keeps dk/dv writes
             // disjoint across lanes; per-element order is unchanged. CSA:
@@ -980,15 +876,13 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 const int csa_K = c.csa_topk;
                 const float w = aux_scale * c.csa_indexer_w /
                                 (std::max(1, T) * (float)c.heads);
-                auto& diq = ws.diq;
-                diq.assign((size_t)T * hd, 0.0f);
+                std::vector<float> diq((size_t)T * hd, 0.0f);
                 // Pass 1 (token lanes): per-t ds into scratch + diq —
                 // both writes are row-disjoint. Pass 2 (chunk lanes):
                 // csa_dik[cc] accumulates ds·iq over t in ascending order,
                 // skipping exact zeros — the same add sequence per
                 // element as the fused serial loop.
-                auto& dsbuf = ws.dsbuf;
-                dsbuf.assign((size_t)T * csa_nc, 0.0f);
+                std::vector<float> dsbuf((size_t)T * csa_nc, 0.0f);
                 parallel_for(T, [&](int64_t tb, int64_t te) {
                     for (int64_t t = tb; t < te; ++t) {
                         const int cn = L.csa_ncand[(size_t)t];
@@ -1040,10 +934,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // (ik = wik·mean_g ckr), then scatter the compressor grads to
             // member tokens in PRE-rope key space (merged after the raw
             // unrope below).
-            auto& dk_csa = ws.dk_csa;
-            auto& dv_csa = ws.dv_csa;
-            dk_csa.clear();
-            dv_csa.clear();
+            std::vector<float> dk_csa, dv_csa;
             if (crole == 0 && csa_nc > 0) {
                 const float thc = c.csa_rope_theta > 0.0f
                                       ? c.csa_rope_theta : c.rope_theta;
@@ -1060,8 +951,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                     // tmp[ii] accumulates oi-ascending like the serial
                     // matvec, then folds into dck — per-element order
                     // unchanged.
-                    auto& mkr_all = ws.mkr_all;
-                    mkr_all.assign((size_t)csa_nc * hd, 0.0f);
+                    std::vector<float> mkr_all((size_t)csa_nc * hd);
                     parallel_for(csa_nc, [&](int64_t cb, int64_t ce) {
                         for (int64_t cc = cb; cc < ce; ++cc) {
                             float* mkr = mkr_all.data() + (size_t)cc * hd;
@@ -1116,10 +1006,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 // grads keep their serial (cc,gg)-ascending axpy fold.
                 const int np2 = csa_nc * kvh;
                 const size_t R2 = (size_t)rr * hd;
-                auto& cvec_k = ws.cvec_k;
-                auto& cvec_v = ws.cvec_v;
-                cvec_k.assign((size_t)np2 * R2, 0.0f);
-                cvec_v.assign((size_t)np2 * R2, 0.0f);
+                std::vector<float> cvec_k((size_t)np2 * R2),
+                                   cvec_v((size_t)np2 * R2);
                 parallel_for((int64_t)np2 * rr, [&](int64_t b, int64_t e) {
                     for (int64_t q = b; q < e; ++q) {
                         const int p2 = (int)(q / rr), j = (int)(q % rr);
@@ -1204,10 +1092,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             if (c.qk_norm) {
                 // Batched row-norm backward over (t,h) — same per-element
                 // fold order as the nested 1-row calls.
-                auto& dq_raw = ws.dq_raw;
-                auto& dk_raw = ws.dk_raw;
-                dq_raw.assign((size_t)T * Hq, 0.0f);
-                dk_raw.assign((size_t)T * Hkvl, 0.0f);
+                std::vector<float> dq_raw((size_t)T * Hq, 0.0f),
+                                   dk_raw((size_t)T * Hkvl, 0.0f);
                 rmsnorm_bwd(dq.data(), L.qk_qraw.data(),
                             p.w.at(ln(l, "q_norm")).d.data(),
                             L.qk_qrms.data(), dq_raw.data(),
@@ -1220,8 +1106,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             }
             if (c.attn_output_gate) {
                 // repack [q|gate] per head for the fused wq weight
-                auto& dqf = ws.dqf;
-                dqf.assign((size_t)T * Hq * 2, 0.0f);
+                std::vector<float> dqf((size_t)T * Hq * 2, 0.0f);
                 parallel_for(T, [&](int64_t tb, int64_t te) {
                     for (int64_t t = tb; t < te; ++t)
                         for (int h = 0; h < c.heads; ++h) {
@@ -1255,8 +1140,7 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                            dn1.data(), p.dw(ln(l, "wv")), T, H, Hkvl);
             }
         }
-        auto& dx_in2 = ws.dx_in2;
-        dx_in2.assign((size_t)T * H, 0.0f);
+        std::vector<float> dx_in2((size_t)T * H, 0.0f);
         rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at(ln(l, "norm1")).d.data(),
                     L.rms1.data(), dx_in2.data(), p.dw(ln(l, "norm1")), T, H);
         tpu_elementwise((int64_t)dx.size(), [&](int64_t i) {
@@ -1294,38 +1178,30 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
 // contract).
 static void mtp_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o, float aux_scale,
-                    std::vector<float>& dh, BwdWs& ws) {
+                    std::vector<float>& dh) {
     if (!o.mtp.on || aux_scale == 0.0f) return;
     const MtpCache& M = o.mtp;
     const int PT = (int)ids.size(), P = o.vision_patches;
     const int H = c.hidden, hd = H / c.heads;
     const int kvh = c.kv_heads, Hkvl = kvh * hd, Hq = c.heads * hd;
-    auto& dlm = ws.dlm;
-    dlm.clear();
+    std::vector<float> dlm;
     ce_loss(M.logits, M.lab, PT, c.vocab, dlm);
     const float sc = c.mtp_loss_weight * aux_scale;
     tpu_scale(dlm.data(), sc, (int64_t)dlm.size());
-    auto& dout = ws.dout;
-    dout.assign((size_t)PT * H, 0.0f);
+    std::vector<float> dout((size_t)PT * H, 0.0f);
     linear_bwd(dlm.data(), M.out.data(), p.w.at("lm_head"), dout.data(),
                p.dw("lm_head"), PT, H, c.vocab);
     const LayerCache& L = M.lc;
-    auto& dx2 = ws.dx2;
-    dx2.assign((size_t)PT * H, 0.0f);
+    std::vector<float> dx2((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dout.data(), M.res2.data(),
                 p.w.at("mtp.norm_out").d.data(), M.out_rms.data(),
                 dx2.data(), p.dw("mtp.norm_out"), PT, H);
     // residual split: ffn path + x_res skip
-    auto& dx_res = ws.dx_res;
-    dx_res = dx2;
-    auto& dn2 = ws.dn2;
-    auto& dfh = ws.dfh;
-    auto& dfa = ws.dfa;
-    auto& dfb = ws.dfb;
-    dn2.assign((size_t)PT * H, 0.0f);
-    dfh.assign((size_t)PT * c.inter, 0.0f);
-    dfa.assign((size_t)PT * c.inter, 0.0f);
-    dfb.assign((size_t)PT * c.inter, 0.0f);
+    std::vector<float> dx_res = dx2;
+    std::vector<float> dn2((size_t)PT * H, 0.0f);
+    std::vector<float> dfh((size_t)PT * c.inter, 0.0f),
+                       dfa((size_t)PT * c.inter, 0.0f),
+                       dfb((size_t)PT * c.inter, 0.0f);
     linear_bwd(dx2.data(), L.fh.data(), p.w.at("mtp.w2"), dfh.data(),
                p.dw("mtp.w2"), PT, c.inter, H);
     tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
@@ -1337,31 +1213,24 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
                p.dw("mtp.w1"), PT, H, c.inter);
     linear_bwd(dfb.data(), L.n2.data(), p.w.at("mtp.w3"), dn2.data(),
                p.dw("mtp.w3"), PT, H, c.inter);
-    auto& dxres2 = ws.dxres2;
-    dxres2.assign((size_t)PT * H, 0.0f);
+    std::vector<float> dxres2((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dn2.data(), L.x_res.data(),
                 p.w.at("mtp.norm2").d.data(), L.rms2.data(),
                 dxres2.data(), p.dw("mtp.norm2"), PT, H);
-    auto& dpre = ws.dpre;
-    dpre.assign((size_t)PT * H, 0.0f);
+    std::vector<float> dpre((size_t)PT * H);
     tpu_elementwise((int64_t)dpre.size(), [&](int64_t i) {
         dpre[(size_t)i] = dx_res[(size_t)i] + dxres2[(size_t)i];
     });
     // plain causal attention backward
-    auto& dz_res = ws.dz_res;
-    dz_res = dpre;                                  // residual to z
-    auto& dao = ws.dao;
-    dao.assign((size_t)PT * Hq, 0.0f);
+    std::vector<float> dz_res = dpre;             // residual to z
+    std::vector<float> dao((size_t)PT * Hq, 0.0f);
     linear_bwd(dpre.data(), L.attn_out.data(), p.w.at("mtp.wo"),
                dao.data(), p.dw("mtp.wo"), PT, Hq, H);
     const int group = c.heads / kvh;
     const float scale = 1.0f / std::sqrt((float)hd);
-    auto& dq = ws.dq;
-    auto& dk = ws.dk;
-    auto& dv = ws.dv;
-    dq.assign((size_t)PT * Hq, 0.0f);
-    dk.assign((size_t)PT * Hkvl, 0.0f);
-    dv.assign((size_t)PT * Hkvl, 0.0f);
+    std::vector<float> dq((size_t)PT * Hq, 0.0f),
+                       dk((size_t)PT * Hkvl, 0.0f),
+                       dv((size_t)PT * Hkvl, 0.0f);
     parallel_for(kvh, [&](int64_t gb, int64_t ge) {
         std::vector<float> dsc((size_t)4 * PT);
         for (int64_t g = gb; g < ge; ++g)
@@ -1397,24 +1266,21 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     });
     rope(dq.data(), PT, c.heads, hd, c.rope_theta, true, &c);
     rope(dk.data(), PT, kvh, hd, c.rope_theta, true, &c);
-    auto& dn1 = ws.dn1;
-    dn1.assign((size_t)PT * H, 0.0f);
+    std::vector<float> dn1((size_t)PT * H, 0.0f);
     linear_bwd(dq.data(), L.n1.data(), p.w.at("mtp.wq"), dn1.data(),
                p.dw("mtp.wq"), PT, H, Hq);
     linear_bwd(dk.data(), L.n1.data(), p.w.at("mtp.wk"), dn1.data(),
                p.dw("mtp.wk"), PT, H, Hkvl);
     linear_bwd(dv.data(), L.n1.data(), p.w.at("mtp.wv"), dn1.data(),
                p.dw("mtp.wv"), PT, H, Hkvl);
-    auto& dz = ws.dz;
-    dz.assign((size_t)PT * H, 0.0f);
+    std::vector<float> dz((size_t)PT * H, 0.0f);
     rmsnorm_bwd(dn1.data(), L.x_in.data(), p.w.at("mtp.norm1").d.data(),
                 L.rms1.data(), dz.data(), p.dw("mtp.norm1"), PT, H);
     tpu_elementwise((int64_t)dz.size(), [&](int64_t i) {
         dz[(size_t)i] += dz_res[(size_t)i];
     });
     // w_proj input split: normed hidden half + normed embed half
-    auto& dcin = ws.dcin;
-    dcin.assign((size_t)PT * 2 * H, 0.0f);
+    std::vector<float> dcin((size_t)PT * 2 * H, 0.0f);
     linear_bwd(dz.data(), M.cin.data(), p.w.at("mtp.w_proj"), dcin.data(),
                p.dw("mtp.w_proj"), PT, 2 * H, H);
     // Column lanes over H: each worker owns a disjoint channel range
@@ -1426,10 +1292,7 @@ static void mtp_bwd(Params& p, const ModelConfig& c,
     float* gnh = p.dw("mtp.norm_h");
     float* gne = p.dw("mtp.norm_e");
     float* ger = p.dw("embed");
-    auto& dnh = ws.dnh;
-    auto& dne = ws.dne;
-    dnh.assign((size_t)PT, 0.0f);
-    dne.assign((size_t)PT, 0.0f);
+    std::vector<float> dnh((size_t)PT), dne((size_t)PT);
     parallel_for(PT, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) {
             const float* xr = M.nh_src.data() + (size_t)i * H;
@@ -1481,10 +1344,8 @@ static float ce_loss(const std::vector<float>& logits,
     // Rows are disjoint lanes; per-row softmax math is unchanged. The
     // scalar loss stays a serial t-ascending accumulate over per-row
     // contributions, so the value is bitwise identical to the serial loop.
-    static thread_local std::vector<float> contrib;
-    static thread_local std::vector<int> lab_row;
-    contrib.assign((size_t)T, 0.0f);
-    lab_row.assign((size_t)T, 0);
+    std::vector<float> contrib((size_t)T, 0.0f);
+    std::vector<int> lab_row((size_t)T, 0);
     parallel_for(T, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             int y = labels[(size_t)t];
@@ -1516,8 +1377,7 @@ static float ce_loss(const std::vector<float>& logits,
 
 static float seq_logprob(const std::vector<float>& logits,
                          const std::vector<int>& labels, int T, int V) {
-    static thread_local std::vector<float> contrib;
-    contrib.assign((size_t)T, 0.0f);
+    std::vector<float> contrib((size_t)T, 0.0f);
     parallel_for(T, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             int y = labels[(size_t)t];
