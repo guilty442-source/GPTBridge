@@ -825,11 +825,16 @@ internal sealed class TransformerTrainingRepository
     {
         return InTx(db =>
         {
-            // Serializes concurrent claimants: a second transaction waits
-            // for the first to commit, then re-reads the live state.
-            db.Execute(
-                "SELECT pg_advisory_xact_lock(" +
-                "hashtextextended('xc_serial_training', 0))");
+            // Serializes concurrent claimants: try-lock instead of a
+            // blocking lock so a claimant waiting on the lane reports
+            // Busy rather than hanging — the same key is also held as a
+            // session-level lease by the staged recovery lane
+            // (InstructionRecovery) for the duration of a run.
+            var lockRow = db.QueryOne(
+                "SELECT pg_try_advisory_xact_lock(" +
+                "hashtextextended('xc_serial_training', 0)) AS locked");
+            if (lockRow == null || !Truthy(lockRow["locked"]))
+                return (JobClaimResult.Busy, null);
             var row = db.QueryOne(
                 $"SELECT {JobColumns} FROM transformer_training_job " +
                 "WHERE job_id = $1 FOR UPDATE", jobId);
@@ -1222,6 +1227,20 @@ internal sealed class TransformerTrainingRepository
             ["created_at"] = createdAt,
         };
         return CanonicalJson.CanonicalDict(body);
+    }
+
+    /// <summary>Standalone audit event in its own transaction — used for
+    /// lane-level lifecycle marks (e.g. recovery-lane lease acquire /
+    /// release) that are not row transitions.</summary>
+    public void AuditEvent(string eventType, string entityType,
+                           string entityId,
+                           IReadOnlyDictionary<string, object?> payload)
+    {
+        InTx(db =>
+        {
+            AppendAudit(db, eventType, entityType, entityId, payload);
+            return 0;
+        });
     }
 
     internal Dictionary<string, object?> AppendAudit(

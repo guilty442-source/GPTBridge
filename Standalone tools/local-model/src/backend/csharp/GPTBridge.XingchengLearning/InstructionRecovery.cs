@@ -4392,6 +4392,29 @@ internal static class InstructionRecovery
         PlanFreeze(plan);   // validate early — fail before any work
         string stderrLog = Path.Combine(outDir, "recovery-stderr.log");
 
+        // ── single training pipeline: this lane's staged trainer runs
+        // used to spawn xingcheng_trainer directly, bypassing the
+        // governed queue (serial cap, admission guards, resource
+        // preflight, audit chain). Converged: acquire the shared lane
+        // lease — the same advisory key TryClaimTrainingJob claims — so
+        // a staged run can never overlap a governed job, plus sequence
+        // guard + governor quota/GPU admission identical to RunJob. The
+        // lease is held for the whole run; process death auto-releases.
+        var laneRepo = new TransformerTrainingRepository(toolRoot);
+        using var lane = new TrainingJobExecutor(laneRepo, toolRoot)
+            .AcquireTrainingLane(cap, new Dictionary<string, object?>
+            {
+                ["device"] =
+                    TransformerTrainingRepository.Str(plan, "device")
+                    ?? policy.Device,
+            });
+        int planThreads = TransformerTrainingRepository.Int(
+            plan, "threads");
+        int threads = lane.Threads > 0
+            ? (planThreads > 0 ? Math.Min(planThreads, lane.Threads)
+                               : lane.Threads)
+            : Math.Min(planThreads > 0 ? planThreads : 8, 16);
+
         int maxSteps = Math.Clamp(
             TransformerTrainingRepository.Int(plan, "max_steps"), 50, 600);
         int stageSteps = Math.Clamp(
@@ -4677,16 +4700,10 @@ internal static class InstructionRecovery
                     ["init_checkpoint"] = curCkpt,
                     ["emit_checkpoint"] = emitCkpt,
                     ["overwrite"] = true,
-                    // Lane parallelism: plan "threads" caps the TPU worker
-                    // pool (trainer clamps to 16). Default 16 — measured
-                    // optimum on 16-logical-core hosts when the lane runs
-                    // solo; a plan may pin lower to leave cores for a
-                    // concurrent lane.
-                    ["threads"] =
-                        TransformerTrainingRepository.Num(
-                            plan, "threads") > 0
-                            ? TransformerTrainingRepository.Num(
-                                plan, "threads") : 16.0,
+                    // Lane parallelism follows the governor training
+                    // quota acquired with the lane lease; a plan may
+                    // only pin lower (trainer clamps to 16 anyway).
+                    ["threads"] = threads,
                     // §41-§45 ParameterFreezeMap: plan "freeze" is a
                     // bounded pattern list; frozen params never get
                     // Adam moments (sparse optimizer) — the
@@ -4710,7 +4727,11 @@ internal static class InstructionRecovery
             var trun = NativeTools.Run(
                 NativeTools.TrainerExe(toolRoot),
                 new[] { "--job", jobPath, "--report", repPath },
-                toolRoot, stderrLog, timeoutS: 7200);
+                toolRoot, stderrLog, timeoutS: 7200,
+                env: lane.CudaOptAdmitted
+                    ? new Dictionary<string, string>
+                        { ["XINGCHENG_TRAINER_CUDA_OPT"] = "1" }
+                    : null);
             if (trun.PeakRssMb.HasValue)
                 peakRss = Math.Max(peakRss ?? 0, trun.PeakRssMb.Value);
             Dictionary<string, object?> trep;

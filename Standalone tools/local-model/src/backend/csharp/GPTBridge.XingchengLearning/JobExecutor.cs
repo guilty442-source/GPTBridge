@@ -1535,6 +1535,96 @@ internal sealed class TrainingJobExecutor
         return queued.Count == 0 ? null : RunJob((string)queued[0]["job_id"]!);
     }
 
+    // ------------------------------------------------------ lane lease --
+
+    /// <summary>Lease on the single training lane: while held, every
+    /// governed job claim reports Busy. Disposing audits the release and
+    /// closes the session (the advisory lock is session-scoped, so a
+    /// crashed process auto-releases — no stale rows to reap).</summary>
+    public sealed class LaneLease : IDisposable
+    {
+        public int Threads;
+        public bool CudaOptAdmitted;
+        public Dictionary<string, object?> GpuEvidence = new();
+        internal Pg.PgScope? Scope;
+        internal TransformerTrainingRepository? Repo;
+        internal string LaneId = "";
+
+        public void Dispose()
+        {
+            try
+            {
+                Repo?.AuditEvent("training-lane-released",
+                    "training-lane", LaneId, new Dictionary<string, object?>
+                    {
+                        ["reason"] = "lane-scope-disposed",
+                    });
+            }
+            catch { /* audit must never throw on release */ }
+            Scope?.Dispose();
+            Scope = null;
+        }
+    }
+
+    /// <summary>Acquire the single training lane for a staged run that
+    /// keeps its own orchestration (currently only the §33/§34
+    /// instruction-recovery lane). The lease is a session advisory lock
+    /// on the same key <see cref="TransformerTrainingRepository.TryClaimTrainingJob"/>
+    /// uses — mutual exclusion is symmetric: a governed job in flight or
+    /// a racing claim denies acquisition, and while held every governed
+    /// claim reports Busy. Admission parity with a governed SFT job is
+    /// enforced here: maturation-sequence guard + the governor's
+    /// resource preflight (inference exclusion, training pause, thread
+    /// quota, GPU/VRAM admission). The caller's freeze guard
+    /// (CapabilityFreeze.GuardJob) must already have passed.</summary>
+    public LaneLease AcquireTrainingLane(
+        string capability, Dictionary<string, object?> configuration)
+    {
+        var lease = Pg.Connect(_repo.Schema);
+        try
+        {
+            var locked = lease.QueryOne(
+                "SELECT pg_try_advisory_lock(" +
+                "hashtextextended('xc_serial_training', 0)) AS locked");
+            if (locked == null ||
+                !TransformerTrainingRepository.Truthy(locked["locked"]))
+                throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                    "the training lane is held (governed claim or " +
+                    "recovery lease) — staged run stays sealed");
+            if (_repo.ActiveJobs(1).Count > 0)
+                throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                    "another governed training job is in flight; " +
+                    "staged run stays sealed");
+            Maturation300M.GuardSequence(_toolRoot, capability);
+            var (threads, gpu) = PreflightResourceGate(configuration);
+            var lane = new LaneLease
+            {
+                Threads = threads,
+                CudaOptAdmitted = gpu.Admitted,
+                GpuEvidence = gpu.ToDict(),
+                Scope = lease,
+                Repo = _repo,
+                LaneId = $"lane-{capability}-{Guid.NewGuid():N}"[..40],
+            };
+            _repo.AuditEvent("training-lane-leased",
+                "training-lane", lane.LaneId,
+                new Dictionary<string, object?>
+                {
+                    ["capability"] = capability,
+                    ["lane"] = "instruction-recovery",
+                    ["trainer_threads"] = threads,
+                    ["cuda_opt_admitted"] = gpu.Admitted,
+                    ["gpu"] = gpu.ToDict(),
+                });
+            return lane;
+        }
+        catch
+        {
+            lease.Dispose();
+            throw;
+        }
+    }
+
     // ------------------------------------------------------------- reaper --
 
     /// <summary>Reap orphaned live-state jobs (preflight/training/
