@@ -1,0 +1,50 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "xingcheng-line-limit-exemption-20261001",
+  "title": "Xingcheng complete line-limit exemption",
+  "summary": "Exclude the complete Xingcheng native domain from generic source line and count limits while retaining quality and governance constraints.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive 2026-10-01",
+  "change_class": "provision-scope",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-01T05:11:40Z",
+    "version_identity": "E2:2026-09-15T15:42:01Z",
+    "version_epoch": 2,
+    "history_head": "761f2b804fcaa9b78f903e6f3113c6ec65837df65ed3db64e84c9269379b1991",
+    "revision_sequence": 183
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "A50" },
+      "field": "rule",
+      "proposed": "LIMITS:PARAM[SOURCE_MODULE_MAX_EFFECTIVE_LINES]+PARAM[SOURCE_FUNCTION_MAX_EFFECTIVE_LINES]+PARAM[SOURCE_CLASS_MAX_EFFECTIVE_LINES]+PARAM[SOURCE_PUBLIC_ENTRYPOINT_MAX]+PARAM[SOURCE_DECLARATION_MAX];SCOPE:registered authored-source classes except the exact Codex-declared Xingcheng exclusion;XINGCHENG-EXCLUSION:the complete Xingcheng native domain,including every Xingcheng-owned module+file+class+function+declaration+public-entrypoint+model+training+inference+learning+evaluation+data-processing+internal-tool source,is not subject to generic line-count,size-count or declaration-count limits;AUTHORITY:this exclusion is declared directly by current Codex and is not an owner-created exception;SAFEGUARDS:correctness+security+permission+resource+typed-interface+test+audit+release+maintainability requirements remain fully binding and cannot be waived by the size exclusion;DIRECTORY:permission-core manages identity+owner+scope+exception lifecycle;VALUES:codex_parameter_registry only for scopes where limits apply."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "A50" },
+      "field": "prohibition",
+      "proposed": "FORBID:hardcoded-source-limit-outside-registry+owner-self-exemption+size-evasion+directory-containing-business-workflow+unregistered-exception+applying-generic-source-size-limits-to-the-Codex-declared-Xingcheng-domain"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_LOCAL_MODEL" },
+      "set": { "content_hash": "b94bf5b7b0ab89eb4a2d6eb0b00e46a492b9ba097a979a405619569ee04cb524", "source_codex_version": "<successor-version>", "validated_at_utc": "<successor-version>", "sync_status": "SYNCED_CURRENT" }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_LANGUAGES" },
+      "set": { "content_hash": "c080d55bc3c452766fabc04610bbc6568522308c18f290eb0f4265883393e472", "source_codex_version": "<successor-version>", "validated_at_utc": "<successor-version>", "sync_status": "SYNCED_CURRENT" }
+    }
+  ]
+}
