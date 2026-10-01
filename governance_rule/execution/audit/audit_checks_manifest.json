@@ -2081,6 +2081,44 @@
       "path": "Standalone tools/vectord-rs/src/store.rs"
     },
     {
+      "id": "architecture:ragd-retrieval-route",
+      "kind": "file-contains",
+      "markers": [
+        "/v1/retrieve",
+        "/v1/rag/query"
+      ],
+      "path": "Standalone tools/ragd-rs/src/main.rs"
+    },
+    {
+      "id": "architecture:ragd-dag-plane",
+      "kind": "file-contains",
+      "markers": [
+        "HARD_MAX_STEPS",
+        "dag-cycle",
+        "node-timeout"
+      ],
+      "path": "Standalone tools/ragd-rs/src/dag.rs"
+    },
+    {
+      "id": "architecture:ragd-cag-gate",
+      "kind": "file-contains",
+      "markers": [
+        "payload-integrity",
+        "cache-denied:",
+        "CagGate"
+      ],
+      "path": "Standalone tools/ragd-rs/src/cag.rs"
+    },
+    {
+      "id": "architecture:ragd-pg-authority",
+      "kind": "file-contains",
+      "markers": [
+        "vectord never decides authority",
+        "gptbridge_rag"
+      ],
+      "path": "Standalone tools/ragd-rs/src/retrieve.rs"
+    },
+    {
       "id": "architecture:network-allowlist:market_data.json",
       "kind": "file-contains",
       "markers": [
@@ -2153,6 +2191,46 @@
         "--prepare-only"
       ],
       "path": "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs"
+    },
+    {
+      "id": "ollama-service:source",
+      "kind": "file-exists",
+      "path": "native/ollama_service/ollama_service.cpp"
+    },
+    {
+      "id": "ollama-service:build",
+      "kind": "file-exists",
+      "path": "native/ollama_service/build.ps1"
+    },
+    {
+      "id": "ollama-service:contract",
+      "kind": "file-contains",
+      "markers": [
+        "ollama-demand.jsonl",
+        "ollama-demand-state.json",
+        "spawned_image"
+      ],
+      "path": "native/ollama_service/ollama_service.cpp"
+    },
+    {
+      "id": "ollama-service:demand-start",
+      "kind": "file-contains",
+      "markers": [
+        "DETACHED_PROCESS",
+        "CREATE_NO_WINDOW",
+        "\" serve\"",
+        "spawn-unavailable"
+      ],
+      "path": "native/ollama_service/ollama_service.cpp"
+    },
+    {
+      "id": "ollama-service:ownership",
+      "kind": "file-contains",
+      "markers": [
+        "UNLOAD_REFUSED_IMAGE_MISMATCH",
+        "QueryFullProcessImageNameW"
+      ],
+      "path": "native/ollama_service/ollama_service.cpp"
     },
     {
       "id": "channel-gateway:GPTBridge.Channels.csproj",
@@ -27394,7 +27472,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3555,
+    "native_checks": 3564,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27417,7 +27495,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-01T13:15:41Z",
+  "generated_at": "2026-10-01T14:32:30Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
