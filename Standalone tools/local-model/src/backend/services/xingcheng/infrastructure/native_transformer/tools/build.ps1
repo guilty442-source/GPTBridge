@@ -11,17 +11,21 @@ $cppSrc = Join-Path $repo 'Standalone tools\local-model\src\backend\cpp\src'
 $nat = Join-Path $repo 'native\core'
 $exe = Join-Path $root 'xc_modeltool.exe'
 # CUDA lane: capability compiled in (XINGCHENG_CUDA{_KERNELS}); every CUDA
-# dependency is LoadLibrary/NVRTC-resolved at run time except cudart, which
-# is linked statically so the exe keeps zero CUDA dll imports. Falls back
-# to the CPU path fail-closed on hosts without driver/toolkit (B132).
+# dependency is LoadLibrary/NVRTC-resolved at run time. With the toolkit,
+# cudart is linked statically; without it, XINGCHENG_CUDA_DYNRT resolves
+# the runtime surface from nvcuda.dll at run time — the exe still keeps
+# zero CUDA dll imports and fails closed on hosts without a driver (B132).
 $cudaInc = ''
 $cudaLib = ''
 $cudaDefs = '/DXINGCHENG_CUDA /DXINGCHENG_CUDA_KERNELS'
-if ($env:CUDA_PATH) {
+if ($env:CUDA_PATH -and
+    (Test-Path "$env:CUDA_PATH\include\cuda_runtime.h") -and
+    (Test-Path "$env:CUDA_PATH\lib\x64\cudart_static.lib")) {
     $cudaInc = "/I`"$env:CUDA_PATH\include`""
     $cudaLib = "`"$env:CUDA_PATH\lib\x64\cudart_static.lib`""
 } else {
-    throw 'CUDA_PATH not set — toolkit required for the XINGCHENG_CUDA lane'
+    # Stale/unset CUDA_PATH — resolve the runtime from the driver dll.
+    $cudaDefs = "$cudaDefs /DXINGCHENG_CUDA_DYNRT"
 }
 if (!(Test-Path (Join-Path $root 'obj'))) { New-Item -ItemType Directory (Join-Path $root 'obj') | Out-Null }
 cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc $cudaDefs /I`"$incNat`" /I`"$incCpp`" /I`"$cppSrc`" /I`"$train`" $cudaInc `"$root\xc_modeltool.cpp`" `"$engine`" `"$cppSrc\cuda_bridge.cpp`" `"$cppSrc\cuda_kernels.cpp`" `"$nat\transformer.c`" `"$nat\kv_pool.c`" /Fe`"$exe`" /Fo`"$root\obj\\`" /link $cudaLib"

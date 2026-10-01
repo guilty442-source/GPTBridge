@@ -10,19 +10,23 @@ $inc = Join-Path $repoRoot 'native\include'
 $src = Join-Path $root 'xingcheng_trainer.cpp'
 $exe = Join-Path $root 'xingcheng_trainer.exe'
 
-# NativeCudaTrainingPlane (optional): when the CUDA toolkit is present the
-# trainer links the native kernel TU so the fused-AdamW device path is
-# available behind XINGCHENG_TRAINER_CUDA_OPT. CUDA driver/NVRTC bind
-# dynamically at runtime — a host without NVIDIA still runs identically.
-# Without a toolkit the same sources build CPU-only (stub path).
+# NativeCudaTrainingPlane (optional): the trainer links the native kernel
+# TU so the fused-AdamW device path is available behind
+# XINGCHENG_TRAINER_CUDA_OPT. CUDA driver/NVRTC bind dynamically at
+# runtime — a host without NVIDIA still runs identically. With the
+# toolkit, cudart is linked statically; without it,
+# XINGCHENG_CUDA_DYNRT resolves the runtime surface from nvcuda.dll, so
+# the lane compiles toolkit-free and still fails closed with no driver.
 $backend = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $root))))
 $cppSrc = Join-Path $backend 'cpp\src'
 $knl = Join-Path $cppSrc 'cuda_kernels.cpp'
 $cudaInc = if ($env:CUDA_PATH) { Join-Path $env:CUDA_PATH 'include' } else { $null }
 $cudaLib = if ($env:CUDA_PATH) { Join-Path $env:CUDA_PATH 'lib\x64\cudart_static.lib' } else { $null }
-$useCuda = (Test-Path -LiteralPath $knl) -and $cudaInc -and (Test-Path -LiteralPath $cudaInc) -and (Test-Path -LiteralPath $cudaLib)
-if ($useCuda) {
+$useCuda = Test-Path -LiteralPath $knl
+if ($useCuda -and $cudaInc -and (Test-Path -LiteralPath $cudaInc) -and (Test-Path -LiteralPath $cudaLib)) {
     cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc /DXINGCHENG_CUDA /DXINGCHENG_CUDA_KERNELS /I`"$inc`" /I`"$cppSrc`" /I`"$cudaInc`" /Fe`"$exe`" `"$src`" `"$knl`" /Fo`"$root\obj\\`" /link `"$cudaLib`""
+} elseif ($useCuda) {
+    cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc /DXINGCHENG_CUDA /DXINGCHENG_CUDA_KERNELS /DXINGCHENG_CUDA_DYNRT /I`"$inc`" /I`"$cppSrc`" /Fe`"$exe`" `"$src`" `"$knl`" /Fo`"$root\obj\\`""
 } else {
     cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc /I`"$inc`" /Fe`"$exe`" `"$src`" /Fo`"$root\obj\\`""
 }

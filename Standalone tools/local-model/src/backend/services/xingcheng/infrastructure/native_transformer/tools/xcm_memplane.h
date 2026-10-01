@@ -37,12 +37,9 @@
 // additionally runs the contract sims and reports simulated:true so a
 // CPU-only host can still verify the plane's contracts.
 
-#if defined(XINGCHENG_CUDA)
-#include <cuda_runtime.h>
-#endif
-
 // The plane core lives in the engine tree so cuda_bridge.cpp and the
-// probes share ONE manager instance (§3 single owner).
+// probes share ONE manager instance (§3 single owner). cuda_memplane.h
+// pulls in the runtime surface (cuda_rtlane.h) itself.
 #include "cuda_memplane.h"
 
 // memplane-probe --budget BYTES [--pinned BYTES] [--iterations N]
