@@ -538,8 +538,11 @@ static int gemmbench() {
 
             const double fwd_flops = 2.0 * T * I * O;
             const double bwd_flops = 2.0 * fwd_flops;
+            // >=3 reps every cell (single-shot timings on large shapes
+            // read scheduler noise, not bandwidth); small shapes scale
+            // to ~0.3 GFLOP of work per measurement.
             const int reps = (int)std::max<int64_t>(
-                1, std::min<int64_t>(50,
+                3, std::min<int64_t>(50,
                     (int64_t)(3.0e8 / fwd_flops)));
 
             const double lf_ms = clock_ms([&] {
@@ -571,11 +574,13 @@ static int gemmbench() {
             char buf[768];
             std::snprintf(buf, sizeof buf,
                 "{\"shape\":\"%dx%d\",\"T\":%d,\"reps\":%d,"
+                "\"legacy_fwd_ms\":%.4f,\"tile4_fwd_ms\":%.4f,"
+                "\"legacy_bwd_ms\":%.4f,\"tile4_bwd_ms\":%.4f,"
                 "\"legacy_fwd_gflops\":%.2f,\"tile4_fwd_gflops\":%.2f,"
                 "\"fwd_speedup\":%.3f,"
                 "\"legacy_bwd_gflops\":%.2f,\"tile4_bwd_gflops\":%.2f,"
                 "\"bwd_speedup\":%.3f,\"bitwise_parity\":%s}",
-                I, O, T, reps,
+                I, O, T, reps, lf_ms, tf_ms, lb_ms, tb_ms,
                 fwd_flops / (lf_ms * 1e6),
                 fwd_flops / (tf_ms * 1e6), lf_ms / tf_ms,
                 bwd_flops / (lb_ms * 1e6),
