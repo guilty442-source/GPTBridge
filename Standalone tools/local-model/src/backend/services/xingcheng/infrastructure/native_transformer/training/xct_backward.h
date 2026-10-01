@@ -13,6 +13,32 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                         const std::vector<std::vector<float>>& dmtp,
                         float* dh_main);
 
+// Backward workspace: the per-layer temporaries total tens of MB and
+// were malloc'd + first-touched every layer of every example. Holding
+// them in a thread_local workspace keeps capacity across layers, calls
+// and examples; every field is re-initialized (assign/clear) at its use
+// site, so semantics are identical. bwd only ever runs on the caller
+// thread — never inside a TPU lane — so one workspace per thread is
+// safe. Lane-private vectors inside parallel_for lambdas stay local.
+struct BwdWs {
+    std::vector<float> dlog, dh, dx_fin, dx;
+    std::vector<float> dx_res, dproj, dn2, dxres2, dpre, dproj_attn,
+                       dx_attn_in, dn1, dx_in2;
+    std::vector<float> dfh, dfa, dfb;
+    std::vector<float> dgl, moe_f, dx1_slot, dx3_slot, eo_slot;
+    std::vector<std::vector<int>> gslots;
+    std::vector<float> X, Deo, Fh, Dfh, Dfa, Dfb, Dxt, EOg, din_all;
+    std::vector<float> dsg, dsh, dsg_in, dsa, dsb, so, dsg_logit;
+    std::vector<float> don, donorm, dz, do_, dqn, dkn, dv, dvv, da_raw,
+                       db_raw, dqk_raw, dkk_raw, dconv_v, dq_pre, dk_pre,
+                       qn_kh, kn_kh, qr_kh, kr_kh, dconv_out, dconv_in,
+                       dqkvz;
+    std::vector<float> dao, dqr, dkr, dqf, dcq, dcq_raw, dckv, dckv_raw;
+    std::vector<std::vector<float>> dkr_lanes;
+    std::vector<float> dgate, dq, dk, diq, dsbuf, dk_csa, dv_csa,
+                       mkr_all, dq_raw, dk_raw, cvec_k, cvec_v;
+};
+
 static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 Fwd& o, const std::vector<float>& dlogits, float aux_scale,
                 const std::vector<float>* vision = nullptr,
@@ -34,10 +60,11 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd;
+    static thread_local BwdWs ws;
     // Gemma final logit softcap: y = cap*tanh(z/cap) — chain the incoming
     // dlogits through dz = dy * (1 - (y/cap)^2) (recoverable from the
     // capped logits themselves).
-    std::vector<float> dlog;
+    auto& dlog = ws.dlog;
     const float* dlp = dlogits.data();
     if (c.final_logit_softcap > 0.0f) {
         dlog = dlogits;
@@ -48,7 +75,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         });
         dlp = dlog.data();
     }
-    std::vector<float> dh((size_t)T * H, 0.0f);
+    auto& dh = ws.dh;
+    dh.assign((size_t)T * H, 0.0f);
     linear_bwd(dlp, o.hidden.data(), p.w.at("lm_head"),
                dh.data(), p.dw("lm_head"), T, H, c.vocab);
     // DeepSeek MTP: the module's CE also reaches the shared lm_head /
@@ -60,16 +88,19 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
     // the shared embed/lm_head + mtp.* parameter grads.
     if (dmtp != nullptr && !dmtp->empty() && c.mtp_depth > 0)
         mtp_stack_bwd(p, c, ids, o, *dmtp, dh.data());
-    std::vector<float> dx_fin((size_t)T * H, 0.0f);
+    auto& dx_fin = ws.dx_fin;
+    dx_fin.assign((size_t)T * H, 0.0f);
     rmsnorm_bwd(dh.data(), o.x_fin.data(), p.w.at("norm_f").d.data(),
                 o.rmsf.data(), dx_fin.data(), p.dw("norm_f"), T, H);
-    std::vector<float> dx = dx_fin;
+    auto& dx = ws.dx;
+    dx = dx_fin;
     for (int l = c.layers - 1; l >= 0; --l) {
         LayerCache& L = o.layers[l];
         bool moe = c.moe_experts > 0 && (l % c.moe_layer_interval == 0);
         // residual split: dx flows to ffn path (through dproj) and to x_res.
-        std::vector<float> dx_res = dx;                   // residual branch
-        std::vector<float> dproj;
+        auto& dx_res = ws.dx_res;
+        dx_res = dx;                                    // residual branch
+        auto& dproj = ws.dproj;
         if (c.post_ffw_norm) {
             // Gemma sandwich: x_out = x_res + rmsnorm(ffn_proj) — route dx
             // through the post norm backward to reach the raw FFN output.
@@ -81,12 +112,17 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
         } else {
             dproj = dx;                                 // [T,H]
         }
-        std::vector<float> dn2((size_t)T * H, 0.0f);
+        auto& dn2 = ws.dn2;
+        dn2.assign((size_t)T * H, 0.0f);
         if (!moe) {
-            std::vector<float> dfh((size_t)T * c.inter, 0.0f);
+            auto& dfh = ws.dfh;
+            dfh.assign((size_t)T * c.inter, 0.0f);
             linear_bwd(dproj.data(), L.fh.data(), p.w.at(ln(l, "w2")),
                        dfh.data(), p.dw(ln(l, "w2")), T, c.inter, H);
-            std::vector<float> dfa((size_t)T * c.inter, 0.0f), dfb((size_t)T * c.inter, 0.0f);
+            auto& dfa = ws.dfa;
+            auto& dfb = ws.dfb;
+            dfa.assign((size_t)T * c.inter, 0.0f);
+            dfb.assign((size_t)T * c.inter, 0.0f);
             tpu_elementwise((int64_t)L.fh.size(), [&](int64_t i) {
                 float a = L.fa[(size_t)i], b = L.fb[(size_t)i], d = dfh[(size_t)i];
                 dfa[(size_t)i] += d * b * gate_act_df(a, c.ffn_act);
@@ -100,14 +136,16 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             const int E = c.moe_experts, K = c.moe_top_k;
             const int EI = c.expert_inter();
             const int SI = c.shared_inter();
-            std::vector<float> dgl((size_t)T * E, 0.0f);
+            auto& dgl = ws.dgl;
+            dgl.assign((size_t)T * E, 0.0f);
             // Load-balance aux gradient (Switch Transformer): the layer
             // contributes aux_scale·moe_aux_w·E·Σ_i f_i·P_i where
             // P_i = mean_t gp[t,i] and f_i (assignment share) is a
             // piecewise-constant routing statistic — so
             // ∂L/∂gp[t,i] += aux_scale·moe_aux_w·E·f_i/T, added to dgl
             // before the softmax backward below.
-            std::vector<float> moe_f((size_t)E, 0.0f);
+            auto& moe_f = ws.moe_f;
+            moe_f.assign((size_t)E, 0.0f);
             if (aux_scale != 0.0f && c.moe_aux_w != 0.0f &&
                 !c.moe_auxfree_balance) {
                 for (size_t a = 0; a < L.moe_idx.size(); ++a)
@@ -123,15 +161,21 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // reassociation vs the per-pair path (x + fold(0,p) instead of
             // fold(x,p)), so gradients are deterministic and numerically
             // equivalent but not bitwise identical (gradcheck-verified).
-            std::vector<std::vector<int>> gslots((size_t)E);
+            auto& gslots = ws.gslots;
+            gslots.assign((size_t)E, std::vector<int>());
             for (size_t a = 0; a < L.moe_idx.size(); ++a)
                 gslots[(size_t)L.moe_idx[a]].push_back((int)a);
             const int TK = T * K;
-            std::vector<float> dx1_slot((size_t)TK * H, 0.0f);
-            std::vector<float> dx3_slot((size_t)TK * H, 0.0f);
-            std::vector<float> eo_slot((size_t)TK * H, 0.0f);
+            auto& dx1_slot = ws.dx1_slot;
+            auto& dx3_slot = ws.dx3_slot;
+            auto& eo_slot = ws.eo_slot;
+            dx1_slot.assign((size_t)TK * H, 0.0f);
+            dx3_slot.assign((size_t)TK * H, 0.0f);
+            eo_slot.assign((size_t)TK * H, 0.0f);
             {
-                std::vector<float> X, Deo, Fh, Dfh, Dfa, Dfb, Dxt, EOg;
+                auto& X = ws.X; auto& Deo = ws.Deo; auto& Fh = ws.Fh;
+                auto& Dfh = ws.Dfh; auto& Dfa = ws.Dfa; auto& Dfb = ws.Dfb;
+                auto& Dxt = ws.Dxt; auto& EOg = ws.EOg;
                 for (int e = 0; e < E; ++e) {
                     auto& sl = gslots[(size_t)e];
                     const int Te = (int)sl.size();
@@ -213,7 +257,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // then runs as ONE T-row linear_bwd — dx rows are disjoint and
             // dW accumulates t-ascending, the same per-element order as
             // the serial per-token calls.
-            std::vector<float> din_all((size_t)T * E, 0.0f);
+            auto& din_all = ws.din_all;
+            din_all.assign((size_t)T * E, 0.0f);
             parallel_for(T, [&](int64_t tb, int64_t te) {
                 for (int64_t t = tb; t < te; ++t) {
                     float* dxr = dn2.data() + (size_t)t * H;
@@ -282,14 +327,17 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
             // sigmoid(Wx) ⊙ shared — dproj must be scaled by the gate and the
             // gate itself gets a logit gradient.
             const bool sgated = !L.shared_gate_sig.empty();
-            std::vector<float> dsg((size_t)T, 0.0f);
+            auto& dsg = ws.dsg;
+            dsg.assign((size_t)T, 0.0f);
             for (int se = 0; se < c.moe_shared_experts; ++se) {
                 std::string b = ln(l, "shared.") + std::to_string(se) + ".";
                 const auto& sfa = L.sfa[(size_t)se];
                 const auto& sfb = L.sfb[(size_t)se];
                 const auto& sfh = L.sfh[(size_t)se];
-                std::vector<float> dsh((size_t)T * SI, 0.0f);
-                std::vector<float> dsg_in;
+                auto& dsh = ws.dsh;
+                dsh.assign((size_t)T * SI, 0.0f);
+                auto& dsg_in = ws.dsg_in;
+                dsg_in.clear();
                 const float* dproj_use = dproj.data();
                 if (sgated) {
                     dsg_in.assign((size_t)T * H, 0.0f);
@@ -305,8 +353,10 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
                 linear_bwd(dproj_use, sfh.data(), p.w.at(b + "w2"),
                            dsh.data(), p.dw(b + "w2"), T, SI, H);
-                std::vector<float> dsa((size_t)T * SI, 0.0f);
-                std::vector<float> dsb((size_t)T * SI, 0.0f);
+                auto& dsa = ws.dsa;
+                auto& dsb = ws.dsb;
+                dsa.assign((size_t)T * SI, 0.0f);
+                dsb.assign((size_t)T * SI, 0.0f);
                 tpu_elementwise((int64_t)sfh.size(), [&](int64_t i) {
                     float a = sfa[(size_t)i], bb = sfb[(size_t)i], d = dsh[(size_t)i];
                     dsa[(size_t)i] += d * bb * gate_act_df(a, c.ffn_act);
@@ -319,7 +369,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 if (sgated) {
                     // gate grad: dsg[t] = Σ_i dproj[t,i] · so[t,i]; need so —
                     // recompute so = w2 @ sfh (cheap relative to the FFN bwd).
-                    std::vector<float> so((size_t)T * H);
+                    auto& so = ws.so;
+                    so.assign((size_t)T * H, 0.0f);
                     linear_fwd(sfh.data(), p.w.at(b + "w2"), so.data(),
                                T, SI, H);
                     parallel_for(T, [&](int64_t b2, int64_t e2) {
@@ -331,7 +382,8 @@ static void bwd(Params& p, const ModelConfig& c, const std::vector<int>& ids,
                 }
             }
             if (sgated) {
-                std::vector<float> dsg_logit((size_t)T);
+                auto& dsg_logit = ws.dsg_logit;
+                dsg_logit.assign((size_t)T, 0.0f);
                 tpu_elementwise(T, [&](int64_t t) {
                     const float s = L.shared_gate_sig[(size_t)t];
                     dsg_logit[(size_t)t] = dsg[(size_t)t] * s * (1.0f - s);
