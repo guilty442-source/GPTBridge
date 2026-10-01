@@ -793,12 +793,16 @@ is in `main-system/runtime/state/resource-governor.json`.
 `main-system/config/resource-governor-rules.json`): a demand-driven advisor
 inside the same governor process (B159 — no second regulator) picks among the
 registered `modes` presets each `auto.eval_interval_s` (60 s).  `auto.ceiling`
-(default `medium`) is the highest mode auto-mode may select, so foreground /
-user work always keeps machine headroom; `power_saving_schedule`
-(22:00–07:00) forces `sleep` at night.  Control law: responsiveness strain or
-machine overload → `low` immediately (urgent, cooldown-exempt); worker demand
-+ machine headroom → upgrade after `streak_up` evaluations, clamped to
-`ceiling`; downgrades need `streak_down` evaluations plus `cooldown_s`.
+(default `medium`) is the highest mode auto-mode may select **while the user
+is active**, so foreground / user work always keeps machine headroom; when the
+user is idle ≥ `idle_after_s` (300 s, via `GetLastInputInfo`) the effective
+ceiling relaxes to `idle_ceiling` (`high` — 閒置全速), and returning activity
+urgently demotes anything above `ceiling` (streak/cooldown exempt).
+`power_saving_schedule` (22:00–07:00) forces `sleep` at night.  Control law:
+responsiveness strain or machine overload → `low` immediately (urgent,
+cooldown-exempt); worker demand + machine headroom → upgrade after
+`streak_up` evaluations, clamped to the effective ceiling; downgrades need
+`streak_down` evaluations plus `cooldown_s`.
 Manual mode selection via `app:set-resource-mode` sets `auto_mode=false`
 (user intent wins).  Advisor state persists in
 `main-system/runtime/state/resource-mode-advisor.json`; mode switches append

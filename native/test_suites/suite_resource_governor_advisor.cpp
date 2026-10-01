@@ -276,6 +276,79 @@ int main() {
     }
     NT_END_TEST(SUITE, "govern_once_applies_advisor_mode_next_cycle");
 
+    NT_TEST(SUITE, "idle_full_speed_allows_high") {
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.ceiling = "medium";
+        policy.idle_ceiling = "high";
+        policy.idle_after_s = 300.0;
+        policy.streak_up = 2;
+        gov::AdvisorState state;
+        state.applied_mode = "medium";
+        gov::AdvisorSignals sig = calm_signals();
+        sig.user_idle_s = 600.0; /* 閒置 10 分鐘 */
+        sig.reg_active = true;   /* worker 需求＋整機餘裕 */
+
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.evaluated && d.idle_active, "idle detected");
+        NT_CHECK(d.eff_ceiling == "high", "idle ceiling effective");
+        NT_CHECK(d.target == "high" && !d.changed, "streak 1/2 holds at high");
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && state.applied_mode == "high",
+                 "idle full speed applies");
+    }
+    NT_END_TEST(SUITE, "idle_full_speed_allows_high");
+
+    NT_TEST(SUITE, "returning_user_demotes_urgently") {
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.ceiling = "medium";
+        policy.idle_ceiling = "high";
+        policy.streak_down = 3;
+        policy.cooldown_s = 600.0;
+        gov::AdvisorState state;
+        state.applied_mode = "high";      /* 閒置時升到 high */
+        state.last_switch_unix = calm_signals().now_unix; /* 剛切換 */
+        gov::AdvisorSignals sig = calm_signals();
+        sig.user_idle_s = 15.0; /* 使用者回來了 */
+
+        const gov::AdvisorDecision d =
+            gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.idle_active, "idle ended");
+        NT_CHECK(d.changed && d.urgent && d.target == "medium",
+                 "returning user: urgent demote ignores streak+cooldown");
+        NT_CHECK(state.applied_mode == "medium", "back under ceiling");
+    }
+    NT_END_TEST(SUITE, "returning_user_demotes_urgently");
+
+    NT_TEST(SUITE, "idle_unknown_or_disabled_fails_to_ceiling") {
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.ceiling = "medium";
+        policy.idle_ceiling = "high";
+        /* user_idle_s=-1（GetLastInputInfo 失敗）→ 視同使用中。 */
+        {
+            gov::AdvisorState state;
+            gov::AdvisorSignals sig = calm_signals();
+            sig.reg_active = true;
+            const gov::AdvisorDecision d =
+                gov::evaluate_advisor(policy, sig, state);
+            NT_CHECK(!d.idle_active && d.target == "medium",
+                     "unknown idle → ceiling clamp");
+        }
+        /* idle_full_speed=false → 閒置也不放行。 */
+        {
+            policy.idle_full_speed = false;
+            gov::AdvisorState state;
+            gov::AdvisorSignals sig = calm_signals();
+            sig.user_idle_s = 3600.0;
+            sig.reg_active = true;
+            const gov::AdvisorDecision d =
+                gov::evaluate_advisor(policy, sig, state);
+            NT_CHECK(!d.idle_active && d.target == "medium",
+                     "feature off → ceiling clamp");
+        }
+    }
+    NT_END_TEST(SUITE, "idle_unknown_or_disabled_fails_to_ceiling");
+
     NT_TEST(SUITE, "govern_once_respects_ceiling_during_day") {
         const std::string text =
             R"({"auto_mode": true, "mode": "low",)"
