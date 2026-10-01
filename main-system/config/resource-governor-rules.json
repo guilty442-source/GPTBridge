@@ -22,7 +22,11 @@
     "concurrency_min_training": 8,
     "concurrency_w_model": 0.2,
     "concurrency_w_rag": 0.15,
-    "concurrency_w_training": 0.6
+    "concurrency_w_training": 0.6,
+    "concurrency_pre_training": 1.0,
+    "concurrency_act_training": 0.5,
+    "concurrency_minpre_training": 4,
+    "concurrency_minact_training": 2
   },
   "description": "Per-program resource rules for the Process Lasso-inspired governor tier. 'mode' selects a preset bundle from 'modes' (sleep / low / medium / high); explicit 'defaults' keys override the selected preset, and --no-* / numeric CLI flags override both. 'exclude' keeps a program unmanaged (monitoring only). cpu_limit_percent is a share of total machine CPU (100 = one full core). worker_* keys are the aggregate worker-plane budget/cap; cpu_busy/cpu_extreme are per-core percent; sustain/extreme_sustain are consecutive samples. auto_mode=true enables the native demand-driven advisor (預設自動); the 'auto' block bounds it: 'ceiling' is the highest mode auto-mode may select while the user is active (medium — foreground/user work keeps machine headroom); when the user is idle ≥ idle_after_s the effective ceiling relaxes to idle_ceiling (high — idle full speed), and dropping back below ceiling on return is urgent (streak/cooldown exempt). streak_up/streak_down give hysteresis, cooldown_s bounds downgrades, strain_* force low immediately, headroom_* gate upgrades; power_saving_schedule.enabled=true forces nightly 22:00-07:00 sleep mode (睡眠/省電深眠 CPU 5% strict / RAM 30% / VRAM disabled) when auto_mode is active.",
   "mode": "sleep",
