@@ -45,6 +45,7 @@ struct ProcessRecord {
     bool job_member = false;
     Pool pool = Pool::None;
     bool pool_member = false;
+    bool pool_join_blocked = false;
 };
 
 using RecordMap = std::map<ProcKey, ProcessRecord>;
