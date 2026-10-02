@@ -497,6 +497,33 @@ internal static class Program
                         CapabilityResolver.Require(
                             opts.TryGetValue("capability",
                                 out string? cba) ? cba : "")));
+            // ---- maturation-closure §5-§17: per-capability maturity
+            //      state machine (evidence-derived ceiling, fail-
+            //      closed transitions), §12 floor check, §24-§28
+            //      regression matrix, §100-§101 maturity report.
+            if (flags.Contains("capability-maturity"))
+                return Emit(CapabilityMaturityService.Report(toolRoot));
+            if (flags.Contains("capability-floor"))
+                return Emit(CapabilityMaturityService.FloorCheck(
+                    opts.TryGetValue("capability", out string? cfl)
+                        ? cfl : "", toolRoot));
+            if (flags.Contains("capability-transition"))
+                return Emit(CapabilityMaturityService.Transition(
+                    toolRoot,
+                    opts.TryGetValue("capability", out string? ctr)
+                        ? ctr : "",
+                    opts.TryGetValue("state", out string? cts)
+                        ? cts : "",
+                    opts.TryGetValue("note", out string? ctn)
+                        ? ctn : ""));
+            if (flags.Contains("capability-matrix"))
+            {
+                if (opts.TryGetValue("capability", out string? cmx) &&
+                    cmx.Length > 0)
+                    return Emit(CapabilityRegressionMatrix.RowFor(
+                        cmx, toolRoot));
+                return Emit(CapabilityRegressionMatrix.Emit(toolRoot));
+            }
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -1934,6 +1961,11 @@ internal static class Program
             "--capability-evidence --file <f.json> | " +
             "--capability-evidence-status [--capability <id>] | " +
             "--capability-delta --baseline <f> --candidate <f> | " +
+            "--capability-maturity | " +
+            "--capability-floor --capability <id> | " +
+            "--capability-transition --capability <id> --state <s> " +
+            "[--note <t>] | " +
+            "--capability-matrix [--capability <id>] | " +
             "--capability-runtime-profile --capability <id> | " +
             "--failure-attribute --file <f.json> | " +
             "--arch-limitation-record --file <f.json> | " +
