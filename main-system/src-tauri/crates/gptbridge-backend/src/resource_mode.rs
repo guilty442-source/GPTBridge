@@ -8,7 +8,10 @@
 //!   * audit   — ``runtime/state/resource-mode-audit.jsonl``
 //! Writes are atomic (tmp + replace); the running governor hot-reloads the
 //! rules file on its next cycle.  An explicit mode selection disables
-//! ``auto_mode`` — user intent always wins over the demand advisor.
+//! ``auto_mode`` — the manual pick becomes the ceiling: while
+//! ``auto.manual_assist`` is on the advisor still scales demand-driven
+//! within that bound (calm → lower, demand → back up to the pick);
+//! user intent always bounds the advisor, never bypassed.
 
 use std::path::PathBuf;
 
@@ -118,6 +121,7 @@ fn governor_mode() -> Value {
             "target": advisor.get("target"),
             "reason": advisor.get("reason"),
             "at": advisor.get("at"),
+            "manual_assist": advisor.get("manual_assist"),
         })
     };
     let rules_error = state
