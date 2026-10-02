@@ -265,3 +265,113 @@ pub fn verify_store(store: &Path) -> Result<serde_json::Value, String> {
         "index_chain_ok": index_ok,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "xstore-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn put_get_roundtrip_blob() {
+        let root = scratch();
+        let src = root.join("in.bin");
+        std::fs::write(&src, b"blob-payload-0123").unwrap();
+        let rec = put(&root.join("s"), &src, "blob").unwrap();
+        assert_eq!(rec.sha256.len(), 64);
+        assert_eq!(rec.prev, "0".repeat(64));
+        let out = root.join("out.bin");
+        let n = get(&root.join("s"), &rec.sha256, &out).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(
+            std::fs::read(&out).unwrap(),
+            std::fs::read(&src).unwrap()
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn second_put_links_chain_and_is_idempotent() {
+        let root = scratch();
+        let (a, b) = (root.join("a"), root.join("b"));
+        std::fs::write(&a, b"one").unwrap();
+        std::fs::write(&b, b"two").unwrap();
+        let store = root.join("s");
+        let r1 = put(&store, &a, "blob").unwrap();
+        let r2 = put(&store, &b, "blob").unwrap();
+        assert_eq!(r2.prev, r1.sha256);
+        let r3 = put(&store, &a, "blob").unwrap(); // same content again
+        assert_eq!(r3.sha256, r1.sha256);
+        assert_eq!(r3.prev, r2.sha256); // chain advances even on hit
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn verify_store_detects_corruption_and_get_denies() {
+        let root = scratch();
+        let src = root.join("in.bin");
+        std::fs::write(&src, b"integrity").unwrap();
+        let store = root.join("s");
+        let rec = put(&store, &src, "blob").unwrap();
+        let v = verify_store(&store).unwrap();
+        assert_eq!(v["ok"], true);
+        assert_eq!(v["index_chain_ok"], true);
+        // Corrupt one byte of the resident object.
+        let mut data = std::fs::read(&rec.object).unwrap();
+        data[0] ^= 0xFF;
+        std::fs::write(&rec.object, &data).unwrap();
+        let v2 = verify_store(&store).unwrap();
+        assert_eq!(v2["ok"], false);
+        assert_eq!(v2["objects_corrupt"], 1);
+        assert!(get(&store, &rec.sha256, &root.join("o")).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn put_rejects_bad_kind_and_bad_sha() {
+        let root = scratch();
+        let src = root.join("in.bin");
+        std::fs::write(&src, b"x").unwrap();
+        assert!(put(&root.join("s"), &src, "wat").is_err());
+        assert!(get(&root.join("s"), "zz", &root.join("o")).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn index_corruption_flags_chain() {
+        let root = scratch();
+        let src = root.join("in.bin");
+        std::fs::write(&src, b"chain").unwrap();
+        let store = root.join("s");
+        put(&store, &src, "blob").unwrap();
+        // Append a forged line with a wrong prev pointer.
+        let ipath = store.join("store-index.jsonl");
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&ipath)
+            .unwrap();
+        writeln!(
+            f,
+            "{{\"format\":\"star-store-index/v1\",\"sha256\":\"{}\",\"prev\":\"{}\",\"kind\":\"blob\",\"size\":1,\"object\":\"x\",\"extra\":{{}}}}",
+            "a".repeat(64),
+            "b".repeat(64)
+        )
+        .unwrap();
+        drop(f);
+        let v = verify_store(&store).unwrap();
+        assert_eq!(v["index_chain_ok"], false);
+        assert_eq!(v["ok"], false);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+}

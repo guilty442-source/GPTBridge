@@ -186,3 +186,63 @@ pub fn ckpt_diff(base: &[u8], cand: &[u8]) -> Result<serde_json::Value, String> 
         "changed_tensors": tensor_reports,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xcn1::tests::build_ckpt;
+
+    fn buf_with_payload(tensors: &[(&str, &[u64], u64)], fill: u8) -> Vec<u8> {
+        let mut b = build_ckpt(tensors);
+        // Flip every payload byte to `fill` — the builder writes zeros,
+        // so locate the last count*4 byte block per tensor. Simplest:
+        // rebuild payloads by XOR — payload bytes are the only zero
+        // runs of length >= 4 at the tail region; instead mutate via
+        // verified offsets.
+        let (_h, es, _t) = xcn1::verify(&b).unwrap();
+        for e in &es {
+            for i in 0..e.data_len as usize {
+                b[e.data_offset + i] = fill;
+            }
+        }
+        b
+    }
+
+    #[test]
+    fn self_diff_is_compatible_and_identical() {
+        let a = build_ckpt(&[("w", &[2, 2], 4)]);
+        let r = ckpt_diff(&a, &a).unwrap();
+        assert_eq!(r["compatible"], true);
+        assert_eq!(r["stats"]["tensors_identical"], 1);
+        assert_eq!(r["stats"]["tensors_changed"], 0);
+    }
+
+    #[test]
+    fn detects_single_lane_delta() {
+        let a = buf_with_payload(&[("w", &[2], 2)], 0);
+        let mut b = a.clone();
+        // Flip one payload lane byte.
+        let (_h, es, _t) = xcn1::verify(&a).unwrap();
+        b[es[0].data_offset] = 0x01;
+        let r = ckpt_diff(&a, &b).unwrap();
+        assert_eq!(r["compatible"], true);
+        assert_eq!(r["stats"]["lanes_changed"], 1);
+        assert_eq!(r["stats"]["tensors_changed"], 1);
+        assert_eq!(r["changed_tensors"][0]["name"], "w");
+    }
+
+    #[test]
+    fn structural_mismatch_is_incompatible() {
+        let a = build_ckpt(&[("w", &[2], 2)]);
+        let b = build_ckpt(&[("w", &[2], 2), ("extra", &[1], 1)]);
+        let r = ckpt_diff(&a, &b).unwrap();
+        assert_eq!(r["compatible"], false);
+    }
+
+    #[test]
+    fn corrupt_candidate_is_rejected() {
+        let a = build_ckpt(&[("w", &[2], 2)]);
+        let r = ckpt_diff(&a, b"not-a-ckpt");
+        assert!(r.is_err());
+    }
+}

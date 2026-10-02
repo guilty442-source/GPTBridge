@@ -477,7 +477,7 @@ pub fn verify(buf: &[u8]) -> PResult<(CkptHeader, Vec<TensorEntry>, usize)> {
 
 // -------------------------------------------------------------- tests --
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// Minimal XCN10 writer mirroring ckpt_save/ckpt_write_config for a
@@ -490,7 +490,7 @@ mod tests {
         fn raw(&mut self, s: &[u8]) { self.0.extend_from_slice(s); }
     }
 
-    fn build_ckpt(tensors: &[(&str, &[u64], u64)]) -> Vec<u8> {
+    pub(crate) fn build_ckpt(tensors: &[(&str, &[u64], u64)]) -> Vec<u8> {
         let mut b = W(Vec::new());
         b.raw(b"XCN1");
         b.u(10);
