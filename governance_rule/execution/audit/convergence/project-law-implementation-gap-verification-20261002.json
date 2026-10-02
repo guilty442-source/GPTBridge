@@ -1,0 +1,82 @@
+{
+    "artifact":  "project-law-implementation-gap-verification",
+    "authority":  "non-authoritative-audit-evidence",
+    "status":  "INCOMPLETE_EVIDENCE",
+    "codex_version":  "2026-10-02T11:40:02Z",
+    "verified_at_utc":  "2026-10-02T11:47:15Z",
+    "repairs":  [
+                    "Python source retirement: whole-project scan and zero budgets; governance/training/tests/scripts have no allowance",
+                    "Formal state evaluator: verified five-part mirror inputs,live PostgreSQL generation fence,numeric history ordering,all invariant failures reported",
+                    "Retired normative entries: lifecycle-driven default-search removal; current runtime repair executed"
+                ],
+    "audit":  {
+                  "total":  3582,
+                  "failed":  0,
+                  "passed":  3582
+              },
+    "python_regression":  {
+                              "cases":  [
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "clean-tree"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "new-owner/worker.py"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "tests/test_regression.py"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "scripts/build_tool.py"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "training/job.py"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "governance/adapter.py"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "runtime/on_demand.py"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "new-owner/launcher.pyw"
+                                            },
+                                            {
+                                                "result":  "PASS",
+                                                "name":  "new-owner/types.pyi"
+                                            }
+                                        ],
+                              "result":  "PASS"
+                          },
+    "python_resident_processes":  0,
+    "retired_default_search_visible":  0,
+    "stale_search_documents":  0,
+    "remaining":  {
+                      "release":  "VERIFIED_RELEASE_DENIED",
+                      "formal_verification":  "FAIL",
+                      "pipeline_publish":  "DEFERRED_ACTIVE_FILE_LOCK:existing CodexPipeline --watch pid 2964; new bin/Release implementation compiled and repair verified; canonical publish replacement not completed",
+                      "external_signatures":  "externally-blocked",
+                      "invariant_failures":  [
+                                                 "all-convergence-closure-rows-current",
+                                                 "single-current-metrics-dynamic-schema-denominator",
+                                                 "current-metrics-match-all-surface-measurements",
+                                                 "current-verified-release-denied"
+                                             ],
+                      "formal_current_evidence_open":  80,
+                      "obligation_states":  {
+                                                "complete":  2,
+                                                "evidence-submitted":  1,
+                                                "mandated":  58,
+                                                "pending":  1,
+                                                "superseded":  1
+                                            },
+                      "machine_schema_parity_open":  77
+                  }
+}

@@ -107,15 +107,18 @@ $report=[ordered]@{
     diagrams=$sync
     epochs=@(Get-CodexRows 'codex_version_epochs'); external=@(Get-CodexRows 'codex_external_closure_requirements'); closure=@(Get-CodexRows 'codex_convergence_closure')
 }
+if ((Invoke-CodexCheck '--authority-state').codex_version -ne $head.version) {
+    throw 'BLOCKED_GENERATION_DRIFT'
+}
 if ($Summary) {
     [ordered]@{head=$head;active_articles=$activeIds.Count;unknown_articles=@($surfaceUnknown | Where-Object object_type -eq 'article').Count;nonactive_default_visible=@($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count;metrics=@(Get-CodexRows 'codex_convergence_metrics' | Where-Object status -eq 'current');search=$report.search;surface=$report.surface} | ConvertTo-Json -Depth 12
     exit
 }
 if ($Verify) {
     $checks=[Collections.Generic.List[string]]::new()
+    $failures=[Collections.Generic.List[string]]::new()
     function Assert-State([bool]$Condition,[string]$Name) {
-        if (-not $Condition) { throw "FORMAL_STATE_INVARIANT:$Name" }
-        $checks.Add($Name)
+        if ($Condition) { $checks.Add($Name) } else { $failures.Add($Name) }
     }
     $epochRows=@(Get-CodexRows 'codex_version_epochs' | Where-Object epoch -eq $head.version_epoch)
     Assert-State ($epochRows.Count -eq 1 -and $epochRows[0].status -eq 'active') 'single-active-current-epoch'
@@ -150,8 +153,9 @@ if ($Verify) {
     $soleAuthority=($articles | Where-Object provision_id -eq 'A1').rule
     Assert-State ($soleAuthority.Contains('the current authoritative Codex is the sole normative authority') -and $soleAuthority.Contains('not parallel authorities')) 'single-codex-normative-authority'
     Assert-State ($contentBoundary.Contains('not independent normative authorities') -and $contentBoundary.Contains('derive exclusively from applicable current Codex principles')) 'owner-local-rules-subordinate-not-law-sources'
-    [ordered]@{artifact='formal-state-convergence-verification';authority='non-authoritative-audit-evidence';generation=$head.version;revision=$head.sequence;result='PASS';checks=@($checks);formal_registry=$formal.Count;formal_participating=$formalCurrent.Count;formal_open=$formalFindings.Count;schema_open=$schemaOpen.Count;obligations=$obligationCounts;release='VERIFIED_RELEASE_DENIED';convergence='INCOMPLETE_EVIDENCE'} | ConvertTo-Json -Depth 20
-    exit
+    [ordered]@{artifact='formal-state-convergence-verification';authority='non-authoritative-audit-evidence';generation=$head.version;revision=$head.sequence;result=$(if ($failures.Count) {'FAIL'} else {'PASS'});checks=@($checks);failures=@($failures);formal_registry=$formal.Count;formal_participating=$formalCurrent.Count;formal_open=$formalFindings.Count;schema_open=$schemaOpen.Count;obligations=$obligationCounts;release='VERIFIED_RELEASE_DENIED';convergence='INCOMPLETE_EVIDENCE'} | ConvertTo-Json -Depth 20
+    if ($failures.Count) { exit 1 }
+    exit 0
 }
 if (-not $Request) { $report | ConvertTo-Json -Depth 50; exit }
 if (($articles | Where-Object provision_id -eq 'B5').rule.Contains('the Codex records principles only')) {
