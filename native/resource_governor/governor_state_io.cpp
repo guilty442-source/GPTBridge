@@ -72,8 +72,11 @@ void load_advisor_state(const fs::path& advisor_path,
                        : std::string{};
         };
         /* 只復原 "applied"（native 新增鍵）；舊 Python 記錄無此鍵 →
-         * 保持未接管，首次評估重新決定（fail-closed 到 rules.mode）。 */
+         * 保持未接管，首次評估重新決定（fail-closed 到 rules.mode）。
+         * assist_anchor：手動協助錨點——重啟後若 configured_mode 已換
+         * （anchor 不符），cycle_init 視 applied 為過期不落檔。 */
         state.applied_mode = str_of("applied");
+        state.assist_anchor = str_of("assist_anchor");
         state.last_target = str_of("target");
         if (const jsonlite::JsonValue* streak = doc.get("streak");
             streak != nullptr &&

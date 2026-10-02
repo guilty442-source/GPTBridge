@@ -22,8 +22,12 @@ namespace {
 using namespace detail;
 
 /* 週期前置：快照前置欄位＋rules 錯誤記錄（fail-closed 僅監控）。
- * 有效模式：auto_mode 且 advisor 已接管時用其 applied_mode（該檔位
- * 必須在 modes 中定義），否則用 rules.mode；defaults 依有效模式重組。 */
+ * 有效模式：advisor 已接管時用其 applied_mode（該檔位必須在 modes
+ * 中定義），否則用 rules.mode。接管條件：auto_mode（自動上限）或
+ * manual_assist（手動檔＝上限的動態區間）——後者另需錨點未過期
+ * （assist_anchor==rules.mode；使用者剛切檔時上週期 applied 作廢）
+ * 且 applied 不超出手動檔（持久化殘留防線）；defaults 依有效模式
+ * 重組。 */
 void cycle_init(CycleEnv& env) {
     env.snap.interval = env.config.interval;
     env.snap.disabled = env.ctx.disabled;
@@ -31,7 +35,16 @@ void cycle_init(CycleEnv& env) {
     env.dry_run = env.snap.dry_run;
     env.effective_mode = env.rules.mode;
     const AdvisorState& advisor = env.regulation.advisor;
-    if (env.rules.auto_mode && !advisor.applied_mode.empty() &&
+    const bool assist = !env.rules.auto_mode &&
+                        env.rules.advisor.manual_assist;
+    const bool assist_stale =
+        assist && !advisor.assist_anchor.empty() &&
+        advisor.assist_anchor != env.rules.mode;
+    const bool assist_over_cap =
+        assist && !advisor.applied_mode.empty() &&
+        mode_rank(advisor.applied_mode) > mode_rank(env.rules.mode);
+    if ((env.rules.auto_mode || assist) && !assist_stale &&
+        !assist_over_cap && !advisor.applied_mode.empty() &&
         env.rules.modes.count(advisor.applied_mode) != 0)
         env.effective_mode = advisor.applied_mode;
     env.eff_defaults = env.rules.defaults_for(env.effective_mode);
@@ -321,6 +334,11 @@ void advisor_step(CycleEnv& env) {
     const AdvisorPolicy& policy = env.rules.advisor;
     env.snap.advisor = jobj({
         {"enabled", jbool(env.rules.auto_mode)},
+        {"manual_assist", jbool(!env.rules.auto_mode &&
+                                policy.manual_assist)},
+        {"assist_anchor", advisor.assist_anchor.empty()
+                              ? jnull()
+                              : jstr(advisor.assist_anchor)},
         {"target", decision.target.empty() ? jnull() : jstr(decision.target)},
         {"streak", jint(decision.streak)},
         {"changed", jbool(decision.changed)},
@@ -367,7 +385,9 @@ void advisor_step(CycleEnv& env) {
     if (decision.changed) {
         env.snap.mode_audit =
             jobj({{"actor", jstr("resource-mode-advisor")},
-                  {"auto_mode", jbool(true)},
+                  {"auto_mode", jbool(env.rules.auto_mode)},
+                  {"manual_assist",
+                   jbool(!env.rules.auto_mode && policy.manual_assist)},
                   {"mode", jstr(decision.target)},
                   {"previous", decision.current.empty()
                                    ? jnull()

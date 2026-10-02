@@ -233,10 +233,18 @@ int main() {
                  "rules-error keeps last verified state");
 
         sig.rules_error = false;
-        policy.enabled = false; /* 手動選檔關閉自動（user intent wins） */
+        /* manual_assist 預設開：enabled=false 但 assist 接管 →
+         * applied 不清空（手動檔＝上限的動態區間）。 */
+        policy.enabled = false;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.evaluated && !state.applied_mode.empty() &&
+                     state.assist_anchor == sig.configured_mode,
+                 "manual assist keeps takeover (manual = ceiling)");
+        /* manual_assist=false → 靜態手動：完全放手（user intent wins）。 */
+        policy.manual_assist = false;
         d = gov::evaluate_advisor(policy, sig, state);
         NT_CHECK(d.evaluated && state.applied_mode.empty(),
-                 "disabled clears takeover");
+                 "assist-off clears takeover");
         NT_CHECK(d.reason == "auto-disabled", "disabled reason");
     }
     NT_END_TEST(SUITE, "fail_closed_on_rules_error_and_disable");
@@ -582,6 +590,231 @@ int main() {
                  "calm returns to base cadence");
     }
     NT_END_TEST(SUITE, "busy_cadence_evaluates_sooner_when_hot");
+
+    /* ---------- 手動協助（manual_assist）：手動檔＝上限的動態區間 -- */
+
+    NT_TEST(SUITE, "manual_assist_parse_default_on") {
+        /* 未宣告 → 預設開；顯式 false 可關。 */
+        auto on = gov::parse_rules(
+            R"({"mode": "high", "modes": {"low": {}, "medium": {},)"
+            R"( "high": {}}})");
+        NT_CHECK(on.has_value() && on->error.empty(), "parse ok");
+        NT_CHECK(!on->auto_mode && !on->advisor.enabled, "auto off");
+        NT_CHECK(on->advisor.manual_assist, "manual_assist default on");
+
+        auto off = gov::parse_rules(
+            R"({"mode": "high", "auto": {"manual_assist": false},)"
+            R"( "modes": {"low": {}, "medium": {}, "high": {}}})");
+        NT_CHECK(off.has_value() && off->error.empty(), "parse off ok");
+        NT_CHECK(!off->advisor.manual_assist, "manual_assist off parsed");
+    }
+    NT_END_TEST(SUITE, "manual_assist_parse_default_on");
+
+    NT_TEST(SUITE, "manual_assist_scales_within_manual_ceiling") {
+        /* 手動 high：平靜 → 降 medium 基線；需求來 → 頂回手動檔。 */
+        gov::AdvisorPolicy policy; /* enabled=false（手動態） */
+        policy.manual_assist = true;
+        policy.streak_down = 2;
+        policy.cooldown_s = 0.0;
+        policy.streak_up = 2;
+        policy.eval_interval_busy_s = 0.0;
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals();
+        sig.configured_mode = "high"; /* 使用者選高效能 */
+
+        /* 錨點建立：applied=high、立即評估、基線目標 medium。 */
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.evaluated && state.assist_anchor == "high",
+                 "assist anchor set");
+        NT_CHECK(d.current == "high" && state.applied_mode == "high",
+                 "starts at manual pick");
+        NT_CHECK(d.target == "medium" && !d.changed,
+                 "calm → baseline streak 1/2");
+        NT_CHECK(d.eff_ceiling == "high", "manual pick is the ceiling");
+
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && d.target == "medium" &&
+                     state.applied_mode == "medium",
+                 "calm downgrades below manual ceiling");
+
+        /* 需求＋餘裕 → 升回手動檔 high（不是 policy.ceiling/turbo）。 */
+        sig.reg_active = true;
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.target == "high" && !d.changed,
+                 "demand targets manual ceiling (streak 1/2)");
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && state.applied_mode == "high",
+                 "demand restores manual pick");
+    }
+    NT_END_TEST(SUITE, "manual_assist_scales_within_manual_ceiling");
+
+    NT_TEST(SUITE, "manual_assist_never_exceeds_manual_ceiling") {
+        /* 手動 medium：需求再強也不升 high；手動 low 同理恆 low。 */
+        gov::AdvisorPolicy policy;
+        policy.manual_assist = true;
+        policy.streak_up = 1;
+        policy.eval_interval_busy_s = 0.0;
+
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals();
+        sig.configured_mode = "medium";
+        sig.reg_active = true;              /* 需求＋餘裕 */
+        sig.user_idle_s = 3600.0;           /* 閒置也無 idle-lift */
+        const gov::AdvisorDecision d =
+            gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.idle_active, "manual mode: no idle lift");
+        NT_CHECK(d.eff_ceiling == "medium" && d.target == "medium",
+                 "demand capped at manual medium");
+        NT_CHECK(!d.changed, "already at manual pick");
+
+        gov::AdvisorState low_state;
+        gov::AdvisorSignals low_sig = calm_signals();
+        low_sig.configured_mode = "low";
+        low_sig.reg_active = true;
+        const gov::AdvisorDecision dl =
+            gov::evaluate_advisor(policy, low_sig, low_state);
+        NT_CHECK(dl.eff_ceiling == "low" && dl.target == "low",
+                 "manual low stays low under demand");
+    }
+    NT_END_TEST(SUITE, "manual_assist_never_exceeds_manual_ceiling");
+
+    NT_TEST(SUITE, "manual_assist_strain_and_anchor_switch") {
+        gov::AdvisorPolicy policy;
+        policy.manual_assist = true;
+        policy.eval_interval_busy_s = 0.0;
+        policy.streak_down = 5;    /* 無關：urgent 不走 streak */
+        policy.cooldown_s = 9999.0;
+
+        /* strain：手動 high 也 urgent 降 low（機器保護優先）。 */
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals();
+        sig.configured_mode = "high";
+        sig.strained = true;
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && d.urgent && d.target == "low" &&
+                     state.applied_mode == "low",
+                 "strained manual-high → urgent low");
+
+        /* 夜間排程不介入手動態（使用者意圖優先）。 */
+        gov::AdvisorState night_state;
+        gov::AdvisorSignals night = calm_signals();
+        night.configured_mode = "high";
+        night.local_minutes = 2 * 60; /* 02:00 在 22:00-07:00 窗口 */
+        d = gov::evaluate_advisor(policy, night, night_state);
+        NT_CHECK(!d.schedule_active && d.target != "sleep",
+                 "night schedule does not override manual pick");
+
+        /* 使用者切檔：anchor high→low → 滯回重置、當週期以新檔為準。 */
+        gov::AdvisorState sw;
+        sw.assist_anchor = "high";
+        sw.applied_mode = "medium";  /* assist 曾降到 medium */
+        gov::AdvisorSignals swsig = calm_signals();
+        swsig.configured_mode = "low"; /* 使用者改選省電 */
+        d = gov::evaluate_advisor(policy, swsig, sw);
+        NT_CHECK(d.evaluated && d.current == "low" &&
+                     sw.applied_mode == "low" &&
+                     sw.assist_anchor == "low",
+                 "manual switch re-anchors and applies immediately");
+    }
+    NT_END_TEST(SUITE, "manual_assist_strain_and_anchor_switch");
+
+    NT_TEST(SUITE, "manual_assist_off_stays_static") {
+        /* manual_assist=false 還原舊行為：手動檔＝靜態死檔。 */
+        gov::AdvisorPolicy policy;
+        policy.manual_assist = false;
+        gov::AdvisorState state;
+        state.applied_mode = "medium"; /* 殘留接管痕跡 */
+        gov::AdvisorSignals sig = calm_signals();
+        sig.configured_mode = "high";
+        const gov::AdvisorDecision d =
+            gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.evaluated && d.reason == "auto-disabled" &&
+                     state.applied_mode.empty(),
+                 "static manual clears takeover");
+    }
+    NT_END_TEST(SUITE, "manual_assist_off_stays_static");
+
+    NT_TEST(SUITE, "govern_once_manual_assist_drives_effective_mode") {
+        /* 手動檔 high＋assist：平靜數週期後有效檔降為 medium；
+         * assist 的 applied_mode 經 cycle_init 接管（auto_mode=false）。 */
+        const std::string text =
+            R"({"mode": "high", "auto_mode": false,)"
+            R"("auto": {"manual_assist": true, "eval_interval_s": 5,)"
+            R"( "streak_down": 1, "cooldown_s": 0},)"
+            R"("power_saving_schedule": {"enabled": false},)"
+            R"("modes": {"low": {"worker_job_percent": 5.0},)"
+            R"( "medium": {"worker_job_percent": 10.0},)"
+            R"( "high": {"worker_job_percent": 30.0}}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
+        NT_CHECK(!parsed->auto_mode && parsed->advisor.manual_assist,
+                 "manual + assist");
+
+        FakeEngine engine;
+        engine.sys = sys8();
+        gov::GovernorConfig config = base_config();
+        gov::CycleContext ctx = base_ctx();
+        ctx.local_minutes = 12 * 60;
+        ctx.now_unix = 1'000'000.0;
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+
+        gov::Snapshot snap = gov::govern_once(config, *parsed, engine, records,
+                                              regulation, ctx, logs);
+        NT_CHECK(snap.mode == "high", "cycle 1 still manual pick");
+        NT_CHECK(regulation.advisor.assist_anchor == "high",
+                 "anchor recorded");
+
+        ctx.now_mono += 10.0;
+        snap = gov::govern_once(config, *parsed, engine, records, regulation,
+                                ctx, logs);
+        NT_CHECK(regulation.advisor.applied_mode == "medium",
+                 "assist downgraded to baseline");
+        NT_CHECK(snap.mode == "medium",
+                 "effective follows assist applied even with auto off");
+        NT_CHECK(snap.features.worker_job_percent == 10.0,
+                 "medium preset drives features");
+    }
+    NT_END_TEST(SUITE, "govern_once_manual_assist_drives_effective_mode");
+
+    NT_TEST(SUITE, "govern_once_manual_assist_stale_anchor_fails_closed") {
+        /* 持久化殘留：applied=high 但 anchor=high 而使用者已改 medium —
+         * cycle_init 不得落 high（stale anchor / over-cap 攔截）。 */
+        const std::string text =
+            R"({"mode": "medium", "auto_mode": false,)"
+            R"("auto": {"manual_assist": true, "eval_interval_s": 5},)"
+            R"("power_saving_schedule": {"enabled": false},)"
+            R"("modes": {"low": {"worker_job_percent": 5.0},)"
+            R"( "medium": {"worker_job_percent": 10.0},)"
+            R"( "high": {"worker_job_percent": 30.0}}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
+
+        FakeEngine engine;
+        engine.sys = sys8();
+        gov::GovernorConfig config = base_config();
+        gov::CycleContext ctx = base_ctx();
+        ctx.local_minutes = 12 * 60;
+        gov::RecordMap records;
+        gov::RegState regulation;
+        regulation.advisor.applied_mode = "high";   /* 磁碟殘留 */
+        regulation.advisor.assist_anchor = "high";  /* 使用者已改 medium */
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+
+        const gov::Snapshot snap =
+            gov::govern_once(config, *parsed, engine, records, regulation,
+                             ctx, logs);
+        NT_CHECK(snap.mode == "medium",
+                 "stale anchor → falls back to manual pick");
+        NT_CHECK(regulation.advisor.assist_anchor == "medium" &&
+                     regulation.advisor.applied_mode == "medium",
+                 "first eval re-anchors to new pick");
+    }
+    NT_END_TEST(SUITE, "govern_once_manual_assist_stale_anchor_fails_closed");
 
     return native_tests::report("resource_governor_advisor_suite.json");
 }

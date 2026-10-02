@@ -18,6 +18,12 @@
  * ≥ idle_after_s 時，有效上限放寬為 idle_ceiling（預設 high）；使用者
  * 一回來（idle < threshold）高於 ceiling 的檔位立即 urgent 降回——
  * 閒置提速，回座即讓。
+ *
+ * 手動協助（2026-10-03 追加）：auto.manual_assist=true（預設開）時，
+ * 手動選檔不再是靜態死檔——手動檔成為上限，advisor 仍依需求在上限
+ * 之下動態升降（平靜→降 medium 基線、需求＋餘裕→頂回手動檔、
+ * strain→urgent low）；夜間排程與 idle-lift 不介入手動態（使用者
+ * 明確意圖優先），manual_assist=false 還原靜態手動檔。
  */
 #pragma once
 
@@ -55,6 +61,9 @@ struct AdvisorPolicy {
     double headroom_cpu_pct = 60.0; /* 允許升檔所需的整機餘裕（EMA） */
     double headroom_mem_pct = 75.0;
     double demand_factor = 0.8;     /* worker 帳本 ≥ budget*factor 視為需求 */
+    /* 手動協助：auto_mode=false 時 advisor 不放手——手動檔＝上限，
+     * 需求在上限之下動態升降（schedule/idle-lift 不介入）。 */
+    bool manual_assist = true;
     /* 閒置全速：無使用者輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling。 */
     bool idle_full_speed = true;
     double idle_after_s = 300.0;
@@ -74,6 +83,9 @@ struct AdvisorState {
     int streak = 0;
     std::string last_target;
     std::string applied_mode; /* 空 = 尚未接管（有效模式＝rules.mode） */
+    /* 手動協助錨點：applied_mode 產生時所依附的 configured_mode；
+     * 使用者切檔（anchor != configured）→ 滯回重置、以新檔為起點。 */
+    std::string assist_anchor;
     double last_switch_unix = 0.0;
     double last_eval_mono = -1.0; /* <0：從未評估（首週期立即評估） */
     /* 信號 EMA（僅行程內，不落 advisor.json；<0 = 未播種，首次評估

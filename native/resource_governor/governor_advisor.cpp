@@ -6,6 +6,8 @@
  * 2026-10-03：檔位序新增 turbo（>high）；worker 需求升檔目標改為
  * 有效上限本身（使用中→ceiling、閒置→idle_ceiling），不再硬編碼
  * high——自動模式上限可達 90% 檔。
+ * 2026-10-03：手動協助（manual_assist）——手動選檔不再關閉動態
+ * 調整；手動檔成為上限，advisor 在上限之下隨需求升降。
  */
 #include "governor_advisor.h"
 
@@ -109,6 +111,9 @@ AdvisorPolicy parse_advisor_policy(const jsonlite::JsonValue* auto_obj,
         policy.idle_after_s =
             std::clamp(num_or(auto_obj, "idle_after_s", 300.0), 30.0, 86400.0);
         policy.idle_ceiling = str_or(auto_obj->get("idle_ceiling"), "high");
+        /* 手動協助（預設開）：auto_mode=false 時手動檔仍為上限，
+         * advisor 在上限之下隨需求升降；false 還原靜態手動檔。 */
+        policy.manual_assist = bool_or(auto_obj, "manual_assist", true);
     }
     /* ceiling 僅在啟用或顯式宣告時驗證——未啟用且未宣告的預設值不應
      * 讓不含該檔位的 rules 檔報錯（fail-open 於停用態，fail-closed
@@ -163,9 +168,25 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
                                  const AdvisorSignals& sig,
                                  AdvisorState& state) {
     AdvisorDecision out;
+    /* 手動協助：auto_mode=false 且 manual_assist 開啟時，手動檔為上限
+     * 的動態區間。錨點＝configured_mode；使用者剛切檔（anchor 變更）
+     * → 滯回/EMA/節拍全部重置，當週期立即以新檔為起點重新評估。 */
+    const bool assist = !policy.enabled && policy.manual_assist;
+    if (assist && state.assist_anchor != sig.configured_mode) {
+        state.assist_anchor = sig.configured_mode;
+        state.applied_mode = sig.configured_mode;
+        state.streak = 0;
+        state.last_target.clear();
+        state.last_switch_unix = 0.0;
+        state.last_eval_mono = -1.0;
+        state.cpu_ema = -1.0;
+        state.mem_ema = -1.0;
+    }
+    if (!assist) state.assist_anchor.clear();
     out.current =
         state.applied_mode.empty() ? sig.configured_mode : state.applied_mode;
-    if (!policy.enabled) {
+    if (!policy.enabled && !assist) {
+        /* 靜態手動：完全放手（清空接管痕跡），有效模式＝configured。 */
         state.applied_mode.clear();
         state.streak = 0;
         state.last_target.clear();
@@ -223,22 +244,27 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
     /* 升檔餘裕閘用 EMA：重載中一個安靜取樣窗口不應放行升檔。 */
     out.headroom = state.cpu_ema < policy.headroom_cpu_pct &&
                    state.mem_ema < policy.headroom_mem_pct;
+    /* 手動態（assist）：使用者明確選檔優先——夜間排程與閒置提速
+     * 皆不介入；上限恆為手動檔本身。 */
     out.schedule_active =
-        policy.schedule_enabled &&
+        !assist && policy.schedule_enabled &&
         in_schedule_window(sig.local_minutes, policy.schedule_start_min,
                            policy.schedule_end_min);
 
     /* 閒置全速：無輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling；
      * user_idle_s<0（偵測失敗）視同使用中 → 仍受 ceiling 限制。
      * 提前於目標選擇：worker 需求升檔以有效上限為目標（使用中→
-     * ceiling、閒置→idle_ceiling），不再硬編碼 high。 */
-    out.idle_active = policy.idle_full_speed && sig.user_idle_s >= 0.0 &&
+     * ceiling、閒置→idle_ceiling、手動協助→手動檔）。 */
+    out.idle_active = !assist && policy.idle_full_speed &&
+                      sig.user_idle_s >= 0.0 &&
                       sig.user_idle_s >= policy.idle_after_s;
+    const std::string& active_ceiling =
+        assist ? sig.configured_mode : policy.ceiling;
     out.eff_ceiling =
         out.idle_active &&
-                mode_rank(policy.idle_ceiling) > mode_rank(policy.ceiling)
+                mode_rank(policy.idle_ceiling) > mode_rank(active_ceiling)
             ? policy.idle_ceiling
-            : policy.ceiling;
+            : active_ceiling;
 
     std::string reason;
     if (out.schedule_active) {
@@ -293,7 +319,7 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
     /* 使用者回來（閒置結束）且現檔高於正常使用上限 → urgent 立即讓位，
      * 不吃 streak/cooldown（user intent 優先於滯回）。 */
     if (!upgrade && !out.idle_active && !out.urgent &&
-        mode_rank(out.current) > mode_rank(policy.ceiling))
+        mode_rank(out.current) > mode_rank(active_ceiling))
         out.urgent = true;
     if (!out.urgent) {
         if (upgrade && state.streak < policy.streak_up) {
