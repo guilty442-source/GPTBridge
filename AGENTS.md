@@ -1686,9 +1686,13 @@ Worker rules for codex work:
    `startup_manifest.json`/`resident-core.json`/
    `data-architecture-contract.json`/`release-dependencies.json`/
    `DependencyProbes.cs` carry no Ollama probe or activation path.
-   Sibling articles B155/A130/B25/C32 still mention Ollama â€”
-   residue convergence amendment requested separately
-   (`codex-amendment-request-ollama-sibling-residue-20261002`).
+   Sibling articles B155/A130/B25/C32 â€” residue convergence
+   EXECUTED (rev 238, 2026-10-02T12:40Z): original request rejected
+   on stale predecessor, resubmitted as
+   `codex-amendment-request-ollama-sibling-residue-20261002-r2` â€”
+   B155/B25/A130/C32(rule+exception)/P113 de-Ollama'd,
+   FR-OLLAMA-ON-DEMAND and module_capability_registry 'ollama'
+   retired, ollama metadata keys carry retired markers.
 8. **Codex open evidence gaps block verified release.**
     `postgresql_role_registry` is now populated (48 rows observed live
     2026-10-02, liveâ†”registry delta = 0, evidence
@@ -1804,23 +1808,23 @@ Worker rules for codex work:
 
     First live gate evidence (release-gate `gate-20261002-120127.json`):
     prereqs derive 4 PASS (capability-consistency, capability-delta
-    regression, resource-contract, cuda-probe), 1 FAIL (native-only ¡X
+    regression, resource-contract, cuda-probe), 1 FAIL (native-only ï¿½X
     production-scope blocking findings: onnxruntime refs in
-    `xcm_silicon.h` ¡Ñ2, `LoadLibraryA("nvml.dll")` in
+    `xcm_silicon.h` ï¿½ï¿½2, `LoadLibraryA("nvml.dll")` in
     `cuda_kernels.cpp`, Npgsql+System.Management nuget in the
     XingchengLearning csproj, Npgsql source-ref in `Pg.cs`, and 8
     third-party cargo crates in xstore/xcorpus manifests) and 3
-    NOT_EVALUATED (architecture-drift SKIPPED ¡X bundle-bound step;
-    capability-floors ¡X no capability evidence yet; provenance ¡X no
+    NOT_EVALUATED (architecture-drift SKIPPED ï¿½X bundle-bound step;
+    capability-floors ï¿½X no capability evidence yet; provenance ï¿½X no
     live surface). SKIP is mapped to NOT_EVALUATED, never PASS and
     never FAIL. Note the gate run itself had environmental FAILs to
     re-run cleanly: build-modeltool LNK1104 (worker holds the exe),
     build-xc-learning file lock (concurrent run), self-test +
     dataset-retention TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED.
-    Phase-2 landed: `ProductionSoak.cs` ¡X `star-runtime-soak-sample/v1`
-    sampler (¡±8: rss/commit/paged bytes, threads, handles, /v1/status
+    Phase-2 landed: `ProductionSoak.cs` ï¿½X `star-runtime-soak-sample/v1`
+    sampler (ï¿½ï¿½8: rss/commit/paged bytes, threads, handles, /v1/status
     probe latency+VRAM/KV columns when the service reports them) and
-    `star-production-soak-analysis/v1` (¡±9/¡±10 head-vs-tail slope
+    `star-production-soak-analysis/v1` (ï¿½ï¿½9/ï¿½ï¿½10 head-vs-tail slope
     verdict: BOUNDED_WARMUP / FLAT / UNBOUNDED_GROWTH / TARGET_EXITED /
     INSUFFICIENT_SAMPLES; RSS alone never convicts). Verbs:
     `--production-soak --pid N [--seconds] [--interval-ms] [--port]
