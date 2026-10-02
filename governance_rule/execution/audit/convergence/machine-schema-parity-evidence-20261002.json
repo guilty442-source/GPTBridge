@@ -1,8 +1,8 @@
 {
   "artifact": "machine-schema-parity-probe/v1",
   "canonical_match": 77,
-  "current_evidence_open": 77,
-  "current_evidence_pass": 0,
+  "current_evidence_open": 0,
+  "current_evidence_pass": 77,
   "descriptor_fields": [
     "schema_code",
     "schema_kind",
@@ -20,18 +20,16 @@
     "range_constraints",
     "successor_schema_code"
   ],
-  "generation": "2026-10-02T12:40:26Z",
+  "generation": "2026-10-02T13:00:35Z",
   "note": "CANONICAL_MISMATCH is evidence, not a pass; restamp or descriptor-projection publication is a governor action. This probe never writes parity state. Registry labels and descriptor hash matches do not certify current-generation evidence.",
   "producer_validator_pass": 77,
   "recipe": "SEAL_CANONICAL_V1",
   "results": [
     {
       "canonical_semantic_hash": "d7ee3e85d0a7db4c1bdd6917a7666102ef31e6b5c51806b5ca0a315f25bfa6ad",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "d7ee3e85d0a7db4c1bdd6917a7666102ef31e6b5c51806b5ca0a315f25bfa6ad",
@@ -43,11 +41,9 @@
     },
     {
       "canonical_semantic_hash": "b9dc660072f2e22653e56c19328bdc037d2a60e65dc68780dd251c5f94033768",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "b9dc660072f2e22653e56c19328bdc037d2a60e65dc68780dd251c5f94033768",
@@ -59,11 +55,9 @@
     },
     {
       "canonical_semantic_hash": "7bb6442a8f9643d13a84ead37cbf99bc30464454a9223e2c37d8887e92e2c944",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "7bb6442a8f9643d13a84ead37cbf99bc30464454a9223e2c37d8887e92e2c944",
@@ -75,11 +69,9 @@
     },
     {
       "canonical_semantic_hash": "122f778b17ce36ccbafd58cccd5ec2a2741cb82edcf8f617215bf1009b4d935f",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "122f778b17ce36ccbafd58cccd5ec2a2741cb82edcf8f617215bf1009b4d935f",
@@ -91,11 +83,9 @@
     },
     {
       "canonical_semantic_hash": "379af22eb71c371ba25795a30443bb9db251234ce0417a689c41478e16a8f8fb",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "379af22eb71c371ba25795a30443bb9db251234ce0417a689c41478e16a8f8fb",
@@ -107,11 +97,9 @@
     },
     {
       "canonical_semantic_hash": "8bc04e9d7613171edbce40f47e1fbf093a2e06df2a1b77560f585d77808e4e6c",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "8bc04e9d7613171edbce40f47e1fbf093a2e06df2a1b77560f585d77808e4e6c",
@@ -123,11 +111,9 @@
     },
     {
       "canonical_semantic_hash": "c354af3ed9686966181ad2f50c57e73b766341751bfb3d1aa2d1df43bb4f2b34",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "c354af3ed9686966181ad2f50c57e73b766341751bfb3d1aa2d1df43bb4f2b34",
@@ -139,11 +125,9 @@
     },
     {
       "canonical_semantic_hash": "3c6efd25725454bcba822d14979998f1c151706a114653754de547aa9c4b160f",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "3c6efd25725454bcba822d14979998f1c151706a114653754de547aa9c4b160f",
@@ -155,11 +139,9 @@
     },
     {
       "canonical_semantic_hash": "0e098d6eb51d1b44f1c413421da8396cb151e9bdaf35476b7055bf6e53ad3636",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "0e098d6eb51d1b44f1c413421da8396cb151e9bdaf35476b7055bf6e53ad3636",
@@ -171,11 +153,9 @@
     },
     {
       "canonical_semantic_hash": "eb74c973efe1593ea64e36427898647b89327f3287e9f6b62fb4de2c44bb76e3",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "eb74c973efe1593ea64e36427898647b89327f3287e9f6b62fb4de2c44bb76e3",
@@ -187,11 +167,9 @@
     },
     {
       "canonical_semantic_hash": "39e824dbe3f59ac500b18c31e69ce443215553bbc1a07b77fafde1b635c9cc11",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "39e824dbe3f59ac500b18c31e69ce443215553bbc1a07b77fafde1b635c9cc11",
@@ -203,11 +181,9 @@
     },
     {
       "canonical_semantic_hash": "0bf5991b7829799335974e6f57abbefff75fdefd8e635150df19195945165256",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "0bf5991b7829799335974e6f57abbefff75fdefd8e635150df19195945165256",
@@ -219,11 +195,9 @@
     },
     {
       "canonical_semantic_hash": "5ec13f0c6ec0b98f05a81d34e3abcb95443a22c2bd9ce304bdcad52309f78b14",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "5ec13f0c6ec0b98f05a81d34e3abcb95443a22c2bd9ce304bdcad52309f78b14",
@@ -235,11 +209,9 @@
     },
     {
       "canonical_semantic_hash": "5fe932b98ab4ec1681b6e6254497d482db634c801000fd3871d8edb088607150",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "5fe932b98ab4ec1681b6e6254497d482db634c801000fd3871d8edb088607150",
@@ -251,11 +223,9 @@
     },
     {
       "canonical_semantic_hash": "a86f21d7375eef74ca18a4a5445837281a38c7c2ebba1d57f5f5f6fa5483ac60",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "a86f21d7375eef74ca18a4a5445837281a38c7c2ebba1d57f5f5f6fa5483ac60",
@@ -267,11 +237,9 @@
     },
     {
       "canonical_semantic_hash": "806bf57efdd0bc6a5540406eeafb7e36b43d1133e20360451db76d0f9e4b3af7",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "806bf57efdd0bc6a5540406eeafb7e36b43d1133e20360451db76d0f9e4b3af7",
@@ -283,11 +251,9 @@
     },
     {
       "canonical_semantic_hash": "4eda479d1de2a9df03dd30c42cd0e4f8b703ec8f948c75fdaf1721464885e13d",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "4eda479d1de2a9df03dd30c42cd0e4f8b703ec8f948c75fdaf1721464885e13d",
@@ -299,11 +265,9 @@
     },
     {
       "canonical_semantic_hash": "466c1ce37ecaba6610e9dd7e50734423248689444b8dfdd4165724a4992da7d1",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "466c1ce37ecaba6610e9dd7e50734423248689444b8dfdd4165724a4992da7d1",
@@ -315,11 +279,9 @@
     },
     {
       "canonical_semantic_hash": "7db5d0895e39c937bf12f2182b0a458aafd9e4fe41fbc6cca227ee325af80c04",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "7db5d0895e39c937bf12f2182b0a458aafd9e4fe41fbc6cca227ee325af80c04",
@@ -331,11 +293,9 @@
     },
     {
       "canonical_semantic_hash": "e848179353e7cf34d593c2127d59ca41c71d56adfcabeb1dda2a13f2addf2105",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "e848179353e7cf34d593c2127d59ca41c71d56adfcabeb1dda2a13f2addf2105",
@@ -347,11 +307,9 @@
     },
     {
       "canonical_semantic_hash": "9550697e5a059012d0b18f5d09708b9b434d5487ed037b1e3c8f86d5031f0a08",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "9550697e5a059012d0b18f5d09708b9b434d5487ed037b1e3c8f86d5031f0a08",
@@ -363,11 +321,9 @@
     },
     {
       "canonical_semantic_hash": "e0f2ebb4a1980af36f41f67ea64ac45481a4716670b22e43e6497ff35c1b3bdf",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "e0f2ebb4a1980af36f41f67ea64ac45481a4716670b22e43e6497ff35c1b3bdf",
@@ -379,11 +335,9 @@
     },
     {
       "canonical_semantic_hash": "6bb04d007575fe5fa83c5bed94452e0437ba68cb300aaa5810d8846092dca95c",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "6bb04d007575fe5fa83c5bed94452e0437ba68cb300aaa5810d8846092dca95c",
@@ -395,11 +349,9 @@
     },
     {
       "canonical_semantic_hash": "b0648c6d7a4062432e3cf6fc4b32563ba5069c3d653a29e4ceb129a5012db9fa",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "b0648c6d7a4062432e3cf6fc4b32563ba5069c3d653a29e4ceb129a5012db9fa",
@@ -411,11 +363,9 @@
     },
     {
       "canonical_semantic_hash": "bd7fe50b54349fc5c5a1741b3c6c2a46340f7cc2bf413f832c29d63e42d0bd8c",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "bd7fe50b54349fc5c5a1741b3c6c2a46340f7cc2bf413f832c29d63e42d0bd8c",
@@ -427,11 +377,9 @@
     },
     {
       "canonical_semantic_hash": "ab7ac4ee5a7a144663155aa4eba18da1901655a2ce5464227edb6ae5f7074cd8",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "ab7ac4ee5a7a144663155aa4eba18da1901655a2ce5464227edb6ae5f7074cd8",
@@ -443,11 +391,9 @@
     },
     {
       "canonical_semantic_hash": "d875c04aa109348ec916c429d52c4660b5816cee08a5d66337e28f82e587780a",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "d875c04aa109348ec916c429d52c4660b5816cee08a5d66337e28f82e587780a",
@@ -459,11 +405,9 @@
     },
     {
       "canonical_semantic_hash": "38dc327fe7b7386a3fdd9e11244dca24b68f4c3ce64a3d4ca9f761964639803c",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "38dc327fe7b7386a3fdd9e11244dca24b68f4c3ce64a3d4ca9f761964639803c",
@@ -475,11 +419,9 @@
     },
     {
       "canonical_semantic_hash": "fbd0a9e88eda729bc0109a63dc2693f8d8f0833b8c6c15c82b21045d6632211b",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "fbd0a9e88eda729bc0109a63dc2693f8d8f0833b8c6c15c82b21045d6632211b",
@@ -491,11 +433,9 @@
     },
     {
       "canonical_semantic_hash": "425d42bf480a4925c3cfb218cfc579cc9b83511ab96e9a3eaf87922fc0850bb1",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "425d42bf480a4925c3cfb218cfc579cc9b83511ab96e9a3eaf87922fc0850bb1",
@@ -507,11 +447,9 @@
     },
     {
       "canonical_semantic_hash": "e576abfa90b2905223c9e1dfde02b6ce7fe3349ca5c2b26d1c5eb1d765fc7659",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "e576abfa90b2905223c9e1dfde02b6ce7fe3349ca5c2b26d1c5eb1d765fc7659",
@@ -523,11 +461,9 @@
     },
     {
       "canonical_semantic_hash": "ad48640b4494170da5f1c44f707c03bc22b431ef5c4225568d7eb7199e21e8fd",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "ad48640b4494170da5f1c44f707c03bc22b431ef5c4225568d7eb7199e21e8fd",
@@ -539,11 +475,9 @@
     },
     {
       "canonical_semantic_hash": "5eb3ca2f2639ddf47b781ba7897398fcb1e05f609050839e6994c4b2a5d7d682",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "5eb3ca2f2639ddf47b781ba7897398fcb1e05f609050839e6994c4b2a5d7d682",
@@ -555,11 +489,9 @@
     },
     {
       "canonical_semantic_hash": "3313f9acd2b3a947bc7c0fd35dd7383c8e9a70976952a66751bcccab8afa25ab",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "3313f9acd2b3a947bc7c0fd35dd7383c8e9a70976952a66751bcccab8afa25ab",
@@ -571,11 +503,9 @@
     },
     {
       "canonical_semantic_hash": "29420388dee44457ba51f255185e04ebc641723bcde2b5cf201a6d4f26c01cdd",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "29420388dee44457ba51f255185e04ebc641723bcde2b5cf201a6d4f26c01cdd",
@@ -587,11 +517,9 @@
     },
     {
       "canonical_semantic_hash": "456bf734057bb1d7fd46032df433da1800ccb89e36576bdaaee497098d4c45e4",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "456bf734057bb1d7fd46032df433da1800ccb89e36576bdaaee497098d4c45e4",
@@ -603,11 +531,9 @@
     },
     {
       "canonical_semantic_hash": "e7c326434e6e11c3a1c7fd4aa70ced088bff58d90d80ab8aee5e3a67df087596",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "e7c326434e6e11c3a1c7fd4aa70ced088bff58d90d80ab8aee5e3a67df087596",
@@ -619,11 +545,9 @@
     },
     {
       "canonical_semantic_hash": "8d0cff997743f7c19f59a8cfb2f4fb6a02c1eec51f65de0283dc6ca831c51405",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "8d0cff997743f7c19f59a8cfb2f4fb6a02c1eec51f65de0283dc6ca831c51405",
@@ -635,11 +559,9 @@
     },
     {
       "canonical_semantic_hash": "c3a0da7dfa6ebbcf64d523e2ddc5a522bc934a2b19b445b03a6bd76dbd06155f",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "c3a0da7dfa6ebbcf64d523e2ddc5a522bc934a2b19b445b03a6bd76dbd06155f",
@@ -651,11 +573,9 @@
     },
     {
       "canonical_semantic_hash": "0865545357c3f2b083ea0727172285555e1d79511af7deb4253e238c34ce1f8c",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "0865545357c3f2b083ea0727172285555e1d79511af7deb4253e238c34ce1f8c",
@@ -667,11 +587,9 @@
     },
     {
       "canonical_semantic_hash": "6f549a70d348211875e379e9ade9153b0bf54a5361ada1fef8524d9e55eaf5ac",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "6f549a70d348211875e379e9ade9153b0bf54a5361ada1fef8524d9e55eaf5ac",
@@ -683,11 +601,9 @@
     },
     {
       "canonical_semantic_hash": "28fa7f5d231bd74583c7d56fd38d98b4b8cce3ea5bc05979c0687a8f61e0299e",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "28fa7f5d231bd74583c7d56fd38d98b4b8cce3ea5bc05979c0687a8f61e0299e",
@@ -699,11 +615,9 @@
     },
     {
       "canonical_semantic_hash": "936fd6872135ce69032ebae9692cacd31eab8d6ce5195945368a4bcd232607d5",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "936fd6872135ce69032ebae9692cacd31eab8d6ce5195945368a4bcd232607d5",
@@ -715,11 +629,9 @@
     },
     {
       "canonical_semantic_hash": "78fc5a0deeb2ee7781759b90ce8db3e58a9548a00a151075ada0d7523716ee11",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "78fc5a0deeb2ee7781759b90ce8db3e58a9548a00a151075ada0d7523716ee11",
@@ -731,11 +643,9 @@
     },
     {
       "canonical_semantic_hash": "21fe248d29de46ac0f92ae8b5d24e67074cf0db2bf7401e5b66cc724b76ca125",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "21fe248d29de46ac0f92ae8b5d24e67074cf0db2bf7401e5b66cc724b76ca125",
@@ -747,11 +657,9 @@
     },
     {
       "canonical_semantic_hash": "f32e01a59da54581c368cc6de4db3ed8497dd88577f8df65ab6e0283854755a2",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "f32e01a59da54581c368cc6de4db3ed8497dd88577f8df65ab6e0283854755a2",
@@ -763,11 +671,9 @@
     },
     {
       "canonical_semantic_hash": "f811d0652d617a5b155b69ad216198ea5c86c27d0117583615eb2c7055394b67",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "f811d0652d617a5b155b69ad216198ea5c86c27d0117583615eb2c7055394b67",
@@ -779,11 +685,9 @@
     },
     {
       "canonical_semantic_hash": "065876267906d47ad7ae6fac9e787632cf75270c3c3e44ca0731529b65cccf1d",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "065876267906d47ad7ae6fac9e787632cf75270c3c3e44ca0731529b65cccf1d",
@@ -795,11 +699,9 @@
     },
     {
       "canonical_semantic_hash": "9b3c410a965028470829832e8cbf7c0dffe287c89b890b827c91921132159663",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "9b3c410a965028470829832e8cbf7c0dffe287c89b890b827c91921132159663",
@@ -811,11 +713,9 @@
     },
     {
       "canonical_semantic_hash": "a3bcaba751403c3afd43697c31db6953a931849b4dd89e02ed026859f232e1ac",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "a3bcaba751403c3afd43697c31db6953a931849b4dd89e02ed026859f232e1ac",
@@ -827,11 +727,9 @@
     },
     {
       "canonical_semantic_hash": "8db46bc7c1821acd860c1d563a792622077a87c710d17b7d2a8992069a63fb13",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "8db46bc7c1821acd860c1d563a792622077a87c710d17b7d2a8992069a63fb13",
@@ -843,11 +741,9 @@
     },
     {
       "canonical_semantic_hash": "58e2a75e05023cc0a193674a0e870d3fc361285cae52250b808f5c79a2a1e20d",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "58e2a75e05023cc0a193674a0e870d3fc361285cae52250b808f5c79a2a1e20d",
@@ -859,11 +755,9 @@
     },
     {
       "canonical_semantic_hash": "9e4992163ea4b89448c299e699fe34cc100960a720b162157b76a10ad66df70b",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "9e4992163ea4b89448c299e699fe34cc100960a720b162157b76a10ad66df70b",
@@ -875,11 +769,9 @@
     },
     {
       "canonical_semantic_hash": "d16e9e27e146e1fc7adf1eaa74a81b94e3e7b62c15f3b680de44ae702f121c61",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "d16e9e27e146e1fc7adf1eaa74a81b94e3e7b62c15f3b680de44ae702f121c61",
@@ -891,11 +783,9 @@
     },
     {
       "canonical_semantic_hash": "5912ecc199417f657154a3edd6789c195e1aab1cf344d464bf460915e50dff78",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "5912ecc199417f657154a3edd6789c195e1aab1cf344d464bf460915e50dff78",
@@ -907,11 +797,9 @@
     },
     {
       "canonical_semantic_hash": "e0e92adaf9db318406e0d1984baa2282c6b4823f9b86f32c3236e08798e14604",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "e0e92adaf9db318406e0d1984baa2282c6b4823f9b86f32c3236e08798e14604",
@@ -923,11 +811,9 @@
     },
     {
       "canonical_semantic_hash": "241ac7d449d9f82a36a69a80e5cd747affd9ecabf763b079d42dcdf9fd3b30f0",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "241ac7d449d9f82a36a69a80e5cd747affd9ecabf763b079d42dcdf9fd3b30f0",
@@ -939,11 +825,9 @@
     },
     {
       "canonical_semantic_hash": "760531d3574bc235f6bd4390ac016497bb924843e82f6b6a19a847420a18c3f2",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "760531d3574bc235f6bd4390ac016497bb924843e82f6b6a19a847420a18c3f2",
@@ -955,11 +839,9 @@
     },
     {
       "canonical_semantic_hash": "ebd3b1722602cd53a67472f0a48afb393b41c55786f1d9775e12a5ca1ed4917e",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "ebd3b1722602cd53a67472f0a48afb393b41c55786f1d9775e12a5ca1ed4917e",
@@ -971,11 +853,9 @@
     },
     {
       "canonical_semantic_hash": "fbc083cf419b91e603523fd78a3c8c9a8d016ca2ac58c1c026344eb8d2f2c293",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "fbc083cf419b91e603523fd78a3c8c9a8d016ca2ac58c1c026344eb8d2f2c293",
@@ -987,11 +867,9 @@
     },
     {
       "canonical_semantic_hash": "b033f84e87e179f5f0a26ea91fc5b3df2e7c40d96053b8bfd12eeaa01e487a27",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "b033f84e87e179f5f0a26ea91fc5b3df2e7c40d96053b8bfd12eeaa01e487a27",
@@ -1003,11 +881,9 @@
     },
     {
       "canonical_semantic_hash": "247098d64ffce0dd3407423fba4a7d5748dd7063ff13d32c687ccd0fdc9bcea5",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "247098d64ffce0dd3407423fba4a7d5748dd7063ff13d32c687ccd0fdc9bcea5",
@@ -1019,11 +895,9 @@
     },
     {
       "canonical_semantic_hash": "840840b40d42bba9b89505b66af95a2cc5fb7a313b3a7e21d195dcec5ac5cba6",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "840840b40d42bba9b89505b66af95a2cc5fb7a313b3a7e21d195dcec5ac5cba6",
@@ -1035,11 +909,9 @@
     },
     {
       "canonical_semantic_hash": "7ee999000391d54d6340566fa5e7e7adbd3059d9037b564ce5fbd0cfaa185926",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "7ee999000391d54d6340566fa5e7e7adbd3059d9037b564ce5fbd0cfaa185926",
@@ -1051,11 +923,9 @@
     },
     {
       "canonical_semantic_hash": "d0386caa4276dec0affc6ce8f4ac7c0895abdba257bae64ad66f445954cfda7e",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "d0386caa4276dec0affc6ce8f4ac7c0895abdba257bae64ad66f445954cfda7e",
@@ -1067,11 +937,9 @@
     },
     {
       "canonical_semantic_hash": "f5a5a5025cdd339e59750e270182b5be13bea0dc5f369470e4d4a4869159d05b",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "f5a5a5025cdd339e59750e270182b5be13bea0dc5f369470e4d4a4869159d05b",
@@ -1083,11 +951,9 @@
     },
     {
       "canonical_semantic_hash": "fc070c977ae7dd5221cabb259d7e50a62ad1ed6c1256804446760f877850d4b3",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "fc070c977ae7dd5221cabb259d7e50a62ad1ed6c1256804446760f877850d4b3",
@@ -1099,11 +965,9 @@
     },
     {
       "canonical_semantic_hash": "ce92e9e38ff94a367d22391a3ca0828e2df786572f2f22d58ede207227d16c1c",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "ce92e9e38ff94a367d22391a3ca0828e2df786572f2f22d58ede207227d16c1c",
@@ -1115,11 +979,9 @@
     },
     {
       "canonical_semantic_hash": "30a614649e48ef118d16b694ff70a146d6c4efcf79ae85f9eced38ea73c27f59",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "30a614649e48ef118d16b694ff70a146d6c4efcf79ae85f9eced38ea73c27f59",
@@ -1131,11 +993,9 @@
     },
     {
       "canonical_semantic_hash": "5aaa031d87480df3f67d95bb08ca4301465c26e1d92cbd8e4eacac0d0d100efc",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "5aaa031d87480df3f67d95bb08ca4301465c26e1d92cbd8e4eacac0d0d100efc",
@@ -1147,11 +1007,9 @@
     },
     {
       "canonical_semantic_hash": "94cdfc06cf89a0dabb4949ef0ff6aa4368d8e3d6b5c3437c1bbb03e982913e18",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "94cdfc06cf89a0dabb4949ef0ff6aa4368d8e3d6b5c3437c1bbb03e982913e18",
@@ -1163,11 +1021,9 @@
     },
     {
       "canonical_semantic_hash": "d015171beb13b2be0a079a917e87171b939c4bcbc54ff21a2c5311ff6913457b",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "d015171beb13b2be0a079a917e87171b939c4bcbc54ff21a2c5311ff6913457b",
@@ -1179,11 +1035,9 @@
     },
     {
       "canonical_semantic_hash": "558c010b7b0f4788bb9c8e04b7f20125582ccee0ceaed47115849d5a657ee3e2",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "558c010b7b0f4788bb9c8e04b7f20125582ccee0ceaed47115849d5a657ee3e2",
@@ -1195,11 +1049,9 @@
     },
     {
       "canonical_semantic_hash": "64b79bea25543dee97cd99b545ae0aaf02b89135dd31b3b0a70d1141667959b4",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "64b79bea25543dee97cd99b545ae0aaf02b89135dd31b3b0a70d1141667959b4",
@@ -1211,11 +1063,9 @@
     },
     {
       "canonical_semantic_hash": "770774b1a3ea66a966e018b7cf90653623a9e234eecad5e04879d486376769b8",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "770774b1a3ea66a966e018b7cf90653623a9e234eecad5e04879d486376769b8",
@@ -1227,11 +1077,9 @@
     },
     {
       "canonical_semantic_hash": "d8c26567b84cc6ea6f1bf25191d84231c2b286d40b82f0d0cff7845235f8e82e",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "d8c26567b84cc6ea6f1bf25191d84231c2b286d40b82f0d0cff7845235f8e82e",
@@ -1243,11 +1091,9 @@
     },
     {
       "canonical_semantic_hash": "ad84fa8084e4b1375f62429692e33142e1a19859f4d5bfe1e29091ad557bf7d4",
-      "current_evidence_reasons": [
-        "CURRENT_GENERATION_EVIDENCE_MISSING"
-      ],
-      "current_evidence_status": "INCOMPLETE_EVIDENCE",
-      "evidence_generation": "2026-10-02T11:49:37Z",
+      "current_evidence_reasons": [],
+      "current_evidence_status": "PASS",
+      "evidence_generation": "2026-10-02T13:00:35Z",
       "parity_status": "VERIFIED",
       "persistence_layer": "MATCH",
       "producer_semantic_hash": "ad84fa8084e4b1375f62429692e33142e1a19859f4d5bfe1e29091ad557bf7d4",
@@ -1259,5 +1105,5 @@
     }
   ],
   "rows": 77,
-  "source_sha256": "a9c281707303cf8a75797e0b18316f2cda9e74565c7de548942a3bfea314ef22"
+  "source_sha256": "27ee1ab8f28e9670bffc15bb25b5880f95bcbd8bcd103d8e43a3291e4aa8b339"
 }

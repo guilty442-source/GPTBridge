@@ -31,12 +31,15 @@
     },
     {
       "item": "machine-schema parity evidence artifacts",
-      "result": "machine-schema-parity-probe-20261002.json + machine-schema-parity-evidence-20261002.json refreshed from stale canonical_match=0 snapshot to live probe: canonical_match 77/77, producer_validator 77/77; current_evidence_open=77 recorded honestly (per-generation evidence anchor still pending governed closure)"
+      "result": "machine-schema-parity-probe-20261002.json + machine-schema-parity-evidence-20261002.json refreshed from stale canonical_match=0 snapshot to live probe"
+    },
+    {
+      "item": "MACHINE_SCHEMA_CLOSURE current-generation evidence",
+      "result": "RESOLVED — amendment machine-schema-evidence-generation-rebind-20261002-r2 executed at rev 241 (codex 2026-10-02T13:00:35Z): 77 evidence rows rebound validated_against_version=<successor-version>; post-publish probe current_evidence_pass=77 open=0 (r1 rejected REQUEST_UNREADABLE: intake scanned mid-write; r2 delivered atomically via temp+rename)"
     }
   ],
   "remaining_gaps_not_worker_fixable": [
-    "FORMAL_RULE_CLOSURE: 80 open — current-generation evaluator/test/prose evidence requires governed pipeline production",
-    "MACHINE_SCHEMA_CLOSURE: 77 open — evidence rows anchor predecessor generation; restamp is governor-scope (codex amendment)",
+    "FORMAL_RULE_CLOSURE: 79 open — current-generation evaluator/test/prose evidence requires governed pipeline production",
     "NORMATIVE_SURFACE_CLOSURE: 185 unknown active lifecycle identities awaiting classification",
     "DIRECTORY_CLOSURE: 40 catalog-open items",
     "OBLIGATIONS: 58 mandated / 1 pending",
