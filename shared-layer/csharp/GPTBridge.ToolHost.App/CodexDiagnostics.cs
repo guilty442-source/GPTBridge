@@ -8,6 +8,7 @@
 // The pipeline binary is the governed CodexPipeline; a missing binary
 // or non-zero exit reports CODEX_PIPELINE_* honestly, never silently.
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GPTBridge.ToolHost;
