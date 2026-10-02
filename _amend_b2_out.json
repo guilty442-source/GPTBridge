@@ -1,0 +1,412 @@
+﻿{
+  "audit": {
+    "amendment_id": "current-binding-registry-convergence-20261002-r2",
+    "audit_recorded": true,
+    "budget_ms": 30000,
+    "certificate": {
+      "amendment_id": "current-binding-registry-convergence-20261002-r2",
+      "certificate_hash": "11e5cf711491bad3ffe396f5e330be195c70e38c118c77d92c3d91bf654707fe",
+      "predecessor": {
+        "codex_version": "2026-10-02T07:08:35Z",
+        "history_head": "3e39dfcdb0cc3d60864ea00a28a0ba2698c8af45c8d8596c2e6dbd4adeed4e63",
+        "revision_sequence": 218,
+        "version_epoch": 2,
+        "version_identity": "E2:2026-10-02T07:08:35Z"
+      },
+      "receipts": [
+        {
+          "domain": "policy-precedence-and-decision-basis",
+          "evidence_hash": "a67ae2d5f23a8a990f93eb4de3d32fb938f63aaa9d9e9b77da40d6b7f81d716b",
+          "independent_verifier": "",
+          "method": "decision-basis-verification",
+          "owner_sub_sovereign": "decision-sovereign",
+          "sovereign_id": "decision-sovereign"
+        },
+        {
+          "domain": "directory-identity-and-access-lifecycle",
+          "evidence_hash": "18d662fcdca1dd77b9d6ef7c686b07d5561fb39d029b1e41856606d59aa25716",
+          "independent_verifier": "",
+          "method": "directory-parity-diff",
+          "owner_sub_sovereign": "permission-sovereign",
+          "sovereign_id": "permission-sovereign"
+        },
+        {
+          "domain": "runtime-continuity-and-reader-generation",
+          "evidence_hash": "d7a03498164d67b4338433b346b5dac8e740d6619e79964c62acf085144a76eb",
+          "independent_verifier": "",
+          "method": "reader-generation-plan",
+          "owner_sub_sovereign": "system-runtime-sovereign",
+          "sovereign_id": "system-runtime-sovereign"
+        },
+        {
+          "domain": "staging-seal-mirror-and-version-mechanics",
+          "evidence_hash": "c9ae03300e2b2d1539bc87c5f7c6d3fae6973073e1d055d2c49db9987db6f37e",
+          "independent_verifier": "",
+          "method": "staging-seal-mirror-mechanics",
+          "owner_sub_sovereign": "automation-sovereign",
+          "sovereign_id": "automation-sovereign"
+        },
+        {
+          "domain": "xingcheng-assistant-core-audit",
+          "evidence_hash": "e12cca8b9f988c5dedbaebe30ff42d87d97cd02f54b842758ac4ca97622c6eb5",
+          "independent_verifier": "",
+          "method": "xingcheng-assistant-core-audit",
+          "owner_sub_sovereign": "xingcheng-assistant",
+          "sovereign_id": "xingcheng"
+        }
+      ],
+      "requester": "decision-sovereign",
+      "schema": "gptbridge.codex-amendment-certificate/v1",
+      "verdict": "FIVE_SOVEREIGN_AUDIT_PASSED"
+    },
+    "certificate_issued": true,
+    "charters": [
+      {
+        "domain": "policy-precedence-and-decision-basis",
+        "duties": [
+          "verify the amendment change class and required review level",
+          "verify no conflicting active successor in the same scope",
+          "verify the decision basis references exist and are current"
+        ],
+        "forbidden": [
+          "implicit precedence",
+          "selecting among ambiguous successors"
+        ],
+        "owner_sub_sovereign": "decision-sovereign",
+        "post_audit_duties": [
+          "monitor precedence and successor uniqueness until publication",
+          "re-derive the decision basis for the successor generation"
+        ],
+        "required_evidence": [
+          "amendment_class",
+          "basis_references",
+          "successor_scope_unique"
+        ],
+        "sovereign_id": "decision-sovereign"
+      },
+      {
+        "domain": "directory-identity-and-access-lifecycle",
+        "duties": [
+          "verify directory rows, identity format and ownership",
+          "verify lifecycle/effective parity and retirement markers",
+          "verify test-flow and module registry references"
+        ],
+        "forbidden": [
+          "self-registering domain truth",
+          "inventing domain truth"
+        ],
+        "owner_sub_sovereign": "permission-sovereign",
+        "post_audit_duties": [
+          "apply the directory/identity/test-flow updates",
+          "re-certify the permission sovereign after publication"
+        ],
+        "required_evidence": [
+          "directory_rows",
+          "identity_lifecycle_parity",
+          "testflow_references"
+        ],
+        "sovereign_id": "permission-sovereign"
+      },
+      {
+        "domain": "runtime-continuity-and-reader-generation",
+        "duties": [
+          "verify the amendment causes no restart, stop or disconnect",
+          "verify old readers drain on the prior generation and new readers use the published generation",
+          "verify channel continuity and the health window"
+        ],
+        "forbidden": [
+          "forced reload of incompatible consumers",
+          "mixed-generation reads"
+        ],
+        "owner_sub_sovereign": "system-runtime-sovereign",
+        "post_audit_duties": [
+          "enforce the generation fence and reader drain during publication",
+          "re-anchor authority and verify runtime continuity afterwards"
+        ],
+        "required_evidence": [
+          "reader_generation_plan",
+          "channel_continuity",
+          "health_window"
+        ],
+        "sovereign_id": "system-runtime-sovereign"
+      },
+      {
+        "domain": "staging-seal-mirror-and-version-mechanics",
+        "duties": [
+          "verify staged generation isolation and non-authoritative status",
+          "verify seal roots recomputation per SEAL_CANONICAL_V1",
+          "verify mirror part chain and assembled payload hash",
+          "verify version identity increment and the rollback pointer"
+        ],
+        "forbidden": [
+          "publishing partial generations",
+          "computing roots over mixed generations"
+        ],
+        "owner_sub_sovereign": "automation-sovereign",
+        "post_audit_duties": [
+          "execute the automated staging/normalize/validate pipeline",
+          "close the seal and issue the five-sovereign audit certificate"
+        ],
+        "required_evidence": [
+          "staging_isolation",
+          "seal_roots",
+          "mirror_chain",
+          "version_identity",
+          "rollback_pointer"
+        ],
+        "sovereign_id": "automation-sovereign"
+      },
+      {
+        "domain": "xingcheng-assistant-core-audit",
+        "duties": [
+          "review the staged amendment under the Xingcheng assistant core charter",
+          "classify the amendment scope and confirm metadata-only redaction",
+          "verify the assistant audit remains inside the governed audit boundary"
+        ],
+        "forbidden": [
+          "direct sockets or HTTP clients",
+          "raw confidential content in audit evidence",
+          "external evidence asserted without a governed source"
+        ],
+        "owner_sub_sovereign": "xingcheng-assistant",
+        "post_audit_duties": [
+          "re-review assistant-domain scope when the candidate changes before publication",
+          "re-verify metadata-only evidence after publication"
+        ],
+        "required_evidence": [
+          "assistant_core_review",
+          "scope_classification",
+          "redaction_check"
+        ],
+        "sovereign_id": "xingcheng"
+      }
+    ],
+    "division_plan": [
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "release-update-sync-sub-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "staging-normalize-validate"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "release-update-sync-sub-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "seal-mirror-and-successor-manifest"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "directory-sub-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "directory-identity-and-testflow-update"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "permission-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "permission-recertification"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "runtime-state-sync-sub-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "runtime-reader-generation-and-reanchor"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "xingcheng-assistant",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "xingcheng-assistant-core-review"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "automation-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "seal-closure-and-certificate-issuance"
+      },
+      {
+        "amendment_id": "current-binding-registry-convergence-20261002-r2",
+        "owner": "automatic-log-sync-sub-sovereign",
+        "released_by": "five-sovereign-audit-gate",
+        "work_item": "audit-publication"
+      }
+    ],
+    "division_released": true,
+    "duration_ms": 197,
+    "failed": [],
+    "missing": [],
+    "ok": true,
+    "reason": "ALL_FIVE_SOVEREIGNS_AUDITED",
+    "receipts": [
+      {
+        "domain": "policy-precedence-and-decision-basis",
+        "duration_ms": 86,
+        "evidence_hash": "a67ae2d5f23a8a990f93eb4de3d32fb938f63aaa9d9e9b77da40d6b7f81d716b",
+        "findings": [
+          "change_class:architecture-authority",
+          "basis:complete",
+          "lineage:unique"
+        ],
+        "method": "decision-basis-verification",
+        "network_search": false,
+        "ok": true,
+        "owner_sub_sovereign": "decision-sovereign",
+        "sovereign_id": "decision-sovereign"
+      },
+      {
+        "domain": "directory-identity-and-access-lifecycle",
+        "duration_ms": 105,
+        "evidence_hash": "18d662fcdca1dd77b9d6ef7c686b07d5561fb39d029b1e41856606d59aa25716",
+        "findings": [
+          "requester:decision-sovereign:roster",
+          "required_review:five-sovereign-audit-unanimous-pass",
+          "scope_tables:4"
+        ],
+        "method": "directory-parity-diff",
+        "network_search": false,
+        "ok": true,
+        "owner_sub_sovereign": "permission-sovereign",
+        "sovereign_id": "permission-sovereign"
+      },
+      {
+        "domain": "runtime-continuity-and-reader-generation",
+        "duration_ms": 98,
+        "evidence_hash": "d7a03498164d67b4338433b346b5dac8e740d6619e79964c62acf085144a76eb",
+        "findings": [
+          "flow:A382/A488-non-disruptive-amendment-flow",
+          "predecessor_readable:True",
+          "predecessor_read_ms:97"
+        ],
+        "method": "reader-generation-plan",
+        "network_search": false,
+        "ok": true,
+        "owner_sub_sovereign": "system-runtime-sovereign",
+        "sovereign_id": "system-runtime-sovereign"
+      },
+      {
+        "domain": "staging-seal-mirror-and-version-mechanics",
+        "duration_ms": 71,
+        "evidence_hash": "c9ae03300e2b2d1539bc87c5f7c6d3fae6973073e1d055d2c49db9987db6f37e",
+        "findings": [
+          "candidate:current-binding-registry-convergence-20261002-r2.sql",
+          "sha256:match",
+          "seal_preview:present",
+          "version:2026-10-02T07:19:52Z"
+        ],
+        "method": "staging-seal-mirror-mechanics",
+        "network_search": false,
+        "ok": true,
+        "owner_sub_sovereign": "automation-sovereign",
+        "sovereign_id": "automation-sovereign"
+      },
+      {
+        "domain": "xingcheng-assistant-core-audit",
+        "duration_ms": 0,
+        "evidence_hash": "e12cca8b9f988c5dedbaebe30ff42d87d97cd02f54b842758ac4ca97622c6eb5",
+        "findings": [
+          "assistant-core-scope-reviewed"
+        ],
+        "method": "xingcheng-assistant-core-audit",
+        "network_search": false,
+        "ok": true,
+        "owner_sub_sovereign": "xingcheng-assistant",
+        "sovereign_id": "xingcheng"
+      }
+    ],
+    "requester": "decision-sovereign",
+    "runner": {
+      "error": "",
+      "request_id": "current-binding-registry-convergence-20261002-r2",
+      "state": "ready-for-governor"
+    },
+    "self_audit_passed": true
+  },
+  "build": {
+    "applied": [
+      {
+        "action": "update",
+        "fields": {
+          "content_hash": "9955604100294a6a7708181f1a64c5606d9f726a0ebc3762e56ccc22f8d177b1",
+          "domain_payload": "{\"architecture_code\":\"JULIA_COMPUTE\",\"canonical_name\":\"julia-compute\",\"command_codes\":\"\",\"data_authority\":\"julia-compute-owned scratch state (rebuildable)\",\"dependencies\":\"governance codex|information layer|shared layer\",\"entity_kind\":\"retired-former-scientific-compute-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered scientific-compute service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\julia-compute\",\"responsibilities\":\"statistics and scientific compute; optimization-simulation (A610 Python-work-transfer successor)\",\"retired_version\":\"2026-10-02T05:10:02Z\",\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}",
+          "revision": "2026-10-02T07:19:52Z"
+        },
+        "key": {
+          "entry_code": "JULIA_COMPUTE",
+          "source_table": "project_architecture_directory"
+        },
+        "table": "a233_normalized_directory_entry"
+      },
+      {
+        "action": "update",
+        "fields": {
+          "display_name": "對話",
+          "version_identity": "2026-10-02T07:19:52Z"
+        },
+        "key": {
+          "architecture_code": "MODEL_DIALOGUE",
+          "locale": "zh-TW"
+        },
+        "table": "architecture_display_name_registry"
+      },
+      {
+        "action": "update",
+        "fields": {
+          "status": "superseded"
+        },
+        "key": {
+          "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN@<successor-version>"
+        },
+        "table": "architecture_stale_reference_evidence"
+      },
+      {
+        "action": "update",
+        "fields": {
+          "status": "superseded"
+        },
+        "key": {
+          "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN@2026-09-16T09:22:51Z"
+        },
+        "table": "architecture_stale_reference_evidence"
+      },
+      {
+        "action": "update",
+        "fields": {
+          "value": "CURRENT=codex_version_authority_registry:CURRENT_AUTHORITATIVE; RECOVERED_2026-09-23T14:49:21Z=historical-non-current-incomplete-epoch-certification; normative-language-delta=consolidated-current"
+        },
+        "key": {
+          "key": "version_window_resolution"
+        },
+        "table": "metadata"
+      },
+      {
+        "action": "insert",
+        "row": {
+          "current_reference_count": 6,
+          "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT",
+          "historical_reference_count": 1,
+          "result": "INCOMPLETE_EVIDENCE",
+          "status": "current",
+          "version_identity": "2026-10-02T07:19:52Z"
+        },
+        "table": "architecture_stale_reference_evidence"
+      }
+    ],
+    "candidate_path": "E:\\GPTBridge\\main-system\\runtime\\state\\codex-amendments\\candidates\\current-binding-registry-convergence-20261002-r2.sql",
+    "deferred": 0,
+    "errors": [],
+    "manifest_path": "E:\\GPTBridge\\main-system\\runtime\\state\\codex-amendments\\candidates\\current-binding-registry-convergence-20261002-r2.candidate-manifest.json",
+    "ok": true
+  },
+  "execution": {
+    "certificate_hash": "11e5cf711491bad3ffe396f5e330be195c70e38c118c77d92c3d91bf654707fe",
+    "ok": true,
+    "seal_state": "sealed-governed-authorization",
+    "state": "executed",
+    "version": "2026-10-02T07:08:35Z"
+  },
+  "ok": true,
+  "request_id": "current-binding-registry-convergence-20261002-r2",
+  "request_path": "governance_rule\\execution\\audit\\convergence\\codex-amendment-request-current-binding-registry-convergence-20261002-r2.json",
+  "stage": "execute",
+  "state": "executed"
+}

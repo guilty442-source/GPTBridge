@@ -27675,7 +27675,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T07:11:53Z",
+  "generated_at": "2026-10-02T07:21:24Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

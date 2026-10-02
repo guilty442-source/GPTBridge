@@ -12,7 +12,7 @@ PostgreSQL `gptbridge_codex` 是唯一法典權威。不得保留 SQL dump、資
 flowchart TB
   USER[使用者] --> UI[核准 Tauri／Wails／Qt UI]
   UI --> INFO[Information Channel]
-  CODEX[(PostgreSQL Codex<br/>唯一治理權威)] --> DEC[Decision Core]
+  CODEX[(PostgreSQL Codex<br/>唯一治理權威)] --> DEC[Governance Core]
   CODEX --> PERM[Permission Core]
   CODEX --> RUN[Runtime Core]
   CODEX --> AUTO[Automation Core]
@@ -30,7 +30,7 @@ flowchart TB
 
 | 核心／機構 | 唯一責任 | 明確禁止 |
 | --- | --- | --- |
-| Decision Core | 政策、優先順序、變更與結果接受 | 直接執行模組工作 |
+| Governance Core | 政策、優先順序、變更與結果接受 | 直接執行模組工作 |
 | Permission Core | 身分、範圍、權限、目錄與安全執法 | 產生領域事實或代替決策 |
 | Runtime Core | 啟動、程序生命週期與受治理執行 | 自行授權或修改政策 |
 | Automation Core | 已授權工作流排程、同步、更新與維護 | 自行產生權限或接受結果 |
