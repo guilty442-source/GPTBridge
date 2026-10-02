@@ -117,8 +117,12 @@ internal static class Git
         ResolveGitDirs(worktree)?.CommonDir
         ?? RevParse(worktree, "--git-common-dir");
 
-    public static string CurrentBranch(string worktree) =>
-        RevParse(worktree, "--abbrev-ref HEAD");
+    public static string CurrentBranch(string worktree)
+    {
+        var result = Run(worktree,
+            new[] { "rev-parse", "--abbrev-ref", "HEAD" });
+        return result.Code == 0 ? result.Stdout.Trim() : "";
+    }
 }
 
 internal sealed class LockBusyException : Exception
