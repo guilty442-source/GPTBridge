@@ -78,14 +78,29 @@ internal static class CapabilityProgressionPolicy
 
     /// <summary>Admission check for a declared capability: unknown ids
     /// fail closed through the registry; ordering is delegated to the
-    /// maturation guard (which already fails closed).</summary>
+    /// maturation guard (which already fails closed). A canonical id
+    /// that differs from its sequence-member spelling (e.g. canonical
+    /// ``reading`` for sequence id ``reading_grounding``) is translated
+    /// to the sequence's own vocabulary before ordering checks.</summary>
     public static void GuardAdmission(string toolRoot, string capability)
     {
-        if (capability.Length > 0 &&
-            CapabilityRegistry.Resolve(capability) == null)
+        if (capability.Length == 0)
+        {
+            Maturation300M.GuardSequence(toolRoot, capability);
+            return;
+        }
+        string? canonical = CapabilityRegistry.Resolve(capability);
+        if (canonical == null)
             throw new ExecutorError("CAPABILITY_UNKNOWN",
                 $"capability '{capability}' is not in the " +
                 "CapabilityRegistry");
-        Maturation300M.GuardSequence(toolRoot, capability);
+        string declared = capability;
+        foreach (var spec in Maturation300M.Sequence)
+            if (CapabilityRegistry.Resolve(spec.Id) == canonical)
+            {
+                declared = spec.Id;
+                break;
+            }
+        Maturation300M.GuardSequence(toolRoot, declared);
     }
 }

@@ -4353,6 +4353,15 @@ internal static class InstructionRecovery
         if (!SupportedCapabilities.Contains(cap))
             throw new ExecutorError("RECOVERY_PLAN_MISSING",
                 $"unsupported recovery capability '{cap}'");
+        // Capability unification §82: the recovery lane's capability
+        // vocabulary is validated by the canonical registry — the
+        // supported list stays (it is the lane's implementation
+        // coverage), but a name that resolves to no canonical id is
+        // rejected before any lane work begins.
+        if (CapabilityRegistry.Resolve(cap) == null)
+            throw new ExecutorError("CAPABILITY_UNKNOWN",
+                $"recovery capability '{cap}' is not in the " +
+                "CapabilityRegistry");
         Capability = cap;
         CapabilityFreeze.GuardJob("sft", cap, policy);
         string kind = TransformerTrainingRepository.Str(plan, "kind") ?? "sft";

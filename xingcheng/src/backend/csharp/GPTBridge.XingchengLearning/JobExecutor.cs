@@ -152,10 +152,13 @@ internal sealed class TrainingJobExecutor
         // §4/§50 maturation order: even when the freeze lane admits the
         // job, the declared capability must be the current sequence head
         // (instruction_following first); out-of-order capabilities are
-        // denied before any weight work is scheduled.
+        // denied before any weight work is scheduled. Capability
+        // unification §16/§82: the id is validated against the canonical
+        // CapabilityRegistry first (unknown ids fail closed), then the
+        // progression policy enforces sequence order.
         if (kind == "sft")
-            Maturation300M.GuardSequence(_toolRoot,
-                                         (string)cfg["capability"]!);
+            CapabilityProgressionPolicy.GuardAdmission(
+                _toolRoot, (string)cfg["capability"]!);
 
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");

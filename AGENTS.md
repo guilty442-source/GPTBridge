@@ -313,6 +313,64 @@ passed=0), so promotion can never proceed without an F# verdict.
 The retired Python `self_learning*.py`/`training_job_executor.py` are
 interface documentation only — never execution.
 
+## 星澄 Capability Architecture（capability unification directive §0-§106）
+
+Capabilities are **first-class descriptors**, never their own runtime /
+model / store / scheduler. All capabilities ride the single xc-fused-1
+HybridCausalDecoder core, the single NativeTrainer, the single
+NativeInferenceEngine and the single Lifecycle plane.
+
+Phase-1 implementation (C# governance lane,
+`xingcheng/src/backend/csharp/GPTBridge.XingchengLearning`):
+
+- `CapabilityDescriptor.cs` — `star-capability-descriptor/v1`; §4 field
+  set + §31 architecture binding + §66 floor + §83 aliases; closed
+  vocabularies for class (`MODEL_NATIVE`/`RUNTIME_AUGMENTED`/
+  `SERVICE_AUGMENTED`), owner plane (`GOVERNANCE`/`COMPUTE`/`DATA`/
+  `SYSTEM`/`MIXED`), status (`UNAVAILABLE`/`IMPLEMENTED`/`TRAINING`/
+  `EVALUATED`/`CERTIFIED`/`MATURE`/`REGRESSED`), resource hints.
+- `CapabilitySeed.cs` — canonical capability rows (code = source of
+  truth; persisted file is the governed projection).
+- `CapabilityRegistry.cs` — `star-capability-registry/v1` at
+  `xingcheng/runtime/state/capability-registry.json`; `Resolve`
+  (alias→canonical, fail-closed), `Emit`, `Validate`.
+- `CapabilityGraph.cs` — `star-capability-graph/v1` at
+  `xingcheng/runtime/state/capability-graph.json`; §12 edge vocabulary
+  (`REQUIRES`/`SUPPORTS`/`REGRESSES_WITH`/`SHARES_DATA_WITH`/
+  `SHARES_EXPERT_WITH`/`EVALUATED_BY`); `RegressionSuiteFor` derives a
+  lane's regression set automatically (§45: self + REQUIRES closure +
+  REGRESSES_WITH neighbourhood + every protected/frozen capability).
+- `CapabilityEvaluationMap.cs` — `star-capability-eval-map/v1`;
+  existing eval categories keep their names (§85) and map to canonical
+  ids (one capability ↔ many evals, §18/§19).
+- `CapabilityProgressionPolicy.cs` — `star-capability-progression/v1`
+  facade over `Maturation300M`: registry answers "which capabilities
+  exist?", progression answers "which may train now?" (§16).
+- `CapabilityConsistency.cs` — `star-capability-consistency/v1`, the
+  §102 check battery (unknown/duplicate capability, orphan eval,
+  orphan training path, missing binding, missing regression dep,
+  missing evidence, capability/runtime confusion) — the release-gate
+  consistency gate substrate (§101).
+
+Verbs (`xc-learning.exe`): `--capability-registry` (emit+persist),
+`--capability-graph`, `--capability-eval-map`,
+`--capability-progression`, `--capability-resolve --capability <name>`,
+`--capability-validate [--file <f>]`, `--capability-consistency`,
+`--capability-regression-suite --capability <id>`.
+
+Admission wiring (phase 2, §82/§98): SFT jobs and the
+single-capability recovery lane validate declared capabilities through
+the registry (`CAPABILITY_UNKNOWN` fails closed) before the maturation
+sequence guard applies; canonical ids translate back to sequence
+spellings (`reading` → `reading_grounding`).
+
+`FeatureCatalog` is the *Implementation Feature Catalog* (§29): it
+answers "which mechanisms exist?", never "which capabilities are
+mature?". Later phases (pending): `star-capability-evidence/v1`,
+`ArchitectureCapabilityBinding`, `CapabilityDeltaReport`, capability_id
+propagation into autonomous learning / resource requests / accel plan,
+release-gate consistency wiring, alias convergence.
+
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
 > Normative authority: Codex B134/B135。
