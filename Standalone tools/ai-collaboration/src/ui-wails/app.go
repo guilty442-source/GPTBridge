@@ -1,7 +1,9 @@
 //go:build windows
 
 // app.go — Wails bound app: the window.electron-compatible invoke
-// surface the ai-collaboration renderer expects (app:* session channels
+// surface the ai-collaboration renderer expects (compat name only —
+// no Electron runtime; Electron is forbidden by language policy)
+// (app:* session channels
 // + embedded-browser:* + the backend-delegated dom-op lane).  Channel
 // semantics mirror the governed tool-window dispatch
 // (main-system/src-tauri/src/tool_dispatch.rs).

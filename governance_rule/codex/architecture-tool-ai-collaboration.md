@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart TB
-  UI["ai-collab-ui.exe (Wails/WebView2)<br/>agent rail + composer + response feed"] -->|"window.electron.invoke →<br/>App.Invoke IPC whitelist"| WMGR["BrowserManager<br/>WebView2 child HWNDs<br/>(pump thread, 30s ops)"]
+  UI["ai-collab-ui.exe (Wails/WebView2)<br/>agent rail + composer + response feed"] -->|"window.electron.invoke（相容名稱 — Tauri/Wails<br/>preload shim，非 Electron runtime）→<br/>App.Invoke IPC whitelist"| WMGR["BrowserManager<br/>WebView2 child HWNDs<br/>(pump thread, 30s ops)"]
   SOCK["loopback WS<br/>token+instance auth"] --> HOST["ai-collab-host.exe (Go)<br/>loopback /health|/metrics|/shutdown|WS"]
   UI --> SOCK
   HOST --> SVC["service: 16 ai_nexus_* commands<br/>requester allowlist + idempotency(120s)"]

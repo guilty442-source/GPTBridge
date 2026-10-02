@@ -6,6 +6,8 @@
 //! navigation/visibility actions.
 import { createStore } from "../../../../shared-layer/src/ui/toolWindow/dom.js";
 function getElectron() {
+	// window.electron is a compatibility alias injected by the governed
+	// Tauri/Wails WebView2 preload — no Electron runtime exists.
 	const api = window.electron;
 	return api ?? null;
 }
@@ -27,7 +29,7 @@ export function createEmbeddedBrowser() {
 	let previousSessionId = null;
 	const invoke = async (channel, ...args) => {
 		const electron = getElectron();
-		if (!electron) throw new Error("Electron IPC bridge is unavailable");
+		if (!electron) throw new Error("governed IPC bridge is unavailable");
 		return electron.invoke(channel, ...args);
 	};
 	const refreshState = async () => {
