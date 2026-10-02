@@ -582,32 +582,6 @@ internal static partial class GenerationProjections
     /// producer/validator/persistence/canonical evidence.  Rows whose
     /// evidence is missing, PENDING, or internally inconsistent fall back
     /// to PENDING (fail-closed).</summary>
-    private static int RebuildSchemaParityStatus(
-        StageConnection connection)
-    {
-        if (!HasTable(connection, "machine_schema_registry")
-            || !HasTable(connection, "machine_schema_parity_evidence"))
-            return 0;
-        const string evidenceOk =
-            "EXISTS (SELECT 1 FROM machine_schema_parity_evidence e "
-            + "WHERE e.schema_code=r.schema_code AND e.status='PASS' "
-            + "AND e.producer_semantic_hash IS NOT NULL "
-            + "AND e.validator_semantic_hash IS NOT NULL "
-            + "AND e.persistence_semantic_hash IS NOT NULL "
-            + "AND e.canonical_semantic_hash IS NOT NULL "
-            + "AND e.producer_semantic_hash=e.validator_semantic_hash "
-            + "AND e.validator_semantic_hash=e.persistence_semantic_hash "
-            + "AND e.persistence_semantic_hash=e.canonical_semantic_hash)";
-        var cursor = connection.Execute(
-            "UPDATE machine_schema_registry r SET parity_status='VERIFIED' "
-            + $"WHERE {evidenceOk} AND r.parity_status<>'VERIFIED'");
-        var verified = cursor.RowCount;
-        cursor = connection.Execute(
-            "UPDATE machine_schema_registry r SET parity_status='PENDING' "
-            + $"WHERE NOT ({evidenceOk}) AND r.parity_status='VERIFIED'");
-        return verified + cursor.RowCount;
-    }
-
     /// <summary>Rebind every derived projection of the staged
     /// generation to its version — runs inside the isolated staging
     /// copy after the prepared successor is applied.</summary>

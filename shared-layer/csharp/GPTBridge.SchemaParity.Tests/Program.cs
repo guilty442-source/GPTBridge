@@ -46,4 +46,20 @@ foreach (var field in new[] { "codex_version", "source_sha256" })
     try { fence.Invoke(null, new object[] { identity, changed }); throw new Exception("GENERATION_DRIFT_ACCEPTED"); }
     catch (TargetInvocationException error) when (error.InnerException?.Message == "BLOCKED_GENERATION_DRIFT") { passed++; }
 }
+var projection = typeof(SemanticHashToolchain).Assembly.GetType("GPTBridge.CodexPipeline.GenerationProjections", true)!;
+var matches = projection.GetMethod("SchemaReceiptMatches", BindingFlags.Static | BindingFlags.NonPublic)!;
+var receipt = new Dictionary<string, object?> { ["status"] = "PASS", ["validated_against_version"] = generation };
+foreach (var field in new[] { "producer_semantic_hash", "validator_semantic_hash", "persistence_semantic_hash", "canonical_semantic_hash" }) receipt[field] = hash;
+bool Matches(Dictionary<string, object?> value) => (bool)matches.Invoke(null, new object[] { row, value, generation })!;
+Equal(true, Matches(receipt), "projection-current-descriptor-bound-receipt");
+foreach (var field in new[] { "status", "validated_against_version", "producer_semantic_hash", "validator_semantic_hash", "persistence_semantic_hash", "canonical_semantic_hash" })
+{
+    var invalid = new Dictionary<string, object?>(receipt) { [field] = "stale-or-invalid" };
+    Equal(false, Matches(invalid), "projection-rejects:" + field);
+}
+foreach (var field in new[] { "producer_semantic_hash", "validator_semantic_hash", "persistence_semantic_hash", "canonical_semantic_hash" }) receipt[field] = "";
+Equal(false, Matches(receipt), "empty-equal-hashes-never-verify");
+foreach (var field in new[] { "producer_semantic_hash", "validator_semantic_hash", "persistence_semantic_hash", "canonical_semantic_hash" }) receipt[field] = new string('0', 64);
+Equal(false, Matches(receipt), "arbitrary-equal-hashes-never-verify");
+if (args.Contains("--integration")) passed += ProjectionIntegration.Run();
 Console.WriteLine(JsonSerializer.Serialize(new { artifact = "schema-parity-evidence-regression", passed, failed = 0 }));
