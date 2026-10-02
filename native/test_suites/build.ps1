@@ -19,7 +19,7 @@ $suites = @(
     @{ src = "suite_kv_cache.cpp"; exe = "kv_cache_suite.exe" },
     @{
         src = "suite_kv_engine.cpp"; exe = "kv_engine_suite.exe"
-        # G95：engine 級 KV 覆蓋——真實 gptbridge_kv_pool＋NativeInferenceEngine
+        # G95：engine �?KV 覆�??�—�?�?gptbridge_kv_pool＋NativeInferenceEngine
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -34,7 +34,7 @@ $suites = @(
     @{ src = "suite_maturity.cpp"; exe = "maturity_suite.exe" },
     @{
         src = "suite_runtime_core.cpp"; exe = "runtime_core_suite.exe"
-        # E1/E2 原型：連結真實純 C 源檔（非重實作）
+        # E1/E2 ?��?：�???�實�?C 源�?（�??�實作�?
         extra = @(
             (Join-Path $coreDir "runtime_core.c"),
             (Join-Path $coreDir "scheduler.c"),
@@ -47,7 +47,7 @@ $suites = @(
     },
     @{
         src = "suite_runtime_state.cpp"; exe = "runtime_state_suite.exe"
-        # E3 原型：連結真實純 C 源檔
+        # E3 ?��?：�???�實�?C 源�?
         extra = @(
             (Join-Path $coreDir "runtime_state.c")
         )
@@ -60,7 +60,7 @@ $suites = @(
     },
     @{
         src = "suite_system_rescue.cpp"; exe = "system_rescue_suite.exe"
-        # M1 語言外移原型：連結真實純 C 源檔
+        # M1 語�?外移?��?：�???�實�?C 源�?
         extra = @(
             (Join-Path $coreDir "system_rescue.c")
         )
@@ -75,21 +75,21 @@ $suites = @(
     },
     @{
         src = "suite_governed_tool_ws.cpp"; exe = "governed_tool_ws_suite.exe"
-        # M1 ABI §3：HTTP/WS 閘門編解碼（零 I/O，自研 SHA-1/base64/frame）
+        # M1 ABI §3：HTTP/WS ?��?編解碼�???I/O，自??SHA-1/base64/frame�?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\governed_tool_ws.cpp")
         )
     },
     @{
         src = "suite_transport_proxy_client.cpp"; exe = "transport_proxy_client_suite.exe"
-        # M1 模式 B：proxy 客戶端編解碼＋request_sync 等待語義（零 I/O）
+        # M1 模�? B：proxy 客戶端編�?��＋request_sync 等�?語義（零 I/O�?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp")
         )
     },
     @{
         src = "suite_tool_host.cpp"; exe = "tool_host_suite.exe"
-        # M1 工具體骨架：loopback HTTP/WS＋claim/execute/respond 端到端
+        # M1 工具體骨?��?loopback HTTP/WS＋claim/execute/respond 端到�?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\tool_host.cpp"),
             (Join-Path $nativeRoot "tool_runtime\tool_host_conn.cpp"),
@@ -105,15 +105,15 @@ $suites = @(
 
     @{
         src = "suite_a263_channel_core.cpp"; exe = "a263_channel_core_suite.exe"
-        # M2 前置：A263 channel 決定性語義（零 I/O，Python 為權威 shadow）
+        # M2 ?�置：A263 channel 決�??��?義�???I/O，Python ?��?�?shadow�?
         extra = @(
             (Join-Path $coreDir "a263_channel_core.c")
         )
     },
     @{
         src = "suite_channel_runtime.cpp"; exe = "channel_runtime_suite.exe"
-        # M2：A263 channel 非同步執行面（send/receive loop、state 機、
-        #    outbox 持有＋回放）——transport 注入（模式 B）
+        # M2：A263 channel ?��?步執行面（send/receive loop?�state 機�?
+        #    outbox ?��?＋�??��??�—transport 注入（模�?B�?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\channel_runtime.cpp"),
             (Join-Path $nativeRoot "tool_runtime\channel_runtime_loops.cpp"),
@@ -122,14 +122,14 @@ $suites = @(
     },
     @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
-        # P0-9 審計引擎：連結真實原生實作
+        # P0-9 審�?引�?：�???�實?��?實�?
         extra = @(
             (Join-Path $auditDir "audit_engine.cpp")
         )
     },
     @{
         src = "suite_simd_kernels.cpp"; exe = "simd_kernels_suite.exe"
-        # ACC-1：純 C SIMD 核心等價／回退驗收（連結真實 transformer.c／vector.c）
+        # ACC-1：�? C SIMD ?��?等價／�??�驗收（�???�實 transformer.c／vector.c�?
         inc = @($coreDir)
         extra = @(
             (Join-Path $coreDir "transformer.c"),
@@ -138,7 +138,7 @@ $suites = @(
     },
     @{
         src = "suite_baseline.cpp"; exe = "baseline_suite.exe"
-        # §10.60 baseline：真實 cpp bundle 載入＋確定性＋反退化（已解鎖）
+        # §10.60 baseline：�?�?cpp bundle 載入＋確定性�??�退?��?已解?��?
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -150,7 +150,7 @@ $suites = @(
     },
     @{
         src = "suite_eval.cpp"; exe = "eval_suite.exe"
-        # §10.60 eval：star-native-eval-v1 ppl＋sanity＋tps 閘門
+        # §10.60 eval：star-native-eval-v1 ppl＋sanity＋tps ?��?
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -162,7 +162,7 @@ $suites = @(
     },
     @{
         src = "suite_dialogue.cpp"; exe = "dialogue_suite.exe"
-        # §10.60 dialogue：star-native-eval-dialogue-v1 同構閘門
+        # §10.60 dialogue：star-native-eval-dialogue-v1 ?��??��?
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -174,14 +174,14 @@ $suites = @(
     },
     @{
         src = "suite_scheduler_parity.cpp"; exe = "scheduler_parity_suite.exe"
-        # G100: scheduler parity — C vs Python PeriodicScheduler (5-core budget, shadow→primary gate)
+        # G100: scheduler parity ??C vs Python PeriodicScheduler (5-core budget, shadow?�primary gate)
         extra = @(
             (Join-Path $coreDir "scheduler.c")
         )
     },
     @{
         src = "suite_resource_governor.cpp"; exe = "resource_governor_suite.exe"
-        # A608: resource-governor C++23 控制律等價（假引擎，零 OS 副作用）。
+        # A608: resource-governor C++23 ?�制律�??��??��??��???OS ?��??��???
         # A185 split: control-law units only (no Win32 engine / host layer).
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
@@ -194,7 +194,7 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor_budget.cpp"; exe = "resource_governor_budget_suite.exe"
-        # A590/A593/A598: 全域 concurrency 配額控制律（8 工作類別）。
+        # A590/A593/A598: ?��? concurrency ?��??�制律�?8 工�?類別）�?
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
@@ -206,7 +206,7 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor_pools.cpp"; exe = "resource_governor_pools_suite.exe"
-        # Pool layer: Pool 歸因／pools 規則解析／per-pool 共享 Job envelope。
+        # Pool layer: Pool 歸�?／pools 規�?�??／per-pool ?�享 Job envelope??
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
@@ -218,8 +218,8 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor_advisor.cpp"; exe = "resource_governor_advisor_suite.exe"
-        # B167/B38 原生接替＋B3 有界自適應：ceiling 上限、streak/cooldown、
-        # 夜間省電窗口、fail-closed（純函式＋假引擎，零副作用）。
+        # B167/B38 ?��??�替＋B3 ?��??�適?��?ceiling 上�??�streak/cooldown??
+        # 夜�??�電窗口?�fail-closed（�??��?＋�?引�?，零?��??��???
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
@@ -233,7 +233,7 @@ $suites = @(
 
 # Concurrent-worker guard: two build.ps1 runs racing on the shared
 # _build.bat / .obj outputs produce spurious failures; serialize on an
-# atomic lock dir (wait ≤ 600 s, then fail closed). The lock records the
+# atomic lock dir (wait ??600 s, then fail closed). The lock records the
 # owner PID: a killed build's finally never runs, so a dead owner is
 # reclaimed immediately instead of stalling the next build for 600 s.
 $lockDir = Join-Path $out "_build.lock"
@@ -256,7 +256,7 @@ while (-not (New-Item -ItemType Directory -Path $lockDir -ErrorAction SilentlyCo
         continue
     }
     if ($lockWaited -ge 600) {
-        # Stale lock from a crashed run: owner gone → break once.
+        # Stale lock from a crashed run: owner gone ??break once.
         if (-not (Get-Process -Name "cl" -ErrorAction SilentlyContinue)) {
             Remove-Item $lockDir -Recurse -Force -ErrorAction SilentlyContinue
             continue
@@ -272,10 +272,10 @@ Set-Content -Path (Join-Path $lockDir "owner.pid") -Value $PID
 try {
 
 # Two-phase bounded-parallel build:
-#   Phase A — every UNIQUE translation unit compiles once under
+#   Phase A ??every UNIQUE translation unit compiles once under
 #     $MaxParallel (shared sources like transformer.c / engine.cpp /
 #     governor_*.cpp used to recompile once per consuming suite).
-#   Phase B — each suite/driver links from the shared obj pool.
+#   Phase B ??each suite/driver links from the shared obj pool.
 # vcvars is imported into this session once instead of being re-executed
 # per job (was ~30 cmd wraps), and /GL+/LTCG is dropped: whole-program
 # optimisation roughly doubles compile+link cost for zero coverage gain
@@ -297,7 +297,7 @@ if (-not $clExe) { Write-Output "cl.exe not found after vcvars import"; exit 1 }
 $tuObjDir = Join-Path $out "obj\tu"
 New-Item -ItemType Directory -Force -Path $tuObjDir | Out-Null
 
-# Dedup key: source path + include set + language + defines — identical
+# Dedup key: source path + include set + language + defines ??identical
 # (src, incs, flags) pairs share one obj; any flag difference compiles
 # separately (e.g. audit_engine.cpp vs its /D CLI variant).
 $tuJobs = @{}
@@ -332,19 +332,19 @@ foreach ($suite in $suites) {
     $objs = @($srcs | ForEach-Object { Add-TuForSource $_ $incs })
     $linkJobs += @{ name = $suiteName; exe = $exePath; objs = $objs }
 }
-# 獨立審計引擎 CLI（pre-commit 閘門嵌入式）— own /D → own TU.
+# ?��?審�?引�? CLI（pre-commit ?��?嵌入式�???own /D ??own TU.
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $aeObj = Add-Tu $auditSrc @($includeDir) "c++latest" @("/DGPTBRIDGE_AUDIT_ENGINE_CLI")
 $linkJobs += @{ name = "audit-engine"; exe = $auditExe; objs = @($aeObj) }
-# A608 資源管制器主程式（C++23）：監督面常駐行程，與 Python 版同狀態契約
+# A608 資�?管制?�主程�?（C++23）�???��?�常駐�?程�???Python ?��??�?��?�?
 $govRoot = Join-Path $nativeRoot "resource_governor"
 $govExe = Join-Path $govRoot "bin\resource-governor.exe"
 New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
 $govSrcFiles = Get-ChildItem -Path $govRoot -Filter "*.cpp" -File | Sort-Object Name
 $govObjs = @($govSrcFiles | ForEach-Object { Add-Tu $_.FullName @($includeDir) "c++latest" @() })
 $linkJobs += @{ name = "resource-governor"; exe = $govExe; objs = $govObjs }
-# M1 模式 B：proxy codec CLI driver（Python interop 測試用，非套件）
+# M1 模�? B：proxy codec CLI driver（Python interop 測試?��??��?件�?
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
@@ -354,8 +354,8 @@ $drvObjs = @(
     (Add-Tu $tpxSrc @($includeDir) "c++latest" @()),
     (Add-Tu $sidecarSrc @($includeDir) "c++latest" @()))
 $linkJobs += @{ name = "proxy_client_driver"; exe = $driverExe; objs = $drvObjs }
-# transport-proxy/v1 線協定 fixture（原生）：live sidecar 案例的受管對端，
-# 取代已退役的 Python fixture（D7/B171：測試車道無 Python）。
+# transport-proxy/v1 線�?�?fixture（�??��?：live sidecar 案�??��?管�?端�?
+# ?�代已退役�? Python fixture（D7/B171：測試�??�無 Python）�?
 $wireExe = Join-Path $out "proxy_wire_agent.exe"
 $wireSrc = Join-Path $PSScriptRoot "proxy_wire_agent.cpp"
 $wireObj = Add-Tu $wireSrc @($includeDir) "c++latest" @()

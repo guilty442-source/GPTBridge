@@ -161,29 +161,10 @@ internal static class NativeDependencyGate
             string scope = NativeDependencyScan.ScopeOf(b.Path);
             foreach (var m in b.Forbidden)
             {
-                string check = m.Split('.')[0] switch
-                {
-                    "cudart" => "cudart",
-                    "cublas" or "cublaslt" => "cublas",
-                    "cudnn" => "cudnn",
-                    "nccl" => "nccl",
-                    "nvrtc" or "nvjitlink" => "nvrtc",
-                    "nvml" => "telemetry_library",
-                    "libpq" or "pq" or "psqlodbc" =>
-                        "postgresql_required",
-                    "sqlite3" => "external_database",
-                    "mkl" or "openblas" or "onednn" or "dnnl" or
-                        "lapack" => "numerical_library",
-                    "torch" or "libtorch" or "onnxruntime" or "llama"
-                        or "ggml" => "external_tensor_library",
-                    "qdrant" => "external_vector_db",
-                    "ssleay32" or "libeay32" or "libssl" or "libcrypto"
-                        or "libcurl" or "curl" => "network_library",
-                    _ => "gpu_library",
-                };
                 findings.Add(new NativeDepFinding
                 {
-                    Check = check, Kind = "pe-import", Path = b.Path,
+                    Check = NativeDependencyScan.CheckForModule(m),
+                    Kind = "pe-import", Path = b.Path,
                     Detail = m, Scope = scope,
                     DepClass = "EXTERNAL_REMOVE",
                     Blocking = scope == "production",
@@ -216,7 +197,8 @@ internal static class NativeDependencyGate
                     findings.Add(new NativeDepFinding
                     {
                         Check = cls == "forbidden"
-                            ? "gpu_library" : "unrecognized_module",
+                            ? NativeDependencyScan.CheckForModule(name)
+                            : "unrecognized_module",
                         Kind = "process-module",
                         Path = $"pid:{scanPid}",
                         Detail = mod.FileName,

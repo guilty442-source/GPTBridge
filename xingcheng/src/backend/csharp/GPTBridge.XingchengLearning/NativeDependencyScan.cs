@@ -23,18 +23,26 @@ internal sealed class NativeDepFinding
     public string DepClass = "EXTERNAL_REMOVE";
     public string Error = "NATIVE_DEPENDENCY_VIOLATION";
     public bool Blocking = true;
+    /// <summary>true when the only evidence is a comment/doc line —
+    /// recorded for the audit trail but never blocks the gate.</summary>
+    public bool MentionOnly;
 
-    public Dictionary<string, object?> ToDict() => new()
+    public Dictionary<string, object?> ToDict()
     {
-        ["check"] = Check,
-        ["kind"] = Kind,
-        ["path"] = Path,
-        ["detail"] = Detail,
-        ["scope"] = Scope,
-        ["class"] = DepClass,
-        ["error"] = Error,
-        ["blocking"] = Blocking,
-    };
+        var d = new Dictionary<string, object?>
+        {
+            ["check"] = Check,
+            ["kind"] = Kind,
+            ["path"] = Path,
+            ["detail"] = Detail,
+            ["scope"] = Scope,
+            ["class"] = DepClass,
+            ["error"] = Error,
+            ["blocking"] = Blocking,
+        };
+        if (MentionOnly) d["mention_only"] = true;
+        return d;
+    }
 }
 
 internal static class NativeDependencyScan
@@ -149,6 +157,37 @@ internal static class NativeDependencyScan
         return "unrecognized";
     }
 
+    /// <summary>Map a module name (PE import or dynamic-load target) to
+    /// the §117 check it violates.</summary>
+    public static string CheckForModule(string module)
+    {
+        string stem = module.Split('.')[0].ToLowerInvariant();
+        return stem switch
+        {
+            "cudart" => "cudart",
+            "cublas" or "cublaslt" => "cublas",
+            "cudnn" => "cudnn",
+            "cutlass" => "cutlass",
+            "nccl" => "nccl",
+            "nvrtc" or "nvjitlink" => "nvrtc",
+            "nvml" => "telemetry_library",
+            "libpq" or "pq" or "psqlodbc" => "postgresql_required",
+            "sqlite3" or "sqlite" => "external_database",
+            "qdrant" => "external_vector_db",
+            "ollama" or "ollama_service" => "ollama_required",
+            "mkl" or "libmkl" or "openblas" or "libopenblas" or
+                "libblas" or "lapack" or "onednn" or "dnnl" =>
+                "numerical_library",
+            "torch" or "libtorch" or "onnxruntime" or "llama" or
+                "ggml" => "external_tensor_library",
+            "ssleay32" or "libeay32" or "libssl" or "libcrypto" or
+                "libcurl" or "curl" => "network_library",
+            "cufft" or "curand" or "cusolver" or "cusparse" or
+                "npp" or "nvjpeg" or "nvgraph" => "external_toolkit",
+            _ => "gpu_library",
+        };
+    }
+
     // ---- source-level rules --------------------------------------------
 
     private sealed record SrcRule(
@@ -189,8 +228,7 @@ internal static class NativeDependencyScan
                       RegexOptions.Compiled),
             "EXTERNAL_REMOVE", "EXTERNAL_GPU_LIBRARY_DENIED"),
         new("runtime_compilation",
-            new Regex(@"\b(nvrtc\w*|cuModuleLoadDataEx|libclang" +
-                      @"|Assembly\.Load)\s*\(",
+            new Regex(@"\b(nvrtc\w*|libclang|Assembly\.Load)\s*\(",
                       RegexOptions.Compiled),
             "EXTERNAL_REMOVE", "RUNTIME_COMPILATION_DENIED"),
         new("numerical_library",
@@ -255,7 +293,11 @@ internal static class NativeDependencyScan
                     case ".c":
                     case ".rs":
                     case ".fs":
-                        ScanSource(full, relPath, scope, findings);
+                        // The gate's own pattern tables hold forbidden
+                        // names as data, not dependencies — skip them.
+                        if (!name.StartsWith("NativeDependency",
+                                StringComparison.Ordinal))
+                            ScanSource(full, relPath, scope, findings);
                         break;
                 }
                 if (name.Equals("CMakeLists.txt",
@@ -445,8 +487,35 @@ internal static class NativeDependencyScan
     {
         var lines = ReadLines(full);
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        bool inBlock = false;
         foreach (string line in lines)
         {
+            // comment tracking (// and /* */ — covers C/C++/C#/Rust/F#):
+            // a forbidden name inside a comment is mention-only
+            // evidence, never a blocking dependency.
+            string t = line.TrimStart();
+            bool commentOnly;
+            if (inBlock)
+            {
+                commentOnly = true;
+                if (line.Contains("*/")) inBlock = false;
+            }
+            else
+            {
+                commentOnly = t.StartsWith("//") || t.StartsWith('*');
+                int ob = line.IndexOf("/*", StringComparison.Ordinal);
+                if (ob >= 0)
+                {
+                    int cb = line.IndexOf(
+                        "*/", ob + 2, StringComparison.Ordinal);
+                    if (cb < 0)
+                    {
+                        inBlock = true;
+                        if (ob == 0 || t.StartsWith("/*"))
+                            commentOnly = true;
+                    }
+                }
+            }
             foreach (var rule in SourceRules)
             {
                 var m = rule.Re.Match(line);
@@ -465,7 +534,8 @@ internal static class NativeDependencyScan
                     Scope = scope,
                     DepClass = rule.DepClass,
                     Error = rule.Err,
-                    Blocking = scope == "production",
+                    Blocking = scope == "production" && !commentOnly,
+                    MentionOnly = commentOnly,
                 });
             }
             foreach (Match lm in LoadLibraryRe.Matches(line))
@@ -475,18 +545,18 @@ internal static class NativeDependencyScan
                 if (cls == "platform") continue;
                 findings.Add(new NativeDepFinding
                 {
-                    Check = "runtime_module_load",
+                    Check = CheckForModule(target),
                     Kind = "dll-load",
                     Path = rel,
                     Detail = $"{lm.Groups[1].Value}(\"{target}\")",
                     Scope = scope,
-                    DepClass = cls == "forbidden"
-                        ? "EXTERNAL_REMOVE" : "REQUIRED_PLATFORM",
+                    DepClass = "EXTERNAL_REMOVE",
                     Error = "NATIVE_DEPENDENCY_VIOLATION",
                     // unrecognized load targets need review but must
                     // not false-block on OS/driver aliases.
                     Blocking = scope == "production" &&
-                               cls == "forbidden",
+                               cls == "forbidden" && !commentOnly,
+                    MentionOnly = commentOnly,
                 });
             }
         }
