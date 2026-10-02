@@ -667,8 +667,42 @@ static void tpu_linear_tile2(const float* x, const float* w, float* y,
 static constexpr int kTpuTile4MinT = 16;
 static constexpr int64_t kTpuTile4MaxOut = 16LL * 1024 * 1024;
 
+// NativeCudaTrainingPlane §26 device linear lane: one governed device
+// path inside the single training lane — same XINGCHENG_TRAINER_CUDA_OPT
+// admission env as the fused AdamW plane (one gate for the whole device
+// plane, not per-op switches), same stream-0 synchronous contract. The
+// call either completes the whole operand or fails closed, in which case
+// the CPU lanes below produce the full result — never a partial output.
+// Bound AdamW weights are read from their resident device copies.
+// layout: 1 nn (dx = dy*w), 2 nt (y = x*w^T), 3 tn (dW = dy^T*x).
+#if defined(XINGCHENG_CUDA)
+extern "C" int xcuda_sgemm_f32(const float*, const float*, float*,
+                             long long, long long, long long, int, int);
+#else
+static int xcuda_sgemm_f32(const float*, const float*, float*,
+                           long long, long long, long long, int, int) {
+    return 3;
+}
+#endif
+
+// Below ~64M FLOP-equivalents the PCIe round-trip outweighs the device
+// win (measured: 768x768 T=64 = 37.7M — device 147 vs CPU 154 GF/s);
+// a deterministic work gate keeps small ops on the CPU lanes.
+static constexpr int64_t kTpuDevMinFlops = 64LL * 1024 * 1024;
+
+static bool tpu_dev_gemm(const float* a, const float* w, float* c,
+                         int m, int k, int n, int layout, int acc) {
+    static const bool cuda_opt =
+        std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
+    if (!cuda_opt ||
+        (int64_t)m * k * n < kTpuDevMinFlops)
+        return false;
+    return xcuda_sgemm_f32(a, w, c, m, k, n, layout, acc) == 0;
+}
+
 static void tpu_linear(const float* x, const float* w, float* y,
                        int T, int I, int O) {
+    if (tpu_dev_gemm(x, w, y, T, I, O, 2, 0)) return;
     if (g_tpu.tile4 && T >= kTpuTile4MinT) {
         if ((int64_t)T * O >= kTpuTile4MaxOut) {
             tpu_linear_tile2(x, w, y, T, I, O);
@@ -689,7 +723,16 @@ static void tpu_linear_bwd(const float* dy, const float* x, const float* w,
     // the legacy split is already near its bandwidth roof. Keep backward
     // on the legacy partitions; forward keeps the tile4/tile2 wins.
     (void)g_tpu; (void)kTpuTile4MinT;
-    tpu_linear_bwd_legacy(dy, x, w, dx, dW, T, I, O);
+    // Device lane: dx and dW are disjoint outputs — each side is
+    // attempted independently and a miss on one side does not redo the
+    // other (the legacy lane accepts null to skip a finished side).
+    const bool dxd = dx == nullptr ||
+        tpu_dev_gemm(dy, w, dx, T, O, I, 1, 1);
+    const bool dwd = dW == nullptr ||
+        tpu_dev_gemm(dy, x, dW, O, T, I, 3, 1);
+    if (dxd && dwd) return;
+    tpu_linear_bwd_legacy(dy, x, w, dxd ? nullptr : dx,
+                          dwd ? nullptr : dW, T, I, O);
 }
 
 // Elementwise lane: dst[i] = f(i) over a flat range (AdamW / gate loops).

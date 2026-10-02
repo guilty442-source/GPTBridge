@@ -49,6 +49,8 @@ namespace mp = xcm_memplane;
 #include "cuda_ptx_gemv.h"
 #include "cuda_ptx_kv.h"
 #include "cuda_ptx_math.h"
+#include "cuda_ptx_tgemm.h"
+#include "cuda_ptx_tgemmw.h"
 #include "cuda_ptx_train.h"
 
 namespace {
@@ -93,6 +95,8 @@ std::string ptx_image() {
     s += xcuda_ptx::fp8();
     s += xcuda_ptx::fp8w();
     s += xcuda_ptx::kv();
+    s += xcuda_ptx::tgemm();
+    s += xcuda_ptx::tgemmw();
     s += xcuda_ptx::train();
     return s;
 }
@@ -118,6 +122,10 @@ CUfunction_t g_f_gemv_fp8_m1 = 0;
 CUfunction_t g_f_kv_attn = 0;
 CUfunction_t g_f_adamw = 0;
 CUfunction_t g_f_sqsum = 0;
+CUfunction_t g_f_sgemm_nn = 0;
+CUfunction_t g_f_sgemm_nt = 0;
+CUfunction_t g_f_sgemm_tn = 0;
+CUfunction_t g_f_sgemm_w = 0;
 std::mutex g_module_mu;
 bool g_module_tried = false;
 
@@ -175,6 +183,10 @@ bool ensure_module() {
     ok &= get_func(&g_f_kv_attn, "xc_kv_attention");
     ok &= get_func(&g_f_adamw, "xc_adamw_fused");
     ok &= get_func(&g_f_sqsum, "xc_sqsum_part");
+    ok &= get_func(&g_f_sgemm_nn, "xc_sgemm_nn");
+    ok &= get_func(&g_f_sgemm_nt, "xc_sgemm_nt");
+    ok &= get_func(&g_f_sgemm_tn, "xc_sgemm_tn");
+    ok &= get_func(&g_f_sgemm_w, "xc_sgemm_w");
     if (!ok) {
         g_drv.module_unload(g_module);
         g_module = 0;
@@ -845,6 +857,7 @@ struct AdamwState {
 std::mutex g_adamw_mu;
 std::unordered_map<const void*, AdamwState> g_adamw;
 DevPool g_adamw_norm_part;
+DevPool g_sgemm_a, g_sgemm_b, g_sgemm_c;
 std::vector<float> g_adamw_norm_host;
 
 constexpr int kSqsumBlocks = 128;
@@ -1435,8 +1448,74 @@ int xcuda_adamw_release() {
     }
     g_adamw.clear();
     dev_pool_release(g_adamw_norm_part);
+    dev_pool_release(g_sgemm_a);
+    dev_pool_release(g_sgemm_b);
+    dev_pool_release(g_sgemm_c);
     g_adamw_norm_host.clear();
     g_adamw_norm_host.shrink_to_fit();
+    return 0;
+}
+
+// --------------------------------------------- training fp32 GEMM lane --
+// §26 NativeCudaTrainingPlane: one device lane for the trainer's
+// tpu_linear* kernels, same stream-0 lane + fail-closed rc contract as
+// the fused AdamW path above. layout: 1 = nn (c=a[m,k]*b[k,n], bwd dx),
+// 2 = nt (c=a[m,k]*w[n,k]^T, fwd), 3 = tn (c=aT[k,m]*b[k,n], bwd dW).
+// acc != 0 accumulates into c (gradient += semantics).
+//
+// Operand B is the bound AdamW weight's resident copy when the tensor is
+// already on the plane (the authoritative fp32 source — never re-uploaded
+// per call); unbound B operands use a pooled scratch slab. A and C always
+// move through pooled scratch: the trainer's activations/gradients are
+// per-call buffers, so residency there would not pay off.
+int xcuda_sgemm_f32(const float* a, const float* w, float* c,
+                    long long m, long long k, long long n,
+                    int layout, int acc) {
+    if (a == nullptr || w == nullptr || c == nullptr ||
+        m <= 0 || k <= 0 || n <= 0 || layout < 1 || layout > 3)
+        return 2;
+    if (!use_ctx() || !ensure_module()) return 3;
+    // Shape-aware dispatch: the 64x64 wide kernel when the tile grid
+    // fills (same admission rule as the inference lanes), the 16x16
+    // layout kernel for small/skinny shapes.
+    const bool wide = g_f_sgemm_w != 0 && m >= 32 && n >= 32 && k >= 16;
+    const CUfunction_t f = wide ? g_f_sgemm_w
+                           : layout == 1 ? g_f_sgemm_nn
+                           : layout == 2 ? g_f_sgemm_nt
+                                         : g_f_sgemm_tn;
+    if (f == 0) return 3;
+    const size_t ab = static_cast<size_t>(m) * static_cast<size_t>(k) * 4;
+    const size_t wb = static_cast<size_t>(k) * static_cast<size_t>(n) * 4;
+    const size_t cb = static_cast<size_t>(m) * static_cast<size_t>(n) * 4;
+    CUdevptr_t da = dev_get_pooled(g_sgemm_a, ab);
+    CUdevptr_t dc = dev_get_pooled(g_sgemm_c, cb);
+    if (da == 0 || dc == 0) return 3;
+    CUdevptr_t db = 0;
+    {
+        std::lock_guard<std::mutex> lk(g_adamw_mu);
+        auto it = g_adamw.find(w);
+        if (it != g_adamw.end()) db = it->second.dw;
+    }
+    if (db == 0) {
+        db = dev_get_pooled(g_sgemm_b, wb);
+        if (db == 0 ||
+            xmemcpy_htod(db, w, wb) != kCudaSuccess)
+            return 3;
+    }
+    if (xmemcpy_htod(da, a, ab) != kCudaSuccess) return 3;
+    if (acc != 0 && xmemcpy_htod(dc, c, cb) != kCudaSuccess) return 3;
+    unsigned int accf = acc != 0 ? 1u : 0u;
+    unsigned int lay = static_cast<unsigned int>(layout);
+    void* params[] = {&da, &db, &dc, &m, &k, &n, &accf, &lay};
+    if (!launch(f,
+                static_cast<unsigned int>((n + (wide ? 63 : 15)) /
+                                          (wide ? 64 : 16)),
+                static_cast<unsigned int>((m + (wide ? 63 : 15)) /
+                                          (wide ? 64 : 16)),
+                16, 16, 0, params))
+        return 3;
+    if (g_drv.ctx_sync() != kCudaSuccess) return 3;
+    if (xmemcpy_dtoh(c, dc, cb) != kCudaSuccess) return 3;
     return 0;
 }
 
