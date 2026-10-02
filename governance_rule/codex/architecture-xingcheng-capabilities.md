@@ -81,7 +81,7 @@ flowchart LR
 | xstore | 11 | ui:xingcheng/src/backend/rust/xstore/src/kernels.rs |
 <!-- /autogen:xingcheng-kernels -->
 
-## xc_modeltool 模式面（89 modes + mode-registry）
+## xc_modeltool 模式面（91 modes + mode-registry）
 
 <!-- autogen:xingcheng-modes -->
 *autogen-scanner/v1 · 2340 files · main+devin+git+local-model+rag+ui*

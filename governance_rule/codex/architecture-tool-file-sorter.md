@@ -15,4 +15,4 @@ flowchart LR
 
 行為契約：一層子資料夾名即關鍵字；規則為 target-scoped（無絕對/多層路徑）；手動整理一律預覽先行；自動排序預設關閉且需檔案跨兩次觀察穩定；journal + no-overwrite publish + SHA-256 驗證 + 可續傳；不可分類檔案留置原地；命名衝突加序號；目的資料夾須預先存在。
 
-資料權威：工具狀態在 **`%LOCALAPPDATA%\GPTBridge\file-sorter`**（`FILE_SORTER_STATE_ROOT` 可覆寫）JSON + journal（`FILE_SORTER_JOURNAL_RETENTION_DAYS`）——**本工具無 PostgreSQL schema**（佔位圖的 PG state/outbox 描述為誤）；治理紀錄仍在中央稽核。隔離：256MB/30%CPU/offline/tool-scoped；破壞性操作一律需明確目標、計畫與回復證據。視窗關閉須在 5 秒內停止自身後端。
+正式結構化資料權威僅為 PostgreSQL。**`%LOCALAPPDATA%\GPTBridge\file-sorter`**（`FILE_SORTER_STATE_ROOT` 可覆寫）的 JSON + journal（`FILE_SORTER_JOURNAL_RETENTION_DAYS`）只屬 bounded owner-private noncanonical operational state：限本工具執行進度、回復與診斷，非共享或正式業務真相、不得成為 PostgreSQL 的替代權威或回退。本工具尚無 PostgreSQL schema，不得宣稱正式資料面已完成；治理紀錄仍在中央稽核。隔離：256MB/30%CPU/offline/tool-scoped；破壞性操作一律需明確目標、計畫與回復證據。視窗關閉須在 5 秒內停止自身後端。

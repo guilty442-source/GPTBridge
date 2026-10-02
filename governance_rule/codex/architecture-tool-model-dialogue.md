@@ -1,5 +1,7 @@
 # 對話／本地 LLM 獨立工具完整架構圖
 
+現行治理要求本工具消費獨立星澄服務，而非由 `local-model` 承載星澄。下圖與下述冷啟動流程是尚未遷移的實作鏡像：`toolbox_start_tool(local-model)` 不是核准的星澄生命週期擁有路徑。啟動／hosting 拆分維持 `PENDING`，不能以目錄獨立化推定 runtime 已完成；本次不修改 runtime。
+
 ```mermaid
 flowchart LR
   UI["Qt star-chat-ui.exe<br/>(fallback: gptbridge-egui)"] --> WS["Tool WS<br/>star_chat_* commands"]

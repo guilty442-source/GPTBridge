@@ -40,7 +40,8 @@ WebAssembly：已登錄的執行格式（UI／WebView 與受治理沙箱；Tauri
 
 ```mermaid
 flowchart TB
-  SHELL[Tauri, Wails or Qt Desktop UI] --> BUN[Bun + JavaScript ESM UI]
+  SHELL[Tauri or Wails Desktop UI] --> BUN[Bun + JavaScript ESM UI]
+  QT[Qt Desktop UI] --> RUSTUI
   BUN --> RUSTUI[Rust UI Core]
   RUSTUI --> API[Typed UI Contract]
   API --> CS[C# Application and Workflow]

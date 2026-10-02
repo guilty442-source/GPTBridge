@@ -18,7 +18,7 @@ flowchart TB
     end
 
     subgraph NATIVE["C++ native 層"]
-        MODELTOOL["xc_modeltool.exe<br/>89 modes + serve(JSONL stdio worker)"]
+        MODELTOOL["xc_modeltool.exe<br/>91 modes + serve(JSONL stdio worker)"]
         ENGINE["xingcheng_engine.dll<br/>xc_engine_* C ABI / engine*.h"]
         TRAINER["xingcheng_trainer.exe<br/>star-native-train-job/v1"]
         CUDA["cuda_bridge.cpp / cuda_kernels.cpp<br/>cublas+自寫 kernel (opt-in)"]

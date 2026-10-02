@@ -1,5 +1,11 @@
 # Local Model／本地模型獨立工具完整架構圖
 
+## 現行治理邊界與實作差距
+
+星澄的正式身分、程序、生命週期、owner root 與 PostgreSQL scope 均獨立於 `local-model`。下圖是尚未收斂的既有 hosting path，不是核准目標，也不是獨立程序已驗證的證據：`LocalModelExecutor` 仍經 ToolHost 啟動星澄 worker。此差距為 `PENDING`；不得將 local-model 宿主、停止或冷啟動權解讀為星澄控制權。獨立服務啟動、descriptor 發布與消費端切換須取得實際程序／生命週期驗證後才能關閉差距。本次不修改 runtime。
+
+## 既有 hosting path（未收斂實作鏡像）
+
 ```mermaid
 flowchart TB
   ENTRY[Governed Model Request] --> HOST["C# ToolHost.App<br/>(dist/GPTBridge.ToolHost.App.exe)"]
