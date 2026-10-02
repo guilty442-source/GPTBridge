@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace StarBusinessLogic.Application;
 
-// 對接原生模型服務端點（star-model-service/v1，C# LocalModelExecutor 擁有）：
+// 對接原生模型服務端點（star-model-service/v1，C# XingchengModelServiceExecutor 擁有）：
 //   POST /v1/infer    — governed 推論（C++ xc_modeltool serve 執行層）
 //   GET  /v1/status   — 控制面狀態
 //   POST /v1/release  — 顯式 auto-release（對應 C# AutoReleaseManager / 原生引擎閒置回收）

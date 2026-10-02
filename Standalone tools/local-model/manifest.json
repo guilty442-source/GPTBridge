@@ -24,7 +24,7 @@
   "shared_cache_owner": "local-model",
   "cache_storage": "local-model/runtime/cache",
   "backup_owner": "local-model",
-  "backup_storage": "system-rescue/data/business/backups/local-model",
+  "backup_storage": "main-system/data/recovery/backups/local-model",
   "permissions": {
     "profile": "local-model-platform-v1",
     "business_permission_owner": "local-model",
@@ -41,7 +41,7 @@
       "separate-settings-layer"
     ]
   },
-  "runtime": {    "type": "csharp", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/channel_runtime.py",    "note": "Python lane retired (B167/B38); governed launch runs the C# ToolHost which spawns the C++ xc-model-service stdio worker and exposes the authenticated loopback /v1/* inference surface (model-service.json descriptor contract).",    "workingDirectory": "."  },
+  "runtime": {    "type": "csharp", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/channel_runtime.py",    "note": "Python lane retired (B167/B38); governed launch runs the C# ToolHost host shell only — the xc-model-service (/v1/* + xc_modeltool worker + descriptor contract) is owned by the xingcheng ToolHost process, not by local-model. local-model does not own, host, or control the model service.",    "workingDirectory": "."  },
   "distribution": {
     "mode": "special-unpackaged",
     "package": false

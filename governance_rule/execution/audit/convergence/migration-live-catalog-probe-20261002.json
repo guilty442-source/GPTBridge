@@ -1,0 +1,2902 @@
+﻿{
+    "id":  "migration-live-catalog-probe-20261002",
+    "date":  "2026-10-02",
+    "worker":  "devin-desktop",
+    "subject":  "migration declared-object vs live catalog parity ??drift measurement for OBL_SCHEMA_DRIFT_GATE / OBL_SQL_GOVERNANCE_CLOSURE",
+    "scope":  "shared-layer/migrations/*.sql vs database gptbridge (role gptbridge_runtime, read-only catalog introspection)",
+    "method_limits":  "heuristic CREATE/DROP parse applied globally in file order (drops anywhere remove the object from expected set); ALTER-created columns/constraints and DO-block dynamic SQL not parsed (counted); unqualified names matched by bare name across schemas; codex_stage_*/vect_test_* scratch schemas excluded from live-only; gptbridge_codex.* objects are CodexPipeline-managed (not migration-owned); registry statuses ordered-source-verified/genesis-baseline-declared assert source ordering, not live application ??this probe measures object existence",
+    "totals":  {
+                   "migration_files":  134,
+                   "declared_objects":  1087,
+                   "missing_live":  709,
+                   "live_only_objects":  522,
+                   "live_only_codex_pipeline_managed":  219,
+                   "live_scratch_excluded":  937,
+                   "event_triggers_live":  0
+               },
+    "migrations":  [
+                       {
+                           "file":  "001_registry_locations.sql",
+                           "declared":  6,
+                           "present_live":  4,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:registry|locations|location_owner_read",
+                                                     "policy:registry|locations|location_owner_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "002_resource_registry_contract.sql",
+                           "declared":  5,
+                           "present_live":  3,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|resource_touch",
+                                                     "trigger:|location_touch"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "003_xingcheng_internal_database_policy.sql",
+                           "declared":  3,
+                           "present_live":  1,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|resource|resource_write",
+                                                     "policy:registry|locations|location_owner_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "004_global_and_module_version_tables.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|schema_version",
+                                           "table:gptbridge_index|module_version",
+                                           "index:|module_version_reconcile_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|schema_version|schema_version_read",
+                                                     "policy:gptbridge_index|schema_version|schema_version_write",
+                                                     "policy:gptbridge_index|module_version|module_version_read",
+                                                     "policy:gptbridge_index|module_version|module_version_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "005_central_index_composite_indexes.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|resource_module_type_status_idx",
+                                           "index:|resource_logical_key_module_idx",
+                                           "index:|resource_locator_idx",
+                                           "index:|resource_updated_at_idx",
+                                           "index:|rag_chunk_module_resource_version_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "006_audit_append_only_enforcement.sql",
+                           "declared":  3,
+                           "present_live":  0,
+                           "missing":  [
+                                           "function:gptbridge_audit|prevent_audit_mutation"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|audit_no_update",
+                                                     "trigger:|audit_no_delete"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "007_transport_idempotency_key.sql",
+                           "declared":  2,
+                           "present_live":  2,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "008_rls_role_isolation.sql",
+                           "declared":  3,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|audit_module_id_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|resource|resource_owner_write_strict",
+                                                     "policy:registry|locations|location_owner_write_strict"
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "009_rag_canonical_execution_columns.sql",
+                           "declared":  2,
+                           "present_live":  2,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "010_transport_lease_columns.sql",
+                           "declared":  2,
+                           "present_live":  2,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "011_data_invariants.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|audit_event_sequence_idx",
+                                           "function:gptbridge_transport|enforce_status_transition",
+                                           "function:gptbridge_audit|assign_sequence",
+                                           "function:gptbridge_index|enforce_version_monotonic",
+                                           "function:gptbridge_rag|verify_chunk_index_state"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|tool_request_status_guard",
+                                                     "trigger:|audit_sequence_assign",
+                                                     "trigger:|resource_version_guard",
+                                                     "trigger:|rag_chunk_index_state_check"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "012_cross_engine_consistency.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "view:gptbridge_index|resource_consistency",
+                                           "function:gptbridge_index|check_resource_stale",
+                                           "function:gptbridge_rag|check_index_state_stale"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|resource_stale_check",
+                                                     "trigger:|index_state_stale_check"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "013_transport_dead_letter.sql",
+                           "declared":  4,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|tool_request_dead_letter_idx",
+                                           "function:gptbridge_transport|move_to_dead_letter",
+                                           "function:gptbridge_transport|auto_dead_letter"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|tool_request_auto_dead_letter"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "014_reconcile_conflict_classification.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|reconcile_conflict_log",
+                                           "index:|reconcile_conflict_module_idx",
+                                           "index:|reconcile_conflict_unresolved_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|reconcile_conflict_log|reconcile_conflict_read",
+                                                     "policy:gptbridge_index|reconcile_conflict_log|reconcile_conflict_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "015_retention_and_partition.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|retention_policy",
+                                           "index:|audit_event_occurred_at_idx",
+                                           "index:|tool_request_updated_at_idx",
+                                           "function:gptbridge_index|run_retention_purge"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|retention_policy|retention_policy_read",
+                                                     "policy:gptbridge_index|retention_policy|retention_policy_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "016_backup_catalog_and_generation_fence.sql",
+                           "declared":  13,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|backup_catalog",
+                                           "table:gptbridge_index|backend_generation_state",
+                                           "index:|backup_catalog_engine_idx",
+                                           "index:|backup_catalog_uncertified_idx",
+                                           "function:gptbridge_index|current_backend_generation",
+                                           "function:gptbridge_index|enforce_generation_fence",
+                                           "function:gptbridge_index|bump_backend_generation"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|resource_generation_fence",
+                                                     "trigger:|tool_request_generation_fence",
+                                                     "policy:gptbridge_index|backup_catalog|backup_catalog_read",
+                                                     "policy:gptbridge_index|backup_catalog|backup_catalog_write",
+                                                     "policy:gptbridge_index|backend_generation_state|generation_state_read",
+                                                     "policy:gptbridge_index|backend_generation_state|generation_state_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "017_maintenance_window.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|maintenance_window",
+                                           "index:|maintenance_window_scheduled_idx",
+                                           "function:gptbridge_index|maintenance_window_active",
+                                           "function:gptbridge_index|maintenance_window_scheduled_soon"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|maintenance_window|maintenance_window_read",
+                                                     "policy:gptbridge_index|maintenance_window|maintenance_window_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "018_data_lineage.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|data_lineage",
+                                           "view:gptbridge_index|resource_lineage",
+                                           "index:|data_lineage_source_module_idx",
+                                           "index:|data_lineage_writer_idx",
+                                           "function:gptbridge_index|auto_populate_lineage"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|resource_lineage_populate",
+                                                     "policy:gptbridge_index|data_lineage|data_lineage_read",
+                                                     "policy:gptbridge_index|data_lineage|data_lineage_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "019_authority_marker.sql",
+                           "declared":  3,
+                           "present_live":  0,
+                           "missing":  [
+                                           "view:gptbridge_index|resource_lineage",
+                                           "index:|resource_authority_class_idx",
+                                           "index:|index_state_authority_class_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "020_write_provenance.sql",
+                           "declared":  10,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|resource_correlation_idx",
+                                           "index:|resource_executor_idx",
+                                           "index:|index_state_correlation_idx",
+                                           "index:|audit_event_correlation_idx",
+                                           "function:gptbridge_index|auto_populate_provenance",
+                                           "function:gptbridge_rag|auto_populate_provenance",
+                                           "function:gptbridge_audit|auto_populate_provenance"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|resource_provenance_populate",
+                                                     "trigger:|index_state_provenance_populate",
+                                                     "trigger:|audit_event_provenance_populate"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "021_permission_snapshot.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_audit|permission_snapshot",
+                                           "index:|permission_snapshot_event_idx",
+                                           "index:|permission_snapshot_actor_idx",
+                                           "index:|permission_snapshot_module_idx",
+                                           "function:gptbridge_security|capture_permission_snapshot"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_audit|permission_snapshot|permission_snapshot_read",
+                                                     "policy:gptbridge_audit|permission_snapshot|permission_snapshot_insert"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "022_schema_ownership_lock.sql",
+                           "declared":  2,
+                           "present_live":  0,
+                           "missing":  [
+                                           "function:gptbridge_security|ddl_guard"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "event_trigger:|ddl_guard_trigger"
+                                                 ],
+                           "dynamic_regions":  2
+                       },
+                       {
+                           "file":  "023_ddl_audit.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_audit|ddl_event",
+                                           "index:|ddl_event_occurred_idx",
+                                           "index:|ddl_event_object_idx",
+                                           "index:|ddl_event_tag_idx",
+                                           "function:gptbridge_security|audit_ddl_event"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "event_trigger:|ddl_audit_trigger",
+                                                     "policy:gptbridge_audit|ddl_event|ddl_event_read",
+                                                     "policy:gptbridge_audit|ddl_event|ddl_event_insert"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "024_contract_version_handshake.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|contract_version",
+                                           "function:gptbridge_index|check_contract_compatibility",
+                                           "function:gptbridge_index|enforce_contract_version"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|resource_contract_version_fence",
+                                                     "trigger:|index_state_contract_version_fence",
+                                                     "policy:gptbridge_index|contract_version|contract_version_read",
+                                                     "policy:gptbridge_index|contract_version|contract_version_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "026_workload_class.sql",
+                           "declared":  4,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|workload_class",
+                                           "function:gptbridge_index|apply_workload_class"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|workload_class|workload_class_read",
+                                                     "policy:gptbridge_index|workload_class|workload_class_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "027_two_stage_deletion.sql",
+                           "declared":  4,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|resource_deletion_stage_idx",
+                                           "function:gptbridge_index|tombstone_resource",
+                                           "function:gptbridge_index|advance_deletion_stage"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "function:gptbridge_index|get_purge_eligible"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "028_rebuild_certification.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|rebuild_certification",
+                                           "index:|rebuild_cert_engine_idx",
+                                           "index:|rebuild_cert_target_idx",
+                                           "function:gptbridge_index|record_rebuild_certification",
+                                           "function:gptbridge_index|is_engine_certified"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|rebuild_certification|rebuild_cert_read",
+                                                     "policy:gptbridge_index|rebuild_certification|rebuild_cert_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "029_watchdog_bloat_rpo_rto.sql",
+                           "declared":  16,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|long_transaction_watchdog",
+                                           "table:gptbridge_index|bloat_report",
+                                           "table:gptbridge_index|rpo_rto_class",
+                                           "table:gptbridge_index|capacity_threshold",
+                                           "index:|watchdog_detected_idx",
+                                           "index:|watchdog_pid_idx",
+                                           "index:|bloat_collected_idx",
+                                           "index:|bloat_table_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|long_transaction_watchdog|watchdog_read",
+                                                     "policy:gptbridge_index|long_transaction_watchdog|watchdog_write",
+                                                     "policy:gptbridge_index|bloat_report|bloat_read",
+                                                     "policy:gptbridge_index|bloat_report|bloat_write",
+                                                     "policy:gptbridge_index|rpo_rto_class|rpo_rto_read",
+                                                     "policy:gptbridge_index|rpo_rto_class|rpo_rto_write",
+                                                     "policy:gptbridge_index|capacity_threshold|capacity_read",
+                                                     "policy:gptbridge_index|capacity_threshold|capacity_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "030_readonly_domain_startup_cert.sql",
+                           "declared":  11,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|readonly_domain",
+                                           "table:gptbridge_index|startup_certification",
+                                           "index:|startup_cert_at_idx",
+                                           "function:gptbridge_index|set_domain_readonly",
+                                           "function:gptbridge_index|is_domain_readonly",
+                                           "function:gptbridge_index|record_startup_certification",
+                                           "function:gptbridge_index|is_database_ready"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|readonly_domain|readonly_domain_read",
+                                                     "policy:gptbridge_index|readonly_domain|readonly_domain_write",
+                                                     "policy:gptbridge_index|startup_certification|startup_cert_read",
+                                                     "policy:gptbridge_index|startup_certification|startup_cert_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "031_slo_metrics.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|slo_metric",
+                                           "table:gptbridge_index|slo_observation",
+                                           "index:|slo_obs_metric_idx",
+                                           "index:|slo_obs_at_idx",
+                                           "function:gptbridge_index|record_slo_observation"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|slo_metric|slo_metric_read",
+                                                     "policy:gptbridge_index|slo_metric|slo_metric_write",
+                                                     "policy:gptbridge_index|slo_observation|slo_obs_read",
+                                                     "policy:gptbridge_index|slo_observation|slo_obs_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "032_workload_pool_query_class.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|workload_pool_config",
+                                           "table:gptbridge_index|query_class",
+                                           "function:gptbridge_index|apply_query_class"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|workload_pool_config|workload_pool_read",
+                                                     "policy:gptbridge_index|workload_pool_config|workload_pool_write",
+                                                     "policy:gptbridge_index|query_class|query_class_read",
+                                                     "policy:gptbridge_index|query_class|query_class_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "033_query_fingerprint.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|query_fingerprint",
+                                           "index:|query_fp_key_idx",
+                                           "index:|query_fp_latency_idx",
+                                           "index:|query_fp_count_idx",
+                                           "function:gptbridge_index|record_query_fingerprint",
+                                           "function:gptbridge_index|get_hot_queries"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|query_fingerprint|query_fp_read",
+                                                     "policy:gptbridge_index|query_fingerprint|query_fp_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "034_transport_hot_path_index.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_transport|tool_request_history",
+                                           "index:|tool_request_claim_path_idx",
+                                           "index:|tool_request_reclaim_idx",
+                                           "index:|tool_request_dead_sweep_idx",
+                                           "index:|tool_request_history_archived_idx",
+                                           "index:|tool_request_history_status_idx",
+                                           "function:gptbridge_transport|archive_completed_requests"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_transport|tool_request_history|tool_request_history_read"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "035_audit_hot_history_separation.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_audit|event_history",
+                                           "table:gptbridge_index|partition_threshold",
+                                           "index:|event_history_archived_idx",
+                                           "index:|event_history_occurred_idx",
+                                           "function:gptbridge_audit|archive_audit_events"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_audit|event_history|event_history_read",
+                                                     "policy:gptbridge_index|partition_threshold|partition_threshold_read",
+                                                     "policy:gptbridge_index|partition_threshold|partition_threshold_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "036_wal_checkpoint_monitor.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|wal_checkpoint_snapshot",
+                                           "index:|wal_snap_collected_idx",
+                                           "function:gptbridge_index|record_wal_checkpoint_snapshot"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|wal_checkpoint_snapshot|wal_snap_read",
+                                                     "policy:gptbridge_index|wal_checkpoint_snapshot|wal_snap_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "038_incremental_reconcile.sql",
+                           "declared":  10,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|reconcile_pending_queue",
+                                           "index:|reconcile_queue_dirty_idx",
+                                           "index:|reconcile_queue_module_idx",
+                                           "index:|reconcile_queue_resource_idx",
+                                           "function:gptbridge_index|enqueue_reconcile_pending",
+                                           "function:gptbridge_index|mark_reconciled",
+                                           "function:gptbridge_index|get_pending_reconcile",
+                                           "function:gptbridge_index|purge_reconciled"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|reconcile_pending_queue|reconcile_queue_read",
+                                                     "policy:gptbridge_index|reconcile_pending_queue|reconcile_queue_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "039_performance_baseline.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|performance_baseline",
+                                           "index:|perf_baseline_op_idx",
+                                           "function:gptbridge_index|record_baseline",
+                                           "function:gptbridge_index|get_latest_baseline",
+                                           "function:gptbridge_index|compare_baseline"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|performance_baseline|perf_baseline_read",
+                                                     "policy:gptbridge_index|performance_baseline|perf_baseline_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "040_database_release_manifest.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|database_release",
+                                           "index:|db_release_state_idx",
+                                           "index:|db_release_previous_idx",
+                                           "function:gptbridge_index|transition_release_state",
+                                           "function:gptbridge_index|get_active_release",
+                                           "function:gptbridge_index|supersede_active_release"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|database_release|db_release_read",
+                                                     "policy:gptbridge_index|database_release|db_release_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "041_compatibility_matrix.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|release_compatibility",
+                                           "function:gptbridge_index|check_compatibility",
+                                           "function:gptbridge_index|upsert_compatibility"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|release_compatibility|release_compat_read",
+                                                     "policy:gptbridge_index|release_compatibility|release_compat_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "042_migration_breaking_change.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|migration_classification",
+                                           "index:|migration_class_type_idx",
+                                           "function:gptbridge_index|classify_migration",
+                                           "function:gptbridge_index|get_breaking_migrations"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|migration_classification|migration_class_read",
+                                                     "policy:gptbridge_index|migration_classification|migration_class_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "043_query_contract_version.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|query_contract",
+                                           "index:|query_contract_name_idx",
+                                           "index:|query_contract_status_idx",
+                                           "function:gptbridge_index|register_query_contract",
+                                           "function:gptbridge_index|deprecate_query_contract",
+                                           "function:gptbridge_index|retire_query_contract",
+                                           "function:gptbridge_index|get_active_query_contract"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|query_contract|query_contract_read",
+                                                     "policy:gptbridge_index|query_contract|query_contract_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "044_rls_role_migration.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|rls_role_migration",
+                                           "index:|rls_role_mig_version_idx",
+                                           "index:|rls_role_mig_type_idx",
+                                           "function:gptbridge_index|record_rls_role_migration",
+                                           "function:gptbridge_index|get_rls_role_version"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|rls_role_migration|rls_role_mig_read",
+                                                     "policy:gptbridge_index|rls_role_migration|rls_role_mig_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "047_canary_upgrade.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|canary_upgrade",
+                                           "index:|canary_release_idx",
+                                           "index:|canary_status_idx",
+                                           "function:gptbridge_index|start_canary_upgrade",
+                                           "function:gptbridge_index|complete_canary_upgrade",
+                                           "function:gptbridge_index|promote_canary_to_production"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|canary_upgrade|canary_read",
+                                                     "policy:gptbridge_index|canary_upgrade|canary_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "048_release_audit.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|database_release_audit",
+                                           "index:|release_audit_release_idx",
+                                           "index:|release_audit_result_idx",
+                                           "function:gptbridge_index|start_release_audit",
+                                           "function:gptbridge_index|complete_release_audit",
+                                           "function:gptbridge_index|get_release_audit_history"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|database_release_audit|release_audit_read",
+                                                     "policy:gptbridge_index|database_release_audit|release_audit_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "049_roll_forward.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|roll_forward_migration",
+                                           "index:|roll_forward_fixes_idx",
+                                           "function:gptbridge_index|record_roll_forward",
+                                           "function:gptbridge_index|verify_roll_forward",
+                                           "function:gptbridge_index|get_roll_forwards_for"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|roll_forward_migration|roll_forward_read",
+                                                     "policy:gptbridge_index|roll_forward_migration|roll_forward_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "050_unified_lifecycle_state.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|lifecycle_state",
+                                           "index:|lifecycle_state_idx",
+                                           "index:|lifecycle_state_transitioned_idx",
+                                           "function:gptbridge_index|transition_lifecycle_state",
+                                           "function:gptbridge_index|get_lifecycle_state",
+                                           "function:gptbridge_index|get_entities_by_state"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|lifecycle_state|lifecycle_state_read",
+                                                     "policy:gptbridge_index|lifecycle_state|lifecycle_state_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "051_transport_retention.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|transport_retention_policy",
+                                           "function:gptbridge_index|get_transport_archive_eligible",
+                                           "function:gptbridge_index|get_transport_purge_eligible"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|transport_retention_policy|transport_retention_read",
+                                                     "policy:gptbridge_index|transport_retention_policy|transport_retention_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "052_audit_retention_layering.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|audit_retention_layer",
+                                           "function:gptbridge_index|get_audit_archive_eligible",
+                                           "function:gptbridge_index|get_audit_long_term_eligible"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|audit_retention_layer|audit_retention_read",
+                                                     "policy:gptbridge_index|audit_retention_layer|audit_retention_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "055_purge_queue.sql",
+                           "declared":  10,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|purge_queue",
+                                           "index:|purge_queue_status_idx",
+                                           "index:|purge_queue_resource_idx",
+                                           "index:|purge_queue_retention_idx",
+                                           "function:gptbridge_index|enqueue_purge",
+                                           "function:gptbridge_index|approve_purge",
+                                           "function:gptbridge_index|mark_purged"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "function:gptbridge_index|get_purge_eligible",
+                                                     "policy:gptbridge_index|purge_queue|purge_queue_read",
+                                                     "policy:gptbridge_index|purge_queue|purge_queue_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "056_archive_catalog.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|archive_catalog",
+                                           "index:|archive_catalog_source_idx",
+                                           "index:|archive_catalog_time_idx",
+                                           "function:gptbridge_index|register_archive",
+                                           "function:gptbridge_index|verify_archive",
+                                           "function:gptbridge_index|find_archives"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|archive_catalog|archive_catalog_read",
+                                                     "policy:gptbridge_index|archive_catalog|archive_catalog_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "057_archive_versioning.sql",
+                           "declared":  3,
+                           "present_live":  0,
+                           "missing":  [
+                                           "view:gptbridge_index|archive_version_manifest",
+                                           "function:gptbridge_index|mark_restore_tested",
+                                           "function:gptbridge_index|get_untested_archives"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "058_transport_priority_queue.sql",
+                           "declared":  2,
+                           "present_live":  2,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "059_retention_hold.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|retention_hold",
+                                           "index:|retention_hold_entity_idx",
+                                           "index:|retention_hold_active_idx",
+                                           "function:gptbridge_index|place_hold",
+                                           "function:gptbridge_index|release_hold",
+                                           "function:gptbridge_index|has_active_hold"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|retention_hold|retention_hold_read",
+                                                     "policy:gptbridge_index|retention_hold|retention_hold_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "060_dependency_check.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|dependency_check",
+                                           "index:|dependency_check_resource_idx",
+                                           "function:gptbridge_index|check_resource_dependencies"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|dependency_check|dependency_check_read",
+                                                     "policy:gptbridge_index|dependency_check|dependency_check_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "061_archive_restore_test.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|archive_restore_test",
+                                           "index:|archive_restore_test_idx",
+                                           "index:|archive_restore_passed_idx",
+                                           "function:gptbridge_index|record_restore_test",
+                                           "function:gptbridge_index|get_failed_restore_tests"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|archive_restore_test|archive_restore_read",
+                                                     "policy:gptbridge_index|archive_restore_test|archive_restore_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "062_capacity_quota.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|capacity_quota",
+                                           "function:gptbridge_index|update_capacity_measurement",
+                                           "function:gptbridge_index|check_capacity_status"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|capacity_quota|capacity_quota_read",
+                                                     "policy:gptbridge_index|capacity_quota|capacity_quota_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "063_purge_audit.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|purge_audit_log",
+                                           "index:|purge_audit_resource_idx",
+                                           "index:|purge_audit_executor_idx",
+                                           "index:|purge_audit_date_idx",
+                                           "function:gptbridge_index|record_purge",
+                                           "function:gptbridge_index|verify_purge",
+                                           "function:gptbridge_index|get_purge_history"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|purge_audit_log|purge_audit_read",
+                                                     "policy:gptbridge_index|purge_audit_log|purge_audit_insert"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "064_audit_hash_chain.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "index:|event_sequence_idx",
+                                           "index:|event_hash_idx",
+                                           "function:gptbridge_audit|compute_event_hash",
+                                           "function:gptbridge_audit|populate_event_hash_chain",
+                                           "function:gptbridge_audit|verify_audit_chain",
+                                           "function:gptbridge_audit|get_audit_head_hash"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "065_reconcile_batch_digest.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|reconcile_batch_digest",
+                                           "index:|reconcile_digest_module_idx",
+                                           "index:|reconcile_digest_status_idx",
+                                           "function:gptbridge_index|start_reconcile_batch",
+                                           "function:gptbridge_index|complete_reconcile_batch",
+                                           "function:gptbridge_index|verify_reconcile_batch"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|reconcile_batch_digest|reconcile_digest_read",
+                                                     "policy:gptbridge_index|reconcile_batch_digest|reconcile_digest_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "066_resource_content_hash.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|resource_content_hash",
+                                           "index:|resource_hash_idx",
+                                           "index:|resource_metadata_hash_idx",
+                                           "function:gptbridge_index|record_resource_hash",
+                                           "function:gptbridge_index|verify_resource_hash",
+                                           "function:gptbridge_index|get_tampered_resources"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|resource_content_hash|resource_hash_read",
+                                                     "policy:gptbridge_index|resource_content_hash|resource_hash_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "069_merkle_root.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|merkle_root",
+                                           "index:|merkle_domain_idx",
+                                           "index:|merkle_tamper_idx",
+                                           "function:gptbridge_index|compute_merkle_root",
+                                           "function:gptbridge_index|record_merkle_root",
+                                           "function:gptbridge_index|verify_merkle_root",
+                                           "function:gptbridge_index|get_merkle_root_for_domain"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|merkle_root|merkle_root_read",
+                                                     "policy:gptbridge_index|merkle_root|merkle_root_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "070_integrity_snapshot.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|integrity_snapshot",
+                                           "index:|integrity_snapshot_gen_idx",
+                                           "index:|integrity_snapshot_tamper_idx",
+                                           "function:gptbridge_index|create_integrity_snapshot",
+                                           "function:gptbridge_index|get_latest_snapshot"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|integrity_snapshot|integrity_snapshot_read",
+                                                     "policy:gptbridge_index|integrity_snapshot|integrity_snapshot_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "071_restore_verification.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|restore_verification",
+                                           "index:|restore_verify_date_idx",
+                                           "index:|restore_verify_passed_idx",
+                                           "function:gptbridge_index|record_restore_verification",
+                                           "function:gptbridge_index|get_failed_restores"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|restore_verification|restore_verify_read",
+                                                     "policy:gptbridge_index|restore_verification|restore_verify_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "072_tamper_state.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|tamper_state_registry",
+                                           "index:|tamper_state_entity_idx",
+                                           "index:|tamper_state_state_idx",
+                                           "function:gptbridge_index|record_tamper_state",
+                                           "function:gptbridge_index|resolve_tamper_state",
+                                           "function:gptbridge_index|get_active_tamper_issues"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|tamper_state_registry|tamper_state_read",
+                                                     "policy:gptbridge_index|tamper_state_registry|tamper_state_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "073_fail_closed.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|fail_closed_action",
+                                           "index:|fail_closed_active_idx",
+                                           "index:|fail_closed_domain_idx",
+                                           "function:gptbridge_index|trigger_fail_closed",
+                                           "function:gptbridge_index|release_fail_closed",
+                                           "function:gptbridge_index|is_fail_closed_active",
+                                           "function:gptbridge_index|get_active_fail_closed"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|fail_closed_action|fail_closed_read",
+                                                     "policy:gptbridge_index|fail_closed_action|fail_closed_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "074_version_lock.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|version_lock",
+                                           "index:|version_lock_release_idx",
+                                           "index:|version_lock_component_idx",
+                                           "function:gptbridge_index|lock_version",
+                                           "function:gptbridge_index|get_version_lock",
+                                           "function:gptbridge_index|get_all_version_locks"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|version_lock|version_lock_read",
+                                                     "policy:gptbridge_index|version_lock|version_lock_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "075_compatibility_matrix_ext.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|compatibility_matrix_ext",
+                                           "index:|compat_matrix_ext_release_idx",
+                                           "index:|compat_matrix_ext_status_idx",
+                                           "function:gptbridge_index|record_compatibility",
+                                           "function:gptbridge_index|check_combination_allowed",
+                                           "function:gptbridge_index|get_forbidden_combinations"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|compatibility_matrix_ext|compat_matrix_ext_read",
+                                                     "policy:gptbridge_index|compatibility_matrix_ext|compat_matrix_ext_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "076_upgrade_classification.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|upgrade_classification",
+                                           "index:|upgrade_class_component_idx",
+                                           "index:|upgrade_class_class_idx",
+                                           "function:gptbridge_index|classify_upgrade",
+                                           "function:gptbridge_index|get_upgrade_class"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|upgrade_classification|upgrade_class_read",
+                                                     "policy:gptbridge_index|upgrade_classification|upgrade_class_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "077_driver_compatibility_test.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|driver_compatibility_test",
+                                           "index:|driver_compat_driver_idx",
+                                           "index:|driver_compat_passed_idx",
+                                           "function:gptbridge_index|record_driver_test",
+                                           "function:gptbridge_index|is_driver_version_verified",
+                                           "function:gptbridge_index|get_failed_driver_tests"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|driver_compatibility_test|driver_compat_read",
+                                                     "policy:gptbridge_index|driver_compatibility_test|driver_compat_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "078_pg_major_upgrade_rehearsal.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|pg_major_upgrade_rehearsal",
+                                           "index:|pg_rehearsal_status_idx",
+                                           "index:|pg_rehearsal_version_idx",
+                                           "function:gptbridge_index|start_pg_rehearsal",
+                                           "function:gptbridge_index|advance_pg_rehearsal",
+                                           "function:gptbridge_index|get_rehearsal_summary"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|pg_major_upgrade_rehearsal|pg_rehearsal_read",
+                                                     "policy:gptbridge_index|pg_major_upgrade_rehearsal|pg_rehearsal_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "081_sbom_dependency_inventory.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|sbom_dependency_inventory",
+                                           "index:|sbom_release_idx",
+                                           "index:|sbom_component_idx",
+                                           "index:|sbom_verified_idx",
+                                           "function:gptbridge_index|record_sbom_entry",
+                                           "function:gptbridge_index|verify_sbom_entry",
+                                           "function:gptbridge_index|get_sbom_for_release"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|sbom_dependency_inventory|sbom_read",
+                                                     "policy:gptbridge_index|sbom_dependency_inventory|sbom_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "082_vulnerability_risk.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|vulnerability_risk",
+                                           "index:|vuln_risk_component_idx",
+                                           "index:|vuln_risk_unresolved_idx",
+                                           "function:gptbridge_index|record_vulnerability",
+                                           "function:gptbridge_index|resolve_vulnerability",
+                                           "function:gptbridge_index|get_critical_vulnerabilities"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|vulnerability_risk|vuln_risk_read",
+                                                     "policy:gptbridge_index|vulnerability_risk|vuln_risk_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "083_dependency_drift.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|dependency_drift",
+                                           "index:|dep_drift_status_idx",
+                                           "index:|dep_drift_component_idx",
+                                           "function:gptbridge_index|record_dependency_drift",
+                                           "function:gptbridge_index|resolve_dependency_drift",
+                                           "function:gptbridge_index|get_unverified_dependencies"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|dependency_drift|dep_drift_read",
+                                                     "policy:gptbridge_index|dependency_drift|dep_drift_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "084_offline_bundle.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|offline_bundle",
+                                           "index:|offline_bundle_release_idx",
+                                           "index:|offline_bundle_component_idx",
+                                           "function:gptbridge_index|register_offline_bundle",
+                                           "function:gptbridge_index|verify_offline_bundle",
+                                           "function:gptbridge_index|get_offline_bundle"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|offline_bundle|offline_bundle_read",
+                                                     "policy:gptbridge_index|offline_bundle|offline_bundle_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "085_release_signature.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|release_signature",
+                                           "index:|release_sig_release_idx",
+                                           "index:|release_sig_tamper_idx",
+                                           "function:gptbridge_index|sign_release",
+                                           "function:gptbridge_index|verify_release_signature",
+                                           "function:gptbridge_index|get_latest_signature"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|release_signature|release_sig_read",
+                                                     "policy:gptbridge_index|release_signature|release_sig_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "086_lineage_core.sql",
+                           "declared":  40,
+                           "present_live":  0,
+                           "missing":  [
+                                           "schema:|gptbridge_lineage",
+                                           "table:gptbridge_lineage|transformation",
+                                           "table:gptbridge_lineage|lineage_node",
+                                           "table:gptbridge_lineage|lineage_edge",
+                                           "index:|lineage_edge_dedup_ux",
+                                           "index:|lineage_edge_parent_idx",
+                                           "index:|lineage_edge_child_idx",
+                                           "index:|lineage_edge_run_idx",
+                                           "index:|lineage_edge_tx_idx",
+                                           "index:|lineage_edge_module_idx",
+                                           "index:|lineage_node_module_idx",
+                                           "index:|lineage_node_resource_idx",
+                                           "index:|lineage_node_chunk_idx",
+                                           "index:|lineage_node_point_idx",
+                                           "index:|lineage_node_producer_idx",
+                                           "index:|lineage_node_status_idx",
+                                           "index:|lineage_node_hash_idx",
+                                           "index:|lineage_node_correlation_idx",
+                                           "index:|lineage_node_generation_idx",
+                                           "function:gptbridge_lineage|prevent_lineage_mutation",
+                                           "function:gptbridge_lineage|auto_populate_provenance_node",
+                                           "function:gptbridge_lineage|auto_populate_provenance_edge",
+                                           "function:gptbridge_lineage|edge_active",
+                                           "function:gptbridge_lineage|ensure_transformation",
+                                           "function:gptbridge_lineage|register_node",
+                                           "function:gptbridge_lineage|relate",
+                                           "function:gptbridge_lineage|record_reconcile",
+                                           "function:gptbridge_lineage|record_restore",
+                                           "function:gptbridge_lineage|invalidate",
+                                           "function:gptbridge_lineage|reverse_lookup",
+                                           "function:gptbridge_lineage|impact",
+                                           "function:gptbridge_lineage|health_check"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|lineage_node_append_only",
+                                                     "trigger:|lineage_edge_append_only",
+                                                     "trigger:|lineage_node_provenance",
+                                                     "trigger:|lineage_edge_provenance",
+                                                     "policy:gptbridge_lineage|lineage_node|lineage_node_read",
+                                                     "policy:gptbridge_lineage|lineage_node|lineage_node_insert",
+                                                     "policy:gptbridge_lineage|lineage_edge|lineage_edge_read",
+                                                     "policy:gptbridge_lineage|lineage_edge|lineage_edge_insert"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "087_read_models.sql",
+                           "declared":  28,
+                           "present_live":  0,
+                           "missing":  [
+                                           "schema:|gptbridge_readmodel",
+                                           "table:gptbridge_readmodel|projection_version",
+                                           "table:gptbridge_readmodel|resource_summary",
+                                           "table:gptbridge_readmodel|module_status_summary",
+                                           "table:gptbridge_readmodel|transport_status_summary",
+                                           "table:gptbridge_readmodel|rag_status_summary",
+                                           "table:gptbridge_readmodel|database_status_snapshot",
+                                           "index:|resource_summary_module_idx",
+                                           "function:gptbridge_readmodel|watermark_for",
+                                           "function:gptbridge_readmodel|compute_projection_rows",
+                                           "function:gptbridge_readmodel|safe_db_size_bytes",
+                                           "function:gptbridge_readmodel|start_projection_build",
+                                           "function:gptbridge_readmodel|publish_projection_build",
+                                           "function:gptbridge_readmodel|refresh_projection",
+                                           "function:gptbridge_readmodel|drop_projection",
+                                           "function:gptbridge_readmodel|get_projection_lag"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_readmodel|projection_version|rm_registry_read",
+                                                     "policy:gptbridge_readmodel|projection_version|rm_registry_write",
+                                                     "policy:gptbridge_readmodel|resource_summary|rm_summary_read",
+                                                     "policy:gptbridge_readmodel|resource_summary|rm_summary_write",
+                                                     "policy:gptbridge_readmodel|module_status_summary|rm_module_read",
+                                                     "policy:gptbridge_readmodel|module_status_summary|rm_module_write",
+                                                     "policy:gptbridge_readmodel|transport_status_summary|rm_transport_read",
+                                                     "policy:gptbridge_readmodel|transport_status_summary|rm_transport_write",
+                                                     "policy:gptbridge_readmodel|rag_status_summary|rm_rag_read",
+                                                     "policy:gptbridge_readmodel|rag_status_summary|rm_rag_write",
+                                                     "policy:gptbridge_readmodel|database_status_snapshot|rm_dbsnap_read",
+                                                     "policy:gptbridge_readmodel|database_status_snapshot|rm_dbsnap_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "087_security_identity_control.sql",
+                           "declared":  7,
+                           "present_live":  7,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "088_rag_capacity_governance.sql",
+                           "declared":  31,
+                           "present_live":  0,
+                           "missing":  [
+                                           "schema:|gptbridge_ragpolicy",
+                                           "table:gptbridge_ragpolicy|capacity_policy",
+                                           "table:gptbridge_ragpolicy|queue_state",
+                                           "table:gptbridge_ragpolicy|vector_collection_generation",
+                                           "table:gptbridge_ragpolicy|retrieval_trace",
+                                           "table:gptbridge_ragpolicy|phase_latency",
+                                           "table:gptbridge_ragpolicy|rag_slo",
+                                           "index:|retrieval_trace_request_idx",
+                                           "index:|phase_latency_request_idx",
+                                           "function:gptbridge_ragpolicy|set_queue_state",
+                                           "function:gptbridge_ragpolicy|queue_admission",
+                                           "function:gptbridge_ragpolicy|record_phase_latency",
+                                           "function:gptbridge_ragpolicy|record_retrieval_trace",
+                                           "function:gptbridge_ragpolicy|initialize_generation",
+                                           "function:gptbridge_ragpolicy|advance_generation",
+                                           "function:gptbridge_ragpolicy|current_capacity_policy",
+                                           "function:gptbridge_ragpolicy|upsert_capacity_policy",
+                                           "function:gptbridge_ragpolicy|list_rag_slo",
+                                           "sequence:gptbridge_ragpolicy|generation_serial_seq"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_ragpolicy|capacity_policy|ragpolicy_select",
+                                                     "policy:gptbridge_ragpolicy|capacity_policy|ragpolicy_write",
+                                                     "policy:gptbridge_ragpolicy|queue_state|queue_select",
+                                                     "policy:gptbridge_ragpolicy|queue_state|queue_write",
+                                                     "policy:gptbridge_ragpolicy|vector_collection_generation|gen_select",
+                                                     "policy:gptbridge_ragpolicy|vector_collection_generation|gen_write",
+                                                     "policy:gptbridge_ragpolicy|retrieval_trace|trace_select",
+                                                     "policy:gptbridge_ragpolicy|retrieval_trace|trace_write",
+                                                     "policy:gptbridge_ragpolicy|phase_latency|latency_select",
+                                                     "policy:gptbridge_ragpolicy|phase_latency|latency_write",
+                                                     "policy:gptbridge_ragpolicy|rag_slo|slo_select",
+                                                     "policy:gptbridge_ragpolicy|rag_slo|slo_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "088_recovery_plan.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_plan",
+                                           "index:|recovery_plan_incident_idx",
+                                           "index:|recovery_plan_status_idx",
+                                           "function:gptbridge_index|register_recovery_plan",
+                                           "function:gptbridge_index|certify_recovery_plan",
+                                           "function:gptbridge_index|activate_recovery_plan",
+                                           "function:gptbridge_index|get_active_recovery_plan"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_plan|recovery_plan_read",
+                                                     "policy:gptbridge_index|recovery_plan|recovery_plan_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "089_recovery_incident.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_incident",
+                                           "index:|recovery_incident_status_idx",
+                                           "index:|recovery_incident_type_idx",
+                                           "function:gptbridge_index|open_recovery_incident",
+                                           "function:gptbridge_index|advance_incident_status",
+                                           "function:gptbridge_index|get_active_incidents"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_incident|recovery_incident_read",
+                                                     "policy:gptbridge_index|recovery_incident|recovery_incident_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "090_recovery_state_machine.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_state_machine",
+                                           "table:gptbridge_index|recovery_state_transition",
+                                           "index:|recovery_state_incident_idx",
+                                           "function:gptbridge_index|transition_recovery_state",
+                                           "function:gptbridge_index|get_current_recovery_state"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_state_machine|recovery_state_read",
+                                                     "policy:gptbridge_index|recovery_state_machine|recovery_state_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "091_pg_offline_recovery.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|pg_offline_recovery",
+                                           "index:|pg_offline_status_idx",
+                                           "function:gptbridge_index|start_pg_offline_recovery",
+                                           "function:gptbridge_index|confirm_pg_failure",
+                                           "function:gptbridge_index|enter_degraded_mode"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|pg_offline_recovery|pg_offline_read",
+                                                     "policy:gptbridge_index|pg_offline_recovery|pg_offline_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "092_pg_recovery_verification.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|pg_recovery_verification",
+                                           "index:|pg_recovery_verify_incident_idx",
+                                           "function:gptbridge_index|record_pg_recovery_verification",
+                                           "function:gptbridge_index|is_pg_recoverable"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|pg_recovery_verification|pg_recovery_verify_read",
+                                                     "policy:gptbridge_index|pg_recovery_verification|pg_recovery_verify_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "093_reconcile_recovery_phase.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|reconcile_recovery_phase",
+                                           "index:|reconcile_recovery_incident_idx",
+                                           "function:gptbridge_index|start_reconcile_recovery",
+                                           "function:gptbridge_index|advance_reconcile_recovery",
+                                           "function:gptbridge_index|is_reconcile_complete"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|reconcile_recovery_phase|reconcile_recovery_read",
+                                                     "policy:gptbridge_index|reconcile_recovery_phase|reconcile_recovery_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "094_recovery_generation.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_generation",
+                                           "index:|recovery_gen_number_idx",
+                                           "function:gptbridge_index|create_recovery_generation",
+                                           "function:gptbridge_index|get_current_generation"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_generation|recovery_gen_read",
+                                                     "policy:gptbridge_index|recovery_generation|recovery_gen_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "095_recovery_barrier.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_barrier",
+                                           "index:|recovery_barrier_active_idx",
+                                           "function:gptbridge_index|raise_recovery_barrier",
+                                           "function:gptbridge_index|update_barrier_progress",
+                                           "function:gptbridge_index|release_recovery_barrier",
+                                           "function:gptbridge_index|is_recovery_barrier_active"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_barrier|recovery_barrier_read",
+                                                     "policy:gptbridge_index|recovery_barrier|recovery_barrier_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "096_transport_recovery.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|transport_recovery",
+                                           "index:|transport_recovery_idempotency_idx",
+                                           "index:|transport_recovery_unknown_idx",
+                                           "function:gptbridge_index|register_unknown_commit",
+                                           "function:gptbridge_index|resolve_commit_state",
+                                           "function:gptbridge_index|get_unknown_commits"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|transport_recovery|transport_recovery_read",
+                                                     "policy:gptbridge_index|transport_recovery|transport_recovery_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "097_unknown_commit_resolution.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|unknown_commit_resolution",
+                                           "index:|unknown_commit_res_key_idx",
+                                           "function:gptbridge_index|record_commit_lookup"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|unknown_commit_resolution|unknown_commit_res_read",
+                                                     "policy:gptbridge_index|unknown_commit_resolution|unknown_commit_res_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "098_lease_recovery.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|lease_recovery",
+                                           "index:|lease_recovery_status_idx",
+                                           "function:gptbridge_index|check_lease_expiry",
+                                           "function:gptbridge_index|reclaim_lease",
+                                           "function:gptbridge_index|get_expired_leases"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|lease_recovery|lease_recovery_read",
+                                                     "policy:gptbridge_index|lease_recovery|lease_recovery_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "100_recovery_priority.sql",
+                           "declared":  4,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_priority",
+                                           "function:gptbridge_index|get_recovery_priority"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_priority|recovery_priority_read",
+                                                     "policy:gptbridge_index|recovery_priority|recovery_priority_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "105_backup_restore_orchestration.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|backup_restore_orchestration",
+                                           "index:|backup_restore_status_idx",
+                                           "function:gptbridge_index|start_backup_restore",
+                                           "function:gptbridge_index|advance_backup_restore"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|backup_restore_orchestration|backup_restore_orch_read",
+                                                     "policy:gptbridge_index|backup_restore_orchestration|backup_restore_orch_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "106_pitr_boundary.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|pitr_boundary",
+                                           "index:|pitr_boundary_incident_idx",
+                                           "function:gptbridge_index|record_pitr_boundary",
+                                           "function:gptbridge_index|complete_pitr_reconcile"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|pitr_boundary|pitr_boundary_read",
+                                                     "policy:gptbridge_index|pitr_boundary|pitr_boundary_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "107_recovery_retry_policy.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_retry_policy",
+                                           "index:|recovery_retry_plan_idx",
+                                           "function:gptbridge_index|register_retry_policy",
+                                           "function:gptbridge_index|get_retry_policy"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_retry_policy|recovery_retry_read",
+                                                     "policy:gptbridge_index|recovery_retry_policy|recovery_retry_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "108_recovery_checkpoint.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_checkpoint",
+                                           "index:|recovery_checkpoint_run_idx",
+                                           "index:|recovery_checkpoint_active_idx",
+                                           "function:gptbridge_index|save_recovery_checkpoint",
+                                           "function:gptbridge_index|resume_recovery_checkpoint",
+                                           "function:gptbridge_index|get_latest_checkpoint"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_checkpoint|recovery_checkpoint_read",
+                                                     "policy:gptbridge_index|recovery_checkpoint|recovery_checkpoint_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "109_recovery_idempotency.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_idempotency",
+                                           "index:|recovery_idempotency_run_idx",
+                                           "function:gptbridge_index|check_or_mark_idempotent",
+                                           "function:gptbridge_index|mark_idempotent_complete"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_idempotency|recovery_idempotency_read",
+                                                     "policy:gptbridge_index|recovery_idempotency|recovery_idempotency_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "110_recovery_safety_fence.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_safety_fence",
+                                           "function:gptbridge_index|check_safety_fence",
+                                           "function:gptbridge_index|record_fence_block"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_safety_fence|recovery_fence_read",
+                                                     "policy:gptbridge_index|recovery_safety_fence|recovery_fence_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "111_chaos_drill.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|chaos_drill",
+                                           "index:|chaos_drill_status_idx",
+                                           "index:|chaos_drill_scenario_idx",
+                                           "function:gptbridge_index|start_chaos_drill",
+                                           "function:gptbridge_index|complete_chaos_drill"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|chaos_drill|chaos_drill_read",
+                                                     "policy:gptbridge_index|chaos_drill|chaos_drill_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "112_recovery_certification.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|recovery_certification",
+                                           "index:|recovery_cert_plan_idx",
+                                           "index:|recovery_cert_status_idx",
+                                           "function:gptbridge_index|record_recovery_certification",
+                                           "function:gptbridge_index|certify_recovery_plan_v2",
+                                           "function:gptbridge_index|is_recovery_plan_certified"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|recovery_certification|recovery_cert_read",
+                                                     "policy:gptbridge_index|recovery_certification|recovery_cert_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "113_workflow_operation.sql",
+                           "declared":  14,
+                           "present_live":  14,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "114_data_layer_contract.sql",
+                           "declared":  8,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|data_layer_contract",
+                                           "index:|data_layer_contract_status_idx",
+                                           "index:|data_layer_contract_version_idx",
+                                           "function:gptbridge_index|register_data_layer_contract",
+                                           "function:gptbridge_index|activate_data_layer_contract",
+                                           "function:gptbridge_index|get_active_data_layer_contract"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|data_layer_contract|data_layer_contract_read",
+                                                     "policy:gptbridge_index|data_layer_contract|data_layer_contract_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "115_dependency_classification.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|dependency_classification",
+                                           "index:|dep_class_type_idx",
+                                           "index:|dep_class_category_idx",
+                                           "function:gptbridge_index|classify_dependency",
+                                           "function:gptbridge_index|get_dependency_classification"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|dependency_classification|dep_class_read",
+                                                     "policy:gptbridge_index|dependency_classification|dep_class_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "116_startup_phase.sql",
+                           "declared":  5,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|startup_phase",
+                                           "function:gptbridge_index|get_startup_phase",
+                                           "function:gptbridge_index|get_startup_order"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|startup_phase|startup_phase_read",
+                                                     "policy:gptbridge_index|startup_phase|startup_phase_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "117_startup_phase_gate.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|startup_phase_gate",
+                                           "index:|startup_gate_phase_idx",
+                                           "index:|startup_gate_write_idx",
+                                           "function:gptbridge_index|register_startup_gate",
+                                           "function:gptbridge_index|set_gate_result",
+                                           "function:gptbridge_index|is_phase_complete",
+                                           "function:gptbridge_index|can_enable_write"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|startup_phase_gate|startup_gate_read",
+                                                     "policy:gptbridge_index|startup_phase_gate|startup_gate_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "118_schema_readiness.sql",
+                           "declared":  9,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|schema_readiness",
+                                           "index:|schema_readiness_ready_idx",
+                                           "function:gptbridge_index|set_schema_readiness",
+                                           "function:gptbridge_index|is_schema_ready",
+                                           "function:gptbridge_index|is_pg_certified",
+                                           "function:gptbridge_index|is_audit_writable",
+                                           "function:gptbridge_index|can_enable_business_write"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|schema_readiness|schema_readiness_read",
+                                                     "policy:gptbridge_index|schema_readiness|schema_readiness_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "119_rag_readiness_gate.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|rag_readiness_gate",
+                                           "index:|rag_gate_ready_idx",
+                                           "function:gptbridge_index|evaluate_rag_readiness",
+                                           "function:gptbridge_index|is_rag_ready"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|rag_readiness_gate|rag_gate_read",
+                                                     "policy:gptbridge_index|rag_readiness_gate|rag_gate_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "120_shutdown_phase.sql",
+                           "declared":  4,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|shutdown_phase",
+                                           "function:gptbridge_index|get_shutdown_order"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|shutdown_phase|shutdown_phase_read",
+                                                     "policy:gptbridge_index|shutdown_phase|shutdown_phase_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "121_shutdown_audit.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|shutdown_audit",
+                                           "index:|shutdown_audit_status_idx",
+                                           "function:gptbridge_index|start_shutdown_audit",
+                                           "function:gptbridge_index|complete_shutdown_audit",
+                                           "function:gptbridge_index|was_last_shutdown_graceful"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|shutdown_audit|shutdown_audit_read",
+                                                     "policy:gptbridge_index|shutdown_audit|shutdown_audit_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "122_unclean_shutdown_detection.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|unclean_shutdown_detection",
+                                           "index:|unclean_detect_at_idx",
+                                           "function:gptbridge_index|detect_unclean_shutdown",
+                                           "function:gptbridge_index|mark_unclean_step_done",
+                                           "function:gptbridge_index|is_unclean_recovery_complete"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|unclean_shutdown_detection|unclean_detect_read",
+                                                     "policy:gptbridge_index|unclean_shutdown_detection|unclean_detect_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "123_cache_invalidation_policy.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|cache_invalidation_policy",
+                                           "index:|cache_inval_name_idx",
+                                           "function:gptbridge_index|register_cache_policy",
+                                           "function:gptbridge_index|should_invalidate_cache"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|cache_invalidation_policy|cache_inval_read",
+                                                     "policy:gptbridge_index|cache_invalidation_policy|cache_inval_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "124_data_layer_dependency_graph.sql",
+                           "declared":  7,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|data_layer_dependency_graph",
+                                           "index:|dep_graph_from_idx",
+                                           "index:|dep_graph_to_idx",
+                                           "function:gptbridge_index|get_dependencies",
+                                           "function:gptbridge_index|get_dependents"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|data_layer_dependency_graph|dep_graph_read",
+                                                     "policy:gptbridge_index|data_layer_dependency_graph|dep_graph_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "125_integration_rule.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "table:gptbridge_index|integration_rule",
+                                           "index:|integration_rule_number_idx",
+                                           "function:gptbridge_index|get_integration_rules",
+                                           "function:gptbridge_index|check_integration_rule"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_index|integration_rule|integration_rule_read",
+                                                     "policy:gptbridge_index|integration_rule|integration_rule_write"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "126_transport_lease_idempotency_catchup.sql",
+                           "declared":  4,
+                           "present_live":  4,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "127_audit_hash_chain_insert_time.sql",
+                           "declared":  6,
+                           "present_live":  0,
+                           "missing":  [
+                                           "function:gptbridge_audit|compute_event_hash",
+                                           "function:gptbridge_audit|populate_event_hash_chain",
+                                           "function:gptbridge_audit|set_event_hash_chain",
+                                           "function:gptbridge_audit|archive_audit_events"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|audit_hash_chain_insert",
+                                                     "policy:gptbridge_audit|event|event_hash_backfill"
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "128_ddl_guard_role_fence_and_workflow_fingerprint.sql",
+                           "declared":  2,
+                           "present_live":  1,
+                           "missing":  [
+                                           "function:gptbridge_security|ddl_guard"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "129_permission_projection_runtime.sql",
+                           "declared":  0,
+                           "present_live":  0,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "130_maintenance_schema.sql",
+                           "declared":  18,
+                           "present_live":  16,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|trg_maintenance_jobs_updated",
+                                                     "trigger:|trg_maintenance_leases_updated"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "131_rag_generation_registry.sql",
+                           "declared":  5,
+                           "present_live":  3,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_rag|generation|rag_generation_select",
+                                                     "policy:gptbridge_rag|generation|rag_generation_write"
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "133_rag_canonical_outbox_event.sql",
+                           "declared":  7,
+                           "present_live":  5,
+                           "missing":  [
+                                           "table:|from"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "trigger:|trg_outbox_event_updated_at"
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "134_trading_system.sql",
+                           "declared":  29,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|instrument",
+                                           "table:gptbridge_trading|broker",
+                                           "table:gptbridge_trading|account",
+                                           "table:gptbridge_trading|portfolio",
+                                           "table:gptbridge_trading|position",
+                                           "table:gptbridge_trading|cash_balance",
+                                           "table:gptbridge_trading|market_observation",
+                                           "table:gptbridge_trading|trading_signal",
+                                           "table:gptbridge_trading|trade_proposal",
+                                           "table:gptbridge_trading|risk_decision",
+                                           "table:gptbridge_trading|order_request",
+                                           "table:gptbridge_trading|order_receipt",
+                                           "table:gptbridge_trading|execution",
+                                           "table:gptbridge_trading|portfolio_snapshot",
+                                           "table:gptbridge_trading|authorization_grant",
+                                           "table:gptbridge_trading|audit_event",
+                                           "table:gptbridge_trading|research_document",
+                                           "index:|account_broker_idx",
+                                           "index:|market_observation_latest_idx",
+                                           "index:|trading_signal_market_idx",
+                                           "index:|risk_decision_proposal_idx",
+                                           "index:|order_request_status_idx",
+                                           "index:|order_receipt_order_idx",
+                                           "index:|execution_order_idx",
+                                           "index:|portfolio_snapshot_idx",
+                                           "index:|authorization_active_idx",
+                                           "index:|audit_event_type_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "table:|IF"
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "135_market_data.sql",
+                           "declared":  17,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|market_data_source",
+                                           "table:gptbridge_trading|market_quote",
+                                           "table:gptbridge_trading|market_candle",
+                                           "table:gptbridge_trading|market_candle_default",
+                                           "table:gptbridge_trading|market_calendar",
+                                           "table:gptbridge_trading|corporate_action",
+                                           "table:gptbridge_trading|currency_rate",
+                                           "table:gptbridge_trading|market_data_revision",
+                                           "table:gptbridge_trading|market_data_sync_state",
+                                           "index:|market_quote_market_idx",
+                                           "index:|market_candle_lookup_idx",
+                                           "index:|corporate_action_idx",
+                                           "index:|currency_rate_pair_idx",
+                                           "index:|market_data_revision_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_trading|market_candle|market_candle_read",
+                                                     "policy:gptbridge_trading|market_candle|market_candle_write"
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "136_fund_data.sql",
+                           "declared":  18,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|fund",
+                                           "table:gptbridge_trading|fund_share_class",
+                                           "table:gptbridge_trading|fund_nav",
+                                           "table:gptbridge_trading|fund_distribution",
+                                           "table:gptbridge_trading|fund_fee",
+                                           "table:gptbridge_trading|fund_holding",
+                                           "table:gptbridge_trading|fund_exposure",
+                                           "table:gptbridge_trading|fund_transaction",
+                                           "table:gptbridge_trading|fund_cost_basis",
+                                           "table:gptbridge_trading|fund_performance",
+                                           "table:gptbridge_trading|fund_recommendation",
+                                           "table:gptbridge_trading|fund_strategy",
+                                           "table:gptbridge_trading|fund_sync_state",
+                                           "index:|fund_nav_lookup_idx",
+                                           "index:|fund_fee_scope_idx",
+                                           "index:|fund_holding_idx",
+                                           "index:|fund_txn_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "137_ai_intelligence.sql",
+                           "declared":  12,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|analysis_run",
+                                           "table:gptbridge_trading|analysis_evidence",
+                                           "table:gptbridge_trading|investment_recommendation",
+                                           "table:gptbridge_trading|recommendation_version",
+                                           "table:gptbridge_trading|recommendation_outcome",
+                                           "table:gptbridge_trading|model_analysis_record",
+                                           "table:gptbridge_trading|analysis_schedule",
+                                           "index:|analysis_run_idx",
+                                           "index:|analysis_evidence_run_idx",
+                                           "index:|investment_rec_idx",
+                                           "index:|recommendation_outcome_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "138_strategy_backtest.sql",
+                           "declared":  17,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|strategy",
+                                           "table:gptbridge_trading|strategy_version",
+                                           "table:gptbridge_trading|strategy_parameter",
+                                           "table:gptbridge_trading|backtest_run",
+                                           "table:gptbridge_trading|backtest_result",
+                                           "table:gptbridge_trading|backtest_trade",
+                                           "table:gptbridge_trading|backtest_position",
+                                           "table:gptbridge_trading|backtest_equity_curve",
+                                           "table:gptbridge_trading|backtest_metric",
+                                           "table:gptbridge_trading|strategy_validation",
+                                           "table:gptbridge_trading|strategy_research",
+                                           "table:gptbridge_trading|strategy_comparison",
+                                           "index:|strategy_status_idx",
+                                           "index:|strategy_parameter_idx",
+                                           "index:|backtest_run_idx",
+                                           "index:|strategy_validation_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "139_simulation_trading.sql",
+                           "declared":  23,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|paper_account",
+                                           "table:gptbridge_trading|paper_cash_ledger",
+                                           "table:gptbridge_trading|paper_position",
+                                           "table:gptbridge_trading|paper_order",
+                                           "table:gptbridge_trading|paper_execution",
+                                           "table:gptbridge_trading|paper_portfolio_snapshot",
+                                           "table:gptbridge_trading|paper_strategy_run",
+                                           "table:gptbridge_trading|paper_performance",
+                                           "table:gptbridge_trading|shadow_signal",
+                                           "table:gptbridge_trading|shadow_signal_outcome",
+                                           "table:gptbridge_trading|shadow_paper_comparison",
+                                           "table:gptbridge_trading|simulation_event",
+                                           "table:gptbridge_trading|simulation_checkpoint",
+                                           "index:|paper_cash_ledger_idx",
+                                           "index:|paper_order_idx",
+                                           "index:|paper_execution_idx",
+                                           "index:|paper_portfolio_snapshot_idx",
+                                           "index:|paper_strategy_run_idx",
+                                           "index:|paper_performance_idx",
+                                           "index:|shadow_signal_idx",
+                                           "index:|shadow_signal_outcome_idx",
+                                           "index:|simulation_checkpoint_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "140_live_trading.sql",
+                           "declared":  23,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|trading_authorization",
+                                           "table:gptbridge_trading|trading_risk_rule",
+                                           "table:gptbridge_trading|trading_risk_decision",
+                                           "table:gptbridge_trading|trading_order",
+                                           "table:gptbridge_trading|trading_order_event",
+                                           "table:gptbridge_trading|trading_execution",
+                                           "table:gptbridge_trading|trading_submission",
+                                           "table:gptbridge_trading|trading_account_snapshot",
+                                           "table:gptbridge_trading|trading_reconciliation",
+                                           "table:gptbridge_trading|trading_emergency_event",
+                                           "table:gptbridge_trading|trading_audit_event",
+                                           "table:gptbridge_trading|broker_capability",
+                                           "table:gptbridge_trading|broker_connection_state",
+                                           "index:|trading_risk_decision_proposal_idx",
+                                           "index:|trading_order_state_idx",
+                                           "index:|trading_order_event_order_idx",
+                                           "index:|trading_execution_order_idx",
+                                           "index:|trading_submission_key_idx",
+                                           "index:|trading_account_snapshot_idx",
+                                           "index:|trading_reconciliation_idx",
+                                           "index:|trading_audit_event_corr_idx",
+                                           "index:|broker_connection_state_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "141_offline_broker.sql",
+                           "declared":  19,
+                           "present_live":  1,
+                           "missing":  [
+                                           "table:gptbridge_trading|broker_profile",
+                                           "table:gptbridge_trading|offline_account",
+                                           "table:gptbridge_trading|offline_holding",
+                                           "table:gptbridge_trading|offline_cash",
+                                           "table:gptbridge_trading|offline_transaction",
+                                           "table:gptbridge_trading|offline_dividend",
+                                           "table:gptbridge_trading|investment_import_batch",
+                                           "table:gptbridge_trading|investment_import_row",
+                                           "table:gptbridge_trading|investment_import_error",
+                                           "table:gptbridge_trading|broker_simulation",
+                                           "table:gptbridge_trading|broker_simulation_event",
+                                           "index:|offline_holding_acct_idx",
+                                           "index:|offline_cash_acct_idx",
+                                           "index:|offline_txn_acct_idx",
+                                           "index:|offline_dividend_acct_idx",
+                                           "index:|import_row_batch_idx",
+                                           "index:|import_row_dedup_idx",
+                                           "index:|broker_sim_event_idx"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "142_asset_management.sql",
+                           "declared":  8,
+                           "present_live":  8,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "143_monitoring_center.sql",
+                           "declared":  9,
+                           "present_live":  9,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "144_autotrading_center.sql",
+                           "declared":  14,
+                           "present_live":  14,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  1
+                       },
+                       {
+                           "file":  "145_baseline_reanchor.sql",
+                           "declared":  0,
+                           "present_live":  0,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "146_governance_nonce.sql",
+                           "declared":  3,
+                           "present_live":  2,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_transport|governance_used_nonces|governance_used_nonces_runtime"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "147_state_outbox.sql",
+                           "declared":  7,
+                           "present_live":  4,
+                           "missing":  [
+
+                                       ],
+                           "dropped_elsewhere":  [
+                                                     "policy:gptbridge_transport|outbox_entity_revision|outbox_runtime",
+                                                     "policy:gptbridge_transport|outbox_event|outbox_runtime",
+                                                     "policy:gptbridge_transport|outbox_meta|outbox_runtime"
+                                                 ],
+                           "dynamic_regions":  0
+                       },
+                       {
+                           "file":  "148_rag_canonical_chunk_embedding.sql",
+                           "declared":  1,
+                           "present_live":  0,
+                           "missing":  [
+                                           "extension:|vector"
+                                       ],
+                           "dropped_elsewhere":  [
+
+                                                 ],
+                           "dynamic_regions":  0
+                       }
+                   ],
+    "live_only":  [
+                      "table:gptbridge_xingcheng_main|investment_parameter_definition",
+                      "table:gptbridge_xingcheng|gptbridge_rag_chunk",
+                      "table:gptbridge_codex|identity_authentication_test_evidence",
+                      "table:gptbridge_xingcheng|transformer_training_audit_event",
+                      "table:gptbridge_legacy|outbox_events",
+                      "table:gptbridge_codex|codex_normative_convergence_registry",
+                      "table:gptbridge_xingcheng_coding|web_search_log",
+                      "table:gptbridge_codex|directory_activation_state",
+                      "table:gptbridge_xingcheng_mathematical|command_tag",
+                      "table:gptbridge_codex|identity_conversion_contract",
+                      "table:gptbridge_perf|perf_kv",
+                      "table:gptbridge_codex|special_law_normalization_evidence",
+                      "table:gptbridge_codex|sql_private_state_scope_registry",
+                      "table:gptbridge_identity|identity",
+                      "table:gptbridge_codex|sql_object_coverage_evidence",
+                      "table:gptbridge_investment_mobile|sync_state",
+                      "table:gptbridge_xingcheng_main|web_search_log",
+                      "table:gptbridge_codex|timestamp_version_evolution_rules",
+                      "table:gptbridge_codex|audit_event_schema",
+                      "table:gptbridge_rag|rag_reconciliation_queue",
+                      "table:gptbridge_codex|sql_governance_gate_status",
+                      "table:gptbridge_codex|codex_search_fts_config",
+                      "table:gptbridge_codex|sql_transport_persistence_contract",
+                      "table:gptbridge_xingcheng_main|distribution_event",
+                      "table:gptbridge_codex|formal_rule_registry",
+                      "table:gptbridge_codex|directory_boundary_classes",
+                      "table:gptbridge_collab|ai_nexus_knowledge_files",
+                      "table:gptbridge_codex|sql_reconciliation_contract",
+                      "table:gptbridge_codex|local_model_provider_registry",
+                      "table:gptbridge_codex|formal_rule_ownership_map",
+                      "table:gptbridge_codex|domain_directory_decision_boundary",
+                      "table:gptbridge_collab|ai_nexus_memory_items",
+                      "table:gptbridge_codex|audit_chain_scope_registry",
+                      "table:gptbridge_ai_nexus|market_quotes",
+                      "table:gptbridge_codex|codex_internal_module_dependency",
+                      "table:gptbridge_codex|provision_supersession_edges",
+                      "table:gptbridge_codex|sql_audit_transport_contract",
+                      "table:gptbridge_codex|savings",
+                      "table:gptbridge_codex|certification_policy",
+                      "table:gptbridge_rag|collection_meta",
+                      "table:gptbridge_xingcheng_mathematical|investment_parameter_definition",
+                      "table:gptbridge_xingcheng_coding|language_preference_pair",
+                      "table:gptbridge_codex|machine_schema_lineage",
+                      "table:gptbridge_codex|system_modularization_acceptance",
+                      "table:gptbridge_migration|history",
+                      "table:gptbridge_xingcheng_mathematical|instrument_identity",
+                      "table:gptbridge_xingcheng_investment|investment_parameter_adjustment",
+                      "table:im_test_b1b1bb70d82f|sync_state",
+                      "table:gptbridge_codex|codex_search_fts_idx",
+                      "table:gptbridge_ai_nexus|fund_transactions",
+                      "table:gptbridge_ai_nexus|ai_recommendations",
+                      "table:cognition|model_capability",
+                      "table:gptbridge_rag|collection_state",
+                      "table:gptbridge_xingcheng_main|language_model_maintenance",
+                      "table:gptbridge_xingcheng|transformer_training_dataset",
+                      "table:gptbridge_codex|codex_version_authority_registry",
+                      "table:gptbridge_repair|error_signatures",
+                      "table:gptbridge_ai_nexus|receipts",
+                      "table:gptbridge_xingcheng_coding|investment_parameter_definition",
+                      "table:gptbridge_codex|sql_governance_test_case_registry",
+                      "table:gptbridge_codex|epoch_seal_manifest",
+                      "table:gptbridge_codex|architecture_diagram_sync_evidence",
+                      "table:gptbridge_codex|sql_migration_receipt_registry",
+                      "table:gptbridge_codex|sql_revision_control_contract",
+                      "table:gptbridge_codex|sql_reconciliation_contract_v2",
+                      "table:gptbridge_codex|system_module_dependency",
+                      "table:gptbridge_codex|system_module_profile",
+                      "table:gptbridge_xingcheng_mathematical|distribution_event",
+                      "table:gptbridge_rag|collection_point",
+                      "table:gptbridge_xingcheng_mathematical|language_preference_pair",
+                      "table:gptbridge_permission|identity_permission",
+                      "table:gptbridge_legacy|toolbox_tools",
+                      "table:gptbridge_codex|directory_format_contract",
+                      "table:gptbridge_codex|provision_renumbering_registry",
+                      "table:gptbridge_codex|test_flow_directory",
+                      "table:gptbridge_codex|sql_schema_source_authority",
+                      "table:gptbridge_collab|ai_nexus_tasks",
+                      "table:gptbridge_ai_nexus|orders",
+                      "table:gptbridge_xingcheng_mathematical|capability_composition",
+                      "table:gptbridge_xingcheng|transformer_adapter_evaluation",
+                      "table:gptbridge_xingcheng_coding|model_memory",
+                      "table:gptbridge_codex|architecture_activation_states",
+                      "table:gptbridge_codex|codex_convergence_closure",
+                      "table:gptbridge_ai_nexus|authorizations",
+                      "table:gptbridge_codex|obligation_classification",
+                      "table:gptbridge_investment_mobile|revision",
+                      "table:gptbridge_ai_nexus|reports",
+                      "table:gptbridge_xingcheng_investment|investment_parameter_definition",
+                      "table:gptbridge_codex|sovereigns",
+                      "table:gptbridge_codex|tool_capability_registry",
+                      "table:gptbridge_codex|schema_contract",
+                      "table:gptbridge_codex|codex_search_document",
+                      "table:gptbridge_xingcheng_investment|instrument_identity",
+                      "table:gptbridge_xingcheng_coding|investment_parameter_adjustment",
+                      "table:gptbridge_ai_nexus|executions",
+                      "table:gptbridge_xingcheng_main|command_tag",
+                      "table:im_test_b1b1bb70d82f|candle",
+                      "table:gptbridge_ai_nexus|domain_kv",
+                      "table:im_test_2b2add747cb5|revision",
+                      "table:gptbridge_xingcheng_coding|language_training_example",
+                      "table:gptbridge_codex|transport_submission_contract",
+                      "table:gptbridge_codex|codex_normative_category_directory",
+                      "table:gptbridge_codex|audit_sql_privilege_parity_evidence",
+                      "table:gptbridge_xingcheng_mathematical|web_search_log",
+                      "table:gptbridge_codex|provision_lineage",
+                      "table:gptbridge_xingcheng_main|common_command_tag",
+                      "table:gptbridge_codex|directory_relationship_requirements",
+                      "table:gptbridge_xingcheng_coding|mathematical_capability_definition",
+                      "table:gptbridge_codex|command_code_directory",
+                      "table:gptbridge_codex|provision_normative_category",
+                      "table:gptbridge_security|principal_scope",
+                      "table:gptbridge_xingcheng|transformer_adapter_release",
+                      "table:gptbridge_collab|ai_nexus_collab_tasks",
+                      "table:gptbridge_codex|seal_canonicalization_spec",
+                      "table:gptbridge_index|resource_relation",
+                      "table:gptbridge_codex|test_flow_manual_links",
+                      "table:gptbridge_codex|rag_contract_registry",
+                      "table:gptbridge_codex|information_sql_test_case_registry",
+                      "table:gptbridge_xingcheng_mathematical|language_training_example",
+                      "table:gptbridge_vaultly|vaultly_retained_accounts",
+                      "table:gptbridge_codex|directory_closure_priority",
+                      "table:gptbridge_xingcheng|cognition_model_data",
+                      "table:gptbridge_codex|directory_activation_acceptance",
+                      "table:gptbridge_codex|sql_runtime_schema_compatibility",
+                      "table:gptbridge_codex|sections",
+                      "table:gptbridge_codex|sql_authority_registry",
+                      "table:gptbridge_codex|law_structure_directory",
+                      "table:gptbridge_codex|sql_retry_classification_registry",
+                      "table:gptbridge_permission|code_rule_directory",
+                      "table:gptbridge_codex|sql_registry_logical_alias",
+                      "table:gptbridge_codex|sovereign_hierarchy_registry",
+                      "table:gptbridge_maintenance|capacity_sample",
+                      "table:gptbridge_codex|data_schema_authority_directory",
+                      "table:gptbridge_codex|capability_dispatch_registry",
+                      "table:gptbridge_codex|semantic_model_registry",
+                      "table:gptbridge_xingcheng_mathematical|investment_model_definition",
+                      "table:gptbridge_codex|audit_read_scope_registry",
+                      "table:gptbridge_codex|sql_authority_class_registry",
+                      "table:gptbridge_rag|index_state",
+                      "table:gptbridge_codex|articles",
+                      "table:gptbridge_xingcheng|role_audit_event",
+                      "table:gptbridge_codex|test_flow_fault_links",
+                      "table:gptbridge_collab|ai_nexus_tools",
+                      "table:gptbridge_codex|external_result_contract",
+                      "table:gptbridge_codex|pytest_retirement_inventory",
+                      "table:gptbridge_codex|codex_convergence_metrics",
+                      "table:gptbridge_codex|codex_search_fts_data",
+                      "table:gptbridge_codex|sql_outbox_inbox_contract",
+                      "table:gptbridge_index|resource",
+                      "table:gptbridge_xingcheng_main|language_preference_pair",
+                      "table:gptbridge_xingcheng_mathematical|common_command",
+                      "table:gptbridge_codex|information_sql_gate_status",
+                      "table:gptbridge_codex|codex_search_alias",
+                      "table:gptbridge_xingcheng_main|code_upgrade_proposal",
+                      "table:gptbridge_codex|low_cost_execution_profile",
+                      "table:gptbridge_permission|identity_required_capability",
+                      "table:gptbridge_codex|current_normative_surface",
+                      "table:gptbridge_transport|tool_requests",
+                      "table:gptbridge_audit|event",
+                      "table:gptbridge_codex|effective_provisions",
+                      "table:gptbridge_xingcheng|personality_identity",
+                      "table:gptbridge_repair|learned_recipes",
+                      "table:im_test_a865a47da9a1|revision",
+                      "table:gptbridge_repair|repair_runs",
+                      "table:gptbridge_codex|principles",
+                      "table:gptbridge_codex|provision_normativity_classification",
+                      "table:gptbridge_codex|architecture_assertion_evidence",
+                      "table:gptbridge_security|principal",
+                      "table:gptbridge_codex|local_model_registry",
+                      "table:gptbridge_xingcheng_main|capability_composition",
+                      "table:im_test_944e805f2a59|revision",
+                      "table:im_test_944e805f2a59|candle",
+                      "table:gptbridge_codex|source_exceptions",
+                      "table:gptbridge_codex|command_contract_revision_registry",
+                      "table:gptbridge_transport|tool_request",
+                      "table:gptbridge_vaultly|vaultly_jobs",
+                      "table:gptbridge_codex|health_contract_schema",
+                      "table:gptbridge_codex|test_flow_command_links",
+                      "table:gptbridge_ai_nexus|paper_executions",
+                      "table:gptbridge_codex|sql_ddl_canonicalization_registry",
+                      "table:gptbridge_codex|sql_audit_persistence_contract",
+                      "table:gptbridge_codex|implementation_obligations",
+                      "table:gptbridge_xingcheng|assistant_identity_group",
+                      "table:gptbridge_xingcheng_mathematical|model_memory",
+                      "table:gptbridge_identity|identity_required_capability",
+                      "table:gptbridge_xingcheng_investment|language_model_maintenance",
+                      "table:gptbridge_codex|sql_principal_projection_registry",
+                      "table:gptbridge_codex|sql_schema_drift_evidence",
+                      "table:gptbridge_xingcheng_coding|capability_composition",
+                      "table:gptbridge_codex|normative_registry_fact",
+                      "table:gptbridge_codex|codex_successor_candidate",
+                      "table:gptbridge_codex|codex_search_mode_policy",
+                      "table:gptbridge_codex|directory_normalization_plan",
+                      "table:gptbridge_vaultly|vaultly_account_scan_schedule",
+                      "table:gptbridge_codex|provision_identities",
+                      "table:gptbridge_xingcheng_coding|common_command_tag",
+                      "table:gptbridge_codex|sql_closure_domain_status",
+                      "table:gptbridge_xingcheng_coding|common_command",
+                      "table:gptbridge_xingcheng|role_data_personality",
+                      "table:gptbridge_xingcheng_main|investment_model_definition",
+                      "table:gptbridge_xingcheng_mathematical|language_model_maintenance",
+                      "table:gptbridge_codex|directory_master_catalog",
+                      "table:gptbridge_codex|codex_parameter_registry",
+                      "table:gptbridge_codex|edicts",
+                      "table:gptbridge_repair|chain_learned_recipes",
+                      "table:gptbridge_vaultly|vaultly_settings",
+                      "table:gptbridge_ai_nexus|schema_meta",
+                      "table:gptbridge_codex|sql_migration_authority_registry",
+                      "table:gptbridge_xingcheng|gptbridge_rag_index_state",
+                      "table:gptbridge_codex|chinese_mirror_quality_evidence",
+                      "table:cognition|knowledge",
+                      "table:gptbridge_codex|codex_search_benchmark_evidence",
+                      "table:gptbridge_codex|sovereign_duties",
+                      "table:gptbridge_transport|resource",
+                      "table:gptbridge_codex|seal_manifest",
+                      "table:gptbridge_codex|codex_search_fts_content",
+                      "table:gptbridge_codex|test_suite_schema_contract",
+                      "table:gptbridge_codex|module_rule_index_contract",
+                      "table:gptbridge_codex|transport_persistence_class_registry",
+                      "table:gptbridge_rag|reconciliation_queue",
+                      "table:gptbridge_xingcheng_investment|command_tag",
+                      "table:gptbridge_codex|sql_security_projection_parity_evidence",
+                      "table:im_test_944e805f2a59|sync_state",
+                      "table:gptbridge_codex|codex_internal_module_membership",
+                      "table:gptbridge_xingcheng_coding|instrument_identity",
+                      "table:gptbridge_codex|sql_idempotency_contract",
+                      "table:gptbridge_codex|entity_classification",
+                      "table:gptbridge_file_sorter|video_fingerprints",
+                      "table:gptbridge_codex|sql_transaction_test_case_registry",
+                      "table:gptbridge_collab|ai_nexus_agents",
+                      "table:gptbridge_codex|codex_internal_module_manifest",
+                      "table:gptbridge_legacy|repair_run",
+                      "table:gptbridge_codex|operation_receipt_schema",
+                      "table:gptbridge_xingcheng|gptbridge_index_resource",
+                      "table:gptbridge_xingcheng_investment|capability_composition",
+                      "table:gptbridge_xingcheng_investment|web_search_log",
+                      "table:gptbridge_codex|implementation_maturity_test_evidence",
+                      "table:gptbridge_codex|tool_runtime_contract_binding",
+                      "table:gptbridge_collab|ai_nexus_collab_results",
+                      "table:gptbridge_xingcheng|rag_chunk",
+                      "table:gptbridge_codex|test_suite_architecture_directory",
+                      "table:gptbridge_repair|chain_repair_outcomes",
+                      "table:gptbridge_codex|sql_schema_object_registry",
+                      "table:gptbridge_codex|codex_search_fts",
+                      "table:gptbridge_codex|semantic_normalization_contract",
+                      "table:gptbridge_ai_nexus|proposals",
+                      "table:gptbridge_permission|identity_group",
+                      "table:gptbridge_codex|codex_version_epochs",
+                      "table:gptbridge_codex|backend_handoff_contract",
+                      "table:gptbridge_codex|sql_governance_closure_evidence",
+                      "table:gptbridge_xingcheng|cognition_knowledge",
+                      "table:gptbridge_permission|identity",
+                      "table:gptbridge_codex|special_law_directory",
+                      "table:gptbridge_codex|sql_authority_contract_registry",
+                      "table:gptbridge_codex|special_law_conflict_matrix",
+                      "table:gptbridge_xingcheng|transformer_training_dataset_example",
+                      "table:gptbridge_identity|identity_permission",
+                      "table:gptbridge_codex|test_trace_applicability",
+                      "table:im_test_a865a47da9a1|candle",
+                      "table:gptbridge_codex|access_actor_classes",
+                      "table:gptbridge_codex|directory_coverage_requirements",
+                      "table:module_data|locator_map",
+                      "table:gptbridge_xingcheng_investment|language_preference_pair",
+                      "table:gptbridge_codex|transport_contract_registry",
+                      "table:gptbridge_codex|closure_definition_registry",
+                      "table:gptbridge_ai_nexus|strategies",
+                      "table:gptbridge_codex|revision_history",
+                      "table:gptbridge_codex|provision_revisions",
+                      "table:im_test_b1b1bb70d82f|revision",
+                      "table:gptbridge_ai_nexus|backtest_results",
+                      "table:gptbridge_vaultly|vaultly_media_history",
+                      "table:gptbridge_audit|sqlite_migration_ledger",
+                      "table:gptbridge_codex|architecture_stale_reference_evidence",
+                      "table:gptbridge_codex|architecture_identity_group",
+                      "table:gptbridge_identity|identity_manifest_requirement",
+                      "table:gptbridge_investment_mobile|candle",
+                      "table:gptbridge_codex|postgresql_role_registry",
+                      "table:gptbridge_codex|metadata",
+                      "table:gptbridge_xingcheng_investment|mathematical_capability_definition",
+                      "table:gptbridge_codex|sql_connection_pool_contract",
+                      "table:gptbridge_xingcheng_coding|language_model_maintenance",
+                      "table:gptbridge_xingcheng_mathematical|mathematical_capability_definition",
+                      "table:gptbridge_rag|chunk",
+                      "table:gptbridge_xingcheng_investment|language_training_example",
+                      "table:gptbridge_codex|certification_evidence",
+                      "table:gptbridge_ai_nexus|analysis_runs",
+                      "table:gptbridge_collab|ai_nexus_agent_responses",
+                      "table:gptbridge_codex|sql_capability_degradation_matrix",
+                      "table:gptbridge_codex|codex_search_index_manifest",
+                      "table:gptbridge_xingcheng_main|language_training_example",
+                      "table:gptbridge_codex|mature_capability_registry",
+                      "table:gptbridge_vaultly|vaultly_entity_history",
+                      "table:gptbridge_codex|formal_rule_mapping",
+                      "table:gptbridge_codex|access_token_schema",
+                      "table:gptbridge_collab|ai_nexus_workspaces",
+                      "table:gptbridge_repair|repair_outcomes",
+                      "table:gptbridge_codex|identity_authentication_contract",
+                      "table:gptbridge_xingcheng_coding|command_tag",
+                      "table:gptbridge_codex|architecture_diagram_artifact_registry",
+                      "table:gptbridge_codex|sql_recovery_evidence",
+                      "table:gptbridge_codex|codex_semantic_duplication_scan",
+                      "table:gptbridge_ai_nexus|signals",
+                      "table:gptbridge_xingcheng_investment|inference_log",
+                      "table:gptbridge_codex|governance_closure_state",
+                      "table:gptbridge_codex|transport_ordering_policy_registry",
+                      "table:gptbridge_codex|a233_normalized_directory_entry",
+                      "table:gptbridge_xingcheng_main|common_command",
+                      "table:gptbridge_codex|maintenance_manual_directory",
+                      "table:gptbridge_codex|machine_schema_parity_evidence",
+                      "table:gptbridge_vaultly|vaultly_accounts",
+                      "table:im_test_2b2add747cb5|candle",
+                      "table:gptbridge_codex|sql_security_projection_registry",
+                      "table:gptbridge_xingcheng|role_history_personality_version",
+                      "table:module_data|resource",
+                      "table:gptbridge_codex|sealed_components",
+                      "table:gptbridge_vaultly|vaultly_post_media",
+                      "table:gptbridge_codex|codex_timestamps",
+                      "table:gptbridge_xingcheng|cognition_model_capability",
+                      "table:gptbridge_codex|transport_retry_idempotency_contract",
+                      "table:gptbridge_codex|git_worktree_registry",
+                      "table:gptbridge_xingcheng_investment|common_command_tag",
+                      "table:gptbridge_codex|sql_recovery_closure_evidence",
+                      "table:gptbridge_ai_nexus|shadow_signals",
+                      "table:gptbridge_codex|transport_authority_boundary_registry",
+                      "table:gptbridge_xingcheng_main|inference_log",
+                      "table:gptbridge_codex|codex_article_classification",
+                      "table:gptbridge_xingcheng_coding|inference_log",
+                      "table:gptbridge_codex|fault_code_directory",
+                      "table:gptbridge_codex|module_capability_registry",
+                      "table:gptbridge_legacy|entity_revisions",
+                      "table:gptbridge_codex|trust_anchor_requirements",
+                      "table:gptbridge_codex|supersession_registry",
+                      "table:gptbridge_xingcheng_main|instrument_identity",
+                      "table:gptbridge_codex|codex_internal_module_directory",
+                      "table:gptbridge_codex|sql_migration_registry",
+                      "table:gptbridge_codex|language_governance_freeze_acceptance",
+                      "table:gptbridge_codex|ordinance_registry",
+                      "table:gptbridge_codex|governance_contract_registry",
+                      "table:gptbridge_codex|sql_session_binding_contract",
+                      "table:gptbridge_vaultly|vaultly_post_scan_jobs",
+                      "table:gptbridge_codex|preamble",
+                      "table:gptbridge_codex|model_residency_registry",
+                      "table:gptbridge_xingcheng_investment|code_upgrade_proposal",
+                      "table:gptbridge_codex|information_sql_closure_evidence",
+                      "table:gptbridge_xingcheng|transformer_training_job",
+                      "table:gptbridge_codex|codex_authority_state",
+                      "table:gptbridge_codex|architecture_display_name_registry",
+                      "table:gptbridge_codex|provision_law_classification",
+                      "table:gptbridge_xingcheng_investment|model_memory",
+                      "table:gptbridge_codex|special_law_lifecycle_policy",
+                      "table:gptbridge_xingcheng|reconcile_state",
+                      "table:gptbridge_vaultly|vaultly_removed_accounts",
+                      "table:gptbridge_codex|data_schema_authority_directory_legacy_projection",
+                      "table:gptbridge_codex|provision_reference_resolution",
+                      "table:gptbridge_xingcheng_coding|distribution_event",
+                      "table:gptbridge_xingcheng|transformer_adapter_candidate",
+                      "table:gptbridge_xingcheng_mathematical|code_upgrade_proposal",
+                      "table:gptbridge_xingcheng_investment|common_command",
+                      "table:gptbridge_codex|sql_object_inventory_snapshot",
+                      "table:gptbridge_rag|tombstone",
+                      "table:identity|role_version",
+                      "table:gptbridge_codex|operating_mode_contract",
+                      "table:gptbridge_codex|sql_write_command_contract",
+                      "table:cognition|rag_reference",
+                      "table:gptbridge_codex|sql_transaction_policy_registry",
+                      "table:im_test_2b2add747cb5|sync_state",
+                      "table:im_test_a865a47da9a1|sync_state",
+                      "table:gptbridge_legacy|update_snapshot",
+                      "table:gptbridge_xingcheng_mathematical|common_command_tag",
+                      "table:gptbridge_ai_nexus|fund_distributions",
+                      "table:gptbridge_codex|architecture_permission_projection",
+                      "table:gptbridge_codex|data_governance_control_registry",
+                      "table:gptbridge_codex|machine_schema_registry",
+                      "table:gptbridge_ai_nexus|risk_decisions",
+                      "table:gptbridge_codex|configuration_registry",
+                      "table:gptbridge_codex|codex_external_closure_requirements",
+                      "table:gptbridge_codex|final_project_domain_closure",
+                      "table:gptbridge_codex|provision_reference_resolution_v2",
+                      "table:gptbridge_codex|sql_routine_classification_registry",
+                      "table:gptbridge_xingcheng_main|model_memory",
+                      "table:gptbridge_maintenance|reconcile_state",
+                      "table:gptbridge_codex|sql_object_transaction_policy_registry",
+                      "table:gptbridge_xingcheng|transformer_schema_metadata",
+                      "table:gptbridge_codex|project_architecture_directory",
+                      "table:identity|role_profile",
+                      "table:gptbridge_xingcheng_mathematical|inference_log",
+                      "table:gptbridge_codex|architecture_launch_policy",
+                      "table:gptbridge_codex|provision_lifecycle_status",
+                      "table:gptbridge_codex|architecture_capability_transfer",
+                      "table:gptbridge_codex|sql_transaction_concurrency_evidence",
+                      "table:gptbridge_collab|ai_nexus_group_messages",
+                      "table:gptbridge_xingcheng_main|mathematical_capability_definition",
+                      "table:gptbridge_codex|sovereign_prohibitions",
+                      "table:gptbridge_ai_nexus|audit_events",
+                      "table:gptbridge_xingcheng_investment|distribution_event",
+                      "table:gptbridge_transport|rag_chunk",
+                      "table:gptbridge_ai_nexus|market_source_status",
+                      "table:gptbridge_ai_nexus|fund_nav_mirror",
+                      "table:gptbridge_xingcheng|rag_document",
+                      "table:gptbridge_vaultly|vaultly_posts",
+                      "table:gptbridge_ai_nexus|market_candles",
+                      "table:gptbridge_codex|implementation_maturity_closure",
+                      "table:gptbridge_xingcheng|transformer_runtime_model_state",
+                      "table:gptbridge_xingcheng_investment|investment_model_definition",
+                      "table:gptbridge_xingcheng_coding|code_upgrade_proposal",
+                      "table:gptbridge_rag|outbox_step",
+                      "table:gptbridge_codex|version_evolution_rules",
+                      "table:gptbridge_codex|sovereign_powers",
+                      "table:gptbridge_identity|identity_group",
+                      "table:module_audit|event",
+                      "table:gptbridge_codex|codex_file_protection_registry",
+                      "table:gptbridge_xingcheng_coding|investment_model_definition",
+                      "table:gptbridge_codex|final_implementation_inventory",
+                      "table:gptbridge_xingcheng|cognition_rag_reference",
+                      "table:gptbridge_xingcheng_mathematical|investment_parameter_adjustment",
+                      "table:gptbridge_codex|governance_closure_plan",
+                      "table:gptbridge_codex|module_assignment_registry",
+                      "table:gptbridge_codex|runtime_rule_index_contract",
+                      "table:gptbridge_codex|provision_special_law_migration",
+                      "table:gptbridge_ai_nexus|fund_recommendations",
+                      "table:gptbridge_codex|transport_health_contract",
+                      "table:gptbridge_vaultly|vaultly_filter_terms",
+                      "table:gptbridge_codex|sql_migration_executor_contract",
+                      "table:gptbridge_permission|identity_manifest_requirement",
+                      "table:gptbridge_xingcheng_main|investment_parameter_adjustment",
+                      "table:gptbridge_codex|codex_search_fts_docsize",
+                      "function:public|vector_norm",
+                      "function:public|sparsevec_typmod_in",
+                      "function:public|hnsw_halfvec_support",
+                      "function:public|sparsevec_cmp",
+                      "function:gptbridge_xingcheng|transformer_audit_immutable",
+                      "function:public|halfvec_to_vector",
+                      "function:public|vector_eq",
+                      "function:public|l1_distance",
+                      "function:public|array_to_vector",
+                      "function:public|halfvec_typmod_in",
+                      "function:public|halfvec_in",
+                      "function:public|vector_recv",
+                      "function:public|sparsevec_recv",
+                      "function:public|halfvec_le",
+                      "function:public|vector_combine",
+                      "function:public|hamming_distance",
+                      "function:public|hnsw_bit_support",
+                      "function:public|hnsw_sparsevec_support",
+                      "function:public|vector_accum",
+                      "function:public|vector_l2_squared_distance",
+                      "function:public|halfvec_l2_squared_distance",
+                      "function:public|halfvec",
+                      "function:public|sum",
+                      "function:public|halfvec_ne",
+                      "function:public|array_to_sparsevec",
+                      "function:public|subvector",
+                      "function:public|ivfflathandler",
+                      "function:public|halfvec_spherical_distance",
+                      "function:public|sparsevec_out",
+                      "function:public|halfvec_add",
+                      "function:public|l2_distance",
+                      "function:public|vector_cmp",
+                      "function:public|avg",
+                      "function:public|vector_to_halfvec",
+                      "function:public|vector_gt",
+                      "function:public|vector_to_sparsevec",
+                      "function:public|sparsevec_lt",
+                      "function:public|sparsevec_negative_inner_product",
+                      "function:public|halfvec_negative_inner_product",
+                      "function:public|halfvec_recv",
+                      "function:public|halfvec_sub",
+                      "function:public|vector_lt",
+                      "function:gptbridge_security|can_write",
+                      "function:public|vector_send",
+                      "function:public|halfvec_avg",
+                      "function:public|sparsevec_to_vector",
+                      "function:public|vector_mul",
+                      "function:public|halfvec_lt",
+                      "function:public|halfvec_cmp",
+                      "function:public|sparsevec",
+                      "function:public|sparsevec_to_halfvec",
+                      "function:public|ivfflat_halfvec_support",
+                      "function:public|l2_normalize",
+                      "function:public|halfvec_to_float4",
+                      "function:public|halfvec_to_sparsevec",
+                      "function:public|vector_dims",
+                      "function:public|hnswhandler",
+                      "function:public|halfvec_combine",
+                      "function:public|vector_avg",
+                      "function:public|ivfflat_bit_support",
+                      "function:public|vector_le",
+                      "function:public|vector_spherical_distance",
+                      "function:public|vector_sub",
+                      "function:public|inner_product",
+                      "function:public|sparsevec_ge",
+                      "function:public|array_to_halfvec",
+                      "function:public|halfvec_send",
+                      "function:public|vector_negative_inner_product",
+                      "function:public|jaccard_distance",
+                      "function:gptbridge_security|can_read",
+                      "function:public|vector_concat",
+                      "function:public|halfvec_gt",
+                      "function:public|sparsevec_eq",
+                      "function:public|l2_norm",
+                      "function:public|halfvec_concat",
+                      "function:public|sparsevec_l2_squared_distance",
+                      "function:public|vector_ne",
+                      "function:public|sparsevec_in",
+                      "function:public|sparsevec_send",
+                      "function:public|vector_ge",
+                      "function:public|halfvec_eq",
+                      "function:public|cosine_distance",
+                      "function:public|vector_out",
+                      "function:public|sparsevec_le",
+                      "function:public|vector_in",
+                      "function:public|vector_add",
+                      "function:public|halfvec_mul",
+                      "function:gptbridge_xingcheng|transformer_dataset_snapshot_immutable",
+                      "function:public|halfvec_out",
+                      "function:public|vector_to_float4",
+                      "function:public|binary_quantize",
+                      "function:public|sparsevec_ne",
+                      "function:public|vector_typmod_in",
+                      "function:public|sparsevec_gt",
+                      "function:public|halfvec_ge",
+                      "function:public|halfvec_accum"
+                  ]
+}

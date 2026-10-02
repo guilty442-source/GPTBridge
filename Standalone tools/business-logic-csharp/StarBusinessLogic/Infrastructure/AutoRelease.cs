@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 
 namespace StarBusinessLogic.Infrastructure;
 
-// 對應原生 AutoRelease（閒置引擎/資源回收，見 LocalModelExecutor + native-engine 設定）：C# 業務層資源閒置自動釋放
+// 對應原生 AutoRelease（閒置引擎/資源回收，見 XingchengModelServiceExecutor + native-engine 設定）：C# 業務層資源閒置自動釋放
 // 速度：避免長期持有大陣列；正確性：釋放後可重建，不影響業務
 public sealed class AutoReleaseManager : IDisposable
 {

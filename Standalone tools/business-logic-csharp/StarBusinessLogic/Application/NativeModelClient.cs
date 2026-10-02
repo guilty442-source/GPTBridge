@@ -7,7 +7,7 @@ namespace StarBusinessLogic.Application;
 
 // P11/MS6：熱路徑去 Python 中介——直接在 C# 行程內載入原生推論引擎。
 // 引擎映像為 C++23 原生 DLL（匯出 xc_engine_* C ABI）；現行線上推論則走
-// LocalModelExecutor 擁有之 xc_modeltool serve 子行程（stdio/loopback），
+// XingchengModelServiceExecutor 擁有之 xc_modeltool serve 子行程（stdio/loopback），
 // 本 client 為同行程 ABI 傳輸選項（csharp_transport=native-abi 時）。
 //
 // 治理邊界不變：此 client 只是**傳輸替換**（HTTP loopback → 同行程 ABI），

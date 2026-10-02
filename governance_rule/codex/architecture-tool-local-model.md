@@ -1,15 +1,15 @@
 # Local Model／本地模型獨立工具完整架構圖
 
-## 現行治理邊界與實作差距
+## 現行治理邊界
 
-星澄的正式身分、程序、生命週期、owner root 與 PostgreSQL scope 均獨立於 `local-model`。下圖是尚未收斂的既有 hosting path，不是核准目標，也不是獨立程序已驗證的證據：`LocalModelExecutor` 仍經 ToolHost 啟動星澄 worker。此差距為 `PENDING`；不得將 local-model 宿主、停止或冷啟動權解讀為星澄控制權。獨立服務啟動、descriptor 發布與消費端切換須取得實際程序／生命週期驗證後才能關閉差距。本次不修改 runtime。
+星澄的正式身分、程序、生命週期、owner root 與 PostgreSQL scope 均獨立於 `local-model`，hosting path 已收斂到星澄自身：模型服務由星澄自己的受管 ToolHost 行程承載（`xingcheng/xingcheng/dist/GPTBridge.ToolHost.App.exe`，executor 為 `XingchengModelServiceExecutor`，descriptor `lifecycle_owner=xingcheng/toolhost-model-service`）。`local-model` 的 ToolHost 只剩 DeferredExecutor 宿主殼——不再啟動 `xc_modeltool`、不發布 `model-service.json`、不承載 `/v1/*`；model-dialogue 與 C# 編排層的冷啟動改走 `toolbox_start_tool(xingcheng)`。local-model 宿主、停止或冷啟動權與星澄控制權無關。
 
-## 既有 hosting path（未收斂實作鏡像）
+## 模型服務 hosting path（已收斂實作鏡像）
 
 ```mermaid
 flowchart TB
-  ENTRY[Governed Model Request] --> HOST["C# ToolHost.App<br/>(dist/GPTBridge.ToolHost.App.exe)"]
-  HOST --> EXEC["LocalModelExecutor<br/>authenticated loopback /v1"]
+  ENTRY[Governed Model Request] --> HOST["C# ToolHost.App (xingcheng)<br/>(xingcheng/xingcheng/dist/GPTBridge.ToolHost.App.exe)"]
+  HOST --> EXEC["XingchengModelServiceExecutor<br/>authenticated loopback /v1"]
   EXEC --> DESC["model-service.json<br/>star-model-service-descriptor/v1"]
   EXEC -->|first /v1/infer| SERVE["xc_modeltool.exe serve --bundle<br/>(pinned by native-engine.json)"]
   SERVE --> ENGINE["xingcheng_engine.dll<br/>xc_engine_* C ABI"]

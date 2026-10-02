@@ -21,6 +21,7 @@
 #include <sstream>
 #include <thread>
 
+#include "governor_grants.h"
 #include "governor_host.h"
 #include "governor_lock.h"
 #include "governor_state_io.h"
@@ -85,6 +86,10 @@ void watch_cycle(const governor::GovernorConfig& config,
         const fs::path state_dir = state_file.parent_path();
         write_advisor_state(state_dir / "resource-mode-advisor.json", snap);
         append_mode_audit(state_dir / "resource-mode-audit.jsonl", snap);
+        /* Grant 協議層（star-resource-request→grant；A610 唯一權威）。
+         * 失敗不影響主控制律。 */
+        governor::grants::run_grant_cycle(state_dir, snap, rules,
+                                          ctx.now_unix);
     } catch (const std::exception& error) {
         const std::vector<jsonlite::JsonValue> single = {
             jobj({{"action", jstr("cycle-error")},
@@ -246,6 +251,8 @@ int run_once(const governor::GovernorConfig& config,
     append_mode_audit(state_file.parent_path() /
                           "resource-mode-audit.jsonl",
                       snap);
+    governor::grants::run_grant_cycle(state_file.parent_path(), snap, rules,
+                                      ctx.now_unix);
     std::cout << jsonlite::json_serialize(governor::snapshot_to_json(snap))
               << "\n";
     return 0;

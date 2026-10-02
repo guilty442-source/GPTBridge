@@ -148,7 +148,7 @@ public class LifecycleOrchestratorTests
             port = 19999,
             pid = 4242,
             token_file = "model-service-session-token",
-            lifecycle_owner = "local-model/toolhost-model-service",
+            lifecycle_owner = "xingcheng/toolhost-model-service",
             consumer_policy = "csharp-orchestrator-client-only",
         }));
         return ipcDir;
@@ -187,7 +187,7 @@ public class LifecycleOrchestratorTests
         Assert.Contains("governed toolbox path", step.Detail);
         using var sent = JsonDocument.Parse(transport.Sent[0]);
         Assert.Equal("toolbox_start_tool", sent.RootElement.GetProperty("command").GetString());
-        Assert.Equal("local-model", sent.RootElement.GetProperty("payload").GetProperty("tool_id").GetString());
+        Assert.Equal("xingcheng", sent.RootElement.GetProperty("payload").GetProperty("tool_id").GetString());
         Assert.True(sent.RootElement.GetProperty("payload").GetProperty("background").GetBoolean());
     }
 

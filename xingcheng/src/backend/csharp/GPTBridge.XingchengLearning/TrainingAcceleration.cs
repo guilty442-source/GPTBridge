@@ -352,6 +352,53 @@ internal static class TrainingAcceleration
         return plan;
     }
 
+    /// <summary>§42–§43 Resource-Aware TrainingBatchPlanner: the plan's
+    /// envelope is the ResourceGrant, not the driver. effective VRAM =
+    /// min(driver_available, grant cap) (§41); CPU threads clamp to
+    /// cpu_threads_max; no legal plan → INSUFFICIENT_GRANTED_RESOURCES,
+    /// never quota breach (§43). A plan that still exceeds the grant
+    /// after sizing fails closed ACCELERATION_PLAN_OVER_GRANT (§103,
+    /// acceptance scenario H).</summary>
+    public static Dictionary<string, object?> GrantBoundBatchPlan(
+        JsonElement el, ResourceGrant grant)
+    {
+        long freeVram = Num(el, "free_vram_bytes", 0);
+        long driverTotal = Num(el, "vram_total_bytes", 0);
+        long effective = grant.EffectiveVramBytes(freeVram, driverTotal);
+        var merged = new Dictionary<string, object?>();
+        foreach (var p in el.EnumerateObject())
+            merged[p.Name] = p.Value;
+        merged["free_vram_bytes"] = effective;
+        merged["grant_id"] = grant.GrantId;
+        int threads = (int)Num(el, "cpu_threads", 0);
+        if (grant.CpuThreadsMax > 0 &&
+            (threads <= 0 || threads > grant.CpuThreadsMax))
+            merged["cpu_threads"] = threads = grant.CpuThreadsMax;
+        var plan = BatchPlan(JsonSerializer.SerializeToElement(merged));
+        var violations = grant.OverGrantViolations(
+            planCpuThreads: threads,
+            planVramBytes: Convert.ToInt64(
+                plan.GetValueOrDefault("workspace_bytes") ?? 0L),
+            planStreams: (int)Num(el, "stream_count", 0),
+            planBackgroundThreads: (int)Num(el, "background_threads", 0),
+            planIoRead: Num(el, "io_read_bytes", 0),
+            planIoWrite: Num(el, "io_write_bytes", 0),
+            planRamBytes: Num(el, "ram_bytes", 0));
+        if (violations.Count > 0)
+            throw new ExecutorError(ResourceErrors.PlanOverGrant,
+                "acceleration plan exceeds resource grant: " +
+                string.Join("; ", violations));
+        if (plan.TryGetValue("verdict", out var v) &&
+            v as string == "MEMORY_BOUND")
+            throw new ExecutorError(ResourceErrors.InsufficientGranted,
+                "no legal plan fits inside the granted VRAM envelope " +
+                "(§43 — shed scope, never exceed quota)");
+        plan["format"] = ResourceContracts.PlanFormat;
+        plan["grant_bound"] = true;
+        plan["effective_vram_bytes"] = effective;
+        return plan;
+    }
+
     // --------------------------------------------------- precision --
 
     /// <summary>§2-§3 training precision contract — emitted, never

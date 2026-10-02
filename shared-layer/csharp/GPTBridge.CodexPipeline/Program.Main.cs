@@ -41,6 +41,10 @@ internal static partial class Program
         var watch = false;
         var maintain = false;
         var pinSync = false;
+        var migrationStatus = false;
+        var migrationApply = false;
+        string? migrationSequence = null;
+        string? migrationDb = null;
         string? watchInterval = null;
         var codexRead = false;
         var mintDualKey = false;
@@ -84,6 +88,11 @@ internal static partial class Program
                 case "--watch": watch = true; break;
                 case "--maintain": maintain = true; break;
                 case "--pin-sync": pinSync = true; break;
+                case "--migration-status": migrationStatus = true;
+                    break;
+                case "--migration-apply": migrationApply = true; break;
+                case "--sequence": migrationSequence = Value(); break;
+                case "--migration-db": migrationDb = Value(); break;
                 case "--interval": watchInterval = Value(); break;
                 case "--codex-read": codexRead = true; break;
                 case "--mint-dual-key": mintDualKey = true; break;
@@ -215,6 +224,19 @@ internal static partial class Program
                     ["exported"] =
                         PgExport.ExportPostgresqlCodex(exportTarget),
                 });
+            if (migrationStatus)
+                return Emit(MigrationExecutor.Status(Repo.Root()));
+            if (migrationApply)
+            {
+                if (!long.TryParse(migrationSequence, out var seq))
+                    throw new ArgumentException(
+                        "--migration-apply requires --sequence <n>");
+                var outcome = MigrationExecutor.Apply(
+                    Repo.Root(), seq, migrationDb);
+                Emit(outcome);
+                return outcome.TryGetValue("applied", out var ap)
+                    && ap is true ? 0 : 1;
+            }
             if (pinSync)
                 return Emit(CodexAutomation.PinSync());
             if (maintain)

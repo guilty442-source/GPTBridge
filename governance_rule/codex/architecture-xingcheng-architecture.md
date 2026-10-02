@@ -12,8 +12,8 @@ flowchart TB
         CH["GPTBridge.ChannelHost (C#)<br/>authenticated WS + PG LISTEN/NOTIFY"]
     end
 
-    subgraph TOOL["local-model 工具行程 (GPTBridge.ToolHost.App.exe)"]
-        EXEC["LocalModelExecutor (C#)<br/>loopback HTTP /v1 + session token"]
+    subgraph TOOL["xingcheng 工具行程 (xingcheng/xingcheng/dist/GPTBridge.ToolHost.App.exe)"]
+        EXEC["XingchengModelServiceExecutor (C#)<br/>loopback HTTP /v1 + session token"]
         IPC["xingcheng/runtime/ipc/model-service.json<br/>star-model-service-descriptor/v1"]
     end
 
@@ -93,7 +93,7 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2358 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2376 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |

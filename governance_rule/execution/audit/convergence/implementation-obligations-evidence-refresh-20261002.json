@@ -1,0 +1,206 @@
+{
+  "artifact": "implementation-obligations-evidence-refresh/v1",
+  "id": "implementation-obligations-evidence-refresh-20261002",
+  "date": "2026-10-02",
+  "supersedes_verdicts_of": "implementation-obligations-evidence-triage-20260924.json",
+  "method": "live PostgreSQL catalog measurement (runtime DSN, read-only) against gptbridge_codex registries + information_schema/pg_catalog; migration registry live state via migration-live-catalog-probe-20261002.json; executor implementation via GPTBridge.CodexPipeline MigrationExecutor.cs",
+  "structural_findings": {
+    "migration_executor": "IMPLEMENTED 2026-10-02 in shared-layer/csharp/GPTBridge.CodexPipeline/MigrationExecutor.cs; contract order read-registry>verify-predecessor>verify-live-source-hash>acquire-global-lock>execute>verify-target-hash>write-receipt>release-lock; end-to-end verified on gptbridge_scratch (COMMITTED/PASS path, TARGET_HASH_MISMATCH rollback, EXECUTION_FAILED rollback, ALREADY_COMMITTED, REGISTRY_ROW_MISSING, LOCK_UNAVAILABLE denial); fail-closed on all contract gates",
+    "receipts_live": "sql_migration_receipt_registry = 0 rows; 2026-09-24 triage cited receipt mrcpt-1886799fa7f6 COMMITTED/PASS which is NOT present in the live registry -> prior verdict evidence is stale or was measured on a different database",
+    "migration_backlog": "110/148 on-disk migration files have no live objects; 0 receipts; registry 30 match / 15 source-hash mismatch / 4 missing source files / 89 unregistered files (migration-live-catalog-probe-20261002.json)",
+    "drift_measurement": "schema_hash.py retired; replacement = migration-live-catalog-probe-20261002.ps1 (object-level) + MigrationExecutor OBJECT_MANIFEST_V1 live fingerprint (3058225d0a2cf2fbe6f9b586fec5f2310ddaad2bd32a91f8446612917e65a349 at measurement time); sql_schema_drift_evidence still holds only the stale 2026-09-16 UNVERIFIED/FAIL_CLOSED row"
+  },
+  "obligations": {
+    "OBL_SQL_MIGRATION": {
+      "previous_verdict": "evidence-ready",
+      "current_verdict": "regressed->open",
+      "measured": "receipts_total=0 receipts_committed=0; cited receipt mrcpt-1886799fa7f6 absent from live registry",
+      "evidence": ["executor implementation now exists (MigrationExecutor.cs) with full contract gates", "registry ordered chain intact; next_applicable_sequence=1"],
+      "gap": "no receipt ever committed; 15 source-hash mismatches and 4 missing source files block chain execution; target_schema_hash recipe reconciliation is governor-side"
+    },
+    "OBL_DDL_AUDIT": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "gptbridge_audit.ddl_event ABSENT; pg_event_trigger count=0",
+      "evidence": ["shared-layer/migrations/023_ddl_audit.sql exists and is registered (MIG_PG_000023)"],
+      "gap": "migration never applied live; registered source hash mismatches current file (registry-source drift) so the chain cannot execute it without governed restamp"
+    },
+    "OBL_SCHEMA_DRIFT_GATE": {
+      "previous_verdict": "partial",
+      "current_verdict": "partial",
+      "measured": "sql_schema_drift_evidence=1 row (2026-09-16 UNVERIFIED/FAIL_CLOSED, stale)",
+      "evidence": ["live drift IS measurable: object-level probe (709 missing / 522 live-only) + OBJECT_MANIFEST_V1 fingerprint produced", "executor deny path SQL_SCHEMA_VERSION_MISMATCH is the registered mismatch action"],
+      "gap": "no recurring drift-evidence writer; fail-closed gate on writes/readiness not yet bound to runtime"
+    },
+    "OBL_AUTHORITY_MARKER": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "authority_class columns=9; total user tables=472",
+      "gap": "contract requires EVERY data record; ~98% of tables lack the column"
+    },
+    "OBL_WRITE_PROVENANCE": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "tables with actor_id=2, decision_id=3, correlation_id=10 of 472 user tables",
+      "gap": "universal INSERT/UPDATE provenance binding not implemented"
+    },
+    "OBL_CONNECTION_GENERATION_FENCE": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "connection_generation columns=0",
+      "gap": "no connection_generation column anywhere in gptbridge schemas"
+    },
+    "OBL_DATA_LINEAGE": {
+      "previous_verdict": "partial",
+      "current_verdict": "open",
+      "measured": "tables with source_module=1; generation_method columns=0; last_writer columns=0",
+      "gap": "migration 018 (data_lineage) registered but unapplied; lineage columns absent live"
+    },
+    "OBL_TWO_PHASE_DELETION": {
+      "previous_verdict": "partial",
+      "current_verdict": "open",
+      "measured": "tombstone/purge tables=1 (gptbridge_rag.tombstone only)",
+      "gap": "purge queue / retention window / PG-Qdrant sync migrations (055-063 family) unapplied"
+    },
+    "OBL_CENTRAL_AUDIT_SQL": {
+      "previous_verdict": "partial",
+      "current_verdict": "partial",
+      "measured": "gptbridge_audit.event EXISTS; DDL event trigger absent",
+      "gap": "append-only enforcement (no-update/no-delete triggers or revokes) not verified live; hash-chain continuity unproven"
+    },
+    "OBL_SQL_SECURITY_PROJECTION": {
+      "previous_verdict": "open",
+      "current_verdict": "partial",
+      "measured": "gptbridge_security.can_read=1, can_write=1 functions present",
+      "gap": "projection coverage of permission decisions and RLS policy binding unverified; dependent objects (principal tables) unmeasured"
+    },
+    "OBL_LONG_TRANSACTION_WATCHDOG": {
+      "previous_verdict": "partial",
+      "current_verdict": "partial",
+      "measured": "sql_transaction_policy_registry + sql_object_transaction_policy_registry exist; sql_transaction_concurrency_evidence ABSENT",
+      "gap": "no runtime watchdog enforcement loop; concurrency evidence table missing live"
+    },
+    "OBL_DATABASE_STARTUP_CERTIFICATION": {
+      "previous_verdict": "partial",
+      "current_verdict": "partial",
+      "measured": "certification_evidence + certification_policy tables exist in gptbridge_codex",
+      "gap": "READY gate binding schema-version/RLS/roles/migration-head/audit checks unverified; migration head undefined (0 receipts)"
+    },
+    "OBL_DATA_SLO": {
+      "previous_verdict": "open",
+      "current_verdict": "partial",
+      "measured": "2 slo/objective-named tables present",
+      "gap": "registered objectives for query p95/transport-claim/reconcile-backlog etc. unverified"
+    },
+    "OBL_RPO_RTO_CLASS": {
+      "previous_verdict": "open",
+      "current_verdict": "partial",
+      "measured": "sql_recovery_evidence + sql_recovery_closure_evidence (+1 related) exist in gptbridge_codex",
+      "gap": "distinct registered RPO/RTO classes per store not evidenced"
+    },
+    "OBL_BLOAT_VACUUM_CONTROL": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "bloat/vacuum policy tables=1 (pg_stat_progress_vacuum is a system view, not policy)",
+      "gap": "migration 029 (watchdog bloat rpo rto) unapplied; no bloat policy evidence"
+    },
+    "OBL_CAPACITY_WATERMARK": {
+      "previous_verdict": "open",
+      "current_verdict": "partial",
+      "measured": "gptbridge_maintenance.capacity_sample exists",
+      "gap": "warning/critical/fail-closed watermark bindings unverified; migration 062 (capacity_quota) unapplied"
+    },
+    "OBL_SQLITE_FALLBACK": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "fallback/sqlite-named tables=0",
+      "gap": "no fallback declaration registry (reconciliation target, generation, deadline) live"
+    },
+    "OBL_DOMAIN_READ_ONLY_EMERGENCY": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "read-only/isolation domain tables=0",
+      "gap": "migration 030 (readonly_domain_startup_cert) unapplied; no per-domain read-only isolation mechanism"
+    },
+    "OBL_ORPHAN_SCANNER": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "orphan/locator-named tables=0 (registry.locations from migration 001 unapplied)",
+      "gap": "no locator registry live; periodic orphan scan impossible"
+    },
+    "OBL_PERMISSION_PROOF_SNAPSHOT": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "permission-snapshot/decision-digest tables=0",
+      "gap": "migration 021 (permission_snapshot) unapplied; no contemporaneous decision digest persistence"
+    },
+    "OBL_WORKLOAD_CLASS": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "workload-named tables=0",
+      "gap": "no workload classification registry; timeout/pool/priority isolation unevidenced"
+    },
+    "OBL_SCHEMA_OWNERSHIP_LOCK": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "ownership-lock tables=0",
+      "gap": "migration 022 (schema_ownership_lock) unapplied; DDL exclusivity for migration executor not enforced"
+    },
+    "OBL_DATA_CONTRACT_HANDSHAKE": {
+      "previous_verdict": "open",
+      "current_verdict": "partial",
+      "measured": "contract_version columns=9",
+      "gap": "pre-use handshake denial path unverified; contract_version presence is column-level only"
+    },
+    "OBL_SHARED_TRANSPORT_SQL": {
+      "previous_verdict": "partial",
+      "current_verdict": "partial",
+      "measured": "sql_transport_persistence_contract exists in gptbridge_codex",
+      "gap": "row-level identity/correlation/causation/idempotency binding coverage unverified"
+    },
+    "OBL_MACHINE_SCHEMA_PARITY": {
+      "previous_verdict": "open",
+      "current_verdict": "open-governor-blocked",
+      "measured": "machine_schema_registry parity_status PENDING=77",
+      "gap": "canonical semantic-hash recipe is governor-side; producer/validator/persistence extraction can be built but hash binding cannot be self-authorized"
+    },
+    "OBL_SQL_GOVERNANCE_CLOSURE": {
+      "previous_verdict": "partial",
+      "current_verdict": "partial",
+      "measured": "object inventory diff quantified (709 missing / 522 live-only); executor exists; 0 receipts",
+      "gap": "89 unregistered files need governed reconciliation; 15 registry-hash mismatches need restamp decision; 4 missing source files need retirement or recovery"
+    },
+    "OBL_BACKUP_RESTORE_AUTHORITY": {
+      "previous_verdict": "open",
+      "current_verdict": "open",
+      "measured": "sql_recovery_evidence exists; no restore-certification gate evidence",
+      "gap": "restore-grants-no-authority certification chain unverified"
+    }
+  },
+  "not_remeasured": {
+    "note": "obligations whose evidence is non-catalog (architecture/process/runtime) were not re-measured this round; prior 2026-09-24 verdicts stand unless superseded above",
+    "codes": ["OBL_MODULE_RULE_INDEX_V1", "OBL_RUNTIME_RULE_INDEX_V2", "OBL_DAG_CAG_RAG_HYBRID", "FINAL_CONVERGENCE_IMPLEMENTATION_PLAN", "OBL_A334_RUNTIME_GATE_FULL_COVERAGE", "OBL_ANTI_JAILBREAK", "OBL_ARCHITECTURE_CATALOG", "OBL_BUSINESS_LOGIC_CSHARP_PARENT", "OBL_CHANNEL_ANOMALY_ISOLATION", "OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY", "OBL_DEV_RUNTIME_SEPARATION", "OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE", "OBL_FORMAL_EVALUATOR_V2_PARITY", "OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION", "OBL_IMPLEMENTATION_PRECEDENCE", "OBL_INTEGRATED_OBJECTIVES", "OBL_LANGUAGE_DEPENDENCY_DAG_GATE", "OBL_LAYERED_ARCHITECTURE", "OBL_MAINTENANCE_UPDATE_INTEGRATION", "OBL_MODEL_SCALING_STRATEGY", "OBL_MODEL_TRAINING_GOVERNANCE_PARENT", "OBL_NATIVE_COMPUTE_CORE_CLASS", "OBL_NATIVE_PROMOTION_RECORD_CHECKER", "OBL_NORMALIZED_TEST_FLOW_COVERAGE", "OBL_POSTGRESQL_AUTHORITY", "OBL_REBUILD_CERTIFICATION", "OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE", "OBL_SQL_HEALTH_READINESS", "OBL_SQL_TEST", "OBL_SYSTEM_RELIABILITY", "OBL_TEST_SUITE_DIRECTORY", "OBL_TOP_LEVEL_PATHS", "OBL_WEIGHT_EVOLUTION", "OBL_XINGCHENG_PRIMARY_GOAL", "OBL_SINGLE_BLUEPRINT_PLANNING"]
+  },
+  "governor_actions_required": {
+    "note": "implementation layer cannot self-close these; each requires a governed codex amendment decision",
+    "registry_hash_mismatch": "15 registered migration source hashes diverge from current files; ALL modified 2026-09-26 post-registration by commits e487bc473 (vectord renames / pg-sole-authority) and 99ba911f3 (retire residual Qdrant/SQLite semantics + migration defect repairs); current files are the corrected versions -> action = governed RESTAMP of migration_source_hash (not file revert)",
+    "missing_source_files": "registry sequences 25/37/45/46 point to files intentionally DELETED 2026-09-26 by commit 26c63f79e (retire sqlite/qdrant artifacts: 025_sqlite_generation_fence, 037_sqlite_classification, 045_sqlite_template_release, 046_qdrant_contract_version) -> action = governed RETIREMENT of registry rows; files must NOT be recreated (registry hash can never match new content)",
+    "unregistered_files": "89 on-disk migration files have no registry row -> action = governed registration decision per file (register, retire, or supersede)",
+    "target_hash_recipe": "executor measures live manifest via OBJECT_MANIFEST_V1; registered target_schema_hash values were stamped under a different (governor-side) recipe -> either governor publishes the canonical recipe or authorizes a restamp of the hash chain",
+    "machine_schema_parity": "77 PENDING rows; staged proposal codex-amendment-proposal-machine-schema-parity-restamp-20260924 documents option A (publish descriptor projection) vs option B (restamp); NOTE: the referenced producer toolchain governance_rule/execution/semantic_hash_toolchain.py is itself RETIRED with the Python lane -> extractor must be reimplemented in a governed lane once the governor selects the recipe"
+  },
+  "summary": {
+    "catalog_measured": 26,
+    "verdict_changes": {
+      "OBL_SQL_MIGRATION": "evidence-ready -> open (receipt claim not reproducible live)",
+      "OBL_DATA_LINEAGE": "partial -> open (lineage columns absent live)",
+      "OBL_TWO_PHASE_DELETION": "partial -> open (only bare tombstone table)",
+      "OBL_SQL_SECURITY_PROJECTION": "open -> partial (can_read/can_write present)",
+      "OBL_DATA_SLO": "open -> partial (2 objective tables)",
+      "OBL_RPO_RTO_CLASS": "open -> partial (recovery evidence tables)",
+      "OBL_CAPACITY_WATERMARK": "open -> partial (capacity_sample)",
+      "OBL_DATA_CONTRACT_HANDSHAKE": "open -> partial (contract_version columns)"
+    },
+    "dominant_blocker": "110/148 migration files never applied + 0 receipts; governed executor now exists so 'apply' is possible but remains gated on registry-hash mismatches (15), missing files (4), unregistered files (89) and governor reconciliation of target-hash recipe"
+  }
+}

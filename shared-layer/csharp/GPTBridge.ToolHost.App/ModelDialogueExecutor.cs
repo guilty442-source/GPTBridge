@@ -2,9 +2,9 @@
 // star_chat_* WS command surface behind the star-chat UI.
 //
 // Routing contract (XingCheng-first): dialogue never spawns a model
-// process itself. It discovers the local-model owned xc-model-service
+// process itself. It discovers the xingcheng-owned xc-model-service
 // through the shared descriptor, asks main-system's governed lifecycle
-// (toolbox_start_tool over the authenticated WS) to start local-model
+// (toolbox_start_tool over the authenticated WS) to start xingcheng
 // when the service is absent, then calls POST /v1/infer on the
 // authenticated loopback endpoint. Prompt rendering lives in the C++
 // serve worker — this executor only forwards the message list.
@@ -22,7 +22,7 @@ internal sealed class ModelDialogueExecutor
     : IGovernedCommandExecutor, IWsCommandSurface, IDisposable
 {
     private const string ModelName = "xingcheng-native-transformer";
-    private const string LocalModelToolId = "local-model";
+    private const string ModelServiceToolId = "xingcheng";
     private static readonly TimeSpan ActivationBudget = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan InferTimeout = TimeSpan.FromMinutes(8);
 
@@ -143,7 +143,7 @@ internal sealed class ModelDialogueExecutor
         try
         {
             var settings =
-                LocalModelExecutor.EngineSettingsPath(_xingchengRoot);
+                XingchengModelServiceExecutor.EngineSettingsPath(_xingchengRoot);
             using var doc = JsonDocument.Parse(File.ReadAllText(settings));
             var checkpoint = doc.RootElement
                 .TryGetProperty("checkpoint", out var c)
@@ -252,8 +252,8 @@ internal sealed class ModelDialogueExecutor
     {
         var endpoint = ModelServiceDescriptor.TryRead(
             _ipcDir,
-            LocalModelExecutor.LifecycleOwner,
-            LocalModelExecutor.ConsumerPolicy);
+            XingchengModelServiceExecutor.LifecycleOwner,
+            XingchengModelServiceExecutor.ConsumerPolicy);
         return endpoint is null
             ? null
             : new ServiceEndpoint(endpoint.Url, endpoint.SessionToken);
@@ -262,7 +262,7 @@ internal sealed class ModelDialogueExecutor
     // -------------------------------------------------------- activation --
 
     /// <summary>Governed activation: connect the main-system backend WS
-    /// and submit toolbox_start_tool for local-model; then poll the
+    /// and submit toolbox_start_tool for xingcheng; then poll the
     /// descriptor until the service answers /v1/status.</summary>
     private async Task<bool> EnsureModelService(
         Func<JsonObject, Task>? emitProgress, CancellationToken ct)
@@ -324,7 +324,7 @@ internal sealed class ModelDialogueExecutor
                 ["command"] = "toolbox_start_tool",
                 ["payload"] = new JsonObject
                 {
-                    ["tool_id"] = LocalModelToolId,
+                    ["tool_id"] = ModelServiceToolId,
                     ["request_id"] =
                         $"md-activate-{Environment.TickCount64}",
                 },
@@ -1183,7 +1183,7 @@ internal sealed class ModelDialogueExecutor
         var descriptor = Path.Combine(_ipcDir, "model-service.json");
         Check("模型服務描述元", File.Exists(descriptor), descriptor);
         var engineSettings =
-            LocalModelExecutor.EngineSettingsPath(_xingchengRoot);
+            XingchengModelServiceExecutor.EngineSettingsPath(_xingchengRoot);
         Check("原生引擎設定", File.Exists(engineSettings)
             && BundlePinned(), engineSettings);
 

@@ -28,6 +28,14 @@ using GPTBridge.CodexPipeline;
 ///   --authority-state          codex_authority_state row
 ///   --verify-parity &lt;sql&gt;      verify_sql_parity
 ///
+/// Governed migration executor (sql_migration_executor_contract):
+///   --migration-status         registry↔source↔receipt reconciliation
+///                              report (read-only, runtime DSN)
+///   --migration-apply          governed single-migration apply
+///       --sequence &lt;n&gt;         sequence to apply (fail-closed)
+///       [--migration-db &lt;db&gt;]    scratch-db test hook (never the
+///                              governed DB by accident)
+///
 /// Maintenance:
 ///   --repair-projections       rebuild live gptbridge_codex derived
 ///                              search/index/manifest projections

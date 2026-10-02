@@ -16,8 +16,10 @@ Retirement notes:
   (E14, 2026-09-22). Its identity, lineage and audit records remain
   registered as evidence; automatic cleanup is owned in-process by the
   main-system internal cleanup service.
-- `system-rescue` is a main-system internal service only, not an
-  independent tool.
+- `system-rescue` was retired (codex `retired`, 2026-09-27); its
+  `Standalone tools/system-rescue/` folder was removed and its records
+  remain as evidence under `main-system/data/retired-system-rescue-archive`
+  and `main-system/data/automatic-repair/system-rescue`.
 - `xingcheng` is an independent privileged institution, outside the
   independent-tool set.
 
@@ -36,12 +38,19 @@ lineage and audit records remain registered as evidence.
 | ai-collaboration | `Standalone tools/ai-collaboration/` | `manifest.json` | `on-demand` |
 | file-sorter | `Standalone tools/file-sorter/` | `manifest.json` | `on-demand` |
 | vaultly | `Standalone tools/vaultly/` | `manifest.json` | `on-demand` |
-| system-rescue (internal service) | `Standalone tools/system-rescue/` | `manifest.json` | `on-demand` |
+
+`Standalone tools/` also hosts internal-service implementation folders
+that are not independent tools and carry no `manifest.json`:
+`business-logic-csharp`, `business-logic-fsharp`, `process-metrics-csharp`
+(internal services), `searchd-go`, `vectord-rs`, `ragd-rs` (native
+search/vector/RAG services), and `julia-compute` (registered retired in
+the codex 2026-10-02; folder still present pending removal).
 
 ## model-dialogue Nested Relationship
 
-B123/B125 keep `model-dialogue` as one of the seven independent tools
-while its folder stays physically nested under
+B123/B125 keep `model-dialogue` as one of the seven independent tools.
+Its folder is a top-level directory under `Standalone tools/`; its
+companion surface `star-chat` stays physically nested under
 `model-dialogue/`. The manifests now declare the separated
 topology directly:
 
@@ -49,12 +58,12 @@ topology directly:
   - `id: "model-dialogue"`
   - `host_tool_id: "model-dialogue"` (self-hosted, B125)
   - `runtime_owner_tool_id: "model-dialogue"`
-  - `physical_owner_root: "local-model"` (physical containment only)
+  - `physical_owner_root: "model-dialogue"`
   - `main_system_independent_tool: true`
 
 - `model-dialogue/star-chat/manifest.json` declares
-  `host_tool_id: "model-dialogue"` — it is model-dialogue's companion
-  surface, not a member of the tool roster.
+  `host_tool_id: "model-dialogue"` and `companion_tool: true` — it is
+  model-dialogue's companion surface, not a member of the tool roster.
 
 `physical_owner_root` expresses directory containment only; governance
 parentage and service identity come from the manifest identity fields
@@ -75,11 +84,13 @@ local native-model service, not a tool, not a companion of any tool:
 - `local-model/manifest.json` no longer declares a `companion_tools`
   entry for xingcheng; local-model neither owns, hosts, nor controls
   the xingcheng service.
-- All xingcheng-owned data (identity, memory, weights, corpus,
-  checkpoints, repair knowledge, runtime records) stays inside the
-  registered domain roots `xingcheng/xingcheng/` (institution root)
-  and `model-dialogue/xingcheng/` (star directory);
-  backups resolve in-domain (`xingcheng/runtime/backups`) per the
+- The institution lives at the repository-root enclave `xingcheng/`
+  (moved out of `local-model`, 2026-10-02). All xingcheng-owned data
+  (identity, memory, weights, corpus, checkpoints, repair knowledge,
+  runtime records) stays inside the registered domain root
+  `xingcheng/xingcheng/` (institution root); the former
+  `model-dialogue/xingcheng/` star directory is retired (2026-10-01).
+  Backups resolve in-domain (`xingcheng/runtime/backups`) per the
   `backup-outside-owner-boundary` prohibition.
 
 ## Infrastructure (Non-Module) Folders
@@ -89,21 +100,27 @@ local native-model service, not a tool, not a companion of any tool:
 | `governance_rule/` | Codex governance (PostgreSQL authority) | A76/E56 |
 | `shared-layer/` | Information layer (channel owner) | A153/E50 |
 | `main-system/` | Platform orchestrator | A59/A151 |
-| `launcher/` | Startup state storage | A129 |
+| `launcher/` | Startup state stamp (launcher lives under `main-system/launcher/`) | A129 |
+| `native/` | Native compute core & resource governor implementation | native-compute-core / resource-governor |
 
 ### launcher/ Detail
 
 `launcher/` is **not an execution-layer module** — it has no `manifest.json`
 and no runtime entry. It is a **startup state storage location**.
 
-Per A129 (startup-sub-sovereign), the launcher (start.ps1) performs:
+Per A129 (startup-sub-sovereign), the launcher (`main-system/launcher/`,
+`GPTBridge.Bootstrap.exe` / `GPTBridgeLauncher`) performs:
 1. Environment loading
 2. Runtime checks (PostgreSQL/Qdrant/Ollama probing)
 3. Governance audit
 4. Startup gate decision
 
-The launcher writes its state to `launcher/state/`:
+The launcher writes its state to `main-system/launcher/state/`:
 - `startup-journal.jsonl` — append-only event log of startup orchestration
+
+(The repository-root `launcher/` folder only retains
+`state/requirements.stamp`; the launcher implementation and runtime
+state live under `main-system/launcher/`.)
 
 The validated state is then handed to the backend through:
 - `GPTBRIDGE_STARTUP_STATE` — the READY/DEGRADED/RECOVERY string
@@ -123,43 +140,14 @@ the physical state artefact location, not a sovereign or module.
 | `docs/` | Documentation |
 | `scripts/` | Utility scripts |
 
-## Core System Governance Modules (A181–A202)
+## Core System Governance Modules — retired (B166)
 
-The `main-system/src-core/core_system/` directory contains governance
-implementation modules registered in the codex `module_registry` table
-(v1.02000).  Each module group is split into submodules to comply with
-A430/E160 source-size limits (≤3 public entrypoints, ≤12 authored
-callables, ≤500 effective lines per module).
-
-| Module Group | Codex Basis | Submodules | Roles |
-|---|---|---|---|
-| `active_release` | A181/E156, A182/E157 | 7 | facade, types, persistence, ledger, verify, status, mismatch |
-| `tool_separation` | A184/E159 | 5 | facade, types, verify, signal, aggregate |
-| `source_size` | A430/E160 | 6 | facade, types, report, measure, verify, signal |
-| `view_access` | A186/E161 | 4 | facade, types, verify, signal |
-| `validation_chain` | A187/E162 | 4 | facade, types, verify, signal |
-| `sovereign_collaboration` | A188/E163 | 4 | facade, types, verify, signal |
-| `xingcheng_channel` | A189/E164 | 4 | facade, types, verify, signal |
-| `governed_startup` | A191/E166, A192/E167 | 4 | facade, types, verify, signal |
-| `startup_lifecycle` | A193–A196/E168–E171 | 5 | facade, types, verify, signal, sync |
-| `third_party_governance` | A197–A199/E171–E173 | 4 | facade, types, verify, signal |
-| `root_containment` | A201–A202/E175–E176 | 4 | facade, types, verify, signal |
-| `toolbox_process` | A184/E159 | 2 | facade, persistence |
-
-**Total**: 53 registered modules across 12 groups.
-
-Each facade module re-exports all public names from its submodules,
-preserving backward-compatible `__all__` exports.  Submodule roles:
-
-- **facade** — re-export shim, no logic
-- **types** — constants and dataclasses
-- **verify** — verification functions
-- **signal** — information-layer signal production
-- **persistence** — durable transactional operations
-- **ledger** — append-only history
-- **status** — observability and UI status
-- **mismatch** — version mismatch classification
-- **measure** — source size measurement
-- **report** — size violation report dataclasses
-- **aggregate** — composite verification
-- **sync** — projection and window host checks
+The former Python `main-system/src-core/core_system/` module groups
+(previously 53 modules across 12 groups registered under codex module
+registry v1.02000) were retired together with the Python lane
+(B166, 2026-09-29). The directory no longer exists;
+`main-system/src-core/` now carries only `ipc/`, `main.json` and
+`utils/`, and the codex no longer registers a `core_system` module set.
+The A181–A202 governance responsibilities continue under the
+owner-language toolchain (C# / F# / native) and the audit pipeline;
+the retired groups remain in Git history and audit artifacts.

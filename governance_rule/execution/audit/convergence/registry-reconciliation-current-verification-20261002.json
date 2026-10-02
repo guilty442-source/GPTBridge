@@ -1,0 +1,56 @@
+{
+  "artifact": "formal-state-convergence-verification",
+  "authority": "non-authoritative-audit-evidence",
+  "generation": "2026-10-02T11:01:26Z",
+  "revision": 228,
+  "result": "PASS",
+  "checks": [
+    "single-active-current-epoch",
+    "governance-seal-dimension-parity",
+    "external-certification-not-fabricated",
+    "external-threshold-gate-retained",
+    "all-convergence-closure-rows-current",
+    "formal-findings-recomputed-not-status-only-pass",
+    "schema-dependent-closure-fail-closed",
+    "single-current-metrics-dynamic-schema-denominator",
+    "current-metrics-match-all-surface-measurements",
+    "obligation-lifecycle-count:complete",
+    "obligation-lifecycle-count:evidence-submitted",
+    "obligation-lifecycle-count:mandated",
+    "obligation-lifecycle-count:pending",
+    "obligation-lifecycle-count:superseded",
+    "current-verified-release-denied",
+    "all-open-obligations-in-release-union",
+    "global-principles-only-content-boundary",
+    "external-implementation-projection-not-law"
+  ],
+  "formal_registry": 89,
+  "formal_participating": 80,
+  "formal_open": 80,
+  "schema_open": 77,
+  "obligations": {
+    "complete": 2,
+    "evidence-submitted": 1,
+    "mandated": 58,
+    "pending": 1,
+    "superseded": 1
+  },
+  "release": "VERIFIED_RELEASE_DENIED",
+  "convergence": "INCOMPLETE_EVIDENCE",
+  "registry_checks": {
+    "system_rescue": "retired-no-current-dispatch",
+    "suite_retired": 3,
+    "suite_mandated_missing_roots": 14,
+    "suite_projection_mismatches": 0,
+    "corrected_suite_roots": [
+      "TS_SHARED_LAYER",
+      "TS_INVESTMENT_MOBILE",
+      "TS_MODEL_DIALOGUE"
+    ],
+    "worktree_snapshot_refreshed": 6,
+    "model_inventory_observed": 24,
+    "residents_observed": 0,
+    "model_evidence": "INCOMPLETE_EVIDENCE"
+  },
+  "diagnostic_side_effect": "Ollama CLI launched application/server during inventory inspection; both exact newly-started processes were stopped after observations; no model was loaded."
+}

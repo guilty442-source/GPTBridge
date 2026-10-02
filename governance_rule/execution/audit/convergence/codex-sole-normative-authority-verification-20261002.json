@@ -1,0 +1,42 @@
+{
+  "artifact": "formal-state-convergence-verification",
+  "authority": "non-authoritative-audit-evidence",
+  "generation": "2026-10-02T11:04:35Z",
+  "revision": 229,
+  "result": "PASS",
+  "checks": [
+    "single-active-current-epoch",
+    "governance-seal-dimension-parity",
+    "external-certification-not-fabricated",
+    "external-threshold-gate-retained",
+    "all-convergence-closure-rows-current",
+    "formal-findings-recomputed-not-status-only-pass",
+    "schema-dependent-closure-fail-closed",
+    "single-current-metrics-dynamic-schema-denominator",
+    "current-metrics-match-all-surface-measurements",
+    "obligation-lifecycle-count:complete",
+    "obligation-lifecycle-count:evidence-submitted",
+    "obligation-lifecycle-count:mandated",
+    "obligation-lifecycle-count:pending",
+    "obligation-lifecycle-count:superseded",
+    "current-verified-release-denied",
+    "all-open-obligations-in-release-union",
+    "global-principles-only-content-boundary",
+    "external-implementation-projection-not-law",
+    "single-codex-normative-authority",
+    "owner-local-rules-subordinate-not-law-sources"
+  ],
+  "formal_registry": 89,
+  "formal_participating": 80,
+  "formal_open": 80,
+  "schema_open": 77,
+  "obligations": {
+    "complete": 2,
+    "evidence-submitted": 1,
+    "mandated": 58,
+    "pending": 1,
+    "superseded": 1
+  },
+  "release": "VERIFIED_RELEASE_DENIED",
+  "convergence": "INCOMPLETE_EVIDENCE"
+}

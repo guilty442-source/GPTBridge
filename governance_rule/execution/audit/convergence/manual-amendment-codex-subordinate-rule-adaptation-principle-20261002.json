@@ -1,0 +1,281 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "codex-subordinate-rule-adaptation-principle-20261002-current",
+  "title": "Allow subordinate implementation and business rule adaptation within Codex principles",
+  "summary": "Principle-only: owners may adapt external implementation/business rules without conflicting with the sole Codex authority; preserve authorization,verification,isolation and rollback; no adaptive runtime implementation",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: 實作規則與業務規則自適化，以不牴觸法典為原則;law only",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T11:11:04Z",
+    "version_identity": "E2:2026-10-02T11:11:04Z",
+    "version_epoch": 2,
+    "history_head": "8df53be35fffdc3f900dcf748cf60d0ec83c4a5a39bf5e98fb072ca37850ebc5",
+    "revision_sequence": 231
+  },
+  "changes": [
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;registry=89;participating=80;open=80;input-sha256=3cf8e513a49a460988e1fd581d43e0d506bdd5b7103cbd65322fcebdde8a71bd;NO_RUNTIME_PARITY_INFERRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;registered=77;open=77;input-sha256=68065715783ac1bfa87b6bcbc615919fee4ce8bfa790e374c0f1fbc1ec935a59;activation-and-verified-release=DENIED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;active=990;unknown=185;input-sha256=7daea7b83dc719eba27a92aefff08b1deeef3621dbfe36e720be0101bde70c1d"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;project=54/54;semantic-mismatches=0;catalog=81;catalog-open=40;input-sha256=a73636308291e1fe14b771242818820a5f9bf8fcc4106ecf441bbabf3476ae6b;suite-projection=17/17;suite-retired=3;suite-mandated-roots-missing=14;model-evidence=INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;exact-duplicate-groups=0;semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;checked=906;source-stale=0;input-sha256=fab76448891d38be92c82bb3fb85fa9fe3654727b4a68c1f5bbf61663252ef33;candidate-publication-requires-search-rebuild"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;diagram-required=13;diagram-match=13;source-result=PASS;independent-mirror-and-SQL-publication-gate=REQUIRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;candidate-generation=bound-by-version_identity-field;formal=80;schema=77;surface=185;directory=40;semantic-review=1;open-obligations=60;obligation-counts={\"complete\":2,\"evidence-submitted\":1,\"mandated\":58,\"pending\":1,\"superseded\":1};obligation-input-sha256=12e924fe8d50aa23ed6d92745c8310825a6edac1a31f0d2af34a03e55d25387f;external-signature=1;counts=gate-instances-not-unique-incidents;additional-suite-root-gap=14;additional-model-evidence-gap=24"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_metrics",
+      "key": {
+        "report_id": "CONVERGENCE_CURRENT"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "source=2026-10-02T11:11:04Z;registry=89;participating=80;open=80;no-execution-parity-inferred"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B5"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:the Codex records principles only,including legitimate authority,ownership boundaries,separation of duties,permission,data custody,isolation,safety,accountability,evidence,independent verification,interpretation and governed change. EXCLUSION:implementation rules and business rules do not enter the Codex;algorithms,programming languages,software stacks,files,paths,APIs,schemas,protocol layouts,technical versions,model topology,parameters,thresholds,test-suite composition,scheduling procedures and business decision procedures belong to their governed owners outside the Codex. APPLICABILITY:this boundary controls every general provision,special law,ordinance and purported normative registry payload;registration,format or writing style cannot turn an excluded detail into a legal principle. EXTERNAL-OWNERSHIP:owner-local contracts,policies,configuration and business specifications are subordinate operational artifacts,not independent normative authorities;their validity and permitted effects derive exclusively from applicable current Codex principles and granted ownership.They cannot create legal duties,enlarge permissions,override a principle or establish another law source. REFERENCES:the Codex may identify the responsible owner and controlling principle without importing the external rule payload or making an implementation choice a legal mandate. LEGACY:excluded details remaining in existing records are non-operative legacy material for lawful owner-local migration,not current Codex authority;principles contained in a mixed record remain binding. MIGRATION:migration requires attributable ownership,evidence and independent validation;unresolved custody or equivalence remains incomplete and cannot be declared complete by relabeling. SAFETY:separating principles from implementation does not waive current permissions,approved safety controls,independent verification or release gates;uncertain authority fails closed. AUTHORITY:A1 establishes the current authoritative Codex as the sole normative authority;only its governed current principles have legal effect.General law,special law and express exceptions remain within the one Codex;translations,mirrors,registries,external rules,implementation projections and audit measurements create no additional law. ADAPTATION:implementation rules and business rules maintained outside the Codex may adapt to observed conditions,requirements and verified outcomes within the assigned owner's existing authority,applicable permissions and current Codex principles;every adaptation remains subordinate and must not conflict with the Codex.Non-conflict is a necessary boundary,not a substitute for required authorization,confirmation,independent verification or release acceptance.GOVERNED-ADAPTATION:changes remain attributable,purpose-bound,scope-bounded,auditable and reversible where applicable;verification must be proportionate to affected risk and preserve accountability,separation of duties,custody,isolation and applicable safety controls.NO-SELF-EXPANSION:adaptation cannot create new authority or permissions,change a governing principle,weaken prohibitions,waive evidence gates or bypass an unresolved obligation.CHANGE-BOUNDARY:an owner-local adaptation that remains wholly within current principles and granted powers is not a Codex amendment and does not import its rule payload into law;any proposed change to those principles or granted powers requires a prior governed Codex amendment and any consequential action still requires its applicable authorization.UNCERTAINTY:unresolved conflict,scope or conformance fails closed for the affected change;retain the last verified lawful state only while it remains safe and authorized,otherwise stop the affected action."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B5"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:implementation-rule-in-Codex+business-rule-in-Codex+algorithm-or-parameter-codified-as-law+technical-registry-payload-as-law+special-law-content-exemption+format-based-authority+owner-local-rule-expanding-authority+legacy-detail-authorizing-action+migration-by-label-only+safety-gate-bypass+translation-or-mirror-as-adjudication-authority+parallel-law-source+owner-local-independent-normative-authority+adaptation-conflicting-with-Codex+self-adaptation-expanding-authority+nonconflict-as-permission+adaptive-safety-or-evidence-gate-waiver+unverified-adaptation-activation+implicit-law-amendment-through-adaptation"
+    }
+  ],
+  "proposed_successors": []
+}

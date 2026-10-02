@@ -79,7 +79,7 @@ public sealed class LifecycleOrchestrator
                 "toolbox_start_tool",
                 new Dictionary<string, object?>
                 {
-                    ["tool_id"] = "local-model",
+                    ["tool_id"] = "xingcheng",
                     ["background"] = true,
                     ["request_id"] = requestId,
                 },
@@ -131,7 +131,7 @@ public sealed class LifecycleOrchestrator
                 "toolbox_stop_tool",
                 new Dictionary<string, object?>
                 {
-                    ["tool_id"] = "local-model",
+                    ["tool_id"] = "xingcheng",
                     ["request_id"] = $"csharp-lifecycle-{Guid.NewGuid():N}",
                 },
                 cancellationToken).ConfigureAwait(false);
@@ -189,7 +189,7 @@ public sealed class LifecycleOrchestrator
                    : $"stale descriptor pid={discovered.Pid} (process dead, port refused)"));
         }
 
-        // 3. Activation leg (opt-in — real governed start of local-model).
+        // 3. Activation leg (opt-in — real governed start of xingcheng).
         var rehearsalStartedService = false;
         if (!up)
         {
