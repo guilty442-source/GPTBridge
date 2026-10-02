@@ -1770,13 +1770,18 @@ Worker rules for codex work:
     GPTBridge.SemanticHash.Tests -c Release` (19 assertions passed).
     The fresh build's live probe covers 77/77 rows, producer=validator
     77/77, canonical match 77/77 after the parallel governed restamp.
-    The canonical publish DLL remains
-    locked by the active CodexPipeline watcher; the new build is tested
-    from `bin/Release/net10.0`, not yet loaded by that resident process.
+    Publish unblocked (2026-10-02, worker:devin-desktop): the locking
+    watcher exited with the orphaned host; the 20:30 Release build was
+    deployed to `publish/` and verified live — `--authority-state`
+    reports rev 238 (12:40:26Z), `--schema-parity` 77/77
+    producer=validator / 77/77 canonical match, and
+    `--repair-projections` rebuilt derived projections onto the
+    current head (236 authority rows, 906 documents, 742 fts).
     The live registry now reports 77 VERIFIED rows and hash matches,
     but persisted validation evidence still anchors the predecessor
     2026-10-02T11:49:37Z. Current-generation evidence closure remains
-    pending; neither hash parity nor registry labels certify release.
+    pending (claimed: codex/schema-evidence-generation); neither hash
+    parity nor registry labels certify release.
 
 13. **Production Closure directive ��0�V��148 in force; phase-1
     foundations landed (2026-10-02, worker:devin-cli).** New phase:
