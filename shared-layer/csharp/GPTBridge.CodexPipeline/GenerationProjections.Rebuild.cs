@@ -507,7 +507,7 @@ internal static partial class GenerationProjections
             var count = connection.Execute(
                 "SELECT COUNT(*) FROM a233_normalized_directory_entry "
                 + "WHERE source_table='project_architecture_directory' AND source_key=?",
-                new object?[] { code }).Rows[0][0];
+                new object?[] { code }).Rows.First()[0];
             if (Convert.ToInt64(count) != 1)
                 throw new InvalidOperationException($"A233_PROJECT_PROJECTION_COVERAGE:{code}");
             connection.Execute(
@@ -519,7 +519,7 @@ internal static partial class GenerationProjections
         var extra = connection.Execute(
             "SELECT COUNT(*) FROM a233_normalized_directory_entry n "
             + "WHERE n.source_table='project_architecture_directory' AND NOT EXISTS "
-            + "(SELECT 1 FROM project_architecture_directory d WHERE d.architecture_code=n.source_key)").Rows[0][0];
+            + "(SELECT 1 FROM project_architecture_directory d WHERE d.architecture_code=n.source_key)").Rows.First()[0];
         if (Convert.ToInt64(extra) != 0)
             throw new InvalidOperationException("A233_PROJECT_PROJECTION_EXTRA_ROWS");
     }

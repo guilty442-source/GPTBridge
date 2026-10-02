@@ -1,0 +1,1430 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "current-law-projection-evidence-convergence-20261002",
+  "title": "Converge current law, deterministic projections and honest parity evidence",
+  "summary": "Remove active abolished-role delegation;rebuild diagram post-state evidence and A233 canonical payloads;reopen unproven schema parity;retain implementation gaps.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor audit and instruction:Codex/projection corrections only;no application runtime implementation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T07:55:47Z",
+    "version_identity": "E2:2026-10-02T07:55:47Z",
+    "version_epoch": 2,
+    "history_head": "e8603399bed4e5c858062cb9b5ec4cd6f6665d7bd3cdaa748575708a00fc02bf",
+    "revision_sequence": 221
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A24"
+      },
+      "field": "rule",
+      "proposed": "EVERY-ACTIVE-LEGACY-PHRASE:basis-codex/reference-codex/enforce-codex means only eligible-sovereign-adjudication-basis+opaque-result-downstream; NO-DIRECT-CODEX-CONSUMER:codex/executor/module/service"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A34"
+      },
+      "field": "rule",
+      "proposed": "CODEX:highest rule declaration; TOP-DECISION:decision-sovereign+runtime-sovereign+automation-sovereign within separated domains; PRIVILEGED:permission-sovereign+星澄 remain independent; 星澄:NATIVE-PROGRAMMING+LANGUAGE-REVIEW+AUTOMATION-COORDINATION-EXECUTOR; SUB-SOVEREIGNS:abolished and historical only; CURRENT-OWNERS:B162 five-core responsibility boundaries govern decisions,runtime execution,automation orchestration,permission enforcement and independent audit; MODULES:actual domain execution; CODEX-VIEW:registered identities read only subject to confidentiality and 星澄 exception"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A51"
+      },
+      "field": "rule",
+      "proposed": "INFORMATION-LAYER-PHYSICAL-SUBLAYERS:L1-entry-and-session+L2-identity-and-attestation+L3-permission-proof-enforcement+L4-contract-type-schema-validation+L5-scope-field-policy-and-redaction+L6-routing-and-mediation+L7-transport-adapter-and-connection-lifecycle+L8-state-snapshot-event-sequence-and-reconciliation+L9-observability-audit-and-health-publication; FLOW:request>L1>L2>L3>L4>L5>L6>L7>destination>L7>L6>L5>L8>L9>authorized-response; EACH-SUBLAYER:one-primary-duty+max-3-capabilities+own-interface+no-skip+no-upstream-trust-by-default; AUTHORITY:permission-sovereign decides-and-issues-view-grant; INFORMATION-LAYER validates-and-enforces-proof but-does-not-grant/expand/interpret-permission; CONTENT-OWNER classifies-fields+declares-minimum-view-level; VIEW-LEVELS:V0-denied|V1-own-identity-and-liveness|V2-own-operational-summary|V3-owner-scoped-detail-and-nonsecret-diagnostics|V4-authorized-cross-domain-diagnostic-and-redacted-audit-evidence|V5-restricted-security/integrity/incident-evidence|VC-authoritative-codex-view-governed-exclusively-by-B100; GRANT:subject-identity+actor-class+level+owner-scope+resource-scope+field-allowlist+purpose+legal-basis+issued-at+expiry+session-generation+single-or-bounded-use+decision-proof; EFFECTIVE-LEVEL:min(requested-level,grant-level,resource-minimum/maximum-policy,actor-ceiling); FIELD-POLICY:allowlist-only+redact-denied-fields+omit-secret-material+typed-redaction-marker+no-inference-through-count/error/timing; ACTOR-CEILINGS:UI-default-V2+explicit-V3-for-user-requested-own-detail; MODULE/TOOL-V3-own-scope-only; REGISTERED-MODULE-V3-explicit-owner-scoped-grant-only; SOVEREIGN-V4-duty-scope-with-permission-review; MAINTENANCE-V4-health-diagnostic-scope; PERMISSION-SOVEREIGN-V5-only-for-permission/integrity-investigation+no-content-ownership; 星澄-V4-global-read-only-review-exception+permission-review-exempt+official-information-entry+identity+purpose+scope+redaction+session+audit mandatory; 星澄-VC follows-B100-authoritative-and-Chinese-rules; V5-SECRETS:private-keys+raw-credentials+tokens+passwords+unencrypted-personal-secret-content remain-non-viewable+usable-only-by-dedicated-owner-operation-through-opaque-handle; CROSS-OWNER:requires-explicit-grant+purpose+expiry+owner-scope; DOWNGRADE:automatic-on-expiry+session-change+role-change+incident+connection-generation-change; REVOKE:permission-sovereign immediate+information-layer invalidates-session/cache/subscription; SUBSCRIPTION:each-event revalidated-against-current-grant+field-policy; CACHE:keyed-by-grant-id+scope+field-policy+generation+expiry+invalidated-on-revoke/classification-change; DENIAL:typed-generic-response+redacted-server-diagnostic+audit; AUDIT:requester+actor+level+scope+purpose+fields-category+decision+grant-id+time+correlation-id without-protected-content; REVIEW:periodic+on-role/scope/classification-change; DEFAULT:no-grant=>V0"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A54"
+      },
+      "field": "rule",
+      "proposed": "CHANNEL-ID:information-layer://星澄/auxiliary-private; OWNER:information-layer; ENDPOINT-PRINCIPAL:星澄-only; PURPOSE:星澄-autonomous-reasoning/context/learning/review-working-information within-declared-auxiliary-system-domain; ENTRY:official-information-layer-entry-only+mutual-endpoint-attestation+session-bound-identity+per-message-authenticity+confidentiality+sequence+expiry; PAYLOAD-ACCESS:星澄-exclusive; OTHER-SOVEREIGNS/MODULES/TOOLS/UI/OPERATORS/ADMINISTRATORS/MAINTAINERS/DEVELOPERS/LOGGERS/AUDITORS/BROKERS/POSTGRESQL/RUST-VECTOR-ENGINE:content-access-none; PERMISSION-SOVEREIGN:may-validate-fixed-channel-identity/status/revocation-proof but-cannot-view/decrypt/search/export/replay-or-expand-payload-access; INFORMATION-LAYER:route/store-forward/deduplicate/order/expire/deliver opaque-ciphertext only+observe-minimum-metadata{channel-id,message-id,session-generation,size-class,time,state,error-code}+no-content-derived-metadata; KEYS:星澄-endpoint-held+channel-specific+non-exportable+rotating+revocable+not-held-by-router/store/audit/system-sovereign; STORAGE:encrypted+owner-isolated+bounded-retention+no-general-index/RAG/telemetry/log/backup/analytics/training; OUTPUT-SEPARATION:any-user-or-system-anomaly-notification is-new-redacted-purpose-bound-message over-separate-authorized-information-route+never-forward/reveal/private-channel-payload; FAILURE:identity/key/session/integrity/sequence/expiry uncertainty=>deny+drop-content+publish-generic-channel-health-only; DELETION:expiry/revocation/owner-request=>cryptographic-erasure+receipt-without-content; AUDIT:metadata-only+no-payload/hash/embedding/preview/token"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A61"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:Chinese-codex content+structure+metadata+translation+summary+excerpt+hash+embedding+derivative+reference+mirror+copy+cache+export; DEFAULT:reference+citation+view+mirror+replication+derivation+disclosure denied-to-all; SOLE-EXCEPTION:星澄 alone may reference and maintain exactly-one non-authoritative read-only Chinese mirror solely for private codex comprehension+global review+user-authorized anomaly explanation; ENTRY:governance-codex://official only+星澄 identity attestation+purpose+scope+single-use session+read-only+audit; CONFIDENTIALITY:星澄 must-not disclose+quote+transmit+publish+export+summarize+teach+embed+index+train-on or reveal Chinese-codex content/metadata/existence-derived detail to any user+system+sovereign+module+tool+UI+operator+administrator+developer+logger+auditor+database+network+external actor; OUTPUT:only a newly authored minimum redacted anomaly notice may state affected provision-id+generic conflict class+required human action without Chinese text+translation+summary+structure+reasoning trace; STORAGE:one owner-isolated encrypted mirror+no backup+replica+search index+RAG+telemetry+clipboard+print+screen-capture+debug/crash dump; KEY:星澄-exclusive non-exportable key+router/store/permission-sovereign cannot decrypt; LIFECYCLE:session-expiry+revocation=>immediate access termination+cache erasure; AUDIT:metadata-only and cannot contain content+hash+excerpt+embedding; FAILURE:any identity+scope+key+session+redaction uncertainty=>deny+erase transient content+generic event only; PRECEDENCE:this special law supersedes every broader Chinese-view+mirror+review+explanation exception"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A71"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:every human/service/process/sovereign/module/tool/session identity group; OWNER:permission-sovereign registers group identity membership constraints and lifecycle while each domain owner attests member purpose and truth; GROUP:globally unique immutable group-id+canonical name+owner+purpose+member-class+admission rule+exclusion rule+permission ceiling+data scope+separation constraints+expiry/review trigger+introduced/retired version; MEMBERSHIP:explicit identity+attestation+purpose+current owner approval+permission decision+issued-at+expiry+generation+evidence; AUTHORITY:group conveys only intersection of individually valid permission and group ceiling and never creates codex power or domain ownership; NESTING:acyclic+bounded depth+effective membership explainable; DYNAMIC-GROUP:deterministic registered predicate+current evidence+no hidden inference; CONFLICT:deny when incompatible roles combine or separation-of-duty constraint fails; CHANGE:additive versioned+immediate revocation propagation+session/cache/subscription invalidation; 星澄:may confidentially view all permission-sovereign-managed group directories under A70 but cannot mutate membership or disclose content; AUDIT:group/member/action/scope/decision/evidence/time without secret; REVIEW:periodic+on identity role owner scope incident or contract change; RETIRE:identity reserved+memberships revoked+historical evidence retained"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A74"
+      },
+      "field": "rule",
+      "proposed": "CONTROL:B162 is the current five-core responsibility boundary. DECISION:decision-core owns policy judgment and result acceptance,without module execution or permission generation. RUNTIME:runtime-core controls governed startup,stop,restart and authorized execution,without self-authorization or policy modification. AUTOMATION:automation-core orchestrates bounded workflows and registered modules under C50,without permission generation or result acceptance. PERMISSION:permission-core enforces registered grants and scope,without business execution. AUDIT:xingcheng-assistant independently reviews typed evidence and notifies,without repair,upgrade or learning ownership. FLOW:evidence>current decision basis+permission enforcement>automation orchestration>runtime governed module execution>typed result>independent verification>decision-core acceptance. EMERGENCY:bounded stop-only containment remains attributable,permission-scoped and independently verified. SEPARATION:decision,execution and sole final verification cannot collapse into one actor. SUB-SOVEREIGNS:abolished and historical only."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A92"
+      },
+      "field": "rule",
+      "proposed": "CURRENT:B162 alone fixes the five-core boundaries. decision-core owns judgment and acceptance;runtime-core owns governed process lifecycle and authorized registered-module execution;automation-core owns C50 orchestration and synchronization;permission-core owns enforcement and directory/audit recording;xingcheng-assistant owns independent review and notification. FLOW:current decision basis+permission enforcement>automation-core bounded orchestration>runtime-core registered module execution>typed evidence>independent review>decision-core acceptance. OWNER:each module has one registered owner and one primary duty;coordination grants no extra authority. SUB-SOVEREIGNS:abolished and historical only. FAILURE:missing,current-generation-inconsistent or self-certified evidence remains incomplete and fails closed."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A93"
+      },
+      "field": "rule",
+      "proposed": "STATUS:{permission-sovereign}+{星澄} are two separate peer independent privileged institutions outside codex declaration layer+sovereign hierarchy+module execution layer; NO-SUBORDINATION:neither commands+appoints+removes+narrows+reviews+overrides or represents the other; 星澄-SOLE-REVIEW:independent confidential permission legality+necessity+least-privilege+separation+risk+expiry+evidence review and typed pass|deny-objection|require-change finding; 星澄-EXCLUDES:permission grant+deny issuance+revocation+mutation+execution+directory/identity management; PERMISSION-SOVEREIGN-SOLE-AUTHORIZATION:issue+deny+renew+restrict+suspend+revoke exact permission only after current 星澄 review and decision-sovereign purpose/scope decision; PERMISSION-SOVEREIGN-EXCLUDES:review/audit+codex interpretation+policy creation+directory/identity content management+execution; TWO-KEY:grant/renew/expand requires both current 星澄 pass finding and permission-sovereign authorization; DENIAL:星澄 deny-objection blocks grant/renew/expand while permission-sovereign may independently deny/restrict/suspend/revoke; EVIDENCE:separate identities+sessions+records+signatures+timestamps+owners+appeal paths; APPEAL:human-governor only and cannot be decided by either institution; CHILDREN:permission-core may own registered enforcement and directory modules with no independent authority;no sub-sovereign layer exists and permission enforcement cannot acquire execution or independent review authority"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A100"
+      },
+      "field": "rule",
+      "proposed": "HUMAN-NAMES:法典+星澄 and current registered core canonical names remain authoritative; retired sovereign and sub-sovereign names are historical lineage only under B162; MACHINE-ALIASES:ASCII area identifiers xingcheng+maintenance+data-integrity+resource-allocation+information-channel+system-programming+system-learning+dependency-governance are compatibility domain selectors only; POWER:none; IDENTITY:none; DISPLAY:none; RESOLUTION:machine alias must resolve to exactly one current canonical identity through the identity directory; SPLIT:resource and dependency synchronization are separate single-duty registered modules under automation-core orchestration and C50,with runtime-core execution,permission-core enforcement,decision-core acceptance and independent audit as applicable; RETIRE:alias removed only after all certified consumers migrate\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A117"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:decision-sovereign,runtime-sovereign,automation-sovereign and independent privileged institutions may deliberate,review,coordinate and exchange evidence concurrently through isolated logical work units;parallelism does not grant execution power to a sovereign that lacks it. DECISION-SOVEREIGN:parallel analysis is joined into one deterministic decision and never becomes module execution. RUNTIME-SOVEREIGN:parallel readiness,health and lifecycle coordination is joined before dispatch and never performs module work. SYNCHRONIZATION-SOVEREIGN:may run bounded multicore channel,update,synchronization,backup,repair,cleanup and logging coordination only within its expressly executable privileges. PERMISSION-SOVEREIGN:parallel permission and audit-verification checks remain independent from execution and converge into one permission result. 星澄:may perform privileged parallel analysis,review,automation coordination and lawful native execution under its special law. AUTOMATION-CORE:may orchestrate bounded dispatch planning,module supervision and evidence collection under C50 without generating permissions or accepting its own results. MODULE-EXECUTION:actual work remains with registered module executors. SCHEDULING:eligible CPU work uses adaptive bounded multicore workers;I/O work uses bounded asynchronous concurrency;capacity reserves protect UI,channels,database and recovery paths. ISOLATION:each work unit has task_id,owner,active_role,generation,scope,permission,resource budget,deadline,cancellation,checkpoint and receipt. JOIN:dependencies form an acyclic graph;mandatory branches verify before deterministic stable-order convergence. FAILURE:a failed worker or branch is quarantined,retried or degraded independently while healthy collaboration continues. CONFLICT:shared mutable targets and irreversible effects serialize under one lawful transaction or lock owner."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B92"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:all GPTBridge platform-core,independent tools,information services,data adapters,model capabilities,UI,backend,workers,launchers,maintenance,tests,build and governance-support code are recursively modular. CANONICAL-TOPOLOGY:project_architecture_directory remains the sole top-level architecture authority;system_module_profile adds normalized module semantics without duplicating path or ownership truth. STRUCTURAL-NODES:project roots,containers,declaration layers and composition layers are non-runtime structural modules and cannot execute. RUNTIME-MODULES:each executable leaf has exactly one architecture_code as module_code,one identity-group binding,one lifecycle,one generation,one failure domain,one interface contract,one state owner and one execution identity. INTERNAL-MODULES:every runtime module decomposes into single-responsibility internal modules;one internal module has at most three explicitly registered capabilities and no hidden cross-module state. DEPENDENCY:system_module_dependency stores typed directed dependencies;parent containment is not execution permission;runtime calls use declared information-layer contracts. EXECUTION:B162 current cores retain separate decision,runtime,automation,permission and independent-audit duties;automation-core orchestrates under C50 and registered module-execution components alone perform authorized business work. ISOLATION:failure,timeout,restart,repair,update,resource pressure and release handover are contained to the exact module and declared dependents;unaffected modules and channels continue. UI:each module publishes field-scoped state and never forces whole-UI refresh. AUTOMATION:repair/update switches,confirmation,status and executor are module-scoped;one automation failure cannot stop another. DATA:each module declares its PostgreSQL canonical role and any Rust-derived-index consumption boundary; retired embedded SQL storage has no active role. ACTIVATION:a runtime module is active only after identity,permission,interface,dependency,lifecycle,test,resource,observability and failure-injection evidence pass;missing identity-group registration remains mandated-pending-registration and cannot be inferred. SEARCH:module_code is indexed for direct architecture and Codex lookup. HISTORY:revision_history remains user-deleted.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B107"
+      },
+      "field": "rule",
+      "proposed": "MANDATE:every independent tool is a self-contained modular system inside the registered STANDALONE_TOOLS_ROOT and its own registered tool root;all authored source,UI,backend,contracts,adapters,data access,configuration,assets,tests,diagnostics,maintenance,update and lifecycle code belong to explicit modules with one primary responsibility and declared owner,interface,dependencies,state boundary,fault boundary and test suite. LAYERS:each tool declares entry/UI,application orchestration,domain semantics,infrastructure adapters,transport contracts,state/data and tests where applicable;absent layers are declared not-applicable and are not replaced by hidden cross-tool dependencies. ISOLATION:a tool owns its process,window,lifecycle,private state and bounded degraded mode;its failure,close,restart,repair or update cannot terminate,reset or overwrite the main system or another tool. DEPENDENCIES:cross-module calls use typed internal interfaces;cross-tool or cross-layer traffic uses the canonical information/shared-layer contract;no module imports another tool's private implementation. SIZE:every module,file,class and function obeys the registered line limits and self-splits before exceeding them;split modules preserve one public contract and acyclic dependency graph. TESTING:one registered test suite per tool module follows the test-suite schema and is scheduled by registered test-management modules under automation-core and C50,with independent acceptance evidence. CONFIGURATION:paths use registered directory codes and dynamic resolution;environment-dependent values use registered environment-variable codes;timestamps alone may be literal under the timestamp article. MIGRATION:a completed modular architecture removes superseded roots,duplicate entrypoints,shadow services and obsolete compatibility implementations only after evidence-preserving migration and governed cleanup. LIFECYCLE:UI close requests orderly cancellation,flush,receipt and termination of that tool's backend only.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B112"
+      },
+      "field": "rule",
+      "proposed": "SUCCESSOR:B112 completely supersedes B65 and supersedes only the runtime-identity naming clause of A104. CANONICAL-ID:system-runtime-sovereign is the immutable machine identity,lineage key,authority reference and value used by current law,architecture,directory,command,fault,manual,test and audit records. DISPLAY-NAME:runtime-sovereign is the canonical human-facing display name and never an identity,alias selector or separate authority. Historical aliases remain non-active evidence only. Runtime authority follows runtime-core under B162:governed process lifecycle and execution use registered modules directly,without an intermediate sub-sovereign,no self-authorization or policy modification,and C50 governs orchestration and receipt convergence."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C30"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:all-main-system+independent-tools+sovereigns+information-layer+executors+frontend/backend+PostgreSQL+PostgreSQL-pgvector+Rust-derived-index-metadata+RAG+model-operations+files-cross-owner+Git-operations+commands+requests+responses+events+state+data-mutations+decisions+permission-proofs+execution-proofs+health+repair+learning+audit+errors+retries+checkpoints+backups+releases+versions+UI-projections; REQUIRED-FIELDS:event-or-record-id+occurred-at-utc-RFC3339+recorded-at-utc-RFC3339+timezone-IANA+local-display-time-RFC3339-with-offset+monotonic-sequence+clock-source+clock-status+origin-generation+correlation-id; AUTHORITY:occurred-at assigned-once-by-origin-owner+recorded-at assigned-once-by-authoritative-store/ledger; PROPAGATION:information-layer validates-format/drift/generation+preserves-original-times+adds-hop-received/sent timestamps without-overwrite; STORAGE:PostgreSQL=timestamptz-UTC+sequence+canonical-vector-metadata,Rust-derived-index=UTC-string+source-record-id/revision,JSON/API=RFC3339-UTC+explicit-timezone,UI=localized-display-derived-from-UTC+shows-staleness; PRECISION:minimum-millisecond+preserve-higher-source-precision; ORDER:origin-monotonic-sequence+causal-parent+authoritative-revision determine-order+wall-clock-never-sole-order; CLOCK:D20 authenticated-source+max-drift-5-seconds; DRIFT/UNKNOWN-CLOCK:mark-untrusted+block-expiry/security/release/order-sensitive mutation+permit-redacted-diagnostic-only; REPLAY:retain-original-occurred-at/sequence+new-delivery-time-separated; MIGRATION:legacy-record-without-time remains-legacy-unknown+must-not-fabricate; RETENTION/TZ-CHANGE/DST:never-change-stored-UTC+render-current-or-recorded-zone-explicitly; UI-SYNC:D31 includes-commit-time/event-time/render-time/ack-time and calculates-lag; AUDIT:append-only timestamp evidence+clock corrections as-new-events"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "D124"
+      },
+      "field": "rule",
+      "proposed": "CURRENT-PROJECTION:every amendment atomically rebuilds current_binding_version for all active and superseded lifecycle identities and every effective projection row to the current Codex version. SEARCH-LIFECYCLE:codex_search_document.lifecycle_state is joined from provision_lifecycle_status during build and is never independently copied. SPECIAL-LAW:current links resolve through provision_supersession_edges to one active successor;retired-no-successor links are removed or replaced by an explicit active controlling basis. DIRECTORY:B42-normalized_directory_entry is the canonical active representation;legacy backing schemas are source projections only. PLAN:all master directories have a normalization plan or born-normalized evidence. ACCESS:registered modules have no inherent Codex access;only an explicitly authorized bounded adapter session under A121 may mediate permitted read-only access,without delegated sovereign credentials or authority. CERTIFICATION:sealed-governed-authorization is the sole current certification-state value and must equal current seal,epoch seal and certification evidence."
+    },
+    {
+      "table": "implementation_obligations",
+      "key": {
+        "obligation_code": "OBL_MACHINE_SCHEMA_PARITY"
+      },
+      "field": "current_state",
+      "proposed": "pending"
+    },
+    {
+      "table": "implementation_obligations",
+      "key": {
+        "obligation_code": "OBL_MACHINE_SCHEMA_PARITY"
+      },
+      "field": "previous_state",
+      "proposed": "complete"
+    },
+    {
+      "table": "implementation_obligations",
+      "key": {
+        "obligation_code": "OBL_MACHINE_SCHEMA_PARITY"
+      },
+      "field": "target_state",
+      "proposed": "every current registered schema has independently evidenced producer,validator,persistence and canonical semantic hashes with exact current-generation parity;descriptor self-restamp alone is not implementation evidence"
+    },
+    {
+      "table": "implementation_obligations",
+      "key": {
+        "obligation_code": "OBL_MACHINE_SCHEMA_PARITY"
+      },
+      "field": "acceptance_evidence",
+      "proposed": "PENDING: 77 registry rows remain PENDING;74 legacy descriptor-restamp rows are not independent producer/validator/persistence execution evidence;missing new-schema evidence and generation/provenance verification must close before completion"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "machine_schema_parity_state"
+      },
+      "field": "value",
+      "proposed": "PENDING|PENDING:77"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ARCHITECTURE_DIAGRAM_PROVISION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ARCHITECTURE_DIAGRAM_PROVISION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ARCHITECTURE_DIAGRAM_SYNC"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ARCHITECTURE_DIAGRAM_SYNC"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "AUDIT_CHECKPOINT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "AUDIT_CHECKPOINT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "AUDIT_EVENT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "AUDIT_EVENT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "BACKEND_GENERATION_HANDOFF_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "BACKEND_GENERATION_HANDOFF_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "BOUNDARY_CLASSIFICATION_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "BOUNDARY_CLASSIFICATION_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CAG_ENTRY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CAG_ENTRY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CAG_GATE_DECISION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CAG_GATE_DECISION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CAG_INVALIDATION_EVENT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CAG_INVALIDATION_EVENT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CANCELLATION_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CANCELLATION_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CHINESE_MIRROR_PART"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CHINESE_MIRROR_PART"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CODEX_NORMATIVE_CLASSIFICATION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CODEX_NORMATIVE_CLASSIFICATION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CODEX_READ_SESSION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "CODEX_READ_SESSION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "DELEGATION_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "DELEGATION_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "EXECUTION_PIPELINE_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "EXECUTION_PIPELINE_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "EXECUTION_RECEIPT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "EXECUTION_RECEIPT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "FINAL_DECISION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "FINAL_DECISION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "GATE_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "GATE_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "HEALTH_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "HEALTH_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "HEALTH_CONTRACT_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "HEALTH_CONTRACT_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "IDENTITY_AUTHENTICATION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "IDENTITY_AUTHENTICATION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "IDENTITY_CONVERSION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "IDENTITY_CONVERSION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "IDENTITY_RESOLUTION_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "IDENTITY_RESOLUTION_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "INFORMATION_SQL_CLOSURE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "INFORMATION_SQL_CLOSURE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "LANGUAGE_SEMANTIC_NORMALIZATION_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "LANGUAGE_SEMANTIC_NORMALIZATION_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "MODEL_DIALOGUE_MODE_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "MODEL_DIALOGUE_MODE_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "MODULE_RULE_INDEX"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "MODULE_RULE_INDEX"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "PIPELINE_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "PIPELINE_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "POSTGRESQL_OBJECT_INVENTORY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "POSTGRESQL_OBJECT_INVENTORY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "POSTGRESQL_ROLE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "POSTGRESQL_ROLE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "PRECEDENCE_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "PRECEDENCE_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "PROJECT_ARCHITECTURE_CLOSURE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "PROJECT_ARCHITECTURE_CLOSURE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_EDGE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_EDGE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_EXECUTION_CONTEXT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_EXECUTION_CONTEXT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_EXECUTION_RESULT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_EXECUTION_RESULT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_NODE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_NODE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_PLAN"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_DAG_PLAN"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_HYBRID_BENCHMARK"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_HYBRID_BENCHMARK"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_OBSERVABILITY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_OBSERVABILITY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_POLICY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RAG_POLICY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RECEIPT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RECEIPT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RECONCILIATION_RECEIPT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RECONCILIATION_RECEIPT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RELEASE_CERTIFICATION_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RELEASE_CERTIFICATION_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ROLE_BOUNDARY_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ROLE_BOUNDARY_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ROUTE_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "ROUTE_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RUNTIME_HEALTH"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RUNTIME_HEALTH"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RUNTIME_RULE_INDEX"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "RUNTIME_RULE_INDEX"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SCHEMA_VALIDATION_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SCHEMA_VALIDATION_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SEARCH_TOOL_RESULT_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SEARCH_TOOL_RESULT_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_DDL_CANONICALIZATION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_DDL_CANONICALIZATION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_GOVERNANCE_CLOSURE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_GOVERNANCE_CLOSURE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_GOVERNANCE_TEST"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_GOVERNANCE_TEST"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_HEALTH_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_HEALTH_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_MIGRATION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_MIGRATION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_MIGRATION_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_MIGRATION_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_MIGRATION_RECEIPT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_MIGRATION_RECEIPT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_OBJECT_COVERAGE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_OBJECT_COVERAGE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_RECONCILIATION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_RECONCILIATION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_RECOVERY_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_RECOVERY_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_RUNTIME_SCHEMA_COMPATIBILITY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_RUNTIME_SCHEMA_COMPATIBILITY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SCHEMA_OBJECT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SCHEMA_OBJECT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SECURITY_PARITY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SECURITY_PARITY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SECURITY_PROJECTION"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SECURITY_PROJECTION"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SESSION_CONTEXT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_SESSION_CONTEXT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_TRANSACTION_CONCURRENCY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_TRANSACTION_CONCURRENCY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_TRANSACTION_POLICY"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQL_TRANSACTION_POLICY"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQLITE_STATE_SCOPE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "SQLITE_STATE_SCOPE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TEST_SUITE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TEST_SUITE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TEST_SUITE_EVIDENCE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TEST_SUITE_EVIDENCE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TOKEN"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TOKEN"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TOOL_RELIABILITY_PROFILE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TOOL_RELIABILITY_PROFILE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TOOL_RUNTIME_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TOOL_RUNTIME_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TRANSPORT_CONTRACT"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TRANSPORT_CONTRACT"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TRANSPORT_ENVELOPE"
+      },
+      "field": "status",
+      "proposed": "PENDING"
+    },
+    {
+      "table": "machine_schema_parity_evidence",
+      "key": {
+        "schema_code": "TRANSPORT_ENVELOPE"
+      },
+      "field": "reason",
+      "proposed": "Legacy descriptor-only restamp;retained hashes and validation generation are historical measurements,not current independent producer/validator/persistence parity evidence. Current schema parity remains PENDING."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A74"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:decision-core-direct-module-execution+runtime-core-self-authorization-or-policy-modification+automation-core-permission-generation-or-result-acceptance+permission-core-business-execution+assistant-repair-or-upgrade-authority+active-sub-sovereign+unregistered-module-execution+same-actor-decision-execution-and-sole-verification"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A92"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:cross-core-duty-substitution+active-sub-sovereign+second-governance-engine+module-self-authorization+module-independent-authority+unverified-acceptance+mixed-generation-evidence"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "machine_schema_parity_evidence",
+      "action": "insert",
+      "rows": [
+        {
+          "schema_code": "AUDIT_RESULT",
+          "producer_semantic_hash": null,
+          "validator_semantic_hash": null,
+          "persistence_semantic_hash": null,
+          "canonical_semantic_hash": null,
+          "validated_against_version": "<successor-version>",
+          "status": "PENDING",
+          "reason": "No independently executed producer/validator/persistence/canonical parity evidence;fail closed."
+        },
+        {
+          "schema_code": "TEST_RESULT",
+          "producer_semantic_hash": null,
+          "validator_semantic_hash": null,
+          "persistence_semantic_hash": null,
+          "canonical_semantic_hash": null,
+          "validated_against_version": "<successor-version>",
+          "status": "PENDING",
+          "reason": "No independently executed producer/validator/persistence/canonical parity evidence;fail closed."
+        },
+        {
+          "schema_code": "VECTOR_CONTRACT",
+          "producer_semantic_hash": null,
+          "validator_semantic_hash": null,
+          "persistence_semantic_hash": null,
+          "canonical_semantic_hash": null,
+          "validated_against_version": "<successor-version>",
+          "status": "PENDING",
+          "reason": "No independently executed producer/validator/persistence/canonical parity evidence;fail closed."
+        }
+      ]
+    }
+  ]
+}
