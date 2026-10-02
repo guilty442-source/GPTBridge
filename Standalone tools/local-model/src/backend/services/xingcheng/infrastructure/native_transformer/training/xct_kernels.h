@@ -408,7 +408,7 @@ static int kernel_registry_emit() {
       << ",\"simd_enabled\":" << (g_tpu.simd ? "true" : "false")
       << ",\"tile4_enabled\":" << (g_tpu.tile4 ? "true" : "false")
       << "},\"policy\":{"
-      << "\"source\":\"" << jesc(pol.source) << "\","
+      << "\"source\":\"" << jesc(kernel_policy_path()) << "\","
       << "\"loaded\":" << (pol.loaded ? "true" : "false")
       << ",\"enabled\":" << (pol.enabled ? "true" : "false")
       << ",\"force_serial\":" << (pol.force_serial ? "true" : "false")
@@ -540,7 +540,7 @@ static int accel_plane_emit() {
       << ",\"denied_off\":" << g_accel.dev_denied_off
       << ",\"denied_work\":" << g_accel.dev_denied_work
       << ",\"denied_vram\":" << g_accel.dev_denied_vram
-      << "},\"policy\":{\"source\":\"" << jesc(pol.source) << "\""
+      << "},\"policy\":{\"source\":\"" << jesc(kernel_policy_path()) << "\""
       << ",\"loaded\":" << (pol.loaded ? "true" : "false")
       << ",\"error\":"
       << (pol_err.empty() ? "null" : "\"" + jesc(pol_err) + "\"")

@@ -725,7 +725,7 @@ static constexpr int64_t kTpuDevMinFlops = 64LL * 1024 * 1024;
 // Host RAM is sampled through the xcm_host_mem_mb C ABI in
 // cuda_kernels.cpp (which owns the platform includes) so this header
 // never pulls windows.h into consumer TUs — its legacy far/near macros
-// collide with ordinary identifiers (xct_csa.h uses `far`).
+// would collide with ordinary identifiers in the math headers.
 
 struct AccelPlane {
     bool probed = false;
