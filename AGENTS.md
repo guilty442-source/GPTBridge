@@ -1435,9 +1435,16 @@ Worker rules for codex work:
    `lifecycle_owner=xingcheng/toolhost-model-service`,
    `consumer_policy=csharp-orchestrator-client-only`; `/v1/status`
    no-token → 403, token → 200 (`loaded:false`, lazy serve confirmed);
-   `toolbox_start_tool{model-dialogue}` → running. Scope: covers
-   start/descriptor/auth-gate only — `/v1/infer` bundle load and
-   `star_chat` delivery not exercised.
+   `toolbox_start_tool{model-dialogue}` → running. Inference
+   cold-start exercised later same day (devin-cli, evidence
+   `model-service-smoke-evidence-20261002.json`): first `/v1/infer`
+   failed `TOKENIZER_BACKEND_UNAVAILABLE:xcorpus.dll` — the governed
+   build never deployed xcorpus.dll next to `xc_modeltool.exe`;
+   `tools/build.ps1` now builds+copies the cdylib and the dll is
+   deployed in place. After a worker restart (xtok memoizes a failed
+   LoadLibrary in a static) infer returned 200 real output (4 tokens,
+   512 ms, model_version 4c3a033a8cfecbab). Remaining unexercised:
+   `star_chat` end-to-end delivery.
 3. **Deferred native lanes stay fail-closed.** `ai-assistant` business
    executor (DeferredExecutor), `file-sorter` native executor,
    `investment-mobile` native entry, and `vaultly`
@@ -1450,11 +1457,10 @@ Worker rules for codex work:
    evidence row's `codex_version`/`version_identity` matches the live
    head and, if needed, run the fresh published binary with
    `--repair-projections` directly.
-   As of 2026-10-02 ~19:40 the main-system backend is down and the
-   orphaned `GPTBridge.Automation.exe` (parent dead, all state files
-   stale since 07:35) was killed; its `*.lock` files in
-   `main-system/runtime/state/` are stale markers the next governed
-   host may reclaim or clear.
+   As of 2026-10-02 ~19:40 an orphaned `GPTBridge.Automation.exe`
+   (parent dead, state files stale since 07:35) was killed; backend
+   `gptbridge-backend` restarted ~19:42 with a fresh unified host —
+   locks were reclaimed cleanly (stale lock files self-heal).
 5. **Other workers' in-flight changes.** `native/resource_governor`
    and `XingchengLearning/ResourceGovernance*` land via separate
    workers; do not sweep them into unrelated commits (path-scoped

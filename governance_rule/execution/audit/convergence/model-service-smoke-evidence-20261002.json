@@ -1,0 +1,53 @@
+{
+  "artifact": "model-service-smoke-evidence",
+  "schema": "model-service-smoke/v1",
+  "recorded_at": "2026-10-02T11:55:00Z",
+  "codex_head_observed": "2026-10-02T11:40:02Z",
+  "steps": [
+    {
+      "step": "backend-healthy",
+      "result": "PASS",
+      "detail": "GET http://127.0.0.1:8765/health?brief=1 -> ok=true runtime_state=ready workspace_instance_id=243aee46a69777a07dacf19c; xingcheng_native_model_runtime available=true state=stopped"
+    },
+    {
+      "step": "governed-activation",
+      "result": "PASS",
+      "detail": "ws://127.0.0.1:8765 toolbox_start_tool{tool_id:xingcheng, request_id:devin-smoke-activate-20261002} -> ok=true status=running ui_pid=38732"
+    },
+    {
+      "step": "descriptor",
+      "result": "PASS",
+      "detail": "star-model-service-descriptor/v1 written to xingcheng/xingcheng/runtime/ipc/model-service.json (pid 24024 port 3042; session-token file minted; sha256 pinned)"
+    },
+    {
+      "step": "status-auth",
+      "result": "PASS",
+      "detail": "GET /v1/status with X-GPTBridge-Session-Token -> 200 {service:xc-model-service decoder:native-cpp cpp_runtime:true loaded:false worker:not-started}"
+    },
+    {
+      "step": "cold-start-infer",
+      "result": "FAIL->PASS",
+      "detail": "first POST /v1/infer -> 500 SERVE_OP_FAILED:TOKENIZER_BACKEND_UNAVAILABLE:xcorpus.dll (deployment gap: governed build never placed xcorpus.dll next to xc_modeltool.exe); tools/build.ps1 fixed to build+deploy the Rust cdylib beside the exe; xcorpus.dll (215040 bytes from target/release) deployed; memoized-static serve worker restarted; retry -> 200 real inference"
+    }
+  ],
+  "final": {
+    "infer": {
+      "ok": true,
+      "text": " Tests",
+      "generated_tokens": 4,
+      "token_ids": [202, 202, 4337, 86],
+      "latency_ms": 512,
+      "model_id": "xingcheng-native-transformer",
+      "model_version": "4c3a033a8cfecbab",
+      "decoder": "native-cpp",
+      "cpp_runtime": true
+    },
+    "concluded": "governed activation path works end-to-end: backend WS toolbox_start_tool -> toolhost spawn -> descriptor+token -> /v1/status auth -> /v1/infer lazy worker spawn -> native-cpp inference"
+  },
+  "defect_found": {
+    "id": "XCORPUS_DLL_DEPLOY_GAP",
+    "fix": "tools/build.ps1 now builds/copies xcorpus.dll next to xc_modeltool.exe per the xtok_abi.h exe-directory convention",
+    "note": "pre-existing deployed tree lacked the dll; target/release/xcorpus.dll copied in place (gitignored build artifact)"
+  },
+  "boundaries": "read/write only via governed loopback surfaces; no governor state touched; engine stays loaded under auto-release policy (300s idle)"
+}
