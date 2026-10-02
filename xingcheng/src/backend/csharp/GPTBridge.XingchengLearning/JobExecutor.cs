@@ -487,7 +487,15 @@ internal sealed class TrainingJobExecutor
                 (string)status["error_code"]!,
                 (string)status["reason"]!);
         var decision = AcquireResourceGrant(jobId, configuration);
-        var grant = decision.Grant!;
+        // AC §10: production without a bound grant fails closed — a
+        // null grant here means a future code path returned a decision
+        // without binding; name it RESOURCE_GRANT_REQUIRED, not a
+        // null-deref.
+        if (decision.Grant == null)
+            throw new ExecutorError(ResourceErrors.GrantRequired,
+                "resource preflight produced no grant — execution " +
+                "denied (fail-closed)");
+        var grant = decision.Grant;
         decision.Threads = Math.Clamp(grant.CpuThreadsMax, 1, 16);
         decision.Gpu = ResolveGpuPlan(configuration, grant);
         return decision;

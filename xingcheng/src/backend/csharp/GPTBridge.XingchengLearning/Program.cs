@@ -859,10 +859,35 @@ internal static class Program
                         opts.TryGetValue("file", out string? tp)
                             ? tp : "", "PILOT_INVALID")));
             if (flags.Contains("training-batch-plan"))
-                return Emit(TrainingAcceleration.BatchPlan(
-                    ToolContracts.ReadJson(
-                        opts.TryGetValue("file", out string? tbp)
-                            ? tbp : "", "TRAINING_STAGE_INVALID")));
+            {
+                var tbpEl = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? tbp)
+                        ? tbp : "", "TRAINING_STAGE_INVALID");
+                // AC §9/§40-§43: when a grant envelope is supplied the
+                // planner is bound to it — effective VRAM = min(driver,
+                // grant), threads clamp to cpu_threads_max, and any
+                // over-grant plan fails ACCELERATION_PLAN_OVER_GRANT.
+                if (opts.TryGetValue("grant", out string? gpath) &&
+                    gpath.Length > 0)
+                {
+                    var genv = ModelLifecycle.Decode(
+                        ToolContracts.ReadJson(gpath,
+                            "RESOURCE_GRANT_INVALID"))
+                        as Dictionary<string, object?>;
+                    var grant = genv != null
+                        ? ResourceGrant.FromDict(genv)
+                        : null;
+                    if (grant == null)
+                        throw new ExecutorError(
+                            ResourceErrors.GrantRequired,
+                            "--grant file carries no grant payload");
+                    return Emit(TrainingAcceleration
+                        .GrantBoundBatchPlan(tbpEl, grant));
+                }
+                var unbound = TrainingAcceleration.BatchPlan(tbpEl);
+                unbound["grant_bound"] = false;
+                return Emit(unbound);
+            }
             if (flags.Contains("sequence-buckets"))
                 return Emit(new Dictionary<string, object?>
                 {

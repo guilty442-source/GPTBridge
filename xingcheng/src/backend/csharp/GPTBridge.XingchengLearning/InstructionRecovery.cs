@@ -4368,6 +4368,10 @@ internal static class InstructionRecovery
             throw new ExecutorError("CAPABILITY_ARCHITECTURE_INCOMPLETE",
                 $"capability '{cap}' binding findings: " +
                 $"{admission["findings"]}");
+        // AC §9-§11: the lane's resource grant is acquired at lane
+        // admission — AcquireTrainingLane runs the same
+        // PreflightResourceGate as governed SFT jobs, fail-closed with
+        // only the explicit dev/test StaticLocalGrant as escape.
         Capability = cap;
         CapabilityFreeze.GuardJob("sft", cap, policy);
         string kind = TransformerTrainingRepository.Str(plan, "kind") ?? "sft";
@@ -4452,6 +4456,7 @@ internal static class InstructionRecovery
                 ["capabilities"] = graphRegression,
                 ["requires_closure"] = admission["requires_closure"],
             });
+
 
         // ── dataset ───────────────────────────────────────────────────
         string dataDir =
