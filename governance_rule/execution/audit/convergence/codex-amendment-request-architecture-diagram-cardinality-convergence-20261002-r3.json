@@ -1,0 +1,93 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "architecture-diagram-cardinality-convergence-20261002-r3",
+  "title": "Bind C102 artifact cardinality to the active diagram-artifact registry and register the xingcheng diagram family",
+  "summary": "Active C102 still hardcodes 'five common architecture diagrams + seven independent tool architecture diagrams' as the atomic-sync artifact set, but the authoritative architecture_diagram_artifact_registry active set is nine artifacts (two common + seven tool) and now additionally carries the new four-file xingcheng family (architecture-xingcheng-architecture/capabilities/data/parameters.md), which the audit manifest already binds to text-no-pollution checks. The sync gate itself (A537/A538 ArchitectureDocs in GPTBridge.CodexPipeline) is already registry-driven and derives the expected set from canonical+independent_tool components, so only the law text carries the stale cardinality. This amendment (a) rewrites C102 to bind the artifact set to architecture_diagram_artifact_registry status=active rows instead of literal counts — the same version-neutrality direction as rev 199/200; (b) registers the four xingcheng diagram artifacts as active so the successor-transaction obligation actually covers them.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: architecture-law mismatch — active C102 artifact cardinality vs the registry active set and the on-disk xingcheng diagram family has not formally converged.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T04:26:10Z",
+    "version_identity": "E2:2026-10-02T04:26:10Z",
+    "version_epoch": 2,
+    "history_head": "58edd6c901b66ff780dc7d904a6f4113b81453d02b1f10247c755cd4707e4d3e",
+    "revision_sequence": 206
+  },
+  "problem": {
+    "summary": "C102's literal artifact cardinality (5 common + 7 tool = 12) no longer matches the authoritative registry (9 active rows before this amendment, 13 after registering the xingcheng family); any future tool retirement/addition would re-break a hardcoded count. The binding must name the registry active set, not the count. The four xingcheng mirror docs are governed artifacts on disk (audit-manifest bound) but absent from the registry, so the sync law does not formally cover them yet."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "C102" },
+      "field": "rule",
+      "proposed": "C102 補充 D75、D118、B118 與 B124。任何自動法典更新必須以單一受治理 successor transaction 同時產生並驗證：正式法典、五份有序中文法典鏡像、machine architecture registry，以及架構圖 artifact registry（architecture_diagram_artifact_registry）中 status=active 的全部架構圖——同步義務所及的 artifact 集合以權威登錄表之 active 集合為準，法典不釘固定數目或分類計數。提交前必須完成版本一致性、內容一致性、五分卷鏈結、架構來源條文、登錄資料與治理稽核檢查。全部目標成功後才能原子發布；任何一項缺失、失敗、過期或版本不同，必須回復整批候選並拒絕發布。"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "insert",
+      "rows": [
+        {
+          "diagram_code": "ARCH_XINGCHENG_ARCHITECTURE",
+          "diagram_group": "星澄完整架構",
+          "artifact_path": "governance_rule/codex/architecture-xingcheng-architecture.md",
+          "source_provisions": "B81|C101|C102|D130",
+          "source_codex_version": "2026-10-02T04:26:10Z",
+          "content_hash": "023bee9fa7e3984f01dd07c623cd912187f25c1bc5e0372bc055d1a2870c6438",
+          "format": "Markdown+Mermaid",
+          "read_only_required": 0,
+          "sync_status": "SYNCED_CURRENT",
+          "validated_at_utc": "2026-10-02T04:04:21Z",
+          "status": "active"
+        },
+        {
+          "diagram_code": "ARCH_XINGCHENG_CAPABILITIES",
+          "diagram_group": "星澄完整能力說明圖",
+          "artifact_path": "governance_rule/codex/architecture-xingcheng-capabilities.md",
+          "source_provisions": "B81|C101|C102|D130",
+          "source_codex_version": "2026-10-02T04:26:10Z",
+          "content_hash": "6794b55cf50fb5ce03d8ef319e72cd3473adbbd53527a6b2aeb67b8a7ac8d4ec",
+          "format": "Markdown+Mermaid",
+          "read_only_required": 0,
+          "sync_status": "SYNCED_CURRENT",
+          "validated_at_utc": "2026-10-02T04:04:21Z",
+          "status": "active"
+        },
+        {
+          "diagram_code": "ARCH_XINGCHENG_DATA",
+          "diagram_group": "星澄完整資料圖",
+          "artifact_path": "governance_rule/codex/architecture-xingcheng-data.md",
+          "source_provisions": "B81|C101|C102|D130",
+          "source_codex_version": "2026-10-02T04:26:10Z",
+          "content_hash": "07dde7dd6f624fafe5534d593b6982777eb2e564606245def0af1ab8156e7fae",
+          "format": "Markdown+Mermaid",
+          "read_only_required": 0,
+          "sync_status": "SYNCED_CURRENT",
+          "validated_at_utc": "2026-10-02T04:04:21Z",
+          "status": "active"
+        },
+        {
+          "diagram_code": "ARCH_XINGCHENG_PARAMETERS",
+          "diagram_group": "星澄完整參數圖",
+          "artifact_path": "governance_rule/codex/architecture-xingcheng-parameters.md",
+          "source_provisions": "B81|C101|C102|D130",
+          "source_codex_version": "2026-10-02T04:26:10Z",
+          "content_hash": "d3b8a4b6e0007a6ed2f909459c1a2d8e39919b439da3e4992fbe6725023180f2",
+          "format": "Markdown+Mermaid",
+          "read_only_required": 0,
+          "sync_status": "SYNCED_CURRENT",
+          "validated_at_utc": "2026-10-02T04:04:21Z",
+          "status": "active"
+        }
+      ]
+    }
+  ]
+}
