@@ -410,6 +410,15 @@ internal sealed class LocalModelExecutor
                     ["worker"] = "not-started",
                 };
                 status["service_port"] = _port;
+                status["auto_release"] = new JsonObject
+                {
+                    ["idle_seconds"] = _idleReleaseSeconds,
+                    ["inflight"] = Volatile.Read(ref _inflight),
+                    ["idle_for_s"] = (DateTime.UtcNow.Ticks
+                        - Interlocked.Read(ref _lastActivityTicks))
+                        / TimeSpan.TicksPerSecond,
+                    ["last_release"] = _lastRelease,
+                };
                 WriteJson(context.Response, 200, status);
                 return;
             }

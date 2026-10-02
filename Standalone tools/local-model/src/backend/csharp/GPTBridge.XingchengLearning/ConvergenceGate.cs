@@ -44,13 +44,13 @@ $"gate-stderr-{Environment.ProcessId}.log";
     private sealed record Step(string Name, bool Critical,
                                Func<StepResult> Run);
 
-    /// <summary>Enforcement: true when runtime/settings/
+    /// <summary>Enforcement: true when xingcheng/runtime/settings/
     /// convergence-gate.json sets enforce_release_gate=true —
     /// promotion/activation must then present passing gate evidence.</summary>
     public static bool Enforced(string toolRoot)
     {
-        string path = Path.Combine(toolRoot, "runtime", "settings",
-            "convergence-gate.json");
+        string path = XcPaths.SettingsReadPath(
+            toolRoot, "xingcheng/runtime/settings/convergence-gate.json");
         if (!File.Exists(path)) return false;
         try
         {
