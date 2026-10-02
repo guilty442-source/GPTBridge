@@ -32,6 +32,7 @@
 #endif
 
 #include <cstdint>
+#include <cstdlib>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -102,6 +103,16 @@ struct Manager {
 
 #if defined(XINGCHENG_CUDA)
     xcd::CUmempool_t pool = 0;       // device default pool
+    // star-resource-grant §38: XCT_RESOURCE_STREAMS_MAX caps the lane
+    // count a grant allows; lanes above the cap fold onto a lower lane
+    // (serialization) — TRAIN_COMPUTE sheds first, matching the
+    // model-first priority order (§24).
+    int stream_lanes = 6;
+    int lane_idx(StreamLane l) const {
+        const int i = static_cast<int>(l);
+        if (i < stream_lanes) return i;
+        return stream_lanes > 0 ? stream_lanes - 1 : 0;
+    }
     xcd::CUstream_t streams[6] = {};
     void* pinned_dev = nullptr;      // cuMemHostAlloc ring
     int64_t pinned_ring_size = 0;
@@ -137,7 +148,12 @@ struct Manager {
                     pool, xcd::kMempoolReleaseThreshold,
                     &thresh) != xcd::kOk)
                 return 6;
-            for (int i = 0; i < 6; ++i) {
+            if (const char* se =
+                    std::getenv("XCT_RESOURCE_STREAMS_MAX")) {
+                const int n = std::atoi(se);
+                if (n >= 0 && n < stream_lanes) stream_lanes = n;
+            }
+            for (int i = 0; i < stream_lanes; ++i) {
                 int pri = i == (int)StreamLane::DECODE_HIGH ? -5 : 0;
                 if (a.stream_create_pri(
                         &streams[i], xcd::kStreamNonBlocking,
@@ -154,6 +170,16 @@ struct Manager {
         cuda_present = false;
 #endif
         if (budget_bytes <= 0) budget_bytes = 4LL << 30;
+        // star-resource-grant §37/§41: XCT_RESOURCE_VRAM_BYTES_MAX is
+        // the governor-issued absolute VRAM ceiling (JobExecutor
+        // exports it). It can only ever shrink the budget — driver
+        // free memory is execution evidence, the grant is permission
+        // (min(driver, grant)).
+        if (const char* ge =
+                std::getenv("XCT_RESOURCE_VRAM_BYTES_MAX")) {
+            const int64_t cap = std::strtoll(ge, nullptr, 10);
+            if (cap > 0 && cap < budget_bytes) budget_bytes = cap;
+        }
         budget = budget_bytes;
         emergency_headroom = budget_bytes / 10;
         cuda_reserve = budget_bytes / 20;
@@ -173,7 +199,9 @@ struct Manager {
     }
 
 #if defined(XINGCHENG_CUDA)
-    xcd::CUstream_t stream(StreamLane l) const { return streams[(int)l]; }
+    xcd::CUstream_t stream(StreamLane l) const {
+        return streams[lane_idx(l)];
+    }
 #endif
 
     /// §4/§5: stream-ordered pool allocation; never a naked cuMemAlloc.
@@ -187,17 +215,18 @@ struct Manager {
             xcd::Api& a = xcd::api();
             if (!xcd::use_ctx()) return nullptr;
             xcd::CUdevptr_t p = 0;
+            const xcd::CUstream_t lane_stream = streams[lane_idx(lane)];
             if (a.pool_alloc_async(
                     &p, (size_t)bytes, pool,
-                    streams[(int)lane]) != xcd::kOk || p == 0)
+                    lane_stream) != xcd::kOk || p == 0)
                 return nullptr;
             // Pool memory's availability is stream-ordered to the
             // allocating lane — synchronize before handing the pointer
             // to any other stream (the legacy stream, compute lanes).
             // Allocation is a growth/lifecycle event, never a
             // per-token one, so the scoped wait stays off the hot path.
-            if (a.stream_sync(streams[(int)lane]) != xcd::kOk) {
-                a.mem_free_async(p, streams[(int)lane]);
+            if (a.stream_sync(lane_stream) != xcd::kOk) {
+                a.mem_free_async(p, lane_stream);
                 return nullptr;
             }
             void* h = reinterpret_cast<void*>(static_cast<uintptr_t>(p));
@@ -225,11 +254,12 @@ struct Manager {
             // the pool may recycle the block for another stream's use.
             xcd::Api& a = xcd::api();
             if (!xcd::use_ctx()) return;
-            a.stream_sync(streams[(int)lane]);
+            const xcd::CUstream_t lane_stream = streams[lane_idx(lane)];
+            a.stream_sync(lane_stream);
             a.mem_free_async(
                 static_cast<xcd::CUdevptr_t>(
                     reinterpret_cast<uintptr_t>(p)),
-                streams[(int)lane]);
+                lane_stream);
         }
 #endif
     }
@@ -241,12 +271,13 @@ struct Manager {
 #if defined(XINGCHENG_CUDA)
         if (cuda_present && xcd::use_ctx()) {
             xcd::Api& a = xcd::api();
-            a.stream_sync(streams[(int)lane]);
+            const xcd::CUstream_t lane_stream = streams[lane_idx(lane)];
+            a.stream_sync(lane_stream);
             for (auto& kv : owned)
                 a.mem_free_async(
                     static_cast<xcd::CUdevptr_t>(
                         reinterpret_cast<uintptr_t>(kv.first)),
-                    streams[(int)lane]);
+                    lane_stream);
         }
 #endif
         owned.clear();

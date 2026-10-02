@@ -455,6 +455,17 @@ static JsonValue run_job(const JsonValue& job) {
     if (const char* e = std::getenv("XCT_PAUSE_FILE"))
         if (e[0]) tc.pause_file = e;
     const char* grant_id_env = std::getenv("XCT_RESOURCE_GRANT_ID");
+    // Trainer can never self-expand (§"trainer != resource authority"):
+    // the grant's CPU ceiling binds even the auto/override lanes —
+    // job-spec threads and XCT_TPU_THREADS are already resolved above,
+    // this clamps the RESULT to the granted maximum.
+    if (const char* e = std::getenv("XCT_RESOURCE_CPU_THREADS_MAX")) {
+        const int cap = std::atoi(e);
+        if (cap > 0 && (tc.threads <= 0 || tc.threads > cap)) {
+            tc.threads = cap;
+            g_tpu.threads = cap;
+        }
+    }
     // star-kernel-policy: governed kernel pins land after every other
     // lane override — force_serial/max_threads bound the pool,
     // deny_variants pin impls off, deny_kernels refuse the job when the
