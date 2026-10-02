@@ -6,7 +6,59 @@ namespace GPTBridge.CodexPipeline;
 
 internal static partial class Driver
 {
+    /// <summary>Serialize publication across processes and re-verify the
+    /// live generation under the gate: two requests built on the same
+    /// predecessor must not both publish (the later import would
+    /// silently discard the earlier successor — lost update).</summary>
     private static Dictionary<string, object?> ExecuteReadyRequest(
+        string requestPath, CodexAmendmentRequestLedger ledger,
+        string requestId)
+    {
+        using var gate = new Mutex(false,
+            @"Global\GPTBridge.CodexAmendmentPublish");
+        var held = false;
+        try
+        {
+            try { held = gate.WaitOne(TimeSpan.FromMinutes(10)); }
+            catch (AbandonedMutexException) { held = true; }
+            if (!held)
+                return new Dictionary<string, object?>(
+                    StringComparer.Ordinal)
+                {
+                    ["ok"] = false,
+                    ["state"] = Lifecycle.StateReadyForGovernor,
+                    ["error"] = "PUBLISH_GATE_BUSY",
+                };
+            var predecessor = Lifecycle.LoadAmendmentRequest(requestPath)
+                .Predecessor.TryGetValue("codex_version", out var pv)
+                ? pv?.ToString() ?? "" : "";
+            var (live, _) = LiveAuthorityIdentity();
+            if (live is not null && predecessor.Length > 0
+                && live != predecessor)
+            {
+                var reason = "STALE_PREDECESSOR_AT_PUBLICATION:"
+                    + $"{predecessor} != {live}";
+                ledger.Reject(requestId, reason: reason,
+                    evidence: new Dictionary<string, object?>
+                    { ["stage"] = "execute", ["stale"] = true });
+                return new Dictionary<string, object?>(
+                    StringComparer.Ordinal)
+                {
+                    ["ok"] = false,
+                    ["state"] = Lifecycle.StateRejected,
+                    ["error"] = reason,
+                };
+            }
+            return ExecuteReadyRequestLocked(requestPath, ledger,
+                requestId);
+        }
+        finally
+        {
+            if (held) gate.ReleaseMutex();
+        }
+    }
+
+    private static Dictionary<string, object?> ExecuteReadyRequestLocked(
         string requestPath, CodexAmendmentRequestLedger ledger,
         string requestId)
     {
