@@ -1,0 +1,27 @@
+{
+  "artifact":"codex-amendment-request",
+  "authority":"request-only",
+  "amendment_id":"codex-amendment-request-architecture-sync-stable-id-20261001",
+  "request_id":"architecture-sync-stable-id-20261001",
+  "requested_by":"decision-sovereign",
+  "origin":"correct the current architecture sync evidence identity while preserving B166 convergence",
+  "change_class":"clarification",
+  "required_review":"five-sovereign-audit-unanimous-pass",
+  "flow":"A382/A488-non-disruptive-amendment-flow",
+  "predecessor":{"codex_version":"2026-10-01T14:54:25Z","history_head":"479e5ec35f9f4f28218c8b1904b6686715baee2acc78769e9bed3a1f8731f245","revision_sequence":188},
+  "status":"submitted",
+  "not_executed":true,
+  "summary":"Use one stable current architecture-sync evidence identity and bind all nine active artifacts to the successor generation.",
+  "changes":[
+    {"table":"architecture_diagram_sync_evidence","key":{"evidence_id":"ARCHITECTURE_DIAGRAM_SYNC@<successor-version>"},"field":"evidence_id","proposed":"ARCHITECTURE_DIAGRAM_SYNC_CURRENT","also":{"codex_version":"<successor-version>","verified_at_utc":"<successor-version>","required_count":9,"registered_count":9,"present_count":9,"hash_match_count":9,"read_only_count":9,"stale_count":0,"missing_count":0,"result":"PASS","verifier":"deterministic-file-registry-validator","status":"current"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_LANGUAGES"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"5154d11b05d2dd59fa06346a543bffbf94d7975f1cee742ded8dc4869656e38e","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_PROJECT"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"4b33fc23b942bede4fb21921c642bf3369f646607e84b7a78ef4f6440fc6d818","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_AI_ASSISTANT"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"067b21032af7d4144dd8846913e2fc1318f52c69bb2be15687c020b582459a66","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_AI_COLLABORATION"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"d48a523aeae98a32d282663253b7cec4c2008736a772e918934f8391bacffa71","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_FILE_SORTER"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"6ec2305544cfce92ffcd673695d8485588926d618fc97e532fe7521b0bea3e28","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_INVESTMENT_MOBILE"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"c4dae2ca2350622a00783fa3c91d3cf7f98371478e43f7e1f31fe2d9a66644c0","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_LOCAL_MODEL"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"4d03adc7ba7ab09d63bdde2bf670796fbe64b0991e80d293f7eb31e37360225e","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_MODEL_DIALOGUE"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"1a989cab0b52d1076f276cfd61e70e0d93d284f297cbd2c9567ba7daaea63de7","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}},
+    {"table":"architecture_diagram_artifact_registry","key":{"diagram_code":"ARCH_TOOL_VAULTLY"},"field":"source_codex_version","proposed":"<successor-version>","also":{"content_hash":"23ad7878e39bf3e87f1b6f3870765d17bf17a9211b90143f4a1e2f81ae65aece","sync_status":"SYNCED_CURRENT","validated_at_utc":"<successor-version>"}}
+  ]
+}

@@ -1,6 +1,7 @@
 // CudaLanguage.cs — the CUDA language policy (native-only stack):
-// device code is CUDA written in OUR OWN C/C++ — embedded NVRTC
-// source inside the governed cpp tree — with no external compute
+// device code is self-authored PTX embedded in the governed cpp tree
+// (cuda_ptx_*.h), JIT-compiled by the installed NVIDIA driver through
+// cuModuleLoadData — with no toolkit, runtime or external compute
 // libraries.
 //
 //   Policy        star-cuda-language/v1 — the stated rule, its
@@ -9,14 +10,14 @@
 //                 dynamically-bound symbol source; a forbidden import
 //                 or external kernel/compute dependency fails closed.
 //
-// Allowed:  self-authored CUDA C++ compiled by NVRTC at run time;
-//           the NVIDIA platform itself (nvcuda driver, nvrtc, nvml);
-//           vendor math libs ONLY where a governed bench admits them
-//           (acceleration §22: cuBLAS/cuBLASLt after certification).
-// Denied:   .cu files / an nvcc toolchain requirement; Python CUDA of
-//           any flavor (torch/cupy/numba/pycuda/cuda-python/triton);
-//           third-party kernel libraries (flash-attn, cutlass as a
-//           shipped dependency, etc.); any second compute runtime.
+// Allowed:  in-tree PTX modules loaded by the CUDA Driver API;
+//           the NVIDIA platform itself (nvcuda driver, nvml).
+// Denied:   NVRTC / cudart / cuBLAS / any toolkit dll — removed
+//           dependencies with no runtime role; .cu files or an nvcc
+//           toolchain requirement; Python CUDA of any flavor
+//           (torch/cupy/numba/pycuda/cuda-python/triton); third-party
+//           kernel libraries (flash-attn, cutlass as a shipped
+//           dependency, etc.); any second compute runtime.
 
 using System.Text.RegularExpressions;
 
@@ -27,20 +28,21 @@ internal static class CudaLanguage
     public const string Format = "star-cuda-language/v1";
 
     // Vendor-platform DLLs the governed lane may dynamically bind —
-    // these ARE the CUDA platform, not external libraries.
+    // these ARE the CUDA platform, not external libraries. nvrtc64,
+    // cudart64_*, cublas* and every toolkit dll are deliberately NOT
+    // listed: any source reference to them is an external binding and
+    // fails the check closed.
     public static readonly string[] VendorPlatform =
     {
-        "nvcuda", "nvrtc64", "nvml",
-        // cuda.dll = the driver-API fallback name for nvcuda; cudart
-        // is the same vendor platform when the compile-gated lane
-        // binds it.
+        "nvcuda", "nvml",
+        // cuda.dll = the driver-API fallback name for nvcuda.
         "cuda",
     };
-    // Vendor math libraries — admitted only through the §22 bench gate
-    // (a certified fastest implementation may be used; never assumed).
+    // Vendor math libraries — none: the retired §22 bench gate is
+    // closed, GEMM/GEMV are in-tree PTX kernels. The table stays so a
+    // future governed admission has an explicit home.
     public static readonly string[] VendorBenchGated =
     {
-        "cublas", "cublasLt",
     };
     // Anything matching is an external compute dependency — denied.
     private static readonly (string pat, string what)[] Forbidden =
@@ -57,7 +59,7 @@ internal static class CudaLanguage
         ("cudnn|cufft|curand|cusolver|cusparse",
          "external vendor library — not on the admitted list"),
         ("#include\\s*[<\"][^>\"]*\\.cuh?[\">]",
-         ".cu/.cuh include — device code is embedded NVRTC source " +
+         ".cu/.cuh include — device code is embedded PTX " +
          "in the cpp tree"),
     };
     // Vendor runtimes the NPU EP-enumeration probe may open for
@@ -92,12 +94,14 @@ internal static class CudaLanguage
     public static Dictionary<string, object?> Policy() => new()
     {
         ["ok"] = true, ["format"] = Format,
-        ["rule"] = "CUDA is written in C/C++ — self-authored device " +
-                   "source compiled by NVRTC; no external compute " +
+        ["rule"] = "CUDA device code is self-authored PTX embedded in " +
+                   "the governed cpp tree, JIT-compiled by the NVIDIA " +
+                   "driver; no toolkit, runtime or external compute " +
                    "libraries",
-        ["device_code"] = "embedded NVRTC CUDA C++ inside the " +
-                          "governed cpp tree",
-        ["host_binding"] = "CUDA Driver API via LoadLibrary/" +
+        ["device_code"] = "in-tree PTX modules (cuda_ptx_*.h) loaded " +
+                          "via cuModuleLoadData — NVRTC and nvcc are " +
+                          "not used anywhere",
+        ["host_binding"] = "CUDA Driver API via nvcuda.dll LoadLibrary/" +
                            "GetProcAddress — a host without CUDA still " +
                            "runs (probes report NO_DEVICE, never a " +
                            "link failure)",
@@ -106,6 +110,7 @@ internal static class CudaLanguage
         ["forbidden"] = new[]
         {
             ".cu/.cuh files or an nvcc toolchain requirement",
+            "nvrtc / cudart / cublas / any CUDA toolkit dll",
             "Python CUDA (torch/cupy/numba/pycuda/cuda-python)",
             "Triton or any kernel DSL in another language",
             "third-party kernel libraries (flash-attn, cutlass, " +
@@ -114,8 +119,8 @@ internal static class CudaLanguage
             "any second compute runtime",
         },
         ["bench_rule"] =
-            "cuBLAS/cuBLASLt may be used ONLY where the §22 benchmark " +
-            "certifies it fastest — never by default",
+            "no vendor math libraries — GEMM/GEMV are in-tree PTX " +
+            "kernels; the retired §22 bench gate is closed",
     };
 
     /// <summary>Scan the native source tree for conformance: every
@@ -159,7 +164,7 @@ internal static class CudaLanguage
                         .Replace('\\', '/'),
                     ["match"] = Path.GetFileName(cu),
                     ["reason"] = "standalone .cu/.cuh file — device " +
-                        "code is embedded NVRTC source in the cpp " +
+                        "code is embedded PTX in the cpp " +
                         "tree (no nvcc toolchain)",
                 });
         }

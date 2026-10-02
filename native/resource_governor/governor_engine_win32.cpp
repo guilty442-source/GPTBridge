@@ -249,6 +249,14 @@ SysInfo WindowsEngine::system() {
     ::GetSystemInfo(&sysinfo);
     info.logical = static_cast<int>(sysinfo.dwNumberOfProcessors);
     if (info.logical <= 0) info.logical = 1;
+    /* 使用者閒置秒數：自動模式閒置全速（idle ceiling）的輸入訊號。
+     * GetTickCount 47 億毫秒回繞由無號減法自然吸收。 */
+    LASTINPUTINFO last_input{};
+    last_input.cbSize = sizeof(last_input);
+    if (::GetLastInputInfo(&last_input)) {
+        info.user_idle_s =
+            static_cast<double>(::GetTickCount() - last_input.dwTime) / 1000.0;
+    }
     return info;
 }
 

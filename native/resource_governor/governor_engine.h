@@ -47,6 +47,9 @@ struct SysInfo {
     double total_ram_mb = 0.0;
     long long total_ram_bytes = 0;
     int logical = 1;
+    /* 使用者無輸入秒數（GetLastInputInfo）；<0 = 未知（fail-closed：
+     * 視同使用中，閒置全速不啟動）。 */
+    double user_idle_s = -1.0;
 };
 
 class IEngine {

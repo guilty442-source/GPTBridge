@@ -1,0 +1,111 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "resident-periodic-automation-scheduler-20261001",
+  "title": "New article B176 + B155 resident-core enumeration: single consolidated periodic-automation scheduler",
+  "requested_by": "system-runtime-sovereign",
+  "origin": "user directive 'reduce main-system resident backend services' followed by codex-gap review: the three separately supervised resident automation services (Git sweep/sync, Codex pipeline, permission automation) were consolidated into one supervised resident host GPTBridge.Automation.exe --watch, but no active provision names a periodic-automation scheduler inside the resident core. B155 enumerates the minimal resident core without it, and C71 codifies automation-unit isolation semantics but not the single-host consolidation. resident-core.json already classifies periodic_scheduler as resident; this request records the codex-level gap closure.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-01T16:54:08Z",
+    "version_identity": "E2:2026-10-01T16:54:08Z",
+    "version_epoch": 2,
+    "history_head": "92523baae01881ecf5a057c6b258dda83e4f6bc8f2199a8abe85c17e75bf0eca",
+    "revision_sequence": 197
+  },
+  "problem": {
+    "summary": "The resident-core enumeration in B155 lists IPC/command routing, governance gates, launcher state, backend gateway and bounded health monitoring but names no periodic-automation scheduler, so the resident classification of the consolidated automation host rests only on the config artifact resident-core.json; no active provision defines the single-host, per-plane-lock, per-plane-failure-domain contract that the landed unified host implements."
+  },
+  "summary": "Two coordinated edits: (1) amend B155.rule so the resident-core enumeration includes one consolidated periodic-automation scheduler hosting the Git/Codex/permission planes; (2) add article B176 'resident-periodic-automation-scheduler' codifying the unified host contract - one supervised process, top-level single-instance lock, per-plane contract locks/state/cadence from automation-flows.json, C71 plane isolation, bounded restart owned by the Rust supervisor.",
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "B155" },
+      "field": "rule",
+      "proposed": "The main system keeps only a minimal resident core (IPC/command routing, governance and permission gates, launcher and runtime state, backend gateway and request registry, bounded maintenance health monitoring, and one consolidated periodic-automation scheduler hosting the Git, Codex and permission automation planes under B176); every other module and service starts on demand: the full RAG/CAG/DAG pipeline, the local model and Ollama, independent tools, embeddings/reranker, teacher distillation, indexing and offline maintenance. Activation is governed lazy activation with a readiness wait and idle unload; failures are fail-closed and reported as degraded; there is no pre-warm, no silent restart and no silent fallback to an unauthorised path. Capability state stays separate from run state so the UI shows not-started rather than failed; activation counts, cold-start latency, readiness waits and unload counts enter the performance baseline.\nExisting lazy implementations (lazy RAG/CAG construction, on-demand independent tools, the model activation broker and on-demand Ollama) are the foundation; no new sovereign or parallel lifecycle is created. The goal is lower idle power and local load: modules activate only when used and unload when idle; the idle baseline (RAM/CPU/GPU power and utilisation) is the acceptance reference and must be tracked continuously, and residency must never be traded for start-up speed.\nLazy RAG/CAG and on-demand tool/model activation already exist as implementation advantages; the explicit resident-vs-on-demand policy and its observability are not yet recorded or enforced."
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "articles",
+      "action": "insert",
+      "rows": [
+        {
+          "position": 573,
+          "provision_id": "B176",
+          "section_index": "2",
+          "subject": "resident-periodic-automation-scheduler",
+          "rule": "RESIDENT-SCHEDULER:exactly one supervised resident process (GPTBridge.Automation.exe --watch) hosts all periodic automation planes inside the main system - Git commit-sweep and worktree-sync, Codex pin-sync/maintenance/amendment-intake, and permission automation flows; the process is spawned and bounded-restart supervised only by the main-system Rust backend automation_host module and holds a single automation-host.lock as top-level single-instance arbitration; PLANE-CONTRACT:each plane keeps its own contract lock (git-automation.lock, codex-automation.lock, permission-automation.lock), its own state file, and its cadence and enabled kill switch from main-system/config/automation-flows.json, which is re-read each cycle and remains authoritative; PLANE-ISOLATION:each plane is an independent failure domain under C71 - a plane error, defer or park never terminates, delays or disables sibling planes, a plane-level exception is recorded as that plane's outcome and never crashes the host, and plane unavailability never consumes the host restart budget; EXTERNAL-LOCK:a plane contract lock already held by a valid external instance defers only that plane until release, also without consuming restart budget; EVIDENCE:per-plane state files plus the automation-host-planes.jsonl migration journal are the truthful runtime evidence.",
+          "prohibition": "FORBID:one supervised resident process per automation plane|host-wide termination or restart-budget consumption caused by a single-plane failure|unbounded in-host plane retry without park|bypassing manifest enabled gates|ignoring a held plane contract lock|a second resident automation host instance|resident scheduling outside the governed host|plane state written by multiple hosts",
+          "exception": "on-demand one-shot invocations (--once, --sweep, --sync, --status) are not resident services and remain permitted; the channel host remains a separate supervised resident service under B46/B49; a standalone external watcher holding a plane lock defers only that plane"
+        }
+      ]
+    },
+    {
+      "registry": "provision_law_classification",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "B176",
+          "tier": "main-codex",
+          "law_code": "CODEX_MAIN",
+          "authority_basis": "B155|C71|C50|B16"
+        }
+      ]
+    },
+    {
+      "registry": "provision_lifecycle_status",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "B176",
+          "lifecycle_state": "active",
+          "effective_version": "<successor-version>",
+          "successor_identity": null,
+          "evidence": "resident-periodic-automation-scheduler-current",
+          "legacy_effective_version": null,
+          "current_binding_version": "<successor-version>"
+        }
+      ]
+    },
+    {
+      "registry": "codex_internal_module_membership",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "B176",
+          "module_code": "CODEX_MODULE_RUNTIME",
+          "membership_kind": "controlling",
+          "resolution_state": "resolved",
+          "version_identity": "<successor-version>"
+        }
+      ]
+    },
+    {
+      "registry": "effective_provisions",
+      "action": "insert",
+      "rows": [
+        {
+          "provision_type": "article",
+          "provision_id": "B176",
+          "effective_version": "<successor-version>",
+          "status": "active",
+          "legacy_effective_version": null,
+          "current_binding_version": "<successor-version>"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-10-01T00:00:00Z",
+    "expected_audit_result": "B155 resident-core enumeration names the consolidated scheduler; B176 binds the single-host per-plane contract; provision classification maps every provision exactly once; projections rebuilt for successor generation"
+  }
+}

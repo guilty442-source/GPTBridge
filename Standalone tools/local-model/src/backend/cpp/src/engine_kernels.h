@@ -14,7 +14,67 @@ bool env_flag(const char* name) {
     const std::string v(value);
     return v == "1" || v == "true" || v == "TRUE" || v == "yes";
 }
+
+// ── Hybrid CPU+GPU fp64 lane (opt-in: XINGCHENG_HYBRID_MATMUL) ─────────
+// Splits one matmul into a CPU row block plus an async GPU row block.
+// The split is a deterministic function of (m, env pct): for a fixed
+// environment every call maps the same rows to the same lane, and each
+// lane keeps its own certified per-element accumulation order — the CPU
+// rows are bit-identical to the pure-CPU path, the GPU rows are
+// bit-identical to the pure-GPU path.  Read once; the pct env is latched
+// so a mid-run env edit can never change the mapping.
+int g_hybrid_cpu_pct = -1;  // -1 = not latched yet
+bool g_hybrid_matmul_on = false;
+
+bool hybrid_matmul_enabled() {
+    if (g_hybrid_cpu_pct < 0) {
+        g_hybrid_matmul_on = env_flag("XINGCHENG_HYBRID_MATMUL");
+        const char* v = std::getenv("XINGCHENG_HYBRID_CPU_PCT");
+        int pct = v != nullptr ? std::atoi(v) : 25;
+        if (pct < 0) pct = 0;
+        if (pct > 50) pct = 50;
+        g_hybrid_cpu_pct = pct;
+    }
+    return g_hybrid_matmul_on && g_hybrid_cpu_pct > 0;
+}
 }  // namespace
+
+#if defined(XINGCHENG_CUDA)
+// Returns true when `out` is fully written by the hybrid lane.  GPU rows
+// [cpu_rows, m) run asynchronously while the CPU register-tiled kernel
+// computes rows [0, cpu_rows).  A mid-flight device failure recomputes
+// the GPU rows on the CPU — fail-closed, never a partial result.
+//
+// The split is quantized to the 64-row wide-tile block boundary: the
+// GPU GEMM grid is ceil(m_gpu/64) block-rows, so a split that leaves
+// m_gpu inside the same block count gains nothing — the CPU share only
+// pays when it removes a whole GPU block-row.  gpu_rows therefore floors
+// to a multiple of 64 and the CPU absorbs the remainder.
+bool matmul_hybrid_f64(
+    const double* a, int64_t m, int64_t k,
+    const double* b, int64_t n, double* out) {
+    int64_t gpu_rows =
+        (m >= 8) ? ((m - m * g_hybrid_cpu_pct / 100) / 64) * 64 : 0;
+    if (gpu_rows == 0 && m > 64) gpu_rows = 64;  // shed all but one block
+    const int64_t cpu_rows = m - gpu_rows;
+    if (gpu_rows <= 0 || cpu_rows <= 0) return false;
+    if (xcuda_matmul_f64_begin(
+            a + cpu_rows * k, gpu_rows, k, b, n) != 0)
+        return false;
+    checked_c_call(
+        gptbridge_native_transformer_matmul(
+            a, cpu_rows, k, b, k, n, out),
+        "matmul-hybrid-cpu");
+    if (xcuda_matmul_f64_wait(out + cpu_rows * n, gpu_rows, n) != 0) {
+        checked_c_call(
+            gptbridge_native_transformer_matmul(
+                a + cpu_rows * k, gpu_rows, k, b, k, n,
+                out + cpu_rows * n),
+            "matmul-hybrid-repair");
+    }
+    return true;
+}
+#endif
 
 std::vector<double> matmul(
     const double* a,
@@ -35,6 +95,10 @@ std::vector<double> matmul(
             if (xcuda_matmul_fp8(a, m, k, b, n, out.data()) != 0) {
                 throw InferenceError("CUDA_FP8_MATMUL_FAILED");
             }
+            return out;
+        }
+        if (hybrid_matmul_enabled() &&
+            matmul_hybrid_f64(a, m, k, b, n, out.data())) {
             return out;
         }
         if (xcuda_matmul_f64(a, m, k, b, n, out.data()) != 0) {
@@ -84,6 +148,10 @@ void matmul_into(
             if (xcuda_matmul_fp8(a, m, k, b, n, out) != 0) {
                 throw InferenceError("CUDA_FP8_MATMUL_FAILED");
             }
+            return;
+        }
+        if (hybrid_matmul_enabled() &&
+            matmul_hybrid_f64(a, m, k, b, n, out)) {
             return;
         }
         if (xcuda_matmul_f64(a, m, k, b, n, out) != 0) {

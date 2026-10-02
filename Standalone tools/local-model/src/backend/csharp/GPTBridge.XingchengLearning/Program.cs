@@ -2,11 +2,19 @@
 //
 // CLI surface preserves the retired Python module's contract:
 //   --status              policy + state + training-window snapshot
+//   --preflight           resource gate preview (inference + governor
+//                         quota -> trainer threads), read-only
 //   --run-once [--force]  one governed self-learning cycle
+//   --schedule [--interval-s N]
+//                         resident scheduler: single-instance lock +
+//                         loop driving RunCycle every N s (default 900)
 //   --enable / --disable  policy kill switch (fail-closed when off)
 //   --retention           dry-run sweep (default) | --apply | --status
 //   --run-jobs [N]        drain queued governed training jobs
 //   --job <id>            run one specific job
+//   --reap-stale [--older-than-s N] [--apply]
+//                         list (default) or fail orphaned live-state jobs
+//                         older than N seconds (floor 3600, default 86400)
 //   --verify-audit        repository audit-chain verification
 //   --db-status           repository/schema status
 //   --migrate             ensure the training repository schema
@@ -46,9 +54,15 @@ internal static class Program
         {
             if (flags.Contains("status") && !flags.Contains("retention"))
                 return Emit(Status(toolRoot));
+            if (flags.Contains("preflight"))
+                return Emit(Preflight(toolRoot));
             if (flags.Contains("run-once"))
                 return Emit(SelfLearning.RunCycle(
                     toolRoot, force: flags.Contains("force")));
+            if (flags.Contains("schedule"))
+                return SelfLearning.RunSchedule(toolRoot,
+                    opts.TryGetValue("interval-s", out string? ivs) &&
+                    double.TryParse(ivs, out double iv) ? iv : 900);
             if (flags.Contains("enable") || flags.Contains("disable"))
                 return Emit(SetEnabled(toolRoot, flags.Contains("enable")));
             if (flags.Contains("retention"))
@@ -62,6 +76,15 @@ internal static class Program
                     int.TryParse(n, out int limit) ? limit : 16));
             if (opts.TryGetValue("job", out string? jobId))
                 return Emit(RunJob(toolRoot, jobId));
+            if (opts.TryGetValue("cancel-job", out string? cancelId))
+                return Emit(CancelJob(toolRoot, cancelId,
+                    opts.TryGetValue("reason", out string? cr)
+                        ? cr : ""));
+            if (flags.Contains("reap-stale"))
+                return Emit(ReapStale(toolRoot,
+                    opts.TryGetValue("older-than-s", out string? ots) &&
+                    long.TryParse(ots, out long o) ? o : 86400,
+                    apply: flags.Contains("apply")));
             if (flags.Contains("self-test"))
                 return Emit(SelfTest(toolRoot));
             if (flags.Contains("converge-check"))
@@ -1629,9 +1652,12 @@ internal static class Program
     {
         Console.Error.WriteLine(
             "GPTBridge.XingchengLearning [--tool-root <dir>] " +
-            "(--status | --run-once [--force] | --enable | --disable | " +
+            "(--status | --preflight | --run-once [--force] | " +
+            "--schedule [--interval-s N] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
-            "--job <id> | --self-test | --converge-check | " +
+            "--job <id> | --cancel-job <id> [--reason <text>] | " +
+            "--reap-stale [--older-than-s N] [--apply] | " +
+            "--self-test | --converge-check | " +
             "--maturation-status | --maturation-freeze --capability " +
             "<id> --evidence <ref> | --maturation-reopen --capability " +
             "<id> --reason <text> | --maturation-unsupported " +
@@ -1857,6 +1883,15 @@ internal static class Program
         };
     }
 
+    /// <summary>Read-only training resource gate preview: inference
+    /// liveness + governor training quota -> trainer threads. Same
+    /// inputs RunJob enforces, without touching any job.</summary>
+    private static Dictionary<string, object?> Preflight(string toolRoot)
+    {
+        var repo = new TransformerTrainingRepository(toolRoot);
+        return new TrainingJobExecutor(repo, toolRoot).PreflightStatus();
+    }
+
     private static Dictionary<string, object?> SetEnabled(string toolRoot, bool on)
     {
         var policy = SelfLearningPolicy.Load(toolRoot);
@@ -1901,6 +1936,40 @@ internal static class Program
     {
         var repo = new TransformerTrainingRepository(toolRoot);
         return new TrainingJobExecutor(repo, toolRoot).RunJob(jobId);
+    }
+
+    /// <summary>Governed cancel of a queued job. Goes through
+    /// TransitionTrainingJob so the transition is rejected for
+    /// non-cancellable states and the audit event lands in the same
+    /// transaction — stray queued rows otherwise block the self-learning
+    /// lane's queued-pending deferral forever.</summary>
+    private static Dictionary<string, object?> CancelJob(
+        string toolRoot, string jobId, string reason)
+    {
+        var repo = new TransformerTrainingRepository(toolRoot);
+        var row = repo.TransitionTrainingJob(jobId, "cancelled",
+            errorCode: "OPERATOR_CANCELLED",
+            errorMessage: string.IsNullOrWhiteSpace(reason)
+                ? "operator cancel" : reason);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["action"] = "cancelled",
+            ["job_id"] = jobId,
+            ["job"] = row,
+        };
+    }
+
+    /// <summary>Reap orphaned live-state jobs (dry-run by default;
+    /// --apply executes). A crashed run never leaves
+    /// preflight/training/validating by itself — this is the only way
+    /// out besides forward progress.</summary>
+    private static Dictionary<string, object?> ReapStale(
+        string toolRoot, long olderThanS, bool apply)
+    {
+        var repo = new TransformerTrainingRepository(toolRoot);
+        return new TrainingJobExecutor(repo, toolRoot)
+            .ReapStaleJobs(olderThanS, dryRun: !apply);
     }
 
     /// <summary>Registers a completed job's exported bundle as an adapter

@@ -1,0 +1,45 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "amendment_id": "codex-amendment-request-codex-language-special-law-convergence-20261002-r2",
+  "request_id": "codex-language-special-law-convergence-20261002-r2",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: inspect and converge the Codex; audit found active P117 still declaring retired Python and Julia source extensions, and two normalized Xingcheng special-law directory projections retaining the superseded confidentiality-only name and scope",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "predecessor": {
+    "codex_version": "2026-10-02T02:45:59Z",
+    "history_head": "cf357b4dde47f5a1c5f07636102bb0131d53e6525e422f17da052368c4e7d83a",
+    "revision_sequence": 200
+  },
+  "status": "submitted",
+  "not_executed": true,
+  "summary": "Converge the active source-extension principle with B166 and synchronize both normalized Xingcheng special-law directory projections with the canonical consolidated law identity, scope and provision links.",
+  "changes": [
+    {
+      "table": "principles",
+      "key": { "provision_id": "P117" },
+      "field": "statement",
+      "proposed": "SOURCE-EXTENSIONS:C=.c|.h;C++=.cpp|.hpp|.inl;CSharp=.cs;FSharp=.fs;Go=.go;Rust=.rs;JavaScript-ESM=.js|.jsx|.mjs;SQL=.sql;SOURCE-CLASSIFICATION:exact+exclusive+lowercase;CONTROL:B166-current-language-pool-and-managed-UI-exception"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "source_table": "law_structure_directory"
+      },
+      "field": "domain_payload",
+      "proposed": "{\"authority_basis\":\"C25|A49|A51|A54|A60|D40|A61\",\"canonical_name\":\"xingcheng-consolidated-special-law\",\"introduced_version\":\"1.81600\",\"law_code\":\"CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW\",\"official_entry\":\"governance-codex://official\",\"owner\":\"permission-sovereign\",\"parent_law_code\":\"CODEX_MAIN\",\"precedence\":\"special-over-general-within-declared-scope\",\"retired_version\":null,\"scope\":\"Xingcheng native-model identity, privileged domain, data residency, learning lifecycle, auxiliary system, confidentiality and explicitly granted capabilities\",\"tier\":\"special-law\"}"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+        "source_table": "special_law_directory"
+      },
+      "field": "domain_payload",
+      "proposed": "{\"authority_boundary\":\"remains inside the single governance codex and creates no separate authority\",\"canonical_name\":\"xingcheng-consolidated-special-law\",\"codex_section\":\"10\",\"general_provision_links\":\"C25|B100|A51|A54\",\"introduced_version\":\"1.81600\",\"owner\":\"permission-sovereign\",\"precedence\":\"special-over-general-within-declared-scope\",\"retired_version\":null,\"scope\":\"Xingcheng native-model identity, privileged domain, data residency, learning lifecycle, auxiliary system, confidentiality and explicitly granted capabilities\",\"special_law_code\":\"CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW\",\"special_provision_links\":\"A61|A86|A88|A95|A101|A113|B81|C67|C77|D56|D80|D81\"}"
+    }
+  ]
+}

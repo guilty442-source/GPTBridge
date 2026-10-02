@@ -72,6 +72,8 @@ internal static class NativeTools
         public double ElapsedS;
         public double? PeakRssMb;
         public int RssSamples;
+        public double? MinVramFreeMb;
+        public int VramSamples;
         public string StdoutTail = "";
     }
 
@@ -79,7 +81,14 @@ internal static class NativeTools
     /// non-zero exit the stderr tail becomes the error message.
     /// <paramref name="lowPriority"/> drops the child to BelowNormal so
     /// batch training yields CPU to interactive work and live inference
-    /// (governor A598: training sheds first).</summary>
+    /// (governor A598: training sheds first). <paramref name="env"/>
+    /// injects per-invocation environment variables (e.g. the trainer's
+    /// XINGCHENG_TRAINER_CUDA_OPT device-opt gate) — the child inherits
+    /// the parent environment plus these overrides.
+    /// <paramref name="vramProbeMb"/> is an optional sampler invoked on
+    /// each RSS sample tick; it should return system-wide free VRAM in MB
+    /// (or null when the probe fails) so summaries can record the minimum
+    /// headroom the run observed.</summary>
     public static RunResult Run(
         string exe,
         IEnumerable<string> args,
@@ -88,7 +97,9 @@ internal static class NativeTools
         double timeoutS = 14400,
         double rssBudgetMb = 0,
         double sampleIntervalS = 5,
-        bool lowPriority = false)
+        bool lowPriority = false,
+        IReadOnlyDictionary<string, string>? env = null,
+        Func<double?>? vramProbeMb = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -103,6 +114,9 @@ internal static class NativeTools
         };
         foreach (string arg in args)
             psi.ArgumentList.Add(arg);
+        if (env != null)
+            foreach (var kv in env)
+                psi.Environment[kv.Key] = kv.Value;
 
         Directory.CreateDirectory(Path.GetDirectoryName(stderrLogPath)!);
         var stderrBuffer = new StringBuilder();
@@ -147,6 +161,8 @@ internal static class NativeTools
         double deadline = timeoutS > 0 ? timeoutS : double.MaxValue;
         double peakRss = 0;
         int samples = 0;
+        double minVramFree = double.MaxValue;
+        int vramSamples = 0;
         try
         {
             while (true)
@@ -177,13 +193,37 @@ internal static class NativeTools
                             $"{rss.Value:F0}MB > {rssBudgetMb:F0}MB");
                     }
                 }
+                if (vramProbeMb != null)
+                {
+                    double? free = null;
+                    try { free = vramProbeMb(); }
+                    catch { /* sampler failure must not kill supervision */ }
+                    if (free.HasValue)
+                    {
+                        vramSamples++;
+                        minVramFree = Math.Min(minVramFree, free.Value);
+                    }
+                }
             }
         }
         finally
         {
-            // Drain async output handlers: the timed WaitForExit overload
-            // does not guarantee redirected-output processing finished.
-            try { proc.WaitForExit(); } catch { /* already dead */ }
+            // Drain async output handlers — bounded. The parameterless
+            // WaitForExit waits for the redirected pipes to EOF, but a
+            // detached grandchild can inherit those handles and hold
+            // them open past the child's exit (ollama-service spawns a
+            // persistent `ollama serve`, which kept the collect lane
+            // deadlocked until killed). The handlers have already
+            // appended everything the child wrote; 15 s of grace keeps
+            // the drain guarantee without waiting on pipes the child
+            // no longer owns.
+            try
+            {
+                using var cts = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(15));
+                proc.WaitForExitAsync(cts.Token).GetAwaiter().GetResult();
+            }
+            catch { /* already dead / drain abandoned */ }
         }
 
         int exitCode;
@@ -196,6 +236,9 @@ internal static class NativeTools
             ElapsedS = started.Elapsed.TotalSeconds,
             PeakRssMb = samples > 0 ? Math.Round(peakRss, 1) : null,
             RssSamples = samples,
+            MinVramFreeMb = vramSamples > 0
+                ? Math.Round(minVramFree, 1) : null,
+            VramSamples = vramSamples,
             StdoutTail = stdoutTail.ToString(),
         };
         return result;

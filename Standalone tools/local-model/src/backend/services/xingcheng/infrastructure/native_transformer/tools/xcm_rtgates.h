@@ -87,17 +87,13 @@ int mode_cuda_parity_all(const Args&) {
     long long fb = 0, tb = 0;
     int ccm = 0, ccn = 0;
     const bool cuda = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
-    const long long M = 8, K = 16, N = 12;
-    std::vector<double> A(M * K), B(K * N);
-    {
-        std::mt19937_64 rng(4);
-        std::uniform_real_distribution<double> u(-0.5, 0.5);
-        for (auto& v : A) v = u(rng);
-        for (auto& v : B) v = u(rng);
-    }
-    std::vector<double> ref(M * N), got(M * N, 0.0);
-    cpup_ref_matmul(A.data(), M, K, B.data(), N, ref.data());
-    const double refmax = std::max(cpup_maxabs(ref), 1e-12);
+    // Coverage shapes: skinny multi-row (m<=16 GEMV), single-row decode
+    // (m==1 fast path), and wide-tile (m,n>=32 -> 64x64 kernels). The
+    // dispatch is shape-adaptive, so parity evidence must span all
+    // three branches.
+    struct Shape { long long m, k, n; };
+    static const Shape kShapes[] = {
+        {8, 16, 12}, {1, 64, 256}, {64, 96, 48}};
 
     struct Lane { const char* name; const char* status;
                   double max_diff; double tol; };
@@ -107,14 +103,30 @@ int mode_cuda_parity_all(const Args&) {
                                   const double*, long long, double*),
                         double tol_scale) {
         if (!cuda) { lanes.push_back({name, "not_run", 0, 0}); return; }
-        std::fill(got.begin(), got.end(), 0.0);
-        if (fn(A.data(), M, K, B.data(), N, got.data()) != 0) {
-            lanes.push_back({name, "unavailable", 0, 0});
-            return;
+        double worst = 0.0, worst_tol = 0.0;
+        for (const auto& s : kShapes) {
+            std::vector<double> A(static_cast<size_t>(s.m * s.k)),
+                B(static_cast<size_t>(s.k * s.n));
+            {
+                std::mt19937_64 rng(4);
+                std::uniform_real_distribution<double> u(-0.5, 0.5);
+                for (auto& v : A) v = u(rng);
+                for (auto& v : B) v = u(rng);
+            }
+            std::vector<double> ref(static_cast<size_t>(s.m * s.n)),
+                got(ref.size(), 0.0);
+            cpup_ref_matmul(A.data(), s.m, s.k, B.data(), s.n,
+                            ref.data());
+            const double refmax = std::max(cpup_maxabs(ref), 1e-12);
+            if (fn(A.data(), s.m, s.k, B.data(), s.n, got.data()) != 0) {
+                lanes.push_back({name, "unavailable", 0, 0});
+                return;
+            }
+            worst = std::max(worst, cpup_maxdiff(ref, got));
+            worst_tol = std::max(worst_tol, tol_scale * refmax);
         }
-        double d = cpup_maxdiff(ref, got);
-        lanes.push_back({name, d <= tol_scale * refmax ? "PASS" : "FAIL",
-                         d, tol_scale * refmax});
+        lanes.push_back({name, worst <= worst_tol ? "PASS" : "FAIL",
+                         worst, worst_tol});
     };
     run_gemm("gemm_f64", xcuda_matmul_f64, 1e-9);
     run_gemm("gemm_bf16", xcuda_matmul_bf16, 0.02);
@@ -122,6 +134,14 @@ int mode_cuda_parity_all(const Args&) {
 
     // Grouped fp64 GEMM: two row groups, per-group weight matrices.
     if (cuda) {
+        const long long M = 8, K = 16, N = 12;
+        std::vector<double> A(M * K), B(K * N);
+        {
+            std::mt19937_64 rng(4);
+            std::uniform_real_distribution<double> u(-0.5, 0.5);
+            for (auto& v : A) v = u(rng);
+            for (auto& v : B) v = u(rng);
+        }
         const long long rows[2] = {3, 5};
         std::vector<double> B2(K * N);
         {

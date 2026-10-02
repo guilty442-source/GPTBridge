@@ -303,7 +303,7 @@
       "interval_s": 60,
       "pausable": false,
       "enabled": true,
-      "description": "native port delivered (B167/B38): 自動模式顧問併入唯一 C++23 管制器 native/resource_governor/governor_advisor.*，於既有 watch 週期內評估（無第二行程/平行 watcher，B159）。控制律：auto.ceiling=medium 為自動模式上限（使用者前景保留餘裕）；power_saving_schedule 22:00-07:00→sleep 立即；strained/整機超載→low 立即；worker 需求＋餘裕→升檔 streak_up 連續評估（≤ceiling）；降檔 streak_down＋cooldown_s=600；rules_error fail-closed 保留已驗證狀態。狀態 runtime/state/resource-mode-advisor.json，切換稽核 runtime/state/resource-mode-audit.jsonl；手動選檔（app:set-resource-mode）關閉 auto_mode。"
+      "description": "native port delivered (B167/B38): 自動模式顧問併入唯一 C++23 管制器 native/resource_governor/governor_advisor.*，於既有 watch 週期內評估（無第二行程/平行 watcher，B159）。控制律：auto.ceiling=medium 為使用中上限（使用者前景保留餘裕）；idle_full_speed＋idle_after_s=300 無輸入時上限放寬至 idle_ceiling=high（閒置全速），使用者回來 urgent 立即降回；power_saving_schedule 22:00-07:00→sleep 立即；strained/整機超載→low 立即；worker 需求＋餘裕→升檔 streak_up 連續評估（≤ceiling）；降檔 streak_down＋cooldown_s=600；rules_error fail-closed 保留已驗證狀態。狀態 runtime/state/resource-mode-advisor.json，切換稽核 runtime/state/resource-mode-audit.jsonl；手動選檔（app:set-resource-mode）關閉 auto_mode。"
     },
     "file-sorter-automation": {
       "owner": "FileSorterAutomationService（file-sorter 工具行程內）",
@@ -322,12 +322,12 @@
       "description": "retired (B167/B38): _internal_maintenance_loop removed with the Python training/maintenance lane"
     },
     "self-learning": {
-      "owner": "GPTBridge.XingchengLearning xc-learning.exe --run-once（local-model 受管 lane；native port B167/B38 已交付）",
+      "owner": "xc-learning.exe --schedule（resident loop inside the tool body；native port B167/B38 已交付，排程機制內化星澄本體）",
       "kind": "periodic",
       "interval_s": 900,
       "pausable": true,
       "enabled": false,
-      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載；kill switch 仍以 runtime/settings/self-learning.json enabled 為準。enabled=false pending resident tool-host registration of the system-channel dispatch（原 SelfLearningDriver 職責：tool 冷卻喚醒、inference exclusion 預檢、900s 節奏）。"
+      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載。排程已內化本體：xc-learning.exe --schedule 以 xingcheng/runtime/state/self-learning-schedule.lock 單例仲裁、常駐迴圈驅動同一 RunCycle（drain 佇列→cycle），心跳寫入 self-learning-schedule.json；所有政策閘門（kill switch、quiet hours、min_new_examples、inference exclusion、governor quota、單一訓練車道、lane-busy deferral）由本體權威執行。本 flow 保留為登記/文件用途並維持 enabled=false —— 外部 GPTBridge.Automation self-learning 平面不得再產生排程器（避免第二調度者）。kill switch 仍以 runtime/settings/self-learning.json enabled 為準。"
     },
     "retention": {
       "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（local-model 受管 lane；native port B167/B38 已交付）",

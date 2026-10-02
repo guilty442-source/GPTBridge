@@ -1,0 +1,45 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "amendment_id": "codex-amendment-request-stale-python-reference-convergence-20261001",
+  "request_id": "stale-python-reference-convergence-20261001",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: active provisions still reference retired Python implementations and B72 retains a blanket new-authored-JavaScript-ESM-source ban that contradicts the B166 managed UI-surface exception; converge references to current stable identities (star-tool-call/v2, star-pretrain-corpus/v1, C# audit chain)",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "predecessor": {
+    "codex_version": "2026-10-01T14:54:25Z",
+    "history_head": "479e5ec35f9f4f28218c8b1904b6686715baee2acc78769e9bed3a1f8731f245",
+    "revision_sequence": 188
+  },
+  "status": "submitted",
+  "not_executed": true,
+  "summary": "Remove stale references from four active provisions: B72 scopes the JavaScript-ESM prohibition to unregistered source (B166 managed UI-surface exception stays controlling); B153 rebinds to star-tool-call/v2 (ToolContracts.cs) with tool_call_format.py marked retired-historical; C108 rebinds to the native xcm_corpus.h star-pretrain-corpus/v1 lane which lands all eleven mandated elements; D136 rebinds the audit-chain mechanism to GPTBridge.GitAutomation Ledger.cs.",
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "B72" },
+      "field": "prohibition",
+      "proposed": "FORBID:dual owner+adapter accumulating orchestration/domain policy+C++ ABI exposure+duplicate performance kernel+CSharp portable business logic+retired-Python/NumPy/JAX-role+SQL/C++ business decision+direct cross-language bypass+self-declared capability ownership+unregistered-JavaScript-ESM-source."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "B153" },
+      "field": "rule",
+      "proposed": "Xingcheng does not need to own many tool capabilities - tools are provided by governed tools and executors - but it must know how to call tools: emit valid star-tool-call/v2 calls with correct parameters, interpret tool results and handle errors and denials; every call routes through the information channel and permission checks, and tool results remain unverified inputs until validated.\nXingcheng never authorises or executes tools itself; tool-calling competence is part of maturity L6 and the Phase 6 acceptance.\nstar-tool-call/v2 (ToolContracts.cs, governed C# lane) is the single tool-call envelope; the retired Python tool_call_format.py (star-tool-call/v1) is historical-only. The L6 acceptance matrix and governed tool routing are still pending (Phase 6 / G3)."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C108" },
+      "field": "rule",
+      "proposed": "Complete pretraining data pipeline with eleven mandatory elements: Corpus Registry, Dataset Version, Language Classification, Source Tracking, License Validation, Unicode Normalization (with original-to-normalized mapping), Document Deduplication, Sequence Packing, Training/Validation Split, Token Count, Dataset Integrity. Language direction: Traditional Chinese primary, then English, programming languages, mathematics, science, general knowledge and reading comprehension.\nTraining data must be traceable, verifiable and reproducible. Confidential codex content (including the five zh-TW mirror parts and the codex database), permission data, Xingcheng private auxiliary channels, runtime state / audit journals and unauthorized data must never be added to a training set automatically (fail-closed); license validation precedes ingestion. Normalization must preserve the original-to-normalized mapping and must not damage code, paths, proper nouns or semantics.\nThe retired Python training/corpus.py is historical-only; the governed corpus pipeline is the native lane xcm_corpus.h (star-pretrain-corpus/v1) inside xc_modeltool with the star-corpus-registry/v1 source registry at runtime/settings/corpus-registry.json and the incremental star-corpus-scan-state/v1 contract verified by IncrementalCorpusContract; it lands all eleven mandated elements and enforces the exclusion rule fail-closed by path fragment and registry gate before any read."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "D136" },
+      "field": "rule",
+      "proposed": "Blockchain-style data structure only (append-only hash chain with verifiable integrity; no tokens, no consensus, no P2P): one module_id maps to one dedicated hash chain of operation receipts, state changes and version publications; entries chain prev_hash + payload_hash + actor/identity + decision/correlation id + timestamp into entry_hash, and any tampering, gap or reordering fails verification fail-closed. The design reuses the existing audit chain (GPTBridge.GitAutomation Ledger.cs chained audit append to git_audit_chain/, seal_manifest and revision_history) instead of creating a second ledger. Fine-grained modules each own a registry identity and an independent chain head; integrity verification (replay plus hash comparison) is provided and integrated with governor sealing and external signatures; chains store hashes and metadata only, never secrets or credentials.\nMandatory registered Codex contract invariant 20; a failed chain-integrity verification is fail-closed; history is never rewritten or deleted.\nRecorded in registered Codex contract section 10.29 and invariant 20; the existing audit chain provides the mechanism, per-module chain heads are not yet wired."
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "format": "xnc-vectors/v1",
+  "spec": "contracts/xnc-spec.md",
+  "producer": "xnc-vectors",
+  "note": "Canonical conformance vectors for the XNC family. Every lane (Rust xc-format/xstore, C++ xct_ckpt/xcb_batch, C# XcnHeader) parses ok vectors byte-identically and rejects reject vectors with its typed error. All integers little-endian.",
+  "vectors": [
+    {
+      "file": "xcn1-v1-minimal.bin",
+      "kind": "XCN",
+      "magic": "XCN1",
+      "version": 1,
+      "verdict": "ok",
+      "expect": {
+        "header_len": 60,
+        "vocab_size": 32000,
+        "hidden_size": 64,
+        "num_hidden_layers": 2,
+        "moe_num_experts": 0,
+        "has_gemma4": false,
+        "mtp_stack_depth": null,
+        "tensor_count": 0
+      }
+    },
+    {
+      "file": "xcn1-v10-minimal.bin",
+      "kind": "XCN",
+      "magic": "XCN1",
+      "version": 10,
+      "verdict": "ok",
+      "expect": {
+        "vocab_size": 32000,
+        "has_gemma4": false,
+        "mtp_stack_depth": 0,
+        "tensor_count": 0
+      }
+    },
+    {
+      "file": "xcn1-v9-gemma4.bin",
+      "kind": "XCN",
+      "magic": "XCN1",
+      "version": 9,
+      "verdict": "ok",
+      "expect": {
+        "has_gemma4": true,
+        "head_dim": 64,
+        "global_head_dim": 64,
+        "sliding_window": 1024,
+        "layer_types": ["sliding_attention", "full_attention"],
+        "hidden_activation": "gelu_tanh",
+        "tensor_count": 0
+      }
+    },
+    {
+      "file": "xcn1-bad-magic.bin",
+      "kind": "XCN",
+      "verdict": "reject",
+      "error_category": "bad_magic"
+    },
+    {
+      "file": "xcn1-bad-version.bin",
+      "kind": "XCN",
+      "verdict": "reject",
+      "error_category": "bad_version",
+      "stored_version": 99
+    },
+    {
+      "file": "xcn1-truncated.bin",
+      "kind": "XCN",
+      "verdict": "reject",
+      "error_category": "truncated",
+      "note": "v5 layout cut at 150 bytes, inside the final f32"
+    },
+    {
+      "file": "xcn1-bad-marker.bin",
+      "kind": "XCN",
+      "verdict": "reject",
+      "error_category": "bad_marker",
+      "stored_marker": 7
+    },
+    {
+      "file": "xcb1-empty.bin",
+      "kind": "XDS",
+      "magic": "XCB1",
+      "version": 1,
+      "verdict": "ok",
+      "expect": {
+        "meta_format": "star-token-batch/v1",
+        "record_count": 0
+      }
+    },
+    {
+      "file": "xcb1-one-pretrain.bin",
+      "kind": "XDS",
+      "magic": "XCB1",
+      "version": 1,
+      "verdict": "ok",
+      "expect": {
+        "record_count": 1,
+        "records": [
+          { "kind": 1, "flags": 0, "ids": [10, 20, 30, 40], "labels": [] }
+        ]
+      }
+    },
+    {
+      "file": "xcb1-bad-version.bin",
+      "kind": "XDS",
+      "verdict": "reject",
+      "error_category": "bad_version",
+      "stored_version": 2
+    },
+    {
+      "file": "xcb1-bad-kind.bin",
+      "kind": "XDS",
+      "verdict": "reject",
+      "error_category": "bad_kind",
+      "stored_kind": 9
+    },
+    {
+      "file": "xcb1-truncated.bin",
+      "kind": "XDS",
+      "verdict": "reject",
+      "error_category": "truncated",
+      "note": "record_count=1 declared; record cut mid-ids"
+    }
+  ]
+}

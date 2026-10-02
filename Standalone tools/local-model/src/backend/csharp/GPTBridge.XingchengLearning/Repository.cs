@@ -740,6 +740,20 @@ internal sealed class TransformerTrainingRepository
             "WHERE status = 'queued' ORDER BY created_at ASC LIMIT $1", limit);
     }
 
+    /// <summary>Jobs holding a live-state status
+    /// (preflight/training/validating). A crashed run never leaves these
+    /// states by itself — the reaper
+    /// (TrainingJobExecutor.ReapStaleJobs) is the only way out besides
+    /// forward progress.</summary>
+    public List<Dictionary<string, object?>> ActiveJobs(int limit = 64)
+    {
+        using var db = Pg.Connect(Schema);
+        return db.Query(
+            $"SELECT {JobColumns} FROM transformer_training_job " +
+            "WHERE status IN ('preflight','training','validating') " +
+            "ORDER BY created_at ASC LIMIT $1", limit);
+    }
+
     public Dictionary<string, object?> TransitionTrainingJob(
         string jobId, string status,
         string outputPath = "", string errorCode = "", string errorMessage = "")
@@ -794,6 +808,71 @@ internal sealed class TransformerTrainingRepository
             throw new InvalidOperationException(
                 "transformer training job transition was not stored");
         return updated;
+    }
+
+    public enum JobClaimResult { Claimed, Missing, NotQueued, Busy }
+
+    /// <summary>Atomic serial-training claim (同時訓練上限 = 1): inside
+    /// one transaction, takes a training-lane advisory lock (serializing
+    /// every concurrent claimant), verifies the job is still queued and
+    /// no sibling is in flight (preflight/training/validating), then
+    /// transitions the job to preflight with the governed audit event.
+    /// A plain ActiveJobs-then-transition pair would let two concurrent
+    /// executors both pass the check — the advisory lock closes that
+    /// race.</summary>
+    public (JobClaimResult Result, Dictionary<string, object?>? Row)
+        TryClaimTrainingJob(string jobId)
+    {
+        return InTx(db =>
+        {
+            // Serializes concurrent claimants: try-lock instead of a
+            // blocking lock so a claimant waiting on the lane reports
+            // Busy rather than hanging — the same key is also held as a
+            // session-level lease by the staged recovery lane
+            // (InstructionRecovery) for the duration of a run.
+            var lockRow = db.QueryOne(
+                "SELECT pg_try_advisory_xact_lock(" +
+                "hashtextextended('xc_serial_training', 0)) AS locked");
+            if (lockRow == null || !Truthy(lockRow["locked"]))
+                return (JobClaimResult.Busy, null);
+            var row = db.QueryOne(
+                $"SELECT {JobColumns} FROM transformer_training_job " +
+                "WHERE job_id = $1 FOR UPDATE", jobId);
+            if (row == null)
+                return (JobClaimResult.Missing, null);
+            if (!string.Equals((string)row["status"]!, "queued",
+                               StringComparison.Ordinal))
+                return (JobClaimResult.NotQueued, row);
+            var sibling = db.QueryOne(
+                "SELECT job_id FROM transformer_training_job " +
+                "WHERE status IN ('preflight','training','validating') " +
+                "LIMIT 1");
+            if (sibling != null)
+                return (JobClaimResult.Busy, row);
+            db.Execute(
+                """
+                UPDATE transformer_training_job
+                SET status = 'preflight', error_code = '',
+                    error_message = ''
+                WHERE job_id = $1
+                """,
+                jobId);
+            AppendAudit(db,
+                eventType: "training-job-transitioned",
+                entityType: "training-job",
+                entityId: jobId,
+                payload: new Dictionary<string, object?>
+                {
+                    ["from"] = "queued",
+                    ["to"] = "preflight",
+                    ["error_code"] = "",
+                    ["serial_claim"] = true,
+                });
+            var updated = db.QueryOne(
+                $"SELECT {JobColumns} FROM transformer_training_job " +
+                "WHERE job_id = $1", jobId);
+            return (JobClaimResult.Claimed, updated);
+        });
     }
 
     // ------------------------------------------------------------ adapters --
@@ -1148,6 +1227,20 @@ internal sealed class TransformerTrainingRepository
             ["created_at"] = createdAt,
         };
         return CanonicalJson.CanonicalDict(body);
+    }
+
+    /// <summary>Standalone audit event in its own transaction — used for
+    /// lane-level lifecycle marks (e.g. recovery-lane lease acquire /
+    /// release) that are not row transitions.</summary>
+    public void AuditEvent(string eventType, string entityType,
+                           string entityId,
+                           IReadOnlyDictionary<string, object?> payload)
+    {
+        InTx(db =>
+        {
+            AppendAudit(db, eventType, entityType, entityId, payload);
+            return 0;
+        });
     }
 
     internal Dictionary<string, object?> AppendAudit(

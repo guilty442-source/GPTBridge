@@ -12,6 +12,11 @@
  * 最高檔位（預設 medium）——advisor 永不自動升到 ceiling 之上，
  * 保證前景互動保有 CPU/RAM 餘裕；手動選檔（UI）不受此限並會關閉
  * auto_mode（user intent wins）。
+ *
+ * 閒置全速（2026-10-01 追加）：auto.idle_full_speed=true 且使用者無輸入
+ * ≥ idle_after_s 時，有效上限放寬為 idle_ceiling（預設 high）；使用者
+ * 一回來（idle < threshold）高於 ceiling 的檔位立即 urgent 降回——
+ * 閒置提速，回座即讓。
  */
 #pragma once
 
@@ -40,6 +45,10 @@ struct AdvisorPolicy {
     double headroom_cpu_pct = 60.0; /* 允許升檔所需的整機餘裕 */
     double headroom_mem_pct = 75.0;
     double demand_factor = 0.8;     /* worker 帳本 ≥ budget*factor 視為需求 */
+    /* 閒置全速：無使用者輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling。 */
+    bool idle_full_speed = true;
+    double idle_after_s = 300.0;
+    std::string idle_ceiling = "high";
     /* 夜間省電排程（缺省啟用 22:00-07:00 → sleep；同 Python 預設）。 */
     bool schedule_enabled = true;
     int schedule_start_min = 22 * 60;
@@ -77,6 +86,7 @@ struct AdvisorSignals {
     int local_minutes = -1;        /* 本地時間分鐘（<0 = 未知） */
     double now_unix = 0.0;         /* 壁鐘秒（cooldown/last_switch） */
     double now_mono = 0.0;         /* 單調秒（eval 節拍） */
+    double user_idle_s = -1.0;     /* 使用者無輸入秒數（<0 = 未知→使用中） */
 };
 
 struct AdvisorDecision {
@@ -86,6 +96,8 @@ struct AdvisorDecision {
     bool schedule_active = false;
     bool demand = false;
     bool headroom = false;
+    bool idle_active = false;      /* 閒置全速生效中（idle_ceiling 接管上限） */
+    std::string eff_ceiling;       /* 本次評估實際使用的上限檔位 */
     std::string target;
     std::string current;
     std::string reason;

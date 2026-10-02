@@ -1,0 +1,32 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "b139-current-capability-binding-20261002",
+  "title": "Rebind B139 to B167 and the current capability registry",
+  "summary": "Remove B139's stale reference to the deleted B81 language-ownership lanes and its transitional F# verdict-lane statement; bind evaluation ownership and execution eligibility to B167 and the current capability registry.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: B139 must bind to B167 and the current capability registry instead of the removed B81 implementation clause",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T03:36:33Z",
+    "version_identity": "E2:2026-10-02T03:36:33Z",
+    "version_epoch": 2,
+    "history_head": "114e68617b274296b8c4e21a07cd8f039fa7ef07273fd65d2af1008aa386d9ff",
+    "revision_sequence": 203
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B139"
+      },
+      "field": "rule",
+      "proposed": "QUALITY-CONTROL:C++23 native training and production inference jointly own the versioned model-artifact contract inside Xingcheng;training evaluation and correctness analysis use the current registered capability contract, with ownership and eligible execution languages governed by B167 and the current capability registry;no transitional language lane is implied;BOUNDARY:concrete probes,metrics,datasets and thresholds are Xingcheng owner-local rules;ACCEPTANCE:current native evidence must establish the shipped architecture's declared health invariants - for routed/sparse designs that includes routing balance,expert utilization and non-collapse - plus gradient coverage,artifact integrity and inference compatibility before promotion;FAILURE:missing,stale,unregistered or contradictory evidence denies promotion."
+    }
+  ]
+}

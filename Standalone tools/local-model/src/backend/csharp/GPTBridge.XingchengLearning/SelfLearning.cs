@@ -693,6 +693,123 @@ internal static class SelfLearning
         return result;
     }
 
+    /// <summary>Resident self-learning scheduler — the cadence mechanism
+    /// lives inside the tool body: a single-instance lock under
+    /// xingcheng/runtime/state plus a loop that drives RunCycle
+    /// in-process every interval. All gates (kill switch, quiet hours,
+    /// thresholds, inference exclusion, serial lane) stay authoritative
+    /// inside RunCycle; the loop only paces and heartbeats. Never
+    /// returns on its own — 1 means another schedule instance holds the
+    /// lock; external supervisors liveness-check the heartbeat file.</summary>
+    public static int RunSchedule(string toolRoot, double intervalS = 900)
+    {
+        string tool = Path.GetFullPath(toolRoot);
+        string stateDir = Path.Combine(
+            tool, "xingcheng", "runtime", "state");
+        Directory.CreateDirectory(stateDir);
+        string lockPath = Path.Combine(
+            stateDir, "self-learning-schedule.lock");
+        string heartbeatPath = Path.Combine(
+            stateDir, "self-learning-schedule.json");
+        FileStream instanceLock;
+        try
+        {
+            instanceLock = new FileStream(lockPath, FileMode.Create,
+                FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (Exception exc) when (exc is IOException
+            or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine(
+                "[xc-learning] --schedule already running (lock held)");
+            return 1;
+        }
+        var interval = TimeSpan.FromSeconds(
+            intervalS > 0 ? intervalS : 900);
+        var repository = new TransformerTrainingRepository(tool);
+        var executor = new TrainingJobExecutor(repository, tool);
+        int pid = Environment.ProcessId;
+        void Heartbeat(string phase, Dictionary<string, object?>? result)
+        {
+            try
+            {
+                ModelLifecycle.AtomicWrite(heartbeatPath,
+                    CanonicalJson.PrettyDict(new Dictionary<string, object?>
+                    {
+                        ["format"] = "star-self-learning-schedule/v1",
+                        ["pid"] = pid,
+                        ["at"] = IsoNow(),
+                        ["interval_s"] = interval.TotalSeconds,
+                        ["phase"] = phase,
+                        ["last_action"] =
+                            result?.GetValueOrDefault("action"),
+                        ["job_id"] = result?.GetValueOrDefault("job_id"),
+                        ["reason"] = result?.GetValueOrDefault("reason"),
+                        ["error"] = result?.GetValueOrDefault("error"),
+                        ["error_code"] =
+                            result?.GetValueOrDefault("error_code"),
+                        ["ok"] = result != null &&
+                            TransformerTrainingRepository.Truthy(
+                                result.GetValueOrDefault("ok")),
+                    }) + "\n");
+            }
+            catch { /* heartbeat is evidence, never a gate */ }
+        }
+        using (instanceLock)
+        {
+            while (true)
+            {
+                Dictionary<string, object?> result;
+                try
+                {
+                    // Drain before cycle: a queued job takes precedence and
+                    // would otherwise defer self-learning forever. The
+                    // serial lane admits one claimant, so a race with an
+                    // external drain is fail-closed (EXECUTOR_TRAINING_*
+                    // surfaces as a fault heartbeat, retried next tick).
+                    if (repository.ActiveJobs(1).Count > 0)
+                    {
+                        result = new Dictionary<string, object?>
+                        {
+                            ["action"] = "deferred",
+                            ["reason"] = "job in flight",
+                        };
+                    }
+                    else if (repository.QueuedJobs(1) is { Count: > 0 } q)
+                    {
+                        string jid = (string)q[0]["job_id"]!;
+                        Heartbeat("draining", new() { ["job_id"] = jid });
+                        var rep = executor.RunJob(jid);
+                        result = new Dictionary<string, object?>
+                        {
+                            ["action"] = "drained",
+                            ["job_id"] = jid,
+                            ["ok"] = rep.GetValueOrDefault("ok"),
+                            ["error_code"] =
+                                rep.GetValueOrDefault("error_code"),
+                        };
+                    }
+                    else
+                    {
+                        Heartbeat("cycling", null);
+                        result = RunCycle(tool);
+                    }
+                }
+                catch (Exception exc)
+                {
+                    result = new Dictionary<string, object?>
+                    {
+                        ["action"] = "fault",
+                        ["error"] =
+                            $"{exc.GetType().Name}:{exc.Message}",
+                    };
+                }
+                Heartbeat("sleeping", result);
+                Thread.Sleep(interval);
+            }
+        }
+    }
+
     public static Dictionary<string, object?> RunCycleImpl(
         string toolRoot, SelfLearningPolicy? policy = null, bool force = false)
     {
@@ -752,6 +869,25 @@ internal static class SelfLearning
                     ["policy"] = policyDict, ["checked_at"] = IsoNow(),
                 };
             }
+        }
+
+        // Serial-lane occupancy is itself a gate: while a governed job is
+        // in flight or queued, another cycle would only pile up duplicate
+        // queued rows and burn a daily-cycle slot. Defer instead — the
+        // holder's own completion drains the lane.
+        {
+            var laneRepo = new TransformerTrainingRepository(tool);
+            var laneActive = laneRepo.ActiveJobs(1);
+            var laneQueued = laneRepo.QueuedJobs(1);
+            if (laneActive.Count > 0 || laneQueued.Count > 0)
+                return new Dictionary<string, object?>
+                {
+                    ["ok"] = true, ["action"] = "deferred",
+                    ["reason"] = laneActive.Count > 0
+                        ? $"job in flight: {laneActive[0]["job_id"]}"
+                        : $"queued job pending: {laneQueued[0]["job_id"]}",
+                    ["policy"] = policyDict, ["checked_at"] = IsoNow(),
+                };
         }
 
         // DPO branch: sufficient new paired preference rows route the cycle
@@ -1012,6 +1148,38 @@ internal static class SelfLearning
         if (FrozenResult(resolvedPolicy, tool, state, dataset,
                          total, newExamples) is { } frozenSft)
             return frozenSft;
+
+        // §4/§50 admission parity: the executor runs
+        // Maturation300M.GuardSequence on every SFT job — a
+        // self-learning cycle declares no capability, so once the
+        // maturation phase is active (head!=cap or sequence sealed)
+        // the job can never be admitted. Mirror the gate before
+        // queueing: the dataset stays registered in the canonical
+        // pool but the cycle reports sealed instead of accumulating
+        // denied jobs + consecutive_failures.
+        try
+        {
+            Maturation300M.GuardSequence(tool, "");
+        }
+        catch (ExecutorError sealedDeny)
+        {
+            SelfLearningState.Save(tool, new Dictionary<string, object?>(state)
+            {
+                ["last_run_at"] = IsoNow(),
+                ["last_action"] = "sealed",
+                ["active_weights_version"] = lifecycle.ActiveWeightsVersion,
+            });
+            return new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["action"] = "sealed",
+                ["reason"] = sealedDeny.ErrorCode,
+                ["dataset_id"] = dataset["dataset_id"],
+                ["total_examples"] = total,
+                ["new_examples"] = newExamples,
+                ["checked_at"] = IsoNow(),
+            };
+        }
 
         var job = repository.CreateTrainingJob(
             datasetId: (string)dataset["dataset_id"]!,
@@ -1359,6 +1527,7 @@ internal static class SelfLearning
 
         var evaluations = new List<object?>();
         bool allPassed = true;
+        int preWeightsVersion = lifecycle.ActiveWeightsVersion;
         foreach (string suiteName in policy.Suites)
         {
             string suitePath = Path.Combine(
@@ -1388,6 +1557,7 @@ internal static class SelfLearning
                 ["passed"] = TransformerTrainingRepository.Truthy(
                     evalResult["passed"]),
                 ["comparison"] = evalResult.GetValueOrDefault("comparison"),
+                ["error"] = evalResult.GetValueOrDefault("error"),
             });
             allPassed = allPassed &&
                 TransformerTrainingRepository.Truthy(evalResult["passed"]);
@@ -1476,6 +1646,69 @@ internal static class SelfLearning
                     newEntry?.GetValueOrDefault("version") ?? -1));
         }
 
+        // In-cycle correctness verification (star-learning-verify/v1):
+        // re-check the evidence chain this cycle just produced — trainer
+        // report sanity, F# verdict ownership on every evaluation,
+        // engine/F# verdict parity, lifecycle transition consistent with
+        // the action, dataset registered. An "upgraded" action whose
+        // verification fails means the promotion lacks valid evidence:
+        // take the governed rollback path (same posture as the maturity
+        // recheck above) instead of trusting the recorded action.
+        bool verifyOk = true;
+        var verifyChecks = new Dictionary<string, object?>
+        {
+            ["trainer_report"] =
+                TransformerTrainingRepository.Int(trainerSummary, "steps") > 0,
+            ["dataset_registered"] = dataset["dataset_id"] != null,
+        };
+        bool verdictOwned = true;
+        bool parityOk = true;
+        foreach (var ev in evaluations)
+        {
+            if (ev is not Dictionary<string, object?> em) continue;
+            if (em["comparison"] is not Dictionary<string, object?> cmp)
+            {
+                // Fail-closed rows legitimately carry no verdict; a
+                // PASSING evaluation without an F# verdict is the
+                // violation this check exists to catch.
+                if (TransformerTrainingRepository.Truthy(em["passed"]))
+                    verdictOwned = false;
+                continue;
+            }
+            verdictOwned = verdictOwned &&
+                "fsharp".Equals(
+                    TransformerTrainingRepository.Str(cmp, "verdict_owner"));
+            if (cmp.TryGetValue("engine_passed", out object? ep) &&
+                TransformerTrainingRepository.Truthy(ep) !=
+                TransformerTrainingRepository.Truthy(em["passed"]))
+                parityOk = false;
+        }
+        verifyChecks["verdict_owner_fsharp"] = verdictOwned;
+        verifyChecks["engine_fsharp_parity"] = parityOk;
+        verifyChecks["lifecycle_transition"] = action == "upgraded"
+            ? lifecycle.ActiveWeightsVersion > preWeightsVersion &&
+              pinned != null
+            : lifecycle.ActiveWeightsVersion == preWeightsVersion &&
+              pinned == null;
+        verifyOk = verifyChecks.Values.All(
+            TransformerTrainingRepository.Truthy);
+        summary["learning_verification"] = new Dictionary<string, object?>
+        {
+            ["format"] = "star-learning-verify/v1",
+            ["ok"] = verifyOk,
+            ["checks"] = verifyChecks,
+        };
+        if (action == "upgraded" && !verifyOk &&
+            !summary.ContainsKey("rollback"))
+        {
+            summary["rollback"] = AttemptGovernedRollback(
+                tool, lifecycle, lifecycleDir,
+                anchorPath: activePath,
+                excludeVersion: Convert.ToInt32(
+                    newEntry?.GetValueOrDefault("version") ?? -1));
+            summary["rollback_reason"] = "learning-verification-failed";
+        }
+
         bool rolledBack = summary.TryGetValue("rollback", out object? rb) &&
                           rb is Dictionary<string, object?> rbm &&
                           TransformerTrainingRepository.Truthy(
@@ -1498,6 +1731,8 @@ internal static class SelfLearning
             ["last_degradation_probe"] = summary.GetValueOrDefault("degradation_probe"),
             ["last_maturity_recheck"] = summary.GetValueOrDefault("maturity_recheck"),
             ["last_rollback"] = summary.GetValueOrDefault("rollback"),
+            ["last_verification"] = summary.GetValueOrDefault(
+                "learning_verification"),
             ["active_weights_version"] = lifecycle.ActiveWeightsVersion,
             ["resource_account"] = resourceAccount,
             ["pool"] = stats,

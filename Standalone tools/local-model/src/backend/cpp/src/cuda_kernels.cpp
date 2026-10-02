@@ -1,25 +1,21 @@
-// NVRTC + Driver-API CUDA kernels for the Xingcheng C++ inference engine.
+// Driver-API + embedded-PTX CUDA kernels for the Xingcheng C++ inference
+// engine (B132 native GPU path, zero-install build).
 //
-// This translation unit replaces the retired kernels/*.cu nvcc lane: nvcc
-// requires a host compiler within its supported MSVC range, which the
-// build machine's toolchain no longer satisfies. Instead, device code is
-// embedded here as NVRTC source, compiled to PTX at first use for the
-// detected compute capability, then loaded and launched through the CUDA
-// Driver API. The kernel bodies are a 1:1 port of the retired .cu sources
-// and keep their numerics and contracts.
+// Device code is authored in-tree as PTX (cuda_ptx_*.h) — a 1:1 semantic
+// port of the retired NVRTC C++ source — and JIT-compiled by the NVIDIA
+// driver itself through cuModuleLoadData on the retained primary
+// context. The only vendor dependency is nvcuda.dll (shipped inside the
+// display driver); nvrtc, cuBLAS, cudart and every toolkit artefact are
+// no longer referenced anywhere in the lane.
 //
-// Every CUDA dependency is resolved at run time — cuda.dll (always present
-// with the NVIDIA driver) and nvrtc64_120_0.dll (CUDA toolkit) are loaded
-// via LoadLibrary. Nothing is import-linked, so the binary stays portable:
-// on a machine without driver/toolkit the probe entries return 0 and the
-// governed request paths fail closed exactly as an unlinked kernels TU
-// did before. The include directory for NVRTC's device headers
-// (cuda_bf16.h / cuda_fp8.h) is resolved relative to the loaded nvrtc
-// module so headers always match the compiler that consumes them.
+// Nothing is import-linked, so the binary stays portable: on a host
+// without an NVIDIA driver every probe returns 0 and the governed
+// request paths fail closed exactly as before.
 //
-// Governance: unchanged — the engine only reaches these entries after the
-// governed layer sets XINGCHENG_CPP_CUDA{_BF16,_FP8,_KV}; capability lives
-// here, the decision stays above, and failures never silently fall back.
+// Governance: unchanged — the engine only reaches these entries after
+// the governed layer sets XINGCHENG_CPP_CUDA{_BF16,_FP8,_KV}; capability
+// lives here, the decision stays above, and failures never silently
+// fall back.
 
 #ifdef XINGCHENG_CUDA
 
@@ -38,707 +34,163 @@
 
 // §3 single allocator: this TU's device bytes — bf16/fp8 weight
 // copies, per-call scratch pools and the device KV cache — all flow
-// through the same UnifiedCudaMemoryManager as the cuBLAS bridge.
-// Driver kernels launch on stream 0 inside the primary context, which
-// the runtime-API pool pointers are also valid in, so no second
-// allocator or context is ever created.
+// through the same UnifiedCudaMemoryManager as the fp64 bridge. The
+// manager and this TU share the retained primary context in
+// cuda_drvapi.h, so no second allocator or context is ever created.
 #include "cuda_memplane.h"
 namespace mp = xcm_memplane;
 
+// Embedded PTX bodies — self-authored device code (star-cuda-language).
+#include "cuda_ptx_conv.h"
+#include "cuda_ptx_fp8.h"
+#include "cuda_ptx_fp8w.h"
+#include "cuda_ptx_gemm.h"
+#include "cuda_ptx_gemmw.h"
+#include "cuda_ptx_gemv.h"
+#include "cuda_ptx_kv.h"
+#include "cuda_ptx_math.h"
+#include "cuda_ptx_tgemm.h"
+#include "cuda_ptx_tgemmw.h"
+#include "cuda_ptx_train.h"
+
 namespace {
 
-// ---------------------------------------------------------------- types --
+using xcd::CUresult_t;
+using xcd::CUdevptr_t;
+using xcd::CUmodule_t;
+using xcd::CUfunction_t;
+using xcd::CUstream_t;
+using xcd::CUevent_t;
+using xcd::CUgraph_t;
+using xcd::CUgraphExec_t;
 
-typedef int CUresult_t;
-typedef int CUdevice_t;
-typedef void* CUcontext_t;
-typedef void* CUmodule_t;
-typedef void* CUfunction_t;
-typedef unsigned long long CUdevptr_t;
-typedef unsigned long long CUstream_t;
-typedef void* CUevent_t;
-typedef void* CUgraph_t;
-typedef void* CUgraphExec_t;
-typedef void* nvrtcProgram_t;
-typedef int nvrtcResult_t;
+constexpr int kCudaSuccess = xcd::kOk;
 
-enum : int {
-    kCudaSuccess = 0,
-    kCudaDevAttrCCMajor = 75,
-    kCudaDevAttrCCMinor = 76,
-    kNvrtcSuccess = 0,
-};
+xcd::Api& g_drv = xcd::api();
 
-// -------------------------------------------------- dynamic API binding --
-
-struct DriverApi {
-    HMODULE dll = nullptr;
-    CUresult_t (*init)(unsigned int) = nullptr;
-    CUresult_t (*device_get_count)(int*) = nullptr;
-    CUresult_t (*device_get)(CUdevice_t*, int) = nullptr;
-    CUresult_t (*device_get_attribute)(int*, int, CUdevice_t) = nullptr;
-    CUresult_t (*primary_ctx_retain)(CUcontext_t*, CUdevice_t) = nullptr;
-    CUresult_t (*ctx_set_current)(CUcontext_t) = nullptr;
-    CUresult_t (*ctx_sync)() = nullptr;
-    CUresult_t (*mem_alloc)(CUdevptr_t*, size_t) = nullptr;
-    CUresult_t (*mem_free)(CUdevptr_t) = nullptr;
-    CUresult_t (*memcpy_htod)(CUdevptr_t, const void*, size_t) = nullptr;
-    CUresult_t (*memcpy_dtoh)(void*, CUdevptr_t, size_t) = nullptr;
-    CUresult_t (*module_load_data)(CUmodule_t*, const void*) = nullptr;
-    CUresult_t (*module_unload)(CUmodule_t) = nullptr;
-    CUresult_t (*module_get_function)(CUfunction_t*, CUmodule_t,
-                                      const char*) = nullptr;
-    CUresult_t (*launch_kernel)(CUfunction_t, unsigned int, unsigned int,
-                                unsigned int, unsigned int, unsigned int,
-                                unsigned int, unsigned int, CUstream_t,
-                                void**, void**) = nullptr;
-    CUresult_t (*mem_get_info)(size_t*, size_t*) = nullptr;
-    // §37 graph/stream plane — optional: absent symbols only mean
-    // graph_ready()==0, never a failure of the base CUDA lane.
-    CUresult_t (*stream_sync)(CUstream_t) = nullptr;
-    CUresult_t (*memcpy_htod_async)(CUdevptr_t, const void*, size_t,
-                                    CUstream_t) = nullptr;
-    CUresult_t (*memcpy_dtoh_async)(void*, CUdevptr_t, size_t,
-                                    CUstream_t) = nullptr;
-    CUresult_t (*stream_begin_capture)(CUstream_t, int) = nullptr;
-    CUresult_t (*stream_end_capture)(CUstream_t, CUgraph_t*) = nullptr;
-    CUresult_t (*graph_instantiate)(CUgraphExec_t*, CUgraph_t,
-                                    unsigned long long) = nullptr;
-    CUresult_t (*graph_launch)(CUgraphExec_t, CUstream_t) = nullptr;
-    CUresult_t (*graph_exec_destroy)(CUgraphExec_t) = nullptr;
-    CUresult_t (*graph_destroy)(CUgraph_t) = nullptr;
-    // §26 batch-pipeline plane — optional like the graph set: missing
-    // event symbols only drop the pipelined wave path back to the
-    // serial sync path, never the AdamW lane itself.
-    CUresult_t (*event_create)(CUevent_t*, unsigned int) = nullptr;
-    CUresult_t (*event_record)(CUevent_t, CUstream_t) = nullptr;
-    CUresult_t (*stream_wait_event)(CUstream_t, CUevent_t,
-                                    unsigned int) = nullptr;
-    CUresult_t (*event_destroy)(CUevent_t) = nullptr;
-    CUresult_t (*event_query)(CUevent_t) = nullptr;
-};
-
-struct NvrtcApi {
-    HMODULE dll = nullptr;
-    nvrtcResult_t (*create_program)(nvrtcProgram_t*, const char*,
-                                    const char*, int, const char* const*,
-                                    const char* const*) = nullptr;
-    nvrtcResult_t (*destroy_program)(nvrtcProgram_t*) = nullptr;
-    nvrtcResult_t (*compile_program)(nvrtcProgram_t, int,
-                                     const char* const*) = nullptr;
-    nvrtcResult_t (*get_ptx_size)(nvrtcProgram_t, size_t*) = nullptr;
-    nvrtcResult_t (*get_ptx)(nvrtcProgram_t, char*) = nullptr;
-    nvrtcResult_t (*get_log_size)(nvrtcProgram_t, size_t*) = nullptr;
-    nvrtcResult_t (*get_log)(nvrtcProgram_t, char*) = nullptr;
-};
-
-DriverApi g_drv;
-NvrtcApi g_rtc;
-bool g_api_tried = false;
-bool g_api_ok = false;
-
-template <typename T>
-bool resolve(HMODULE dll, T* out, const char* v2, const char* v1) {
-    FARPROC p = GetProcAddress(dll, v2);
-    if (p == nullptr && v1 != nullptr) p = GetProcAddress(dll, v1);
-    if (p == nullptr) return false;
-    *out = reinterpret_cast<T>(p);
-    return true;
-}
-
-// Try each candidate module name; returns the first that loads.
-HMODULE load_module(const std::vector<std::string>& names) {
-    for (const std::string& n : names) {
-        HMODULE m = LoadLibraryA(n.c_str());
-        if (m != nullptr) return m;
-    }
-    return nullptr;
-}
-
-std::string join_path(const std::string& a, const std::string& b) {
-    if (a.empty()) return b;
-    return a + "\\" + b;
-}
-
-// Directory containing the loaded nvrtc dll, with "\bin" swapped for
-// "\include" so NVRTC sees the headers shipped with its own toolkit.
-std::string nvrtc_include_dir() {
-    char path[MAX_PATH] = {};
-    if (g_rtc.dll != nullptr &&
-        GetModuleFileNameA(g_rtc.dll, path, MAX_PATH) > 0) {
-        std::string p(path);
-        const size_t pos = p.find_last_of("\\/");
-        if (pos != std::string::npos) {
-            std::string dir = p.substr(0, pos);          // ...\bin
-            const size_t ppos = dir.find_last_of("\\/"); // toolkit root
-            if (ppos != std::string::npos) {
-                return dir.substr(0, ppos) + "\\include";
-            }
-        }
-    }
-    const char* cp = getenv("CUDA_PATH");
-    if (cp != nullptr && *cp != '\0') return join_path(cp, "include");
-    return "";
-}
-
-bool api_init() {
-    if (g_api_tried) return g_api_ok;
-    g_api_tried = true;
-#define XCK_DBG(x) do { fprintf(stderr, "[xck] %s\n", x); } while (0)
-
-    // The Driver API ships in the driver package as nvcuda.dll; cuda.dll
-    // is an optional alias that is not present on every install.
-    g_drv.dll = load_module({"nvcuda.dll", "cuda.dll"});
-    if (g_drv.dll == nullptr) {
-        XCK_DBG("driver dll load fail");
-        return false;
-    }
-    bool ok = true;
-    ok &= resolve(g_drv.dll, &g_drv.init, "cuInit", nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.device_get_count, "cuDeviceGetCount",
-                  nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.device_get, "cuDeviceGet", nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.device_get_attribute,
-                  "cuDeviceGetAttribute", nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.primary_ctx_retain,
-                  "cuDevicePrimaryCtxRetain", nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.ctx_set_current, "cuCtxSetCurrent",
-                  nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.ctx_sync, "cuCtxSynchronize", nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.mem_alloc, "cuMemAlloc_v2",
-                  "cuMemAlloc");
-    ok &= resolve(g_drv.dll, &g_drv.mem_free, "cuMemFree_v2", "cuMemFree");
-    ok &= resolve(g_drv.dll, &g_drv.memcpy_htod, "cuMemcpyHtoD_v2",
-                  "cuMemcpyHtoD");
-    ok &= resolve(g_drv.dll, &g_drv.memcpy_dtoh, "cuMemcpyDtoH_v2",
-                  "cuMemcpyDtoH");
-    ok &= resolve(g_drv.dll, &g_drv.module_load_data, "cuModuleLoadData",
-                  nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.module_unload, "cuModuleUnload",
-                  nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.module_get_function,
-                  "cuModuleGetFunction", nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.launch_kernel, "cuLaunchKernel",
-                  nullptr);
-    ok &= resolve(g_drv.dll, &g_drv.mem_get_info, "cuMemGetInfo_v2",
-                  "cuMemGetInfo");
-    if (!ok) { XCK_DBG("driver resolve fail"); return false; }
-    // §37 graph capture is optional evidence, not an admission gate:
-    // missing symbols leave graph_api_ready()==false and callers keep
-    // the synchronous lane.
-    resolve(g_drv.dll, &g_drv.stream_sync, "cuStreamSynchronize",
-            nullptr);
-    resolve(g_drv.dll, &g_drv.memcpy_htod_async, "cuMemcpyHtoDAsync_v2",
-            "cuMemcpyHtoDAsync");
-    resolve(g_drv.dll, &g_drv.memcpy_dtoh_async, "cuMemcpyDtoHAsync_v2",
-            "cuMemcpyDtoHAsync");
-    resolve(g_drv.dll, &g_drv.stream_begin_capture,
-            "cuStreamBeginCapture_v2", "cuStreamBeginCapture");
-    resolve(g_drv.dll, &g_drv.stream_end_capture, "cuStreamEndCapture",
-            nullptr);
-    resolve(g_drv.dll, &g_drv.graph_instantiate,
-            "cuGraphInstantiateWithFlags", "cuGraphInstantiate_v2");
-    resolve(g_drv.dll, &g_drv.graph_launch, "cuGraphLaunch", nullptr);
-    resolve(g_drv.dll, &g_drv.graph_exec_destroy, "cuGraphExecDestroy_v2",
-            "cuGraphExecDestroy");
-    resolve(g_drv.dll, &g_drv.graph_destroy, "cuGraphDestroy", nullptr);
-    // Optional event plane for the §26 batch pipeline — same contract:
-    // unresolved symbols leave pipeline_api_ready()==false.
-    resolve(g_drv.dll, &g_drv.event_create, "cuEventCreate", nullptr);
-    resolve(g_drv.dll, &g_drv.event_record, "cuEventRecord", nullptr);
-    resolve(g_drv.dll, &g_drv.stream_wait_event, "cuStreamWaitEvent",
-            nullptr);
-    resolve(g_drv.dll, &g_drv.event_destroy, "cuEventDestroy_v2",
-            "cuEventDestroy");
-    resolve(g_drv.dll, &g_drv.event_query, "cuEventQuery", nullptr);
-
-    const char* cp = getenv("CUDA_PATH");
-    std::vector<std::string> nvrtc_names = {"nvrtc64_120_0.dll"};
-    if (cp != nullptr && *cp != '\0') {
-        nvrtc_names.push_back(join_path(join_path(cp, "bin"),
-                                        "nvrtc64_120_0.dll"));
-    }
-    nvrtc_names.push_back(
-        "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0\\"
-        "bin\\nvrtc64_120_0.dll");
-    g_rtc.dll = load_module(nvrtc_names);
-    if (g_rtc.dll == nullptr) { XCK_DBG("nvrtc dll load fail"); return false; }
-    ok = true;
-    ok &= resolve(g_rtc.dll, &g_rtc.create_program, "nvrtcCreateProgram",
-                  nullptr);
-    ok &= resolve(g_rtc.dll, &g_rtc.destroy_program, "nvrtcDestroyProgram",
-                  nullptr);
-    ok &= resolve(g_rtc.dll, &g_rtc.compile_program, "nvrtcCompileProgram",
-                  nullptr);
-    ok &= resolve(g_rtc.dll, &g_rtc.get_ptx_size, "nvrtcGetPTXSize",
-                  nullptr);
-    ok &= resolve(g_rtc.dll, &g_rtc.get_ptx, "nvrtcGetPTX", nullptr);
-    ok &= resolve(g_rtc.dll, &g_rtc.get_log_size, "nvrtcGetProgramLogSize",
-                  nullptr);
-    ok &= resolve(g_rtc.dll, &g_rtc.get_log, "nvrtcGetProgramLog", nullptr);
-    if (!ok) { XCK_DBG("nvrtc resolve fail"); return false; }
-
-    g_api_ok = true;
-    return true;
-}
-
-// --------------------------------------------------------- device probe --
-
-CUcontext_t g_ctx = nullptr;
-int g_cc_major = 0;
-int g_cc_minor = 0;
-bool g_dev_tried = false;
-bool g_dev_ok = false;
-
-// Load APIs, initialise the driver, retain the primary context of device 0
-// and record its compute capability for the NVRTC target flag.
-bool device_ready() {
-    if (g_dev_tried) return g_dev_ok;
-    g_dev_tried = true;
-    if (!api_init()) { XCK_DBG("api_init fail"); return false; }
-    if (g_drv.init(0) != kCudaSuccess) { XCK_DBG("cuInit fail"); return false; }
-    int count = 0;
-    if (g_drv.device_get_count(&count) != kCudaSuccess || count <= 0) {
-        XCK_DBG("device count fail"); return false;
-    }
-    CUdevice_t dev = 0;
-    if (g_drv.device_get(&dev, 0) != kCudaSuccess) { XCK_DBG("device_get fail"); return false; }
-    if (g_drv.device_get_attribute(
-            &g_cc_major, kCudaDevAttrCCMajor, dev) != kCudaSuccess ||
-        g_drv.device_get_attribute(
-            &g_cc_minor, kCudaDevAttrCCMinor, dev) != kCudaSuccess) {
-        XCK_DBG("cc attr fail"); return false;
-    }
-    if (g_drv.primary_ctx_retain(&g_ctx, dev) != kCudaSuccess ||
-        g_ctx == nullptr) {
-        XCK_DBG("ctx retain fail"); return false;
-    }
-    g_dev_ok = true;
-    return true;
-}
-
-// Every entry point re-anchors the primary context so calls from any
-// engine thread keep working.
-bool use_ctx() {
-    return device_ready() &&
-           g_drv.ctx_set_current(g_ctx) == kCudaSuccess;
-}
+bool device_ready() { return xcd::device_ready(); }
+bool use_ctx() { return xcd::use_ctx(); }
 
 // ------------------------------------------------------ kernel sources --
 
-// 1:1 port of the retired kernels/*.cu device code. extern "C" on every
-// __global__ keeps names unmangled for cuModuleGetFunction — NVRTC lowered
-// -name lookup is unnecessary.
-const char* kKernelSource = R"XCSRC(
-#include <cuda_bf16.h>
-#include <cuda_fp8.h>
+// PTX ISA 7.1 introduces the sm_86 target — the lane's capability floor
+// (§62) — so the emitted module is valid on every admissible device and
+// JITs upward (sm_89/90/120) through driver forward compatibility.
+const char* kPtxHeader =
+    "// Xingcheng native CUDA lane — self-authored PTX (B132)\n"
+    "// JIT-compiled by the driver via cuModuleLoadData; no toolkit.\n"
+    ".version 7.1\n"
+    ".target sm_86\n"
+    ".address_size 64\n";
 
-#define XC_TILE 16
-
-extern "C" __global__ void xc_f64_to_bf16(
-    const double* in, __nv_bfloat16* out, long long n) {
-    const long long i =
-        (long long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = __double2bfloat16(in[i]);
+// Helpers must precede kernels that call them in the module text.
+std::string ptx_image() {
+    std::string s;
+    s.reserve(96 * 1024);
+    s += kPtxHeader;
+    s += xcuda_ptx::math();
+    s += xcuda_ptx::conv();
+    s += xcuda_ptx::gemm();
+    s += xcuda_ptx::gemmw();
+    s += xcuda_ptx::gemv();
+    s += xcuda_ptx::fp8();
+    s += xcuda_ptx::fp8w();
+    s += xcuda_ptx::kv();
+    s += xcuda_ptx::tgemm();
+    s += xcuda_ptx::tgemmw();
+    s += xcuda_ptx::train();
+    return s;
 }
 
-extern "C" __global__ void xc_gemm_bf16(
-    const __nv_bfloat16* a, const __nv_bfloat16* b, float* c,
-    int m, int k, int n) {
-    // fp32 shared tiles: each tile element is converted exactly once at
-    // load instead of once per consuming FMA (XC_TILE× per element).
-    // Identical values and FMA order — bit-identical to the bf16-shared
-    // version, minus the per-read conversion cost.
-    __shared__ float as[XC_TILE][XC_TILE];
-    __shared__ float bs[XC_TILE][XC_TILE];
-    const int row = blockIdx.y * XC_TILE + threadIdx.y;
-    const int col = blockIdx.x * XC_TILE + threadIdx.x;
-    float acc = 0.0f;
-    for (int t = 0; t < (k + XC_TILE - 1) / XC_TILE; ++t) {
-        const int a_col = t * XC_TILE + threadIdx.x;
-        const int b_row = t * XC_TILE + threadIdx.y;
-        as[threadIdx.y][threadIdx.x] =
-            (row < m && a_col < k)
-                ? __bfloat162float(a[(long long)row * k + a_col])
-                : 0.0f;
-        bs[threadIdx.y][threadIdx.x] =
-            (b_row < k && col < n)
-                ? __bfloat162float(b[(long long)b_row * n + col])
-                : 0.0f;
-        __syncthreads();
-#pragma unroll
-        for (int i = 0; i < XC_TILE; ++i) {
-            acc += as[threadIdx.y][i] * bs[i][threadIdx.x];
-        }
-        __syncthreads();
-    }
-    if (row < m && col < n) c[(long long)row * n + col] = acc;
-}
 
-// Skinny-m bf16 GEMV: one thread per output column with all m rows fused,
-// so each b element is read once and feeds every accumulator — decode
-// (m=1) becomes bandwidth-bound instead of tile-bound. Per-element
-// accumulation order is the same sequential k-order as xc_gemm_bf16.
-#define XC_GEMV_MAX_M 16
+// ------------------------------------------------- module load/cache ---
 
-extern "C" __global__ void xc_gemv_bf16_part(
-    const __nv_bfloat16* a, const __nv_bfloat16* b, float* part,
-    int m, int k, int n, int ksplit, int kchunk) {
-    const long long col =
-        (long long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (col >= n) return;
-    const int i0 = blockIdx.y * kchunk;
-    const int i1 = min(k, i0 + kchunk);
-    float acc[XC_GEMV_MAX_M];
-#pragma unroll
-    for (int r = 0; r < XC_GEMV_MAX_M; ++r) acc[r] = 0.0f;
-    for (int i = i0; i < i1; ++i) {
-        const float bv = __bfloat162float(b[(long long)i * n + col]);
-        // Constant-bound unrolled loop keeps acc[] in registers — a
-        // runtime-bound loop (r < m) forces the array to local memory.
-        // Dead lanes contribute av=0, so the math is identical.
-#pragma unroll
-        for (int r = 0; r < XC_GEMV_MAX_M; ++r) {
-            const float av = (r < m)
-                ? __bfloat162float(a[(long long)r * k + i]) : 0.0f;
-            acc[r] += av * bv;
-        }
-    }
-    for (int r = 0; r < m; ++r)
-        part[((long long)blockIdx.y * m + r) * n + col] = acc[r];
-}
-
-// Split-k reduce (shared by the bf16 and fp8 GEMV lanes): c[r][col] =
-// sum over slices in fixed order — deterministic across runs.
-extern "C" __global__ void xc_gemv_reduce(
-    const float* part, float* c, int m, int n, int ksplit) {
-    const long long col =
-        (long long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (col >= n) return;
-    for (int r = 0; r < m; ++r) {
-        float acc = 0.0f;
-        for (int s = 0; s < ksplit; ++s)
-            acc += part[((long long)s * m + r) * n + col];
-        c[(long long)r * n + col] = acc;
-    }
-}
-
-extern "C" __global__ void xc_f64_to_fp32(
-    const double* in, float* out, long long n) {
-    const long long i =
-        (long long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = (float)in[i];
-}
-
-extern "C" __global__ void xc_f64_to_fp8(
-    const double* in, __nv_fp8_e4m3* out, long long n) {
-    const long long i =
-        (long long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < n) out[i] = __nv_fp8_e4m3(in[i]);
-}
-
-extern "C" __global__ void xc_gemm_fp8(
-    const float* a, const __nv_fp8_e4m3* b, float* c,
-    int m, int k, int n) {
-    // Same shared-tile conversion hoist as xc_gemm_bf16: bs lands in
-    // shared as fp32 so the inner loop does zero per-FMA conversions.
-    __shared__ float as[XC_TILE][XC_TILE];
-    __shared__ float bs[XC_TILE][XC_TILE];
-    const int row = blockIdx.y * XC_TILE + threadIdx.y;
-    const int col = blockIdx.x * XC_TILE + threadIdx.x;
-    float acc = 0.0f;
-    for (int t = 0; t < (k + XC_TILE - 1) / XC_TILE; ++t) {
-        const int a_col = t * XC_TILE + threadIdx.x;
-        const int b_row = t * XC_TILE + threadIdx.y;
-        as[threadIdx.y][threadIdx.x] =
-            (row < m && a_col < k)
-                ? a[(long long)row * k + a_col] : 0.0f;
-        bs[threadIdx.y][threadIdx.x] =
-            (b_row < k && col < n)
-                ? (float)(b[(long long)b_row * n + col]) : 0.0f;
-        __syncthreads();
-#pragma unroll
-        for (int i = 0; i < XC_TILE; ++i) {
-            acc += as[threadIdx.y][i] * bs[i][threadIdx.x];
-        }
-        __syncthreads();
-    }
-    if (row < m && col < n) c[(long long)row * n + col] = acc;
-}
-
-// Skinny-m split-k fp8 GEMV (pass 1) — same fused-row pattern as
-// xc_gemv_bf16_part, with the shared xc_gemv_reduce as pass 2.
-extern "C" __global__ void xc_gemv_fp8_part(
-    const float* a, const __nv_fp8_e4m3* b, float* part,
-    int m, int k, int n, int ksplit, int kchunk) {
-    const long long col =
-        (long long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (col >= n) return;
-    const int i0 = blockIdx.y * kchunk;
-    const int i1 = min(k, i0 + kchunk);
-    float acc[XC_GEMV_MAX_M];
-#pragma unroll
-    for (int r = 0; r < XC_GEMV_MAX_M; ++r) acc[r] = 0.0f;
-    for (int i = i0; i < i1; ++i) {
-        const float bv = (float)(b[(long long)i * n + col]);
-#pragma unroll
-        for (int r = 0; r < XC_GEMV_MAX_M; ++r) {
-            const float av = (r < m) ? a[(long long)r * k + i] : 0.0f;
-            acc[r] += av * bv;
-        }
-    }
-    for (int r = 0; r < m; ++r)
-        part[((long long)blockIdx.y * m + r) * n + col] = acc[r];
-}
-
-// Online-softmax attention over the device-resident KV cache — fp64,
-// identical tile/rescale semantics to the host path in engine.cpp.
-// Shared layout: scores[128] | acc[head_dim] | red[32] | scal[5].
-#define XC_KV_TILE 128
-#define XC_KV_THREADS 128
-
-extern "C" __global__ void xc_kv_attention(
-    const double* __restrict__ q,
-    const double* __restrict__ kbuf,
-    const double* __restrict__ vbuf,
-    long long heads, long long seq, long long kv_heads,
-    long long head_dim, long long max_len, long long position_offset,
-    double* __restrict__ out, long long out_stride) {
-    const long long s = blockIdx.x % seq;
-    const long long h = blockIdx.x / seq;
-    const long long kv_head = h / (heads / kv_heads);
-    const long long last = position_offset + s;
-    const double* q_row = q + (h * seq + s) * head_dim;
-    const double* kbase = kbuf + kv_head * max_len * head_dim;
-    const double* vbase = vbuf + kv_head * max_len * head_dim;
-    const double scale = 1.0 / sqrt((double)head_dim);
-    const double kNegInf =
-        -__longlong_as_double(0x7FF0000000000000ull);
-
-    extern __shared__ double sm[];
-    double* scores = sm;
-    double* acc = sm + XC_KV_TILE;
-    double* red = acc + head_dim;
-    double* scal = red + 32;
-
-    const int tid = threadIdx.x;
-    const int warps = (blockDim.x + 31) / 32;
-    if (tid == 0) {
-        scal[0] = kNegInf;
-        scal[1] = 0.0;
-    }
-    for (long long d = tid; d < head_dim; d += blockDim.x) acc[d] = 0.0;
-    __syncthreads();
-
-    for (long long t0 = 0; t0 <= last; t0 += XC_KV_TILE) {
-        const long long rem = last - t0 + 1;
-        const long long tn = rem < XC_KV_TILE ? rem : XC_KV_TILE;
-
-        for (long long j = tid; j < tn; j += blockDim.x) {
-            const double* krow = kbase + (t0 + j) * head_dim;
-            double dot = 0.0;
-            for (long long d = 0; d < head_dim; ++d)
-                dot += q_row[d] * krow[d];
-            scores[j] = dot * scale;
-        }
-        __syncthreads();
-
-        double tmax = kNegInf;
-        for (long long j = tid; j < tn; j += blockDim.x)
-            tmax = fmax(tmax, scores[j]);
-        for (int off = 16; off > 0; off >>= 1)
-            tmax = fmax(tmax, __shfl_down_sync(0xffffffffu, tmax, off));
-        if ((tid & 31) == 0) red[tid >> 5] = tmax;
-        __syncthreads();
-        if (tid == 0) {
-            double m_tile = red[0];
-            for (int w = 1; w < warps; ++w) m_tile = fmax(m_tile, red[w]);
-            const double m_new = fmax(scal[0], m_tile);
-            scal[2] = exp(scal[0] - m_new);
-            scal[3] = m_new;
-        }
-        __syncthreads();
-        const double r = scal[2];
-        const double m_new = scal[3];
-
-        for (long long j = tid; j < tn; j += blockDim.x)
-            scores[j] = exp(scores[j] - m_new);
-        __syncthreads();
-        double tsum = 0.0;
-        for (long long j = tid; j < tn; j += blockDim.x)
-            tsum += scores[j];
-        for (int off = 16; off > 0; off >>= 1)
-            tsum += __shfl_down_sync(0xffffffffu, tsum, off);
-        if ((tid & 31) == 0) red[tid >> 5] = tsum;
-        __syncthreads();
-        if (tid == 0) {
-            double l_tile = red[0];
-            for (int w = 1; w < warps; ++w) l_tile += red[w];
-            scal[1] = scal[1] * r + l_tile;
-            scal[0] = m_new;
-        }
-
-        for (long long d = tid; d < head_dim; d += blockDim.x) {
-            double a = acc[d] * r;
-            for (long long j = 0; j < tn; ++j)
-                a += scores[j] * vbase[(t0 + j) * head_dim + d];
-            acc[d] = a;
-        }
-        __syncthreads();
-    }
-
-    if (tid == 0) scal[4] = 1.0 / scal[1];
-    __syncthreads();
-    const double inv_l = scal[4];
-    double* orow = out + s * out_stride + h * head_dim;
-    for (long long d = tid; d < head_dim; d += blockDim.x)
-        orow[d] = acc[d] * inv_l;
-}
-
-// --------------------------------------------------- training plane ----
-// NativeCudaTrainingPlane §26 NativeCudaFusedAdamW — one fused pass per
-// element: gradient scale -> bias-corrected moments -> decoupled weight
-// decay -> parameter update. Semantics mirror the trainer's scalar
-// adamw_step exactly (fp32 state, bc1/bc2 computed host-side so the
-// bias-correction matches std::pow to the bit).
-
-extern "C" __global__ void xc_adamw_fused(
-    const float* g, float* m, float* v, float* w,
-    float gscale, float lr_t, float wd,
-    float b1, float b2, float bc1, float bc2, float eps,
-    long long n) {
-    const long long stride = (long long)gridDim.x * blockDim.x;
-    for (long long i = (long long)blockIdx.x * blockDim.x + threadIdx.x;
-         i < n; i += stride) {
-        const float gi = g[i] * gscale;
-        const float mi = b1 * m[i] + (1.0f - b1) * gi;
-        const float vi = b2 * v[i] + (1.0f - b2) * gi * gi;
-        m[i] = mi;
-        v[i] = vi;
-        const float mh = mi / bc1;
-        const float vh = vi / bc2;
-        w[i] -= lr_t * (mh / (sqrtf(vh) + eps) + wd * w[i]);
-    }
-}
-
-// Global gradient-norm front half (§26 clip fused into the same pass
-// family): block partial sums of x*x; the host reduces partials in fp64
-// — same accumulation precision class as the trainer's scalar loop.
-extern "C" __global__ void xc_sqsum_part(
-    const float* x, float* part, long long n) {
-    __shared__ float red[256];
-    const long long stride = (long long)gridDim.x * blockDim.x;
-    float acc = 0.0f;
-    for (long long i = (long long)blockIdx.x * blockDim.x + threadIdx.x;
-         i < n; i += stride)
-        acc += x[i] * x[i];
-    for (int off = 16; off > 0; off >>= 1)
-        acc += __shfl_down_sync(0xffffffffu, acc, off);
-    if ((threadIdx.x & 31) == 0) red[threadIdx.x >> 5] = acc;
-    __syncthreads();
-    if (threadIdx.x == 0) {
-        const int warps = (blockDim.x + 31) / 32;
-        float s = 0.0f;
-        for (int w2 = 0; w2 < warps; ++w2) s += red[w2];
-        part[blockIdx.x] = s;
-    }
-}
-)XCSRC";
-
-// ------------------------------------------------- module compile/cache --
-
-CUmodule_t g_module = nullptr;
-CUfunction_t g_f_conv_bf16 = nullptr;
-CUfunction_t g_f_gemm_bf16 = nullptr;
-CUfunction_t g_f_gemv_bf16 = nullptr;
-CUfunction_t g_f_gemv_reduce = nullptr;
-CUfunction_t g_f_conv_fp32 = nullptr;
-CUfunction_t g_f_conv_fp8 = nullptr;
-CUfunction_t g_f_gemm_fp8 = nullptr;
-CUfunction_t g_f_gemv_fp8 = nullptr;
-CUfunction_t g_f_kv_attn = nullptr;
-CUfunction_t g_f_adamw = nullptr;
-CUfunction_t g_f_sqsum = nullptr;
+CUmodule_t g_module = 0;
+CUfunction_t g_f_conv_bf16 = 0;
+CUfunction_t g_f_gemm_f64 = 0;
+CUfunction_t g_f_gemm_f64_w = 0;
+CUfunction_t g_f_gemm_bf16 = 0;
+CUfunction_t g_f_gemm_bf16_w = 0;
+CUfunction_t g_f_gemv_bf16 = 0;
+CUfunction_t g_f_gemv_bf16_m1 = 0;
+CUfunction_t g_f_gemv_reduce = 0;
+CUfunction_t g_f_conv_fp32 = 0;
+CUfunction_t g_f_conv_fp8 = 0;
+CUfunction_t g_f_gemm_fp8 = 0;
+CUfunction_t g_f_gemm_fp8_w = 0;
+CUfunction_t g_f_gemv_fp8 = 0;
+CUfunction_t g_f_gemv_fp8_m1 = 0;
+CUfunction_t g_f_kv_attn = 0;
+CUfunction_t g_f_adamw = 0;
+CUfunction_t g_f_sqsum = 0;
+CUfunction_t g_f_sgemm_nn = 0;
+CUfunction_t g_f_sgemm_nt = 0;
+CUfunction_t g_f_sgemm_tn = 0;
+CUfunction_t g_f_sgemm_w = 0;
 std::mutex g_module_mu;
 bool g_module_tried = false;
 
 bool get_func(CUfunction_t* out, const char* name) {
     return g_drv.module_get_function(out, g_module, name) == kCudaSuccess &&
-           *out != nullptr;
+           *out != 0;
 }
 
-// Compile the embedded source for the detected device once; any failure
+// JIT the embedded PTX once on the retained primary context; any failure
 // latches the kernels TU as unavailable (fail-closed, no retries).
 bool ensure_module() {
-    if (g_module_tried) return g_module != nullptr;
+    if (g_module_tried) return g_module != 0;
     std::lock_guard<std::mutex> lk(g_module_mu);
-    if (g_module_tried) return g_module != nullptr;
+    if (g_module_tried) return g_module != 0;
     g_module_tried = true;
-    if (!use_ctx()) { XCK_DBG("use_ctx fail"); return false; }
-
-    nvrtcProgram_t prog = nullptr;
-    if (g_rtc.create_program(&prog, kKernelSource, "xc_kernels.cu", 0,
-                             nullptr, nullptr) != kNvrtcSuccess ||
-        prog == nullptr) {
-        XCK_DBG("create_program fail");
-        return false;
+    if (!use_ctx()) return false;
+    const std::string ptx = ptx_image();
+    CUresult_t rc;
+    if (g_drv.module_load_data_ex != nullptr) {
+        // CU_JIT_ERROR_LOG_BUFFER(_SIZE_BYTES) — capture the driver's JIT
+        // diagnostics so a reject names the failing PTX line (audit
+        // evidence for the fail-closed path).
+        char jit_err[4096];
+        jit_err[0] = '\0';
+        size_t jit_err_len = sizeof(jit_err);
+        int opts[] = {5 /*ERROR_LOG_BUFFER*/, 6 /*ERROR_LOG_BUFFER_SIZE*/};
+        void* vals[] = {jit_err, &jit_err_len};
+        rc = g_drv.module_load_data_ex(&g_module, ptx.c_str(), 2,
+                                       opts, vals);
+        if (rc != kCudaSuccess && jit_err[0] != '\0')
+            std::fprintf(stderr, "xcuda: PTX JIT failed rc=%d\n%s\n",
+                         (int)rc, jit_err);
+        else if (rc != kCudaSuccess)
+            std::fprintf(stderr, "xcuda: PTX module load failed rc=%d\n",
+                         (int)rc);
+    } else {
+        rc = g_drv.module_load_data(&g_module, ptx.c_str());
     }
-    char arch[48];
-    snprintf(arch, sizeof(arch), "--gpu-architecture=compute_%d%d",
-             g_cc_major, g_cc_minor);
-    const std::string inc = nvrtc_include_dir();
-    std::string inc_flag = inc.empty() ? std::string() : "-I" + inc;
-    const char* opts[3];
-    int nopts = 0;
-    opts[nopts++] = arch;
-    opts[nopts++] = "--std=c++17";
-    if (!inc_flag.empty()) opts[nopts++] = inc_flag.c_str();
-
-    const nvrtcResult_t crc = g_rtc.compile_program(prog, nopts, opts);
-    size_t lsz = 0;
-    g_rtc.get_log_size(prog, &lsz);
-    if (lsz > 1) {
-        std::vector<char> log(lsz);
-        g_rtc.get_log(prog, log.data());
-        fprintf(stderr, "[xcuda] nvrtc log: %s\n", log.data());
-    }
-    if (crc != kNvrtcSuccess) {
-        fprintf(stderr, "[xcuda] nvrtc compile failed rc=%d\n", (int)crc);
-        g_rtc.destroy_program(&prog);
-        return false;
-    }
-    size_t psize = 0;
-    if (g_rtc.get_ptx_size(prog, &psize) != kNvrtcSuccess || psize == 0) {
-        g_rtc.destroy_program(&prog);
-        return false;
-    }
-    std::vector<char> ptx(psize);
-    if (g_rtc.get_ptx(prog, ptx.data()) != kNvrtcSuccess) {
-        g_rtc.destroy_program(&prog);
-        return false;
-    }
-    g_rtc.destroy_program(&prog);
-
-    if (g_drv.module_load_data(&g_module, ptx.data()) != kCudaSuccess) {
-        XCK_DBG("module_load fail");
-        return false;
-    }
+    if (rc != kCudaSuccess) return false;
     bool ok = true;
     ok &= get_func(&g_f_conv_bf16, "xc_f64_to_bf16");
+    ok &= get_func(&g_f_gemm_f64, "xc_gemm_f64");
+    ok &= get_func(&g_f_gemm_f64_w, "xc_gemm_f64_w");
     ok &= get_func(&g_f_gemm_bf16, "xc_gemm_bf16");
+    ok &= get_func(&g_f_gemm_bf16_w, "xc_gemm_bf16_w");
     ok &= get_func(&g_f_gemv_bf16, "xc_gemv_bf16_part");
+    ok &= get_func(&g_f_gemv_bf16_m1, "xc_gemv_bf16_m1");
     ok &= get_func(&g_f_gemv_reduce, "xc_gemv_reduce");
     ok &= get_func(&g_f_conv_fp32, "xc_f64_to_fp32");
     ok &= get_func(&g_f_conv_fp8, "xc_f64_to_fp8");
     ok &= get_func(&g_f_gemm_fp8, "xc_gemm_fp8");
+    ok &= get_func(&g_f_gemm_fp8_w, "xc_gemm_fp8_w");
     ok &= get_func(&g_f_gemv_fp8, "xc_gemv_fp8_part");
+    ok &= get_func(&g_f_gemv_fp8_m1, "xc_gemv_fp8_m1");
     ok &= get_func(&g_f_kv_attn, "xc_kv_attention");
     ok &= get_func(&g_f_adamw, "xc_adamw_fused");
     ok &= get_func(&g_f_sqsum, "xc_sqsum_part");
+    ok &= get_func(&g_f_sgemm_nn, "xc_sgemm_nn");
+    ok &= get_func(&g_f_sgemm_nt, "xc_sgemm_nt");
+    ok &= get_func(&g_f_sgemm_tn, "xc_sgemm_tn");
+    ok &= get_func(&g_f_sgemm_w, "xc_sgemm_w");
     if (!ok) {
-        XCK_DBG("get_func fail");
         g_drv.module_unload(g_module);
-        g_module = nullptr;
+        g_module = 0;
         return false;
     }
     return true;
@@ -766,9 +218,32 @@ constexpr long long kConvThreads = 256;
 // Skinny-m threshold mirroring XC_GEMV_MAX_M in the device source.
 constexpr long long kGemvMaxM = 16;
 constexpr long long kGemvThreads = 256;
-// Split-k factor: widens the launch so decode-size shapes still cover
-// enough SMs to hide memory latency (fixed → deterministic reduce order).
+// Legacy fixed split-k, kept as the floor of the dynamic range.
 constexpr long long kGemvKSplit = 8;
+
+// ------------------------------------------------- adaptive dispatch --
+// Deterministic given (m,k,n,device): the 64x64 wide tiles win when the
+// grid still covers the SMs; m==1 decode gets the fused single-row
+// kernel; split-k scales the launch to ~4 waves of the live SM count
+// instead of a fixed 8 slices. The reduce stays in fixed slice order,
+// so results remain bit-stable for a given shape on a given device.
+constexpr long long kWideMin = 32;
+
+bool wide_gemm_shape(long long m, long long k, long long n) {
+    return m >= kWideMin && n >= kWideMin && k >= 16;
+}
+
+int pick_ksplit(long long k, long long n) {
+    const long long sm =
+        xcd::dev().sm_count > 0 ? xcd::dev().sm_count : 1;
+    const long long col_blocks = (n + kGemvThreads - 1) / kGemvThreads;
+    long long ks = kGemvKSplit;
+    while (ks < 32 && col_blocks * ks < sm * 4) ks <<= 1;
+    const long long cap = (k + 63) / 64;    // keep >=64 k per slice
+    if (ks > cap) ks = cap;
+    if (ks < kGemvKSplit) ks = kGemvKSplit;
+    return static_cast<int>(ks);
+}
 
 std::mutex g_bf16_mu;
 std::unordered_map<const void*, CUdevptr_t> g_bf16_weights;
@@ -895,8 +370,7 @@ std::vector<float> g_fp8_c_host;
 // capture error drops the call back to the synchronous path.
 
 CUstream_t decode_stream() {
-    return static_cast<CUstream_t>(reinterpret_cast<uintptr_t>(
-        mp::mgr().stream(mp::StreamLane::DECODE_HIGH)));
+    return mp::mgr().stream(mp::StreamLane::DECODE_HIGH);
 }
 
 bool graph_api_ready() {
@@ -927,15 +401,15 @@ struct Bf16Graph {
     CUdevptr_t a_stage = 0, da = 0, dc = 0, part = 0;
     double* a_host = nullptr;
     float* c_host = nullptr;
-    CUgraphExec_t exec = nullptr;
+    CUgraphExec_t exec = 0;
 };
 
 std::vector<Bf16Graph> g_bf16_graphs;
 constexpr size_t kMaxBf16Graphs = 256;
 
 void graph_entry_release(Bf16Graph& g) {
-    if (g.exec != nullptr) g_drv.graph_exec_destroy(g.exec);
-    g.exec = nullptr;
+    if (g.exec != 0) g_drv.graph_exec_destroy(g.exec);
+    g.exec = 0;
     if (g.a_stage != 0) dev_free(g.a_stage);
     if (g.da != 0) dev_free(g.da);
     if (g.dc != 0) dev_free(g.dc);
@@ -974,7 +448,8 @@ int run_bf16_graph(const double* a, long long m, long long k,
                          mp::Tier::KERNEL_SCRATCH);
         g.dc = dev_alloc(cb, mp::Tier::KERNEL_SCRATCH);
         if (skinny)
-            g.part = dev_alloc(static_cast<size_t>(kGemvKSplit * m * n) *
+            g.part = dev_alloc(static_cast<size_t>(
+                                   pick_ksplit(k, n) * m * n) *
                                    sizeof(float),
                                mp::Tier::KERNEL_SCRATCH);
         g.a_host = static_cast<double*>(
@@ -984,7 +459,7 @@ int run_bf16_graph(const double* a, long long m, long long k,
         bool ok = g.a_stage != 0 && g.da != 0 && g.dc != 0 &&
                   g.a_host != nullptr && g.c_host != nullptr &&
                   (!skinny || g.part != 0);
-        CUgraph_t graph = nullptr;
+        CUgraph_t graph = 0;
         const CUstream_t s = decode_stream();
         if (ok && g_drv.stream_begin_capture(s, 0) != kCudaSuccess)
             ok = false;
@@ -1004,13 +479,12 @@ int run_bf16_graph(const double* a, long long m, long long k,
             int mi = static_cast<int>(m), ki = static_cast<int>(k),
                 ni = static_cast<int>(n);
             if (skinny) {
-                int ksi = static_cast<int>(kGemvKSplit);
-                int kci = static_cast<int>(
-                    (k + kGemvKSplit - 1) / kGemvKSplit);
+                int ksi = pick_ksplit(k, n);
+                int kci = static_cast<int>((k + ksi - 1) / ksi);
                 void* pp[] = {&g.da, &g.db, &g.part, &mi, &ki, &ni,
                               &ksi, &kci};
                 ok &= launch_s(
-                    g_f_gemv_bf16,
+                    m == 1 ? g_f_gemv_bf16_m1 : g_f_gemv_bf16,
                     static_cast<unsigned int>(
                         (n + kGemvThreads - 1) / kGemvThreads),
                     static_cast<unsigned int>(ksi),
@@ -1024,22 +498,24 @@ int run_bf16_graph(const double* a, long long m, long long k,
                     1, static_cast<unsigned int>(kGemvThreads), 1, 0, rp,
                     s);
             } else {
+                const bool wide = wide_gemm_shape(m, k, n);
+                const long long ts = wide ? 64 : 16;
                 void* pp[] = {&g.da, &g.db, &g.dc, &mi, &ki, &ni};
                 ok &= launch_s(
-                    g_f_gemm_bf16,
-                    static_cast<unsigned int>((n + 15) / 16),
-                    static_cast<unsigned int>((m + 15) / 16), 16, 16, 0,
-                    pp, s);
+                    wide ? g_f_gemm_bf16_w : g_f_gemm_bf16,
+                    static_cast<unsigned int>((n + ts - 1) / ts),
+                    static_cast<unsigned int>((m + ts - 1) / ts), 16, 16,
+                    0, pp, s);
             }
             ok &= g_drv.memcpy_dtoh_async(g.c_host, g.dc, cb, s) ==
                   kCudaSuccess;
             ok &= g_drv.stream_end_capture(s, &graph) == kCudaSuccess &&
-                  graph != nullptr;
+                  graph != 0;
         }
         if (ok) {
             ok = g_drv.graph_instantiate(&g.exec, graph,
                                          0ull) == kCudaSuccess &&
-                 g.exec != nullptr;
+                 g.exec != 0;
             g_drv.graph_destroy(graph);
         }
         if (!ok) {
@@ -1105,15 +581,15 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
         if (m <= kGemvMaxM) {
             // Decode/skinny-m: split-k GEMV — part partials then a
             // fixed-order reduce; bandwidth-bound and deterministic.
+            // ksplit adapts to the device SM count (pick_ksplit).
+            int ksi = pick_ksplit(k, n);
             CUdevptr_t part = dev_get_pooled(
                 g_bf16_part,
-                static_cast<size_t>(kGemvKSplit * m * n) * sizeof(float));
+                static_cast<size_t>(ksi) * m * n * sizeof(float));
             if (part == 0) goto done;
-            int ksi = static_cast<int>(kGemvKSplit);
-            int kci =
-                static_cast<int>((k + kGemvKSplit - 1) / kGemvKSplit);
+            int kci = static_cast<int>((k + ksi - 1) / ksi);
             void* pparams[] = {&da, &db, &part, &mi, &ki, &ni, &ksi, &kci};
-            if (!launch(g_f_gemv_bf16,
+            if (!launch(m == 1 ? g_f_gemv_bf16_m1 : g_f_gemv_bf16,
                         static_cast<unsigned int>(
                             (n + kGemvThreads - 1) / kGemvThreads),
                         static_cast<unsigned int>(ksi),
@@ -1130,10 +606,12 @@ int run_bf16(const double* a, long long m, long long k, CUdevptr_t db,
                 goto done;
             }
         } else {
+            const bool wide = wide_gemm_shape(m, k, n);
+            const long long ts = wide ? 64 : 16;
             void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
-            if (!launch(g_f_gemm_bf16,
-                        static_cast<unsigned int>((n + 15) / 16),
-                        static_cast<unsigned int>((m + 15) / 16),
+            if (!launch(wide ? g_f_gemm_bf16_w : g_f_gemm_bf16,
+                        static_cast<unsigned int>((n + ts - 1) / ts),
+                        static_cast<unsigned int>((m + ts - 1) / ts),
                         16, 16, 0, params)) {
                 goto done;
             }
@@ -1231,15 +709,14 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
         int mi = static_cast<int>(m), ki = static_cast<int>(k),
             ni = static_cast<int>(n);
         if (m <= kGemvMaxM) {
+            int ksi = pick_ksplit(k, n);
             CUdevptr_t part = dev_get_pooled(
                 g_fp8_part,
-                static_cast<size_t>(kGemvKSplit * m * n) * sizeof(float));
+                static_cast<size_t>(ksi) * m * n * sizeof(float));
             if (part == 0) goto done;
-            int ksi = static_cast<int>(kGemvKSplit);
-            int kci =
-                static_cast<int>((k + kGemvKSplit - 1) / kGemvKSplit);
+            int kci = static_cast<int>((k + ksi - 1) / ksi);
             void* pparams[] = {&da, &db, &part, &mi, &ki, &ni, &ksi, &kci};
-            if (!launch(g_f_gemv_fp8,
+            if (!launch(m == 1 ? g_f_gemv_fp8_m1 : g_f_gemv_fp8,
                         static_cast<unsigned int>(
                             (n + kGemvThreads - 1) / kGemvThreads),
                         static_cast<unsigned int>(ksi),
@@ -1256,10 +733,12 @@ int run_fp8(const double* a, long long m, long long k, CUdevptr_t db,
                 goto done;
             }
         } else {
+            const bool wide = wide_gemm_shape(m, k, n);
+            const long long ts = wide ? 64 : 16;
             void* params[] = {&da, &db, &dc, &mi, &ki, &ni};
-            if (!launch(g_f_gemm_fp8,
-                        static_cast<unsigned int>((n + 15) / 16),
-                        static_cast<unsigned int>((m + 15) / 16),
+            if (!launch(wide ? g_f_gemm_fp8_w : g_f_gemm_fp8,
+                        static_cast<unsigned int>((n + ts - 1) / ts),
+                        static_cast<unsigned int>((m + ts - 1) / ts),
                         16, 16, 0, params)) {
                 goto done;
             }
@@ -1379,21 +858,19 @@ struct AdamwState {
 std::mutex g_adamw_mu;
 std::unordered_map<const void*, AdamwState> g_adamw;
 DevPool g_adamw_norm_part;
+DevPool g_sgemm_a, g_sgemm_b, g_sgemm_c;
 std::vector<float> g_adamw_norm_host;
 
-constexpr int kSqsumBlocks = 128;
-
-// §26 batch-pipeline state — one call drains a whole step's tensors over
-// three manager lanes (H2D / TRAIN_COMPUTE / D2H) chained by events, so a
-// tensor's D2H overlaps the next tensor's H2D+kernel. Staging rides two
-// bounded pinned slabs; a wave never exceeds kAdamwWaveBytes per
-// direction.
+// AdamW batch pipeline (§26): pinned staging slabs bound the per-wave
+// host footprint; per-slot events chain H2D -> kernel -> D2H across the
+// manager's dedicated lanes so one step pipelines every bound tensor.
 constexpr size_t kAdamwWaveBytes = 16u << 20;
-float* g_adamw_pin_in = nullptr;    // gradient staging (H2D source)
-float* g_adamw_pin_out = nullptr;   // weight staging (D2H destination)
-size_t g_adamw_pin_cap = 0;         // bytes per direction, 0 = unallocated
-std::vector<CUevent_t> g_adamw_ev_h;   // per-wave-item H2D completion
-std::vector<CUevent_t> g_adamw_ev_k;   // per-wave-item kernel completion
+float* g_adamw_pin_in = nullptr;
+float* g_adamw_pin_out = nullptr;
+size_t g_adamw_pin_cap = 0;
+std::vector<CUevent_t> g_adamw_ev_h, g_adamw_ev_k;
+
+constexpr int kSqsumBlocks = 128;
 
 }  // namespace
 
@@ -1423,6 +900,41 @@ int xcuda_kv_kernel_probe() {
     return device_ready() && ensure_module() ? 1 : 0;
 }
 
+// fp64 lane admission probe for cuda_bridge.cpp — device + JIT'd
+// module + the self-authored GEMM all present; fail-closed otherwise.
+int xcuda_dev_probe() {
+    return device_ready() && ensure_module() && g_f_gemm_f64 != 0 &&
+                   g_f_gemm_f64_w != 0
+               ? 1
+               : 0;
+}
+
+// fp64 tiled GEMM over device-resident operands, launched on the
+// caller's stream — the bridge keeps its H2D → kernel → D2H event
+// chain on the PREFILL lane exactly as the retired cuBLAS call did.
+// rc contract: 0 ok, 2 bad args, 3 device/module/launch failure.
+int xcuda_dev_gemm_f64(unsigned long long da, unsigned long long db,
+                       unsigned long long dc, long long m, long long k,
+                       long long n, unsigned long long stream) {
+    if (!use_ctx() || !ensure_module() || g_f_gemm_f64 == 0 ||
+        g_f_gemm_f64_w == 0)
+        return 3;
+    if (da == 0 || db == 0 || dc == 0 || m <= 0 || k <= 0 || n <= 0)
+        return 2;
+    void* params[] = {&da, &db, &dc, &m, &k, &n};
+    // Wide-tile when the 64x64 grid still covers the device; the 16x16
+    // kernel remains for small/skinny shapes.
+    const bool wide = wide_gemm_shape(m, k, n);
+    const long long ts = wide ? 64 : 16;
+    return launch_s(wide ? g_f_gemm_f64_w : g_f_gemm_f64,
+                    static_cast<unsigned int>((n + ts - 1) / ts),
+                    static_cast<unsigned int>((m + ts - 1) / ts),
+                    16, 16, 0, params,
+                    static_cast<CUstream_t>(stream))
+               ? 0
+               : 3;
+}
+
 // Lightweight capability probe for the governed admission check —
 // resolves the device + free VRAM without compiling kernels, so it is
 // cheap enough to run before every governed launch decision.
@@ -1431,16 +943,23 @@ int xcuda_probe(long long* free_bytes, long long* total_bytes,
     if (!device_ready()) return 0;
     if (free_bytes != nullptr && total_bytes != nullptr) {
         size_t fb = 0, tb = 0;
-        if (g_drv.ctx_set_current(g_ctx) != kCudaSuccess ||
+        if (g_drv.ctx_set_current(xcd::dev().ctx) != kCudaSuccess ||
             g_drv.mem_get_info(&fb, &tb) != kCudaSuccess) {
             return 0;
         }
         *free_bytes = static_cast<long long>(fb);
         *total_bytes = static_cast<long long>(tb);
     }
-    if (cc_major != nullptr) *cc_major = g_cc_major;
-    if (cc_minor != nullptr) *cc_minor = g_cc_minor;
+    if (cc_major != nullptr) *cc_major = xcd::dev().cc_major;
+    if (cc_minor != nullptr) *cc_minor = xcd::dev().cc_minor;
     return 1;
+}
+
+// SM count for the unified compute-plane report — same fail-closed
+// probe rule: 0 when the device/driver is not ready.
+int xcuda_sm_count() {
+    if (!device_ready()) return 0;
+    return xcd::dev().sm_count > 0 ? xcd::dev().sm_count : 0;
 }
 
 // NVML instantaneous sensors for the §66 hardware baseline — same
@@ -1722,8 +1241,9 @@ int xcuda_kv_attention(long long layer, const double* q_host,
         !grow_scratch(&g_obuf, &g_ocap, o_elems)) {
         return 2;
     }
+    // scores[128] | acc[hd] | red[32] | scal[5] | staged q[hd]
     const unsigned int shmem = static_cast<unsigned int>(
-        (static_cast<size_t>(kKvTile) + static_cast<size_t>(head_dim) +
+        (static_cast<size_t>(kKvTile) + static_cast<size_t>(head_dim) * 2 +
          32 + 5) * sizeof(double));
     long long h_ll = heads, s_ll = seq, kh_ll = kv_heads,
               hd_ll = head_dim, ml_ll = g_max_len,
@@ -1798,7 +1318,7 @@ int xcuda_kv_attention(long long layer, const double* q_host,
 
 int xcuda_adamw_probe() {
     return device_ready() && ensure_module() &&
-                   g_f_adamw != nullptr && g_f_sqsum != nullptr
+                   g_f_adamw != 0 && g_f_sqsum != 0
                ? 1 : 0;
 }
 
@@ -1899,7 +1419,7 @@ int xcuda_adamw_sync(const void* w_key, float* w_out, float* m_out,
 // from the host's sequential order only below fp32 clip tolerance).
 int xcuda_adamw_sqsum(const float* x_host, long long n, double* out) {
     if (x_host == nullptr || out == nullptr || n <= 0) return 2;
-    if (!use_ctx() || !ensure_module() || g_f_sqsum == nullptr) return 3;
+    if (!use_ctx() || !ensure_module() || g_f_sqsum == 0) return 3;
     const size_t bytes = static_cast<size_t>(n) * sizeof(float);
     CUdevptr_t dx = dev_alloc(bytes, mp::Tier::KERNEL_SCRATCH);
     if (dx == 0) return 3;
@@ -1946,7 +1466,7 @@ struct XcudaAdamwItem {
 
 // Pipelined-path prerequisites — optional like the graph set: any absent
 // piece degrades the batch to the serial path, never to an error.
-static bool adamw_pipe_ready() {
+bool adamw_pipe_ready() {
     return g_drv.event_create != nullptr &&
            g_drv.event_record != nullptr &&
            g_drv.stream_wait_event != nullptr &&
@@ -1956,15 +1476,10 @@ static bool adamw_pipe_ready() {
            g_drv.stream_sync != nullptr && mp::mgr().ensure();
 }
 
-static CUstream_t adamw_lane(mp::StreamLane l) {
-    return static_cast<CUstream_t>(reinterpret_cast<uintptr_t>(
-        mp::mgr().stream(l)));
-}
-
 // Allocate the two staging slabs once; a refused allocation (pinned cap
 // bound) disables the pipelined path for the process — the serial path
 // keeps identical semantics, just without overlap.
-static bool adamw_staging_ready() {
+bool adamw_staging_ready() {
     if (g_adamw_pin_in != nullptr && g_adamw_pin_out != nullptr)
         return true;
     void* in = mp::mgr().pinned_alloc(
@@ -1984,13 +1499,13 @@ static bool adamw_staging_ready() {
 
 // Grow the per-wave event pools (CU_EVENT_DISABLE_TIMING = 0x2 — they
 // carry ordering only, never profiling data).
-static bool adamw_ensure_events(size_t n) {
+bool adamw_ensure_events(size_t n) {
     while (g_adamw_ev_h.size() < n) {
-        CUevent_t h = nullptr, k = nullptr;
-        if (g_drv.event_create(&h, 2u) != kCudaSuccess || h == nullptr ||
-            g_drv.event_create(&k, 2u) != kCudaSuccess || k == nullptr) {
-            if (h != nullptr) g_drv.event_destroy(h);
-            if (k != nullptr) g_drv.event_destroy(k);
+        CUevent_t h = 0, k = 0;
+        if (g_drv.event_create(&h, 2u) != kCudaSuccess || h == 0 ||
+            g_drv.event_create(&k, 2u) != kCudaSuccess || k == 0) {
+            if (h != 0) g_drv.event_destroy(h);
+            if (k != 0) g_drv.event_destroy(k);
             return false;
         }
         g_adamw_ev_h.push_back(h);
@@ -2002,10 +1517,10 @@ static bool adamw_ensure_events(size_t n) {
 // Serial per-tensor step — identical work to step_dev + sync(w), used by
 // the batch path for oversized tensors and whenever the pipeline lanes
 // are unavailable. Caller holds g_adamw_mu.
-static int adamw_step_serial(AdamwState& st, const float* g_host,
-                             float* w_out, float gscale, float lr_t,
-                             float wd, float b1, float b2, float bc1,
-                             float bc2, float eps) {
+int adamw_step_serial(AdamwState& st, const float* g_host,
+                      float* w_out, float gscale, float lr_t,
+                      float wd, float b1, float b2, float bc1,
+                      float bc2, float eps) {
     const size_t bytes = static_cast<size_t>(st.n) * sizeof(float);
     if (xmemcpy_htod(st.dg, g_host, bytes) != kCudaSuccess) return 3;
     long long n = st.n;
@@ -2033,7 +1548,7 @@ static int adamw_step_serial(AdamwState& st, const float* g_host,
 int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
                          float gscale, float lr_t, float wd, int step) {
     if (items == nullptr || count <= 0 || step < 0) return 2;
-    if (!use_ctx() || !ensure_module() || g_f_adamw == nullptr) return 3;
+    if (!use_ctx() || !ensure_module() || g_f_adamw == 0) return 3;
     // Bias corrections in fp64 host-side — bit-identical to the
     // per-tensor path's std::pow inputs. Non-const: cuLaunchKernel
     // copies the params at enqueue and needs void* addresses.
@@ -2051,7 +1566,11 @@ int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
         }
         it.rc = g_adamw.find(it.w_key) != g_adamw.end() ? -1 : 4;
     }
-    const bool pipe = adamw_pipe_ready() && adamw_staging_ready();
+    const CUstream_t s_h2d = mp::mgr().stream(mp::StreamLane::H2D);
+    const CUstream_t s_cmp = mp::mgr().stream(mp::StreamLane::TRAIN_COMPUTE);
+    const CUstream_t s_d2h = mp::mgr().stream(mp::StreamLane::D2H);
+    const bool pipe = adamw_pipe_ready() && adamw_staging_ready() &&
+                      s_h2d != 0 && s_cmp != 0 && s_d2h != 0;
     if (!pipe) {
         for (long long i = 0; i < count; ++i) {
             XcudaAdamwItem& it = items[i];
@@ -2060,18 +1579,6 @@ int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
                                       it.g_host, it.w_out, gscale, lr_t,
                                       wd, b1, b2, bc1, bc2, eps);
         }
-        return 0;
-    }
-    const CUstream_t s_h2d = adamw_lane(mp::StreamLane::H2D);
-    const CUstream_t s_cmp = adamw_lane(mp::StreamLane::TRAIN_COMPUTE);
-    const CUstream_t s_d2h = adamw_lane(mp::StreamLane::D2H);
-    if (s_h2d == 0 || s_cmp == 0 || s_d2h == 0) {
-        for (long long i = 0; i < count; ++i)
-            if (items[i].rc == -1)
-                items[i].rc = adamw_step_serial(
-                    g_adamw.find(items[i].w_key)->second, items[i].g_host,
-                    items[i].w_out, gscale, lr_t, wd, b1, b2, bc1, bc2,
-                    eps);
         return 0;
     }
     // Wave loop: each wave's staging footprint is bounded by the slab;
@@ -2135,23 +1642,26 @@ int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
             // would double-apply the update).
             bool ok = g_drv.memcpy_htod_async(
                           st.dg,
-                          reinterpret_cast<const char*>(g_adamw_pin_in) + off,
+                          reinterpret_cast<const char*>(g_adamw_pin_in) +
+                              off,
                           bytes, s_h2d) == kCudaSuccess;
-            if (ok) ok = g_drv.event_record(g_adamw_ev_h[slot],
-                                            s_h2d) == kCudaSuccess;
-            if (ok) ok = g_drv.stream_wait_event(
-                             s_cmp, g_adamw_ev_h[slot],
-                             0u) == kCudaSuccess;
-            if (ok) ok = launch_s(g_f_adamw, blocks, 1, 256, 1, 0,
-                                  params, s_cmp);
+            if (ok)
+                ok = g_drv.event_record(g_adamw_ev_h[slot], s_h2d) ==
+                     kCudaSuccess;
+            if (ok)
+                ok = g_drv.stream_wait_event(s_cmp, g_adamw_ev_h[slot],
+                                             0u) == kCudaSuccess;
+            if (ok)
+                ok = launch_s(g_f_adamw, blocks, 1, 256, 1, 0, params,
+                              s_cmp);
             if (!ok) {
                 it.rc = 3;
                 off += bytes;
                 ++slot;
                 continue;
             }
-            // Kernel enqueued — from here on the device owns this item's
-            // update even if the read-back stages fail.
+            // Kernel enqueued — from here on the device owns this
+            // item's update even if the read-back stages fail.
             it.rc = 6;
             if (g_drv.event_record(g_adamw_ev_k[slot], s_cmp) ==
                     kCudaSuccess &&
@@ -2212,11 +1722,13 @@ int xcuda_adamw_release() {
     }
     g_adamw.clear();
     dev_pool_release(g_adamw_norm_part);
+    dev_pool_release(g_sgemm_a);
+    dev_pool_release(g_sgemm_b);
+    dev_pool_release(g_sgemm_c);
     g_adamw_norm_host.clear();
     g_adamw_norm_host.shrink_to_fit();
     // Batch pipeline teardown: driver events are owned objects — always
-    // destroy; the pinned slabs came from the manager, which frees them
-    // via pinned_free (extras) or pinned_release_all (ring).
+    // destroy; the pinned slabs came from the manager.
     if (g_drv.event_destroy != nullptr) {
         for (CUevent_t e : g_adamw_ev_h) g_drv.event_destroy(e);
         for (CUevent_t e : g_adamw_ev_k) g_drv.event_destroy(e);
@@ -2229,6 +1741,69 @@ int xcuda_adamw_release() {
         mp::mgr().pinned_free(g_adamw_pin_out);
     g_adamw_pin_in = g_adamw_pin_out = nullptr;
     g_adamw_pin_cap = 0;
+    return 0;
+}
+
+// --------------------------------------------- training fp32 GEMM lane --
+// §26 NativeCudaTrainingPlane: one device lane for the trainer's
+// tpu_linear* kernels, same stream-0 lane + fail-closed rc contract as
+// the fused AdamW path above. layout: 1 = nn (c=a[m,k]*b[k,n], bwd dx),
+// 2 = nt (c=a[m,k]*w[n,k]^T, fwd), 3 = tn (c=aT[k,m]*b[k,n], bwd dW).
+// acc != 0 accumulates into c (gradient += semantics).
+//
+// Operand B is the bound AdamW weight's resident copy when the tensor is
+// already on the plane (the authoritative fp32 source — never re-uploaded
+// per call); unbound B operands use a pooled scratch slab. A and C always
+// move through pooled scratch: the trainer's activations/gradients are
+// per-call buffers, so residency there would not pay off.
+int xcuda_sgemm_f32(const float* a, const float* w, float* c,
+                    long long m, long long k, long long n,
+                    int layout, int acc) {
+    if (a == nullptr || w == nullptr || c == nullptr ||
+        m <= 0 || k <= 0 || n <= 0 || layout < 1 || layout > 3)
+        return 2;
+    if (!use_ctx() || !ensure_module()) return 3;
+    // Shape-aware dispatch: the 64x64 wide kernel when the tile grid
+    // fills (same admission rule as the inference lanes), the 16x16
+    // layout kernel for small/skinny shapes.
+    const bool wide = g_f_sgemm_w != 0 && m >= 32 && n >= 32 && k >= 16;
+    const CUfunction_t f = wide ? g_f_sgemm_w
+                           : layout == 1 ? g_f_sgemm_nn
+                           : layout == 2 ? g_f_sgemm_nt
+                                         : g_f_sgemm_tn;
+    if (f == 0) return 3;
+    const size_t ab = static_cast<size_t>(m) * static_cast<size_t>(k) * 4;
+    const size_t wb = static_cast<size_t>(k) * static_cast<size_t>(n) * 4;
+    const size_t cb = static_cast<size_t>(m) * static_cast<size_t>(n) * 4;
+    CUdevptr_t da = dev_get_pooled(g_sgemm_a, ab);
+    CUdevptr_t dc = dev_get_pooled(g_sgemm_c, cb);
+    if (da == 0 || dc == 0) return 3;
+    CUdevptr_t db = 0;
+    {
+        std::lock_guard<std::mutex> lk(g_adamw_mu);
+        auto it = g_adamw.find(w);
+        if (it != g_adamw.end()) db = it->second.dw;
+    }
+    if (db == 0) {
+        db = dev_get_pooled(g_sgemm_b, wb);
+        if (db == 0 ||
+            xmemcpy_htod(db, w, wb) != kCudaSuccess)
+            return 3;
+    }
+    if (xmemcpy_htod(da, a, ab) != kCudaSuccess) return 3;
+    if (acc != 0 && xmemcpy_htod(dc, c, cb) != kCudaSuccess) return 3;
+    unsigned int accf = acc != 0 ? 1u : 0u;
+    unsigned int lay = static_cast<unsigned int>(layout);
+    void* params[] = {&da, &db, &dc, &m, &k, &n, &accf, &lay};
+    if (!launch(f,
+                static_cast<unsigned int>((n + (wide ? 63 : 15)) /
+                                          (wide ? 64 : 16)),
+                static_cast<unsigned int>((m + (wide ? 63 : 15)) /
+                                          (wide ? 64 : 16)),
+                16, 16, 0, params))
+        return 3;
+    if (g_drv.ctx_sync() != kCudaSuccess) return 3;
+    if (xmemcpy_dtoh(c, dc, cb) != kCudaSuccess) return 3;
     return 0;
 }
 

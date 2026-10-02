@@ -25,7 +25,10 @@
 #pragma once
 
 #if defined(XINGCHENG_CUDA)
-#include "cuda_rtlane.h"
+// Pure Driver API binding (nvcuda.dll) — no toolkit headers, no cudart
+// link. The manager's pool/streams/pinned memory all come from the
+// retained primary context in cuda_drvapi.h.
+#include "cuda_drvapi.h"   // provides namespace xcd = xcuda_drv
 #endif
 
 #include <cstdint>
@@ -98,9 +101,9 @@ struct Manager {
     std::unordered_map<void*, std::pair<Tier, int64_t>> owned;
 
 #if defined(XINGCHENG_CUDA)
-    xcm_rt::pool_t pool = nullptr;
-    xcm_rt::stream_t streams[6] = {};
-    void* pinned_dev = nullptr;      // host_alloc ring
+    xcd::CUmempool_t pool = 0;       // device default pool
+    xcd::CUstream_t streams[6] = {};
+    void* pinned_dev = nullptr;      // cuMemHostAlloc ring
     int64_t pinned_ring_size = 0;
     int64_t pinned_ring_off = 0;
 #endif
@@ -114,38 +117,36 @@ struct Manager {
         allow_sim = allow_sim_;
         pinned_host_cap = pinned_cap;
 #if defined(XINGCHENG_CUDA)
-        int dev = 0;
-        cuda_present =
-            xcm_rt::device_count(&dev) == xcm_rt::kSuccess && dev > 0;
+        cuda_present = xcd::device_ready();
         if (cuda_present) {
+            xcd::Api& a = xcd::api();
+            if (!xcd::use_ctx()) return 3;
+            xcd::Dev& d = xcd::dev();
+            if (d.cc_major * 10 + d.cc_minor < 86)
+                return 4;   // §62: sm_86 floor
             if (budget_bytes <= 0) {
                 size_t free_b = 0, total_b = 0;
-                if (xcm_rt::mem_get_info(&free_b, &total_b) ==
-                        xcm_rt::kSuccess)
+                if (a.mem_get_info(&free_b, &total_b) == xcd::kOk)
                     budget_bytes =
                         (int64_t)free_b - (256LL << 20);
             }
-            int cc_major = 0, cc_minor = 0;
-            if (xcm_rt::device_cc(0, &cc_major, &cc_minor) !=
-                    xcm_rt::kSuccess)
-                return 3;
-            if (cc_major * 10 + cc_minor < 86)
-                return 4;   // §62: sm_86 floor
-            if (xcm_rt::pool_create(&pool) != xcm_rt::kSuccess)
+            if (a.device_default_pool(&pool, d.device) != xcd::kOk)
                 return 5;
-            uint64_t thresh = ~0ull;   // §6 high-water reuse
-            if (xcm_rt::pool_set_release_threshold(
-                    pool, &thresh) != xcm_rt::kSuccess)
+            unsigned long long thresh = ~0ull;  // §6 high-water reuse
+            if (a.pool_set_attribute(
+                    pool, xcd::kMempoolReleaseThreshold,
+                    &thresh) != xcd::kOk)
                 return 6;
             for (int i = 0; i < 6; ++i) {
                 int pri = i == (int)StreamLane::DECODE_HIGH ? -5 : 0;
-                if (xcm_rt::stream_create_prio(&streams[i], pri) !=
-                        xcm_rt::kSuccess)
+                if (a.stream_create_pri(
+                        &streams[i], xcd::kStreamNonBlocking,
+                        pri) != xcd::kOk)
                     return 7;
             }
             if (pinned_cap > 0 &&
-                xcm_rt::host_alloc(&pinned_dev, (size_t)pinned_cap) ==
-                    xcm_rt::kSuccess) {
+                a.host_alloc(&pinned_dev, (size_t)pinned_cap,
+                             xcd::kHostAllocDefault) == xcd::kOk) {
                 pinned_ring_size = pinned_cap;
             }
         }
@@ -172,12 +173,10 @@ struct Manager {
     }
 
 #if defined(XINGCHENG_CUDA)
-    xcm_rt::stream_t stream(StreamLane l) const {
-        return streams[(int)l];
-    }
+    xcd::CUstream_t stream(StreamLane l) const { return streams[(int)l]; }
 #endif
 
-    /// §4/§5: stream-ordered pool allocation; never a naked cudaMalloc.
+    /// §4/§5: stream-ordered pool allocation; never a naked cuMemAlloc.
     /// Returns nullptr over budget — callers walk the ladder (§11).
     void* alloc(Tier tier, int64_t bytes, StreamLane lane) {
         if (!initialized || bytes <= 0) return nullptr;
@@ -185,24 +184,26 @@ struct Manager {
 #if defined(XINGCHENG_CUDA)
         if (cuda_present) {
             std::lock_guard<std::mutex> lk(mu);
-            void* p = nullptr;
-            if (xcm_rt::pool_alloc(&p, (size_t)bytes, pool,
-                                   streams[(int)lane]) !=
-                    xcm_rt::kSuccess)
+            xcd::Api& a = xcd::api();
+            if (!xcd::use_ctx()) return nullptr;
+            xcd::CUdevptr_t p = 0;
+            if (a.pool_alloc_async(
+                    &p, (size_t)bytes, pool,
+                    streams[(int)lane]) != xcd::kOk || p == 0)
                 return nullptr;
             // Pool memory's availability is stream-ordered to the
             // allocating lane — synchronize before handing the pointer
-            // to any other stream (cuBLAS default stream, compute
-            // lanes). Allocation is a growth/lifecycle event, never a
+            // to any other stream (the legacy stream, compute lanes).
+            // Allocation is a growth/lifecycle event, never a
             // per-token one, so the scoped wait stays off the hot path.
-            if (xcm_rt::stream_sync(streams[(int)lane]) !=
-                    xcm_rt::kSuccess) {
-                xcm_rt::free_async(p, streams[(int)lane]);
+            if (a.stream_sync(streams[(int)lane]) != xcd::kOk) {
+                a.mem_free_async(p, streams[(int)lane]);
                 return nullptr;
             }
-            owned[p] = {tier, bytes};
+            void* h = reinterpret_cast<void*>(static_cast<uintptr_t>(p));
+            owned[h] = {tier, bytes};
             account(tier, bytes);
-            return p;
+            return h;
         }
 #endif
         if (!allow_sim) return nullptr;
@@ -222,8 +223,13 @@ struct Manager {
         if (cuda_present && p != this) {
             // Same stream-ordering rule as alloc: drain the lane before
             // the pool may recycle the block for another stream's use.
-            xcm_rt::stream_sync(streams[(int)lane]);
-            xcm_rt::free_async(p, streams[(int)lane]);
+            xcd::Api& a = xcd::api();
+            if (!xcd::use_ctx()) return;
+            a.stream_sync(streams[(int)lane]);
+            a.mem_free_async(
+                static_cast<xcd::CUdevptr_t>(
+                    reinterpret_cast<uintptr_t>(p)),
+                streams[(int)lane]);
         }
 #endif
     }
@@ -233,10 +239,14 @@ struct Manager {
     void free_all(StreamLane lane = StreamLane::H2D) {
         std::lock_guard<std::mutex> lk(mu);
 #if defined(XINGCHENG_CUDA)
-        if (cuda_present) {
-            xcm_rt::stream_sync(streams[(int)lane]);
+        if (cuda_present && xcd::use_ctx()) {
+            xcd::Api& a = xcd::api();
+            a.stream_sync(streams[(int)lane]);
             for (auto& kv : owned)
-                xcm_rt::free_async(kv.first, streams[(int)lane]);
+                a.mem_free_async(
+                    static_cast<xcd::CUdevptr_t>(
+                        reinterpret_cast<uintptr_t>(kv.first)),
+                    streams[(int)lane]);
         }
 #endif
         owned.clear();
@@ -270,8 +280,10 @@ struct Manager {
             pinned_host_cap > 0)
             return nullptr;   // §14: the cap binds
         if (void* p = pinned_acquire(bytes)) return p;
+        if (!xcd::use_ctx()) return nullptr;
         void* p = nullptr;
-        if (xcm_rt::host_alloc(&p, (size_t)bytes) != xcm_rt::kSuccess)
+        if (xcd::api().host_alloc(&p, (size_t)bytes,
+                                  xcd::kHostAllocDefault) != xcd::kOk)
             return nullptr;
         pinned_extra.emplace_back(p, bytes);
         pinned_host_bytes += bytes;
@@ -294,7 +306,7 @@ struct Manager {
              ++it) {
             if (it->first == p) {
                 pinned_host_bytes -= it->second;
-                xcm_rt::host_free(it->first);
+                if (xcd::use_ctx()) xcd::api().host_free(it->first);
                 pinned_extra.erase(it);
                 return;
             }
@@ -306,7 +318,8 @@ struct Manager {
 
     void pinned_release_all() {
 #if defined(XINGCHENG_CUDA)
-        for (auto& e : pinned_extra) xcm_rt::host_free(e.first);
+        if (xcd::use_ctx())
+            for (auto& e : pinned_extra) xcd::api().host_free(e.first);
         pinned_extra.clear();
 #endif
         pinned_ring_off = 0;
@@ -391,12 +404,13 @@ struct Manager {
 
     void shutdown() {
 #if defined(XINGCHENG_CUDA)
-        if (cuda_present) {
+        if (cuda_present && xcd::use_ctx()) {
+            xcd::Api& a = xcd::api();
             pinned_release_all();
-            for (auto& s : streams)
-                if (s) xcm_rt::stream_destroy(s);
-            if (pinned_dev) xcm_rt::host_free(pinned_dev);
-            if (pool) xcm_rt::pool_destroy(pool);
+            for (auto& s : streams) if (s) a.stream_destroy(s);
+            if (pinned_dev) a.host_free(pinned_dev);
+            // The pool is the device default mempool — owned by the
+            // primary context, never destroyed here.
         }
 #endif
         initialized = false;
@@ -410,8 +424,8 @@ struct Manager {
         workspace_peak = ladder_events = allocs = 0;
         owned.clear();
 #if defined(XINGCHENG_CUDA)
-        pool = nullptr;
-        for (auto& s : streams) s = nullptr;
+        pool = 0;
+        for (auto& s : streams) s = 0;
         pinned_dev = nullptr;
         pinned_ring_size = pinned_ring_off = 0;
 #endif

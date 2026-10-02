@@ -733,38 +733,29 @@ bool ids_to_i32(const std::vector<int64_t>& in, std::vector<int32_t>& out) {
     return true;
 }
 
-int mode_tokenize(const Args& a) {
-    std::string tk_path = resolve_tokenizer_path(a.get("tokenizer"));
+// Shared core behind one-shot `tokenize` and serve `tokenize`.
+// Throws std::runtime_error carrying the one-shot failure code (never
+// fail(): the serve loop must stay alive). Returns the exact stdout
+// summary the one-shot mode prints.
+std::string tokenize_run(const std::string& tk_arg, int64_t max_len, bool chat,
+                         int64_t vision_pdim, int64_t vision_pmax,
+                         const std::string& in_path, const std::string& out_path,
+                         bool binary_flag) {
+    std::string tk_path = resolve_tokenizer_path(tk_arg);
     ByteLevelBPETokenizer tk = ByteLevelBPETokenizer::load(tk_path);
-    int64_t max_len = a.has("max-length")
-                          ? std::stoll(a.get("max-length")) : 0;
-    bool chat = a.has("chat");
-    // Optional geometry pins for the vision grid; absent = structural
-    // validation only (the trainer re-checks against the model config).
-    int64_t vision_pdim = 0, vision_pmax = 0;
-    if (a.has("vision-patch-dim")) {
-        try { vision_pdim = std::stoll(a.get("vision-patch-dim")); }
-        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
-    }
-    if (a.has("vision-max-patches")) {
-        try { vision_pmax = std::stoll(a.get("vision-max-patches")); }
-        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
-    }
     // eos: encode("", add_eos) returns {eos_id}; -1 when undetectable.
     std::vector<int64_t> eos_probe = tk.encode("", false, true);
     int64_t eos_id = eos_probe.empty() ? -1 : eos_probe.back();
 
-    std::string in_path = a.get("in"), out_path = a.get("out");
-    if (in_path.empty() || out_path.empty()) fail("TOKENIZE_ARGS_MISSING");
     std::vector<JsonValue> rows = read_jsonl(in_path);
     // Binary-hot-data rule: --binary or a .xcb out path emits the XCB1
     // token-batch container; .jsonl remains for legacy/debug exports.
     const bool binary =
-        a.has("binary") ||
+        binary_flag ||
         (out_path.size() >= 4 &&
          out_path.compare(out_path.size() - 4, 4, ".xcb") == 0);
     std::ofstream out(out_path, std::ios::binary | std::ios::trunc);
-    if (!out) fail("TOKENIZE_OUT_UNWRITABLE");
+    if (!out) throw std::runtime_error("TOKENIZE_OUT_UNWRITABLE");
     const std::string tk_sha = sha256_file(tk_path);
     std::unique_ptr<xcb::Writer> xw;
     if (binary) {
@@ -882,14 +873,43 @@ int mode_tokenize(const Args& a) {
     }
     if (xw) xw->close();
     out.close();
-    std::printf("{\"ok\":true,\"mode\":\"tokenize\",\"rows_in\":%lld,"
-                "\"rows_out\":%lld,\"rows_dropped\":%lld,"
-                "\"vision_rows\":%lld,\"eos_id\":%lld,"
-                "\"container\":\"%s\","
-                "\"tokenizer_sha256\":\"%s\"}\n",
-                (long long)n_in, (long long)n_out, (long long)n_dropped,
-                (long long)n_vision, (long long)eos_id,
-                binary ? "xcb1" : "jsonl", tk_sha.c_str());
+    std::ostringstream summary;
+    summary << "{\"ok\":true,\"mode\":\"tokenize\",\"rows_in\":" << n_in
+            << ",\"rows_out\":" << n_out
+            << ",\"rows_dropped\":" << n_dropped
+            << ",\"vision_rows\":" << n_vision
+            << ",\"eos_id\":" << eos_id
+            << ",\"container\":\"" << (binary ? "xcb1" : "jsonl") << "\""
+            << ",\"tokenizer_sha256\":\"" << tk_sha << "\"}";
+    return summary.str();
+}
+
+int mode_tokenize(const Args& a) {
+    int64_t max_len = a.has("max-length")
+                          ? std::stoll(a.get("max-length")) : 0;
+    bool chat = a.has("chat");
+    // Optional geometry pins for the vision grid; absent = structural
+    // validation only (the trainer re-checks against the model config).
+    int64_t vision_pdim = 0, vision_pmax = 0;
+    if (a.has("vision-patch-dim")) {
+        try { vision_pdim = std::stoll(a.get("vision-patch-dim")); }
+        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
+    }
+    if (a.has("vision-max-patches")) {
+        try { vision_pmax = std::stoll(a.get("vision-max-patches")); }
+        catch (...) { fail("TOKENIZE_VISION_ARGS"); }
+    }
+    std::string in_path = a.get("in"), out_path = a.get("out");
+    if (in_path.empty() || out_path.empty()) fail("TOKENIZE_ARGS_MISSING");
+    std::string summary;
+    try {
+        summary = tokenize_run(a.get("tokenizer"), max_len, chat,
+                               vision_pdim, vision_pmax, in_path, out_path,
+                               a.has("binary"));
+    } catch (const std::exception& e) {
+        fail(e.what());
+    }
+    std::printf("%s\n", summary.c_str());
     return 0;
 }
 
@@ -2302,13 +2322,13 @@ std::string manifest_field(const fs::path& bundle, const char* key) {
     return v && v->type == JsonValue::Type::String ? v->string : "";
 }
 
-JsonValue eval_one(const std::string& bundle_dir, const JsonValue& suite) {
-    NativeInferenceEngine engine;
-    try {
-        engine.load(bundle_dir);
-    } catch (const std::exception& e) {
-        fail(std::string("EVAL_ENGINE_LOAD_FAILED:") + e.what());
-    }
+// Shared core behind one-shot `eval` and serve `eval`.
+// `engine` must already hold `bundle_dir`. Throws std::runtime_error
+// carrying the one-shot failure code (never fail(): the serve loop must
+// stay alive).
+JsonValue eval_candidate_on_engine(NativeInferenceEngine& engine,
+                                   const std::string& bundle_dir,
+                                   const JsonValue& suite) {
     int64_t cap = (int64_t)xct::j_num(&suite, "eval_token_cap", 128);
     if (cap < 32) cap = 32;
     if (cap > 2048) cap = 2048;
@@ -2336,8 +2356,7 @@ JsonValue eval_one(const std::string& bundle_dir, const JsonValue& suite) {
     try {
         out = engine.generate(pids, max_new, sc);
     } catch (const std::exception& e) {
-        engine.unload();
-        fail(std::string("EVAL_GENERATION_FAILED:") + e.what());
+        throw std::runtime_error(std::string("EVAL_GENERATION_FAILED:") + e.what());
     }
     double elapsed = std::chrono::duration<double>(
                          std::chrono::steady_clock::now() - t0).count();
@@ -2348,7 +2367,6 @@ JsonValue eval_one(const std::string& bundle_dir, const JsonValue& suite) {
     }
     double tps = elapsed > 0 ? gen_tokens / elapsed : 0.0;
     double latency_ms = gen_tokens > 0 ? elapsed * 1000.0 / gen_tokens : 0.0;
-    engine.unload();
 
     JsonValue r;
     r.type = JsonValue::Type::Object;
@@ -2370,6 +2388,24 @@ JsonValue eval_one(const std::string& bundle_dir, const JsonValue& suite) {
                                 : manifest_field(bundle_dir, "quantization")));
     put("checkpoint_sha256", str(manifest_field(bundle_dir, "checkpoint_sha256")));
     put("throughput_engine", str("cpp"));
+    return r;
+}
+
+JsonValue eval_one(const std::string& bundle_dir, const JsonValue& suite) {
+    NativeInferenceEngine engine;
+    try {
+        engine.load(bundle_dir);
+    } catch (const std::exception& e) {
+        fail(std::string("EVAL_ENGINE_LOAD_FAILED:") + e.what());
+    }
+    JsonValue r;
+    try {
+        r = eval_candidate_on_engine(engine, bundle_dir, suite);
+    } catch (...) {
+        engine.unload();
+        throw;
+    }
+    engine.unload();
     return r;
 }
 
@@ -4358,6 +4394,8 @@ int mode_serve(const Args& a) {
 #include "xcm_capability.h"
 // Runtime-gate modes converged from the devin lane (see header doc).
 #include "xcm_rtgates.h"
+// Unified measured compute-plane report (CPU+GPU+hybrid lane evidence).
+#include "xcm_computeplane.h"
 
 }  // namespace
 
@@ -4475,6 +4513,7 @@ static const ModeEntry kModeRegistry[] = {
     {"kv-gather-probe",       "CACHE",     mode_kv_gather_probe},
     {"hw-caps",               "SCALE",     mode_hw_caps},
     {"kernel-registry",       "SCALE",     mode_kernel_registry},
+    {"compute-plane",         "CUDA",      mode_compute_plane},
     // Checkpoint-format convergence onto the canonical writer
     // (byte-exact tensor table, zeroed MTP-stack block).
     {"ckpt-converge",         "MODEL",     mode_ckpt_converge},

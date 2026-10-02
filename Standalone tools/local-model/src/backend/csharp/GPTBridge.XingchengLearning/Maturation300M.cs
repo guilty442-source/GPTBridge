@@ -294,10 +294,15 @@ internal static class Maturation300M
     }
 
     /// <summary>§4/§50 ordered-activation guard, invoked alongside the
-    /// CapabilityFreeze policy guard at job admission: the declared
-    /// capability must equal the current sequence head. Any other
-    /// capability — including a later one whose prerequisites are not
-    /// yet frozen — is denied.</summary>
+    /// CapabilityFreeze policy guard at job admission: while the
+    /// sequence is active the declared capability must equal the
+    /// current sequence head — any other capability, including a later
+    /// one whose prerequisites are not yet frozen, is denied. Once the
+    /// sequence is complete (no head: every capability frozen or
+    /// unsupported) the guard releases untagged governed SFT — the
+    /// recorded completion order — while capability-declared jobs
+    /// remain denied until --maturation-reopen reopens a bounded
+    /// lane.</summary>
     public static void GuardSequence(string toolRoot, string capability)
     {
         var state = LoadState(toolRoot);
@@ -313,9 +318,21 @@ internal static class Maturation300M
             return;
         CapabilitySpec? head = Head(state);
         if (head == null)
-            throw new ExecutorError("MATURATION_SEQUENCE_COMPLETE",
-                "all capabilities frozen; no capability training lane " +
-                "remains in 300M_MODEL_MATURATION");
+        {
+            // Sequence complete: every capability resolved (frozen or
+            // unsupported). The recorded completed_reason releases
+            // GuardSequence for governed post-maturation SFT — an
+            // untagged job (the self-learning lane declares no
+            // capability) is admitted; a capability-declared job is
+            // denied until a governor reopens a bounded lane via
+            // --maturation-reopen.
+            if (capability.Length == 0)
+                return;
+            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+                $"capability '{capability}' is denied: the 300M " +
+                "maturation sequence is complete; reopen a bounded " +
+                "lane with --maturation-reopen");
+        }
         if (IndexOf(capability) < 0)
             throw new ExecutorError("CAPABILITY_UNKNOWN",
                 $"capability '{capability}' is not in the 300M " +

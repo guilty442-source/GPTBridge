@@ -428,28 +428,150 @@ internal sealed class TrainingJobExecutor
     /// A missing/unreadable governor state file is fail-open (trainer
     /// auto threads), per the budget contract: no state, expired or
     /// kill-switch falls back to static limits. Returns the trainer
-    /// thread count derived from the training quota (0 = auto).</summary>
-    private int PreflightResourceGate()
+    /// thread count derived from the training quota (0 = auto) plus the
+    /// GPU admission decision for the job's requested device.</summary>
+    private (int threads, GpuPlan gpu) PreflightResourceGate(
+        Dictionary<string, object?> configuration)
+    {
+        var status = PreflightStatus();
+        if (status.TryGetValue("would_block", out object? wb) &&
+            wb is bool blocked && blocked)
+            throw new ExecutorError(
+                (string)status["error_code"]!,
+                (string)status["reason"]!);
+        return ((int)status["trainer_threads"]!,
+                ResolveGpuPlan(configuration));
+    }
+
+    /// <summary>Read-only view of the same gate for operators
+    /// (--preflight): inference liveness, governor budget, and the
+    /// derived trainer thread count. Never throws ExecutorError —
+    /// a would-be refusal is reported as would_block + reason.</summary>
+    public Dictionary<string, object?> PreflightStatus()
     {
         bool? inferenceActive = Collectors.InferenceActive(_toolRoot);
+        var (governorMode, gpuEnabled, vramPct, vramMb) =
+            GovernorGpuPolicy();
+        var status = new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-training-preflight/v1",
+            ["inference_active"] = inferenceActive,
+            ["governor_state"] = GovernorStatePath(),
+            ["governor_mode"] = governorMode,
+            ["gpu"] = new Dictionary<string, object?>
+            {
+                ["gpu_enabled"] = gpuEnabled,
+                ["vram_budget_percent"] = vramPct,
+                ["vram_budget_mb"] = vramMb,
+                ["probe"] = ProbeCuda()?.ToDict(),
+            },
+            ["training_quota"] = null,
+            ["training_state"] = null,
+            ["pressure"] = null,
+            ["trainer_threads"] = 0,
+            ["would_block"] = false,
+            // Runtime Host visibility (read-only): whether a single Active
+            // Model owner currently holds the machine. Informational only —
+            // enforcement lives in the host lease itself.
+            ["runtime_host"] = RuntimeHostSnapshot(),
+        };
         if (inferenceActive != false)
-            throw new ExecutorError("EXECUTOR_GPU_BUSY",
-                inferenceActive == true
-                    ? "inference session active — training deferred"
-                    : "inference state unavailable — training deferred " +
-                      "(fail-closed)");
-        return GovernorTrainingThreads();
+        {
+            status["would_block"] = true;
+            status["error_code"] = "EXECUTOR_GPU_BUSY";
+            status["reason"] = inferenceActive == true
+                ? "inference session active — training deferred"
+                : "inference state unavailable — training deferred " +
+                  "(fail-closed)";
+            return status;
+        }
+        var (quota, trainingState, pressure) = GovernorTrainingBudget();
+        status["training_quota"] = quota;
+        status["training_state"] = trainingState;
+        status["pressure"] = pressure;
+        if (quota == 0 || trainingState == "paused")
+        {
+            status["would_block"] = true;
+            status["error_code"] = "EXECUTOR_GPU_BUSY";
+            status["reason"] = "resource governor paused training " +
+                $"(pressure {pressure}) — job stays queued with " +
+                "gpu-busy backoff";
+            return status;
+        }
+        if (quota > 0)
+            status["trainer_threads"] = Math.Clamp(quota, 1, 16);
+        return status;
+    }
+
+    /// <summary>Read-only snapshot of the Runtime Host Active Model
+    /// record (star-runtime-host/v1), if one exists. Best-effort: any
+    /// read/parse failure yields null — visibility must never break the
+    /// preflight gate.</summary>
+    private Dictionary<string, object?>? RuntimeHostSnapshot()
+    {
+        try
+        {
+            string path = Path.Combine(
+                _toolRoot, "xingcheng", "runtime", "ipc", "runtime-host.json");
+            if (!File.Exists(path)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("format", out var fmt) ||
+                fmt.GetString() != "star-runtime-host/v1")
+                return new Dictionary<string, object?>
+                {
+                    ["active"] = false,
+                    ["reason"] = "descriptor-format-mismatch",
+                };
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long heartbeat = root.TryGetProperty("heartbeat_at_s", out var hb) &&
+                             hb.ValueKind == JsonValueKind.Number &&
+                             hb.TryGetInt64(out long h) ? h : 0;
+            long lease = root.TryGetProperty("lease_timeout_s", out var lt) &&
+                         lt.ValueKind == JsonValueKind.Number &&
+                         lt.TryGetInt64(out long l) ? l : 0;
+            var slots = new Dictionary<string, object?>();
+            if (root.TryGetProperty("runtimes", out var rs) &&
+                rs.ValueKind == JsonValueKind.Array)
+                foreach (var s in rs.EnumerateArray())
+                {
+                    if (!s.TryGetProperty("kind", out var k) ||
+                        !s.TryGetProperty("state", out var st))
+                        continue;
+                    slots[k.GetString() ?? "?"] = st.GetString();
+                }
+            return new Dictionary<string, object?>
+            {
+                ["active"] = true,
+                ["owner_pid"] = root.TryGetProperty("owner_pid", out var op) &&
+                                op.ValueKind == JsonValueKind.Number &&
+                                op.TryGetInt32(out int pid) ? pid : null,
+                ["owner_exe"] = root.TryGetProperty("owner_exe", out var oe) &&
+                                oe.ValueKind == JsonValueKind.String
+                    ? oe.GetString() : null,
+                ["bundle_dir"] = root.TryGetProperty("bundle_dir", out var bd) &&
+                                 bd.ValueKind == JsonValueKind.String
+                    ? bd.GetString() : null,
+                ["heartbeat_age_s"] = Math.Max(0, now - heartbeat),
+                ["lease_expired"] = lease > 0 && now - heartbeat > lease,
+                ["slots"] = slots,
+            };
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Read the governor's concurrency budget for the training
-    /// class. Paused (quota 0) refuses the job with EXECUTOR_GPU_BUSY;
-    /// throttled/normal maps quota -&gt; trainer threads, clamped to the
-    /// trainer's [1,16] lane range. Missing/unreadable/corrupt state is
-    /// fail-open (0 = trainer auto).</summary>
-    private int GovernorTrainingThreads()
+    /// class. Unknown/missing/corrupt state yields quota -1 (fail-open:
+    /// trainer auto threads).</summary>
+    private (int quota, string state, string pressure) GovernorTrainingBudget()
     {
         string? statePath = GovernorStatePath();
-        if (statePath == null) return 0;
+        if (statePath == null) return (-1, "", "");
         string raw;
         try
         {
@@ -458,7 +580,7 @@ internal sealed class TrainingJobExecutor
         catch (Exception ex) when (ex is IOException or
             UnauthorizedAccessException)
         {
-            return 0;
+            return (-1, "", "");
         }
         try
         {
@@ -466,46 +588,258 @@ internal sealed class TrainingJobExecutor
             var root = doc.RootElement;
             if (!root.TryGetProperty("concurrency_budget", out var budget) ||
                 budget.ValueKind != JsonValueKind.Object)
-                return 0;
+                return (-1, "", "");
             if (!budget.TryGetProperty("classes", out var classes) ||
                 classes.ValueKind != JsonValueKind.Object)
-                return 0;
+                return (-1, "", "");
             if (!classes.TryGetProperty("training", out var training) ||
                 training.ValueKind != JsonValueKind.Object)
-                return 0;
+                return (-1, "", "");
             int quota = training.TryGetProperty("quota", out var q) &&
                         q.ValueKind == JsonValueKind.Number &&
                         q.TryGetInt32(out int n) ? n : -1;
             string state = training.TryGetProperty("state", out var s) &&
                            s.ValueKind == JsonValueKind.String
                 ? s.GetString() ?? "" : "";
-            string pressure = budget.TryGetProperty("pressure", out var p) &&
-                              p.ValueKind == JsonValueKind.String
-                ? p.GetString() ?? "" : "";
-            if (quota == 0 || state == "paused")
-                throw new ExecutorError("EXECUTOR_GPU_BUSY",
-                    "resource governor paused training " +
-                    $"(pressure {pressure}) — job stays queued with " +
-                    "gpu-busy backoff");
-            if (quota > 0)
-                return Math.Clamp(quota, 1, 16);
+            string pressure = budget.TryGetProperty("pressure", out var pr) &&
+                              pr.ValueKind == JsonValueKind.String
+                ? pr.GetString() ?? "" : "";
+            return (quota, state, pressure);
         }
         catch (JsonException)
         {
-            return 0;
+            return (-1, "", "");
         }
-        return 0;
     }
 
+    /// <summary>GPU admission decision for one job. The trainer's CUDA
+    /// lane is opt-in (XINGCHENG_TRAINER_CUDA_OPT); this record is the
+    /// audit trail of why a requested device did or did not get it.</summary>
+    private sealed class GpuPlan
+    {
+        public bool Requested;         // configuration["device"] asks cuda
+        public string Mode = "";       // governor mode observed
+        public bool GpuEnabled;        // rules modes[mode].gpu_enabled
+        public int VramBudgetPercent;  // rules modes[mode].vram_budget_percent
+        public bool? ProbeAvailable;   // xc_modeltool probe-cuda
+        public long ProbeFreeMb;
+        public long ProbeTotalMb;
+        public bool Admitted;          // -> XINGCHENG_TRAINER_CUDA_OPT=1
+        public string Reason = "";
+
+        public Dictionary<string, object?> ToDict() => new()
+        {
+            ["requested"] = Requested,
+            ["governor_mode"] = Mode.Length > 0 ? Mode : null,
+            ["gpu_enabled"] = GpuEnabled,
+            ["vram_budget_percent"] = VramBudgetPercent,
+            ["probe_available"] = ProbeAvailable,
+            ["probe_vram_free_mb"] = ProbeAvailable == true ? ProbeFreeMb : null,
+            ["probe_vram_total_mb"] = ProbeAvailable == true ? ProbeTotalMb : null,
+            ["admitted"] = Admitted,
+            ["reason"] = Reason,
+        };
+    }
+
+    /// <summary>Resolve the GPU admission for a job's requested device.
+    /// Chain: device request -> governor mode gpu_enabled (rules file is
+    /// the tunables source; unreadable/missing mode entry is fail-closed
+    /// disabled) -> live probe-cuda -> free-VRAM headroom check. A denied
+    /// request is never fatal — the trainer simply runs its CPU lanes;
+    /// denial is recorded for audit.</summary>
+    private GpuPlan ResolveGpuPlan(Dictionary<string, object?> configuration)
+    {
+        var plan = new GpuPlan();
+        string req = (TransformerTrainingRepository.Str(
+            configuration, "device") ?? "").Trim().ToLowerInvariant();
+        plan.Requested = req is "cuda" or "gpu" or "auto";
+        var (mode, enabled, pct, _) = GovernorGpuPolicy();
+        plan.Mode = mode;
+        plan.GpuEnabled = enabled;
+        plan.VramBudgetPercent = pct;
+        if (!plan.Requested)
+        {
+            plan.Reason = "device-not-requested";
+            return plan;
+        }
+        if (!enabled)
+        {
+            plan.Reason = mode.Length > 0
+                ? $"governor-mode-{mode}-gpu-disabled"
+                : "governor-gpu-policy-unavailable";
+            return plan;
+        }
+        var probe = ProbeCuda();
+        if (probe == null || probe.Available != true)
+        {
+            plan.ProbeAvailable = probe?.Available;
+            plan.Reason = "cuda-probe-unavailable";
+            return plan;
+        }
+        plan.ProbeAvailable = true;
+        plan.ProbeFreeMb = probe.FreeMb;
+        plan.ProbeTotalMb = probe.TotalMb;
+        // Headroom: the resident w/m/v AdamW lane needs ~3x params fp32
+        // plus context; train_cuda_min_free_mb tunes the floor (default
+        // 2048MB covers the ~1.2GB optimizer footprint of a 100M model).
+        int requiredMb = TransformerTrainingRepository.Int(
+            configuration, "train_cuda_min_free_mb");
+        if (requiredMb <= 0) requiredMb = 2048;
+        if (pct > 0 && probe.TotalMb > 0)
+        {
+            long budgetMb = probe.TotalMb * pct / 100;
+            if (requiredMb > budgetMb) requiredMb = (int)budgetMb;
+        }
+        if (probe.FreeMb < requiredMb)
+        {
+            plan.Reason =
+                $"vram-headroom-{probe.FreeMb}mb-below-{requiredMb}mb";
+            return plan;
+        }
+        plan.Admitted = true;
+        plan.Reason = "admitted";
+        return plan;
+    }
+
+    /// <summary>Governor mode -> GPU policy. The mode comes from the
+    /// governor state file; gpu_enabled/vram_budget_percent are resolved
+    /// from the same rules file the governor consumed (colocated under
+    /// main-system/config). Fail-closed: any missing piece disables GPU.</summary>
+    private (string mode, bool gpuEnabled, int vramPct, long vramMb)
+        GovernorGpuPolicy()
+    {
+        string? statePath = GovernorStatePath();
+        if (statePath == null) return ("", false, 0, 0);
+        try
+        {
+            using var state = JsonDocument.Parse(
+                File.ReadAllText(statePath));
+            string mode = "";
+            if (state.RootElement.TryGetProperty("mode", out var m) &&
+                m.ValueKind == JsonValueKind.String)
+                mode = m.GetString() ?? "";
+            if (mode.Length == 0 &&
+                state.RootElement.TryGetProperty("features", out var f) &&
+                f.ValueKind == JsonValueKind.Object &&
+                f.TryGetProperty("mode", out var fm) &&
+                fm.ValueKind == JsonValueKind.String)
+                mode = fm.GetString() ?? "";
+            string rulesPath = Path.GetFullPath(Path.Combine(
+                Path.GetDirectoryName(statePath)!, "..", "..", "config",
+                "resource-governor-rules.json"));
+            if (!File.Exists(rulesPath) || mode.Length == 0)
+                return (mode, false, 0, 0);
+            using var rules = JsonDocument.Parse(
+                File.ReadAllText(rulesPath));
+            if (!rules.RootElement.TryGetProperty("modes", out var modes) ||
+                modes.ValueKind != JsonValueKind.Object ||
+                !modes.TryGetProperty(mode, out var mo) ||
+                mo.ValueKind != JsonValueKind.Object)
+                return (mode, false, 0, 0);
+            bool en = mo.TryGetProperty("gpu_enabled", out var ge) &&
+                      ge.ValueKind == JsonValueKind.True;
+            int pct = mo.TryGetProperty("vram_budget_percent", out var vp) &&
+                      vp.ValueKind == JsonValueKind.Number &&
+                      vp.TryGetInt32(out int n) ? Math.Clamp(n, 0, 100) : 0;
+            long mb = 0;
+            if (en && pct > 0)
+            {
+                var probe = ProbeCuda();
+                if (probe?.TotalMb > 0)
+                    mb = probe.TotalMb * pct / 100;
+            }
+            return (mode, en, pct, mb);
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or
+            UnauthorizedAccessException)
+        {
+            return ("", false, 0, 0);
+        }
+    }
+
+    /// <summary>Live CUDA probe through the governed model tool
+    /// (probe-cuda -> xcuda_probe). Null when the tool is missing or the
+    /// probe cannot run — callers treat null as unavailable.</summary>
+    private GpuProbe? ProbeCuda()
+    {
+        try
+        {
+            string tmp = Path.Combine(Path.GetTempPath(),
+                $"xc-probe-cuda-{Environment.ProcessId}.log");
+            var run = NativeTools.Run(
+                NativeTools.ModelToolExe(_toolRoot),
+                new[] { "probe-cuda" }, _toolRoot, tmp,
+                timeoutS: 60, rssBudgetMb: 0, lowPriority: true);
+            try { File.Delete(tmp); } catch { }
+            if (run.ExitCode != 0) return null;
+            // The probe emits one JSON document as its last stdout line;
+            // nested braces make the shared tail-slice helper pick the
+            // wrong root, so parse the last non-empty line directly.
+            string? line = run.StdoutTail
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries |
+                              StringSplitOptions.TrimEntries)
+                .LastOrDefault(l => l.StartsWith('{'));
+            if (line == null) return null;
+            using var doc = JsonDocument.Parse(line);
+            if (!doc.RootElement.TryGetProperty("cuda", out var c) ||
+                c.ValueKind != JsonValueKind.Object)
+                return null;
+            return new GpuProbe
+            {
+                Available = c.TryGetProperty("available", out var a) &&
+                            a.ValueKind == JsonValueKind.True,
+                FreeMb = c.TryGetProperty("vram_free_mb", out var fb) &&
+                         fb.TryGetInt64(out long f1) ? f1 : 0,
+                TotalMb = c.TryGetProperty("vram_total_mb", out var tb) &&
+                          tb.TryGetInt64(out long t1) ? t1 : 0,
+                CcMajor = c.TryGetProperty("cc_major", out var cm) &&
+                          cm.TryGetInt32(out int cma) ? cma : 0,
+                CcMinor = c.TryGetProperty("cc_minor", out var cn) &&
+                          cn.TryGetInt32(out int cmi) ? cmi : 0,
+            };
+        }
+        catch (Exception ex) when (ex is ExecutorError or IOException or
+            JsonException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private sealed class GpuProbe
+    {
+        public bool Available;
+        public long FreeMb;
+        public long TotalMb;
+        public int CcMajor;
+        public int CcMinor;
+
+        public Dictionary<string, object?> ToDict() => new()
+        {
+            ["available"] = Available,
+            ["vram_free_mb"] = FreeMb,
+            ["vram_total_mb"] = TotalMb,
+            ["cc_major"] = CcMajor,
+            ["cc_minor"] = CcMinor,
+        };
+    }
+
+    /// <summary>Locate the governor state file by walking ancestors for
+    /// main-system/runtime/state/resource-governor.json (the main
+    /// checkout resolves at toolRoot/../..; worktree checkouts nest
+    /// differently). Null when absent — the gate stays fail-open.</summary>
     private string? GovernorStatePath()
     {
         try
         {
-            string repoRoot = Path.GetFullPath(
-                Path.Combine(_toolRoot, "..", ".."));
-            string candidate = Path.Combine(repoRoot, "main-system",
-                "runtime", "state", "resource-governor.json");
-            return File.Exists(candidate) ? candidate : null;
+            string? dir = Path.GetFullPath(_toolRoot);
+            for (int i = 0; i < 4 && dir != null; i++)
+            {
+                string candidate = Path.Combine(dir, "main-system",
+                    "runtime", "state", "resource-governor.json");
+                if (File.Exists(candidate)) return candidate;
+                dir = Path.GetDirectoryName(dir);
+            }
+            return null;
         }
         catch
         {
@@ -597,7 +931,8 @@ internal sealed class TrainingJobExecutor
         List<Dictionary<string, object?>> valDocs,
         Dictionary<string, object?> configuration,
         string outputDir,
-        int trainerThreads)
+        int trainerThreads,
+        GpuPlan gpu)
     {
         string kind = (string)configuration["training_kind"]!;
         string toolRoot = _toolRoot;
@@ -742,6 +1077,21 @@ internal sealed class TrainingJobExecutor
                 ["max_len"] = maxLen,
             },
         };
+        // Token packing passthrough: pack_tokens > 0 concatenates several
+        // examples into one training sequence (fewer optimizer steps,
+        // larger GEMM M). opt-in per job — lanes enabling it size
+        // max_steps/lr accordingly (governed decision, not a silent
+        // default). pack_sep < 0 disables the boundary token.
+        int packTokens = TransformerTrainingRepository.Int(
+            configuration, "pack_tokens");
+        if (packTokens > 0)
+        {
+            var dataSpec = (Dictionary<string, object?>)jobSpec["data"]!;
+            dataSpec["pack"] = packTokens;
+            int packSep = TransformerTrainingRepository.Int(
+                configuration, "pack_sep");
+            if (packSep >= 0) dataSpec["pack_sep"] = packSep;
+        }
         string jobSpecPath = Path.Combine(outputDir, "job.json");
         File.WriteAllText(jobSpecPath,
             CanonicalJson.PrettyDict(jobSpec) + "\n",
@@ -758,11 +1108,27 @@ internal sealed class TrainingJobExecutor
         if (sampleInterval <= 0) sampleInterval = 5;
 
         var started = Stopwatch.StartNew();
+        // NativeCudaTrainingPlane §26: admitted jobs get the resident
+        // w/m/v fused-AdamW lane via the trainer's opt-in env flag. The
+        // flag alone is harmless — the trainer probes at runtime and
+        // falls back per-tensor to scalar AdamW when the device lane is
+        // unavailable; forward/backward stay on CPU lanes either way.
         var run = NativeTools.Run(
             NativeTools.TrainerExe(toolRoot),
             new[] { "--job", jobSpecPath, "--report", reportPath },
             toolRoot, stderrLog, timeoutS, rssBudget, sampleInterval,
-            lowPriority: true);
+            lowPriority: true,
+            env: gpu.Admitted
+                ? new Dictionary<string, string>
+                    { ["XINGCHENG_TRAINER_CUDA_OPT"] = "1" }
+                : null,
+            // VRAM telemetry rides the existing RSS sample ticks whenever
+            // a GPU device was requested — admitted runs measure the
+            // device lane's footprint; denied runs record the contention
+            // that produced the denial.
+            vramProbeMb: gpu.Requested
+                ? () => (double?)ProbeCuda()?.FreeMb
+                : null);
         if (run.ExitCode != 0)
             throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
                 $"trainer exited {run.ExitCode} " +
@@ -827,11 +1193,24 @@ internal sealed class TrainingJobExecutor
                 ["peak_rss_mb"] = run.PeakRssMb,
                 ["rss_budget_mb"] = rssBudget > 0 ? rssBudget : null,
                 ["rss_samples"] = run.RssSamples,
+                ["vram_free_min_mb"] = run.MinVramFreeMb,
+                ["vram_samples"] = run.VramSamples,
                 ["elapsed_s"] = Math.Round(run.ElapsedS, 1),
             },
             ["requested_device"] =
                 TransformerTrainingRepository.Str(configuration, "device") ?? "",
+            // Forward/backward still execute on the trainer's CPU lanes;
+            // an admitted request accelerates only the optimizer via the
+            // resident w/m/v fused-AdamW device lane (Phase 0 of the
+            // heterogeneous plan). Evidence is admission + env flag —
+            // the trainer report does not yet echo which lane ran, so
+            // optimizer_lane records what was enabled, not a verified
+            // post-hoc measurement.
             ["executed_device"] = "cpu-native",
+            ["optimizer_lane"] =
+                gpu.Admitted ? "cuda-adamw" : "cpu-native",
+            ["optimizer_lane_evidence"] = "admission+env-flag",
+            ["cuda"] = gpu.ToDict(),
             ["trainer_threads"] = trainerThreads,
             ["train_ids"] = trainIds,
             ["val_ids"] = valIds,
@@ -848,7 +1227,59 @@ internal sealed class TrainingJobExecutor
         if (report.TryGetValue("checkpoint_emitted", out object? ce) &&
             ce is bool emitted && !emitted)
             summary["stopped_reason"] = "checkpoint-not-emitted";
+        summary["contract_checks"] = ContractChecks(configuration);
         return summary;
+    }
+
+    /// <summary>Advisory training-acceleration contract checks (§37-§43):
+    /// pilot ladder + eval tiers evaluated over the job's own cadence
+    /// and attached for operators. Advisory only — violations never fail
+    /// the job; they surface policy-vs-contract drift (e.g. production
+    /// max_steps beyond the 600-step pilot ladder).</summary>
+    private static Dictionary<string, object?> ContractChecks(
+        Dictionary<string, object?> configuration)
+    {
+        var checks = new Dictionary<string, object?>();
+        try
+        {
+            int maxSteps = TransformerTrainingRepository.Int(
+                configuration, "max_steps");
+            int logEvery = TransformerTrainingRepository.Int(
+                configuration, "log_every");
+            int evalEvery = TransformerTrainingRepository.Int(
+                configuration, "eval_every");
+            int ckptEvery = TransformerTrainingRepository.Int(
+                configuration, "checkpoint_every");
+            string pilotPayload = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["planned_steps"] = maxSteps,
+                });
+            using var pilotDoc = JsonDocument.Parse(pilotPayload);
+            checks["pilot_ladder"] =
+                TrainingAcceleration.PilotLadder(pilotDoc.RootElement);
+            string tierPayload = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["fast_eval_every"] = logEvery,
+                    ["regression_eval_every"] =
+                        evalEvery > 0 ? evalEvery : ckptEvery,
+                    ["full_eval_every"] = -1,
+                    ["full_on_candidates_only"] = true,
+                });
+            using var tierDoc = JsonDocument.Parse(tierPayload);
+            var tiers = TrainingAcceleration.EvalTiers(tierDoc.RootElement);
+            tiers["mapping"] = "fast=log_every, " +
+                "regression=eval_every||checkpoint_every, " +
+                "full=candidates-only (post-training suite gate)";
+            checks["eval_tiers"] = tiers;
+            checks["advisory_only"] = true;
+        }
+        catch (Exception exc) when (exc is ExecutorError or JsonException)
+        {
+            checks["error"] = exc.Message;
+        }
+        return checks;
     }
 
     private static string WriteScratchManifest(
@@ -926,13 +1357,28 @@ internal sealed class TrainingJobExecutor
             !CapabilityFreeze.CanonicalPretrainLaneOpen(freezePolicy))
             throw new ExecutorError("EXECUTOR_TRAINING_FROZEN",
                 $"capability training is frozen; job {jobId} stays queued");
-        var row = _repo.JobRow(jobId)
-            ?? throw new ExecutorError("EXECUTOR_JOB_MISSING",
-                $"job {jobId} does not exist");
-        if ((string?)row["status"] != "queued")
-            throw new ExecutorError("EXECUTOR_JOB_NOT_QUEUED",
-                $"job is {row["status"]}, not queued");
-        _repo.TransitionTrainingJob(jobId, "preflight");
+        // Serial execution contract: at most one governed training job
+        // in flight at a time (policy: 同時訓練上限 = 1). The claim is a
+        // single advisory-locked transaction — existence, queued state,
+        // sibling-in-flight and the preflight transition are atomic, so
+        // concurrent executors can never both pass a check-then-act gap.
+        // A sibling in flight keeps this job queued — the caller retries
+        // it on the next drain instead of racing resource supervision.
+        var (claim, claimedRow) = _repo.TryClaimTrainingJob(jobId);
+        switch (claim)
+        {
+            case TransformerTrainingRepository.JobClaimResult.Missing:
+                throw new ExecutorError("EXECUTOR_JOB_MISSING",
+                    $"job {jobId} does not exist");
+            case TransformerTrainingRepository.JobClaimResult.NotQueued:
+                throw new ExecutorError("EXECUTOR_JOB_NOT_QUEUED",
+                    $"job is {claimedRow?["status"]}, not queued");
+            case TransformerTrainingRepository.JobClaimResult.Busy:
+                throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                    $"another governed training job is in flight; " +
+                    $"{jobId} stays queued");
+        }
+        var row = claimedRow!;
         ModelLifecycle? lifecycle = null;
         Dictionary<string, object?>? configuration = null;
         try
@@ -941,7 +1387,8 @@ internal sealed class TrainingJobExecutor
             // Resource preflight before any snapshot IO: inference
             // exclusion + governor training quota. EXECUTOR_GPU_BUSY keeps
             // the job queued and arms the self-learning gpu-busy backoff.
-            int trainerThreads = PreflightResourceGate();
+            var (trainerThreads, gpuPlan) =
+                PreflightResourceGate(configuration);
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
             // §1 recovery lane defense-in-depth: under
@@ -996,13 +1443,14 @@ internal sealed class TrainingJobExecutor
                     ["max_train_vram_mb"] =
                         TransformerTrainingRepository.Int(
                             configuration, "max_train_vram_mb"),
+                    ["cuda_opt_admitted"] = gpuPlan.Admitted,
                 });
             Dictionary<string, object?> summary;
             try
             {
                 summary = InvokeTrainerNative(
                     trainDocs, valDocs, configuration, outputDir,
-                    trainerThreads);
+                    trainerThreads, gpuPlan);
             }
             catch (ExecutorError)
             {
@@ -1150,5 +1598,214 @@ internal sealed class TrainingJobExecutor
     {
         var queued = _repo.QueuedJobs(1);
         return queued.Count == 0 ? null : RunJob((string)queued[0]["job_id"]!);
+    }
+
+    // ------------------------------------------------------ lane lease --
+
+    /// <summary>Lease on the single training lane, backed by a real
+    /// governed job row: the lane IS the row in 'training' status — one
+    /// mechanism for claims, exclusion, audit and orphan reaping. While
+    /// held, every governed claim reports Busy (sibling in flight); a
+    /// crash leaves an orphan the --reap-stale path collects. Disposing
+    /// fails the row if it is still live.</summary>
+    public sealed class LaneLease : IDisposable
+    {
+        public string JobId = "";
+        public int Threads;
+        public bool CudaOptAdmitted;
+        public Dictionary<string, object?> GpuEvidence = new();
+        internal TransformerTrainingRepository? Repo;
+        private bool _done;
+
+        /// <summary>Run finished — validating → completed.</summary>
+        public void Complete()
+        {
+            if (_done || Repo == null) return;
+            _done = true;
+            Repo.TransitionTrainingJob(JobId, "validating",
+                errorMessage: "staged lane finished");
+            Repo.TransitionTrainingJob(JobId, "completed");
+        }
+
+        /// <summary>Run failed or aborted — active status → failed.</summary>
+        public void Abort(string code, string message)
+        {
+            if (_done || Repo == null) return;
+            _done = true;
+            var row = Repo.JobRow(JobId);
+            string status = (string?)row?["status"] ?? "";
+            if (status is "preflight" or "training" or "validating")
+                Repo.TransitionTrainingJob(JobId, "failed",
+                    errorCode: code, errorMessage: message);
+        }
+
+        public void Dispose()
+        {
+            if (_done) return;
+            try { Abort("EXECUTOR_LANE_ABORTED",
+                        "lane scope disposed while still active"); }
+            catch { /* release must never throw */ }
+        }
+    }
+
+    /// <summary>Acquire the single training lane for a staged run that
+    /// keeps its own orchestration (currently only the §33/§34
+    /// instruction-recovery lane). The lane is expressed as a governed
+    /// job row claimed through
+    /// <see cref="TransformerTrainingRepository.TryClaimTrainingJob"/> —
+    /// the same atomic mechanism every queued job uses, so exclusion is
+    /// race-free in both directions and every step lands in the audit
+    /// chain. Admission parity with a governed SFT job is enforced:
+    /// maturation-sequence guard + the governor's resource preflight
+    /// (inference exclusion, training pause, thread quota, GPU/VRAM
+    /// admission). The caller's freeze guard
+    /// (CapabilityFreeze.GuardJob) must already have passed. A denied
+    /// claim cancels the marker row; a denied admission fails it — no
+    /// lane row ever lingers queued to be drained as real training.</summary>
+    public LaneLease AcquireTrainingLane(
+        string capability, string laneDatasetId,
+        Dictionary<string, object?> configuration,
+        string requestedBy)
+    {
+        var laneCfg = new Dictionary<string, object?>(configuration)
+        {
+            ["training_kind"] = "sft",
+            ["capability"] = capability,
+            ["lane"] = "staged-run",
+        };
+        var job = _repo.CreateTrainingJob(
+            datasetId: laneDatasetId, configuration: laneCfg,
+            requestedBy: requestedBy);
+        string jobId = (string)job["job_id"]!;
+        var (claim, _) = _repo.TryClaimTrainingJob(jobId);
+        if (claim != TransformerTrainingRepository.JobClaimResult.Claimed)
+        {
+            _repo.TransitionTrainingJob(jobId, "cancelled",
+                errorCode: "EXECUTOR_TRAINING_SERIAL",
+                errorMessage: "training lane busy — staged run denied");
+            throw new ExecutorError("EXECUTOR_TRAINING_SERIAL",
+                "another governed training job holds the lane; " +
+                "staged run stays sealed");
+        }
+        try
+        {
+            Maturation300M.GuardSequence(_toolRoot, capability);
+            var (threads, gpu) = PreflightResourceGate(configuration);
+            _repo.TransitionTrainingJob(jobId, "training",
+                errorMessage: $"staged lane held for '{capability}'");
+            _repo.AuditEvent("training-lane-leased",
+                "training-job", jobId,
+                new Dictionary<string, object?>
+                {
+                    ["capability"] = capability,
+                    ["lane"] = requestedBy,
+                    ["trainer_threads"] = threads,
+                    ["cuda_opt_admitted"] = gpu.Admitted,
+                    ["gpu"] = gpu.ToDict(),
+                });
+            return new LaneLease
+            {
+                JobId = jobId,
+                Threads = threads,
+                CudaOptAdmitted = gpu.Admitted,
+                GpuEvidence = gpu.ToDict(),
+                Repo = _repo,
+            };
+        }
+        catch (ExecutorError ex)
+        {
+            _repo.TransitionTrainingJob(jobId, "failed",
+                errorCode: ex.ErrorCode, errorMessage: ex.Message);
+            throw;
+        }
+    }
+
+    // ------------------------------------------------------------- reaper --
+
+    /// <summary>Reap orphaned live-state jobs (preflight/training/
+    /// validating). A crashed or killed run never leaves these states by
+    /// itself, and <see cref="RunNext"/> only drains queued — without a
+    /// reaper the row blocks that dataset's lane forever and every
+    /// downstream probe (self-learning, queue depth) lies about it.
+    /// Only rows older than <paramref name="olderThanS"/> (floored to
+    /// one hour so a live run can never be reaped by a typo) are
+    /// candidates; unparseable timestamps are skipped, never reaped.
+    /// Reaping marks the row failed with EXECUTOR_ORPHANED_REAPED through
+    /// the governed transition (audited); requeueing stays an explicit
+    /// operator act via --queue-job. Default dry-run lists candidates.</summary>
+    public Dictionary<string, object?> ReapStaleJobs(
+        long olderThanS, bool dryRun)
+    {
+        long thresholdS = Math.Max(3600, olderThanS <= 0 ? 86400 : olderThanS);
+        var now = DateTimeOffset.UtcNow;
+        var candidates = new List<object?>();
+        var reaped = new List<object?>();
+        var skipped = new List<object?>();
+        foreach (var row in _repo.ActiveJobs())
+        {
+            string jobId = (string)row["job_id"]!;
+            string status = (string)row["status"]!;
+            string anchor = TransformerTrainingRepository.Str(row, "started_at")!;
+            if (string.IsNullOrEmpty(anchor))
+                anchor = TransformerTrainingRepository.Str(row, "created_at")!;
+            if (!DateTimeOffset.TryParse(anchor, out var since))
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["job_id"] = jobId, ["status"] = status,
+                    ["reason"] = "unparseable-timestamp",
+                });
+                continue;
+            }
+            long ageS = (long)(now - since).TotalSeconds;
+            if (ageS < thresholdS)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["job_id"] = jobId, ["status"] = status,
+                    ["age_s"] = ageS, ["reason"] = "below-threshold",
+                });
+                continue;
+            }
+            var candidate = new Dictionary<string, object?>
+            {
+                ["job_id"] = jobId, ["status"] = status,
+                ["age_s"] = ageS, ["since"] = anchor,
+            };
+            candidates.Add(candidate);
+            if (dryRun) continue;
+            try
+            {
+                var failed = _repo.TransitionTrainingJob(
+                    jobId, "failed",
+                    errorCode: "EXECUTOR_ORPHANED_REAPED",
+                    errorMessage: $"orphaned in {status} for {ageS}s; " +
+                        "no live run holds it — requeue explicitly via " +
+                        "--queue-job after verifying no trainer process " +
+                        "is running");
+                candidate["reaped_to"] = failed["status"];
+                reaped.Add(candidate);
+            }
+            catch (Exception exc)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["job_id"] = jobId, ["status"] = status,
+                    ["age_s"] = ageS,
+                    ["reason"] = $"reap-refused:{exc.Message}",
+                });
+            }
+        }
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["format"] = "star-training-reap/v1",
+            ["dry_run"] = dryRun,
+            ["threshold_s"] = thresholdS,
+            ["candidates"] = candidates,
+            ["reaped"] = reaped,
+            ["skipped"] = skipped,
+            ["checked_at"] = XcPaths.IsoNow(),
+        };
     }
 }

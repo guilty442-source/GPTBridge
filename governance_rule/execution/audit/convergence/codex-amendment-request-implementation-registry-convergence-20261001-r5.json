@@ -1,0 +1,396 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "implementation-registry-convergence-20261001-r5",
+  "title": "Converge codex registries and stale principle text with current native/C# implementation",
+  "summary": "Broad codex-vs-implementation audit after rev 190: (a) seven active principles still prescribe Python roles (P115 role map, P18/P23 stack lists, P118 post-reduction lane, P119 Windows bridge hop, P120 Python-default routing, P121 Python fallback chain) contradicting B166/B73/B34 total retirement; (b) git_worktree_registry points four worktrees at the nonexistent E:\\GPTBridge-worktrees\\ root and omits the devin worktree, while metadata.git_persistent_worktree_pool carries one stale duplicate and one brace-list missing devin; (c) project_architecture_directory keeps QDRANT_AUTHORITY active although every qdrant schema object is retired and vectord-rs is the canonical store, RAG_HYBRID points at the deleted main-system\\src-core\\core_system\\rag path (RAG lives at Standalone tools/ragd-rs), MODEL_DIALOGUE points at local-model\\model-dialogue while the tool manifest declares Standalone tools\\model-dialogue, STAR_DIRECTORY retirement is already handled by the in-flight star-directory-retire-2026-09-18-r3 request (not re-proposed here), and eight registered implementation components (vectord, searchd-go, julia-compute, business-logic-fsharp, star-chat, resource-governor, model-training-native, local-vector) have no architecture-directory row; (d) rag_contract_registry still names QDRANT as canonical authority; (e) implementation_obligations reference retired TypeScript/Python wording; (f) final_implementation_inventory current rows describe five worktrees and a hybrid Python implementation. All changes converge codex registries/text to registered implementation reality; no implementation is modified.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: 補齊缺口 — follow-up to codex-vs-implementation difference audit; same defect class as stale-python-reference-convergence (rev 190) extended to non-article registries and remaining principle-layer Python-era prescriptive text. Re-issued on live lineage after rev 191 (d131-prohibition-repair); r1 (stale predecessor), r2 (bigint columns keyed as text), r3 and r4 (lineage lock held by concurrent amendments) are terminal-rejected and cannot be reused; re-issued on live lineage. STAR_DIRECTORY update removed — superseded by star-directory-retire-2026-09-18-r3.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-01T16:01:43Z",
+    "version_identity": "E2:2026-10-01T16:01:43Z",
+    "version_epoch": 2,
+    "history_head": "b47417ef41c89c2ca634b61cb712e274e462f5f52a2f16276f42c1530d239866",
+    "revision_sequence": 193
+  },
+  "problem": {
+    "summary": "Active normative surface still carries Python-era prescriptive text (P115/P18/P23/P118/P119/P120/P121) and normative registries diverge from disk and the governed implementation architecture_registry (worktree pool, qdrant/rag/model-dialogue paths, missing registered components, rag contract backend, obligation wording, stale inventory observations)."
+  },
+  "changes": [
+    {
+      "table": "principles",
+      "key": { "provision_id": "P115" },
+      "field": "statement",
+      "proposed": "LANGUAGE-ROLE-MAP:C=deterministic-runtime;C++=native-inference-and-audit;Rust=UI-core-state-lifecycle-IPC-security-OS;Tauri=desktop-shell-webview-windows-JS-Rust-bridge;JavaScript-ESM=general-UI;GPUI=high-performance-workspaces;egui=engineering-views;CSharp=authorized-workflow-and-test-orchestration;FSharp=analysis-ML-high-correctness;Go=network-and-batch;Python=retired;Julia=scientific-compute;SQL=PostgreSQL-data;DUPLICATE-AUTHORITY:none"
+    },
+    {
+      "table": "principles",
+      "key": { "provision_id": "P18" },
+      "field": "statement",
+      "proposed": "CODE-ORIGIN:local-owned-application-code;STACK:c+cpp+csharp+fsharp+rust+go+javascript-esm+julia+sql;DEPENDENCIES:explicit-inventory+version+license+security-review+local-execution;EXTERNAL-SERVICE:governed-network-capability-only"
+    },
+    {
+      "table": "principles",
+      "key": { "provision_id": "P23" },
+      "field": "statement",
+      "proposed": "FORMAL-TOOLS:postgresql+git+rag+c+cpp+csharp+fsharp+rust+go+javascript-esm+julia+sql+tauri+gpui+egui+esbuild+swc;GOVERNANCE:governed-by-codex;FORBID:non-formal-substitution"
+    },
+    {
+      "table": "principles",
+      "key": { "provision_id": "P118" },
+      "field": "statement",
+      "proposed": "DATA-REDUCTION:SQL-first-set-based-filter/project/join/aggregate/order/limit; OWNER-LANGUAGE:after-reduction semantic-interpretation+business-rules+orchestration owned by CSharp per B166 (Python lane retired per B73); TRANSFER:minimal-required-rows-and-columns"
+    },
+    {
+      "table": "principles",
+      "key": { "provision_id": "P119" },
+      "field": "statement",
+      "proposed": "WINDOWS-BRIDGE:CSharp-orchestration>native-interface>Windows/.NET; DIRECTION:request-down+typed-result-up; CSharp:registered-orchestration-authority-per-B166; Python-orchestration-hop retired per B73"
+    },
+    {
+      "table": "principles",
+      "key": { "provision_id": "P120" },
+      "field": "statement",
+      "proposed": "NATIVE-API:single-public-contract; ROUTING:ordinary-work>registered-owner-language-implementation|profile-proven-high-load-work>C++23-performance-core; DEFAULT:registered-owner-language-per-B166/B35; NATIVE-ADMISSION:measured-load-and-benefit-required; Python/pybind11 routing retired per B73"
+    },
+    {
+      "table": "principles",
+      "key": { "provision_id": "P121" },
+      "field": "statement",
+      "proposed": "NATIVE-RESILIENCE:C++-unavailable>fail-closed-or-registered-alternate-owner per B166/B76 fail matrix; SEMANTICS:same; STATE:preserved; USER-ACTION:none; Python fallback chain retired per B73"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "git_worktree_registry",
+      "action": "update",
+      "key": { "worktree_identity": "WT_04D985DE4E7D" },
+      "set": {
+        "physical_path": "E:/GPTBridge/.worktrees/local-model",
+        "head_revision": "661c80f6209503d52faff805970535b67d94052d",
+        "observed_at": "2026-10-01T15:45:00Z"
+      }
+    },
+    {
+      "registry": "git_worktree_registry",
+      "action": "update",
+      "key": { "worktree_identity": "WT_87EF044A8BEC" },
+      "set": {
+        "physical_path": "E:/GPTBridge/.worktrees/ui",
+        "head_revision": "661c80f6209503d52faff805970535b67d94052d",
+        "observed_at": "2026-10-01T15:45:00Z"
+      }
+    },
+    {
+      "registry": "git_worktree_registry",
+      "action": "update",
+      "key": { "worktree_identity": "WT_B2D8A1EA2608" },
+      "set": {
+        "physical_path": "E:/GPTBridge/.worktrees/rag",
+        "head_revision": "661c80f6209503d52faff805970535b67d94052d",
+        "observed_at": "2026-10-01T15:45:00Z"
+      }
+    },
+    {
+      "registry": "git_worktree_registry",
+      "action": "update",
+      "key": { "worktree_identity": "WT_DCF518E63E17" },
+      "set": {
+        "physical_path": "E:/GPTBridge/.worktrees/git",
+        "head_revision": "661c80f6209503d52faff805970535b67d94052d",
+        "observed_at": "2026-10-01T15:45:00Z"
+      }
+    },
+    {
+      "registry": "git_worktree_registry",
+      "action": "update",
+      "key": { "worktree_identity": "WT_A4C002055FB5" },
+      "set": {
+        "head_revision": "8f3c9841396b22133bc62d2dd958f130faa2eea1",
+        "observed_at": "2026-10-01T15:45:00Z"
+      }
+    },
+    {
+      "registry": "git_worktree_registry",
+      "action": "insert",
+      "rows": [
+        {
+          "worktree_identity": "WT_8318CED4CE10",
+          "physical_path": "E:/GPTBridge/.worktrees/devin",
+          "branch_ref": "refs/heads/devin",
+          "head_revision": "94fcca7d70475d449d260cf62f31eb346989d3f9",
+          "writable": 1,
+          "release_source": 0,
+          "observed_at": "2026-10-01T15:45:00Z",
+          "status": "registered"
+        }
+      ]
+    },
+    {
+      "registry": "metadata",
+      "action": "update",
+      "key": { "key": "git_persistent_worktree_pool", "value": "E:\\GPTBridge-worktrees\\*" },
+      "set": { "value": "E:\\GPTBridge\\.worktrees\\*" }
+    },
+    {
+      "registry": "metadata",
+      "action": "update",
+      "key": { "key": "git_persistent_worktree_pool", "value": "E:\\GPTBridge\\.worktrees\\{git,local-model,rag,ui}" },
+      "set": { "value": "E:\\GPTBridge\\.worktrees\\*" }
+    },
+    {
+      "registry": "project_architecture_directory",
+      "action": "update",
+      "key": { "architecture_code": "QDRANT_AUTHORITY" },
+      "set": {
+        "entity_kind": "retired-former-semantic-candidate-adapter",
+        "retired_version": "<successor-version>",
+        "physical_root": "git-history:main-system/information-layer/qdrant (retired; vectord supersedes; qdrant schema objects retired 2026-09-26)"
+      }
+    },
+    {
+      "registry": "project_architecture_directory",
+      "action": "update",
+      "key": { "architecture_code": "RAG_HYBRID" },
+      "set": {
+        "physical_root": "E:\\GPTBridge\\Standalone tools\\ragd-rs",
+        "dependencies": "PostgreSQL|vectord|local-model",
+        "data_authority": "PostgreSQL official metadata plus vectord semantic candidates; cache non-canonical"
+      }
+    },
+    {
+      "registry": "project_architecture_directory",
+      "action": "update",
+      "key": { "architecture_code": "MODEL_DIALOGUE" },
+      "set": { "physical_root": "E:\\GPTBridge\\Standalone tools\\model-dialogue" }
+    },
+    {
+      "registry": "project_architecture_directory",
+      "action": "insert",
+      "rows": [
+        {
+          "architecture_code": "VECTORD",
+          "canonical_name": "vectord",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "UNIT_PLATFORM",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\vectord-rs",
+          "logical_boundary": "canonical local vector store service boundary",
+          "responsibilities": "local vector index and semantic candidate store; rebuildable derived data only",
+          "dependencies": "governance codex|information layer|shared layer",
+          "interfaces": "semantic-index channel",
+          "data_authority": "vectord-owned derived vector data (rebuildable)",
+          "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+          "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+          "permission_scope": "system-runtime-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "SEARCHD_GO",
+          "canonical_name": "searchd-go",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "BLOCK_TOOLS",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\searchd-go",
+          "logical_boundary": "registered local search service boundary",
+          "responsibilities": "local search service (Go)",
+          "dependencies": "governance codex|information layer",
+          "interfaces": "information-channel",
+          "data_authority": "searchd-owned query state",
+          "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+          "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+          "permission_scope": "system-runtime-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "JULIA_COMPUTE",
+          "canonical_name": "julia-compute",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "UNIT_PLATFORM",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\julia-compute",
+          "logical_boundary": "registered scientific-compute service boundary",
+          "responsibilities": "statistics and scientific compute; optimization-simulation (A610 Python-work-transfer successor)",
+          "dependencies": "governance codex|information layer|shared layer",
+          "interfaces": "information-channel",
+          "data_authority": "julia-compute-owned scratch state (rebuildable)",
+          "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+          "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+          "permission_scope": "system-runtime-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "BUSINESS_LOGIC_FSHARP",
+          "canonical_name": "business-logic-fsharp",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "BLOCK_TOOLS",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\business-logic-fsharp",
+          "logical_boundary": "registered F# business-logic service boundary",
+          "responsibilities": "analysis/ML/high-correctness business logic (F# per B166)",
+          "dependencies": "governance codex|information layer|shared layer",
+          "interfaces": "information-channel",
+          "data_authority": "service-owned state",
+          "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+          "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+          "permission_scope": "system-runtime-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "STAR_CHAT",
+          "canonical_name": "star-chat",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "UNIT_DIALOGUE",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\model-dialogue\\star-chat",
+          "logical_boundary": "registered companion-service boundary inside model-dialogue",
+          "responsibilities": "xingcheng companion chat surface",
+          "dependencies": "model-dialogue|information layer",
+          "interfaces": "model-dialogue host channel",
+          "data_authority": "star-chat-owned session state",
+          "runtime_boundary": "host-tool-contained process boundary",
+          "failure_boundary": "host-contained failure domain",
+          "permission_scope": "xingcheng-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "RESOURCE_GOVERNOR",
+          "canonical_name": "resource-governor",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "BLOCK_TOOLS",
+          "physical_root": "E:\\GPTBridge\\native\\resource_governor",
+          "logical_boundary": "registered resource regulation boundary (C++23, A137)",
+          "responsibilities": "resource observation and regulation only",
+          "dependencies": "native compute core|information layer",
+          "interfaces": "information-channel",
+          "data_authority": "resource-governor-owned mode and ledger state",
+          "runtime_boundary": "resident process|single governed instance",
+          "failure_boundary": "isolated failure domain|fail-closed regulation",
+          "permission_scope": "system-administrator-scope (resource-observation-and-regulation-only)",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "MODEL_TRAINING_NATIVE",
+          "canonical_name": "model-training-native",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "UNIT_ENGINE",
+          "physical_root": "E:\\GPTBridge\\Standalone tools\\local-model\\src\\backend\\services\\xingcheng\\infrastructure\\native_transformer\\training",
+          "logical_boundary": "native training lane boundary (cpp23+csharp; successor to retired MODEL_TRAINING)",
+          "responsibilities": "xingcheng native model training (SFT/eval native lane)",
+          "dependencies": "local-model|shared layer|native-compute-core",
+          "interfaces": "information-channel",
+          "data_authority": "training-owned job state",
+          "runtime_boundary": "separate process tree|own generation|own supervisor|own watchdog",
+          "failure_boundary": "separate failure domain|no cascade to main-system or other tools",
+          "permission_scope": "xingcheng-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        },
+        {
+          "architecture_code": "LOCAL_VECTOR",
+          "canonical_name": "local-vector",
+          "entity_kind": "internal-service",
+          "owner": "permission-sovereign",
+          "parent_code": "UNIT_PLATFORM",
+          "physical_root": "E:\\GPTBridge\\shared-layer\\sql",
+          "logical_boundary": "degraded-only local vector fallback boundary",
+          "responsibilities": "bounded noncanonical local vector fallback inside shared-layer SQL",
+          "dependencies": "shared layer|information layer",
+          "interfaces": "local-fallback channel",
+          "data_authority": "local-vector-owned fallback data (noncanonical, rebuildable)",
+          "runtime_boundary": "in-process of host",
+          "failure_boundary": "host failure domain",
+          "permission_scope": "xingcheng-domain",
+          "command_codes": "",
+          "fault_codes": "",
+          "manual_codes": "",
+          "test_flow_codes": "",
+          "introduced_version": "<successor-version>",
+          "retired_version": null
+        }
+      ]
+    },
+    {
+      "registry": "rag_contract_registry",
+      "action": "update",
+      "key": { "contract_id": "RAG_INGESTION_CONTRACT" },
+      "set": { "canonical_authority": "VECTORD" }
+    },
+    {
+      "registry": "rag_contract_registry",
+      "action": "update",
+      "key": { "contract_id": "RAG_RETRIEVAL_CONTRACT" },
+      "set": { "canonical_authority": "VECTORD" }
+    },
+    {
+      "registry": "implementation_obligations",
+      "action": "update",
+      "key": { "obligation_code": "OBL_LANGUAGE_DEPENDENCY_DAG_GATE" },
+      "set": { "target_state": "registered read-only JavaScript-ESM language boundary and dependency DAG checkers (C55 code/ subtree) with exact evidence and mandatory cycle tests" }
+    },
+    {
+      "registry": "implementation_obligations",
+      "action": "update",
+      "key": { "obligation_code": "OBL_NATIVE_PROMOTION_RECORD_CHECKER" },
+      "set": { "acceptance_evidence": "host wiring evidence|recorded historical-baseline parity|failure-mode evidence|current source revision|primary activation receipt" }
+    },
+    {
+      "registry": "final_implementation_inventory",
+      "action": "update",
+      "key": { "inventory_code": "INV_GIT" },
+      "set": { "observed_state": "six persistent worktrees observed", "version_identity": "<successor-version>" }
+    },
+    {
+      "registry": "final_implementation_inventory",
+      "action": "update",
+      "key": { "inventory_code": "INV_NATIVE" },
+      "set": { "implementation_source": "native sources", "observed_state": "native implementation observed; Python lane retired", "version_identity": "<successor-version>" }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-10-01T15:45:00Z",
+    "expected_audit_result": "no active normative provision prescribes a Python role; git_worktree_registry paths exist on disk and cover all six worktrees; project_architecture_directory active rows resolve to existing physical roots and cover registered implementation components; rag_contract_registry names vectord; obligations and inventory no longer cite retired TypeScript/Python-era state"
+  }
+}

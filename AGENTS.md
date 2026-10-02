@@ -219,40 +219,62 @@ through the same governed pipeline used for manual training:
    and prune the previous generation (only the latest generation is kept).
 
 Any failure is fail-closed: the active weights, the runtime checkpoint and
-the adapter registry stay untouched. Policy: `runtime/settings/self-learning.json`
+the adapter registry stay untouched. While the 300M maturation sequence is
+active, a cycle whose SFT job cannot be admitted (no declared capability vs
+sequence head) reports `action=sealed` and keeps the collected dataset
+registered — no doomed job is queued and `consecutive_failures` is not
+incremented. When the sequence is complete every capability is resolved and
+the guard releases untagged governed SFT (the recorded completion order);
+capability-declared jobs stay denied until a governor reopens a bounded
+lane with `--maturation-reopen`. Each finished cycle also self-verifies
+(`learning_verification`, `star-learning-verify/v1`): it re-checks the
+evidence chain it just produced — trainer report sanity, `verdict_owner:
+"fsharp"` on every evaluation, engine/F# verdict parity
+(`engine_passed`/`engine_comparison` embedded in each comparison), the
+lifecycle transition matching the recorded action (upgraded ⇒ version
+advanced + runtime pinned; otherwise unchanged + unpinned) and dataset
+registration. An `upgraded` action that fails verification takes the
+governed rollback path; the latest result surfaces as `last_verification`
+in the self-learning state. `curriculum_intent_map` scopes each cycle's
+dataset by intent per course (`sft-refresh` currently prioritizes the
+weakest measured capabilities — instruction/tool_call_format/math/
+code/reading — plus forward-looking multi_turn/context_tracking intents,
+excluding saturated `conversation` traffic). Policy: `runtime/settings/self-learning.json`
 (`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
 reports: `xingcheng/runtime/logs/self-learning-*.json`.
 
 ### Scheduled operation (production path)
 
-Self-learning is scheduled centrally through `AutomationCore` — the
-`self-learning` flow in `main-system/config/automation-flows.json`
-(`kind=periodic`, `interval_s=900`, `pausable=true`, `enabled` = manifest
-kill switch). `SelfLearningDriver`
-(`main-system/src-core/tasks/self_learning_driver.py`), started by the
-startup executor, owns the cadence: each tick pre-checks the tool's
-policy/state JSON (only to avoid waking a stopped tool for a cycle that
-cannot run), wakes `local-model` through the governed
-`ToolboxService.start_tool` path when cold (suppressed for 1 h after a
-user-initiated stop, and while `worker_admission_hold`/`regulation_active`
-are set), then submits `xingcheng_self_learning_cycle` via
-`request_tool_execution` (queue-and-return — training is never run inside
-the scheduler tick).
+The scheduling mechanism lives **inside the tool body**:
+`xc-learning.exe --schedule [--interval-s N]` (default 900 s) starts a
+resident loop that paces the same governed `RunCycle` used by
+`--run-once`. Single-instance arbitration is a lock file at
+`xingcheng/runtime/state/self-learning-schedule.lock` — a second
+`--schedule` exits 1 with `lock held`, so duplicate schedulers are
+impossible. Each tick writes a `star-self-learning-schedule/v1`
+heartbeat to `xingcheng/runtime/state/self-learning-schedule.json`
+(pid, phase `draining`/`cycling`/`sleeping`, last action, error).
 
-The cycle itself executes **inside the xingcheng tool process** through the
-governed system channel — this is required because `inference_exclusion`
-(§2.7-4) inspects the process-local engine caches (Python +
-C++), which an external watcher cannot see. A re-entrant lock in the
-service guarantees one cycle at a time; all policy gates (enabled,
-min_new_examples, min_interval, quiet hours, GPU backoff, failure breaker,
-daily budget, inference exclusion) are authoritatively enforced by
-`run_cycle` in the tool, not duplicated in the driver. Responses are
-drained on the next tick into a bounded ledger; driver state:
-`main-system/runtime/state/self-learning-driver.json`.
+Tick order is **drain before cycle**: a `queued` job takes precedence
+and is run through the same serial claim (`TryClaimTrainingJob`), then
+a live-state job defers the tick, and only a free lane runs a new
+cycle. `RunCycleImpl` itself also defers (`action=deferred`) when any
+job is in flight or queued — a cycle can never pile up duplicate
+queued rows while the serial lane is occupied. All policy gates
+(kill switch, quiet hours, min_new_examples, failure breaker,
+inference exclusion, governor quota, single training lane) stay
+authoritative inside `RunCycle`; the loop only paces.
 
-Do NOT run `--watch` as production scheduling — it is a debugging aid only.
-A denied registration (kill switch / unlisted flow) never falls back to a
-private loop.
+The `self-learning` flow in `main-system/config/automation-flows.json`
+remains as a registry/document entry with `enabled=false`. The
+external `GPTBridge.Automation` self-learning plane additionally
+defers whenever the native scheduler's heartbeat pid is alive — it
+must never become a second scheduler.
+
+```powershell
+# resident scheduler (single instance; kill switch still applies)
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --schedule
+```
 
 ```powershell
 # status / one-shot / force (ignore the new-example threshold) / kill switch
@@ -270,10 +292,21 @@ Implementation: `GPTBridge.XingchengLearning` (C#) —
 `SftDataset.cs` (SFT/DPO snapshot bridges), `Repository.cs`
 (PostgreSQL `gptbridge_xingcheng` schema + audit chain),
 `JobExecutor.cs` + `NativeTools.cs` (native subprocess lane),
-`Evaluation.cs` (`xc_modeltool eval`/`capability` gates),
-`Lifecycle.cs` (`star-model-lifecycle/v1`), `Retention.cs`; native
+`Evaluation.cs` (`xc_modeltool eval`/`capability` measurement +
+recording), `Lifecycle.cs` (`star-model-lifecycle/v1`), `Retention.cs`;
+native
 execution: `infrastructure/native_transformer/training/xingcheng_trainer.exe`,
 bridge: `infrastructure/native_transformer/tools/xc_modeltool.exe`.
+
+Evaluation verdict ownership (codex B139/B132/B141): the native engine
+only measures; the authoritative pass/fail verdict + comparison is
+computed by the F# evaluator `xc-eval`
+(`src/backend/fsharp/GPTBridge.XingchengEval`, contract
+`star-fsharp-eval-verdict/v1`), invoked by `Evaluation.cs` after every
+suite run. The engine's own `passed`/`comparison` fields are carried as
+`engine_comparison` evidence only. Missing or failing `xc-eval.exe`
+fails closed (`EVAL_OWNER_UNAVAILABLE`/`EVAL_VERDICT_FAILED` → recorded
+passed=0), so promotion can never proceed without an F# verdict.
 The retired Python `self_learning*.py`/`training_job_executor.py` are
 interface documentation only — never execution.
 
@@ -484,6 +517,55 @@ Version 維度分開：`architecture_generation` / `weight_version` /
 Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
 `AxisChecks.cs`；feature registry 的 `primary_axis` 由
 `FeatureCatalog.FeatureDict` 經 taxonomy `Classify` 派生。
+
+## 星澄 Language Architecture（local-model 收斂目標）
+
+> Normative authority: Codex B81 `LANGUAGE-OWNERSHIP`（rev 196，語言-
+> 職責指派入專法）。實作層（檔案、API、kernel 劃分）仍為 owner-local
+> （B81 `ARCHITECTURE-EXCLUSION`）。此表為專法條文的操作手冊投影；
+> 在 `Standalone tools/local-model` 樹內覆寫上方 Execution Plane
+> Ownership 的 repo 全域預設。
+
+| 語言 | 角色 | 比重 | 判斷 |
+| --- | --- | --- | --- |
+| C++23 | 模型核心、Tensor、Forward/Backward、MoE、Attention、Delta、MTP、CPU Kernel | 最大 | 主計算語言 |
+| Rust | 儲存、資料、檔案格式、Tokenizer、驗證器、並行 IO、安全邊界 | 第二 | 主系統語言 |
+| C# | Governance、Lifecycle、自治訓練、Scheduler、Policy | 第三 | 主控制語言 |
+| C | 穩定 ABI、極低階 SIMD/OS bridge | 極少 | 只做邊界 |
+| F# | 無預設 Production 職責 | 0 或極少 | 不建議強制使用 |
+
+現況與收斂差距（2026-10-01 盤點）：
+
+- **C++23 已就定位** — `native_transformer/xct_*`（訓練核心）、
+  `xcm_*` + `xc_modeltool`（模型工具）、`backend/cpp/engine_*` +
+  `cuda_*`（推論 + PTX kernel）。
+- **C# 已就定位** — `GPTBridge.XingchengLearning`（SelfLearning/
+  JobExecutor/Evaluation/Lifecycle/Retention）+ `xct-executor`。
+- **Rust lane 尚未建立** — 其職責目前在 C++：`engine_tokenizer.h`
+  （tokenizer）、`xct_ckpt.h`/`engine_weights.h`/`xcm_corpus.h`
+  （檔案格式與資料）、驗證器散在 `xcm_*cert`/`xcm_rtgates`。
+- **F# 待退役** — `GPTBridge.XingchengEval`（xc-eval）目前是
+  `verdict_owner: "fsharp"` 的評估仲裁 lane；收斂時判決邏輯遷入
+  C#，`verdict_owner`/parity 檢查同步更新。在此之前 F# lane 繼續
+  持有現行契約，不得提前拔除。
+- **C 已就定位** — `native/bridge/gptbridge_native.c` +
+  `engine_c_abi.cpp`/`xingcheng_engine_c.h` 維持 ABI 邊界，不長肉。
+
+### 星澄 Native Contract（XNC，Codex B81 `NATIVE-CONTRACT` / rev 200）
+
+XNC 是星澄域內**唯一** artifact contract 家族：控制面 = versioned
+binary/text manifest；資料面 = packed binary。註冊成員：`XCN`
+（model checkpoint）、`XDS`（dataset）、`XCR`（receipt）、`XST`
+（state）、`XEV`（evaluation）。C++23 / Rust / C# 各 lane 實作自己的
+reader/writer，共守同一份 owner-local byte-level spec——法典只綁
+家族唯一性、雙平面切分、成員種類與跨語言一致義務，byte layout
+不寫入法典。成員識別以名稱經權威 contract registry 解析（rev 199
+version-neutrality），法典內不釘版本後綴。
+
+Owner-local byte-level spec：`Standalone tools/local-model/contracts/xnc-spec.md`
+（`xnc-spec/v1`——magic/端序/envelope/成員 registry/XCN1+XCB1 逐位元版面/
+manifest 規則/三語言 conformance）。Canonical 測試向量：
+`Standalone tools/local-model/contracts/xnc/vectors/`。
 
 ## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
 
@@ -793,17 +875,52 @@ is in `main-system/runtime/state/resource-governor.json`.
 `main-system/config/resource-governor-rules.json`): a demand-driven advisor
 inside the same governor process (B159 — no second regulator) picks among the
 registered `modes` presets each `auto.eval_interval_s` (60 s).  `auto.ceiling`
-(default `medium`) is the highest mode auto-mode may select, so foreground /
-user work always keeps machine headroom; `power_saving_schedule`
-(22:00–07:00) forces `sleep` at night.  Control law: responsiveness strain or
-machine overload → `low` immediately (urgent, cooldown-exempt); worker demand
-+ machine headroom → upgrade after `streak_up` evaluations, clamped to
-`ceiling`; downgrades need `streak_down` evaluations plus `cooldown_s`.
+(default `medium`) is the highest mode auto-mode may select **while the user
+is active**, so foreground / user work always keeps machine headroom; when the
+user is idle ≥ `idle_after_s` (300 s, via `GetLastInputInfo`) the effective
+ceiling relaxes to `idle_ceiling` (`high` — 閒置全速), and returning activity
+urgently demotes anything above `ceiling` (streak/cooldown exempt).
+`power_saving_schedule` (22:00–07:00) forces `sleep` at night.  Control law:
+responsiveness strain or machine overload → `low` immediately (urgent,
+cooldown-exempt); worker demand + machine headroom → upgrade after
+`streak_up` evaluations, clamped to the effective ceiling; downgrades need
+`streak_down` evaluations plus `cooldown_s`.
 Manual mode selection via `app:set-resource-mode` sets `auto_mode=false`
 (user intent wins).  Advisor state persists in
 `main-system/runtime/state/resource-mode-advisor.json`; mode switches append
 to `runtime/state/resource-mode-audit.jsonl` (same ledger the Rust backend
 writes for manual changes).
+
+**GPU/VRAM mode keys**: each `modes.<name>` preset declares `gpu_enabled`
+and `vram_budget_percent` (`sleep`/`low` are CPU-only; `medium` 40%,
+`high` 70%).  The Xingcheng training lane resolves the governor's current
+`mode` from the state file, reads the same rules file, and admits the
+trainer's opt-in CUDA lane (`XINGCHENG_TRAINER_CUDA_OPT` — resident w/m/v
+fused AdamW) only when all of: the job requests `device: cuda|auto`, the
+mode's `gpu_enabled` is true, `xc_modeltool probe-cuda` reports a device,
+and free VRAM clears `train_cuda_min_free_mb` (default 2048, clamped to
+the mode budget).  Denial is fail-closed to CPU lanes and recorded in the
+job summary `cuda` block plus the resource-action ledger; `optimizer_lane`
+in the summary reports `cuda-adamw` vs `cpu-native` (evidence =
+admission+env-flag until the trainer report echoes the lane it ran).
+`xc-learning --preflight` previews the whole gate read-only.
+
+**Training concurrency = 1**: at most one governed training job is in
+flight at a time — `RunJob` claims the lane in a single advisory-locked
+transaction (queued check + sibling check + preflight transition +
+audit), so concurrent executors can never both pass
+(`EXECUTOR_TRAINING_SERIAL`, job stays queued). Orphaned live-state rows
+(crash/kill never transitions out) are reaped explicitly:
+`--reap-stale [--older-than-s N] [--apply]` (dry-run default, floor
+3600 s, `EXECUTOR_ORPHANED_REAPED`).  Per-job CPU
+lanes follow `classes.training.quota` in `concurrency-budget/v1`, tuned
+through `concurrency_w_training`/`concurrency_min_training` in rules
+`defaults` (base 5 → quota 5 at tier none, 2 at pre, paused at active;
+training is last in fill order so it takes pool leftovers — raising it
+further requires shrinking `interactive_share` or the model/rag
+weights).  Job configuration `pack_tokens`/`pack_sep` enables
+trainer-side token packing (fewer optimizer steps, larger GEMM M —
+opt-in; lanes must size `max_steps`/`lr` accordingly).
 
 Implementation: `native/resource_governor/` (C++23, Codex A137) — the Python
 `scripts/resource-governor.py` and `resource_mode_advisor` lane were retired
