@@ -486,9 +486,12 @@ internal static class EngineSettings
         }
     }
 
-    /// <summary>Pin ``checkpoint`` to a tool-root-relative artifact path.</summary>
+    /// <summary>Pin ``checkpoint`` to a tool-root-relative artifact path.
+    /// The pinned serving artifact is xingcheng-owned data — an
+    /// out-of-boundary target is refused (XINGCHENG_DATA_BOUNDARY).</summary>
     public static string PinCheckpoint(string toolRoot, string artifactPath)
     {
+        DataBoundary.AssertInside(toolRoot, artifactPath);
         string settingsPath = Path.Combine(toolRoot, XcPaths.EngineSettingsRel);
         var settings = new Dictionary<string, object?>();
         if (File.Exists(settingsPath))

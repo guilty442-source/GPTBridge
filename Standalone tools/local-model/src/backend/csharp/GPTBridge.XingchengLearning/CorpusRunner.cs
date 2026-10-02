@@ -35,7 +35,10 @@ internal static class CorpusRunner
         string registry = Req("registry");
         string root = Req("root");
         string tokenizer = Req("tokenizer");
-        string outDir = Req("out");
+        // Corpus output + snapshot staging are xingcheng-owned data —
+        // the export target must resolve inside the domain roots.
+        string outDir = DataBoundary.AssertInside(toolRoot,
+            Req("out"));
         string stderrLog = Path.Combine(
             toolRoot, "xingcheng", "runtime", "logs",
             "xcorpus-stderr.log");
