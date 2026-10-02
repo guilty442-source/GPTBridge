@@ -1,0 +1,1054 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v1",
+    "request_id":  "a233-project-directory-full-convergence-20261002-r3",
+    "title":  "Rebuild A233 project architecture normalized projection from canonical directory",
+    "summary":  "Replace the stale partial A233 project-directory projection with a complete semantic projection of all 54 canonical project_architecture_directory rows: update the 25 existing rows and insert the 29 missing rows; retired canonical entries remain present but are projected as retired.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "direct human-governor finding 2026-10-02: canonical project_architecture_directory has 54 rows while A233 project-directory projection has 25, with 29 missing and 21 of 25 semantically divergent r2 reached terminal executed state but did not publish a successor revision or wire the candidate; r3 reissues the convergence with canonical path escaping.",
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "auto_execute":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T02:50:57Z",
+                        "version_identity":  "E2:2026-10-02T02:50:57Z",
+                        "version_epoch":  2,
+                        "history_head":  "651be6b7c430baf02413a9d512a05c3d8e8d18e09aee39c28ac5f6f0e0c5f333",
+                        "revision_sequence":  201
+                    },
+    "problem":  {
+                    "summary":  "A233 project architecture projection is incomplete and semantically stale, including obsolete LOCAL_MODEL, MODEL_DIALOGUE and STAR_DIRECTORY relationships and lifecycle state."
+                },
+    "changes":  [
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "AI_ASSISTANT",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "cdbef75dd91083e7ef2dab26a51130a48423f2783f1537c6e16634ca1f16fd85",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "AI_ASSISTANT",
+                                     "domain_payload":  "{\"architecture_code\":\"AI_ASSISTANT\",\"canonical_name\":\"ai-assistant\",\"command_codes\":\"\",\"data_authority\":\"ai-assistant-owned application state|investment-mobile cache authority\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|ai-channel-process\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"canonical independent tool boundary for ai-assistant\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"ai-assistant-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\ai-assistant\",\"responsibilities\":\"investment assistant module\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "AI_COLLABORATION",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "ead50aebbc4262d7792926295bf1020bba6550a558b94e4daeb919950fd1d236",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "AI_COLLABORATION",
+                                     "domain_payload":  "{\"architecture_code\":\"AI_COLLABORATION\",\"canonical_name\":\"ai-collaboration\",\"command_codes\":\"\",\"data_authority\":\"ai-collaboration-owned application state\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|ai-channel-process\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"canonical independent tool boundary for ai-collaboration\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"ai-collaboration-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\ai-collaboration\",\"responsibilities\":\"external collaboration module\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "CODEX_LAYER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "ca3cda8aa8f8718c3193a830256f085f7612b3370a34a03cd9f1168219b1bba3",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "CODEX_LAYER",
+                                     "domain_payload":  "{\"architecture_code\":\"CODEX_LAYER\",\"canonical_name\":\"codex-layer\",\"command_codes\":\"\",\"data_authority\":\"official Codex records only\",\"dependencies\":\"registered parent and read-only information-layer interfaces\",\"entity_kind\":\"codex-declaration-layer\",\"failure_boundary\":\"integrity failure blocks governance certification without taking down runtime individuals\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"highest-rule declaration boundary only\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DECISION\",\"permission_scope\":\"codex-read|human-governor-amendment-only\",\"physical_root\":\"E:\\\\GPTBridge\\\\governance_rule\",\"responsibilities\":\"store and declare the highest rules without decision review authorization management or execution power\",\"retired_version\":null,\"runtime_boundary\":\"non-runtime protected declaration boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "EVENT_SERVICE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "3d94810669170809b32c0281085bb3291338eff457e3f487d8c22cdb18626197",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "EVENT_SERVICE",
+                                     "domain_payload":  "{\"architecture_code\":\"EVENT_SERVICE\",\"canonical_name\":\"event-service\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"information-event-boundary\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\events\",\"responsibilities\":\"governed event routing and replay\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "FILE_SORTER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "2ea34a481a15d846a5db7fca29482990633d5c8d6ada251d54a0b9381337068a",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "FILE_SORTER",
+                                     "domain_payload":  "{\"architecture_code\":\"FILE_SORTER\",\"canonical_name\":\"file-sorter\",\"command_codes\":\"\",\"data_authority\":\"file-sorter-owned application state\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|system-channel\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"canonical independent tool boundary for file-sorter\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"file-sorter-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\file-sorter\",\"responsibilities\":\"automatic file management module\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "GLOBAL_CLEANER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "retired",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "e2827db139c0bc3f946fb20cb2e7ebae38200d50ae578f0a302908345bdb9c19",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  "2026-09-16T08:45:19Z",
+                                     "source_key":  "GLOBAL_CLEANER",
+                                     "domain_payload":  "{\"architecture_code\":\"GLOBAL_CLEANER\",\"canonical_name\":\"global-cleaner\",\"command_codes\":\"\",\"data_authority\":\"global-cleaner-owned application state|temporary storage authority|backup storage authority\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"retired-former-tool\",\"failure_boundary\":\"not applicable\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|system-channel\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"retired; no current architecture identity\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":null,\"permission_scope\":\"none-current\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\global-cleaner\",\"responsibilities\":\"none-current\",\"retired_version\":\"2026-09-16T08:45:19Z\",\"runtime_boundary\":\"activation forbidden\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "GOVERNANCE_CODEX",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "6201866e33ba6037dd4a5527033e61e31c57ccfddf4b744243567b5d3114f3fd",
+                                     "introduced_version":  "4.21600",
+                                     "retired_version":  null,
+                                     "source_key":  "GOVERNANCE_CODEX",
+                                     "domain_payload":  "{\"architecture_code\":\"GOVERNANCE_CODEX\",\"canonical_name\":\"governance-codex\",\"command_codes\":\"\",\"data_authority\":\"codex database is authoritative; Chinese codex is confidential to 星澄\",\"dependencies\":\"governance authority|permission directory|governed codex repository\",\"entity_kind\":\"codex-directory\",\"failure_boundary\":\"tamper failure is isolated and fails governance closed\",\"fault_codes\":\"\",\"interfaces\":\"governance-codex://official|governed repository read interface\",\"introduced_version\":\"4.21600\",\"logical_boundary\":\"official governance codex directory and protected authority boundary\",\"manual_codes\":\"GOVERNANCE_CODEX_TAMPER\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DECISION\",\"permission_scope\":\"governance-codex-read|human-governor-amendment-only\",\"physical_root\":\"E:\\\\GPTBridge\\\\governance_rule\\\\codex\",\"responsibilities\":\"store and expose the official machine codex plus confidential 星澄-only Chinese codex through governed access\",\"retired_version\":null,\"runtime_boundary\":\"non-runtime protected governance directory\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "INFORMATION_LAYER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "0436a78e81bc443336fd3315d32076160b2a216215f78ea68167b730a2ad6659",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "INFORMATION_LAYER",
+                                     "domain_payload":  "{\"architecture_code\":\"INFORMATION_LAYER\",\"canonical_name\":\"information-layer\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"cross-layer-information-layer\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\",\"responsibilities\":\"shared services state events IPC and governed data adapters\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "INVESTMENT_MOBILE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "ecfd96e5978027ebee1df6d9b5f54f209daaa8f51bff5b9d03a0451cbf3a966f",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "INVESTMENT_MOBILE",
+                                     "domain_payload":  "{\"architecture_code\":\"INVESTMENT_MOBILE\",\"canonical_name\":\"investment-mobile\",\"command_codes\":\"\",\"data_authority\":\"ai-assistant-owned business settings|investment-mobile runtime state\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|ai-channel-submit\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"canonical independent tool boundary for investment-mobile\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"investment-mobile-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\investment-mobile\",\"responsibilities\":\"investment assistant mobile exclusive directory\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "IPC_SERVICE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "05de85d2600b91e3df47a32ca3acddfd30efc93d3bf8054b96a35ab8bf967aad",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "IPC_SERVICE",
+                                     "domain_payload":  "{\"architecture_code\":\"IPC_SERVICE\",\"canonical_name\":\"ipc-service\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"information-ipc-boundary\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\ipc\",\"responsibilities\":\"typed authenticated IPC\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "LAUNCHER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "957a5d44ba6eff399a611701fa7db935936b43bf50976c3125fa14ea779ef9dc",
+                                     "introduced_version":  "4.51600",
+                                     "retired_version":  null,
+                                     "source_key":  "LAUNCHER",
+                                     "domain_payload":  "{\"architecture_code\":\"LAUNCHER\",\"canonical_name\":\"launcher-internal-startup-core\",\"command_codes\":\"SYS_GPTBRIDGE_START\",\"data_authority\":\"launcher-local presentation state only\",\"dependencies\":\"startup sovereign|main-system|information layer|governance codex\",\"entity_kind\":\"internal-startup-core-directory-within-main-system\",\"failure_boundary\":\"launcher failure does not become main-system or independent-tool failure\",\"fault_codes\":\"PROCESS_START_FAILED\",\"interfaces\":\"typed startup intent from MAIN_SYSTEM_DESKTOP_EXE|information-layer startup status\",\"introduced_version\":\"4.51600\",\"logical_boundary\":\"internal governed startup-core boundary converged inside main-system; never the user-facing entry\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_BOOTSTRAP\",\"permission_scope\":\"internal startup-core boundary\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\launcher\",\"responsibilities\":\"startup governance handoff|typed startup intent validation route|startup generation coordination support\",\"retired_version\":null,\"runtime_boundary\":\"internal startup-core support only; no independent user-entry or direct execution authority\",\"test_flow_codes\":\"TF_STARTUP_TEN_SECOND_DEADLINE\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "LOCAL_MODEL",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "7416c30800c9f155a06e7ca0e29e5ea7c2e61f7d41d3b7660a270f8bf10b84c7",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "LOCAL_MODEL",
+                                     "domain_payload":  "{\"architecture_code\":\"LOCAL_MODEL\",\"canonical_name\":\"local-model\",\"command_codes\":\"\",\"data_authority\":\"local-model-owned application state|model runtime authority\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|ai-channel-process\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"canonical independent tool boundary for local-model; distinct from 星澄\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_ENGINE\",\"permission_scope\":\"local-model-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\",\"responsibilities\":\"local AI inference|RAG|model runtime coordination\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "MAIN_SYSTEM",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "1ed21440a3cfddf0f4f64006eaeb828d0682d8b015a1435bc7d8d84d8f9c0f01",
+                                     "introduced_version":  "4.01600",
+                                     "retired_version":  null,
+                                     "source_key":  "MAIN_SYSTEM",
+                                     "domain_payload":  "{\"architecture_code\":\"MAIN_SYSTEM\",\"canonical_name\":\"main-system-platform-core\",\"command_codes\":\"SYS_GPTBRIDGE_START\",\"data_authority\":\"domain data remains assigned to registered data authorities\",\"dependencies\":\"governance codex|permission directory|shared layer|registered runtime dependencies\",\"entity_kind\":\"platform-core-physical-directory\",\"failure_boundary\":\"separate from every independent tool under B24\",\"fault_codes\":\"STARTUP_TOTAL_DEADLINE_EXCEEDED\",\"interfaces\":\"MAIN_SYSTEM_DESKTOP_EXE sole user entry|information layer|governed IPC|platform UI\",\"introduced_version\":\"4.01600\",\"logical_boundary\":\"platform core physical directory; not a module-execution-layer tool\",\"manual_codes\":\"STARTUP_TEN_SECOND_DEADLINE\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_RUNTIME\",\"permission_scope\":\"project architecture registration and platform-core governed operations\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\",\"responsibilities\":\"desktop EXE user entry|internal startup core|platform orchestration|selected execution modules|contained shared-layer\",\"retired_version\":null,\"runtime_boundary\":\"main-system runtime individual governed by startup and system-runtime sovereigns\",\"test_flow_codes\":\"TF_STARTUP_TEN_SECOND_DEADLINE\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "MODEL_DIALOGUE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "1000dde2b18e2445ca9fb51d53a4d5d965e9db407aa7888cb95883382102d853",
+                                     "introduced_version":  "4.01600",
+                                     "retired_version":  null,
+                                     "source_key":  "MODEL_DIALOGUE",
+                                     "domain_payload":  "{\"architecture_code\":\"MODEL_DIALOGUE\",\"canonical_name\":\"model-dialogue\",\"command_codes\":\"\",\"data_authority\":\"dialogue state only; model and project data remain with registered authorities\",\"dependencies\":\"registered local model runtime|information layer|model core adapters\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to local-model or other tools\",\"fault_codes\":\"MODEL_RUNTIME_NOT_READY\",\"interfaces\":\"local model dialogue UI|governed channel|local model service contract\",\"introduced_version\":\"4.01600\",\"logical_boundary\":\"independent model-dialogue tool boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DIALOGUE\",\"permission_scope\":\"local-model dialogue governed operations\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\model-dialogue\",\"responsibilities\":\"local model dialogue UI|channel|service|model interaction coordination\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "POSTGRESQL_AUTHORITY",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "969f5332545b3aad89b874b741c66e091407cf37c0458e316ef5d72d356a3701",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "POSTGRESQL_AUTHORITY",
+                                     "domain_payload":  "{\"architecture_code\":\"POSTGRESQL_AUTHORITY\",\"canonical_name\":\"postgresql\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"external-data-authority-adapter\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DATA\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\postgresql\",\"responsibilities\":\"official mutable data adapter\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "PROJECT_GPTBRIDGE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "5804926ea4ee38425da8960bd245e2b1599fbef353841aef76e5a10c99d7bbde",
+                                     "introduced_version":  "1.41600",
+                                     "retired_version":  null,
+                                     "source_key":  "PROJECT_GPTBRIDGE",
+                                     "domain_payload":  "{\"architecture_code\":\"PROJECT_GPTBRIDGE\",\"canonical_name\":\"gptbridge-project\",\"command_codes\":\"SYS_GPTBRIDGE_START\",\"data_authority\":\"Git=history|PostgreSQL+pgvector=canonical-structured-and-vector-authority|vectord-rs=rebuildable-derived-semantic-index|LLM=inference-only\",\"dependencies\":\"Windows11|E:\\\\AI|registered-Ollama-C-drive-paths\",\"entity_kind\":\"project-root\",\"failure_boundary\":\"B24 reciprocal isolation\",\"fault_codes\":\"GOV_UNREGISTERED_FAULT_CODE\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.41600\",\"logical_boundary\":\"complete governed project and canonical Git top-level directory\",\"manual_codes\":\"GOV_REGISTER_UNKNOWN_FAULT\",\"owner\":\"permission-sovereign\",\"parent_code\":null,\"permission_scope\":\"project-governance\",\"physical_root\":\"E:\\\\GPTBridge\",\"responsibilities\":\"own the canonical project architecture and contain the single Git top-level boundary for all registered descendants\",\"retired_version\":null,\"runtime_boundary\":\"main-system and every independent tool are separate individuals|Git metadata worktrees and runtime artifacts remain inside E:\\\\GPTBridge\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "QDRANT_AUTHORITY",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "retired",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "f721ec21fe3579672690395323785504f1cac42b67afa03d5a836be833a170f8",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  "2026-10-01T16:54:08Z",
+                                     "source_key":  "QDRANT_AUTHORITY",
+                                     "domain_payload":  "{\"architecture_code\":\"QDRANT_AUTHORITY\",\"canonical_name\":\"qdrant\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"retired-former-semantic-candidate-adapter\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DATA\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"git-history:main-system/information-layer/qdrant (retired; vectord supersedes; qdrant schema objects retired 2026-09-26)\",\"responsibilities\":\"semantic candidate data adapter\",\"retired_version\":\"2026-10-01T16:54:08Z\",\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "SHARED_LAYER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "287598885356e39ec8ce8346eed29af9c4477215c7c2a8ca4c8d8b4acadc3640",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "SHARED_LAYER",
+                                     "domain_payload":  "{\"architecture_code\":\"SHARED_LAYER\",\"canonical_name\":\"shared-layer\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"internal-shared-services-boundary\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\shared-layer\",\"responsibilities\":\"shared contracts and approved reusable infrastructure\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "SOVEREIGN_DECISION_LAYER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "169a34016f1f6fdd650497a756afee1099a3945aacdd86faf8125b3d3ecd7ca9",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "SOVEREIGN_DECISION_LAYER",
+                                     "domain_payload":  "{\"architecture_code\":\"SOVEREIGN_DECISION_LAYER\",\"canonical_name\":\"sovereign-decision-layer\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"decision-layer\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DECISION\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\governance\\\\sovereigns\",\"responsibilities\":\"system maintenance and permission sovereign decisions\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "STANDALONE_TOOLS",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "318b98af639cbec150c7b085c6792ff43ea281170deba839f5d22490a3903181",
+                                     "introduced_version":  "4.11600",
+                                     "retired_version":  null,
+                                     "source_key":  "STANDALONE_TOOLS",
+                                     "domain_payload":  "{\"architecture_code\":\"STANDALONE_TOOLS\",\"canonical_name\":\"standalone-tools\",\"command_codes\":\"\",\"data_authority\":\"each child tool owns its data; container owns no domain data\",\"dependencies\":\"governance codex|permission directory|information layer|registered shared interfaces\",\"entity_kind\":\"independent-tools-top-level-directory\",\"failure_boundary\":\"each child has an isolated failure boundary under B24 and B52\",\"fault_codes\":\"TOOL_START_FAILED\",\"interfaces\":\"registered per-tool interfaces through information layer\",\"introduced_version\":\"4.11600\",\"logical_boundary\":\"canonical architecture container for independent tools; not itself a runtime individual\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"architecture registration for independent-tool roots\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\",\"responsibilities\":\"contain registered independent tool roots while preserving one identity and owner per tool\",\"retired_version\":null,\"runtime_boundary\":\"each child is a separate runtime individual; container has no shared runtime\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "STAR_DIRECTORY",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "retired",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "fffa6b7e5251baecdab393c1357b8fe282fbc894455c6e1ff6da98fc3a80baa9",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  "2026-10-01T16:01:43Z",
+                                     "source_key":  "STAR_DIRECTORY",
+                                     "domain_payload":  "{\"architecture_code\":\"STAR_DIRECTORY\",\"canonical_name\":\"star-directory\",\"command_codes\":\"\",\"data_authority\":\"Xingcheng-owned exclusive data authority; residency XINGCHENG_DOMAIN_ONLY; no external persistence\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"institution-owned-directory\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"星澄專屬目錄；治理 parent 為星澄機構根，物理路徑不產生工具從屬\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_ASSISTANT\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\model-dialogue\\\\xingcheng\",\"responsibilities\":\"xingcheng exclusive confidential state|exclusive data custody|owner-scoped retention recovery migration deletion\",\"retired_version\":\"2026-10-01T16:01:43Z\",\"runtime_boundary\":\"separate registered adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "STATE_SERVICE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "13964c88b6dde5881a62fbcb97edc534457b2da23a49b9c6e6b79df602cac178",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "STATE_SERVICE",
+                                     "domain_payload":  "{\"architecture_code\":\"STATE_SERVICE\",\"canonical_name\":\"state-service\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"information-state-boundary\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\state\",\"responsibilities\":\"authoritative state projection routing\",\"retired_version\":null,\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "SUB_SOVEREIGN_LAYER",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "retired",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "4c4adf8dd0ca7140b974deccd992480a933442cec93fc0b494626d1898aef3ab",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  "2026-09-24T16:05:05Z",
+                                     "source_key":  "SUB_SOVEREIGN_LAYER",
+                                     "domain_payload":  "{\"architecture_code\":\"SUB_SOVEREIGN_LAYER\",\"canonical_name\":\"sub-sovereign-layer\",\"command_codes\":\"\",\"data_authority\":\"registered authority only\",\"dependencies\":\"registered parent and information-layer interfaces\",\"entity_kind\":\"retired-former-execution-control-layer\",\"failure_boundary\":\"owner-isolated failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"declared canonical architecture boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_RUNTIME\",\"permission_scope\":\"registered-scope\",\"physical_root\":\"git-history:main-system/governance/sub-sovereigns (removed under B158/B162)\",\"responsibilities\":\"typed control delegation and evidence return\",\"retired_version\":\"2026-09-24T16:05:05Z\",\"runtime_boundary\":\"separate registered runtime or adapter boundary\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "SYSTEM_RESCUE",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "retired",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "c1b8cf983ae3f58c473b69f87ead100ea2d34c81e37f80b7ccaa286324586e0f",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  "2026-09-27T14:50:00Z",
+                                     "source_key":  "SYSTEM_RESCUE",
+                                     "domain_payload":  "{\"architecture_code\":\"SYSTEM_RESCUE\",\"canonical_name\":\"system-rescue\",\"command_codes\":\"\",\"data_authority\":\"system-rescue-owned audit records|system-rescue-owned runtime logs\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"bounded internal maintenance failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|system-channel\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"internal main-system maintenance and recovery support; not an independent tool\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"system-rescue-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\system-rescue\",\"responsibilities\":\"audit records authority|runtime logs authority|platform packaging integration|system health check\",\"retired_version\":\"2026-09-27T14:50:00Z\",\"runtime_boundary\":\"MAIN_SYSTEM service lifecycle; no independent-tool semantics\",\"test_flow_codes\":\"\"}"
+                                 }
+                    },
+                    {
+                        "table":  "a233_normalized_directory_entry",
+                        "key":  {
+                                    "entry_code":  "VAULTLY",
+                                    "source_table":  "project_architecture_directory"
+                                },
+                        "field":  "canonical_name",
+                        "proposed":  "project-architecture-directory",
+                        "also":  {
+                                     "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                     "owner":  "permission-sovereign",
+                                     "scope":  "all project entities and boundaries",
+                                     "authority_kind":  "architecture-authority",
+                                     "status":  "active",
+                                     "revision":  "\u003csuccessor-version\u003e",
+                                     "content_hash":  "f42ca1985d6dafe623271aedb6346fd1b5123e1b1aa6457dfe6c9d0847f054ea",
+                                     "introduced_version":  "1.00000",
+                                     "retired_version":  null,
+                                     "source_key":  "VAULTLY",
+                                     "domain_payload":  "{\"architecture_code\":\"VAULTLY\",\"canonical_name\":\"vaultly\",\"command_codes\":\"\",\"data_authority\":\"vaultly-owned application state|credential storage authority\",\"dependencies\":\"governance codex|permission directory|information layer|shared layer|registered runtime dependencies\",\"entity_kind\":\"independent-tool\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"governance-authenticated-shared-layer|system-channel\",\"introduced_version\":\"1.00000\",\"logical_boundary\":\"canonical independent tool boundary for vaultly\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"vaultly-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\vaultly\",\"responsibilities\":\"automatic video download module\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                 }
+                    }
+                ],
+    "acceptance":  {
+                       "canonical_count":  54,
+                       "normalized_project_directory_count":  54,
+                       "missing_count":  0,
+                       "semantic_diff_count":  0,
+                       "source_of_truth":  "project_architecture_directory"
+                   },
+    "proposed_change":  {
+                            "table":  "a233_normalized_directory_entry",
+                            "action":  "insert",
+                            "rows":  [
+                                         {
+                                             "entry_code":  "BLOCK_CORE",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "5282fb3d155b68dec91427e2d9b604b2c646a6ab35e767b0fc544263067e716f",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BLOCK_CORE",
+                                             "domain_payload":  "{\"architecture_code\":\"BLOCK_CORE\",\"canonical_name\":\"block-core\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-block\",\"failure_boundary\":\"block-level isolation domain\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"co-located four cores (decision|permission|runtime|automation) same host in-process\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"PROJECT_GPTBRIDGE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\core\",\"responsibilities\":\"orchestration-and-isolation-domain|members:UNIT_DECISION|UNIT_PERMISSION|UNIT_RUNTIME|UNIT_BOOTSTRAP|UNIT_AUTOMATION\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "BLOCK_MODEL",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "aa2babbcee823dc13b9d8d7caca09b3c3fb2230b70bd47509a05c8887633807d",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BLOCK_MODEL",
+                                             "domain_payload":  "{\"architecture_code\":\"BLOCK_MODEL\",\"canonical_name\":\"block-model\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-block\",\"failure_boundary\":\"model-domain isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"block-model logical boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"PROJECT_GPTBRIDGE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\model\",\"responsibilities\":\"orchestration-and-isolation-domain|members:UNIT_ENGINE|UNIT_DIALOGUE\",\"retired_version\":null,\"runtime_boundary\":\"separate isolation domain on main host\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "BLOCK_SHARED",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "de5c44e39c5660a06625b6bd0b6b3ee8fae721c8b4a43821b9e32c6d03b0af81",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BLOCK_SHARED",
+                                             "domain_payload":  "{\"architecture_code\":\"BLOCK_SHARED\",\"canonical_name\":\"block-shared\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-block\",\"failure_boundary\":\"block-level isolation domain\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"block-shared logical boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"PROJECT_GPTBRIDGE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\shared\",\"responsibilities\":\"orchestration-and-isolation-domain|members:UNIT_PLATFORM|UNIT_DATA\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "BLOCK_TOOLS",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "998fe17c19ea229a04e7cc3229997fee73e90376176046a8835f5736838106c1",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BLOCK_TOOLS",
+                                             "domain_payload":  "{\"architecture_code\":\"BLOCK_TOOLS\",\"canonical_name\":\"block-tools\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-block\",\"failure_boundary\":\"per-tool isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"block-tools logical boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"PROJECT_GPTBRIDGE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\tools\",\"responsibilities\":\"orchestration-and-isolation-domain|members:tool-units (each independent tool is a unit)\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "BLOCK_XINGCHENG",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "1126aa0037b8a9037b33ca83159e9c6a6acf82452cd9e67c17a28da94d4d3b43",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BLOCK_XINGCHENG",
+                                             "domain_payload":  "{\"architecture_code\":\"BLOCK_XINGCHENG\",\"canonical_name\":\"block-xingcheng\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-block\",\"failure_boundary\":\"host-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"block-xingcheng logical boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"PROJECT_GPTBRIDGE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\xingcheng\",\"responsibilities\":\"orchestration-and-isolation-domain|members:UNIT_ASSISTANT\",\"retired_version\":null,\"runtime_boundary\":\"separate host|cross-boundary governed IPC only\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "BUSINESS_LOGIC_CSHARP",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "f42ac1c1d29a46bb477f0985d60da7975ae55e8c11ad50da1cdfb189d047dfea",
+                                             "introduced_version":  "2026-09-20T17:19:04Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BUSINESS_LOGIC_CSHARP",
+                                             "domain_payload":  "{\"architecture_code\":\"BUSINESS_LOGIC_CSHARP\",\"canonical_name\":\"business-logic-csharp\",\"command_codes\":\"\",\"data_authority\":\"none; no canonical writes, governed channel only\",\"dependencies\":\"local-model|shared-layer\",\"entity_kind\":\"main-system-internal-orchestration-service\",\"failure_boundary\":\"isolated failure boundary; restart policy max 3 attempts\",\"fault_codes\":\"\",\"interfaces\":\"versioned cross-language contracts (C# orchestration layer)\",\"introduced_version\":\"2026-09-20T17:19:04Z\",\"logical_boundary\":\"C# business-logic and orchestration layer boundary (external coordination); not an eighth independent tool unless the governor extends B123\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"main-system-internal-service\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\business-logic-csharp\",\"responsibilities\":\"model-selection|task-scheduling|lifecycle|resource-budget|state-management\",\"retired_version\":null,\"runtime_boundary\":\"isolated tool process (tool-isolation-policy business-logic-csharp 512MB)\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "BUSINESS_LOGIC_FSHARP",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "90385d9b83ab125a7234479e815adb1a57ef0e4781bc003aaed5727ad44cca78",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "BUSINESS_LOGIC_FSHARP",
+                                             "domain_payload":  "{\"architecture_code\":\"BUSINESS_LOGIC_FSHARP\",\"canonical_name\":\"business-logic-fsharp\",\"command_codes\":\"\",\"data_authority\":\"service-owned state\",\"dependencies\":\"governance codex|information layer|shared layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered F# business-logic service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\business-logic-fsharp\",\"responsibilities\":\"analysis/ML/high-correctness business logic (F# per B166)\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "JULIA_COMPUTE",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "c94c969bc7181274c9246885d2f5ab0c9023dbb629cb5d9425f393274a98cea4",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "JULIA_COMPUTE",
+                                             "domain_payload":  "{\"architecture_code\":\"JULIA_COMPUTE\",\"canonical_name\":\"julia-compute\",\"command_codes\":\"\",\"data_authority\":\"julia-compute-owned scratch state (rebuildable)\",\"dependencies\":\"governance codex|information layer|shared layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered scientific-compute service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\julia-compute\",\"responsibilities\":\"statistics and scientific compute; optimization-simulation (A610 Python-work-transfer successor)\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "LOCAL_VECTOR",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "4ad586be0598084520c4e77d66a302095f25f4eda371f752cf7c9425454b45fc",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "LOCAL_VECTOR",
+                                             "domain_payload":  "{\"architecture_code\":\"LOCAL_VECTOR\",\"canonical_name\":\"local-vector\",\"command_codes\":\"\",\"data_authority\":\"local-vector-owned fallback data (noncanonical, rebuildable)\",\"dependencies\":\"shared layer|information layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"host failure domain\",\"fault_codes\":\"\",\"interfaces\":\"local-fallback channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"degraded-only local vector fallback boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"xingcheng-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\shared-layer\\\\sql\",\"responsibilities\":\"bounded noncanonical local vector fallback inside shared-layer SQL\",\"retired_version\":null,\"runtime_boundary\":\"in-process of host\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "MODEL_TRAINING",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "retired",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "5a2cc4d45bfffe5f4d328cd536601b17320c5ea759ce3057a5c932b81352c991",
+                                             "introduced_version":  "2026-09-20T17:19:04Z",
+                                             "retired_version":  "2026-09-28T17:22:08Z",
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "MODEL_TRAINING",
+                                             "domain_payload":  "{\"architecture_code\":\"MODEL_TRAINING\",\"canonical_name\":\"model-training\",\"command_codes\":\"\",\"data_authority\":\"Xingcheng-owned exclusive data authority; residency XINGCHENG_DOMAIN_ONLY; no external persistence\",\"dependencies\":\"local-model|shared-layer|native-compute-core\",\"entity_kind\":\"retired-former-model-training-module\",\"failure_boundary\":\"fail-closed job chain; weights are never overwritten by automatic replacement\",\"fault_codes\":\"\",\"interfaces\":\"governed training job executor\",\"introduced_version\":\"2026-09-20T17:19:04Z\",\"logical_boundary\":\"Xingcheng-owned training module boundary (pretrain / SFT / DPO / corpus / tokenizer training)\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_ENGINE\",\"permission_scope\":\"special-law-owned-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\src\\\\backend\\\\services\\\\xingcheng\\\\infrastructure\\\\native_transformer\\\\training\",\"responsibilities\":\"pretraining|sft|dpo|corpus|tokenizer-training|checkpoint-emission|exclusive data custody|owner-scoped retention recovery migration deletion\",\"retired_version\":\"2026-09-28T17:22:08Z\",\"runtime_boundary\":\"on-demand governed jobs\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "MODEL_TRAINING_NATIVE",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "45ca5c44b4c21f4e8d34a4c8502ecea7d5bee524c39b84ece736539b0b42c7dc",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "MODEL_TRAINING_NATIVE",
+                                             "domain_payload":  "{\"architecture_code\":\"MODEL_TRAINING_NATIVE\",\"canonical_name\":\"model-training-native\",\"command_codes\":\"\",\"data_authority\":\"training-owned job state\",\"dependencies\":\"local-model|shared layer|native-compute-core\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"native training lane boundary (cpp23+csharp; successor to retired MODEL_TRAINING)\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_ENGINE\",\"permission_scope\":\"xingcheng-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\src\\\\backend\\\\services\\\\xingcheng\\\\infrastructure\\\\native_transformer\\\\training\",\"responsibilities\":\"xingcheng native model training (SFT/eval native lane)\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "NATIVE_COMPUTE_CORE",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "2f27e4efb9337293d3aa3df4f61d0df4e1f962c8bf732e6439934c018587250b",
+                                             "introduced_version":  "2026-09-20T17:19:04Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "NATIVE_COMPUTE_CORE",
+                                             "domain_payload":  "{\"architecture_code\":\"NATIVE_COMPUTE_CORE\",\"canonical_name\":\"native-compute-core\",\"command_codes\":\"\",\"data_authority\":\"none\",\"dependencies\":\"governance codex|shared layer\",\"entity_kind\":\"native-compute-library\",\"failure_boundary\":\"native dispatch falls back to the Python path (B38/E184)\",\"fault_codes\":\"\",\"interfaces\":\"gptbridge_native.h C ABI (B40/E186)\",\"introduced_version\":\"2026-09-20T17:19:04Z\",\"logical_boundary\":\"canonical pure-C compute core (tensor / SIMD / memory / CPU kernel) and stable C ABI boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_RUNTIME\",\"permission_scope\":\"main-system-internal-service\",\"physical_root\":\"E:\\\\GPTBridge\\\\native\\\\core\",\"responsibilities\":\"tensor-basic-ops|simd|memory-management|cpu-kernels|stable-c-abi\",\"retired_version\":null,\"runtime_boundary\":\"borrowed pointers only; Python owns all memory (B40/E186)\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "PROCESS_METRICS_CSHARP",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "09741399c31d18980a108831d8636d818f083766626d177cdd1ee85d97544d89",
+                                             "introduced_version":  "1.71600",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "PROCESS_METRICS_CSHARP",
+                                             "domain_payload":  "{\"architecture_code\":\"PROCESS_METRICS_CSHARP\",\"canonical_name\":\"process-metrics-csharp\",\"command_codes\":\"\",\"data_authority\":\"metrics evidence read-only; no authoritative persistence\",\"dependencies\":\"shared-layer\",\"entity_kind\":\"main-system-internal-metrics-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"1.71600\",\"logical_boundary\":\"Windows .NET process-metrics collection tool; bounded adapter surface only\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"STANDALONE_TOOLS\",\"permission_scope\":\"tool-scoped\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\process-metrics-csharp\",\"responsibilities\":\"process and machine metrics collection|bounded Windows performance-counter integration|metrics projection to information layer\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|on-demand lifecycle|isolation quotas per tool-isolation-policy\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "RAG_HYBRID",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "1547d90edf8f3a69d76a0214a7084dbe919369d267f4aa1d175a0da83eb165ec",
+                                             "introduced_version":  "2026-09-22T09:45:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "RAG_HYBRID",
+                                             "domain_payload":  "{\"architecture_code\":\"RAG_HYBRID\",\"canonical_name\":\"dag-cag-rag-hybrid\",\"command_codes\":\"\",\"data_authority\":\"PostgreSQL official metadata plus vectord semantic candidates; cache non-canonical\",\"dependencies\":\"PostgreSQL|vectord|local-model\",\"entity_kind\":\"main-system-internal-knowledge-architecture\",\"failure_boundary\":\"bounded fail-closed knowledge capability\",\"fault_codes\":\"\",\"interfaces\":\"RagApplicationService|RagDagPlanner|RagDagExecutor|CagGate\",\"introduced_version\":\"2026-09-22T09:45:31Z\",\"logical_boundary\":\"DAG orchestration plus scoped CAG acceleration plus canonical RAG retrieval\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"MAIN_SYSTEM\",\"permission_scope\":\"rag-query|rag-index|rag-repair\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\ragd-rs\",\"responsibilities\":\"query|index|rebuild|repair|retrieval|evidence|citation\",\"retired_version\":null,\"runtime_boundary\":\"main-system governed runtime\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "RESOURCE_GOVERNOR",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "c04bc32ec469a05073d8cdce44ba361b29a3502542256ad5815a3329111d63ac",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "RESOURCE_GOVERNOR",
+                                             "domain_payload":  "{\"architecture_code\":\"RESOURCE_GOVERNOR\",\"canonical_name\":\"resource-governor\",\"command_codes\":\"\",\"data_authority\":\"resource-governor-owned mode and ledger state\",\"dependencies\":\"native compute core|information layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"isolated failure domain|fail-closed regulation\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered resource regulation boundary (C++23, A137)\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"system-administrator-scope (resource-observation-and-regulation-only)\",\"physical_root\":\"E:\\\\GPTBridge\\\\native\\\\resource_governor\",\"responsibilities\":\"resource observation and regulation only\",\"retired_version\":null,\"runtime_boundary\":\"resident process|single governed instance\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "SEARCHD_GO",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "25e399bee6ddf93742f5fd62ce2d8c6f3e32579d13286999305727a7c125e6e7",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "SEARCHD_GO",
+                                             "domain_payload":  "{\"architecture_code\":\"SEARCHD_GO\",\"canonical_name\":\"searchd-go\",\"command_codes\":\"\",\"data_authority\":\"searchd-owned query state\",\"dependencies\":\"governance codex|information layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered local search service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_TOOLS\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\searchd-go\",\"responsibilities\":\"local search service (Go)\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "STAR_CHAT",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "ea51c32792617fbc8bcc8de9c786b08af465d5a806b9302b958fb7bff92bc8cf",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "STAR_CHAT",
+                                             "domain_payload":  "{\"architecture_code\":\"STAR_CHAT\",\"canonical_name\":\"star-chat\",\"command_codes\":\"\",\"data_authority\":\"star-chat-owned session state\",\"dependencies\":\"model-dialogue|information layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"host-contained failure domain\",\"fault_codes\":\"\",\"interfaces\":\"model-dialogue host channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered companion-service boundary inside model-dialogue\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_DIALOGUE\",\"permission_scope\":\"xingcheng-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\model-dialogue\\\\star-chat\",\"responsibilities\":\"xingcheng companion chat surface\",\"retired_version\":null,\"runtime_boundary\":\"host-tool-contained process boundary\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_ASSISTANT",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "fc29f6ec259b0a699288a6bd0ce66340915dae5d36ce99ee17c04f8911a772dc",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_ASSISTANT",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_ASSISTANT\",\"canonical_name\":\"unit-assistant\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"host-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"xingcheng assistant|separate host|zh-TW codex visibility only here\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_XINGCHENG\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\xingcheng\\\\assistant\",\"responsibilities\":\"members:XINGCHENG_INSTITUTION_ROOT|STAR_DIRECTORY|xingcheng-assistant\",\"retired_version\":null,\"runtime_boundary\":\"separate host|governed IPC only\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_AUTOMATION",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "384a5498e862aac21c82a59db93342273a79afc901ba51d3275e0a6d6d83d616",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_AUTOMATION",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_AUTOMATION\",\"canonical_name\":\"unit-automation\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"automation core|all scheduling+automation flows|no execution\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_CORE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\core\\\\automation\",\"responsibilities\":\"members:automation-sovereign|git-tier-plane|worker-plane|self-commit-service|integration-plane|recovery-plane|origin-mirror\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_BOOTSTRAP",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "66d7a510cd5205965799a19d5672258ae3713ad2db0db289c6472b274f22c1e6",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_BOOTSTRAP",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_BOOTSTRAP\",\"canonical_name\":\"unit-bootstrap\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"bootstrap+launcher entry|per-launch\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_CORE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\core\\\\bootstrap\",\"responsibilities\":\"members:LAUNCHER\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_DATA",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "1ec3fabf1b4e751b68af0373b4a80b71e079e3a300c6ce583c17e031c3fd1074",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_DATA",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_DATA\",\"canonical_name\":\"unit-data\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"data services boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_SHARED\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\shared\\\\data\",\"responsibilities\":\"members:POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY|module-sqlite|local-vector|ollama\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_DECISION",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "90a52ee858302bbeef932166425a7f47bfc5ed7d34e1c658c70635ba99165438",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_DECISION",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_DECISION\",\"canonical_name\":\"unit-decision\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"decision core|policy+adjudication+fail-closed\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_CORE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\core\\\\decision\",\"responsibilities\":\"members:CODEX_LAYER|GOVERNANCE_CODEX|SOVEREIGN_DECISION_LAYER\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_DIALOGUE",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "841ad6b2ca8291dff94ea37e0bc2abef71a7847d71432115422160003ce43187",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_DIALOGUE",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_DIALOGUE\",\"canonical_name\":\"unit-dialogue\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"dialogue surface|on-demand\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_MODEL\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\model\\\\dialogue\",\"responsibilities\":\"members:MODEL_DIALOGUE|star-chat(companion)\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_ENGINE",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "76341b9dcb819c846edb9451186ebb9dec85615fbacc73cad7afd4aed0389be1",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_ENGINE",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_ENGINE\",\"canonical_name\":\"unit-engine\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"xingcheng execution domain|on-demand\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_MODEL\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\model\\\\engine\",\"responsibilities\":\"members:LOCAL_MODEL|MODEL_TRAINING|xingcheng-engine|auto-learning|auto-repair\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_PERMISSION",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "1fb494f6209219fbe474524828c54681fdfb20e69e44a32ed4c36cb6f29cffb4",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_PERMISSION",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_PERMISSION\",\"canonical_name\":\"unit-permission\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"permission core|directory+identity+audit+test\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_CORE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\core\\\\permission\",\"responsibilities\":\"members:permission-directory|audit-engine (pending split from governance_rule)\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_PLATFORM",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "ceae59727d84e0f0211ca9fb5cacd6cee567d0f766a2b4af157b1ed9b7673a51",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_PLATFORM",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_PLATFORM\",\"canonical_name\":\"unit-platform\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"shared platform services|tokenizer|channel gateway\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_SHARED\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\shared\\\\platform\",\"responsibilities\":\"members:SHARED_LAYER|INFORMATION_LAYER|EVENT_SERVICE|IPC_SERVICE|STATE_SERVICE\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "UNIT_RUNTIME",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "1b949009c30e2ed6a8ac45df8148c784285ed014da83ac221f1af61f6cdc3bc9",
+                                             "introduced_version":  "2026-09-22T03:05:31Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "UNIT_RUNTIME",
+                                             "domain_payload":  "{\"architecture_code\":\"UNIT_RUNTIME\",\"canonical_name\":\"unit-runtime\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"runtime core|orchestration+event-loop+IPC+lifecycle execution\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_CORE\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\core\\\\runtime\",\"responsibilities\":\"members:MAIN_SYSTEM|SUB_SOVEREIGN_LAYER|NATIVE_COMPUTE_CORE\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "VECTORD",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "71a6d4d50745219790761ff5828d2746d3741200bbbd595d289f9d613afc60cf",
+                                             "introduced_version":  "2026-10-01T16:54:08Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "VECTORD",
+                                             "domain_payload":  "{\"architecture_code\":\"VECTORD\",\"canonical_name\":\"vectord\",\"command_codes\":\"\",\"data_authority\":\"vectord-owned derived vector data (rebuildable)\",\"dependencies\":\"governance codex|information layer|shared layer\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"semantic-index channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"canonical local vector store service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\vectord-rs\",\"responsibilities\":\"local vector index and semantic candidate store; rebuildable derived data only\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}"
+                                         },
+                                         {
+                                             "entry_code":  "XINGCHENG_INSTITUTION_ROOT",
+                                             "canonical_name":  "project-architecture-directory",
+                                             "directory_code":  "DIR_PROJECT_ARCHITECTURE",
+                                             "owner":  "permission-sovereign",
+                                             "scope":  "all project entities and boundaries",
+                                             "authority_kind":  "architecture-authority",
+                                             "status":  "active",
+                                             "revision":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "9fe9e0cbe24a3cc5e1006b002a347fca9cc59d50f8f4df68ea4872762b2cf075",
+                                             "introduced_version":  "2026-09-16T09:12:40Z",
+                                             "retired_version":  null,
+                                             "source_table":  "project_architecture_directory",
+                                             "source_key":  "XINGCHENG_INSTITUTION_ROOT",
+                                             "domain_payload":  "{\"architecture_code\":\"XINGCHENG_INSTITUTION_ROOT\",\"canonical_name\":\"xingcheng-institution-root\",\"command_codes\":\"\",\"data_authority\":\"Xingcheng-owned exclusive data authority; residency XINGCHENG_DOMAIN_ONLY; no external persistence\",\"dependencies\":\"governance codex|information layer\",\"entity_kind\":\"independent-privileged-institution\",\"failure_boundary\":\"isolated privileged institution failure boundary\",\"fault_codes\":\"\",\"interfaces\":\"information-layer://official\",\"introduced_version\":\"2026-09-16T09:12:40Z\",\"logical_boundary\":\"governance institution root independent of tool and module topology\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_ASSISTANT\",\"permission_scope\":\"xingcheng-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\xingcheng\",\"responsibilities\":\"owned-domain|native-model|learning|programming-review|exclusive data custody|owner-scoped retention recovery migration deletion\",\"retired_version\":null,\"runtime_boundary\":\"independent institution lifecycle\",\"test_flow_codes\":\"GOV_CODEX_DIRECTORY_AUDIT\"}"
+                                         }
+                                     ]
+                        }
+}

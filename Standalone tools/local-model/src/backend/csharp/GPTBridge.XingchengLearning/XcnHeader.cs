@@ -7,6 +7,12 @@
 // ``xct_ckpt.h`` write order, so every drift triples the risk. This is
 // now the sole owner; callers only adapt success/failure semantics
 // (throw vs null).
+//
+// LANGUAGE-ARCHITECTURE TRANSITION (2026-10-02, human-governor directive):
+// binary format validation ownership migrates to the Rust xc-format crate
+// (src/backend/rust/xc-format). This reader stays as the thin governed
+// entry until the Rust lane is wired; no new format logic lands here.
+// B166 remains the sole language authority.
 
 namespace GPTBridge.XingchengLearning;
 

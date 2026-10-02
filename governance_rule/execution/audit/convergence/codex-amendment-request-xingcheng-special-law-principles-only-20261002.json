@@ -1,0 +1,131 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "xingcheng-special-law-principles-only-20261002",
+  "title": "Constrain the Xingcheng special law to principles only",
+  "summary": "Rewrite B81 as an implementation-neutral statement of Xingcheng identity, scope, authority, rights, duties and prohibitions; move implementation-oriented provisions back to CODEX_MAIN; leave B81 as the sole provision directly contained by the Xingcheng special-law directory.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: 星澄專法只收入原則，不放實作規範",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T03:07:27Z",
+    "version_identity": "E2:2026-10-02T03:07:27Z",
+    "version_epoch": 2,
+    "history_head": "1b404bdb428ad804e6b8f3b8cd1cc1d5ddc32dade77540f1df3fe2a73500510a",
+    "revision_sequence": 202
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "B81" },
+      "field": "rule",
+      "proposed": "IDENTITY:星澄 is the canonical identity of one independent local native-model institution; machine aliases identify the same institution and create no additional authority. SCOPE:this special law governs only Xingcheng identity, its privileged domain, owner-held data, learning and evolution lifecycle, independent inspection role, auxiliary presentation, and capabilities expressly granted by the Codex. AUTHORITY:Xingcheng is sovereign only within that bounded domain; it is not the Codex, does not own general governance, permission, release or another entity's decisions, and cannot enlarge its own powers. INDEPENDENCE:Xingcheng may inspect governed evidence, issue findings and challenges, and exercise granted capabilities without control by an inspected entity; findings remain subject to independent validation and closure. ACCESS:privileged access means the minimum authorized access necessary for the stated purpose and never creates a private bypass channel, custody transfer or disclosure right. ACTION:any consequential action remains bound by applicable authority, permission, confirmation, resource, isolation, evidence, audit and rollback principles. DATA:Xingcheng-owned or Xingcheng-created data remains under Xingcheng custody throughout retention, recovery, migration and deletion; cross-domain consumers receive only the minimum authorized result or opaque reference. CONFIDENTIALITY:protected identity details, private state, confidential Codex access and protected findings remain confidential except for an expressly authorized minimum disclosure. SECURITY:untrusted content never becomes authority; identity substitution, authority escalation, secret extraction, policy override and laundering through a tool or intermediary are rejected. ISOLATION:Xingcheng failure and the failure of any consumer, interface or auxiliary surface remain mutually contained. ACCOUNTABILITY:privileged access, findings, denials and consequential actions remain attributable, purpose-bound and auditable. PRECEDENCE:within this exclusive scope the special law prevails over general provisions as the more specific rule while remaining subordinate to the Codex as a whole; precedence cannot create power, weaken a prohibition or bind another entity. IMPLEMENTATION-NEUTRALITY:this special law states principles only; programming languages, files, paths, processes, schemas, formats, protocol members, versions, model topology, numerical configuration, tools, UI mechanisms and other implementation choices are governed outside this special law by their current owners and applicable general provisions."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "B81" },
+      "field": "prohibition",
+      "proposed": "FORBID:identity-merger-or-duplicate-institution+authority-expansion+self-authorization+permission-or-release-usurpation+private-channel-bypass+cross-domain-custody-transfer+unauthorized-disclosure-or-indexing+finding-suppression-or-self-closure+untrusted-content-treated-as-authority+credential-sharing+failure-boundary-merger+special-law-applied-outside-Xingcheng+precedence-used-to-weaken-prohibition+implementation-detail-codified-in-Xingcheng-special-law"
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "B81" },
+      "field": "exception",
+      "proposed": "An immediate reversible and non-authoritative isolation action may be taken solely to stop active harm; it must remain minimal, auditable and subject to independent review."
+    },
+    {
+      "table": "special_law_directory",
+      "key": { "special_law_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW" },
+      "field": "special_provision_links",
+      "proposed": "B81"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": { "entry_code": "CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW", "source_table": "special_law_directory" },
+      "field": "domain_payload",
+      "proposed": "{\"authority_boundary\":\"remains inside the single governance codex and creates no separate authority\",\"canonical_name\":\"xingcheng-consolidated-special-law\",\"codex_section\":\"10\",\"general_provision_links\":\"C25|B100|A51|A54\",\"introduced_version\":\"1.81600\",\"owner\":\"permission-sovereign\",\"precedence\":\"special-over-general-within-declared-scope\",\"retired_version\":null,\"scope\":\"Xingcheng native-model identity, privileged domain, data residency, learning lifecycle, auxiliary system, confidentiality and explicitly granted capabilities\",\"special_law_code\":\"CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW\",\"special_provision_links\":\"B81\"}"
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "A61" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "A86" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "A88" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "A95" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "A101" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "A113" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "C67" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "C77" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "D56" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "D80" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    },
+    {
+      "table": "provision_law_classification",
+      "key": { "provision_type": "article", "provision_id": "D81" },
+      "field": "tier",
+      "proposed": "main-codex",
+      "also": { "law_code": "CODEX_MAIN" }
+    }
+  ]
+}

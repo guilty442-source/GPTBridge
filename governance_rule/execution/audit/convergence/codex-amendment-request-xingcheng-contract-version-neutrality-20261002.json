@@ -1,0 +1,39 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "amendment_id": "codex-amendment-request-xingcheng-contract-version-neutrality-20261002",
+  "request_id": "xingcheng-contract-version-neutrality-20261002",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: eliminate version numbers from Xingcheng normative contract references",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "predecessor": {
+    "codex_version": "2026-10-02T02:36:19Z",
+    "history_head": "6ca74c4a7547197988c4ad637563cc3f10e27c71ac58c19c815f8cadba7640c6",
+    "revision_sequence": 198
+  },
+  "status": "submitted",
+  "not_executed": true,
+  "summary": "Make active Xingcheng provisions contract-name based rather than pinning schema version suffixes; current versions resolve through their authoritative registries.",
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "B153" },
+      "field": "rule",
+      "proposed": "Xingcheng does not need to own many tool capabilities - tools are provided by governed tools and executors - but it must know how to call tools: emit valid star-tool-call calls with correct parameters, interpret tool results and handle errors and denials; every call routes through the information channel and permission checks, and tool results remain unverified inputs until validated.\nXingcheng never authorises or executes tools itself; tool-calling competence is part of maturity L6 and the Phase 6 acceptance.\nstar-tool-call (ToolContracts.cs, governed C# lane) is the single current tool-call envelope; its current schema resolves through the authoritative contract registry. The L6 acceptance matrix and governed tool routing are still pending (Phase 6 / G3)."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C108" },
+      "field": "rule",
+      "proposed": "Complete pretraining data pipeline with eleven mandatory elements: Corpus Registry, Dataset Version, Language Classification, Source Tracking, License Validation, Unicode Normalization (with original-to-normalized mapping), Document Deduplication, Sequence Packing, Training/Validation Split, Token Count, Dataset Integrity. Language direction: Traditional Chinese primary, then English, programming languages, mathematics, science, general knowledge and reading comprehension.\nTraining data must be traceable, verifiable and reproducible. Confidential codex content (including the five zh-TW mirror parts and the codex database), permission data, Xingcheng private auxiliary channels, runtime state / audit journals and unauthorized data must never be added to a training set automatically (fail-closed); license validation precedes ingestion. Normalization must preserve the original-to-normalized mapping and must not damage code, paths, proper nouns or semantics.\nThe governed corpus pipeline is the native lane xcm_corpus.h (star-pretrain-corpus) inside xc_modeltool with the star-corpus-registry source registry at runtime/settings/corpus-registry.json and the incremental star-corpus-scan-state contract verified by IncrementalCorpusContract; current schemas resolve through their authoritative registries. It lands all eleven mandated elements and enforces the exclusion rule fail-closed by path fragment and registry gate before any read."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "D131" },
+      "field": "rule",
+      "proposed": "Xingcheng may autonomously train and upgrade itself; no user switch exists for self-learning or self-upgrade.\nverified examples (quality-gated) -> star-transformer-sft snapshot -> governed SFT/DPO job (MoE-capable) -> evaluation suites -> lifecycle register/stage/activate (auto_activate only when every gate passes) -> retention policy. The current snapshot schema resolves through the authoritative contract registry.\nAutonomous-upgrade evidence counts toward maturity level L7 (controlled evolution)."
+    }
+  ]
+}

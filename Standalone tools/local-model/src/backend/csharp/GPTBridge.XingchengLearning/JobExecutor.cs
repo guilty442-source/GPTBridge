@@ -471,6 +471,10 @@ internal sealed class TrainingJobExecutor
             ["pressure"] = null,
             ["trainer_threads"] = 0,
             ["would_block"] = false,
+            // Runtime Host visibility (read-only): whether a single Active
+            // Model owner currently holds the machine. Informational only —
+            // enforcement lives in the host lease itself.
+            ["runtime_host"] = RuntimeHostSnapshot(),
         };
         if (inferenceActive != false)
         {
@@ -498,6 +502,67 @@ internal sealed class TrainingJobExecutor
         if (quota > 0)
             status["trainer_threads"] = Math.Clamp(quota, 1, 16);
         return status;
+    }
+
+    /// <summary>Read-only snapshot of the Runtime Host Active Model
+    /// record (star-runtime-host/v1), if one exists. Best-effort: any
+    /// read/parse failure yields null — visibility must never break the
+    /// preflight gate.</summary>
+    private Dictionary<string, object?>? RuntimeHostSnapshot()
+    {
+        try
+        {
+            string path = Path.Combine(
+                _toolRoot, "xingcheng", "runtime", "ipc", "runtime-host.json");
+            if (!File.Exists(path)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("format", out var fmt) ||
+                fmt.GetString() != "star-runtime-host/v1")
+                return new Dictionary<string, object?>
+                {
+                    ["active"] = false,
+                    ["reason"] = "descriptor-format-mismatch",
+                };
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long heartbeat = root.TryGetProperty("heartbeat_at_s", out var hb) &&
+                             hb.ValueKind == JsonValueKind.Number &&
+                             hb.TryGetInt64(out long h) ? h : 0;
+            long lease = root.TryGetProperty("lease_timeout_s", out var lt) &&
+                         lt.ValueKind == JsonValueKind.Number &&
+                         lt.TryGetInt64(out long l) ? l : 0;
+            var slots = new Dictionary<string, object?>();
+            if (root.TryGetProperty("runtimes", out var rs) &&
+                rs.ValueKind == JsonValueKind.Array)
+                foreach (var s in rs.EnumerateArray())
+                {
+                    if (!s.TryGetProperty("kind", out var k) ||
+                        !s.TryGetProperty("state", out var st))
+                        continue;
+                    slots[k.GetString() ?? "?"] = st.GetString();
+                }
+            return new Dictionary<string, object?>
+            {
+                ["active"] = true,
+                ["owner_pid"] = root.TryGetProperty("owner_pid", out var op) &&
+                                op.ValueKind == JsonValueKind.Number &&
+                                op.TryGetInt32(out int pid) ? pid : null,
+                ["owner_exe"] = root.TryGetProperty("owner_exe", out var oe) &&
+                                oe.ValueKind == JsonValueKind.String
+                    ? oe.GetString() : null,
+                ["bundle_dir"] = root.TryGetProperty("bundle_dir", out var bd) &&
+                                 bd.ValueKind == JsonValueKind.String
+                    ? bd.GetString() : null,
+                ["heartbeat_age_s"] = Math.Max(0, now - heartbeat),
+                ["lease_expired"] = lease > 0 && now - heartbeat > lease,
+                ["slots"] = slots,
+            };
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Read the governor's concurrency budget for the training

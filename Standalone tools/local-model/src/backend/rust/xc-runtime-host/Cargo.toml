@@ -1,0 +1,20 @@
+[package]
+name = "xc-runtime-host"
+version = "0.1.0"
+edition = "2021"
+description = "Xingcheng Runtime Host contract: single Active Model owner, six runtime slots, shared-once resources, discovery"
+license = "MIT"
+
+[[bin]]
+name = "xc-runtime-host"
+path = "src/main.rs"
+
+[lib]
+name = "xc_runtime_host"
+path = "src/lib.rs"
+
+# Intentionally zero dependencies: the host contract must build fully
+# offline (vendored toolchain only). OS probing (is pid N alive?) stays
+# in the caller lanes (C# Process / Win32); this crate takes attested
+# inputs and never guesses liveness.
+[dependencies]

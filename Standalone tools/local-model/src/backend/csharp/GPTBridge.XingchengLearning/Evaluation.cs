@@ -29,6 +29,11 @@
 // as engine_comparison evidence only. If the F# owner is missing or
 // errors, the evaluation fails closed (EVAL_OWNER_UNAVAILABLE /
 // EVAL_VERDICT_FAILED).
+//
+// LANGUAGE-ARCHITECTURE MIGRATION (2026-10-02): EvalVerdict.cs carries
+// the C# parity port; every verdict embeds csharp_parity evidence while
+// F# still decides. The verdict_owner flip awaits the governed codex
+// amendment.
 
 using System.Text.Json;
 
@@ -304,12 +309,18 @@ internal static class Evaluation
         }
 
         // The verdict belongs to the F# evaluator (B139/B132/B141).
+        // C# parity re-derivation (language-architecture migration):
+        // recorded as evidence on every verdict; F# still decides and a
+        // mismatch never overrides the gate — it is data for the owner-
+        // flip amendment, carried under csharp_parity.
         try
         {
             comparison = FsharpVerdict(
                 execRoot, repo, format, gates,
                 adapterMetrics, baselineMetrics, comparison,
                 enginePassed, stderrLog, out passed);
+            comparison["csharp_parity"] = EvalVerdict.Parity(
+                format, gates, adapterMetrics, baselineMetrics, passed);
         }
         catch (ExecutorError ex)
         {

@@ -1,0 +1,87 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v1",
+    "request_id":  "xingcheng-readonly-mirror-artifacts-20261002-r2",
+    "title":  "Register four read-only Xingcheng mirrors beside Codex architecture diagrams",
+    "summary":  "Register non-normative read-only mirrors for Xingcheng architecture, capabilities, parameter governance and data classifications beside the existing Codex architecture diagrams; the data mirror contains classifications and flows only, never Xingcheng payload data.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "direct human-governor instruction 2026-10-02: create read-only Xingcheng architecture capability parameter and data mirrors beside the existing Codex architecture diagrams",
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "auto_execute":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T03:36:33Z",
+                        "version_identity":  "E2:2026-10-02T03:36:33Z",
+                        "version_epoch":  2,
+                        "history_head":  "114e68617b274296b8c4e21a07cd8f039fa7ef07273fd65d2af1008aa386d9ff",
+                        "revision_sequence":  203
+                    },
+    "proposed_change":  {
+                            "table":  "architecture_diagram_artifact_registry",
+                            "action":  "insert",
+                            "rows":  [
+                                         {
+                                             "diagram_code":  "ARCH_XINGCHENG_ARCHITECTURE",
+                                             "diagram_group":  "星澄架構鏡像",
+                                             "artifact_path":  "governance_rule/codex/architecture-xingcheng-architecture.md",
+                                             "source_provisions":  "B81",
+                                             "source_codex_version":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "0d0a46503bcf4d8858f5f0ab8917514085c9e9b2577f6f7c988e60b5e35212c4",
+                                             "format":  "Markdown+Mermaid",
+                                             "read_only_required":  1,
+                                             "sync_status":  "SYNCED_CURRENT",
+                                             "validated_at_utc":  "\u003csuccessor-version\u003e",
+                                             "status":  "active"
+                                         },
+                                         {
+                                             "diagram_code":  "ARCH_XINGCHENG_CAPABILITIES",
+                                             "diagram_group":  "星澄能力鏡像",
+                                             "artifact_path":  "governance_rule/codex/architecture-xingcheng-capabilities.md",
+                                             "source_provisions":  "B81",
+                                             "source_codex_version":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "ac7193c4de818372097a31952f26e28b6291b7bcdf3c26152fe04f4a1aae1540",
+                                             "format":  "Markdown+Mermaid",
+                                             "read_only_required":  1,
+                                             "sync_status":  "SYNCED_CURRENT",
+                                             "validated_at_utc":  "\u003csuccessor-version\u003e",
+                                             "status":  "active"
+                                         },
+                                         {
+                                             "diagram_code":  "ARCH_XINGCHENG_PARAMETERS",
+                                             "diagram_group":  "星澄參數鏡像",
+                                             "artifact_path":  "governance_rule/codex/architecture-xingcheng-parameters.md",
+                                             "source_provisions":  "B81",
+                                             "source_codex_version":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "a83b5ef7c9aa9465f9b37c3495a860fe1a76ab2eb61ae23053789b1cee557d17",
+                                             "format":  "Markdown+Mermaid",
+                                             "read_only_required":  1,
+                                             "sync_status":  "SYNCED_CURRENT",
+                                             "validated_at_utc":  "\u003csuccessor-version\u003e",
+                                             "status":  "active"
+                                         },
+                                         {
+                                             "diagram_code":  "ARCH_XINGCHENG_DATA",
+                                             "diagram_group":  "星澄資料鏡像",
+                                             "artifact_path":  "governance_rule/codex/architecture-xingcheng-data.md",
+                                             "source_provisions":  "B81",
+                                             "source_codex_version":  "\u003csuccessor-version\u003e",
+                                             "content_hash":  "05741eed5dd710d421eb4dd90090331214398e97efa476045cdaf9883d4dc17a",
+                                             "format":  "Markdown+Mermaid",
+                                             "read_only_required":  1,
+                                             "sync_status":  "SYNCED_CURRENT",
+                                             "validated_at_utc":  "\u003csuccessor-version\u003e",
+                                             "status":  "active"
+                                         }
+                                     ]
+                        },
+    "acceptance":  {
+                       "artifact_count":  4,
+                       "read_only_required":  1,
+                       "normative_authority":  "none",
+                       "data_payload_copied":  false,
+                       "location":  "governance_rule/codex"
+                   }
+}

@@ -20,6 +20,13 @@
 //   star-capability-suite/v1: per-category pass_rate must not drop below
 //   the baseline report (any drop fails the candidate); a run without a
 //   baseline cannot prove non-regression and fails closed.
+//
+// LANGUAGE-ARCHITECTURE FREEZE (2026-10-02, human-governor directive):
+// F# holds no new Production responsibility in 星澄. This lane is frozen:
+// bugfix-only, no new features. Eval-verdict ownership migrates to the C#
+// governance lane (EvalVerdict.cs, parity-tracked); the verdict_owner flip
+// awaits the governed codex amendment. B166 remains the sole language
+// authority; this notice is owner-local implementation guidance, not law.
 
 module GPTBridge.XingchengEval.Program
 
