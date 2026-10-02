@@ -219,9 +219,24 @@ internal static class Program
                     ["migrated"] =
                         new TransformerTrainingRepository(toolRoot).Maintain(),
                 });
+            // B154 retired (executed 2026-10-02, rev 235): the external
+            // model-service teacher lane is decommissioned and the flag
+            // stays only as a fail-closed stub — the lane can never be
+            // re-entered through this process; teacher signal comes from
+            // the native self-distillation lane under a successor
+            // amendment if one is ever registered.
             if (flags.Contains("teacher-collect"))
-                return Emit(TeacherCollect.Collect(
-                    toolRoot, dryRun: flags.Contains("dry-run")));
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = false,
+                    ["action"] = "retired",
+                    ["error"] = "TEACHER_LANE_RETIRED",
+                    ["reason"] = "external-model-service teacher lane " +
+                        "decommissioned under retired B154; " +
+                        "reactivation requires a successor codex " +
+                        "amendment",
+                    ["checked_at"] = XcPaths.IsoNow(),
+                });
             if (flags.Contains("evaluate"))
                 return Emit(Evaluate(
                     toolRoot,
@@ -524,6 +539,75 @@ internal static class Program
                         cmx, toolRoot));
                 return Emit(CapabilityRegressionMatrix.Emit(toolRoot));
             }
+            // ---- production-closure §1-§5/§118-§123/§131-§146:
+            //      certification matrix (star-production-certification/
+            //      v1), production state machine, freeze marker,
+            //      §2/§3 candidate pin, §122 health receipt.
+            if (flags.Contains("production-certification"))
+                return Emit(ProductionClosure.Report(toolRoot));
+            if (flags.Contains("production-prereqs"))
+                return Emit(ProductionClosure.Prereqs(toolRoot));
+            if (flags.Contains("production-candidate"))
+            {
+                if (opts.TryGetValue("generation", out string? pcg) &&
+                    pcg.Length > 0)
+                    return Emit(ProductionClosure.CandidateSelect(
+                        toolRoot, pcg,
+                        opts.TryGetValue("note", out string? pcn)
+                            ? pcn : ""));
+                var pcd = ProductionClosure.Load(toolRoot);
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = true,
+                    ["format"] = ProductionClosure.Format,
+                    ["candidate"] = pcd.TryGetValue("candidate",
+                        out var pcc) ? pcc : null,
+                });
+            }
+            if (flags.Contains("production-certify"))
+                return Emit(ProductionClosure.AxisMark(
+                    toolRoot,
+                    opts.TryGetValue("axis", out string? pca)
+                        ? pca : "",
+                    opts.TryGetValue("state", out string? pcs)
+                        ? pcs : "",
+                    opts.TryGetValue("evidence", out string? pce)
+                        ? pce : "",
+                    opts.TryGetValue("note", out string? pcb)
+                        ? pcb : ""));
+            if (flags.Contains("production-state"))
+            {
+                if (opts.TryGetValue("state", out string? pst) &&
+                    pst.Length > 0)
+                    return Emit(ProductionClosure.Transition(
+                        toolRoot, pst,
+                        opts.TryGetValue("note", out string? psn)
+                            ? psn : ""));
+                var psd = ProductionClosure.Load(toolRoot);
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = true,
+                    ["format"] = ProductionClosure.Format,
+                    ["state"] = psd.TryGetValue("state", out var psv)
+                        ? psv : "DEVELOPMENT",
+                    ["state_history"] = psd.TryGetValue("state_history",
+                        out var psh) ? psh : null,
+                });
+            }
+            if (flags.Contains("production-freeze"))
+            {
+                bool on = flags.Contains("on");
+                bool off = flags.Contains("off");
+                if (on == off)
+                    throw new ExecutorError("PRODUCTION_CERT_INVALID",
+                        "--production-freeze requires exactly one of " +
+                        "--on / --off");
+                return Emit(ProductionClosure.FreezeSet(toolRoot, on,
+                    opts.TryGetValue("note", out string? pfn)
+                        ? pfn : ""));
+            }
+            if (flags.Contains("production-health"))
+                return Emit(ProductionClosure.Health(toolRoot));
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -1914,7 +1998,7 @@ internal static class Program
             "--release-gate [--bundle <dir>] [--suite <file>] " +
             "[--no-builds] | " +
             "--verify-audit | --db-status | " +
-            "--migrate | --teacher-collect [--dry-run] | " +
+            "--migrate | --teacher-collect (retired, fail-closed) | " +
             "--corpus --registry <j> --root <d> --tokenizer <t> " +
             "--out <d> [--policy <j>] | " +
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
@@ -1966,6 +2050,13 @@ internal static class Program
             "--capability-transition --capability <id> --state <s> " +
             "[--note <t>] | " +
             "--capability-matrix [--capability <id>] | " +
+            "--production-certification | --production-prereqs | " +
+            "--production-candidate [--generation <g>] [--note <t>] | " +
+            "--production-certify --axis <a> --state <s> " +
+            "[--evidence <f>] [--note <t>] | " +
+            "--production-state [--state <s>] [--note <t>] | " +
+            "--production-freeze --on|--off [--note <t>] | " +
+            "--production-health | " +
             "--capability-runtime-profile --capability <id> | " +
             "--failure-attribute --file <f.json> | " +
             "--arch-limitation-record --file <f.json> | " +

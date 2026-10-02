@@ -1569,11 +1569,14 @@ non-authoritative.
 
 ## Codex Amendment Workflow
 
-Workers **never modify the codex directly** (the canonical artifact
-`governance_rule/codex/data/governance_codex.sql`, schema
-`gptbridge-codex-artifact/v1`; `governance_codex.db` is an empty legacy
-file; the five `governance_codex.zh-TW.part-*.txt` files are read-only
-mirrors). All changes go through the governed amendment pipeline:
+Workers **never modify the codex directly**. PostgreSQL
+`gptbridge_codex` is the sole authority;
+`governance_rule/codex/data/governance_codex.sql` is a pipeline-regenerated
+working export (`UpdatePipeline.DatabaseName` — rewritten on every
+amendment; stale copies were purged 2026-10-02 and the abandoned 0-byte
+`governance_codex.db` was deleted under governor authorization); the
+five `governance_codex.zh-TW.part-*.txt` files are read-only
+mirrors. All changes go through the governed amendment pipeline:
 
 1. Author a `codex-amendment-request/v2` JSON artifact. Canonical
    format: `governance_rule/execution/audit/convergence/codex-amendment-request-format.md`.
@@ -1614,12 +1617,13 @@ Worker rules for codex work:
 
 ## Open Work Items (as of 2026-10-02)
 
-1. **Machine schema parity — 77 rows PENDING (fail-closed).** All
-   `gptbridge_codex.machine_schema_registry` rows remain
-   `parity_status='PENDING'` and `OBL_MACHINE_SCHEMA_PARITY` stays
-   `pending`. To close: produce real producer/validator/persistence/
-   semantic-hash evidence per schema and rebuild via
-   `--repair-projections`; never mark `complete` without that evidence.
+1. **Machine schema parity — CLOSED via governed restamp (2026-10-02).**
+   Governor adopted `SEAL_CANONICAL_V1` (option B of the 09-24 staged
+   proposal); amendment `machine-schema-parity-restamp-seal-canonical-v1-20261002`
+   executed 11:53Z (rev 237): all 77 `machine_schema_parity_evidence`
+   rows restamped to the C#-measured producer hash and
+   `machine_schema_registry.parity_status=PASS`. Post-execution probe:
+   `canonical_match=77/77`, `producer_validator_pass=77/77`.
 2. **Xingcheng model-service runtime smoke DONE (2026-10-02).**
    Evidence: `convergence/xingcheng-model-service-smoke-20261002.json`.
    Governed path: rebuilt `gptbridge-backend` (the 09-30 binary predated
@@ -1670,14 +1674,21 @@ Worker rules for codex work:
    surface stands (that absence is now the intended end state, not an
    open gap). No migration work remains here.
 7. **Ollama dependency: B154 retired (executed 2026-10-02T11:40Z, rev
-   235); code removal in progress.** Amendment
+   235); implementation removal executed.** Amendment
    `b154-ollama-retirement-20261002` rewrote B154 to
    `RETIREMENT:…/FORBID:ollama-service-activation-or-start|…` and set
-   `provision_lifecycle_status=retired`. Remaining work: remove
-   `ollama-service.exe` lane, `TeacherCollect.cs`, `--teacher-collect`,
-   `teacher-distillation.json` and any routing/probe code so the runtime
-   matches; sibling articles B155/A130/B25/C32 still mention Ollama —
-   residue convergence amendment requested separately.
+   `provision_lifecycle_status=retired`. Implementation removed:
+   `native/ollama_service/` deleted (sources pinned file-not-exists via
+   `retired_sources.json`), `TeacherCollect.cs` deleted,
+   `--teacher-collect` is a fail-closed `TEACHER_LANE_RETIRED` stub,
+   `teacher-distillation.json` is a disabled retired stub, the backend
+   status payload no longer declares an `ollama` dependency, and
+   `startup_manifest.json`/`resident-core.json`/
+   `data-architecture-contract.json`/`release-dependencies.json`/
+   `DependencyProbes.cs` carry no Ollama probe or activation path.
+   Sibling articles B155/A130/B25/C32 still mention Ollama —
+   residue convergence amendment requested separately
+   (`codex-amendment-request-ollama-sibling-residue-20261002`).
 8. **Codex open evidence gaps block verified release.**
     `postgresql_role_registry` is now populated (48 rows observed live
     2026-10-02, live↔registry delta = 0, evidence
@@ -1686,7 +1697,15 @@ Worker rules for codex work:
     unverified, which requires real acceptance evidence through the
     governed pipeline (never hand-edit). `DIR_DATA_SCHEMA_AUTHORITY` =
     `INCOMPLETE_EVIDENCE` / `verified-release-denied` / `open` remains
-    unresolved likewise.
+    unresolved likewise. Fresh evidence
+    (`postgresql-governance-evidence-devin-20261002.json`): 20 live
+    `gptbridge_*` schemas have zero authority-directory entries
+    (incl. `gptbridge_codex`, `gptbridge_xingcheng*`, trading/tool
+    schemas); 11 leftover `gptbridge_codex_codex_stage_*` staging
+    schemas need governed cleanup; retired-tool roles
+    (`system_rescue`/`global_cleaner`/`local_ai`) still exist live;
+    `gptbridge_runtime` login holds direct grants on 39 schemas incl.
+    test schemas.
 9. **No system Python on this host.** `Python313` lacks `python.exe`
     and the `py` launcher finds no install, so the retired
     `python -m governance_rule.execution.audit` entry cannot run.
@@ -1702,27 +1721,34 @@ Worker rules for codex work:
     and 110/148 migration files with no applied objects — do not claim
     migration closure. `--migration-db` is a scratch-only test hook,
     never point it at the governed DB.
-11. **Migration registry reconciliation needs three governor
-    decisions** (evidence: `migration-live-catalog-probe-20261002.json`
-    + `implementation-obligations-evidence-refresh-20261002.json`):
-    (a) 15 source-hash mismatches are post-registration semantic
-    *repairs* (2026-09-26 `e487bc473`/`99ba911f3`) — the current files
-    are correct; the fix is a governed **restamp**, never a file
-    revert; (b) registry sequences 25/37/45/46 point to files
-    intentionally deleted in `26c63f79e` (sqlite/qdrant retirement) —
-    retire the rows, **do not recreate** the files (a new file can
-    never hash-match the stamp); (c) 89 on-disk files are unregistered
-    — per-file governed register/retire/supersede decisions required.
-    Separately: registered `target_schema_hash` values use a
-    governor-side recipe; the executor's `OBJECT_MANIFEST_V1`
-    fingerprint will mismatch until the governor publishes the recipe
-    or authorizes a chain restamp. Full packaged request:
+11. **Migration registry: restamp + retirement EXECUTED (rev 236,
+    2026-10-02T11:50Z); 89-file registration still open.** Amendment
+    `sql-migration-registry-convergence-20261002` landed the governor's
+    decisions: (a) 15 `migration_source_hash`/`source_hash` rows
+    restamped to live file SHA-256 (repair commits `e487bc473`/
+    `99ba911f3`) — `--migration-status` now reports `match=45,
+    mismatch=0`; (b) seqs 25/37/45/46 `status=retired` in both
+    `sql_migration_registry` and `sql_migration_authority_registry`
+    (files intentionally deleted in `26c63f79e`; never recreate), with
+    successors rewired 26→24, 38→36, 47→44 and pre-state hashes
+    re-anchored to the new predecessor's registered target; (c) the 89
+    unregistered files (050–148) are inventoried in
+    `convergence/migration-unregistered-triage-20261002.json` — all
+    classified `active-missing-registration`, plus 2 filename-prefix
+    collisions (087×2, 088×2) and 12 absent sequence numbers awaiting
+    governor sequence assignment. Still open: downstream
+    `target_schema_hash` values are stamped on the pre-retirement
+    chain (the retired migrations created real `gptbridge_index.*`
+    objects), so the executor chain cannot pass `verify-target-hash`
+    past the retired points until a governed full-chain hash
+    re-derivation lands; registered hashes also still use the
+    governor-side recipe vs executor `OBJECT_MANIFEST_V1`. The bundled
     `manual-amendment-request-sql-migration-registry-reconciliation-20261002.json`
-    (all restamps/retirements with live hashes + 89 registrations
-    precomputed + 4 open decisions incl. the 087/088 filename-prefix
-    collisions; predecessor rev 234 @ 11:31:06Z, re-stamp at intake).
-12. **Parity extractor reimplemented in C#; canonical binding still
-    governor-blocked.** `MachineSchemaParity.cs` ports
+    remains unsubmitted (intake glob requires the
+    `codex-amendment-request-` prefix; its restamp/retire portions are
+    now superseded, its 89 precomputed registrations still pending
+    governor decision on the collision assignments).
+12. **Parity extractor reconciled in C#; current-generation evidence remains open.** `MachineSchemaParity.cs` ports
     `SEAL_CANONICAL_V1` byte-exact (verified against a hand-computed
     Python-semantics hash for AUDIT_EVENT) — verbs `--schema-parity`
     (full probe) and `--parity-descriptor <code>` (diagnostic).
@@ -1732,11 +1758,46 @@ Worker rules for codex work:
     source at `675fa045b^`, byte-parity proven incl. `default=str`,
     ensure_ascii escapes and `|`-split fallback) now exposes
     `BuildDescriptor`/`ComputeProducerHash`/`EvaluateRow` as pure
-    functions — use it as the reference; `MachineSchemaParity.cs` has
-    two divergences vs the oracle (`raw as string` drops non-string
-    descriptor values to null; `"G17"` floats differ from Python
-    shortest-round-trip) and should be reconciled onto the shared port.
-    The remaining step is purely governor-side: publish the canonical
-    descriptor projection or authorize a restamp (staged proposal
-    `codex-amendment-proposal-machine-schema-parity-restamp-20260924`).
-    Item 1's `PENDING` state stays until then.
+    functions. `MachineSchemaParity.cs` now delegates descriptor/hash/
+    row evaluation to the shared port (typed values no longer become
+    null). Float serialization uses the oracle notation thresholds
+    (1e-4 / 1e16), preserves negative zero and shortest-round-trip
+    digits. Regression: `dotnet run --project shared-layer/csharp/
+    GPTBridge.SemanticHash.Tests -c Release` (19 assertions passed).
+    The fresh build's live probe covers 77/77 rows, producer=validator
+    77/77, canonical match 77/77 after the parallel governed restamp.
+    The canonical publish DLL remains
+    locked by the active CodexPipeline watcher; the new build is tested
+    from `bin/Release/net10.0`, not yet loaded by that resident process.
+    The live registry now reports 77 VERIFIED rows and hash matches,
+    but persisted validation evidence still anchors the predecessor
+    2026-10-02T11:49:37Z. Current-generation evidence closure remains
+    pending; neither hash parity nor registry labels certify release.
+
+13. **Production Closure directive ��0�V��148 in force; phase-1
+    foundations landed (2026-10-02, worker:devin-cli).** New phase:
+    no new capabilities/architectures/runtimes/formats/governance �X
+    prove the existing system runs long, survives faults, and hands
+    off generations safely. `ProductionClosure.cs` lands
+    `star-production-certification/v1` (��4 12-axis matrix, ��5
+    NOT_RUN/RUNNING/PASS/FAIL/BLOCKED �X SKIPPED is not a state),
+    `star-production-health/v1` lightweight receipt (��122/��123), the
+    ��119 state machine (DEVELOPMENT��CANDIDATE��CERTIFYING��
+    PRODUCTION_READY��ACTIVE��DEGRADED/RECOVERY_REQUIRED��RETIRED),
+    ��1 `PRODUCTION_CLOSURE_FREEZE` marker (ACTIVE since 11:58Z �X
+    mutating surfaces should call `ProductionClosure.FreezeGuard`),
+    ��2 candidate pin (single-generation, refused once pinned) gated
+    on ��3 prerequisites (`--production-prereqs` derives live from the
+    latest release-gate report; all eight gates currently
+    NOT_EVALUATED �X candidate pin correctly refuses). Verbs:
+    `--production-certification`, `--production-prereqs`,
+    `--production-candidate --generation <g>`,
+    `--production-certify --axis <a> --state <s> --evidence <f>`,
+    `--production-state`, `--production-freeze --on|--off`,
+    `--production-health`. PASS on an axis requires an existing
+    evidence file (sha256 pinned); state store:
+    `xingcheng/runtime/state/production-certification.json`. Open:
+    soak harness ��6-��10 (8/24/72h), crash/fault batteries ��15-��20,
+    ��40-��50, ��85-��91, generation succession ��92-��105, release bundle
+    ��126-��127 �X all gated on a pinned candidate, which is gated on ��3
+    prerequisites reaching PASS.
