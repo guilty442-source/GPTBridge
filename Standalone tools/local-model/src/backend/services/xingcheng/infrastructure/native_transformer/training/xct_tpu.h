@@ -743,9 +743,16 @@ struct AccelPlane {
 };
 static AccelPlane g_accel;
 
-// Defined in xct_kernels.h (same TU). Forward-declared so the device
-// lane consults the same pin before the first dispatch.
+// xct_kernels.h (trainer TU) provides the policy-backed definition;
+// consumers without the policy loader (xc_modeltool) define
+// XCT_TPU_NO_KERNEL_POLICY before including this header and get the
+// closed default — their device lane stays gated by the env opt-in
+// and their own policy surface instead.
+#if defined(XCT_TPU_NO_KERNEL_POLICY)
+static bool kernel_policy_cuda_denied() { return false; }
+#else
 static bool kernel_policy_cuda_denied();
+#endif
 
 #if defined(XINGCHENG_CUDA)
 extern "C" int xcuda_probe(long long*, long long*, int*, int*);
