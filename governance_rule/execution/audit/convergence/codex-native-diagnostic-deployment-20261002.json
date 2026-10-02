@@ -34,5 +34,6 @@
                          "failed":  0
                      },
     "release_acceptance":  "PENDING",
-    "note":  "Local diagnostic assembly deployed and executed; no independent conformance certification or verified release is inferred."
+    "note":  "Local diagnostic assembly deployed and executed; no independent conformance certification or verified release is inferred.",
+    "convergence_verification":  "BLOCKED_GENERATION_DRIFT"
 }
