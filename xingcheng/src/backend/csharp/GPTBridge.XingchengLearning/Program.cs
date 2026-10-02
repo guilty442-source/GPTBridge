@@ -459,6 +459,22 @@ internal static class Program
             }
             if (flags.Contains("capability-consistency"))
                 return Emit(CapabilityConsistency.Run(toolRoot));
+            // §20 evidence chain + §90-§92 promotion delta.
+            if (flags.Contains("capability-evidence"))
+                return Emit(CapabilityEvidence.Record(toolRoot,
+                    ParseJsonFile(
+                        opts.TryGetValue("file", out string? cef)
+                            ? cef : "")));
+            if (flags.Contains("capability-evidence-status"))
+                return Emit(CapabilityEvidence.Status(toolRoot,
+                    opts.TryGetValue("capability", out string? ces)
+                        ? ces : ""));
+            if (flags.Contains("capability-delta"))
+                return Emit(CapabilityDelta.Compare(
+                    opts.TryGetValue("baseline", out string? cdb)
+                        ? cdb : "",
+                    opts.TryGetValue("candidate", out string? cdc)
+                        ? cdc : ""));
             if (flags.Contains("capability-regression-suite"))
             {
                 string csn = opts.TryGetValue("capability",
@@ -1829,6 +1845,9 @@ internal static class Program
             "--capability-validate [--file <f.json>] | " +
             "--capability-consistency | " +
             "--capability-regression-suite --capability <id> | " +
+            "--capability-evidence --file <f.json> | " +
+            "--capability-evidence-status [--capability <id>] | " +
+            "--capability-delta --baseline <f> --candidate <f> | " +
             "--tool-validate --file <f.json> --kind <request|result> | " +
             "--tool-gate [--tool <name>] [--requirement <req>] " +
             "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +
