@@ -79,6 +79,7 @@ const FORBIDDEN_PATTERNS = Object.freeze({
   ],
   python: [/^\s*import\s+.*['"][^'"]*\.py['"]/],
   typescript: [/^\s*import\s+.*['"][^'"]*\.tsx?['"]/],
+  julia: [/^\s*import\s+.*['"][^'"]*\.jl['"]/],
   native: [
     /^\s*import\s+.*['"](?:node:)?(?:ffi|addon|native)/,
     /\bcreateRequire\b.*['"][^'"]*\.(?:so|dll|node)['"]/,

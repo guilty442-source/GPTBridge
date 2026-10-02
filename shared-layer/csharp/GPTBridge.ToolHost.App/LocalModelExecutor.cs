@@ -90,8 +90,23 @@ internal sealed class LocalModelExecutor
             _idleReleaseSeconds) = ResolveBundle(env.ToolRoot);
     }
 
+    /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
+    /// copy under the legacy local-model settings dir is accepted
+    /// read-only. Writes always target the canonical path.</summary>
+    internal static string EngineSettingsPath(string toolRoot)
+    {
+        var canonical = Path.Combine(
+            toolRoot, "xingcheng", "runtime", "settings",
+            "native-engine.json");
+        if (File.Exists(canonical)) return canonical;
+        var legacy = Path.Combine(
+            toolRoot, "runtime", "settings", "native-engine.json");
+        return File.Exists(legacy) ? legacy : canonical;
+    }
+
     /// <summary>
-    /// Read runtime/settings/native-engine.json and resolve the pinned
+    /// Read xingcheng/runtime/settings/native-engine.json and resolve
+    /// the pinned
     /// inference bundle. The checkpoint value may point at a bundle dir
     // directly or at a source .pt whose exported bundle is matched by
     /// source_checkpoint + size (parity with ModelServiceLocator).
@@ -106,8 +121,7 @@ internal sealed class LocalModelExecutor
         bool CppCuda, int IdleReleaseSeconds)
         ResolveBundle(string toolRoot)
     {
-        var settingsPath = Path.Combine(
-            toolRoot, "runtime", "settings", "native-engine.json");
+        var settingsPath = EngineSettingsPath(toolRoot);
         if (!File.Exists(settingsPath))
             throw new InvalidOperationException(
                 "XC_ENGINE_SETTINGS_MISSING");
@@ -480,12 +494,6 @@ internal sealed class LocalModelExecutor
                         ["error_code"] = "MODEL_SERVICE_SHUTDOWN",
                     };
                 }
-                finally
-                {
-                    Interlocked.Exchange(ref _lastActivityTicks,
-                        DateTime.UtcNow.Ticks);
-                    Interlocked.Decrement(ref _inflight);
-                }
                 catch (Exception ex)
                 {
                     reply = new JsonObject
@@ -495,6 +503,12 @@ internal sealed class LocalModelExecutor
                         ["message"] = ex.Message.Length > 240
                             ? ex.Message[..240] : ex.Message,
                     };
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _lastActivityTicks,
+                        DateTime.UtcNow.Ticks);
+                    Interlocked.Decrement(ref _inflight);
                 }
                 WriteJson(context.Response,
                     reply?["ok"]?.GetValue<bool>() == true ? 200 : 500,
@@ -814,6 +828,12 @@ internal sealed class LocalModelExecutor
             ["worker_alive"] = _child is { HasExited: false },
             ["bundle"] = Path.GetFileName(_bundleDir),
             ["last_error"] = _lastError,
+            ["auto_release"] = new JsonObject
+            {
+                ["idle_seconds"] = _idleReleaseSeconds,
+                ["inflight"] = Volatile.Read(ref _inflight),
+                ["last_release"] = _lastRelease,
+            },
         },
         ["executor_state"] = "active:model-service",
     };

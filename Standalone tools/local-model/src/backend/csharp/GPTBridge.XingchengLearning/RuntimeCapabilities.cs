@@ -18,7 +18,7 @@ namespace GPTBridge.XingchengLearning;
 internal static class RuntimeCapabilities
 {
     public const string Format = "star-runtime-capabilities/v1";
-    public const string Rel = "runtime/settings/runtime-capabilities.json";
+    public const string Rel = "xingcheng/runtime/settings/runtime-capabilities.json";
 
     public static readonly string[] ReasoningModes =
         { "NONE", "LOW", "NORMAL", "HIGH" };
@@ -37,7 +37,7 @@ internal static class RuntimeCapabilities
         { 2048, 4096, 8192, 16384, 32768 };
 
     private static string Path_(string toolRoot)
-        => Path.Combine(
+        => XcPaths.SettingsReadPath(
             toolRoot, Rel.Replace('/', Path.DirectorySeparatorChar));
 
     // ------------------------------------------------- resolve knobs --
