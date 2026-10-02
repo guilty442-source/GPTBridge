@@ -28,6 +28,9 @@ xstore verify-store --store <dir>     re-hash all objects + index chain
 xstore audit-append --log <f> --data <json>
                                       hash-chained JSONL entry
 xstore audit-verify --log <f>         verify the whole chain
+xstore snapshot --store <d> --src <d> [--name <id>]
+                                      pin a directory into the store
+xstore snapshot-verify --store <d> --manifest <sha256|path>
 ```
 
 Output contract: one JSON object on stdout (`format` tagged,
@@ -68,6 +71,19 @@ reordering, forged appends and seq jumps all fail verify. Append is
 O(1) via backward tail-seek; `f.sync_all` before receipt. Inherent
 limit: lone logs cannot detect tail truncation — callers anchor `head`
 externally (store index, DB row) to close it.
+
+## Dataset snapshots (snapshot.rs)
+
+`snapshot` pins a directory: every file is `put` (idempotent —
+unchanged files are receipts, not copies), then a
+`star-dataset-snapshot/v1` manifest {name, files:[{path,sha256,size}]}
+is itself content-addressed into objects/ AND written to
+`snapshots/<sha>.json`, then an audit entry lands in
+`store-audit.jsonl`. `snapshot-verify` re-checks manifest
+self-addressing (lookup sha == recomputed content hash) plus every
+listed object's presence + hash — tampered manifests, missing or
+corrupt objects all flip `ok:false`. Re-snapshotting a mutated
+directory yields a new manifest sha; old generations stay retrievable.
 
 ## Guarantees (xcn1.rs)
 

@@ -18,6 +18,7 @@
 mod audit;
 mod diff;
 mod hash;
+mod snapshot;
 mod store;
 mod xcn1;
 
@@ -253,6 +254,19 @@ fn cmd_audit_verify(m: &HashMap<String, String>) -> Result<serde_json::Value, St
     audit::verify(Path::new(log))
 }
 
+fn cmd_snapshot(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let store_dir = m.get("store").ok_or("SNAPSHOT_ARG_MISSING: --store")?;
+    let src = m.get("src").ok_or("SNAPSHOT_ARG_MISSING: --src")?;
+    let name = m.get("name").map(|s| s.as_str()).unwrap_or("snapshot");
+    snapshot::snapshot(Path::new(store_dir), Path::new(src), name)
+}
+
+fn cmd_snapshot_verify(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let store_dir = m.get("store").ok_or("SNAPSHOT_ARG_MISSING: --store")?;
+    let mf = m.get("manifest").ok_or("SNAPSHOT_ARG_MISSING: --manifest")?;
+    snapshot::snapshot_verify(Path::new(store_dir), mf)
+}
+
 fn usage() -> ExitCode {
     eprintln!(
         "usage: xstore <ckpt-info|ckpt-verify|hash> <file> [--hash-payloads]\n\
@@ -261,7 +275,9 @@ fn usage() -> ExitCode {
          \x20      xstore get --store <dir> --sha256 <hex> --out <path>\n\
          \x20      xstore verify-store --store <dir>\n\
          \x20      xstore audit-append --log <f> --data <json>\n\
-         \x20      xstore audit-verify --log <f>"
+         \x20      xstore audit-verify --log <f>\n\
+         \x20      xstore snapshot --store <dir> --src <dir> [--name <id>]\n\
+         \x20      xstore snapshot-verify --store <dir> --manifest <sha|path>"
     );
     ExitCode::from(2)
 }
@@ -285,6 +301,8 @@ fn main() -> ExitCode {
         "verify-store" => cmd_verify_store(&kv_args(&args[1..])),
         "audit-append" => cmd_audit_append(&kv_args(&args[1..])),
         "audit-verify" => cmd_audit_verify(&kv_args(&args[1..])),
+        "snapshot" => cmd_snapshot(&kv_args(&args[1..])),
+        "snapshot-verify" => cmd_snapshot_verify(&kv_args(&args[1..])),
         _ => return usage(),
     };
     match out {
