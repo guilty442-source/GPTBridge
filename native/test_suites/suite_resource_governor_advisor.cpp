@@ -60,7 +60,7 @@ int main() {
         NT_CHECK(parsed->advisor.schedule_mode == "sleep", "schedule mode");
 
         const std::string bad_ceiling =
-            R"({"auto_mode": true, "auto": {"ceiling": "turbo"},)"
+            R"({"auto_mode": true, "auto": {"ceiling": "warp"},)"
             R"("modes": {"low": {}, "medium": {}}})";
         auto bad = gov::parse_rules(bad_ceiling);
         NT_CHECK(bad.has_value() && !bad->error.empty(),
@@ -68,7 +68,7 @@ int main() {
 
         const std::string bad_sched =
             R"({"auto_mode": true,)"
-            R"("power_saving_schedule": {"mode": "turbo"},)"
+            R"("power_saving_schedule": {"mode": "warp"},)"
             R"("modes": {"low": {}, "medium": {}, "sleep": {}}})";
         auto bad2 = gov::parse_rules(bad_sched);
         NT_CHECK(bad2.has_value() && !bad2->error.empty(),
@@ -88,6 +88,8 @@ int main() {
         NT_CHECK(gov::mode_rank("sleep") < gov::mode_rank("low"), "rank low");
         NT_CHECK(gov::mode_rank("low") < gov::mode_rank("medium"), "rank med");
         NT_CHECK(gov::mode_rank("medium") < gov::mode_rank("high"), "rank hi");
+        NT_CHECK(gov::mode_rank("high") < gov::mode_rank("turbo"),
+                 "rank turbo");
         NT_CHECK(gov::mode_rank("bogus") == gov::mode_rank("medium"),
                  "unknown = medium");
         /* 跨午夜窗口 22:00-07:00。 */
@@ -159,9 +161,9 @@ int main() {
         const gov::AdvisorDecision first =
             gov::evaluate_advisor(policy, sig, state);
         NT_CHECK(first.evaluated && !first.changed, "streak 1/2 holds");
-        NT_CHECK(first.target == "medium", "high clamped to ceiling");
-        NT_CHECK(first.reason.find("ceiling") != std::string::npos,
-                 "ceiling reason recorded");
+        NT_CHECK(first.target == "medium", "demand targets ceiling");
+        NT_CHECK(first.reason.find("worker-demand") != std::string::npos,
+                 "demand reason recorded");
         NT_CHECK(state.applied_mode == "low", "still low");
 
         sig.now_mono += 60.0;
@@ -301,6 +303,64 @@ int main() {
                  "idle full speed applies");
     }
     NT_END_TEST(SUITE, "idle_full_speed_allows_high");
+
+    NT_TEST(SUITE, "idle_full_speed_reaches_turbo") {
+        /* 2026-10-03：自動上限 90% —— 閒置且需求＋餘裕時升至 turbo
+         * （idle_ceiling），使用中時需求只到 ceiling(high)。 */
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.ceiling = "high";
+        policy.idle_ceiling = "turbo";
+        policy.idle_after_s = 300.0;
+        policy.streak_up = 2;
+        gov::AdvisorState state;
+        state.applied_mode = "medium";
+        gov::AdvisorSignals sig = calm_signals();
+        sig.valid_modes = {"sleep", "low", "medium", "high", "turbo"};
+        sig.user_idle_s = 600.0;
+        sig.reg_active = true;
+
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.evaluated && d.idle_active, "idle detected");
+        NT_CHECK(d.eff_ceiling == "turbo", "idle ceiling turbo");
+        NT_CHECK(d.target == "turbo" && !d.changed,
+                 "streak 1/2 holds at turbo");
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && state.applied_mode == "turbo",
+                 "idle demand reaches turbo (90%)");
+
+        /* 使用者回來：現檔高於使用中上限 → urgent 降回 ceiling 下。 */
+        sig.user_idle_s = 10.0;
+        sig.reg_active = false;
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.idle_active && d.changed && d.urgent &&
+                     d.target == "medium",
+                 "return demotes urgently under ceiling");
+    }
+    NT_END_TEST(SUITE, "idle_full_speed_reaches_turbo");
+
+    NT_TEST(SUITE, "active_use_demand_caps_at_ceiling") {
+        /* 使用中（非閒置）需求＋餘裕 → 只到 ceiling(high)，不到 turbo。 */
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.ceiling = "high";
+        policy.idle_ceiling = "turbo";
+        policy.streak_up = 1;
+        gov::AdvisorState state;
+        state.applied_mode = "medium";
+        gov::AdvisorSignals sig = calm_signals();
+        sig.valid_modes = {"sleep", "low", "medium", "high", "turbo"};
+        sig.user_idle_s = 0.0; /* 使用中 */
+        sig.reg_active = true;
+
+        const gov::AdvisorDecision d =
+            gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.idle_active && d.eff_ceiling == "high",
+                 "active ceiling stays high");
+        NT_CHECK(d.changed && d.target == "high",
+                 "active demand capped at high (80%)");
+    }
+    NT_END_TEST(SUITE, "active_use_demand_caps_at_ceiling");
 
     NT_TEST(SUITE, "returning_user_demotes_urgently") {
         gov::AdvisorPolicy policy = enabled_policy();

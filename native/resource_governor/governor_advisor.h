@@ -5,7 +5,8 @@
  * resource-governor 行程內，不新增平行 watcher）：
  *  - 夜間省電窗口（power_saving_schedule）→ schedule mode，立即生效；
  *  - 回應緊張／整機 CPU≥strain_cpu／RAM≥strain_mem → low，立即生效；
- *  - worker 需求＋整機餘裕 → 升檔（streak_up 連續評估）；
+ *  - worker 需求＋整機餘裕 → 升至有效上限檔位（streak_up 連續評估；
+ *    使用中目標＝ceiling、閒置＝idle_ceiling，可達 turbo 90% 檔）；
  *  - 其餘 → medium 基線；降檔需 streak_down＋cooldown_s。
  *
  * 使用者可用性上限（2026-10-01 需求）：auto.ceiling 為自動模式可達
@@ -120,8 +121,9 @@ struct AdvisorDecision {
     int streak = 0;
 };
 
-/* 檔位序：sleep<low<medium<high；未知檔位視同 medium（與 Python
- * _TIER_RANK.get(x, 2) 一致）。 */
+/* 檔位序：sleep<low<medium<high<turbo；未知檔位視同 medium（與 Python
+ * _TIER_RANK.get(x, 2) 一致）。turbo（2026-10-03）為自動模式專用
+ * 90% 上限檔——idle_ceiling 目標，UI 不提供手動按鈕。 */
 int mode_rank(std::string_view mode);
 
 /* 夜間窗口判定（跨午夜感知；local_minutes<0 視為不在窗口）。 */

@@ -3,6 +3,9 @@
  * 語義對齊退役 Python ``auto_adjust_mode``（資產文件），加上
  * auto.ceiling 自動模式上限：advisor 評估出的高檔位一律被 clamp 到
  * ceiling，保證使用者前景互動保有整機餘裕。
+ * 2026-10-03：檔位序新增 turbo（>high）；worker 需求升檔目標改為
+ * 有效上限本身（使用中→ceiling、閒置→idle_ceiling），不再硬編碼
+ * high——自動模式上限可達 90% 檔。
  */
 #include "governor_advisor.h"
 
@@ -54,6 +57,7 @@ int mode_rank(std::string_view mode) {
     if (mode == "sleep") return 0;
     if (mode == "low") return 1;
     if (mode == "high") return 3;
+    if (mode == "turbo") return 4;
     return 2; /* medium 與未知檔位 */
 }
 
@@ -224,6 +228,18 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         in_schedule_window(sig.local_minutes, policy.schedule_start_min,
                            policy.schedule_end_min);
 
+    /* 閒置全速：無輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling；
+     * user_idle_s<0（偵測失敗）視同使用中 → 仍受 ceiling 限制。
+     * 提前於目標選擇：worker 需求升檔以有效上限為目標（使用中→
+     * ceiling、閒置→idle_ceiling），不再硬編碼 high。 */
+    out.idle_active = policy.idle_full_speed && sig.user_idle_s >= 0.0 &&
+                      sig.user_idle_s >= policy.idle_after_s;
+    out.eff_ceiling =
+        out.idle_active &&
+                mode_rank(policy.idle_ceiling) > mode_rank(policy.ceiling)
+            ? policy.idle_ceiling
+            : policy.ceiling;
+
     std::string reason;
     if (out.schedule_active) {
         out.target = policy.schedule_mode;
@@ -244,7 +260,7 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         out.urgent = true;
         reason = sig.strained ? "strained" : "machine-overload";
     } else if (out.demand && out.headroom) {
-        out.target = "high";
+        out.target = out.eff_ceiling;
         reason = "worker-demand";
     } else if (out.demand) {
         out.target = "medium";
@@ -253,15 +269,6 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         out.target = "medium";
         reason = "baseline";
     }
-    /* 閒置全速：無輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling；
-     * user_idle_s<0（偵測失敗）視同使用中 → 仍受 ceiling 限制。 */
-    out.idle_active = policy.idle_full_speed && sig.user_idle_s >= 0.0 &&
-                      sig.user_idle_s >= policy.idle_after_s;
-    out.eff_ceiling =
-        out.idle_active &&
-                mode_rank(policy.idle_ceiling) > mode_rank(policy.ceiling)
-            ? policy.idle_ceiling
-            : policy.ceiling;
     /* 使用者可用性上限：自動模式永不升過有效 ceiling（降檔/省電不受限）。 */
     if (mode_rank(out.target) > mode_rank(out.eff_ceiling)) {
         out.target = out.eff_ceiling;

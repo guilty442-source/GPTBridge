@@ -63,7 +63,7 @@ int main() {
                  "explicit defaults beat preset");
 
         const std::string unknown =
-            R"({"mode": "turbo", "modes": {"sleep": {}}})";
+            R"({"mode": "warp", "modes": {"sleep": {}}})";
         auto bad = gov::parse_rules(unknown);
         NT_CHECK(bad.has_value() && !bad->error.empty(), "unknown mode error");
     }
