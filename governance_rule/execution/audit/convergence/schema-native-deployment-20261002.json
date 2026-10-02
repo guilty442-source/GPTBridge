@@ -1,0 +1,21 @@
+﻿{
+    "artifact":  "schema-native-deployment/v1",
+    "authority":  "non-authoritative-audit-evidence",
+    "timestamp":  "2026-10-02T13:51:58.0321632Z",
+    "source_commit":  "373be9f1ddb5dffc9d51330da5bc4b2a65a44293",
+    "deployed_sha256":  "8593B112D3C7E59F6226EC3155A111E4C4810DB6BA1424E725D490D67B91FD4B",
+    "source_sha256":  "8593B112D3C7E59F6226EC3155A111E4C4810DB6BA1424E725D490D67B91FD4B",
+    "regression_passed":  75,
+    "audit_passed":  3583,
+    "audit_failed":  0,
+    "generation":  "2026-10-02T13:44:01Z",
+    "descriptor_rows":  77,
+    "current_descriptor_receipts_pass":  77,
+    "formal_verification":  "PASS",
+    "formal_open":  6,
+    "schema_closure_open":  77,
+    "release":  "VERIFIED_RELEASE_DENIED",
+    "convergence":  "INCOMPLETE_EVIDENCE",
+    "resident_host_restarted":  false,
+    "note":  "Descriptor receipts do not certify schema migration closure. Canonical CLI deployed; resident host in-memory assembly not verified."
+}
