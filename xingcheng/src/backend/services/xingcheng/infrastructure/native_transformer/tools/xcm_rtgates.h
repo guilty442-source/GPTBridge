@@ -48,6 +48,9 @@ extern "C" int xcuda_matmul_bf16(const double*, long long, long long,
 extern "C" int xcuda_fp8_available();
 extern "C" int xcuda_matmul_fp8(const double*, long long, long long,
                                 const double*, long long, double*);
+extern "C" int xcuda_sgemm_f32(const float*, const float*, float*,
+                               long long, long long, long long,
+                               int, int);
 extern "C" int xcuda_kv_available();
 extern "C" int xcuda_kv_alloc(long long, long long, long long,
                               long long);
@@ -90,10 +93,14 @@ int mode_cuda_parity_all(const Args&) {
     // Coverage shapes: skinny multi-row (m<=16 GEMV), single-row decode
     // (m==1 fast path), and wide-tile (m,n>=32 -> 64x64 kernels). The
     // dispatch is shape-adaptive, so parity evidence must span all
-    // three branches.
+    // three branches. AC §32 additionally sweeps the training hot
+    // shapes (768-wide model dims) so the parity report is the §37
+    // promotion evidence, not just a smoke probe.
     struct Shape { long long m, k, n; };
     static const Shape kShapes[] = {
-        {8, 16, 12}, {1, 64, 256}, {64, 96, 48}};
+        {8, 16, 12}, {1, 64, 256}, {64, 96, 48},
+        {16, 768, 768}, {8, 768, 2048}, {8, 2048, 768},
+        {16, 768, 1024}, {4, 768, 8192}};
 
     struct Lane { const char* name; const char* status;
                   double max_diff; double tol; };
@@ -131,6 +138,48 @@ int mode_cuda_parity_all(const Args&) {
     run_gemm("gemm_f64", xcuda_matmul_f64, 1e-9);
     run_gemm("gemm_bf16", xcuda_matmul_bf16, 0.02);
     run_gemm("gemm_fp8", xcuda_matmul_fp8, 0.25);
+
+    // AC §32-§35: the trainer's fp32 GEMM lane (xcuda_sgemm_f32 —
+    // the cuBLAS replacement for the hot shapes) must hold the same
+    // CPU-reference parity the inference lanes already prove.
+    if (cuda) {
+        double worst = 0.0, worst_tol = 0.0;
+        bool avail = true;
+        for (const auto& s : kShapes) {
+            std::vector<float> Af(static_cast<size_t>(s.m * s.k)),
+                Bf(static_cast<size_t>(s.k * s.n));
+            std::vector<double> A(static_cast<size_t>(s.m * s.k)),
+                B(static_cast<size_t>(s.k * s.n));
+            {
+                std::mt19937_64 rng(4);
+                std::uniform_real_distribution<double> u(-0.5, 0.5);
+                for (size_t i = 0; i < A.size(); ++i)
+                    A[i] = u(rng), Af[i] = (float)A[i];
+                for (size_t i = 0; i < B.size(); ++i)
+                    B[i] = u(rng), Bf[i] = (float)B[i];
+            }
+            std::vector<double> ref(static_cast<size_t>(s.m * s.n));
+            std::vector<float> gotf(ref.size(), 0.0f);
+            cpup_ref_matmul(A.data(), s.m, s.k, B.data(), s.n,
+                            ref.data());
+            const double refmax = std::max(cpup_maxabs(ref), 1e-12);
+            if (xcuda_sgemm_f32(Af.data(), Bf.data(), gotf.data(),
+                                s.m, s.k, s.n, /*layout=*/1,
+                                /*acc=*/0) != 0) {
+                avail = false;
+                break;
+            }
+            for (size_t i = 0; i < ref.size(); ++i)
+                worst = std::max(worst,
+                                 std::abs(ref[i] - (double)gotf[i]));
+            worst_tol = std::max(worst_tol, 2e-5 * refmax);
+        }
+        lanes.push_back({"gemm_fp32", !avail ? "unavailable"
+                         : worst <= worst_tol ? "PASS" : "FAIL",
+                         worst, worst_tol});
+    } else {
+        lanes.push_back({"gemm_fp32", "not_run", 0, 0});
+    }
 
     // Grouped fp64 GEMM: two row groups, per-group weight matrices.
     if (cuda) {
