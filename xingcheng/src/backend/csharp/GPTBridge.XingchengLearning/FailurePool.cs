@@ -125,7 +125,7 @@ internal static class FailurePool
         string evidence, string severity = "medium",
         bool reproducible = true, string? reason = null,
         string? modelVersion = null, string? runtimeVersion = null,
-        string? provenance = null)
+        string? provenance = null, string? capabilityId = null)
     {
         try
         {
@@ -145,6 +145,9 @@ internal static class FailurePool
                 ["runtime_version"] =
                     runtimeVersion ?? "xc-native-cpp23",
                 ["failure_class"] = failureClass,
+                // AC §15: the pool bucket is a storage detail; the
+                // canonical capability_id is the governing identity.
+                ["capability_id"] = capabilityId ?? "",
                 ["failure_reason"] = reason ?? "",
                 ["expected"] = expected,
                 ["actual"] = actual,

@@ -1064,7 +1064,8 @@ internal static class Program
                     fr.TryGetProperty("runtime_version", out var frv)
                         ? frv.GetString() : null,
                     fr.TryGetProperty("provenance", out var fpv)
-                        ? fpv.GetString() : null);
+                        ? fpv.GetString() : null,
+                    fcap);
                 return Emit(new Dictionary<string, object?>
                 {
                     ["ok"] = rec != null,
