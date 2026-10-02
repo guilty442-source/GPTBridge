@@ -9,7 +9,7 @@ flowchart LR
     subgraph SRC["資料來源"]
         RDB["role DBs<br/>language_training_example<br/>language_preference_pair"]
         CORPUS["corpus registry + file roots"]
-        TEACHER["Ollama teacher<br/>（B154 註冊；native-only 消除中）"]
+        TEACHER["原生自我蒸餾 teacher<br/>xc_modeltool serve + infer<br/>（pinned bundle）"]
     end
 
     subgraph PIPE["資料管線"]
