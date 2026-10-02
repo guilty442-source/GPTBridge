@@ -91,6 +91,7 @@ internal static partial class PushGate
                     "-NoProfile",
                     "-ExecutionPolicy", "Bypass",
                     "-File", Rel(root, BuildScriptRelative),
+                    "-BuildOnly",
                 }, (int)(config.BuildTimeoutS * 1000));
                 if (build.TimedOut)
                     return Done("build-timeout");

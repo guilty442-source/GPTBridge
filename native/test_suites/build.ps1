@@ -1,7 +1,8 @@
 # Build + run the native test suites (MSVC, no Python).
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File native/test_suites/build.ps1
 #        [-MaxParallel N]   bounded-parallel suite execution (default 4, cap 8)
-param([int]$MaxParallel = 4)
+#        [-BuildOnly]       stage binaries and manifest; the caller runs suites
+param([int]$MaxParallel = 4, [switch]$BuildOnly)
 $ErrorActionPreference = "Stop"
 $MaxParallel = [Math]::Max(1, [Math]::Min(8, $MaxParallel))
 $vs = "E:\Program Files\Microsoft Visual Studio\18\Community"
@@ -475,6 +476,11 @@ $manifestSuites = @($suites | ForEach-Object {
     revision = $revision
     suites = $manifestSuites
 } | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $out "suite-manifest.json") -Encoding UTF8
+
+if ($BuildOnly) {
+    Write-Output "BUILD COMPLETE: binaries and suite manifest staged"
+    exit 0
+}
 
 # Bounded-parallel suite execution: each suite writes a uniquely-named
 # <stem>.json report and binds only ephemeral ports, so concurrent runs
