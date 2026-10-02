@@ -6539,6 +6539,20 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
     },
     {
+      "id": "obligation:row:OBL_MACHINE_SCHEMA_PARITY",
+      "items": "tables.implementation_obligations",
+      "kind": "json-array-min-count",
+      "markers": [
+        "obligation_code=OBL_MACHINE_SCHEMA_PARITY",
+        "implementation_owner=module-execution-layer",
+        "target_state=every current registered schema has independently evidenced producer,validator,persistence and canonical semantic hashes with exact current-generation parity;descriptor self-restamp alone is not implementation evidence",
+        "acceptance_evidence=PENDING: 77 registry rows remain PENDING;74 legacy descriptor-restamp rows are not independent producer/validator/persistence execution evidence;missing new-schema evidence and generation/provenance verification must close before completion",
+        "current_state=pending"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
+    },
+    {
       "id": "obligation:row:OBL_POSTGRESQL_AUTHORITY",
       "items": "tables.implementation_obligations",
       "kind": "json-array-min-count",
@@ -6842,20 +6856,6 @@
         "target_state=A backup is a recovery artifact;restore alone grants no authority. Reopened data must pass schema,version,hash,RLS,role,lineage and generation certification.",
         "acceptance_evidence=isolated restore and post-restore certification evidence",
         "current_state=mandated"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
-    },
-    {
-      "id": "obligation:row:OBL_MACHINE_SCHEMA_PARITY",
-      "items": "tables.implementation_obligations",
-      "kind": "json-array-min-count",
-      "markers": [
-        "obligation_code=OBL_MACHINE_SCHEMA_PARITY",
-        "implementation_owner=module-execution-layer",
-        "target_state=all 74 registered machine schemas carry equal evidenced producer,validator,persistence and canonical semantic hashes (SEAL_CANONICAL descriptor digests)",
-        "acceptance_evidence=machine_schema_parity_evidence restamp at codex-generation-convergence-20260925: 74/74 rows PASS, four equal descriptor hashes each",
-        "current_state=complete"
       ],
       "min_count": 1,
       "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
@@ -27675,7 +27675,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T07:57:37Z",
+  "generated_at": "2026-10-02T08:59:27Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

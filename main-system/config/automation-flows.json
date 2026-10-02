@@ -66,7 +66,7 @@
       "enabled": true,
       "push": true,
       "push_gate": {
-        "enabled": false,
+        "enabled": true,
         "auto_build": true,
         "build_timeout_s": 600,
         "suite_timeout_s": 90,

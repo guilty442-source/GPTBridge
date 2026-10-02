@@ -427,13 +427,14 @@ internal static partial class GenerationProjections
             return;
         var rows = connection.Execute(
             "SELECT diagram_code, artifact_path, content_hash, "
-            + "source_codex_version "
+            + "source_codex_version, read_only_required "
             + "FROM architecture_diagram_artifact_registry "
             + "WHERE status='active' ORDER BY diagram_code").Rows
             .ToList();
         var present = 0;
         var hashMatch = 0;
         var readOnly = 0;
+        var readOnlyViolations = 0;
         var stale = 0;
         var missing = 0;
         var rebind = new List<object?[]>();
@@ -451,6 +452,7 @@ internal static partial class GenerationProjections
             }
             present++;
             if (new FileInfo(file).IsReadOnly) readOnly++;
+            else if (Convert.ToInt64(row[4]) != 0) readOnlyViolations++;
             var hash = SuccessorBuilder.FileSha256(file);
             rebind.Add(new object?[] { version, hash, version, code });
         }
@@ -490,7 +492,7 @@ internal static partial class GenerationProjections
                 (long)present, (long)hashMatch, (long)readOnly,
                 (long)stale, (long)missing,
                 missing == 0 && present == rows.Count && hashMatch == rows.Count
-                    && stale == 0 && readOnly == rows.Count ? "PASS" : "FAIL", version,
+                    && stale == 0 && readOnlyViolations == 0 ? "PASS" : "FAIL", version,
             });
     }
 
@@ -539,7 +541,7 @@ internal static partial class GenerationProjections
             {
                 if (!clause.Contains("sub-sovereign", StringComparison.OrdinalIgnoreCase)) continue;
                 if (System.Text.RegularExpressions.Regex.IsMatch(clause,
-                    "historical|abolished|retired|lineage|superseded|REMOVED|no sub-sovereign|not a sovereign|without restoring|never a sovereign",
+                    "historical|abolished|retired|lineage|superseded|REMOVED|no sub-sovereign|not a sovereign|without restoring|never a sovereign|not revive a sub-sovereign",
                     System.Text.RegularExpressions.RegexOptions.IgnoreCase)) historical++;
                 else current++;
             }
