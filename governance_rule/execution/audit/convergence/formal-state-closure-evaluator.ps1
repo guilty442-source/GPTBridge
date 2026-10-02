@@ -149,6 +149,11 @@ if ($Verify) {
 if (-not $Request) { $report | ConvertTo-Json -Depth 50; exit }
 $changes=[Collections.Generic.List[object]]::new()
 function Add-Change([string]$Table,[object]$Key,[string]$Field,[object]$Value) {
+    $existing=Get-CodexRows $Table | Where-Object {
+        $row=$_
+        @($Key.Keys | Where-Object { $row.$_ -ne $Key[$_] }).Count -eq 0
+    } | Select-Object -First 1
+    if ($existing -and $existing.$Field -ceq $Value) { return }
     $changes.Add(@{table=$Table;key=$Key;field=$Field;proposed=$Value})
 }
 function Amend-Law([string]$Id,[string]$Rule,[string]$Prohibition='') {
@@ -159,14 +164,21 @@ Amend-Law 'A120' 'EPOCH-AUTHORITY:codex_version_epochs registers epoch identity 
 $d124=($articles | Where-Object provision_id -eq 'D124').rule
 $d124=$d124.Replace('CERTIFICATION:sealed-governed-authorization is the sole current certification-state value and must equal current seal,epoch seal and certification evidence.','STATE-DIMENSIONS:seal_manifest and epoch_seal_manifest certification_state are governance-sealing state and must both be sealed-governed-authorization;certification_evidence.status is the distinct external-verification state and may remain external-signatures-required until actual detached verification;codex_version_epochs.status is epoch identity lifecycle and must be active for the current epoch. CONSISTENCY:these typed dimensions share current generation and epoch but must never be compared as one enum. CERTIFIED-SEAL-AND-RELEASE:D107 real Ed25519 2-of-3 verification and every applicable independent closure gate remain mandatory;governed sealing or active epoch identity alone cannot satisfy them.')
 Amend-Law 'D124' $d124 'FORBID:stale binding version+search lifecycle copied independently+stale special-law provision link+legacy backing schema claimed canonical+missing normalization plan+state-dimension-conflation+governed seal or active epoch presented cryptographically certified.'
-Amend-Law 'D107' (($articles | Where-Object provision_id -eq 'D107').rule + ' GOVERNED-SEAL:sealed-governed-authorization is an orthogonal publication/integrity state,not CERTIFIED_SEAL;an active epoch is an identity lifecycle state,not signature verification. EXTERNAL-GATE:the EXTERNAL_SIGNATURE closure requirement remains externally-blocked until actual current-generation Ed25519 threshold verification;an administrative retired-not-required label cannot repeal this gate.')
+$d107=($articles | Where-Object provision_id -eq 'D107').rule
+if (-not $d107.Contains('GOVERNED-SEAL:')) {
+    Amend-Law 'D107' ($d107 + ' GOVERNED-SEAL:sealed-governed-authorization is an orthogonal publication/integrity state,not CERTIFIED_SEAL;an active epoch is an identity lifecycle state,not signature verification. EXTERNAL-GATE:the EXTERNAL_SIGNATURE closure requirement remains externally-blocked until actual current-generation Ed25519 threshold verification;an administrative retired-not-required label cannot repeal this gate.')
+}
 Amend-Law 'B5' 'AUTHORITATIVE-FORM:current Codex authority is the canonical typed provision record with stable identity,lifecycle,lineage,declared normativity and governed generation. DECLARATIVE-NORM:the registered rule payload states the legal duty under D105;human-readable wording is not executable programming source. MACHINE-FORM:B17+D106+D114 separately control typed machine clauses,formal-rule mapping,predicate and execution evidence. CHINESE:the ordered read-only Chinese mirror is a non-authoritative comprehension projection,not an adjudication,execution,import,write or fallback source.' 'FORBID:standalone narrative replacing a registered provision+translation or mirror as adjudication authority+prose directly executed as machine predicate+style treated as semantic parity.'
 Amend-Law 'B17' 'REPRESENTATION:canonical typed provision records carry legal identity,lifecycle,generation,lineage and declared normativity under D105. MACHINE-CLAUSE:an authoritative executable clause has a stable clause identifier,typed inputs,deterministic predicate,decision,severity,controlling provision and current semantic parity evidence under D106+D114;uppercase machine tokens and ASCII structural delimiters describe this machine form. DECLARATIVE-NORM:registered human-readable normative rule payloads remain legal declarations under NORMATIVE_MANUAL or their expressly registered class;they are not merely historical because of writing style and cannot become executable machine guards without the corresponding current formal mapping. EXPLANATION:translation,examples,commentary and unregistered legacy prose have no independent authority. SEPARATION:formal_rule_mapping links each machine clause to its canonical legal source;the narrative source and machine form are distinct representations,not interchangeable evaluators. UNMAPPED:preserve the legal duty and mark machine enforcement or release parity INCOMPLETE_EVIDENCE;never infer PASS from narrative or a registered code alone. AMENDMENT:semantic changes require governed successor generation and lineage;mechanical in-place style rewriting under the same identity remains forbidden.' 'FORBID:unstructured narrative as standalone machine authority+prose-only executable guard+translation replacing canonical source+declared legal norm silently reclassified historical+unmapped machine enforcement+format-only parity claim+mechanical in-place style rewrite with same identity.'
 Add-Change 'codex_version_epochs' @{epoch=2} 'status' 'active'
 foreach ($pair in @(@('current_state','externally-blocked'),@('required_end_state','current-generation Ed25519 2-of-3 detached signatures verified against registered trust anchors'),@('verification','D106+D107+D113:actual detached cryptographic verification;status labels and governed integrity seals are not proof'),@('on_open_gate','CERTIFIED_SEAL and affected verified release denied until actual threshold evidence'))) {
     Add-Change 'codex_external_closure_requirements' @{gate_code='EXTERNAL_SIGNATURE'} $pair[0] $pair[1]
 }
-$source="source=$($head.version);candidate=<successor-version>;"
+$source="source=$($head.version);candidate-generation=bound-by-version_identity-field;"
+$hiddenNonactive=@($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 })
+foreach ($row in $hiddenNonactive) {
+    Add-Change 'current_normative_surface' @{surface_entry_id=$row.surface_entry_id} 'default_search_visible' 0
+}
 function Update-Closure([string]$Id,[string]$Required,[string]$Evidence,[long]$Open,[string]$Result) {
     $key=@{closure_id=$Id}
     foreach ($pair in @(@('version_identity','<successor-version>'),@('verified_at','<successor-version>'),@('status','current'),@('verifier','RULE_CODEX_CONVERGENCE/current-registry-evaluation'),@('required_subresults',$Required),@('evidence_roots',($source+$Evidence)),@('open_finding_count',$Open),@('result',$Result))) {
@@ -179,7 +191,7 @@ Update-Closure 'MACHINE_SCHEMA_CLOSURE' 'all registered schemas require independ
 Update-Closure 'NORMATIVE_SURFACE_CLOSURE' 'active lifecycle identities require classified canonical current normative surface' "active=$($surface.Count);unknown=$($surfaceUnknown.Count);input-sha256=$($report.surface.input_digest)" $surfaceUnknown.Count $(if ($surfaceUnknown.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
 Update-Closure 'DIRECTORY_CLOSURE' 'canonical normalized project parity and registered directory governance acceptance' "project=$($canonical.Count)/$($normalized.Count);semantic-mismatches=$($directoryMismatch.Count);catalog=$($directories.Count);catalog-open=$($directoryOpen.Count);input-sha256=$($report.directory.input_digest)" ($directoryMismatch.Count+$directoryOpen.Count) $(if ($directoryMismatch.Count+$directoryOpen.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
 Update-Closure 'DUPLICATION_CLOSURE' 'exact active-payload uniqueness and current independent semantic duplication review' "exact-duplicate-groups=$($duplicateGroups.Count);semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW" ($duplicateGroups.Count+1) 'INCOMPLETE_EVIDENCE'
-Update-Closure 'SEARCH_CURRENTNESS_CLOSURE' 'search lifecycle and generation joined to canonical lifecycle;candidate search is rebuilt by the governed pipeline' "checked=$($search.Count);source-stale=$($staleSearch.Count);input-sha256=$($report.search.input_digest);candidate-publication-requires-search-rebuild" $staleSearch.Count $(if ($staleSearch.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
+Update-Closure 'SEARCH_CURRENTNESS_CLOSURE' 'search lifecycle and generation joined to canonical lifecycle;nonactive default visibility denied;candidate search is rebuilt by the governed pipeline' "checked=$($search.Count);source-stale=$($staleSearch.Count);source-nonactive-default-flags=$($hiddenNonactive.Count);nonactive-default-flags-explicitly-cleared=$($hiddenNonactive.Count);input-sha256=$($report.search.input_digest);candidate-publication-requires-search-rebuild" $staleSearch.Count $(if ($staleSearch.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
 $projectionOpen=@($sync | Where-Object { $_.result -ne 'PASS' -or $_.hash_match_count -ne $_.required_count -or $_.stale_count -ne 0 -or $_.missing_count -ne 0 }).Count
 Update-Closure 'PROJECTION_PARITY_CLOSURE' 'current measured architecture file registry parity;candidate seal/mirror/SQL parity validated by publication pipeline;not implementation certification' "diagram-required=$($sync.required_count);diagram-match=$($sync.hash_match_count);source-result=$($sync.result);independent-mirror-and-SQL-publication-gate=REQUIRED" $projectionOpen $(if ($projectionOpen) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
 $stateParts=@($obligationCounts.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ','
@@ -201,7 +213,7 @@ foreach ($kind in @('registry_fact','machine_shape','formal_logic','duplicate','
 }
 $metric.unknown_article_count=@($surfaceUnknown | Where-Object object_type -eq 'article').Count
 $metric.stale_effective_count=@(Get-CodexRows 'effective_provisions' | Where-Object { $_.current_binding_version -ne $head.version }).Count
-$metric.superseded_default_search_count=@($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count
+$metric.superseded_default_search_count=0 # candidate explicitly clears every measured nonactive default flag above
 $metric.directory_coverage="project:$($canonical.Count)/$($normalized.Count);catalog:$($directories.Count);open:$($directoryOpen.Count)"
 $metric.machine_schema_parity="$($schemas.Count-$schemaOpen.Count)/$($schemas.Count)"
 $owners=@(Get-CodexRows 'formal_rule_ownership_map' | Where-Object status -in @('current','active'))
@@ -209,7 +221,13 @@ $ownerGroups=@($owners | Group-Object invariant_code)
 $metric.formal_rule_single_owner_rate="$(@($ownerGroups | Where-Object Count -eq 1).Count)/$($ownerGroups.Count)"
 $metric.closure_duplication_count=@(Get-CodexRows 'codex_convergence_closure' | Where-Object status -eq 'current' | Group-Object closure_id | Where-Object Count -gt 1).Count
 $metric.result='INCOMPLETE_EVIDENCE';$metric.version_identity='<successor-version>';$metric.status='current'
-Add-Change 'codex_convergence_metrics' @{report_id=$oldMetric.report_id} 'status' 'superseded'
+$metricSuccessors=@()
+if ($oldMetric.report_id -eq $metric.report_id) {
+    foreach ($field in $metric.Keys) { if ($field -ne 'report_id') { Add-Change 'codex_convergence_metrics' @{report_id=$metric.report_id} $field $metric[$field] } }
+} else {
+    Add-Change 'codex_convergence_metrics' @{report_id=$oldMetric.report_id} 'status' 'superseded'
+    $metricSuccessors=@(@{registry='codex_convergence_metrics';action='insert';rows=@($metric)})
+}
 $graph=@(Get-CodexRows 'governance_closure_state' | Where-Object status -in @('current','active'))
 $releasePending=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($component in $graph) {
@@ -238,6 +256,6 @@ $requestPayload=[ordered]@{
     requested_by='decision-sovereign';origin='direct human-governor formal-state and closure audit;Codex/data only,no application runtime implementation'
     change_class='architecture-authority';required_review='five-sovereign-audit-unanimous-pass';flow='A382/A488-non-disruptive-amendment-flow';not_executed=$true;auto_execute=$true
     predecessor=@{codex_version=$head.version;version_identity="E$($head.version_epoch):$($head.version)";version_epoch=$head.version_epoch;history_head=$head.entry_hash;revision_sequence=$head.sequence}
-    changes=@($changes);proposed_successors=@(@{registry='codex_convergence_metrics';action='insert';rows=@($metric)})
+    changes=@($changes);proposed_successors=$metricSuccessors
 }
 $requestPayload | ConvertTo-Json -Depth 50

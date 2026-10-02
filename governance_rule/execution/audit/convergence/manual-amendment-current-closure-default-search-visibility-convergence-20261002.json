@@ -1,0 +1,361 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "current-closure-default-search-visibility-convergence-20261002",
+  "title": "Close nonactive default-search projection residue and refresh measured closure",
+  "summary": "Clear nine measured nonactive default-search flags;refresh all convergence closures,metrics and release blockers without changing runtime or certifying missing parity.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor formal-state and closure audit;Codex/data only,no application runtime implementation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "version_epoch": 2,
+    "codex_version": "2026-10-02T10:22:07Z",
+    "revision_sequence": 224,
+    "version_identity": "E2:2026-10-02T10:22:07Z",
+    "history_head": "c41856f134248f8fe0fc07a773e90cf99b3afc1d28140048af0efe8eb3dbb016"
+  },
+  "changes": [
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "article:A3"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "article:C22"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "article:C37"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "article:C87"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "article:C88"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "edict:E138"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "principle:P57"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "principle:P86"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "default_search_visible",
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "principle:P90"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;registry=89;participating=80;verified-labels=80;retired=5;withdrawn=4;input-sha256=3cf8e513a49a460988e1fd581d43e0d506bdd5b7103cbd65322fcebdde8a71bd;open-rules=FR-BACKEND-LIFECYCLE,FR-CONNECTION-RECOVERY,FR-CONNECTION-STATE,FR-CONVERGENCE-PLAN,FR-DEV-RUNTIME-SEPARATION,FR-DIALOGUE-TRAINING,FR-EVAL-SUITE,FR-EXECUTION-LEASE,FR-GIT-SQL-RAG-CAG-DAG-DIVISION,FR-GPU-ACCEL-TRACK,FR-IMPL-PRECEDENCE,FR-INFER-CONSISTENCY,FR-INTEGRATION-SEQUENCE,FR-KV-CACHE-TESTS,FR-LANG-LAYERING,FR-MAINT-UPDATE-INTEGRATION,FR-MODEL-MATURITY,FR-MODEL-MOE,FR-MODEL-SCALING,FR-MODEL-TRAINING-TIERS,FR-MODULE-HASH-CHAIN,FR-MOE-QC,FR-MULTI-CONFIG-GPT,FR-MULTI-CORE-PARALLEL,FR-NO-SUB-SOVEREIGN-ALL-MODULES,FR-OLLAMA-ON-DEMAND,FR-ONDEMAND-MODULES,FR-PRETRAIN-DATA-PIPELINE,FR-RELEASE-MANIFEST,FR-REQUEST-LIFECYCLE,FR-REQUEST-REGISTRY,FR-SINGLE-PURPOSE-MODULE,FR-SMALL-MODEL-BASELINE,FR-SOVEREIGN-TO-CORE-ENGINE,FR-TASK-LIFECYCLE,FR-TOOL-CALLING-COMPETENCE,FR-TRAIN-NTP-CORRECTNESS,FR-WEIGHT-EVOLUTION,FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE,RULE_BACKEND_HANDOFF,RULE_CALL_BOUNDARY,RULE_CAPABILITY_DISPATCH,RULE_CODEX_CONVERGENCE,RULE_CONNECTION_ROUTE,RULE_DELEGATED_A498,RULE_DELEGATION_VALIDATION,RULE_EXECUTION_PIPELINE,RULE_EXECUTION_VERIFICATION_SEPARATION,RULE_FILE_OPERATION_RELIABILITY,RULE_FINAL_ARCHITECTURE,RULE_GIT_WORKTREE,RULE_GO_RUST_RUNTIME,RULE_HEALTH_CONTRACT,RULE_IDENTITY_CONVERSION,RULE_INFRA_VERSIONS,RULE_JS_NATIVE,RULE_LANGUAGE_REALLOCATION,RULE_LANGUAGE_TABLE_OFFICIAL,RULE_LANGUAGE_VERSIONS,RULE_MACHINE_SCHEMA,RULE_MAIN_SYSTEM_CSHARP14,RULE_MATURE_CAPABILITY_PRESERVATION,RULE_MODEL_DIALOGUE_MODE,RULE_NATIVE_COMPUTE_C23,RULE_NATIVE_PROMOTION,RULE_PRECEDENCE_RESOLUTION,RULE_RAG_PROVENANCE,RULE_RELEASE_VERIFICATION,RULE_RESOURCE_GOVERNOR_CPP23,RULE_RETIRED_DEPENDENCIES,RULE_ROLE_SEPARATION,RULE_RUNTIME_AUTHORITY_RESOLUTION,RULE_RUST_TESTS,RULE_SQL_GOVERNANCE_CLOSURE,RULE_SQL_MIGRATION_AUTHORITY,RULE_TEST_AUDIT_RESPONSIBILITY,RULE_TEST_SUITE_CARDINALITY,RULE_TEST_TOOLS,RULE_TOOL_RUNTIME,RULE_VECTOR_ENGINE_RUST;findings-sha256=a8296a5a17756544b28f71dd9edbaabbe104491f5361ebf3fb433a2a00ac4013;NO_RUNTIME_PARITY_INFERRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;registered=77;PENDING=77;input-sha256=68065715783ac1bfa87b6bcbc615919fee4ce8bfa790e374c0f1fbc1ec935a59;activation-and-verified-release=DENIED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;active=990;unknown=185;input-sha256=b446e29b8b3025be211e41b45d721177c860d32ccaa607f6f9deb1f51beb9045"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;project=54/54;semantic-mismatches=0;catalog=81;catalog-open=40;input-sha256=50d4325d624e3cf0ce3bec20d0c99a09859b15f591a37e5bb9245ae9ec906db1"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;exact-duplicate-groups=0;semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "search lifecycle and generation joined to canonical lifecycle;nonactive default visibility denied;candidate search is rebuilt by the governed pipeline"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;checked=906;source-stale=0;source-nonactive-default-flags=9;nonactive-default-flags-explicitly-cleared=9;input-sha256=06d5b79260eef6c5f168df88a637f47b07e593f4b0d2bda101a7003af5f08997;candidate-publication-requires-search-rebuild"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;diagram-required=13;diagram-match=13;source-result=PASS;independent-mirror-and-SQL-publication-gate=REQUIRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T10:22:07Z;candidate-generation=bound-by-version_identity-field;formal=80;schema=77;surface=185;directory=40;semantic-duplication-review=1;open-obligations=60;external-signature=1;obligation-input-sha256=12e924fe8d50aa23ed6d92745c8310825a6edac1a31f0d2af34a03e55d25387f;counts=gate-instances-not-unique-incidents"
+    },
+    {
+      "field": "active_article_count_before",
+      "table": "codex_convergence_metrics",
+      "key": {
+        "report_id": "CONVERGENCE_CURRENT"
+      },
+      "proposed": 442
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_metrics",
+      "key": {
+        "report_id": "CONVERGENCE_CURRENT"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "re-evaluated registry=89;participating=80;historical-VERIFIED-labels=80;current-evidence-open=80;registry/evaluator/test/prose proof required;source=2026-10-02T10:22:07Z"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "pending_codes",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "AI_ASSISTANT|AI_COLLABORATION|CAPABILITY_DISPATCH_CLOSURE|CODEX_CONVERGENCE_CLOSURE|CORE_ENGINE_EQUIVALENCE_CLOSURE|CURRENT_NORMATIVE_SURFACE_CLOSURE|DIR_API_EVENT_CONTRACT|DIR_AUDIT_EVIDENCE_RETENTION|DIR_AUTHORED_SOURCE_INVENTORY|DIR_BACKUP_RECOVERY_MIGRATION|DIR_CAPABILITY_REGISTRY|DIR_CHANNEL_SESSION_ROUTE_STATE|DIR_CODEX_REFERENCE_CODE_REGISTRY|DIR_CONFIG_CREDENTIAL_SECRET|DIR_CROSS_STORE_RECONCILIATION|DIR_DATA_PLATFORM_OBSERVABILITY|DIR_DATA_SCHEMA_AUTHORITY|DIR_DEPENDENCY_COMPATIBILITY_GRAPH|DIR_GOVERNANCE_PERFORMANCE_EVIDENCE|DIR_IDENTITY_GROUP|DIR_IDENTITY_MODULE|DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE|DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION|DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS|DIR_LEGACY_ROOT_RETIREMENT|DIR_MODEL_RESOURCE_DEPENDENCY|DIR_MODULE_ASSIGNMENT|DIR_MODULE_LINE_COUNT_REGISTRY|DIR_MODULE_SELF_DECOMPOSITION|DIR_NATIVE_PROMOTION_RECORD|DIR_PERMISSION_CAPABILITY|DIR_REPAIR_ACTION_PROVENANCE|DIR_RUNTIME_INSTANCE_GENERATION|DIR_SERVICE_PROCESS_PORT_ENV|DIR_SOURCE_LINE_LIMIT_EVIDENCE|DIR_SOVEREIGN_HIERARCHY|DIR_TOOL_FAILURE_ISOLATION|DIR_TOOL_ROUTE|DIR_UI_WINDOW_FEATURE_ENTRY|DIR_UNIFIED_DATA_HEALTH|DIR_UPDATE_SYNCHRONIZATION_TRANSACTION|DIR_USER_COMMAND_SIGNATURE|DIR_VERSION_RELEASE_ARTIFACT|DIR_XINGCHENG_COMPLIANCE_FINDINGS|DIR_XINGCHENG_CONFIDENTIAL_AUDIT|DIR_XINGCHENG_FAULT_DECISION|DIR_XINGCHENG_GOVERNANCE|DIRECTORY_GOVERNANCE_DATA|EVENT_SERVICE|EXTERNAL_SIGNATURE|FILE_SORTER|FINAL_CONVERGENCE_IMPLEMENTATION_PLAN|FINAL_PROJECT_CONVERGENCE_CLOSURE|FORMAL_EVALUATOR_PARITY|FORMAL_RULE_PARITY|FORMAL_RULE_PARITY_CLOSURE|FR-BACKEND-LIFECYCLE|FR-CONNECTION-RECOVERY|FR-CONNECTION-STATE|FR-CONVERGENCE-PLAN|FR-DEV-RUNTIME-SEPARATION|FR-DIALOGUE-TRAINING|FREEZE_PENDING|FR-EVAL-SUITE|FR-EXECUTION-LEASE|FR-GIT-SQL-RAG-CAG-DAG-DIVISION|FR-GPU-ACCEL-TRACK|FR-IMPL-PRECEDENCE|FR-INFER-CONSISTENCY|FR-INTEGRATION-SEQUENCE|FR-KV-CACHE-TESTS|FR-LANG-LAYERING|FR-MAINT-UPDATE-INTEGRATION|FR-MODEL-MATURITY|FR-MODEL-MOE|FR-MODEL-SCALING|FR-MODEL-TRAINING-TIERS|FR-MODULE-HASH-CHAIN|FR-MOE-QC|FR-MULTI-CONFIG-GPT|FR-MULTI-CORE-PARALLEL|FR-NO-SUB-SOVEREIGN-ALL-MODULES|FR-OLLAMA-ON-DEMAND|FR-ONDEMAND-MODULES|FR-PRETRAIN-DATA-PIPELINE|FR-RELEASE-MANIFEST|FR-REQUEST-LIFECYCLE|FR-REQUEST-REGISTRY|FR-SINGLE-PURPOSE-MODULE|FR-SMALL-MODEL-BASELINE|FR-SOVEREIGN-TO-CORE-ENGINE|FR-TASK-LIFECYCLE|FR-TOOL-CALLING-COMPETENCE|FR-TRAIN-NTP-CORRECTNESS|FR-WEIGHT-EVOLUTION|FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE|GLOBAL_CLEANER|IMPLEMENTATION_OBLIGATIONS|INVESTMENT_MOBILE|IPC_SERVICE|LANGUAGE_GOVERNANCE_FREEZE|LAUNCHER|LOCAL_MODEL|MACHINE_SCHEMA_PARITY|MACHINE_SCHEMA_PARITY_CLOSURE|MAIN_SYSTEM|MODEL_DIALOGUE|OBL_A334_RUNTIME_GATE_FULL_COVERAGE|OBL_ANTI_JAILBREAK|OBL_ARCHITECTURE_CATALOG|OBL_AUTHORITY_MARKER|OBL_BACKUP_RESTORE_AUTHORITY|OBL_BLOAT_VACUUM_CONTROL|OBL_BUSINESS_LOGIC_CSHARP_PARENT|OBL_CAPACITY_WATERMARK|OBL_CENTRAL_AUDIT_SQL|OBL_CHANNEL_ANOMALY_ISOLATION|OBL_CONNECTION_GENERATION_FENCE|OBL_DAG_CAG_RAG_HYBRID|OBL_DATA_CONTRACT_HANDSHAKE|OBL_DATA_LINEAGE|OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY|OBL_DATA_SLO|OBL_DATABASE_STARTUP_CERTIFICATION|OBL_DDL_AUDIT|OBL_DEV_RUNTIME_SEPARATION|OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE|OBL_DOMAIN_READ_ONLY_EMERGENCY|OBL_FORMAL_EVALUATOR_V2_PARITY|OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION|OBL_IMPLEMENTATION_PRECEDENCE|OBL_INTEGRATED_OBJECTIVES|OBL_LANGUAGE_DEPENDENCY_DAG_GATE|OBL_LAYERED_ARCHITECTURE|OBL_LONG_TRANSACTION_WATCHDOG|OBL_MACHINE_SCHEMA_PARITY|OBL_MAINTENANCE_UPDATE_INTEGRATION|OBL_MODEL_SCALING_STRATEGY|OBL_MODEL_TRAINING_GOVERNANCE_PARENT|OBL_NATIVE_COMPUTE_CORE_CLASS|OBL_NATIVE_PROMOTION_RECORD_CHECKER|OBL_NORMALIZED_TEST_FLOW_COVERAGE|OBL_ORPHAN_SCANNER|OBL_PERMISSION_PROOF_SNAPSHOT|OBL_POSTGRESQL_AUTHORITY|OBL_REBUILD_CERTIFICATION|OBL_RPO_RTO_CLASS|OBL_SCHEMA_DRIFT_GATE|OBL_SCHEMA_OWNERSHIP_LOCK|OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE|OBL_SHARED_TRANSPORT_SQL|OBL_SQL_GOVERNANCE_CLOSURE|OBL_SQL_HEALTH_READINESS|OBL_SQL_MIGRATION|OBL_SQL_SECURITY_PROJECTION|OBL_SQL_TEST|OBL_SQLITE_FALLBACK|OBL_SYSTEM_RELIABILITY|OBL_TEST_SUITE_DIRECTORY|OBL_TOP_LEVEL_PATHS|OBL_TWO_PHASE_DELETION|OBL_WEIGHT_EVOLUTION|OBL_WORKLOAD_CLASS|OBL_WRITE_PROVENANCE|OBL_XINGCHENG_PRIMARY_GOAL|OBL_星澄_AUDIT|OBLIGATION_CLOSURE|POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY|RULE_BACKEND_HANDOFF|RULE_CALL_BOUNDARY|RULE_CAPABILITY_DISPATCH|RULE_CODEX_CONVERGENCE|RULE_CONNECTION_ROUTE|RULE_DELEGATED_A498|RULE_DELEGATION_VALIDATION|RULE_EXECUTION_PIPELINE|RULE_EXECUTION_VERIFICATION_SEPARATION|RULE_FILE_OPERATION_RELIABILITY|RULE_FINAL_ARCHITECTURE|RULE_GIT_WORKTREE|RULE_GO_RUST_RUNTIME|RULE_HEALTH_CONTRACT|RULE_IDENTITY_CONVERSION|RULE_INFRA_VERSIONS|RULE_JS_NATIVE|RULE_LANGUAGE_REALLOCATION|RULE_LANGUAGE_TABLE_OFFICIAL|RULE_LANGUAGE_VERSIONS|RULE_MACHINE_SCHEMA|RULE_MAIN_SYSTEM_CSHARP14|RULE_MATURE_CAPABILITY_PRESERVATION|RULE_MODEL_DIALOGUE_MODE|RULE_NATIVE_COMPUTE_C23|RULE_NATIVE_PROMOTION|RULE_PRECEDENCE_RESOLUTION|RULE_RAG_PROVENANCE|RULE_RELEASE_VERIFICATION|RULE_RESOURCE_GOVERNOR_CPP23|RULE_RETIRED_DEPENDENCIES|RULE_ROLE_SEPARATION|RULE_RUNTIME_AUTHORITY_RESOLUTION|RULE_RUST_TESTS|RULE_SQL_GOVERNANCE_CLOSURE|RULE_SQL_MIGRATION_AUTHORITY|RULE_TEST_AUDIT_RESPONSIBILITY|RULE_TEST_SUITE_CARDINALITY|RULE_TEST_TOOLS|RULE_TOOL_RUNTIME|RULE_VECTOR_ENGINE_RUST|SEARCH_CURRENTNESS_CLOSURE|SEMANTIC_DUPLICATION_REVIEW|SHARED_LAYER|STATE_SERVICE|SUB_SOVEREIGN_RETIREMENT_CLOSURE|SYSTEM_MODULARIZATION|SYSTEM_RESCUE|UNKNOWN_ARTICLE_CLASSIFICATION|VAULTLY|VERSION_CURRENTNESS_CLOSURE"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "<successor-version>"
+    }
+  ],
+  "proposed_successors": []
+}
