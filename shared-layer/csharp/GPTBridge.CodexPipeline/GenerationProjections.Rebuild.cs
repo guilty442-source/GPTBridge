@@ -505,7 +505,7 @@ internal static partial class GenerationProjections
 
     private static bool HistoricalSubSovereignClause(string clause) =>
         System.Text.RegularExpressions.Regex.IsMatch(clause,
-            "historical|abolished|abolition|retired|lineage|supersede|removed|no sub-sovereign|not a sovereign|without restoring|never a sovereign|not revive|revival|forbid|prohibit|non-active|no active|must not|shall not|do not|does not|cannot|banned|sub\\s*=\\s*none",
+            "historical|abolished|abolition|eliminated|retired|lineage|supersede|removed|no sub-sovereign|not a sovereign|without restoring|without an intermediate|without intermediate|no intermediate|never a sovereign|not revive|revival|forbid|prohibit|non-active|no active|must not|shall not|do not|does not|cannot|banned|sub\\s*=\\s*none",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     private static void RebuildProjectDirectoryProjection(StageConnection connection, string version)

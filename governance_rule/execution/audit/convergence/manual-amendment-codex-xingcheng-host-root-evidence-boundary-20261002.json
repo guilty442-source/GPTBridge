@@ -1,0 +1,342 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "codex-xingcheng-host-root-evidence-boundary-20261002",
+  "title": "Record unimplemented Xingcheng host roots and retired legacy root absence",
+  "summary": "Registry/data only: distinguish intended separate host from physical evidence; no empty-folder closure and no fictitious STAR_DIRECTORY data migration",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor finding;law/data only,no physical migration or runtime implementation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T11:04:35Z",
+    "version_identity": "E2:2026-10-02T11:04:35Z",
+    "version_epoch": 2,
+    "history_head": "a6ea35546ad8b7b175045ae3461da5aa5f6bcde7c54a59fae3599dfda9fc6469",
+    "revision_sequence": 229
+  },
+  "changes": [
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;registry=89;participating=80;open=80;input-sha256=3cf8e513a49a460988e1fd581d43e0d506bdd5b7103cbd65322fcebdde8a71bd;NO_RUNTIME_PARITY_INFERRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;registered=77;open=77;input-sha256=68065715783ac1bfa87b6bcbc615919fee4ce8bfa790e374c0f1fbc1ec935a59;activation-and-verified-release=DENIED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;active=990;unknown=185;input-sha256=211c36aa3c26fa4d46fdc9648273b5589c0ce2832635a04102037cd031b2efc3"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;project=54/54;semantic-mismatches=0;catalog=81;catalog-open=40;input-sha256=3cf020581c3c91f9f549b5d1f85c32ed9cb3efd66ea32daad97527f36b3a21a9;suite-projection=17/17;suite-retired=3;suite-mandated-roots-missing=14;model-evidence=INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;exact-duplicate-groups=0;semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;checked=906;source-stale=0;input-sha256=63483d2cf652de2bb972bbb867cc1efd5ea5c9eed091399fa8f849b59d34fce1;candidate-publication-requires-search-rebuild"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;diagram-required=13;diagram-match=13;source-result=PASS;independent-mirror-and-SQL-publication-gate=REQUIRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;candidate-generation=bound-by-version_identity-field;formal=80;schema=77;surface=185;directory=40;semantic-review=1;open-obligations=60;obligation-counts={\"complete\":2,\"evidence-submitted\":1,\"mandated\":58,\"pending\":1,\"superseded\":1};obligation-input-sha256=12e924fe8d50aa23ed6d92745c8310825a6edac1a31f0d2af34a03e55d25387f;external-signature=1;counts=gate-instances-not-unique-incidents;additional-suite-root-gap=14;additional-model-evidence-gap=24"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_metrics",
+      "key": {
+        "report_id": "CONVERGENCE_CURRENT"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "source=2026-10-02T11:04:35Z;registry=89;participating=80;open=80;no-execution-parity-inferred"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "BLOCK_XINGCHENG"
+      },
+      "field": "logical_boundary",
+      "proposed": "Xingcheng block orchestration and isolation domain; registered physical root is an unimplemented intended target,not an observed host; current member sources remain beneath the independent top-level xingcheng source root; separate-host semantics remain required but unverified; creating an empty directory is not implementation,hosting,isolation or activation evidence; physical relocation requires a prior approved governed amendment and independently verified migration evidence"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "UNIT_ASSISTANT"
+      },
+      "field": "logical_boundary",
+      "proposed": "Xingcheng assistant unit; restricted Codex visibility remains owner-scoped; registered physical root is an unimplemented intended target,not an observed host; current member sources remain beneath the independent top-level xingcheng source root; separate-host semantics remain required but unverified; creating an empty directory is not implementation,hosting,isolation or activation evidence; physical relocation requires a prior approved governed amendment and independently verified migration evidence"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "STAR_DIRECTORY"
+      },
+      "field": "activation_evidence",
+      "proposed": "Historical retirement retained;governance_rule/execution/audit/convergence/xingcheng-host-root-observation-20261002.json#STAR_DIRECTORY;registered retired root absent at observation;no source data exists at that inspected path to move;absence is not a new migration receipt or proof of current consumer conversion;canonical custody root exists and is not altered;no additional Xingcheng custody root is established;historical retirement lineage remains historical"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "STAR_DIRECTORY"
+      },
+      "field": "changed_at_utc",
+      "proposed": "2026-10-02T11:08:11Z"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": {
+        "architecture_code": "STAR_DIRECTORY"
+      },
+      "field": "evidence_id",
+      "proposed": "star-directory-retired-root-observation-20261002"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "architecture_activation_states",
+      "action": "insert",
+      "rows": [
+        {
+          "architecture_code": "BLOCK_XINGCHENG",
+          "target_root": "ARCH_CODE:BLOCK_XINGCHENG",
+          "current_state": "mandated",
+          "required_state": "active",
+          "legacy_root": null,
+          "activation_evidence": "governance_rule/execution/audit/convergence/xingcheng-host-root-observation-20261002.json#BLOCK_XINGCHENG;registered target root absent;member source root still top-level xingcheng;separate host not independently verified;approved physical-migration amendment required before relocation;no activation acceptance",
+          "previous_state": "not-recorded",
+          "changed_at_utc": "2026-10-02T11:08:11Z",
+          "decision_owner": "permission-sovereign",
+          "verification_owner": "星澄",
+          "evidence_id": "xingcheng-host-root-observation-20261002",
+          "old_root_deletion_state": "not-applicable",
+          "failure_state": "INCOMPLETE_EVIDENCE"
+        },
+        {
+          "architecture_code": "UNIT_ASSISTANT",
+          "target_root": "ARCH_CODE:UNIT_ASSISTANT",
+          "current_state": "mandated",
+          "required_state": "active",
+          "legacy_root": null,
+          "activation_evidence": "governance_rule/execution/audit/convergence/xingcheng-host-root-observation-20261002.json#UNIT_ASSISTANT;registered target root absent;member source root still top-level xingcheng;separate host not independently verified;approved physical-migration amendment required before relocation;no activation acceptance",
+          "previous_state": "not-recorded",
+          "changed_at_utc": "2026-10-02T11:08:11Z",
+          "decision_owner": "permission-sovereign",
+          "verification_owner": "星澄",
+          "evidence_id": "xingcheng-host-root-observation-20261002",
+          "old_root_deletion_state": "not-applicable",
+          "failure_state": "INCOMPLETE_EVIDENCE"
+        }
+      ]
+    }
+  ]
+}

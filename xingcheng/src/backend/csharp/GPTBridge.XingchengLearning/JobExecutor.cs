@@ -412,26 +412,70 @@ internal sealed class TrainingJobExecutor
 
     // --------------------------------------------- resource preflight --
 
+    /// <summary>Outcome of the governed resource preflight: the trainer
+    /// thread cap, the GPU admission record, and the live ResourceGrant
+    /// the caller must release when the workload ends. The grant is the
+    /// authority — every ceiling downstream reads it, never hardware.</summary>
+    internal sealed class PreflightDecision
+    {
+        public int Threads;
+        public GpuPlan Gpu = null!;
+        public ResourceGrant? Grant;
+        public ResourceGovernorClient? Client;
+        public ResourceRequest? Request;
+        public string RequestTimeoutNote = "";
+
+        /// <summary>End-of-workload lifecycle: append the
+        /// star-resource-usage-receipt/v1 and release the grant (§54/§58).
+        /// Best-effort — ledger failure must never break the lane.</summary>
+        public void Finish(string result,
+                           IReadOnlyDictionary<string, object?>? summary)
+        {
+            if (Client == null || Grant == null) return;
+            try
+            {
+                var receipt = new ResourceUsageReceipt
+                {
+                    GrantId = Grant.GrantId,
+                    WorkloadId = Request?.WorkloadId ?? "",
+                    Result = result,
+                };
+                if (summary != null)
+                {
+                    if (summary.TryGetValue("elapsed_seconds",
+                            out var es) && es is double eds)
+                        receipt.WallTimeS = eds;
+                    if (summary.TryGetValue("resource", out var res) &&
+                        res is IReadOnlyDictionary<string, object?> r &&
+                        r.TryGetValue("peak_rss_mb", out var pm) &&
+                        pm is double pmb)
+                        receipt.PeakRamBytes = (long)(pmb * 1048576.0);
+                }
+                Client.AppendUsageReceipt(receipt);
+            }
+            catch { /* receipt is best-effort audit */ }
+            try { Client.Release(Grant); }
+            catch { /* release is best-effort */ }
+        }
+    }
+
     /// <summary>Preflight resource gate. Every execution entry (--job,
     /// --run-jobs, the self-learning cycle) funnels through
-    /// <see cref="RunJob"/>, so this one gate covers all of them. Two
-    /// checks, both fail-closed with EXECUTOR_GPU_BUSY so the
-    /// self-learning gpu-busy backoff (GpuBusyRecord) actually fires —
-    /// previously that error code was never emitted and the backoff was
-    /// dead code:
+    /// <see cref="RunJob"/>, so this one gate covers all of them.
+    /// Chain (spec §44 admission):
     ///   1. inference exclusion — a live model-service session owns the
-    ///      machine; training must not contend with serving.
-    ///   2. resource-governor concurrency budget — when the governor
-    ///      pauses the training class (pressure active), the job stays
-    ///      queued instead of fighting interactive/model work (A598:
-    ///      training sheds first).
-    /// A missing/unreadable governor state file is fail-open (trainer
-    /// auto threads), per the budget contract: no state, expired or
-    /// kill-switch falls back to static limits. Returns the trainer
-    /// thread count derived from the training quota (0 = auto) plus the
-    /// GPU admission decision for the job's requested device.</summary>
-    private (int threads, GpuPlan gpu) PreflightResourceGate(
-        Dictionary<string, object?> configuration)
+    ///      machine; training must not contend with serving;
+    ///   2. governor fast-path — paused/zero-quota stays queued without
+    ///      paying the request round-trip (still fail-closed);
+    ///   3. star-resource-request/v1 → main-system governor →
+    ///      DENIED/DEFERRED/PARTIAL/GRANTED/REVOKED (spec §7); governor
+    ///      unavailable → fail-closed unless XC_DEV_STATIC_GRANT=1
+    ///      (spec §75–§77: StaticLocalGrant is dev/test only).
+    /// Denied/deferred/unavailable carry typed resource codes (§80); the
+    /// self-learning backoff treats them exactly like EXECUTOR_GPU_BUSY —
+    /// the job stays queued, never runs ungranted.</summary>
+    private PreflightDecision PreflightResourceGate(
+        string jobId, Dictionary<string, object?> configuration)
     {
         var status = PreflightStatus();
         if (status.TryGetValue("would_block", out object? wb) &&
@@ -439,8 +483,95 @@ internal sealed class TrainingJobExecutor
             throw new ExecutorError(
                 (string)status["error_code"]!,
                 (string)status["reason"]!);
-        return ((int)status["trainer_threads"]!,
-                ResolveGpuPlan(configuration));
+        var decision = AcquireResourceGrant(jobId, configuration);
+        var grant = decision.Grant!;
+        decision.Threads = Math.Clamp(grant.CpuThreadsMax, 1, 16);
+        decision.Gpu = ResolveGpuPlan(configuration, grant);
+        return decision;
+    }
+
+    /// <summary>Build the job's star-resource-request/v1 and submit it
+    /// through the client. Xingcheng never states raw hardware needs to
+    /// itself — the governor decides what the machine can give (§5).</summary>
+    private PreflightDecision AcquireResourceGrant(
+        string jobId, Dictionary<string, object?> configuration)
+    {
+        var decision = new PreflightDecision();
+        string device = (TransformerTrainingRepository.Str(
+            configuration, "device") ?? "").Trim().ToLowerInvariant();
+        int prefThreads = TransformerTrainingRepository.Int(
+            configuration, "trainer_threads");
+        int prefVramMb = TransformerTrainingRepository.Int(
+            configuration, "max_train_vram_mb");
+        int minVramMb = TransformerTrainingRepository.Int(
+            configuration, "train_cuda_min_free_mb");
+        long prefRssMb = (long)TransformerTrainingRepository.Num(
+            configuration, "train_max_rss_mb");
+        var request = new ResourceRequest
+        {
+            RequestId = "rr-" + jobId,
+            WorkloadId = jobId,
+            CandidateId = TransformerTrainingRepository.Str(
+                configuration, "model_id") ?? "",
+            Capability = TransformerTrainingRepository.Str(
+                configuration, "capability") ?? "",
+            WorkloadClass = "training",
+            Priority = TransformerTrainingRepository.Int(
+                configuration, "priority"),
+            MinimumCpuThreads = 1,
+            PreferredCpuThreads = prefThreads > 0 ? prefThreads : 16,
+            MinimumRamBytes = 0,
+            PreferredRamBytes = prefRssMb > 0 ? prefRssMb << 20 : 0,
+            GpuOptional = device is "cuda" or "gpu" or "auto",
+            GpuRequired = false,
+            MinimumVramBytes = 0,
+            PreferredVramBytes = prefVramMb > 0 ? (long)prefVramMb << 20 : 0,
+            IoReadBudget = 0,
+            IoWriteBudget = 0,
+            ExpectedDurationS = TransformerTrainingRepository.Num(
+                configuration, "max_train_seconds"),
+            Checkpointable = true,
+            Preemptible = true,
+        };
+        var client = new ResourceGovernorClient(_toolRoot);
+        decision.Client = client;
+        decision.Request = request;
+        int waitS = TransformerTrainingRepository.Int(
+            configuration, "grant_wait_s");
+        var reply = client.Request(request, waitS > 0 ? waitS : 60);
+        if (reply.Unavailable)
+        {
+            // §75: governor down -> autonomous training denied,
+            // fail-closed. The only escape is the explicit dev/test
+            // StaticLocalGrant (§76-§77) — never a production fallback.
+            decision.Grant = ResourceGovernorClient.StaticLocalGrant();
+            if (decision.Grant == null)
+                throw new ExecutorError(
+                    ResourceErrors.GovernorUnavailable,
+                    "resource governor unavailable — training denied " +
+                    "(fail-closed; XC_DEV_STATIC_GRANT=1 enables the " +
+                    "dev/test static grant)");
+            return decision;
+        }
+        switch (reply.Response)
+        {
+            case GrantResponseKind.Granted:
+            case GrantResponseKind.Partial:
+                decision.Grant = reply.Grant;
+                if (decision.Grant == null)
+                    throw new ExecutorError(ResourceErrors.RequestDenied,
+                        "governor replied granted without grant payload");
+                return decision;
+            case GrantResponseKind.Denied:
+                throw new ExecutorError(ResourceErrors.RequestDenied,
+                    $"resource request denied: {reply.Reason}");
+            case GrantResponseKind.Revoked:
+                throw new ExecutorError(ResourceErrors.GrantRevoked,
+                    $"resource grant revoked: {reply.Reason}");
+            default:
+                throw new ExecutorError(ResourceErrors.RequestDeferred,
+                    $"resource request deferred: {reply.Reason}");
+        }
     }
 
     /// <summary>Read-only view of the same gate for operators
@@ -615,7 +746,7 @@ internal sealed class TrainingJobExecutor
     /// <summary>GPU admission decision for one job. The trainer's CUDA
     /// lane is opt-in (XINGCHENG_TRAINER_CUDA_OPT); this record is the
     /// audit trail of why a requested device did or did not get it.</summary>
-    private sealed class GpuPlan
+    internal sealed class GpuPlan
     {
         public bool Requested;         // configuration["device"] asks cuda
         public string Mode = "";       // governor mode observed
@@ -626,6 +757,9 @@ internal sealed class TrainingJobExecutor
         public long ProbeTotalMb;
         public bool Admitted;          // -> XINGCHENG_TRAINER_CUDA_OPT=1
         public string Reason = "";
+        /// <summary>§41 resolved VRAM cap (min driver-free, grant cap);
+        /// 0 when no grant resolved one.</summary>
+        public long VramBudgetMb;
 
         public Dictionary<string, object?> ToDict() => new()
         {
@@ -633,6 +767,8 @@ internal sealed class TrainingJobExecutor
             ["governor_mode"] = Mode.Length > 0 ? Mode : null,
             ["gpu_enabled"] = GpuEnabled,
             ["vram_budget_percent"] = VramBudgetPercent,
+            ["vram_budget_mb_resolved"] =
+                VramBudgetMb > 0 ? VramBudgetMb : null,
             ["probe_available"] = ProbeAvailable,
             ["probe_vram_free_mb"] = ProbeAvailable == true ? ProbeFreeMb : null,
             ["probe_vram_total_mb"] = ProbeAvailable == true ? ProbeTotalMb : null,
@@ -642,12 +778,14 @@ internal sealed class TrainingJobExecutor
     }
 
     /// <summary>Resolve the GPU admission for a job's requested device.
-    /// Chain: device request -> governor mode gpu_enabled (rules file is
-    /// the tunables source; unreadable/missing mode entry is fail-closed
-    /// disabled) -> live probe-cuda -> free-VRAM headroom check. A denied
-    /// request is never fatal — the trainer simply runs its CPU lanes;
-    /// denial is recorded for audit.</summary>
-    private GpuPlan ResolveGpuPlan(Dictionary<string, object?> configuration)
+    /// Chain: device request -> grant.gpu_allowed (the grant is the
+    /// authority; governor mode is informational) -> live probe-cuda ->
+    /// effective VRAM = min(driver_free, grant vram cap) (spec §40–§41:
+    /// free memory is evidence, never permission). A denied request is
+    /// never fatal — the trainer simply runs its CPU lanes; denial is
+    /// recorded for audit.</summary>
+    private GpuPlan ResolveGpuPlan(
+        Dictionary<string, object?> configuration, ResourceGrant? grant)
     {
         var plan = new GpuPlan();
         string req = (TransformerTrainingRepository.Str(
@@ -660,6 +798,11 @@ internal sealed class TrainingJobExecutor
         if (!plan.Requested)
         {
             plan.Reason = "device-not-requested";
+            return plan;
+        }
+        if (grant != null && !grant.GpuAllowed)
+        {
+            plan.Reason = "grant-gpu-not-allowed";
             return plan;
         }
         if (!enabled)
@@ -682,22 +825,29 @@ internal sealed class TrainingJobExecutor
         // Headroom: the resident w/m/v AdamW lane needs ~3x params fp32
         // plus context; train_cuda_min_free_mb tunes the floor (default
         // 2048MB covers the ~1.2GB optimizer footprint of a 100M model).
+        // §41: effective_vram_budget = min(driver_available, grant cap);
+        // with no grant the mode's vram_budget_percent is the cap.
         int requiredMb = TransformerTrainingRepository.Int(
             configuration, "train_cuda_min_free_mb");
         if (requiredMb <= 0) requiredMb = 2048;
-        if (pct > 0 && probe.TotalMb > 0)
-        {
-            long budgetMb = probe.TotalMb * pct / 100;
-            if (requiredMb > budgetMb) requiredMb = (int)budgetMb;
-        }
-        if (probe.FreeMb < requiredMb)
+        long capMb;
+        if (grant != null)
+            capMb = grant.EffectiveVramBytes(
+                probe.FreeMb << 20, probe.TotalMb << 20) >> 20;
+        else
+            capMb = pct > 0 && probe.TotalMb > 0
+                ? probe.TotalMb * pct / 100 : probe.FreeMb;
+        if (requiredMb > capMb) requiredMb = (int)Math.Max(0, capMb);
+        if (probe.FreeMb < requiredMb || requiredMb <= 0)
         {
             plan.Reason =
-                $"vram-headroom-{probe.FreeMb}mb-below-{requiredMb}mb";
+                $"vram-headroom-{probe.FreeMb}mb-below-{requiredMb}mb" +
+                (grant != null ? "-grant-capped" : "");
             return plan;
         }
         plan.Admitted = true;
         plan.Reason = "admitted";
+        plan.VramBudgetMb = capMb;
         return plan;
     }
 
@@ -885,10 +1035,17 @@ internal sealed class TrainingJobExecutor
     private static Dictionary<string, object?>? AdvisoryBatchPlan(
         Dictionary<string, object?> configuration,
         string? initBundleDir,
-        int maxLen)
+        int maxLen,
+        ResourceGrant? grant)
     {
         int vramMb = TransformerTrainingRepository.Int(
             configuration, "max_train_vram_mb");
+        // §41: the grant caps the advisory budget — config intent may
+        // never exceed what the governor allowed.
+        if (grant != null && grant.VramBytesMax > 0)
+            vramMb = (int)Math.Min(
+                vramMb > 0 ? vramMb : long.MaxValue,
+                grant.VramBytesMax >> 20);
         if (vramMb <= 0 || string.IsNullOrEmpty(initBundleDir)) return null;
         long? total = CapacityPlane.BundleTotalParams(initBundleDir);
         if (!total.HasValue || total.Value <= 0) return null;
@@ -981,7 +1138,8 @@ internal sealed class TrainingJobExecutor
         Dictionary<string, object?> configuration,
         string outputDir,
         int trainerThreads,
-        GpuPlan gpu)
+        GpuPlan gpu,
+        ResourceGrant? grant)
     {
         string kind = (string)configuration["training_kind"]!;
         string toolRoot = _toolRoot;
@@ -1079,7 +1237,8 @@ internal sealed class TrainingJobExecutor
         double deadline = TransformerTrainingRepository.Num(
             configuration, "max_train_seconds");
         string emitCkpt = Path.Combine(outputDir, "final.xcn");
-        var batchPlan = AdvisoryBatchPlan(configuration, serveBundle, maxLen);
+        var batchPlan = AdvisoryBatchPlan(
+            configuration, serveBundle, maxLen, grant);
         var jobSpec = new Dictionary<string, object?>
         {
             ["task"] = kind,
@@ -1118,6 +1277,9 @@ internal sealed class TrainingJobExecutor
                 // params never allocate Adam moments (sparse optimizer).
                 ["freeze"] = FreezePatterns(configuration),
             },
+            // §8: the effective grant rides the job spec — the trainer's
+            // recorded ceiling, and the audit anchor for this run.
+            ["resource_grant"] = grant?.ToDict(),
             ["data"] = new Dictionary<string, object?>
             {
                 ["path"] = trainIds,
@@ -1162,15 +1324,36 @@ internal sealed class TrainingJobExecutor
         // flag alone is harmless — the trainer probes at runtime and
         // falls back per-tensor to scalar AdamW when the device lane is
         // unavailable; forward/backward stay on CPU lanes either way.
+        var env = new Dictionary<string, string>();
+        if (gpu.Admitted) env["XINGCHENG_TRAINER_CUDA_OPT"] = "1";
+        // §9/§11: grant ceilings reach the native process as env caps —
+        // the trainer's memory/stream pools must never exceed them.
+        if (grant != null)
+        {
+            env["XCT_RESOURCE_GRANT_ID"] = grant.GrantId;
+            env["XCT_RESOURCE_CPU_THREADS_MAX"] =
+                grant.CpuThreadsMax.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+            env["XCT_RESOURCE_BG_THREADS_MAX"] =
+                grant.BackgroundThreadsMax.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+            if (grant.VramBytesMax >= 0)
+                env["XCT_RESOURCE_VRAM_BYTES_MAX"] =
+                    grant.VramBytesMax.ToString(
+                        System.Globalization.CultureInfo
+                            .InvariantCulture);
+            if (gpu.Admitted && gpu.VramBudgetMb > 0)
+                env["XCT_RESOURCE_VRAM_BYTES_MAX"] =
+                    (gpu.VramBudgetMb << 20).ToString(
+                        System.Globalization.CultureInfo
+                            .InvariantCulture);
+        }
         var run = NativeTools.Run(
             NativeTools.TrainerExe(toolRoot),
             new[] { "--job", jobSpecPath, "--report", reportPath },
             toolRoot, stderrLog, timeoutS, rssBudget, sampleInterval,
             lowPriority: true,
-            env: gpu.Admitted
-                ? new Dictionary<string, string>
-                    { ["XINGCHENG_TRAINER_CUDA_OPT"] = "1" }
-                : null,
+            env: env.Count > 0 ? env : null,
             // VRAM telemetry rides the existing RSS sample ticks whenever
             // a GPU device was requested — admitted runs measure the
             // device lane's footprint; denied runs record the contention
@@ -1430,14 +1613,20 @@ internal sealed class TrainingJobExecutor
         var row = claimedRow!;
         ModelLifecycle? lifecycle = null;
         Dictionary<string, object?>? configuration = null;
+        PreflightDecision? resourceDecision = null;
+        Dictionary<string, object?>? jobSummary = null;
+        string jobResult = "failed";
         try
         {
             configuration = NormalizeConfiguration(row);
             // Resource preflight before any snapshot IO: inference
-            // exclusion + governor training quota. EXECUTOR_GPU_BUSY keeps
-            // the job queued and arms the self-learning gpu-busy backoff.
-            var (trainerThreads, gpuPlan) =
-                PreflightResourceGate(configuration);
+            // exclusion + governor grant (star-resource-request/grant).
+            // Governor-unavailable fails closed (§75); resource codes
+            // arm the self-learning gpu-busy backoff.
+            resourceDecision =
+                PreflightResourceGate(jobId, configuration);
+            int trainerThreads = resourceDecision.Threads;
+            var gpuPlan = resourceDecision.Gpu;
             var (dataset, trainDocs, valDocs) =
                 LoadSplitDocuments((string)row["dataset_id"]!);
             // §1 recovery lane defense-in-depth: under
@@ -1493,13 +1682,15 @@ internal sealed class TrainingJobExecutor
                         TransformerTrainingRepository.Int(
                             configuration, "max_train_vram_mb"),
                     ["cuda_opt_admitted"] = gpuPlan.Admitted,
+                    ["resource_grant"] =
+                        resourceDecision.Grant?.ToDict(),
                 });
             Dictionary<string, object?> summary;
             try
             {
                 summary = InvokeTrainerNative(
                     trainDocs, valDocs, configuration, outputDir,
-                    trainerThreads, gpuPlan);
+                    trainerThreads, gpuPlan, resourceDecision.Grant);
             }
             catch (ExecutorError)
             {
@@ -1510,6 +1701,7 @@ internal sealed class TrainingJobExecutor
                 throw new ExecutorError("EXECUTOR_TRAINING_FAILED",
                     exc.Message.Length > 500 ? exc.Message[..500] : exc.Message);
             }
+            jobSummary = summary;
 
             _repo.TransitionTrainingJob(jobId, "validating");
             string finalCheckpoint = Path.GetFullPath(
@@ -1549,6 +1741,7 @@ internal sealed class TrainingJobExecutor
                     $"job {jobId} completed");
             }
             catch { /* lifecycle bookkeeping failure must not void training */ }
+            jobResult = "completed";
             return new Dictionary<string, object?>
             {
                 ["ok"] = true,
@@ -1585,6 +1778,12 @@ internal sealed class TrainingJobExecutor
                 ["error_message"] = exc.Message.Length > 500
                     ? exc.Message[..500] : exc.Message,
             };
+        }
+        finally
+        {
+            // §58/§90: every grant lifecycle ends with release + usage
+            // receipt (success, denial post-acquire, or crash alike).
+            resourceDecision?.Finish(jobResult, jobSummary);
         }
     }
 
@@ -1664,9 +1863,11 @@ internal sealed class TrainingJobExecutor
         public bool CudaOptAdmitted;
         public Dictionary<string, object?> GpuEvidence = new();
         internal TransformerTrainingRepository? Repo;
+        internal PreflightDecision? Decision;
         private bool _done;
 
-        /// <summary>Run finished — validating → completed.</summary>
+        /// <summary>Run finished — validating → completed. Releases the
+        /// ResourceGrant and emits the usage receipt (§54/§58).</summary>
         public void Complete()
         {
             if (_done || Repo == null) return;
@@ -1674,9 +1875,11 @@ internal sealed class TrainingJobExecutor
             Repo.TransitionTrainingJob(JobId, "validating",
                 errorMessage: "staged lane finished");
             Repo.TransitionTrainingJob(JobId, "completed");
+            Decision?.Finish("completed", null);
         }
 
-        /// <summary>Run failed or aborted — active status → failed.</summary>
+        /// <summary>Run failed or aborted — active status → failed;
+        /// grant released either way.</summary>
         public void Abort(string code, string message)
         {
             if (_done || Repo == null) return;
@@ -1686,6 +1889,7 @@ internal sealed class TrainingJobExecutor
             if (status is "preflight" or "training" or "validating")
                 Repo.TransitionTrainingJob(JobId, "failed",
                     errorCode: code, errorMessage: message);
+            Decision?.Finish("aborted:" + code, null);
         }
 
         public void Dispose()
@@ -1739,7 +1943,7 @@ internal sealed class TrainingJobExecutor
         try
         {
             Maturation300M.GuardSequence(_toolRoot, capability);
-            var (threads, gpu) = PreflightResourceGate(configuration);
+            var decision = PreflightResourceGate(jobId, configuration);
             _repo.TransitionTrainingJob(jobId, "training",
                 errorMessage: $"staged lane held for '{capability}'");
             _repo.AuditEvent("training-lane-leased",
@@ -1748,17 +1952,19 @@ internal sealed class TrainingJobExecutor
                 {
                     ["capability"] = capability,
                     ["lane"] = requestedBy,
-                    ["trainer_threads"] = threads,
-                    ["cuda_opt_admitted"] = gpu.Admitted,
-                    ["gpu"] = gpu.ToDict(),
+                    ["trainer_threads"] = decision.Threads,
+                    ["cuda_opt_admitted"] = decision.Gpu.Admitted,
+                    ["gpu"] = decision.Gpu.ToDict(),
+                    ["resource_grant"] = decision.Grant?.ToDict(),
                 });
             return new LaneLease
             {
                 JobId = jobId,
-                Threads = threads,
-                CudaOptAdmitted = gpu.Admitted,
-                GpuEvidence = gpu.ToDict(),
+                Threads = decision.Threads,
+                CudaOptAdmitted = decision.Gpu.Admitted,
+                GpuEvidence = decision.Gpu.ToDict(),
                 Repo = _repo,
+                Decision = decision,
             };
         }
         catch (ExecutorError ex)

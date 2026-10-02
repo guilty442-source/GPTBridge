@@ -1,0 +1,59 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "sub-sovereign-exception-residue-normalization-20261002-r3",
+  "title": "Normalize A103/A118 exception clauses still carrying live sub-sovereign scope under B162",
+  "summary": "B162 abolished all sub-sovereign identities (historical only) and the stale-reference scan now honestly reports FAIL. After classifier widening (eliminated/without-intermediate as historical markers), exactly two exception clauses still grant or condition on abolished identities: A103.exception lets 'other sub-sovereigns may coordinate through typed assignments' (a live grant masked by the trailing prohibition), and A118.exception applies the direct-route rule 'once sovereign or sub-sovereign identities differ' (an active applicability condition keyed on abolished identities). Both are rewritten so exception scope resolves only against current sovereign identities, with the abolition boundary stated as historical law.",
+  "requested_by": "decision-sovereign",
+  "origin": "divergence report: CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT FAIL (current_reference_count>0) against B162 abolished-and-historical-only law; manual clause review separated classifier false positives from true active residue",
+  "problem": {
+    "summary": "Two active exception clauses still carry current sub-sovereign semantics: A118.exception makes abolished identity difference a live applicability condition; A103.exception grants abolished identities a coordination lane via typed assignments. B162 requires sub-sovereigns to be abolished and historical only.",
+    "affected": ["articles", "architecture_stale_reference_evidence"],
+    "scope": "codex-text convergence only; exception clauses rewritten to current-sovereign semantics; historical boundary preserved as lineage language; no file or implementation change"
+  },
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T11:08:11Z",
+    "version_identity": "E2:2026-10-02T11:08:11Z",
+    "version_epoch": 2,
+    "history_head": "b18af9fcdb2da4ac84c89affb59a9968a31f220301433cbb575e772ba2535879",
+    "revision_sequence": 230
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "A103" },
+      "field": "exception",
+      "proposed": "A module with multiple capabilities is assigned by its dominant capability;former sub-sovereign coordination lanes are abolished under B162 and current cores coordinate only through typed module assignments,no actor may become an additional manager. Human signature remains an external completion condition and is not waived by technical audit success."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "A118" },
+      "field": "exception",
+      "proposed": "A pure call wholly inside one process,module,owner,trust,principal,generation and state-owner remains an internal implementation call under the call-boundary rule;once distinct current sovereign identities differ,this direct-route article applies,and abolished sub-sovereign identities under B162 can never be routing endpoints."
+    }
+  ],
+  "acceptance": {
+    "expected_state": "no active rule/prohibition/exception clause grants live authority, coordination lanes, or applicability conditions to abolished sub-sovereign identities; CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT rebuilds to current_reference_count=0 result=PASS via the deterministic projection rebuild",
+    "criteria": [
+      "active-corpus clause scan: every remaining sub-sovereign mention is abolition, historical-lineage, or prohibition language only",
+      "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT reports current_reference_count=0, result=PASS",
+      "PostgreSQL/artifact parity PASS",
+      "zh-TW mirror parity PASS"
+    ],
+    "evidence": [
+      "generation_projections rebuild path (RebuildStaleReferenceEvidence)",
+      "architecture_stale_reference_evidence current row"
+    ],
+    "out_of_scope": [
+      "superseded/historical article text retaining old wording (immutable history)",
+      "the widened stale-reference classifier keyword set (implementation-side fix landed in GenerationProjections.Rebuild.cs)"
+    ]
+  },
+  "supersedes": "sub-sovereign-exception-residue-normalization-20261002-r2",
+  "supersede_reason": "r2 rejected at build: a concurrent intake tick had already created the candidate output when the manual --request invocation raced it; r1 rejected on stale predecessor (revision 230 published before intake); re-anchored, no payload change"
+}

@@ -19,7 +19,7 @@ $suites = @(
     @{ src = "suite_kv_cache.cpp"; exe = "kv_cache_suite.exe" },
     @{
         src = "suite_kv_engine.cpp"; exe = "kv_engine_suite.exe"
-        # G95ï¼šengine ç´?KV è¦†è??”â€”ç?å¯?gptbridge_kv_poolï¼‹NativeInferenceEngine
+        # G95ï¼šengine ï¿½?KV è¦†ï¿½??ï¿½â€”ï¿½?ï¿½?gptbridge_kv_poolï¼‹NativeInferenceEngine
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -34,7 +34,7 @@ $suites = @(
     @{ src = "suite_maturity.cpp"; exe = "maturity_suite.exe" },
     @{
         src = "suite_runtime_core.cpp"; exe = "runtime_core_suite.exe"
-        # E1/E2 ?Ÿå?ï¼šé€???Ÿå¯¦ç´?C æºæ?ï¼ˆé??å¯¦ä½œï?
+        # E1/E2 ?ï¿½ï¿½?ï¼šï¿½???ï¿½å¯¦ï¿½?C æºï¿½?ï¼ˆï¿½??ï¿½å¯¦ä½œï¿½?
         extra = @(
             (Join-Path $coreDir "runtime_core.c"),
             (Join-Path $coreDir "scheduler.c"),
@@ -47,7 +47,7 @@ $suites = @(
     },
     @{
         src = "suite_runtime_state.cpp"; exe = "runtime_state_suite.exe"
-        # E3 ?Ÿå?ï¼šé€???Ÿå¯¦ç´?C æºæ?
+        # E3 ?ï¿½ï¿½?ï¼šï¿½???ï¿½å¯¦ï¿½?C æºï¿½?
         extra = @(
             (Join-Path $coreDir "runtime_state.c")
         )
@@ -60,7 +60,7 @@ $suites = @(
     },
     @{
         src = "suite_system_rescue.cpp"; exe = "system_rescue_suite.exe"
-        # M1 èªè?å¤–ç§»?Ÿå?ï¼šé€???Ÿå¯¦ç´?C æºæ?
+        # M1 èªï¿½?å¤–ç§»?ï¿½ï¿½?ï¼šï¿½???ï¿½å¯¦ï¿½?C æºï¿½?
         extra = @(
             (Join-Path $coreDir "system_rescue.c")
         )
@@ -75,21 +75,21 @@ $suites = @(
     },
     @{
         src = "suite_governed_tool_ws.cpp"; exe = "governed_tool_ws_suite.exe"
-        # M1 ABI Â§3ï¼šHTTP/WS ?˜é?ç·¨è§£ç¢¼ï???I/Oï¼Œè‡ª??SHA-1/base64/frameï¼?
+        # M1 ABI Â§3ï¼šHTTP/WS ?ï¿½ï¿½?ç·¨è§£ç¢¼ï¿½???I/Oï¼Œè‡ª??SHA-1/base64/frameï¿½?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\governed_tool_ws.cpp")
         )
     },
     @{
         src = "suite_transport_proxy_client.cpp"; exe = "transport_proxy_client_suite.exe"
-        # M1 æ¨¡å? Bï¼šproxy å®¢æˆ¶ç«¯ç·¨è§?¢¼ï¼‹request_sync ç­‰å?èªç¾©ï¼ˆé›¶ I/Oï¼?
+        # M1 æ¨¡ï¿½? Bï¼šproxy å®¢æˆ¶ç«¯ç·¨ï¿½?ï¿½ï¿½ï¼‹request_sync ç­‰ï¿½?èªç¾©ï¼ˆé›¶ I/Oï¿½?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp")
         )
     },
     @{
         src = "suite_tool_host.cpp"; exe = "tool_host_suite.exe"
-        # M1 å·¥å…·é«”éª¨?¶ï?loopback HTTP/WSï¼‹claim/execute/respond ç«¯åˆ°ç«?
+        # M1 å·¥å…·é«”éª¨?ï¿½ï¿½?loopback HTTP/WSï¼‹claim/execute/respond ç«¯åˆ°ï¿½?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\tool_host.cpp"),
             (Join-Path $nativeRoot "tool_runtime\tool_host_conn.cpp"),
@@ -105,15 +105,15 @@ $suites = @(
 
     @{
         src = "suite_a263_channel_core.cpp"; exe = "a263_channel_core_suite.exe"
-        # M2 ?ç½®ï¼šA263 channel æ±ºå??§è?ç¾©ï???I/Oï¼ŒPython ?ºæ?å¨?shadowï¼?
+        # M2 ?ï¿½ç½®ï¼šA263 channel æ±ºï¿½??ï¿½ï¿½?ç¾©ï¿½???I/Oï¼ŒPython ?ï¿½ï¿½?ï¿½?shadowï¿½?
         extra = @(
             (Join-Path $coreDir "a263_channel_core.c")
         )
     },
     @{
         src = "suite_channel_runtime.cpp"; exe = "channel_runtime_suite.exe"
-        # M2ï¼šA263 channel ?å?æ­¥åŸ·è¡Œé¢ï¼ˆsend/receive loop?state æ©Ÿã€?
-        #    outbox ?æ?ï¼‹å??¾ï??”â€”transport æ³¨å…¥ï¼ˆæ¨¡å¼?Bï¼?
+        # M2ï¼šA263 channel ?ï¿½ï¿½?æ­¥åŸ·è¡Œé¢ï¼ˆsend/receive loop?ï¿½state æ©Ÿï¿½?
+        #    outbox ?ï¿½ï¿½?ï¼‹ï¿½??ï¿½ï¿½??ï¿½â€”transport æ³¨å…¥ï¼ˆæ¨¡ï¿½?Bï¿½?
         extra = @(
             (Join-Path $nativeRoot "tool_runtime\channel_runtime.cpp"),
             (Join-Path $nativeRoot "tool_runtime\channel_runtime_loops.cpp"),
@@ -122,14 +122,14 @@ $suites = @(
     },
     @{
         src = "suite_audit_engine.cpp"; exe = "audit_engine_suite.exe"
-        # P0-9 å¯©è?å¼•æ?ï¼šé€???Ÿå¯¦?Ÿç?å¯¦ä?
+        # P0-9 å¯©ï¿½?å¼•ï¿½?ï¼šï¿½???ï¿½å¯¦?ï¿½ï¿½?å¯¦ï¿½?
         extra = @(
             (Join-Path $auditDir "audit_engine.cpp")
         )
     },
     @{
         src = "suite_simd_kernels.cpp"; exe = "simd_kernels_suite.exe"
-        # ACC-1ï¼šç? C SIMD ?¸å?ç­‰åƒ¹ï¼å??€é©—æ”¶ï¼ˆé€???Ÿå¯¦ transformer.cï¼vector.cï¼?
+        # ACC-1ï¼šï¿½? C SIMD ?ï¿½ï¿½?ç­‰åƒ¹ï¼ï¿½??ï¿½é©—æ”¶ï¼ˆï¿½???ï¿½å¯¦ transformer.cï¼vector.cï¿½?
         inc = @($coreDir)
         extra = @(
             (Join-Path $coreDir "transformer.c"),
@@ -138,7 +138,7 @@ $suites = @(
     },
     @{
         src = "suite_baseline.cpp"; exe = "baseline_suite.exe"
-        # Â§10.60 baselineï¼šç?å¯?cpp bundle è¼‰å…¥ï¼‹ç¢ºå®šæ€§ï??é€€?–ï?å·²è§£?–ï?
+        # Â§10.60 baselineï¼šï¿½?ï¿½?cpp bundle è¼‰å…¥ï¼‹ç¢ºå®šæ€§ï¿½??ï¿½é€€?ï¿½ï¿½?å·²è§£?ï¿½ï¿½?
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -150,7 +150,7 @@ $suites = @(
     },
     @{
         src = "suite_eval.cpp"; exe = "eval_suite.exe"
-        # Â§10.60 evalï¼šstar-native-eval-v1 pplï¼‹sanityï¼‹tps ?˜é?
+        # Â§10.60 evalï¼šstar-native-eval-v1 pplï¼‹sanityï¼‹tps ?ï¿½ï¿½?
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -162,7 +162,7 @@ $suites = @(
     },
     @{
         src = "suite_dialogue.cpp"; exe = "dialogue_suite.exe"
-        # Â§10.60 dialogueï¼šstar-native-eval-dialogue-v1 ?Œæ??˜é?
+        # Â§10.60 dialogueï¼šstar-native-eval-dialogue-v1 ?ï¿½ï¿½??ï¿½ï¿½?
         inc = @(
             (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
@@ -174,14 +174,14 @@ $suites = @(
     },
     @{
         src = "suite_scheduler_parity.cpp"; exe = "scheduler_parity_suite.exe"
-        # G100: scheduler parity ??C vs Python PeriodicScheduler (5-core budget, shadow?’primary gate)
+        # G100: scheduler parity ??C vs Python PeriodicScheduler (5-core budget, shadow?ï¿½primary gate)
         extra = @(
             (Join-Path $coreDir "scheduler.c")
         )
     },
     @{
         src = "suite_resource_governor.cpp"; exe = "resource_governor_suite.exe"
-        # A608: resource-governor C++23 ?§åˆ¶å¾‹ç??¹ï??‡å??ï???OS ?¯ä??¨ï???
+        # A608: resource-governor C++23 ?ï¿½åˆ¶å¾‹ï¿½??ï¿½ï¿½??ï¿½ï¿½??ï¿½ï¿½???OS ?ï¿½ï¿½??ï¿½ï¿½???
         # A185 split: control-law units only (no Win32 engine / host layer).
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
@@ -194,7 +194,7 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor_budget.cpp"; exe = "resource_governor_budget_suite.exe"
-        # A590/A593/A598: ?¨å? concurrency ?é??§åˆ¶å¾‹ï?8 å·¥ä?é¡åˆ¥ï¼‰ã€?
+        # A590/A593/A598: ?ï¿½ï¿½? concurrency ?ï¿½ï¿½??ï¿½åˆ¶å¾‹ï¿½?8 å·¥ï¿½?é¡åˆ¥ï¼‰ï¿½?
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
@@ -206,7 +206,7 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor_pools.cpp"; exe = "resource_governor_pools_suite.exe"
-        # Pool layer: Pool æ­¸å?ï¼pools è¦å?è§??ï¼per-pool ?±äº« Job envelope??
+        # Pool layer: Pool æ­¸ï¿½?ï¼pools è¦ï¿½?ï¿½??ï¼per-pool ?ï¿½äº« Job envelope??
         extra = @(
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
@@ -218,9 +218,22 @@ $suites = @(
     },
     @{
         src = "suite_resource_governor_advisor.cpp"; exe = "resource_governor_advisor_suite.exe"
-        # B167/B38 ?Ÿç??¥æ›¿ï¼‹B3 ?‰ç??ªé©?‰ï?ceiling ä¸Šé??streak/cooldown??
-        # å¤œé??é›»çª—å£?fail-closedï¼ˆç??½å?ï¼‹å?å¼•æ?ï¼Œé›¶?¯ä??¨ï???
+        # B167/B38 ?ï¿½ï¿½??ï¿½æ›¿ï¼‹B3 ?ï¿½ï¿½??ï¿½é©?ï¿½ï¿½?ceiling ä¸Šï¿½??ï¿½streak/cooldown??
+        # å¤œï¿½??ï¿½é›»çª—å£?ï¿½fail-closedï¼ˆï¿½??ï¿½ï¿½?ï¼‹ï¿½?å¼•ï¿½?ï¼Œé›¶?ï¿½ï¿½??ï¿½ï¿½???
         extra = @(
+            (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_rules.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_budget.cpp"),
+            (Join-Path $nativeRoot "resource_governor\governor_advisor.cpp")
+        )
+    },
+    @{
+        src = "suite_resource_governor_grants.cpp"; exe = "resource_governor_grants_suite.exe"
+        # star-resource-request/grant/v1: adjudication + expiry/renew/release
+        extra = @(
+            (Join-Path $nativeRoot "resource_governor\governor_grants.cpp"),
             (Join-Path $nativeRoot "resource_governor\resource_governor.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_steps.cpp"),
             (Join-Path $nativeRoot "resource_governor\governor_cycle_rules.cpp"),
@@ -332,19 +345,19 @@ foreach ($suite in $suites) {
     $objs = @($srcs | ForEach-Object { Add-TuForSource $_ $incs })
     $linkJobs += @{ name = $suiteName; exe = $exePath; objs = $objs }
 }
-# ?¨ç?å¯©è?å¼•æ? CLIï¼ˆpre-commit ?˜é?åµŒå…¥å¼ï???own /D ??own TU.
+# ?ï¿½ï¿½?å¯©ï¿½?å¼•ï¿½? CLIï¼ˆpre-commit ?ï¿½ï¿½?åµŒå…¥å¼ï¿½???own /D ??own TU.
 $auditExe = Join-Path $out "audit-engine.exe"
 $auditSrc = Join-Path $auditDir "audit_engine.cpp"
 $aeObj = Add-Tu $auditSrc @($includeDir) "c++latest" @("/DGPTBRIDGE_AUDIT_ENGINE_CLI")
 $linkJobs += @{ name = "audit-engine"; exe = $auditExe; objs = @($aeObj) }
-# A608 è³‡æ?ç®¡åˆ¶?¨ä¸»ç¨‹å?ï¼ˆC++23ï¼‰ï???£?¢å¸¸é§è?ç¨‹ï???Python ?ˆå??€?‹å?ç´?
+# A608 è³‡ï¿½?ç®¡åˆ¶?ï¿½ä¸»ç¨‹ï¿½?ï¼ˆC++23ï¼‰ï¿½???ï¿½ï¿½?ï¿½å¸¸é§ï¿½?ç¨‹ï¿½???Python ?ï¿½ï¿½??ï¿½?ï¿½ï¿½?ï¿½?
 $govRoot = Join-Path $nativeRoot "resource_governor"
 $govExe = Join-Path $govRoot "bin\resource-governor.exe"
 New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
 $govSrcFiles = Get-ChildItem -Path $govRoot -Filter "*.cpp" -File | Sort-Object Name
 $govObjs = @($govSrcFiles | ForEach-Object { Add-Tu $_.FullName @($includeDir) "c++latest" @() })
 $linkJobs += @{ name = "resource-governor"; exe = $govExe; objs = $govObjs }
-# M1 æ¨¡å? Bï¼šproxy codec CLI driverï¼ˆPython interop æ¸¬è©¦?¨ï??å?ä»¶ï?
+# M1 æ¨¡ï¿½? Bï¼šproxy codec CLI driverï¼ˆPython interop æ¸¬è©¦?ï¿½ï¿½??ï¿½ï¿½?ä»¶ï¿½?
 $driverExe = Join-Path $out "proxy_client_driver.exe"
 $driverSrc = Join-Path $PSScriptRoot "driver_proxy_client.cpp"
 $tpxSrc = Join-Path $nativeRoot "tool_runtime\transport_proxy_client.cpp"
@@ -354,8 +367,8 @@ $drvObjs = @(
     (Add-Tu $tpxSrc @($includeDir) "c++latest" @()),
     (Add-Tu $sidecarSrc @($includeDir) "c++latest" @()))
 $linkJobs += @{ name = "proxy_client_driver"; exe = $driverExe; objs = $drvObjs }
-# transport-proxy/v1 ç·šå?å®?fixtureï¼ˆå??Ÿï?ï¼šlive sidecar æ¡ˆä??„å?ç®¡å?ç«¯ï?
-# ?–ä»£å·²é€€å½¹ç? Python fixtureï¼ˆD7/B171ï¼šæ¸¬è©¦è??“ç„¡ Pythonï¼‰ã€?
+# transport-proxy/v1 ç·šï¿½?ï¿½?fixtureï¼ˆï¿½??ï¿½ï¿½?ï¼šlive sidecar æ¡ˆï¿½??ï¿½ï¿½?ç®¡ï¿½?ç«¯ï¿½?
+# ?ï¿½ä»£å·²é€€å½¹ï¿½? Python fixtureï¼ˆD7/B171ï¼šæ¸¬è©¦ï¿½??ï¿½ç„¡ Pythonï¼‰ï¿½?
 $wireExe = Join-Path $out "proxy_wire_agent.exe"
 $wireSrc = Join-Path $PSScriptRoot "proxy_wire_agent.cpp"
 $wireObj = Add-Tu $wireSrc @($includeDir) "c++latest" @()

@@ -1,0 +1,40 @@
+{
+  "authority": "non-authoritative-read-only-observation",
+  "observed_at": "2026-10-02T11:08:11Z",
+  "source_codex": "2026-10-02T11:04:35Z",
+  "roots": [
+    {
+      "code": "BLOCK_XINGCHENG",
+      "path": "E:\\GPTBridge\\blocks\\xingcheng",
+      "present": false,
+      "state": "planned-host-unimplemented"
+    },
+    {
+      "code": "UNIT_ASSISTANT",
+      "path": "E:\\GPTBridge\\blocks\\xingcheng\\assistant",
+      "present": false,
+      "state": "planned-host-unimplemented"
+    },
+    {
+      "code": "STAR_DIRECTORY",
+      "path": "E:\\GPTBridge\\Standalone tools\\local-model\\model-dialogue\\xingcheng",
+      "present": false,
+      "state": "retired-no-source-data-at-inspected-path"
+    },
+    {
+      "code": "XINGCHENG_INSTITUTION_ROOT",
+      "path": "E:\\GPTBridge\\xingcheng\\xingcheng",
+      "present": true
+    },
+    {
+      "code": "MODEL_TRAINING_NATIVE",
+      "path": "E:\\GPTBridge\\xingcheng\\src\\backend\\services\\xingcheng\\infrastructure\\native_transformer\\training",
+      "present": true
+    }
+  ],
+  "limitations": [
+    "Directory existence or absence does not establish separate-host implementation,process isolation or full data completeness.",
+    "No files,folders,source modules or data were created,moved or deleted.",
+    "Any physical migration requires a prior governed amendment;this registry amendment does not authorize or execute it."
+  ]
+}

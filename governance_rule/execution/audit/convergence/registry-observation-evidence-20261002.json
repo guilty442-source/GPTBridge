@@ -1,0 +1,350 @@
+{
+  "model_inventory_count": 24,
+  "no_test_suite_created": true,
+  "authority": "read-only-observation-not-implementation-acceptance",
+  "worktrees": [
+    {
+      "branch": "refs/heads/local-model",
+      "meaning": "point-in-time observation; not a live HEAD pointer",
+      "observed_at": "2026-10-02T10:57:48Z",
+      "head": "4d515fb777f80d1a7a36533cdecff866a66d194b",
+      "identity": "WT_04D985DE4E7D"
+    },
+    {
+      "branch": "refs/heads/devin",
+      "meaning": "point-in-time observation; not a live HEAD pointer",
+      "observed_at": "2026-10-02T10:57:48Z",
+      "head": "2004e63ddb3fc87927f1074997e4c0cdb4880831",
+      "identity": "WT_8318CED4CE10"
+    },
+    {
+      "branch": "refs/heads/ui",
+      "meaning": "point-in-time observation; not a live HEAD pointer",
+      "observed_at": "2026-10-02T10:57:48Z",
+      "head": "4d515fb777f80d1a7a36533cdecff866a66d194b",
+      "identity": "WT_87EF044A8BEC"
+    },
+    {
+      "branch": "refs/heads/main",
+      "meaning": "point-in-time observation; not a live HEAD pointer",
+      "observed_at": "2026-10-02T10:57:48Z",
+      "head": "d31ea86f16469d4b638903d11b98feae1615f91b",
+      "identity": "WT_A4C002055FB5"
+    },
+    {
+      "branch": "refs/heads/rag",
+      "meaning": "point-in-time observation; not a live HEAD pointer",
+      "observed_at": "2026-10-02T10:57:48Z",
+      "head": "4d515fb777f80d1a7a36533cdecff866a66d194b",
+      "identity": "WT_B2D8A1EA2608"
+    },
+    {
+      "branch": "refs/heads/git",
+      "meaning": "point-in-time observation; not a live HEAD pointer",
+      "observed_at": "2026-10-02T10:57:48Z",
+      "head": "4d515fb777f80d1a7a36533cdecff866a66d194b",
+      "identity": "WT_DCF518E63E17"
+    }
+  ],
+  "no_model_evaluation_executed": true,
+  "resident_count": 0,
+  "models": [
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "deepcoder:14b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "deepseek-r1:14b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "deepseek-r1:8b-0528-qwen3-q4_K_M"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "gemma4-e2b-64k:latest"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "gemma4:12b-it-qat"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "gemma4:26b-a4b-it-qat"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "gemma4:e2b-it-qat"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "glm4:9b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "gpt-oss:20b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "granite-code:3b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "ibm/granite4.2:30b-q4_K_M"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "mistral-small:24b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "nemotron-3-nano:4b-q8_0"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "nemotron-3.5-lightning:30b-a3b-q4_K_M"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "nomic-embed-text-v2-moe:latest"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "openbmb/minicpm-v4.6:q8_0"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "ornith-1.5:35b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "qwen3-coder:30b-a3b-q4_K_M"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "qwen3-embedding:4b"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "qwen3-vl:8b-thinking"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "qwen3.6:35b-a3b-coding"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "qwen3.8:27b-q4_K_M"
+    },
+    {
+      "capability": "not tested",
+      "resident": false,
+      "inventory_present": true,
+      "observed_at": "2026-10-02T10:57:48Z",
+      "generation_binding": "unverified; previous generation field retained as historical only",
+      "model_identity": "rnj-1:8b-instruct-q4_K_M"
+    }
+  ],
+  "suites": [
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_AI_ASSISTANT",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\ai-assistant\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_AI_COLLABORATION",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\ai-collaboration\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_EVENT_SERVICE",
+      "suite_root": "E:\\GPTBridge\\main-system\\information-layer\\events\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_FILE_SORTER",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\file-sorter\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "retired",
+      "suite_code": "TS_GLOBAL_CLEANER",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\global-cleaner\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_INVESTMENT_MOBILE",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\investment-mobile\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_IPC_SERVICE",
+      "suite_root": "E:\\GPTBridge\\main-system\\information-layer\\ipc\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_LAUNCHER",
+      "suite_root": "E:\\GPTBridge\\main-system\\launcher\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_LOCAL_MODEL",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\local-model\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_MAIN_SYSTEM",
+      "suite_root": "E:\\GPTBridge\\main-system\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_MODEL_DIALOGUE",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\model-dialogue\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_POSTGRESQL_AUTHORITY",
+      "suite_root": "E:\\GPTBridge\\main-system\\information-layer\\postgresql\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "retired",
+      "suite_code": "TS_QDRANT_AUTHORITY",
+      "suite_root": "E:\\GPTBridge\\main-system\\information-layer\\qdrant\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_SHARED_LAYER",
+      "suite_root": "E:\\GPTBridge\\shared-layer\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_STATE_SERVICE",
+      "suite_root": "E:\\GPTBridge\\main-system\\information-layer\\state\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "retired",
+      "suite_code": "TS_SYSTEM_RESCUE",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\system-rescue\\tests"
+    },
+    {
+      "root_present": false,
+      "status": "mandated",
+      "suite_code": "TS_VAULTLY",
+      "suite_root": "E:\\GPTBridge\\Standalone tools\\vaultly\\tests"
+    }
+  ],
+  "source_codex_version": "2026-10-02T10:48:29Z"
+}

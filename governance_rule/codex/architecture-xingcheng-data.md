@@ -71,7 +71,7 @@ flowchart LR
 ## 二進位容器家族
 
 <!-- autogen:xingcheng-containers -->
-*autogen-scanner/v1 · 2358 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2376 files · main+devin+git+local-model+rag+ui*
 | Magic | 定義/引用來源 |
 |---|---|
 | `XCB1` | devin:xingcheng/contracts/xnc/vectors/manifest.json, devin:xingcheng/src/backend/cpp/src/xcb_batch.h, devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/contracts/xnc/vectors/manifest.json (+14) |
@@ -131,11 +131,12 @@ jobs/<id>/
 ## JSONL/JSON artifact 索引（producer → consumer）
 
 <!-- autogen:xingcheng-formats -->
-*autogen-scanner/v1 · 2358 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2376 files · main+devin+git+local-model+rag+ui*
 | format tag | 來源檔 |
 |---|---|
 | `coding-agent-trajectory/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs (+2) |
 | `grpo` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `nope` | native/test_suites/suite_resource_governor_grants.cpp |
 | `parity/v1` | devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, local-model:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, xingcheng/src/backend/rust/xcorpus/src/xcb.rs (+2) |
 | `sft` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
 | `star-accel-plane` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_kernels.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_kernels.h (+8) |
@@ -186,6 +187,7 @@ jobs/<id>/
 | `star-quant-cert/v1` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_quantcert.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_quantcert.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_quantcert.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_quantcert.h (+2) |
 | `star-rag-prefix-bench/v1` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_efficiency.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_efficiency.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_efficiency.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_efficiency.h (+2) |
 | `star-recurrent-drift/v1` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h (+2) |
+| `star-resource-request/v1` | native/test_suites/suite_resource_governor_grants.cpp |
 | `star-retention-policy/v1` | xingcheng/xingcheng/runtime/settings/retention.json |
 | `star-self-correction/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceChecks.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceChecks.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs (+8) |
 | `star-self-learning-policy/v1` | xingcheng/xingcheng/runtime/settings/self-learning.json |
@@ -242,7 +244,7 @@ jobs/<id>/
 ## PostgreSQL 表（`gptbridge_xingcheng`）
 
 <!-- autogen:xingcheng-pgtables -->
-*autogen-scanner/v1 · 2358 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2376 files · main+devin+git+local-model+rag+ui*
 | 表 | 定義/引用來源 |
 |---|---|
 | `transformer_adapter_candidate` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |

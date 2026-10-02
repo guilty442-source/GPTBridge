@@ -324,6 +324,19 @@ internal static class SelfLearning
             ("gpu_busy_until", until));
     }
 
+    /// <summary>Error codes that mean "resources withheld — retry
+    /// later": the legacy gpu-busy code plus the typed grant-layer
+    /// codes (§80). DENIED/DEFERRED/UNAVAILABLE/REVOKED all keep the
+    /// job queued and arm the backoff.</summary>
+    private static bool IsResourceBackoff(string errorCode) =>
+        errorCode is "EXECUTOR_GPU_BUSY"
+            or ResourceErrors.GovernorUnavailable
+            or ResourceErrors.RequestDenied
+            or ResourceErrors.RequestDeferred
+            or ResourceErrors.GrantExpired
+            or ResourceErrors.GrantRevoked
+            or ResourceErrors.InsufficientGranted;
+
     private static Dictionary<string, object?> GpuBusyRecord(
         SelfLearningPolicy policy, IReadOnlyDictionary<string, object?> state)
     {
@@ -1447,7 +1460,11 @@ internal static class SelfLearning
         {
             string errorCode = TransformerTrainingRepository
                 .Str(report, "error_code") ?? "";
-            var gpuFields = errorCode == "EXECUTOR_GPU_BUSY"
+            // Resource-governed deferrals share the gpu-busy backoff:
+            // denied/deferred/unavailable all mean "stay queued, try
+            // later" — never a hard failure (spec §15: no bypass when
+            // the governor withholds resources).
+            var gpuFields = IsResourceBackoff(errorCode)
                 ? GpuBusyRecord(policy, state)
                 : new Dictionary<string, object?>
                 {

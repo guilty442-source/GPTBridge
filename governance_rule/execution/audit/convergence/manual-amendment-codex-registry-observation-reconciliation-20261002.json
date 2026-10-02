@@ -1,0 +1,2000 @@
+{
+  "artifact": "codex-amendment-request",
+  "origin": "direct human-governor instruction",
+  "title": "Reconcile retired registry projections and refresh bounded observations",
+  "authority": "request-only",
+  "request_id": "codex-registry-observation-reconciliation-20261002-reconciled",
+  "schema": "codex-amendment-request/v1",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "summary": "Data-only registry reconciliation; preserve missing test and model evidence; no implementation or business rules added to law",
+  "auto_execute": true,
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "predecessor": {
+    "version_epoch": 2,
+    "codex_version": "2026-10-02T10:48:29Z",
+    "revision_sequence": 226,
+    "version_identity": "E2:2026-10-02T10:48:29Z",
+    "history_head": "be150854550fbb59936e53af8684d5954d77d35541d22de0bd6ea8b20b027312"
+  },
+  "changes": [
+    {
+      "field": "status",
+      "table": "module_assignment_registry",
+      "key": {
+        "module_architecture_code": "SYSTEM_RESCUE"
+      },
+      "proposed": "retired-no-current-dispatch"
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_AI_ASSISTANT"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_ASSISTANT"
+      },
+      "proposed": "{\"canonical_name\":\"ai-assistant-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"AI_ASSISTANT\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_AI_ASSISTANT\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\ai-assistant\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_ASSISTANT"
+      },
+      "proposed": "d4e863dcc2a92bc796af157e6014516b06f0e274eed4562ae0f4fa2de9760824"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_ASSISTANT"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_ASSISTANT"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_ASSISTANT"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_AI_COLLABORATION"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_COLLABORATION"
+      },
+      "proposed": "{\"canonical_name\":\"ai-collaboration-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"AI_COLLABORATION\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_AI_COLLABORATION\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\ai-collaboration\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_COLLABORATION"
+      },
+      "proposed": "acf910208257c981ddb403b99ab118b61841a4f231a8e730db46a707fcca41e1"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_COLLABORATION"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_COLLABORATION"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_AI_COLLABORATION"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_EVENT_SERVICE"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_EVENT_SERVICE"
+      },
+      "proposed": "{\"canonical_name\":\"event-service-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"EVENT_SERVICE\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_EVENT_SERVICE\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\events\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_EVENT_SERVICE"
+      },
+      "proposed": "55300be0b22dcd3675a9d449fc94be904ef380e0f404c164654462863a498cd3"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_EVENT_SERVICE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_EVENT_SERVICE"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_EVENT_SERVICE"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_FILE_SORTER"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_FILE_SORTER"
+      },
+      "proposed": "{\"canonical_name\":\"file-sorter-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"FILE_SORTER\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_FILE_SORTER\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\file-sorter\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_FILE_SORTER"
+      },
+      "proposed": "f2922793cfce3514d215e96f839c26056f6e8c4febdfa2976725ac0e49d7eb6b"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_FILE_SORTER"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_FILE_SORTER"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_FILE_SORTER"
+      },
+      "proposed": null
+    },
+    {
+      "field": "status",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "retired"
+    },
+    {
+      "field": "retired_version",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "2026-09-16T08:45:19Z"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "{\"canonical_name\":\"global-cleaner-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"health-maintenance-test-sub-sovereign\",\"module_architecture_code\":\"GLOBAL_CLEANER\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":\"2026-09-16T08:45:19Z\",\"status\":\"retired\",\"suite_code\":\"TS_GLOBAL_CLEANER\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\global-cleaner\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "314f325f49903e2b0c0e0b49497998f48805f3127c92c00718148747cd5bc46b"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "retired"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_GLOBAL_CLEANER"
+      },
+      "proposed": "2026-09-16T08:45:19Z"
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "suite_root",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": "E:\\GPTBridge\\Standalone tools\\investment-mobile\\tests"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": "{\"canonical_name\":\"investment-mobile-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"INVESTMENT_MOBILE\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_INVESTMENT_MOBILE\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\investment-mobile\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": "89be71b99d2a325202f5cca87315358ab86960fb490fb0acdbd2aed5ded2eb96"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_INVESTMENT_MOBILE"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_IPC_SERVICE"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_IPC_SERVICE"
+      },
+      "proposed": "{\"canonical_name\":\"ipc-service-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"IPC_SERVICE\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_IPC_SERVICE\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\ipc\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_IPC_SERVICE"
+      },
+      "proposed": "54908bdf92bac712c39d58cc0abcd77bd52f22def0df0a80916640bac01ca13d"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_IPC_SERVICE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_IPC_SERVICE"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_IPC_SERVICE"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_LAUNCHER"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LAUNCHER"
+      },
+      "proposed": "{\"canonical_name\":\"launcher-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"LAUNCHER\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_LAUNCHER\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\launcher\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LAUNCHER"
+      },
+      "proposed": "71b27de976b495a97d6fdb4aff6bf9c1a246e63244d76e8de6c68e81f8f80a2b"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LAUNCHER"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LAUNCHER"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LAUNCHER"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_LOCAL_MODEL"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LOCAL_MODEL"
+      },
+      "proposed": "{\"canonical_name\":\"local-model-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"LOCAL_MODEL\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_LOCAL_MODEL\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LOCAL_MODEL"
+      },
+      "proposed": "8495461ab96ca9a7f38068b0ce06f8fe4eb0c648df74d84c3ea4608f1fba967e"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LOCAL_MODEL"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LOCAL_MODEL"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_LOCAL_MODEL"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_MAIN_SYSTEM"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MAIN_SYSTEM"
+      },
+      "proposed": "{\"canonical_name\":\"main-system-platform-core-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"MAIN_SYSTEM\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_MAIN_SYSTEM\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MAIN_SYSTEM"
+      },
+      "proposed": "4d4742b4bfa9e3e32beee07938baa6aa7d2c80180d2b52dc0e2c3b610ac0288d"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MAIN_SYSTEM"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MAIN_SYSTEM"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MAIN_SYSTEM"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "suite_root",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": "E:\\GPTBridge\\Standalone tools\\model-dialogue\\tests"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": "{\"canonical_name\":\"model-dialogue-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"MODEL_DIALOGUE\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_MODEL_DIALOGUE\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\model-dialogue\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": "c9ee054979d4ad96400a4bb83234c76911f2568448ff25385c4471a53d3dd923"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_MODEL_DIALOGUE"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_POSTGRESQL_AUTHORITY"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_POSTGRESQL_AUTHORITY"
+      },
+      "proposed": "{\"canonical_name\":\"postgresql-authority-adapter-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"POSTGRESQL_AUTHORITY\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_POSTGRESQL_AUTHORITY\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\postgresql\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_POSTGRESQL_AUTHORITY"
+      },
+      "proposed": "8d460d5f62d43cb636b5b78f07c35f2c3aef03023c2e1c07a2ed2604a961669e"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_POSTGRESQL_AUTHORITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_POSTGRESQL_AUTHORITY"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_POSTGRESQL_AUTHORITY"
+      },
+      "proposed": null
+    },
+    {
+      "field": "status",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "retired"
+    },
+    {
+      "field": "retired_version",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "2026-10-01T16:54:08Z"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "{\"canonical_name\":\"qdrant-authority-adapter-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"health-maintenance-test-sub-sovereign\",\"module_architecture_code\":\"QDRANT_AUTHORITY\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":\"2026-10-01T16:54:08Z\",\"status\":\"retired\",\"suite_code\":\"TS_QDRANT_AUTHORITY\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\qdrant\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "fd4053a962c721f67bdb054e057778a417ccaf426de283eb649699eec9a0bc67"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "retired"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_QDRANT_AUTHORITY"
+      },
+      "proposed": "2026-10-01T16:54:08Z"
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_SHARED_LAYER"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "suite_root",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_SHARED_LAYER"
+      },
+      "proposed": "E:\\GPTBridge\\shared-layer\\tests"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SHARED_LAYER"
+      },
+      "proposed": "{\"canonical_name\":\"shared-layer-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"SHARED_LAYER\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_SHARED_LAYER\",\"suite_root\":\"E:\\\\GPTBridge\\\\shared-layer\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SHARED_LAYER"
+      },
+      "proposed": "1c221438482161008077e17c1c85fe4e73a4ce36b8aa2e9e12307daebbd661cf"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SHARED_LAYER"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SHARED_LAYER"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SHARED_LAYER"
+      },
+      "proposed": null
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_STATE_SERVICE"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_STATE_SERVICE"
+      },
+      "proposed": "{\"canonical_name\":\"state-service-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"STATE_SERVICE\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_STATE_SERVICE\",\"suite_root\":\"E:\\\\GPTBridge\\\\main-system\\\\information-layer\\\\state\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_STATE_SERVICE"
+      },
+      "proposed": "2971c531311385de1cca8993d81537f3f653ccb52d52e4d929f0101a9f6ef299"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_STATE_SERVICE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_STATE_SERVICE"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_STATE_SERVICE"
+      },
+      "proposed": null
+    },
+    {
+      "field": "status",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "retired"
+    },
+    {
+      "field": "retired_version",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "2026-09-27T14:50:00Z"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "{\"canonical_name\":\"system-rescue-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"health-maintenance-test-sub-sovereign\",\"module_architecture_code\":\"SYSTEM_RESCUE\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":\"2026-09-27T14:50:00Z\",\"status\":\"retired\",\"suite_code\":\"TS_SYSTEM_RESCUE\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\system-rescue\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "c20d87120e06f1632437d7e4700ab0052e9692457ae9214afc85f54afb9644cf"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "retired"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_SYSTEM_RESCUE"
+      },
+      "proposed": "2026-09-27T14:50:00Z"
+    },
+    {
+      "field": "management_owner",
+      "table": "test_suite_architecture_directory",
+      "key": {
+        "suite_code": "TS_VAULTLY"
+      },
+      "proposed": "automation-sovereign"
+    },
+    {
+      "field": "domain_payload",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_VAULTLY"
+      },
+      "proposed": "{\"canonical_name\":\"vaultly-test-suite\",\"introduced_version\":\"1.00000\",\"management_owner\":\"automation-sovereign\",\"module_architecture_code\":\"VAULTLY\",\"owner\":\"permission-sovereign\",\"required_evidence\":\"requirements|environment|fixtures|expected|actual|faults|artifacts|cleanup|verdict|retest|acceptance\",\"retired_version\":null,\"status\":\"mandated\",\"suite_code\":\"TS_VAULTLY\",\"suite_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\vaultly\\\\tests\",\"test_levels\":\"unit|contract|integration|system|failure-injection|security|performance\"}"
+    },
+    {
+      "field": "content_hash",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_VAULTLY"
+      },
+      "proposed": "73e6ff2a4a0576599d341215e68f02ec5817a7d535c514615e3f162499009cb5"
+    },
+    {
+      "field": "revision",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_VAULTLY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_VAULTLY"
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "retired_version",
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "TS_VAULTLY"
+      },
+      "proposed": null
+    },
+    {
+      "field": "head_revision",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_04D985DE4E7D"
+      },
+      "proposed": "4d515fb777f80d1a7a36533cdecff866a66d194b"
+    },
+    {
+      "field": "branch_ref",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_04D985DE4E7D"
+      },
+      "proposed": "refs/heads/local-model"
+    },
+    {
+      "field": "observed_at",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_04D985DE4E7D"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "head_revision",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_8318CED4CE10"
+      },
+      "proposed": "2004e63ddb3fc87927f1074997e4c0cdb4880831"
+    },
+    {
+      "field": "branch_ref",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_8318CED4CE10"
+      },
+      "proposed": "refs/heads/devin"
+    },
+    {
+      "field": "observed_at",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_8318CED4CE10"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "head_revision",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_87EF044A8BEC"
+      },
+      "proposed": "4d515fb777f80d1a7a36533cdecff866a66d194b"
+    },
+    {
+      "field": "branch_ref",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_87EF044A8BEC"
+      },
+      "proposed": "refs/heads/ui"
+    },
+    {
+      "field": "observed_at",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_87EF044A8BEC"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "head_revision",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_A4C002055FB5"
+      },
+      "proposed": "d31ea86f16469d4b638903d11b98feae1615f91b"
+    },
+    {
+      "field": "branch_ref",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_A4C002055FB5"
+      },
+      "proposed": "refs/heads/main"
+    },
+    {
+      "field": "observed_at",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_A4C002055FB5"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "head_revision",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_B2D8A1EA2608"
+      },
+      "proposed": "4d515fb777f80d1a7a36533cdecff866a66d194b"
+    },
+    {
+      "field": "branch_ref",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_B2D8A1EA2608"
+      },
+      "proposed": "refs/heads/rag"
+    },
+    {
+      "field": "observed_at",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_B2D8A1EA2608"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "head_revision",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_DCF518E63E17"
+      },
+      "proposed": "4d515fb777f80d1a7a36533cdecff866a66d194b"
+    },
+    {
+      "field": "branch_ref",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_DCF518E63E17"
+      },
+      "proposed": "refs/heads/git"
+    },
+    {
+      "field": "observed_at",
+      "table": "git_worktree_registry",
+      "key": {
+        "worktree_identity": "WT_DCF518E63E17"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepcoder:14b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepcoder:14b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepcoder:14b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "deepcoder:14b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "deepcoder:14b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#deepcoder:14b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepseek-r1:14b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepseek-r1:14b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepseek-r1:14b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "deepseek-r1:14b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "deepseek-r1:14b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#deepseek-r1:14b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepseek-r1:8b-0528-qwen3-q4_K_M"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepseek-r1:8b-0528-qwen3-q4_K_M"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "deepseek-r1:8b-0528-qwen3-q4_K_M"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "deepseek-r1:8b-0528-qwen3-q4_K_M"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "deepseek-r1:8b-0528-qwen3-q4_K_M"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#deepseek-r1:8b-0528-qwen3-q4_K_M;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4-e2b-64k:latest"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4-e2b-64k:latest"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4-e2b-64k:latest"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4-e2b-64k:latest"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4-e2b-64k:latest"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#gemma4-e2b-64k:latest;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:12b-it-qat"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:12b-it-qat"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:12b-it-qat"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4:12b-it-qat"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4:12b-it-qat"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#gemma4:12b-it-qat;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:26b-a4b-it-qat"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:26b-a4b-it-qat"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:26b-a4b-it-qat"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4:26b-a4b-it-qat"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4:26b-a4b-it-qat"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#gemma4:26b-a4b-it-qat;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:e2b-it-qat"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:e2b-it-qat"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gemma4:e2b-it-qat"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4:e2b-it-qat"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gemma4:e2b-it-qat"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#gemma4:e2b-it-qat;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "glm4:9b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "glm4:9b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "glm4:9b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "glm4:9b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "glm4:9b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#glm4:9b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gpt-oss:20b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gpt-oss:20b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "gpt-oss:20b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gpt-oss:20b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "gpt-oss:20b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#gpt-oss:20b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "granite-code:3b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "granite-code:3b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "granite-code:3b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "granite-code:3b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "granite-code:3b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#granite-code:3b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "ibm/granite4.2:30b-q4_K_M"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "ibm/granite4.2:30b-q4_K_M"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "ibm/granite4.2:30b-q4_K_M"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "ibm/granite4.2:30b-q4_K_M"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "ibm/granite4.2:30b-q4_K_M"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#ibm/granite4.2:30b-q4_K_M;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "mistral-small:24b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "mistral-small:24b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "mistral-small:24b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "mistral-small:24b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "mistral-small:24b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#mistral-small:24b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nemotron-3-nano:4b-q8_0"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nemotron-3-nano:4b-q8_0"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nemotron-3-nano:4b-q8_0"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "nemotron-3-nano:4b-q8_0"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "nemotron-3-nano:4b-q8_0"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#nemotron-3-nano:4b-q8_0;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nemotron-3.5-lightning:30b-a3b-q4_K_M"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nemotron-3.5-lightning:30b-a3b-q4_K_M"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nemotron-3.5-lightning:30b-a3b-q4_K_M"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "nemotron-3.5-lightning:30b-a3b-q4_K_M"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "nemotron-3.5-lightning:30b-a3b-q4_K_M"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#nemotron-3.5-lightning:30b-a3b-q4_K_M;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nomic-embed-text-v2-moe:latest"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nomic-embed-text-v2-moe:latest"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "nomic-embed-text-v2-moe:latest"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "nomic-embed-text-v2-moe:latest"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "nomic-embed-text-v2-moe:latest"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#nomic-embed-text-v2-moe:latest;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "openbmb/minicpm-v4.6:q8_0"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "openbmb/minicpm-v4.6:q8_0"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "openbmb/minicpm-v4.6:q8_0"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "openbmb/minicpm-v4.6:q8_0"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "openbmb/minicpm-v4.6:q8_0"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#openbmb/minicpm-v4.6:q8_0;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "ornith-1.5:35b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "ornith-1.5:35b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "ornith-1.5:35b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "ornith-1.5:35b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "ornith-1.5:35b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#ornith-1.5:35b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#pdurugyan/qwen3-reranker-0.6b-q8_0:latest;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-coder:30b-a3b-q4_K_M"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-coder:30b-a3b-q4_K_M"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-coder:30b-a3b-q4_K_M"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3-coder:30b-a3b-q4_K_M"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3-coder:30b-a3b-q4_K_M"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#qwen3-coder:30b-a3b-q4_K_M;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-embedding:4b"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-embedding:4b"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-embedding:4b"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3-embedding:4b"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3-embedding:4b"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#qwen3-embedding:4b;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-vl:8b-thinking"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-vl:8b-thinking"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3-vl:8b-thinking"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3-vl:8b-thinking"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3-vl:8b-thinking"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#qwen3-vl:8b-thinking;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3.6:35b-a3b-coding"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3.6:35b-a3b-coding"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3.6:35b-a3b-coding"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3.6:35b-a3b-coding"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3.6:35b-a3b-coding"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#qwen3.6:35b-a3b-coding;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3.8:27b-q4_K_M"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3.8:27b-q4_K_M"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "qwen3.8:27b-q4_K_M"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3.8:27b-q4_K_M"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "qwen3.8:27b-q4_K_M"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#qwen3.8:27b-q4_K_M;observed_at=2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "observed_at",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "rnj-1:8b-instruct-q4_K_M"
+      },
+      "proposed": "2026-10-02T10:57:48Z"
+    },
+    {
+      "field": "capability_state",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "rnj-1:8b-instruct-q4_K_M"
+      },
+      "proposed": "inventory-present-capability-unverified"
+    },
+    {
+      "field": "status",
+      "table": "local_model_registry",
+      "key": {
+        "model_identity": "rnj-1:8b-instruct-q4_K_M"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "residency_state",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "rnj-1:8b-instruct-q4_K_M"
+      },
+      "proposed": "observed-not-resident"
+    },
+    {
+      "field": "evidence_reference",
+      "table": "model_residency_registry",
+      "key": {
+        "model_identity": "rnj-1:8b-instruct-q4_K_M"
+      },
+      "proposed": "governance_rule/execution/audit/convergence/registry-observation-evidence-20261002.json#rnj-1:8b-instruct-q4_K_M;observed_at=2026-10-02T10:57:48Z"
+    }
+  ],
+  "requested_by": "decision-sovereign"
+}

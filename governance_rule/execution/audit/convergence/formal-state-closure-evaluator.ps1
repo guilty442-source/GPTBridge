@@ -145,6 +145,9 @@ if ($Verify) {
     $contentBoundary=($articles | Where-Object provision_id -eq 'B5').rule
     Assert-State ($contentBoundary.Contains('the Codex records principles only') -and $contentBoundary.Contains('implementation rules and business rules do not enter the Codex')) 'global-principles-only-content-boundary'
     Assert-State ($format.Contains('CONTENT:B5') -and $format.Contains('MACHINE-PROJECTION:') -and $format.Contains('outside the Codex')) 'external-implementation-projection-not-law'
+    $soleAuthority=($articles | Where-Object provision_id -eq 'A1').rule
+    Assert-State ($soleAuthority.Contains('the current authoritative Codex is the sole normative authority') -and $soleAuthority.Contains('not parallel authorities')) 'single-codex-normative-authority'
+    Assert-State ($contentBoundary.Contains('not independent normative authorities') -and $contentBoundary.Contains('derive exclusively from applicable current Codex principles')) 'owner-local-rules-subordinate-not-law-sources'
     [ordered]@{artifact='formal-state-convergence-verification';authority='non-authoritative-audit-evidence';generation=$head.version;revision=$head.sequence;result='PASS';checks=@($checks);formal_registry=$formal.Count;formal_participating=$formalCurrent.Count;formal_open=$formalFindings.Count;schema_open=$schemaOpen.Count;obligations=$obligationCounts;release='VERIFIED_RELEASE_DENIED';convergence='INCOMPLETE_EVIDENCE'} | ConvertTo-Json -Depth 20
     exit
 }
