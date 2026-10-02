@@ -1,0 +1,46 @@
+{
+  "id": "codex-divergence-report-20261002",
+  "type": "divergence-report",
+  "date": "2026-10-02",
+  "worker": "devin-desktop",
+  "engine": "star-audit-engine/v1",
+  "authority": {
+    "codex_identity": "governance-codex://official",
+    "codex_authority": "postgresql://local/gptbridge_codex",
+    "codex_version": "2026-10-02T12:40:26Z",
+    "table_count": 218,
+    "row_count": 23891
+  },
+  "manifest": {
+    "generated_at": "2026-10-02T12:42:27Z",
+    "generator": "governance_rule.execution.audit.export_audit_manifest",
+    "schema": "star-audit-manifest/v1"
+  },
+  "manifest_ok": true,
+  "totals": {
+    "total": 3583,
+    "passed": 3583,
+    "failed": 0,
+    "delegated": 0
+  },
+  "context": "Post-B154-retirement convergence pass. FR-OLLAMA-ON-DEMAND registry row retired by executed amendment ollama-sibling-residue-20261002-r2 (rev 238); governed manifest export regenerated 12:42:27Z dropping the two retired-rule check rows, restoring full audit parity.",
+  "actions": [
+    {
+      "item": "audit gate",
+      "result": "PASS 3583/3583 after governed manifest refresh; earlier same-day FAIL pair (formal-rule:evaluator/row:FR-OLLAMA-ON-DEMAND) resolved by the executed residue amendment, not by manifest edit"
+    },
+    {
+      "item": "machine-schema parity evidence artifacts",
+      "result": "machine-schema-parity-probe-20261002.json + machine-schema-parity-evidence-20261002.json refreshed from stale canonical_match=0 snapshot to live probe: canonical_match 77/77, producer_validator 77/77; current_evidence_open=77 recorded honestly (per-generation evidence anchor still pending governed closure)"
+    }
+  ],
+  "remaining_gaps_not_worker_fixable": [
+    "FORMAL_RULE_CLOSURE: 80 open — current-generation evaluator/test/prose evidence requires governed pipeline production",
+    "MACHINE_SCHEMA_CLOSURE: 77 open — evidence rows anchor predecessor generation; restamp is governor-scope (codex amendment)",
+    "NORMATIVE_SURFACE_CLOSURE: 185 unknown active lifecycle identities awaiting classification",
+    "DIRECTORY_CLOSURE: 40 catalog-open items",
+    "OBLIGATIONS: 58 mandated / 1 pending",
+    "EXTERNAL_SIGNATURE: externally-blocked (human-governor Ed25519 2-of-3)",
+    "verified release: DENIED by design until above closures"
+  ]
+}
