@@ -35,8 +35,10 @@ internal static class CapabilityRuntimeProfile
         if (cap == null)
             throw new ExecutorError("CAPABILITY_UNKNOWN",
                 capabilityInput);
-        var d = CapabilityRegistry.Get(cap);
-        string cls = d["capability_class"]!.ToString()!;
+        var d = CapabilityRegistry.Get(cap)
+            ?? throw new ExecutorError("CAPABILITY_UNKNOWN",
+                capabilityInput);
+        string cls = d.CapabilityClass;
 
         var profile = new Dictionary<string, object?>
         {
@@ -89,7 +91,7 @@ internal static class CapabilityRuntimeProfile
             // §61: descriptor hints surface to the governor — it may
             // degrade, defer or mark unavailable (§62); the
             // capability never demands.
-            ["resource_hint"] = d["resource_hint"],
+            ["resource_hint"] = d.Resource.ToDict(),
             ["rule"] = "profile only — kernel selection stays with " +
                        "AccelerationPlane/KernelRegistry; resource " +
                        "authority stays with the main governor",

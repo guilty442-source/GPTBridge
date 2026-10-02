@@ -8,12 +8,41 @@
 // architecture change, including the ≤1B ACTIVE_PARAMS ceiling
 // pressure in §72).
 
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
 
 internal static class ArchitectureLimitationEvidence
 {
+    private static string Str(JsonElement r, string k,
+        string d = "") =>
+        r.TryGetProperty(k, out var v) &&
+        v.ValueKind == JsonValueKind.String
+            ? v.GetString() ?? d : d;
+
+    /// <summary>Content-bound hash over the §53 fields — the same
+    /// tamper-evidence scheme the capability evidence chain
+    /// uses.</summary>
+    private static string HashRec(Dictionary<string, object?> rec)
+    {
+        var body = new SortedDictionary<string, object?>(
+            StringComparer.Ordinal);
+        foreach (var k in new[]
+        {
+            "capability_id", "training_attempts", "data_quality",
+            "scale_tested", "regression", "plateau_evidence",
+            "kernel_resource_exclusions", "reason",
+        })
+            body[k] = rec.TryGetValue(k, out object? v) ? v : null;
+        string canonical = CanonicalJson.Canonical(
+            ModelLifecycle.Encode(body));
+        return Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+    }
+
     public const string Format =
         "star-architecture-limitation-evidence/v1";
     private const int MaxRecords = 128;    // bounded like evidence.jsonl
