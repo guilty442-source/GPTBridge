@@ -1027,6 +1027,21 @@ internal static class Program
                     throw new ExecutorError(
                         "CAPABILITY_CLASSIFICATION_UNCERTAIN",
                         "failure-record requires input");
+                // §46-§50: attribute before recording — a
+                // RESOURCE_FAILURE never enters the failure dataset.
+                var attr = CapabilityFailureAttribution.Classify(fr);
+                if (attr["pool_eligible"] is false)
+                    return Emit(new Dictionary<string, object?>
+                    {
+                        ["ok"] = true,
+                        ["format"] = "star-self-training-failure/v1",
+                        ["capability"] =
+                            attr["capability_id"] ?? fcap,
+                        ["recorded"] = false,
+                        ["attribution"] = attr,
+                        ["rule"] = "RESOURCE_FAILURE is routed to " +
+                            "the governor, never the failure pool",
+                    });
                 var rec = FailurePool.Record(
                     toolRoot, fin,
                     fr.TryGetProperty("generation", out var fg)
@@ -1060,8 +1075,39 @@ internal static class Program
                     ["dedup"] = rec != null &&
                         rec.TryGetValue("dedup", out var dd)
                             ? dd : "new",
+                    ["attribution"] = attr,
                 });
             }
+            // ---- §46-§48 failure attribution (classification before
+            //      the failure ever reaches a training lane)
+            if (flags.Contains("failure-attribute"))
+                return Emit(CapabilityFailureAttribution.Classify(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ff)
+                            ? ff : "",
+                        "CAPABILITY_CLASSIFICATION_UNCERTAIN")));
+            // ---- §55-§65 capability runtime profile (one profile of
+            //      the shared CompiledExecutionPlan — never a new
+            //      runtime)
+            if (flags.Contains("capability-runtime-profile"))
+                return Emit(CapabilityRuntimeProfile.Emit(
+                    opts.TryGetValue("capability",
+                        out string? crp) ? crp : ""));
+            // ---- §52-§54 architecture limitation evidence (the
+            //      precondition for any canonical architecture
+            //      mutation)
+            if (flags.Contains("arch-limitation-record"))
+                return Emit(ArchitectureLimitationEvidence.Record(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? alr)
+                            ? alr : "",
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED"),
+                    toolRoot));
+            if (flags.Contains("arch-limitation-status"))
+                return Emit(ArchitectureLimitationEvidence.Status(
+                    toolRoot,
+                    opts.TryGetValue("capability",
+                        out string? als) ? als : null));
             if (flags.Contains("failure-pool-status"))
             {
                 var st = FailurePool.Status(toolRoot);
@@ -1861,6 +1907,10 @@ internal static class Program
             "--capability-evidence --file <f.json> | " +
             "--capability-evidence-status [--capability <id>] | " +
             "--capability-delta --baseline <f> --candidate <f> | " +
+            "--capability-runtime-profile --capability <id> | " +
+            "--failure-attribute --file <f.json> | " +
+            "--arch-limitation-record --file <f.json> | " +
+            "--arch-limitation-status [--capability <id>] | " +
             "--tool-validate --file <f.json> --kind <request|result> | " +
             "--tool-gate [--tool <name>] [--requirement <req>] " +
             "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +

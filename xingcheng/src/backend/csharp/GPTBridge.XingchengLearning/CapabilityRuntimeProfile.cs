@@ -56,7 +56,6 @@ internal static class CapabilityRuntimeProfile
             "native_thinking" or "math" or "system1" =>
                 "REASONING_ENABLED",
             "tool_calling" or "structured_output" => "TOOL_STRICT",
-            "edge" => "EDGE",
             _ => "BALANCED",
         };
         switch (name)
