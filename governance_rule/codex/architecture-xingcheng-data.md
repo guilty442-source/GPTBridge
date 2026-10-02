@@ -9,7 +9,7 @@ flowchart LR
     subgraph SRC["資料來源"]
         RDB["role DBs<br/>language_training_example<br/>language_preference_pair"]
         CORPUS["corpus registry + file roots"]
-        TEACHER["Ollama teacher"]
+        TEACHER["Ollama teacher<br/>（B154 註冊；native-only 消除中）"]
     end
 
     subgraph PIPE["資料管線"]
@@ -18,7 +18,7 @@ flowchart LR
         TOK["xc_modeltool tokenize →<br/>XCB1 star-token-batch"]
     end
 
-    subgraph PG["PostgreSQL gptbridge_xingcheng"]
+    subgraph PG["PostgreSQL gptbridge_xingcheng（過渡期正式路徑 → xstore metadata 接管中）"]
         DS["transformer_training_dataset(+example)<br/>immutable snapshot"]
         JOB["transformer_training_job<br/>queued→preflight→training→validating→completed"]
         ADP["adapter_candidate/evaluation/release"]
@@ -33,7 +33,7 @@ flowchart LR
         RPT["report.json<br/>star-native-train-report/v1"]
     end
 
-    subgraph STORE["xstore &lt;store&gt;/"]
+    subgraph STORE["xstore &lt;store&gt;/（→ Native Metadata Authority 接管中）"]
         OBJ["objects/&lt;sha2&gt;/&lt;sha256&gt;.bin"]
         IDX["store-index.jsonl (prev-chain)"]
         SNPM["snapshots/&lt;sha&gt;.json"]
