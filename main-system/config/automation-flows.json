@@ -12,7 +12,7 @@
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "push": true,
       "push_gate": {
         "enabled": false,
