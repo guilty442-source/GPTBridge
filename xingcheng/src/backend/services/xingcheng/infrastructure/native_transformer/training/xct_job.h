@@ -201,6 +201,11 @@ struct TrainCfg {
     // simd toggles the runtime AVX2/FMA dispatch (scalar fallback).
     int threads = 0;
     bool simd = true;
+    // star-resource-grant pause contract (spec §23/§25/§26): the client
+    // drops a marker file; the trainer polls at every step boundary,
+    // commits a checkpoint, records a pause sidecar and stops cleanly.
+    // Never kills mid-step — safe point only (§88).
+    std::string pause_file;
 };
 
 static double now_s() {
@@ -429,6 +434,7 @@ static JsonValue run_job(const JsonValue& job) {
     }
     tc.init_ckpt = j_str(tj, "init_checkpoint", "");
     tc.emit_ckpt = j_str(tj, "emit_checkpoint", "");
+    tc.pause_file = j_str(tj, "pause_file", "");
     tc.overwrite = j_bool(tj, "overwrite", false);
     tc.threads = j_int(tj, "threads", tc.threads);
     tc.simd = j_bool(tj, "simd", tc.simd);
@@ -443,6 +449,12 @@ static JsonValue run_job(const JsonValue& job) {
     // evidence only; production training keeps the tile4 dispatcher.
     if (const char* e = std::getenv("XCT_TPU_TILE4"))
         g_tpu.tile4 = !(e[0] == '0' && e[1] == '\0');
+    // Resource-grant plumbing (JobExecutor exports XCT_RESOURCE_*):
+    // PAUSE_FILE is the governor-pressure pause channel (spec §23);
+    // GRANT_ID only rides into the pause sidecar for the audit chain.
+    if (const char* e = std::getenv("XCT_PAUSE_FILE"))
+        if (e[0]) tc.pause_file = e;
+    const char* grant_id_env = std::getenv("XCT_RESOURCE_GRANT_ID");
     // star-kernel-policy: governed kernel pins land after every other
     // lane override — force_serial/max_threads bound the pool,
     // deny_variants pin impls off, deny_kernels refuse the job when the
@@ -493,6 +505,16 @@ static JsonValue run_job(const JsonValue& job) {
     int step = 0;
     bool deadline_hit = false;
     bool nonfinite_abort = false;
+    // §23/§26 safe point: the governor-side pause marker is observed
+    // only at a step boundary, after adamw consumed the gradients —
+    // a committed checkpoint is written before the loop exits so a
+    // resume re-reads the last committed state (§89).
+    bool paused_by_governor = false;
+    auto pause_requested = [&]() {
+        if (tc.pause_file.empty()) return false;
+        std::ifstream pf(tc.pause_file, std::ios::binary);
+        return pf.good();
+    };
     Fwd fw;
     // Reused across examples: fwd() fully rewrites every field it reads
     // under config-gated conditions, so keeping the Fwd objects retains
@@ -721,8 +743,33 @@ static JsonValue run_job(const JsonValue& job) {
             ++step;
             if (tc.ckpt_every > 0 && step % tc.ckpt_every == 0 && !tc.emit_ckpt.empty())
                 ckpt_save(p, c, tc.emit_ckpt, /*overwrite*/true);
+            if (pause_requested()) {
+                paused_by_governor = true;
+                if (!tc.emit_ckpt.empty())
+                    ckpt_save(p, c, tc.emit_ckpt, /*overwrite*/true);
+                // §27 pause sidecar: step cursor + grant id for the
+                // audit chain; dataset order is seed-reproducible so
+                // resume derives the cursor from `step`.
+                const std::string side = tc.emit_ckpt.empty()
+                    ? tc.pause_file + ".state.json"
+                    : tc.emit_ckpt + ".pause.json";
+                std::ofstream ps(side, std::ios::binary | std::ios::trunc);
+                if (ps) {
+                    ps << "{\"format\":\"star-train-pause-state/v1\","
+                       << "\"step\":" << step
+                       << ",\"examples_seen\":" << step
+                       << ",\"checkpoint\":\"";
+                    for (char ch : tc.emit_ckpt)
+                        ps << (ch == '\\' || ch == '"' ? "\\" : "")
+                           << ch;
+                    ps << "\",\"grant_id\":\""
+                       << (grant_id_env ? grant_id_env : "")
+                       << "\"}\n";
+                }
+                break;
+            }
         }
-        if (deadline_hit || nonfinite_abort) break;
+        if (deadline_hit || nonfinite_abort || paused_by_governor) break;
     }
 
     bool finite = true;
@@ -802,6 +849,11 @@ static JsonValue run_job(const JsonValue& job) {
     put("examples", num((double)data.size()));
     put("deadline_hit", bol(deadline_hit));
     put("nonfinite_abort", bol(nonfinite_abort));
+    // Resource-governor pause semantics (§23): report stays a normal
+    // train report; the governance plane reads these two fields and
+    // transitions the job to PAUSED_BY_RESOURCE_GOVERNOR.
+    put("paused", bol(paused_by_governor));
+    put("paused_at_step", num(paused_by_governor ? step : -1));
     put("params_finite", bol(finite));
     put("checkpoint_emitted", bol(emitted));
     put("checkpoint_path", str(tc.emit_ckpt.c_str()));
