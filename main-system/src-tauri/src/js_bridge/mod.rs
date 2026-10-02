@@ -1,7 +1,9 @@
 //! js_bridge — Tauri JS Bridge layer.
 //!
 //! The renderer-visible contract: a preload shim injected into every webview
-//! (Electron ``window.electron``/``gptBridge`` parity), a server-side channel
+//! (``window.electron`` is a compatibility alias for the governed Tauri
+//! WebView2 preload only — no Electron runtime exists; Electron is
+//! forbidden by the project language policy), a server-side channel
 //! whitelist (identical to the retired preload.ts ``allowedInvokeChannels``),
 //! the single governed ``gptbridge_invoke`` command dispatching into
 //! ``channels``, and the token-guarded loopback bridge for tool UIs.

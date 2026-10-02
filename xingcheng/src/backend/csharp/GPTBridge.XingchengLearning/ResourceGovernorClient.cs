@@ -119,6 +119,8 @@ public sealed class ResourceGovernorClient
         string reqDir = Path.Combine(dir, "resource-requests");
         string grantPath = Path.Combine(dir, "resource-grants",
             request.RequestId + ".json");
+        AssertClientWriteScope(dir, Path.Combine(reqDir,
+            request.RequestId + ".request.json"));
         AtomicWrite(Path.Combine(reqDir,
                     request.RequestId + ".request.json"),
                     JsonSerializer.Serialize(request.ToDict()));
@@ -159,8 +161,10 @@ public sealed class ResourceGovernorClient
     {
         string? dir = StateDir();
         if (dir == null) return false;
-        return AtomicWrite(Path.Combine(dir, "resource-requests",
-                grant.RequestId + ".renew.json"),
+        string path = Path.Combine(dir, "resource-requests",
+            grant.RequestId + ".renew.json");
+        AssertClientWriteScope(dir, path);
+        return AtomicWrite(path,
                 JsonSerializer.Serialize(new Dictionary<string, object?>
                 {
                     ["grant_id"] = grant.GrantId,
@@ -174,8 +178,10 @@ public sealed class ResourceGovernorClient
         string? dir = StateDir();
         if (dir == null) return;
         string reqDir = Path.Combine(dir, "resource-requests");
-        AtomicWrite(Path.Combine(reqDir,
-            grant.RequestId + ".release.json"), "{}");
+        string relPath = Path.Combine(reqDir,
+            grant.RequestId + ".release.json");
+        AssertClientWriteScope(dir, relPath);
+        AtomicWrite(relPath, "{}");
         try
         {
             File.Delete(Path.Combine(reqDir,
@@ -197,6 +203,8 @@ public sealed class ResourceGovernorClient
         try
         {
             string repDir = Path.Combine(dir, "resource-reports");
+            AssertClientWriteScope(dir,
+                Path.Combine(repDir, grant.GrantId + ".jsonl"));
             Directory.CreateDirectory(repDir);
             var line = new Dictionary<string, object?>(usage)
             {
@@ -220,6 +228,9 @@ public sealed class ResourceGovernorClient
         try
         {
             string repDir = Path.Combine(dir, "resource-receipts");
+            AssertClientWriteScope(dir, Path.Combine(repDir,
+                (receipt.WorkloadId.Length > 0
+                    ? receipt.WorkloadId : "unknown") + ".jsonl"));
             Directory.CreateDirectory(repDir);
             File.AppendAllText(
                 Path.Combine(repDir,
@@ -339,12 +350,37 @@ public sealed class ResourceGovernorClient
         _ => null,
     };
 
+    /// <summary>Authority-convergence §6 hard rule: the client may only
+    /// write into the xingcheng contract dirs (resource-requests /
+    /// resource-reports / resource-receipts) — governor state,
+    /// resource-grants and every other state file are read-only for
+    /// xingcheng. A write outside those dirs is a second-governor
+    /// attempt and fails RESOURCE_AUTHORITY_MAIN_SYSTEM_ONLY.</summary>
+    private static void AssertClientWriteScope(string stateDir,
+                                             string path)
+    {
+        string dir = Path.GetFileName(
+            Path.GetDirectoryName(Path.GetFullPath(path)) ?? "");
+        bool allowed = dir is "resource-requests" or "resource-reports"
+            or "resource-receipts"
+            || (dir == "resource-grants" && Path.GetFileName(path)
+                == "grant-client-audit.jsonl");
+        if (!allowed)
+            throw new ExecutorError(
+                ResourceErrors.AuthorityMainSystemOnly,
+                $"xingcheng may not write '{path}' — only " +
+                "resource-requests/reports/receipts are " +
+                "client-writable");
+    }
+
     private void AppendAudit(string dir, string action, string grantId,
                            string requestId)
     {
         try
         {
             string auditDir = Path.Combine(dir, "resource-grants");
+            AssertClientWriteScope(dir, Path.Combine(auditDir,
+                "grant-client-audit.jsonl"));
             Directory.CreateDirectory(auditDir);
             File.AppendAllText(Path.Combine(auditDir,
                 "grant-client-audit.jsonl"),

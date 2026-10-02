@@ -328,7 +328,7 @@ internal static class Maturation300M
             // --maturation-reopen.
             if (capability.Length == 0)
                 return;
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"capability '{capability}' is denied: the 300M " +
                 "maturation sequence is complete; reopen a bounded " +
                 "lane with --maturation-reopen");
@@ -339,7 +339,7 @@ internal static class Maturation300M
                 "maturation sequence");
         if (!string.Equals(capability, head.Id,
                            StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"capability '{capability}' is not the sequence head " +
                 $"'{head.Id}'; earlier capabilities must reach frozen " +
                 "first");
@@ -355,7 +355,7 @@ internal static class Maturation300M
         CapabilitySpec? head = Head(state);
         if (head == null || !string.Equals(capability, head.Id,
                 StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"cannot freeze '{capability}': sequence head is " +
                 $"'{head?.Id ?? "none"}'");
         if (string.IsNullOrWhiteSpace(evidenceRef))
@@ -443,7 +443,7 @@ internal static class Maturation300M
         CapabilitySpec? head = Head(state);
         if (head == null || !string.Equals(capability, head.Id,
                 StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"cannot mark '{capability}' unsupported: sequence "
                 + $"head is '{head?.Id ?? "none"}'");
         if (string.IsNullOrWhiteSpace(evidenceRef))
@@ -453,6 +453,20 @@ internal static class Maturation300M
         if (string.IsNullOrWhiteSpace(reason))
             throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
                 "unsupported requires a reason");
+        // Maturation-closure §22: a capability may only be declared
+        // UNSUPPORTED after a recorded star-architecture-limitation-
+        // evidence/v1 row exists for it (attempt history, data
+        // readiness, plateau, regression, resource/runtime exclusion).
+        // The sequence id resolves to the canonical registry id the
+        // evidence ledger indexes on.
+        string canonical =
+            CapabilityRegistry.Resolve(capability) ?? capability;
+        if (!ArchitectureLimitationEvidence.HasFor(toolRoot, canonical))
+            throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
+                $"unsupported requires recorded " +
+                $"ArchitectureLimitationEvidence for '{capability}' " +
+                "(§22) — declare it via --arch-limitation-record " +
+                "before marking the sequence slot unsupported");
         var caps = (Dictionary<string, object?>)state["capabilities"]!;
         caps[capability] = new Dictionary<string, object?>
         {

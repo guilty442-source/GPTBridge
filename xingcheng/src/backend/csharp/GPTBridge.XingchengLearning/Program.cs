@@ -152,22 +152,25 @@ internal static class Program
             if (flags.Contains("maturation-freeze"))
                 return Emit(Maturation300M.Freeze(
                     toolRoot,
-                    opts.TryGetValue("capability", out string? mc)
-                        ? mc : "",
+                    CapabilityResolver.Require(
+                        opts.TryGetValue("capability", out string? mc)
+                            ? mc : ""),
                     opts.TryGetValue("evidence", out string? me)
                         ? me : ""));
             if (flags.Contains("maturation-reopen"))
                 return Emit(Maturation300M.Reopen(
                     toolRoot,
-                    opts.TryGetValue("capability", out string? mrc)
-                        ? mrc : "",
+                    CapabilityResolver.Require(
+                        opts.TryGetValue("capability", out string? mrc)
+                            ? mrc : ""),
                     opts.TryGetValue("reason", out string? mrr)
                         ? mrr : ""));
             if (flags.Contains("maturation-unsupported"))
                 return Emit(Maturation300M.MarkUnsupported(
                     toolRoot,
-                    opts.TryGetValue("capability", out string? muc)
-                        ? muc : "",
+                    CapabilityResolver.Require(
+                        opts.TryGetValue("capability", out string? muc)
+                            ? muc : ""),
                     opts.TryGetValue("evidence", out string? mue)
                         ? mue : "",
                     opts.TryGetValue("reason", out string? mur)
@@ -407,7 +410,8 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? agf)
                             ? agf : "",
-                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED"),
+                    toolRoot));
             if (flags.Contains("provenance-check"))
                 return Emit(BundleProvenance.Check(
                     toolRoot,
@@ -418,6 +422,108 @@ internal static class Program
             if (flags.Contains("catalog-validate"))
                 return Emit(FeatureCatalog.Validate(
                     opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- CapabilityRegistry plane (capability unification §3):
+            //      star-capability-registry/v1 is the single canonical
+            //      answer to "which capabilities exist"; the graph
+            //      (star-capability-graph/v1), eval map
+            //      (star-capability-eval-map/v1) and progression
+            //      policy (§14-§16) are derived views over it.
+            if (flags.Contains("capability-registry"))
+                return Emit(CapabilityRegistry.Emit(toolRoot));
+            if (flags.Contains("capability-graph"))
+                return Emit(CapabilityGraph.Emit(toolRoot));
+            if (flags.Contains("capability-eval-map"))
+                return Emit(CapabilityEvaluationMap.Emit());
+            if (flags.Contains("capability-progression"))
+                return Emit(
+                    CapabilityProgressionPolicy.Status(toolRoot));
+            if (flags.Contains("capability-resolve"))
+                // §80: the shared canonical resolver — alias → id,
+                // descriptor, dependencies, eval surfaces, pool class.
+                return Emit(CapabilityResolver.Inspect(
+                    opts.TryGetValue("capability", out string? cvr)
+                        ? cvr : ""));
+            if (flags.Contains("capability-validate"))
+            {
+                string vf = opts.TryGetValue("file", out string? cvf2)
+                    ? cvf2
+                    : Path.Combine(toolRoot,
+                          CapabilityRegistry.Rel.Replace(
+                              '/', Path.DirectorySeparatorChar));
+                return Emit(CapabilityRegistry.Validate(vf));
+            }
+            if (flags.Contains("capability-consistency"))
+                return Emit(CapabilityConsistency.Run(toolRoot));
+            // §20 evidence chain + §90-§92 promotion delta.
+            if (flags.Contains("capability-evidence"))
+                return Emit(CapabilityEvidence.Record(toolRoot,
+                    ParseJsonFile(
+                        opts.TryGetValue("file", out string? cef)
+                            ? cef : "")));
+            if (flags.Contains("capability-evidence-status"))
+                return Emit(CapabilityEvidence.Status(toolRoot,
+                    opts.TryGetValue("capability", out string? ces)
+                        ? ces : ""));
+            if (flags.Contains("capability-delta"))
+                return Emit(CapabilityDelta.Compare(
+                    opts.TryGetValue("baseline", out string? cdb)
+                        ? cdb : "",
+                    opts.TryGetValue("candidate", out string? cdc)
+                        ? cdc : ""));
+            if (flags.Contains("capability-regression-suite"))
+            {
+                string csn = CapabilityResolver.Require(
+                    opts.TryGetValue("capability",
+                        out string? crs) ? crs : "");
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = true,
+                    ["format"] = CapabilityGraph.Format,
+                    ["capability_id"] = csn,
+                    ["regression_suite"] =
+                        CapabilityResolver.RegressionSuite(
+                            csn, toolRoot).Cast<object?>().ToList(),
+                });
+            }
+            // §31-§37 architecture-side binding: governed projection +
+            // admission answer (resolve → REQUIRES closure → binding
+            // integrity) for self-learning / recovery / Multi-Lane.
+            if (flags.Contains("capability-binding"))
+                return Emit(ArchitectureCapabilityBinding.Emit(
+                    toolRoot));
+            if (flags.Contains("capability-binding-check"))
+                return Emit(ArchitectureCapabilityBinding
+                    .AdmissionCheck(
+                        CapabilityResolver.Require(
+                            opts.TryGetValue("capability",
+                                out string? cba) ? cba : "")));
+            // ---- maturation-closure §5-§17: per-capability maturity
+            //      state machine (evidence-derived ceiling, fail-
+            //      closed transitions), §12 floor check, §24-§28
+            //      regression matrix, §100-§101 maturity report.
+            if (flags.Contains("capability-maturity"))
+                return Emit(CapabilityMaturityService.Report(toolRoot));
+            if (flags.Contains("capability-floor"))
+                return Emit(CapabilityMaturityService.FloorCheck(
+                    opts.TryGetValue("capability", out string? cfl)
+                        ? cfl : "", toolRoot));
+            if (flags.Contains("capability-transition"))
+                return Emit(CapabilityMaturityService.Transition(
+                    toolRoot,
+                    opts.TryGetValue("capability", out string? ctr)
+                        ? ctr : "",
+                    opts.TryGetValue("state", out string? cts)
+                        ? cts : "",
+                    opts.TryGetValue("note", out string? ctn)
+                        ? ctn : ""));
+            if (flags.Contains("capability-matrix"))
+            {
+                if (opts.TryGetValue("capability", out string? cmx) &&
+                    cmx.Length > 0)
+                    return Emit(CapabilityRegressionMatrix.RowFor(
+                        cmx, toolRoot));
+                return Emit(CapabilityRegressionMatrix.Emit(toolRoot));
+            }
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -431,7 +537,8 @@ internal static class Program
             {
                 if (opts.TryGetValue("capability", out string? rcp) &&
                     rcp.Length > 0)
-                    InstructionRecovery.Capability = rcp;
+                    InstructionRecovery.Capability =
+                        CapabilityResolver.Require(rcp);
                 // Boundary: an explicit --out must stay in-domain.
                 var rdoAssert = opts.TryGetValue("out", out string? rdo)
                     && rdo.Length > 0
@@ -447,7 +554,8 @@ internal static class Program
             {
                 if (opts.TryGetValue("capability", out string? rec) &&
                     rec.Length > 0)
-                    InstructionRecovery.Capability = rec;
+                    InstructionRecovery.Capability =
+                        CapabilityResolver.Require(rec);
                 return Emit(InstructionRecovery.EvalBundle(
                     toolRoot,
                     opts.TryGetValue("bundle", out string? reb)
@@ -778,10 +886,35 @@ internal static class Program
                         opts.TryGetValue("file", out string? tp)
                             ? tp : "", "PILOT_INVALID")));
             if (flags.Contains("training-batch-plan"))
-                return Emit(TrainingAcceleration.BatchPlan(
-                    ToolContracts.ReadJson(
-                        opts.TryGetValue("file", out string? tbp)
-                            ? tbp : "", "TRAINING_STAGE_INVALID")));
+            {
+                var tbpEl = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? tbp)
+                        ? tbp : "", "TRAINING_STAGE_INVALID");
+                // AC §9/§40-§43: when a grant envelope is supplied the
+                // planner is bound to it — effective VRAM = min(driver,
+                // grant), threads clamp to cpu_threads_max, and any
+                // over-grant plan fails ACCELERATION_PLAN_OVER_GRANT.
+                if (opts.TryGetValue("grant", out string? gpath) &&
+                    gpath.Length > 0)
+                {
+                    var genv = ModelLifecycle.Decode(
+                        ToolContracts.ReadJson(gpath,
+                            "RESOURCE_GRANT_INVALID"))
+                        as Dictionary<string, object?>;
+                    var grant = genv != null
+                        ? ResourceGrant.FromDict(genv)
+                        : null;
+                    if (grant == null)
+                        throw new ExecutorError(
+                            ResourceErrors.GrantRequired,
+                            "--grant file carries no grant payload");
+                    return Emit(TrainingAcceleration
+                        .GrantBoundBatchPlan(tbpEl, grant));
+                }
+                var unbound = TrainingAcceleration.BatchPlan(tbpEl);
+                unbound["grant_bound"] = false;
+                return Emit(unbound);
+            }
             if (flags.Contains("sequence-buckets"))
                 return Emit(new Dictionary<string, object?>
                 {
@@ -934,19 +1067,39 @@ internal static class Program
                 var fr = ToolContracts.ReadJson(
                     opts.TryGetValue("file", out string? frf)
                         ? frf : "", "SELF_TRAINING_DISABLED");
-                string fcap = fr.TryGetProperty("capability",
-                    out var fcp) ? fcp.GetString() ?? "" : "";
+                // §15: capability is canonical-resolved before it can
+                // reach any governance surface — a free string never
+                // enters the failure pool (§16: unknown →
+                // CAPABILITY_UNKNOWN).
+                string fcap = CapabilityResolver.Require(
+                    fr.TryGetProperty("capability", out var fcp)
+                        ? fcp.GetString() ?? "" : "");
                 string fin = fr.TryGetProperty("input",
                     out var finp) ? finp.GetString() ?? "" : "";
                 if (fin.Length == 0)
                     throw new ExecutorError(
                         "CAPABILITY_CLASSIFICATION_UNCERTAIN",
                         "failure-record requires input");
+                // §46-§50: attribute before recording — a
+                // RESOURCE_FAILURE never enters the failure dataset.
+                var attr = CapabilityFailureAttribution.Classify(fr);
+                if (attr["pool_eligible"] is false)
+                    return Emit(new Dictionary<string, object?>
+                    {
+                        ["ok"] = true,
+                        ["format"] = "star-self-training-failure/v1",
+                        ["capability"] =
+                        attr["capability_id"] ?? fcap,
+                        ["recorded"] = false,
+                        ["attribution"] = attr,
+                        ["rule"] = "RESOURCE_FAILURE is routed to " +
+                            "the governor, never the failure pool",
+                    });
                 var rec = FailurePool.Record(
                     toolRoot, fin,
                     fr.TryGetProperty("generation", out var fg)
                         ? fg.GetString() ?? "" : "",
-                    FailurePool.ClassForCapability(fcap),
+                    CapabilityResolver.PoolClass(fcap),
                     fr.TryGetProperty("expected", out var fe)
                         ? fe.GetString() ?? "" : "",
                     fr.TryGetProperty("actual", out var fa)
@@ -963,20 +1116,51 @@ internal static class Program
                     fr.TryGetProperty("runtime_version", out var frv)
                         ? frv.GetString() : null,
                     fr.TryGetProperty("provenance", out var fpv)
-                        ? fpv.GetString() : null);
+                        ? fpv.GetString() : null,
+                    fcap);
                 return Emit(new Dictionary<string, object?>
                 {
                     ["ok"] = rec != null,
                     ["format"] = "star-self-training-failure/v1",
                     ["capability"] = fcap,
-                    ["failure_class"] =
-                        FailurePool.ClassForCapability(fcap),
+                    ["failure_class"] = CapabilityResolver.PoolClass(fcap),
                     ["recorded"] = rec != null,
                     ["dedup"] = rec != null &&
                         rec.TryGetValue("dedup", out var dd)
                             ? dd : "new",
+                    ["attribution"] = attr,
                 });
             }
+            // ---- §46-§48 failure attribution (classification before
+            //      the failure ever reaches a training lane)
+            if (flags.Contains("failure-attribute"))
+                return Emit(CapabilityFailureAttribution.Classify(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? ff)
+                            ? ff : "",
+                        "CAPABILITY_CLASSIFICATION_UNCERTAIN")));
+            // ---- §55-§65 capability runtime profile (one profile of
+            //      the shared CompiledExecutionPlan — never a new
+            //      runtime)
+            if (flags.Contains("capability-runtime-profile"))
+                return Emit(CapabilityRuntimeProfile.Emit(
+                    opts.TryGetValue("capability",
+                        out string? crp) ? crp : ""));
+            // ---- §52-§54 architecture limitation evidence (the
+            //      precondition for any canonical architecture
+            //      mutation)
+            if (flags.Contains("arch-limitation-record"))
+                return Emit(ArchitectureLimitationEvidence.Record(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? alr)
+                            ? alr : "",
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED"),
+                    toolRoot));
+            if (flags.Contains("arch-limitation-status"))
+                return Emit(ArchitectureLimitationEvidence.Status(
+                    toolRoot,
+                    opts.TryGetValue("capability",
+                        out string? als) ? als : null));
             if (flags.Contains("failure-pool-status"))
             {
                 var st = FailurePool.Status(toolRoot);
@@ -984,7 +1168,8 @@ internal static class Program
                     fps.Length > 0)
                     st["pool_rows"] = FailurePool.ReadPool(
                         toolRoot,
-                        FailurePool.ClassForCapability(fps));
+                        CapabilityResolver.PoolClass(
+                            CapabilityResolver.Require(fps)));
                 return Emit(st);
             }
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
@@ -1355,7 +1540,8 @@ internal static class Program
                 return Emit(ArchitectureGate.Evaluate(
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? ag)
-                            ? ag : "", "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+                            ? ag : "", "ARCHITECTURE_CHANGE_NOT_JUSTIFIED"),
+                    toolRoot));
             // §14/§19 dataset quality
             if (flags.Contains("data-quality"))
                 return Emit(DataQuality.Evaluate(
@@ -1766,6 +1952,24 @@ internal static class Program
             "--cap-record --result <file.json> | --trace-status | " +
             "--caps-status | --caps-validate --file <f.json> | " +
             "--catalog-emit | --catalog-validate --file <f.json> | " +
+            "--capability-registry | --capability-graph | " +
+            "--capability-eval-map | --capability-progression | " +
+            "--capability-resolve --capability <name> | " +
+            "--capability-validate [--file <f.json>] | " +
+            "--capability-consistency | " +
+            "--capability-regression-suite --capability <id> | " +
+            "--capability-evidence --file <f.json> | " +
+            "--capability-evidence-status [--capability <id>] | " +
+            "--capability-delta --baseline <f> --candidate <f> | " +
+            "--capability-maturity | " +
+            "--capability-floor --capability <id> | " +
+            "--capability-transition --capability <id> --state <s> " +
+            "[--note <t>] | " +
+            "--capability-matrix [--capability <id>] | " +
+            "--capability-runtime-profile --capability <id> | " +
+            "--failure-attribute --file <f.json> | " +
+            "--arch-limitation-record --file <f.json> | " +
+            "--arch-limitation-status [--capability <id>] | " +
             "--tool-validate --file <f.json> --kind <request|result> | " +
             "--tool-gate [--tool <name>] [--requirement <req>] " +
             "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +

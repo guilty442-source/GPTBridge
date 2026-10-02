@@ -1,6 +1,12 @@
 // FeatureCatalog.cs — ``star-model-feature-catalog/v1`` (§31) plus the
 // §15 architecture-change gate and the §1 language-boundary check.
 //
+// Capability unification §29: this catalog is the *Implementation
+// Feature Catalog* — it answers "which mechanisms exist?", never
+// "which capabilities are mature?". Capability identity and maturity
+// live in CapabilityRegistry (star-capability-registry/v1); feature
+// rows are mechanisms a capability may bind to, nothing more.
+//
 // The catalog is governed data, not a report: every absorbed external
 // design advantage is one feature row with a xingcheng component, an
 // explicit status and its training/runtime/generation impact. Status

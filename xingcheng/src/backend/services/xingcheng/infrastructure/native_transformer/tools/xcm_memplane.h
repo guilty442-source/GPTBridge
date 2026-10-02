@@ -39,7 +39,8 @@
 
 // The plane core lives in the engine tree so cuda_bridge.cpp and the
 // probes share ONE manager instance (§3 single owner). cuda_memplane.h
-// pulls in the Driver-API surface (cuda_drvapi.h) itself.
+// binds the Driver API (nvcuda.dll) surface itself via cuda_drvapi.h —
+// no toolkit/cudart header is part of the production lane.
 #include "cuda_memplane.h"
 
 // memplane-probe --budget BYTES [--pinned BYTES] [--iterations N]

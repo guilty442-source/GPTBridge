@@ -36,6 +36,10 @@ public static class ResourceErrors
     public const string GovernorUnavailable = "RESOURCE_GOVERNOR_UNAVAILABLE";
     public const string RequestDenied = "RESOURCE_REQUEST_DENIED";
     public const string RequestDeferred = "RESOURCE_REQUEST_DEFERRED";
+    /// <summary>AC §10: a production execution path with no bound
+    /// resource_grant_id fails closed — the only escape is the
+    /// explicit dev/test StaticLocalGrant (§11).</summary>
+    public const string GrantRequired = "RESOURCE_GRANT_REQUIRED";
     public const string GrantExpired = "RESOURCE_GRANT_EXPIRED";
     public const string GrantRevoked = "RESOURCE_GRANT_REVOKED";
     public const string BudgetExceeded = "RESOURCE_BUDGET_EXCEEDED";
@@ -44,6 +48,14 @@ public static class ResourceErrors
         "INSUFFICIENT_GRANTED_RESOURCES";
     public const string PausedByPressure =
         "TRAINING_PAUSED_BY_RESOURCE_PRESSURE";
+    /// <summary>Authority-convergence §6 hard rule: the main-system
+    /// resource governor is the only whole-machine authority. Any
+    /// xingcheng code path that tries to set a CPU/RAM/VRAM quota,
+    /// change machine-wide priority or touch another tool's
+    /// allocation throws this — xingcheng only requests, receives and
+    /// reports grants.</summary>
+    public const string AuthorityMainSystemOnly =
+        "RESOURCE_AUTHORITY_MAIN_SYSTEM_ONLY";
 }
 
 /// <summary>規格 §7：主系統只能回這五種回覆。</summary>

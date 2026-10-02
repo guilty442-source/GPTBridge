@@ -1,19 +1,21 @@
 // TeacherCollect.cs — governed teacher-distillation collector.
 //
-// B154 registers teacher distillation as an explicit Ollama demand:
-// the service is activated lazily through the governed
-// ollama-service.exe lane (probe → ensure → generate → audited),
-// loopback-only, and unloads under the resource policy. XingCheng
-// never calls a model endpoint directly.
+// Native self-distillation lane (B154 successor direction): the teacher
+// signal is produced by XingCheng's own governed weights through
+// `xc_modeltool serve --bundle <dir>` + the `infer` op — never an
+// external model service. A scope's teacher spec is "self" (the pinned
+// native-engine checkpoint) or a tool-root-relative bundle artifact
+// path; anything else fails closed. The serve session is
+// process-scoped demand residency (load-once, disposed with the run) —
+// no resident teacher daemon exists.
 //
-// Flow: load policy -> demand-activate Ollama -> per prompt call the
-// scope's configured teacher on 127.0.0.1:11434 -> validate bounds ->
+// Flow: load policy -> resolve each scope's teacher bundle -> per
+// prompt call `infer` on the native engine -> validate bounds ->
 // INSERT deterministic rows into gptbridge_xingcheng_<scope>
 // .language_training_example. The normal run_cycle collects them like
 // any other verified example — collection never touches training
 // itself. Deterministic example_ids make re-runs idempotent.
 
-using System.Net.Http;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
@@ -23,6 +25,11 @@ internal sealed class TeacherDistillationPolicy
     public const string Format = "star-teacher-distillation-policy/v1";
 
     public bool Enabled = false;
+    /// <summary>AC §57-§58: each scope's teacher spec is a governed
+    /// Xingcheng bundle — "self" (pinned native-engine checkpoint) or
+    /// a tool-root-relative bundle path resolved by
+    /// ResolveTeacherBundle. With no configured teacher the lane
+    /// reports idle/disabled — never an external fallback (§59).</summary>
     public Dictionary<string, string> Teachers = new(StringComparer.Ordinal);
     public List<Dictionary<string, string>> Prompts = new();
     public int MaxRowsPerRun = 24;
@@ -30,7 +37,7 @@ internal sealed class TeacherDistillationPolicy
     public double QualityScore = 0.92;
     public double Temperature = 0.2;
     public int RequestTimeoutS = 180;
-    public int EnsureTimeoutS = 60;
+    public int ServeTimeoutS = 60;
     public int MinTargetChars = 1;
     public int MaxTargetChars = 4096;
 
@@ -40,6 +47,7 @@ internal sealed class TeacherDistillationPolicy
     {
         ["format"] = Format,
         ["enabled"] = Enabled,
+        ["teacher_source"] = "native",
         ["teachers"] = Teachers.ToDictionary(
             p => p.Key, p => (object?)p.Value, StringComparer.Ordinal),
         ["max_rows_per_run"] = MaxRowsPerRun,
@@ -47,7 +55,7 @@ internal sealed class TeacherDistillationPolicy
         ["quality_score"] = QualityScore,
         ["temperature"] = Temperature,
         ["request_timeout_s"] = RequestTimeoutS,
-        ["ensure_timeout_s"] = EnsureTimeoutS,
+        ["serve_timeout_s"] = ServeTimeoutS,
         ["min_target_chars"] = MinTargetChars,
         ["max_target_chars"] = MaxTargetChars,
         ["prompts"] = Prompts.Count,
@@ -77,8 +85,8 @@ internal sealed class TeacherDistillationPolicy
                 policy.Temperature);
             policy.RequestTimeoutS = GetInt(el, "request_timeout_s",
                 policy.RequestTimeoutS);
-            policy.EnsureTimeoutS = GetInt(el, "ensure_timeout_s",
-                policy.EnsureTimeoutS);
+            policy.ServeTimeoutS = GetInt(el, "serve_timeout_s",
+                GetInt(el, "ensure_timeout_s", policy.ServeTimeoutS));
             policy.MinTargetChars = GetInt(el, "min_target_chars",
                 policy.MinTargetChars);
             policy.MaxTargetChars = GetInt(el, "max_target_chars",
@@ -135,7 +143,7 @@ internal sealed class TeacherDistillationPolicy
 
 internal static class TeacherCollect
 {
-    private const string SourceTypePrefix = "teacher-distill-ollama:";
+    private const string SourceTypePrefix = "teacher-distill-native:";
     private const string AuditRel =
         "xingcheng/runtime/logs/teacher-distillation.jsonl";
 
@@ -160,17 +168,12 @@ internal static class TeacherCollect
                 ["checked_at"] = XcPaths.IsoNow(),
             };
 
-        // B154 governed lazy activation — demand only, never a resident.
-        var ensure = EnsureOllama(tool, policy.EnsureTimeoutS);
-        if (!TransformerTrainingRepository.Truthy(ensure["ok"]))
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false, ["action"] = "blocked",
-                ["reason"] = "ollama-demand-activation-failed",
-                ["ensure"] = ensure,
-                ["checked_at"] = XcPaths.IsoNow(),
-            };
-
+        // Native demand residency — one xc_modeltool serve session per
+        // resolved teacher bundle for the duration of this run.
+        var sessions = new Dictionary<string, ModelToolSession>(
+            StringComparer.Ordinal);
+        var bundleCache = new Dictionary<string, string>(
+            StringComparer.Ordinal);
         var inserted = new List<object?>();
         var skipped = new List<object?>();
         var errors = new List<object?>();
@@ -192,8 +195,8 @@ internal static class TeacherCollect
                 });
                 continue;
             }
-            if (!policy.Teachers.TryGetValue(scope, out string? model)
-                || model.Length == 0)
+            if (!policy.Teachers.TryGetValue(scope, out string? spec)
+                || spec.Length == 0)
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
@@ -202,29 +205,87 @@ internal static class TeacherCollect
                 });
                 continue;
             }
+            if (!bundleCache.TryGetValue(spec, out string? bundleDir))
+            {
+                try
+                {
+                    bundleDir = ResolveTeacherBundle(tool, spec);
+                    bundleCache[spec] = bundleDir;
+                }
+                catch (Exception exc)
+                {
+                    bundleCache[spec] = "";
+                    errors.Add(new Dictionary<string, object?>
+                    {
+                        ["scope"] = scope, ["teacher"] = spec,
+                        ["reason"] =
+                            $"teacher-bundle:{exc.GetType().Name}:" +
+                            exc.Message,
+                    });
+                    continue;
+                }
+            }
+            if (bundleDir.Length == 0)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["scope"] = scope, ["teacher"] = spec,
+                    ["reason"] = "teacher-bundle-unresolved",
+                });
+                continue;
+            }
+            if (!sessions.TryGetValue(bundleDir,
+                    out ModelToolSession? session))
+            {
+                session = ModelToolSession.TryStart(
+                    tool, bundleDir,
+                    Path.Combine(tool, XcPaths.LogsRel,
+                        "teacher-serve-stderr.log"),
+                    policy.ServeTimeoutS);
+                if (session is null)
+                {
+                    errors.Add(new Dictionary<string, object?>
+                    {
+                        ["scope"] = scope, ["teacher"] = spec,
+                        ["reason"] = "native-serve-unavailable",
+                    });
+                    sessions[bundleDir] = null!;
+                    continue;
+                }
+                sessions[bundleDir] = session;
+            }
+            if (session is null)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["scope"] = scope, ["teacher"] = spec,
+                    ["reason"] = "native-serve-unavailable",
+                });
+                continue;
+            }
 
             string exampleId = "star-train-" +
                 TransformerTrainingRepository.Sha256Text(
-                    $"teacher-distill|{scope}|{model}|{prompt}")[..32];
+                    $"teacher-distill|{scope}|{spec}|{prompt}")[..32];
             if (ExampleExists(tool, scope, exampleId))
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
-                    ["scope"] = scope, ["model"] = model,
+                    ["scope"] = scope, ["teacher"] = spec,
                     ["example_id"] = exampleId,
                     ["reason"] = "already-collected",
                 });
                 continue;
             }
 
-            var gen = Generate(model, prompt,
+            var gen = Generate(session, prompt,
                 policy.MaxNewTokens, policy.Temperature,
                 policy.RequestTimeoutS);
             if (!TransformerTrainingRepository.Truthy(gen["ok"]))
             {
                 errors.Add(new Dictionary<string, object?>
                 {
-                    ["scope"] = scope, ["model"] = model,
+                    ["scope"] = scope, ["teacher"] = spec,
                     ["reason"] = gen.GetValueOrDefault("error"),
                 });
                 continue;
@@ -236,7 +297,7 @@ internal static class TeacherCollect
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
-                    ["scope"] = scope, ["model"] = model,
+                    ["scope"] = scope, ["teacher"] = spec,
                     ["reason"] = $"target-out-of-bounds:{target.Length}",
                 });
                 continue;
@@ -246,10 +307,11 @@ internal static class TeacherCollect
             {
                 ["bounded_output"] = true,
                 ["quality_gate"] = "star-gpt-training-gate/v1",
-                ["received_via"] = "ollama-loopback-only",
+                ["received_via"] = "xc-modeltool-serve-infer",
                 ["direct_external_write"] = false,
                 ["reviewed_by"] = "xc-learning-teacher-collect",
-                ["teacher_model"] = model,
+                ["teacher_model"] = spec,
+                ["teacher_bundle"] = bundleDir,
                 ["scope"] = scope,
                 ["response_digest"] =
                     TransformerTrainingRepository.Sha256Text(target),
@@ -264,7 +326,7 @@ internal static class TeacherCollect
                 ["intent"] = intent,
                 ["input_text"] = prompt,
                 ["target_text"] = target,
-                ["source_type"] = SourceTypePrefix + model,
+                ["source_type"] = SourceTypePrefix + spec,
                 ["quality_score"] = policy.QualityScore,
                 ["validation_json"] =
                     CanonicalJson.CanonicalDict(validation),
@@ -277,7 +339,7 @@ internal static class TeacherCollect
                 {
                     errors.Add(new Dictionary<string, object?>
                     {
-                        ["scope"] = scope, ["model"] = model,
+                        ["scope"] = scope, ["teacher"] = spec,
                         ["reason"] =
                             $"insert:{exc.GetType().Name}:{exc.Message}",
                     });
@@ -286,13 +348,14 @@ internal static class TeacherCollect
             }
             inserted.Add(new Dictionary<string, object?>
             {
-                ["scope"] = scope, ["model"] = model,
+                ["scope"] = scope, ["teacher"] = spec,
                 ["example_id"] = exampleId,
                 ["target_chars"] = target.Length,
             });
             budget--;
         }
 
+        foreach (var s in sessions.Values) s?.Dispose();
         var result = new Dictionary<string, object?>
         {
             ["ok"] = errors.Count == 0,
@@ -306,7 +369,7 @@ internal static class TeacherCollect
                 ["skipped"] = skipped,
                 ["errors"] = errors,
             },
-            ["ensure"] = ensure,
+            ["teacher_sessions"] = sessions.Count(s => s.Value != null),
             ["policy"] = policy.ToDict(),
             ["checked_at"] = XcPaths.IsoNow(),
         };
@@ -314,92 +377,42 @@ internal static class TeacherCollect
         return result;
     }
 
-    // ------------------------------------------------------- internals --
-
-    /// <summary>ollama-service.exe ensure — resolves the exe inside the
-    /// repo (walk-up for main-system), never PATH. Audited by the
-    /// service itself into ollama-demand.jsonl.</summary>
-    private static Dictionary<string, object?> EnsureOllama(
-        string toolRoot, int timeoutS)
+    /// <summary>Resolve a scope's teacher spec to an absolute bundle
+    /// directory. "self" (or empty) means the pinned native-engine
+    /// checkpoint — self-distillation on the governed active weights.
+    /// Any other value must be a tool-root-relative bundle artifact
+    /// (dir or manifest.json) inside the XingCheng data boundary;
+    /// URLs, service tags and out-of-boundary paths fail closed.</summary>
+    private static string ResolveTeacherBundle(string toolRoot, string spec)
     {
-        var dir = new DirectoryInfo(toolRoot);
-        string? repoRoot = null;
-        while (dir != null)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, "main-system")))
-            {
-                repoRoot = dir.FullName;
-                break;
-            }
-            dir = dir.Parent;
-        }
-        string exe = repoRoot is null ? "" : Path.Combine(
-            repoRoot, "native", "ollama_service", "bin",
-            "ollama-service.exe");
-        if (exe.Length == 0 || !File.Exists(exe))
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["error"] = "ollama-service.exe unavailable",
-            };
-        try
-        {
-            var run = NativeTools.Run(exe,
-                new[] { "ensure", "--root", repoRoot! },
-                toolRoot,
-                Path.Combine(toolRoot, XcPaths.LogsRel,
-                    "teacher-ensure-stderr.log"),
-                timeoutS: Math.Max(5, timeoutS));
-            string tail = run.StdoutTail.Trim();
-            int last = tail.LastIndexOf('{');
-            if (last >= 0)
-            {
-                using var doc = JsonDocument.Parse(tail[last..]);
-                var ok = doc.RootElement.TryGetProperty("ok", out var o)
-                    && o.ValueKind == JsonValueKind.True;
-                return new Dictionary<string, object?>
-                {
-                    ["ok"] = ok,
-                    ["exit_code"] = run.ExitCode,
-                    ["elapsed_s"] = Math.Round(run.ElapsedS, 2),
-                    ["service"] = tail[last..],
-                };
-            }
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["error"] = "ensure-output-unparseable",
-                ["exit_code"] = run.ExitCode,
-            };
-        }
-        catch (Exception exc)
-        {
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["error"] = $"{exc.GetType().Name}:{exc.Message}",
-            };
-        }
+        string rel = spec == "self"
+            ? EngineSettings.PinnedCheckpoint(toolRoot) ?? ""
+            : spec;
+        if (rel.Length == 0)
+            throw new ExecutorError("TEACHER_BUNDLE_UNRESOLVED",
+                "no pinned checkpoint for self-distillation teacher");
+        string abs = Path.IsPathRooted(rel)
+            ? rel
+            : Path.GetFullPath(Path.Combine(toolRoot, rel));
+        DataBoundary.AssertInside(toolRoot, abs);
+        return Evaluation.BundleDirOf(abs);
     }
 
-    /// <summary>Ollama /api/chat on loopback only — the governed teacher
-    /// endpoint. stream:false returns one JSON object.</summary>
+    // ------------------------------------------------------- internals --
+
+    /// <summary>Native teacher generation — one `infer` request on the
+    /// resident serve session for the scope's bundle. Chat template is
+    /// applied inside xc_modeltool; the response carries `text`.</summary>
     private static Dictionary<string, object?> Generate(
-        string model, string prompt, int maxNewTokens,
+        ModelToolSession session, string prompt, int maxNewTokens,
         double temperature, int timeoutS)
     {
         try
         {
-            using var client = new HttpClient
-            {
-                BaseAddress = new Uri("http://127.0.0.1:11434"),
-                Timeout = TimeSpan.FromSeconds(Math.Max(5, timeoutS)),
-            };
-            var body = CanonicalJson.CanonicalDict(
+            var (json, exitCode) = session.Request(
                 new Dictionary<string, object?>
                 {
-                    ["model"] = model,
-                    ["stream"] = false,
+                    ["op"] = "infer",
                     ["messages"] = new List<object?>
                     {
                         new Dictionary<string, object?>
@@ -408,41 +421,27 @@ internal static class TeacherCollect
                             ["content"] = prompt,
                         },
                     },
-                    ["options"] = new Dictionary<string, object?>
-                    {
-                        ["num_predict"] = maxNewTokens,
-                        ["temperature"] = temperature,
-                    },
-                });
-            var http = client.PostAsync("/api/chat",
-                new StringContent(body,
-                    System.Text.Encoding.UTF8, "application/json"))
-                .GetAwaiter().GetResult();
-            string text = http.Content.ReadAsStringAsync()
-                .GetAwaiter().GetResult();
-            if (!http.IsSuccessStatusCode)
+                    ["do_sample"] = true,
+                    ["temperature"] = temperature,
+                    ["max_new_tokens"] = maxNewTokens,
+                },
+                timeoutS: Math.Max(5, timeoutS));
+            if (exitCode != 0 || !TransformerTrainingRepository.Truthy(
+                    json.GetValueOrDefault("ok")))
                 return new Dictionary<string, object?>
                 {
                     ["ok"] = false,
-                    ["error"] = $"http:{(int)http.StatusCode}:" +
-                        (text.Length > 200 ? text[..200] : text),
+                    ["error"] = $"serve-infer:{exitCode}:" +
+                        (json.GetValueOrDefault("error")?.ToString()
+                         ?? "no-response"),
                 };
-            using var doc = JsonDocument.Parse(text);
-            string? response = null;
-            if (doc.RootElement.TryGetProperty("message", out var msg)
-                && msg.TryGetProperty("content", out var content))
-                response = content.GetString();
-            else if (doc.RootElement.TryGetProperty("error", out var err))
-                return new Dictionary<string, object?>
-                {
-                    ["ok"] = false,
-                    ["error"] = $"ollama:{err.GetString()}",
-                };
+            string? text = json.GetValueOrDefault("text")?.ToString();
             return new Dictionary<string, object?>
             {
-                ["ok"] = response is not null,
-                ["response"] = response ?? "",
-                ["error"] = response is null ? "empty-response" : "",
+                ["ok"] = text is not null && text.Length > 0,
+                ["response"] = text ?? "",
+                ["error"] = text is null || text.Length == 0
+                    ? "empty-response" : "",
             };
         }
         catch (Exception exc)

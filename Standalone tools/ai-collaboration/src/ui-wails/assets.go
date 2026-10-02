@@ -17,6 +17,9 @@ import (
 )
 
 const bridgeJS = `// wails-bridge.js — window.electron shim over Wails bindings.
+// The name is a compatibility alias only (the governed Tauri/WebView2
+// preload uses the same surface); no Electron runtime exists —
+// Electron is forbidden by the project language policy.
 // Keeps the renderer contract identical to the governed host preload.
 window.electron = {
 	invoke: function (channel, payload) {

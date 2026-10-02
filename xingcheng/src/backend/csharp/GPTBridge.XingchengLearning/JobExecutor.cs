@@ -152,10 +152,13 @@ internal sealed class TrainingJobExecutor
         // §4/§50 maturation order: even when the freeze lane admits the
         // job, the declared capability must be the current sequence head
         // (instruction_following first); out-of-order capabilities are
-        // denied before any weight work is scheduled.
+        // denied before any weight work is scheduled. Capability
+        // unification §16/§82: the id is validated against the canonical
+        // CapabilityRegistry first (unknown ids fail closed), then the
+        // progression policy enforces sequence order.
         if (kind == "sft")
-            Maturation300M.GuardSequence(_toolRoot,
-                                         (string)cfg["capability"]!);
+            CapabilityProgressionPolicy.GuardAdmission(
+                _toolRoot, (string)cfg["capability"]!);
 
 
         object? initRaw = cfg.GetValueOrDefault("init_checkpoint");
@@ -484,7 +487,15 @@ internal sealed class TrainingJobExecutor
                 (string)status["error_code"]!,
                 (string)status["reason"]!);
         var decision = AcquireResourceGrant(jobId, configuration);
-        var grant = decision.Grant!;
+        // AC §10: production without a bound grant fails closed — a
+        // null grant here means a future code path returned a decision
+        // without binding; name it RESOURCE_GRANT_REQUIRED, not a
+        // null-deref.
+        if (decision.Grant == null)
+            throw new ExecutorError(ResourceErrors.GrantRequired,
+                "resource preflight produced no grant — execution " +
+                "denied (fail-closed)");
+        var grant = decision.Grant;
         decision.Threads = Math.Clamp(grant.CpuThreadsMax, 1, 16);
         decision.Gpu = ResolveGpuPlan(configuration, grant);
         return decision;
@@ -513,8 +524,11 @@ internal sealed class TrainingJobExecutor
             WorkloadId = jobId,
             CandidateId = TransformerTrainingRepository.Str(
                 configuration, "model_id") ?? "",
-            Capability = TransformerTrainingRepository.Str(
-                configuration, "capability") ?? "",
+            // §63: the request carries only a canonical capability_id
+            // — a free string can never reach the governor.
+            Capability = CapabilityResolver.Require(
+                TransformerTrainingRepository.Str(
+                    configuration, "capability") ?? ""),
             WorkloadClass = "training",
             Priority = TransformerTrainingRepository.Int(
                 configuration, "priority"),
@@ -1942,7 +1956,8 @@ internal sealed class TrainingJobExecutor
         }
         try
         {
-            Maturation300M.GuardSequence(_toolRoot, capability);
+            CapabilityProgressionPolicy.GuardAdmission(
+                _toolRoot, capability);
             var decision = PreflightResourceGate(jobId, configuration);
             _repo.TransitionTrainingJob(jobId, "training",
                 errorMessage: $"staged lane held for '{capability}'");

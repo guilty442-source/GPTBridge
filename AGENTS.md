@@ -353,6 +353,200 @@ passed=0), so promotion can never proceed without an F# verdict.
 The retired Python `self_learning*.py`/`training_job_executor.py` are
 interface documentation only — never execution.
 
+## 星澄 Capability Architecture（capability unification directive §0-§106）
+
+> Successor phase in force: **Authority Convergence directive
+> §0-§103** (2026-10-02) — Capability × Resource × Native Runtime ×
+> Data × Release. No new capability names, governance verbs, parallel
+> runtimes, stores or governors (§1/§101); `xc-fused-1` stays the only
+> production canonical architecture (§2). Canonical pipeline:
+> Architecture → Capability → Learning → ResourceGrant → Acceleration
+> → Training → Evaluation → Evidence → Lifecycle → Promotion (§102).
+>
+> Batch-1 landings (§100 第一批):
+> `CapabilityResolver.cs` is the single canonical resolver (§80) —
+> `Require` (alias→canonical id, `CAPABILITY_UNKNOWN` on unregistered
+> names, §16), `Descriptor`, `Dependencies` (graph REQUIRES closure),
+> `RegressionSuite` (§18 auto-derived), `EvalSurfaces`,
+> `RuntimeProfile`, `PoolClass`, `Inspect`. Governance entries that
+> take a capability name route through it — maturation verbs,
+> `--failure-record`, `--failure-pool-status`, `--recovery-*`,
+> `--capability-regression-suite`, `--capability-binding-check` and
+> the job request path never carry a free string (§15/§63).
+> `ResourceErrors.AuthorityMainSystemOnly`
+> (`RESOURCE_AUTHORITY_MAIN_SYSTEM_ONLY`, §6) plus
+> `ResourceGovernorClient.AssertClientWriteScope` enforce that
+> xingcheng writes only into `resource-requests`/`resource-reports`/
+> `resource-receipts` (and the client audit file) — governor state
+> and grant files stay governor-owned.
+>
+> Batch-2 landings (§100 第二批, commit `c1fdc94df`): `InstructionRecovery`
+> admission now resolves the plan capability through `CapabilityResolver`
+> (alias accepted, unknown → `CAPABILITY_UNKNOWN`) and runs
+> `ArchitectureCapabilityBinding.AdmissionCheck` over the canonical id —
+> a missing binding on the capability or its REQUIRES closure blocks the
+> lane with `CAPABILITY_ARCHITECTURE_INCOMPLETE` (§17/§69); the lane
+> ledger records the graph-derived regression contract via
+> `CapabilityResolver.RegressionSuite` (§18). `Evaluation.RunEvaluation`
+> now appends `star-capability-evidence/v1` rows per evaluated category
+> after a capability-suite run — canonical id, candidate, suite hash,
+> baseline/result/regression, `contribution=model` (§21-§22).
+> `ConvergenceGate` gained a critical `capability-delta` step comparing
+> the freshly emitted registry against
+> `state/capability-registry.promoted.json`; protected regression blocks
+> promotion, and the baseline refreshes only when the gate allows (§26).
+>
+> Batch-3 landings (§100 第三批, commit `18517c1b9`):
+> `ResourceErrors.GrantRequired` (`RESOURCE_GRANT_REQUIRED`, §10) —
+> `PreflightResourceGate` names a null post-preflight grant explicitly
+> instead of dereferencing it, and `--training-batch-plan --grant <file>`
+> routes through `TrainingAcceleration.GrantBoundBatchPlan` so plan
+> envelopes are grant-bound (effective VRAM = min(driver, grant), §41;
+> over-grant → `ACCELERATION_PLAN_OVER_GRANT`, §43). Without `--grant`
+> the planner emits `grant_bound=false` — planning verbs carry no
+> production execution authority.
+>
+> Batch-4 landings (§100 第四批, commit `40f9ee0af`): the orphaned
+> toolkit `cuda_rtlane.h` is retired in this worktree too (main-worktree
+> retirement: `1a05cc74a`); `cuda-parity-all` now sweeps the §32
+> training hot shapes (768×768 / 768×2048 / 2048×768 / 768×1024 /
+> 768×8192) plus the trainer's fp32 lane (`xcuda_sgemm_f32` — the
+> cuBLAS replacement), so the parity report is §37 promotion evidence.
+>
+> Batch-6 landing (§100 第六批): `TeacherCollect` is native-only —
+> each scope's teacher spec resolves to a governed Xingcheng bundle
+> ("self" = pinned native-engine checkpoint, else a boundary-checked
+> bundle dir) and generates through `xc_modeltool serve` infer; no
+> legitimate teacher → disabled, never an external fallback (§57-§59).
+> B154's Ollama registration row still needs the governed amendment
+> before it is unregistered.
+>
+> Batch-7 landings (§100 第七批, commit `fe8eea849`): the release gate
+> gained two critical steps — `native-dependency` (§73 blocking
+> findings + driver-only CUDA contract) and `resource-contract` (§75:
+> every usage receipt's grant_id must resolve to a governor-issued
+> grant file).
+>
+> **Decision reversal (2026-10-02):** the xstore metadata-authority
+> takeover is CANCELLED — PostgreSQL (`gptbridge_xingcheng*`) remains
+> the formal structured metadata authority; xstore is scoped to
+> objects/snapshots/content-hashes/derived indexes only. The §46-§52
+> shadow→parity→flip batch is void.
+>
+> Successor phase in force: **Capability Maturation Closure directive
+> §0-§129** (2026-10-02) — no new capabilities/taxonomies/ladders; the
+> goal is pushing every canonical capability through
+> IMPLEMENTED→EVALUATED→CERTIFIED→MATURE behind floors, baselines and
+> protected regression. Phase-1/2 landings:
+> `CapabilityMaturityService.cs` (`star-capability-maturity/v1` state
+> store at `runtime/state/capability-maturity.json` — §5 state machine
+> with an evidence-derived ceiling; §12 floor axes incl. runtime/
+> architecture/stability; §16/§17 baseline refresh on certify/mature
+> only; §14 MATURE ⇒ PROTECTED; §10 auto-REGRESSED; §11 REOPENED keeps
+> history) and `CapabilityRegressionMatrix.cs`
+> (`star-capability-regression-matrix/v1` — §24 rows=candidate
+> capability × protected columns, cells derived from the graph + §26
+> core set; §28 runtime axes scored separately, §29). Verbs:
+> `--capability-maturity` (§100-§101 report), `--capability-floor`,
+> `--capability-transition`, `--capability-matrix`.
+
+Capabilities are **first-class descriptors**, never their own runtime /
+model / store / scheduler. All capabilities ride the single xc-fused-1
+HybridCausalDecoder core, the single NativeTrainer, the single
+NativeInferenceEngine and the single Lifecycle plane.
+
+Phase-1 implementation (C# governance lane,
+`xingcheng/src/backend/csharp/GPTBridge.XingchengLearning`):
+
+- `CapabilityDescriptor.cs` — `star-capability-descriptor/v1`; §4 field
+  set + §31 architecture binding + §66 floor + §83 aliases; closed
+  vocabularies for class (`MODEL_NATIVE`/`RUNTIME_AUGMENTED`/
+  `SERVICE_AUGMENTED`), owner plane (`GOVERNANCE`/`COMPUTE`/`DATA`/
+  `SYSTEM`/`MIXED`), status (`UNAVAILABLE`/`IMPLEMENTED`/`TRAINING`/
+  `EVALUATED`/`CERTIFIED`/`MATURE`/`REGRESSED`), resource hints.
+- `CapabilitySeed.cs` — canonical capability rows (code = source of
+  truth; persisted file is the governed projection).
+- `CapabilityRegistry.cs` — `star-capability-registry/v1` at
+  `xingcheng/runtime/state/capability-registry.json`; `Resolve`
+  (alias→canonical, fail-closed), `Emit`, `Validate`.
+- `CapabilityGraph.cs` — `star-capability-graph/v1` at
+  `xingcheng/runtime/state/capability-graph.json`; §12 edge vocabulary
+  (`REQUIRES`/`SUPPORTS`/`REGRESSES_WITH`/`SHARES_DATA_WITH`/
+  `SHARES_EXPERT_WITH`/`EVALUATED_BY`); `RegressionSuiteFor` derives a
+  lane's regression set automatically (§45: self + REQUIRES closure +
+  REGRESSES_WITH neighbourhood + every protected/frozen capability).
+- `CapabilityEvaluationMap.cs` — `star-capability-eval-map/v1`;
+  existing eval categories keep their names (§85) and map to canonical
+  ids (one capability ↔ many evals, §18/§19).
+- `CapabilityProgressionPolicy.cs` — `star-capability-progression/v1`
+  facade over `Maturation300M`: registry answers "which capabilities
+  exist?", progression answers "which may train now?" (§16).
+- `CapabilityConsistency.cs` — `star-capability-consistency/v1`, the
+  §102 check battery (unknown/duplicate capability, orphan eval,
+  orphan training path, missing binding, missing regression dep,
+  missing evidence, capability/runtime confusion) — the release-gate
+  consistency gate substrate (§101).
+- `CapabilityEvidence.cs` — `star-capability-evidence/v1` (§20):
+  append-only hash-bound evidence chain at
+  `xingcheng/runtime/state/capability-evidence.jsonl`; records carry
+  capability_id/model_version/candidate_id/dataset_snapshot/
+  eval_suite/baseline/result/regression/runtime_profile/
+  resource_profile/contribution/timestamp/evidence_hash;
+  RUNTIME_AUGMENTED rows must attribute model vs runtime
+  contribution (§7).
+- `CapabilityDelta.cs` — `star-capability-delta/v1` (§90-§92):
+  registry-vs-registry promotion delta reporting improved / unchanged
+  / regressed / unsupported / newly_certified; a protected capability
+  below floor or any certified-capability regression blocks
+  promotion.
+
+Verbs (`xc-learning.exe`): `--capability-registry` (emit+persist),
+`--capability-graph`, `--capability-eval-map`,
+`--capability-progression`, `--capability-resolve --capability <name>`,
+`--capability-validate [--file <f>]`, `--capability-consistency`,
+`--capability-regression-suite --capability <id>`,
+`--capability-evidence --file <f.json>` (record §20 evidence),
+`--capability-evidence-status [--capability <id>]`,
+`--capability-delta --baseline <f> --candidate <f>` (§90-§92
+promotion delta; protected-capability regression blocks promotion),
+`--capability-runtime-profile --capability <id>` (§55-§57: one
+CompiledExecutionPlan profile per capability — BALANCED /
+CONTEXT_HEAVY / REASONING_ENABLED / TOOL_STRICT / EDGE; never a new
+runtime, never kernel selection), `--failure-attribute --file <f>`
+(§46-§48: every failure classifies to MODEL / RUNTIME / DATA / TOOL /
+RESOURCE / SERVICE / MIXED before any training lane),
+`--arch-limitation-record --file <f>` /
+`--arch-limitation-status [--capability <id>]` (§52-§53 plateau
+evidence; §54 precondition of `--arch-gate`).
+
+Phase-4 wiring (§46-§54, §100): `--failure-record` runs
+`CapabilityFailureAttribution` first — a RESOURCE_FAILURE is routed
+to the governor and never enters the failure pool; the verdict echo
+carries `attribution` + `pool_eligible`/`trainable`. `ArchitectureGate`
+(`--arch-gate`) now requires a recorded
+`star-architecture-limitation-evidence/v1` entry when a justification
+claims `existing_architecture_cannot_solve` for a named capability —
+the claim alone demotes to unmet. Acceleration-plane verbs
+(`--training-pilot`, `--training-batch-plan`, `--speed-gate`)
+accept an optional `capability` field — resolved through the registry
+(fail-closed) and stamped on the plan as `capability_id` +
+`runtime_profile` + `resource_hint` (§63/§100; plans still never
+select kernels or demand resources).
+
+Admission wiring (phase 2, §82/§98): SFT jobs and the
+single-capability recovery lane validate declared capabilities through
+the registry (`CAPABILITY_UNKNOWN` fails closed) before the maturation
+sequence guard applies; canonical ids translate back to sequence
+spellings (`reading` → `reading_grounding`).
+
+`FeatureCatalog` is the *Implementation Feature Catalog* (§29): it
+answers "which mechanisms exist?", never "which capabilities are
+mature?". Phases 1-5 landed: registry/graph/eval-map/progression/
+consistency (phase 1), admission wiring (phase 2), evidence + delta
+(phase 3), failure attribution + runtime profiles + architecture
+limitation evidence (phase 4), release-gate consistency wiring
+(§101). Later (pending): alias convergence of legacy names (§103).
+
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 
 > Normative authority: Codex B134/B135。

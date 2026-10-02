@@ -285,3 +285,23 @@ identity：`xingcheng_identity`（RLS，`gptbridge_xingcheng_internal` 唯一內
 - 不受信任輸入（checkpoint、manifest、語料、大 binary）只經 Rust lane 剖析。
 - 稽核鏈三處並存：PG `audit_event` 鏈、xstore `store-audit.jsonl`、治理 JSONL；尾端截斷需外部錨定。
 - 版本政策：新 contract 不釘版本（`star-kernel-*`）；既有 `/vN` 為註冊名稱本體。
+
+### `/vN` 名稱分類（migration backlog 判定準則）
+
+既有 `/vN` 逐一分為兩類，不得全域 replace：
+
+- **註冊名稱本體（stable identity，保留）**：該字串是已落地 artifact／稽核鏈／
+  狀態檔的註冊 `format` 值——改名即斷證據鏈。目前盤點的 275 個
+  `star-*/vN` 中，凡單一版本存在者皆屬此類（例如 `star-native-ckpt/v1`、
+  `star-model-lifecycle/v1`、各 `star-capability-*/v1`），不構成 backlog。
+- **schema/format revision（真 backlog）**：同一 base 名有多個 `/vN` 並存、
+  且描述同一邏輯契約的世代演進。目前唯一已知個案：
+  `star-grounded-result`——`/v1`（`ToolContracts.GroundedResult`，
+  claim 欄位 `revision`/`citation`/`support_state`）與 `/v2`
+  （`GroundedResultV2`/`GroundedRag`，`document_revision`/`page`/
+  `span_*`/`evidence_strength`/`citation_id`/`category`）並存，v1
+  驗證器仍活於 `ToolContracts`。收斂方向為 v1 消費端遷移至 v2，
+  但須按 case 驗證相容後逐一進行，非機械改名。
+
+新 contract 一律使用不帶 `/vN` 的 stable identity；唯有「對既有註冊名稱的
+明確世代演進」才允許新增 `/vN`，且必須在 codex 登錄其 predecessor。

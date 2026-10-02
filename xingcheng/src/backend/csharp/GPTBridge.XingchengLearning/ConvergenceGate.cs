@@ -260,6 +260,139 @@ $"gate-stderr-{Environment.ProcessId}.log";
                 return TruthyField(v, "ok",
                     $"catalog-validate emitted={emitted.Count}");
             }),
+            // §101/§102 Capability Architecture Consistency Gate:
+            // emit registry + graph, validate the persisted registry,
+            // then run the §102 violation battery — any finding fails
+            // the release step (deny on gap).
+            new("capability-consistency", true, () =>
+            {
+                CapabilityRegistry.Emit(toolRoot);
+                CapabilityGraph.Emit(toolRoot);
+                string rf = Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                var v = CapabilityRegistry.Validate(rf);
+                if (!TransformerTrainingRepository.Truthy(v["ok"]))
+                    return Fail("CAPABILITY_REGISTRY_INVALID",
+                                "registry file failed validation");
+                var c = CapabilityConsistency.Run(toolRoot);
+                return TruthyField(c, "ok",
+                    $"capability-consistency findings=" +
+                    $"{c["finding_count"]}");
+            }),
+            // AC §25-§26: promotion reads the capability delta between
+            // the last promoted registry snapshot and the freshly
+            // emitted candidate — a protected capability REGRESSED
+            // blocks promotion outright.
+            new("capability-delta", true, () =>
+            {
+                string bf = Path.Combine(toolRoot,
+                    CapabilityRegistry.BaselineRel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                if (!File.Exists(bf))
+                    return Pass("no promoted registry baseline yet");
+                string cf = Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                var d = CapabilityDelta.Compare(bf, cf);
+                if (!TransformerTrainingRepository.Truthy(d["ok"]))
+                    return Fail("CAPABILITY_DELTA_REGRESSED",
+                        $"protected regression: " +
+                        $"{string.Join(",", (IEnumerable<object?>)
+                            d["blocking_capabilities"]!)}");
+                return Pass($"capability delta clean " +
+                    $"(regressed=0, " +
+                    $"newly_certified=" +
+                    $"{((IEnumerable<object?>)d["newly_certified"]!)
+                        .Count()})");
+            }),
+            // AC §73/§76: native dependency audit — PostgreSQL/Ollama/
+            // cuBLAS/cuDNN/CUTLASS/NVRTC/external AI runtime findings
+            // with Blocking=true fail promotion; the CUDA plane must
+            // additionally pass the driver-only contract.
+            new("native-dependency", true, () =>
+            {
+                var noc = NativeDependencyGate.NativeOnlyCheck(
+                    toolRoot, -1);
+                if (!TransformerTrainingRepository.Truthy(noc["ok"]))
+                    return Fail("NATIVE_DEPENDENCY_BLOCKED",
+                        $"native-only check failed — " +
+                        $"classes={JsonSerializer.Serialize(
+                            noc.GetValueOrDefault("dependency_classes"))
+                            [..Math.Min(240,
+                                JsonSerializer.Serialize(
+                                    noc.GetValueOrDefault(
+                                        "dependency_classes"))
+                                        .Length)]}");
+                var cnc = NativeDependencyGate.CudaNativeCheck(
+                    toolRoot);
+                return TruthyField(cnc, "ok", "cuda-native");
+            }),
+            // AC §75: every governed execution must leave a usage
+            // receipt whose grant_id resolves back to a governor-issued
+            // grant record — a receipt without a matching grant means
+            // execution ran outside the contract.
+            new("resource-contract", true, () =>
+            {
+                var client = new ResourceGovernorClient(toolRoot);
+                string? dir = client.StateDir();
+                if (dir == null)
+                    return Pass("resource governor state absent — " +
+                                "no receipts to audit");
+                string rcDir = Path.Combine(dir, "resource-receipts");
+                if (!Directory.Exists(rcDir))
+                    return Pass("no usage receipts recorded yet");
+                var bad = new List<string>();
+                int receipts = 0;
+                foreach (string f in Directory.EnumerateFiles(
+                             rcDir, "*.jsonl"))
+                {
+                    foreach (string line in File.ReadLines(f))
+                    {
+                        if (line.Trim().Length == 0) continue;
+                        ++receipts;
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(line);
+                            string gid = doc.RootElement
+                                .TryGetProperty("grant_id",
+                                    out var g) &&
+                                g.ValueKind == JsonValueKind.String
+                                    ? g.GetString() ?? "" : "";
+                            if (gid.Length == 0 ||
+                                gid == "static-local-dev")
+                            {
+                                bad.Add($"{Path.GetFileName(f)}:" +
+                                        $"grant_id='{gid}'");
+                                continue;
+                            }
+                            bool found = Directory.EnumerateFiles(
+                                Path.Combine(dir, "resource-grants"),
+                                "*.json").Any(fp =>
+                                {
+                                    try
+                                    {
+                                        return File.ReadAllText(fp)
+                                            .Contains(gid);
+                                    }
+                                    catch { return false; }
+                                });
+                            if (!found)
+                                bad.Add($"{Path.GetFileName(f)}:" +
+                                        $"no grant record for {gid}");
+                        }
+                        catch (JsonException)
+                        {
+                            bad.Add($"{Path.GetFileName(f)}:" +
+                                    "unparseable receipt line");
+                        }
+                    }
+                }
+                return bad.Count == 0
+                    ? Pass($"{receipts} receipt(s) grant-bound")
+                    : Fail("RESOURCE_CONTRACT_VIOLATION",
+                           string.Join("; ", bad.Take(4)));
+            }),
             // ---------- bundle-bound runtime steps ----------
             new("architecture-drift", true, () => NeedBundle(() =>
                 ArchitectureDrift(bundle!))),
@@ -714,6 +847,26 @@ $"gate-stderr-{Environment.ProcessId}.log";
             ["checkpoint_contract"] = "XCN1 v10",
             ["release_source"] = "main",
         };
+        // AC §26: only an allowed promotion refreshes the capability
+        // baseline — a blocked gate must never re-baseline a
+        // regression into the record.
+        if (!blocked)
+            try
+            {
+                string bf = Path.Combine(toolRoot,
+                    CapabilityRegistry.BaselineRel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                string cf = Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                if (File.Exists(cf))
+                {
+                    Directory.CreateDirectory(
+                        Path.GetDirectoryName(bf)!);
+                    File.Copy(cf, bf, overwrite: true);
+                }
+            }
+            catch (Exception) { /* baseline refresh best-effort */ }
         string dir = Path.Combine(toolRoot,
             ReportRel.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(dir);
