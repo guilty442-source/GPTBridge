@@ -269,8 +269,6 @@
       "actor": "governance/tool/xingcheng-assistant",
       "bound_tool_id": "xingcheng-assistant",
       "bound_roots": [
-        "main-system/governance/sovereigns/xingcheng",
-        "main-system/src-core/core_system",
         "main-system/src-ui"
       ],
       "manifest_binding": {
@@ -650,8 +648,6 @@
         "actor": "governance/tool/xingcheng-assistant",
         "bound_tool_id": "xingcheng-assistant",
         "bound_roots": [
-          "main-system/governance/sovereigns/xingcheng",
-          "main-system/src-core/core_system",
           "main-system/src-ui"
         ],
         "manifest_binding": {
@@ -1025,8 +1021,6 @@
             "actor": "governance/tool/xingcheng-assistant",
             "bound_tool_id": "xingcheng-assistant",
             "bound_roots": [
-              "main-system/governance/sovereigns/xingcheng",
-              "main-system/src-core/core_system",
               "main-system/src-ui"
             ],
             "manifest_binding": {
@@ -1411,8 +1405,6 @@
                 "actor": "governance/tool/xingcheng-assistant",
                 "bound_tool_id": "xingcheng-assistant",
                 "bound_roots": [
-                  "main-system/governance/sovereigns/xingcheng",
-                  "main-system/src-core/core_system",
                   "main-system/src-ui"
                 ],
                 "manifest_binding": {
