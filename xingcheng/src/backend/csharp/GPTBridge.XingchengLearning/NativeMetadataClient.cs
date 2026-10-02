@@ -95,6 +95,19 @@ internal sealed class NativeMetadataClient
         _actor = actor;
     }
 
+    private NativeMetadataClient(string exe, string storeDir, string actor)
+    {
+        _exe = exe;
+        StoreDir = storeDir;
+        _actor = actor;
+    }
+
+    /// <summary>Same executable, different store root — used ONLY by
+    /// governed pre-flip gate probes (crash matrix / concurrent-writer
+    /// CAS) which must never corrupt the production store.</summary>
+    internal NativeMetadataClient ForStore(string storeDir)
+        => new(_exe, storeDir, _actor);
+
     // --------------------------------------------------------- transport --
 
     /// <summary>Run one xstore verb; returns the parsed stdout JSON.
@@ -295,6 +308,7 @@ internal sealed class NativeMetadataClient
         string sourceManifestJson,
         string createdBy = "star-main-native-model",
         string formatVersion = "star-transformer-sft/v1",
+        string? datasetId = null,
         string? operationId = null)
     {
         var prms = new Dictionary<string, object?>
@@ -307,6 +321,7 @@ internal sealed class NativeMetadataClient
             ["format_version"] = formatVersion,
             ["examples"] = examples.Select(e => (object)e).ToList(),
         };
+        if (datasetId != null) prms["dataset_id"] = datasetId;
         if (operationId != null) prms["operation_id"] = operationId;
         return Mutate("create_dataset", prms);
     }
