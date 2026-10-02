@@ -234,8 +234,14 @@ internal static class ArchitectureProjection
         }
         if (name.EndsWith(".bat", StringComparison.Ordinal))
             foreach (Match m in RxFeTarget.Matches(text))
-                f.Binaries.Add((Path.GetFileName(m.Groups[1].Value),
-                                LaneOf(rel), src));
+            {
+                var bin = Path.GetFileName(
+                    m.Groups[1].Value.Replace("%~dp0", ""));
+                if (bin.Contains(':') || bin.Contains('%')
+                    || !bin.EndsWith(".exe", StringComparison.Ordinal))
+                    continue;
+                f.Binaries.Add((bin, LaneOf(rel), src));
+            }
         if (rel.Replace('\\', '/')
                 .Contains("runtime/settings/")
             && name.EndsWith(".json", StringComparison.Ordinal))
@@ -323,6 +329,8 @@ internal static class ArchitectureProjection
             sb.AppendLine("| Binary | 語言 | 來源 |");
             sb.AppendLine("|---|---|---|");
             foreach (var b in f.Binaries
+                         .Where(x => x.Src.Contains(
+                             "Standalone tools/local-model"))
                          .OrderBy(x => x.Binary, StringComparer.Ordinal)
                          .ThenBy(x => x.Src, StringComparer.Ordinal)
                          .Distinct())

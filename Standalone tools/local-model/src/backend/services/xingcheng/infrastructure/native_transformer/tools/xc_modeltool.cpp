@@ -708,11 +708,11 @@ int vision_grid_state(const JsonValue* v, int64_t& patches, int64_t& dim) {
 // Throws std::runtime_error carrying the one-shot failure code (never
 // fail(): the serve loop must stay alive). Returns the exact stdout
 // summary the one-shot mode prints.
-std::string tokenize_run(const std::string& tk_arg, int64_t max_len, bool chat,
-                         int64_t vision_pdim, int64_t vision_pmax,
-                         const std::string& in_path, const std::string& out_path) {
-    std::string tk_path = resolve_tokenizer_path(tk_arg);
-    ByteLevelBPETokenizer tk = ByteLevelBPETokenizer::load(tk_path);
+std::string tokenize_rows(const ByteLevelBPETokenizer& tk,
+                          const std::string& tk_path,
+                          int64_t max_len, bool chat,
+                          int64_t vision_pdim, int64_t vision_pmax,
+                          const std::string& in_path, const std::string& out_path) {
     // eos: encode("", add_eos) returns {eos_id}; -1 when undetectable.
     std::vector<int64_t> eos_probe = tk.encode("", false, true);
     int64_t eos_id = eos_probe.empty() ? -1 : eos_probe.back();
@@ -797,6 +797,17 @@ std::string tokenize_run(const std::string& tk_arg, int64_t max_len, bool chat,
             << ",\"eos_id\":" << eos_id
             << ",\"tokenizer_sha256\":\"" << sha256_file(tk_path) << "\"}";
     return summary.str();
+}
+
+// One-shot entry: resolve + load the tokenizer, then share the row core
+// with serve (identical file contract and identical stdout summary).
+std::string tokenize_run(const std::string& tk_arg, int64_t max_len, bool chat,
+                         int64_t vision_pdim, int64_t vision_pmax,
+                         const std::string& in_path, const std::string& out_path) {
+    std::string tk_path = resolve_tokenizer_path(tk_arg);
+    ByteLevelBPETokenizer tk = ByteLevelBPETokenizer::load(tk_path);
+    return tokenize_rows(tk, tk_path, max_len, chat,
+                         vision_pdim, vision_pmax, in_path, out_path);
 }
 
 int mode_tokenize(const Args& a) {

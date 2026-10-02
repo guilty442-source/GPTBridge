@@ -93,28 +93,12 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · generated 2026-10-02T04:15:13Z · 2106 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2108 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
-| `%~dp0xingcheng_trainer.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
-| `:gemm_bench.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
-| `:gemm_bench.exe` | C++ | git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
-| `:gemm_bench.exe` | C++ | local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
-| `:gemm_bench.exe` | C++ | main:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
-| `:gemm_bench.exe` | C++ | rag:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
-| `:gemm_bench.exe` | C++ | ui:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
-| `InvestmentMobileShadow.exe` | C# | devin:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
-| `InvestmentMobileShadow.exe` | C# | git:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
 | `InvestmentMobileShadow.exe` | C# | local-model:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
-| `InvestmentMobileShadow.exe` | C# | main:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
-| `InvestmentMobileShadow.exe` | C# | rag:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
-| `InvestmentMobileShadow.exe` | C# | ui:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
-| `TestSuiteOrchestrator.exe` | C# | devin:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
-| `TestSuiteOrchestrator.exe` | C# | git:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
 | `TestSuiteOrchestrator.exe` | C# | local-model:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
-| `TestSuiteOrchestrator.exe` | C# | main:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
-| `TestSuiteOrchestrator.exe` | C# | rag:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
-| `TestSuiteOrchestrator.exe` | C# | ui:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `_xcb_check.exe` | — | devin:Standalone tools/local-model/contracts/xnc/vectors/_b.bat |
 | `xc-format.exe` | Rust | devin:Standalone tools/local-model/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | main:Standalone tools/local-model/src/backend/rust/xc-format/Cargo.toml |
 | `xc-learning.exe` | C# | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
@@ -133,6 +117,7 @@ flowchart TB
 | `xct-executor.exe` | C# | main:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | rag:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | ui:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xingcheng_trainer.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
 | `xingcheng_trainer.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
 | `xingcheng_trainer.exe` | C++ | git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
 | `xingcheng_trainer.exe` | C++ | local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |

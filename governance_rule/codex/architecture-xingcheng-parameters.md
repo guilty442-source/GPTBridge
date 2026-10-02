@@ -58,7 +58,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 環境變數
 
 <!-- autogen:xingcheng-env -->
-*autogen-scanner/v1 · generated 2026-10-02T04:15:13Z · 2106 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2108 files · main+devin+git+local-model+rag+ui*
 | var | 讀取處 |
 |---|---|
 | `GPTBRIDGE_IPC_PORT` | devin:native/tool_runtime/tool_host.cpp, git:native/tool_runtime/tool_host.cpp, local-model:native/tool_runtime/tool_host.cpp, native/tool_runtime/tool_host.cpp (+2) |
@@ -96,7 +96,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 政策/設定檔
 
 <!-- autogen:xingcheng-settings -->
-*autogen-scanner/v1 · generated 2026-10-02T04:15:13Z · 2106 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2108 files · main+devin+git+local-model+rag+ui*
 | 檔案 | format | 所在樹 |
 |---|---|---|
 | `feature-catalog.json` | `star-model-feature-catalog/v1` | devin:Standalone tools/local-model/runtime/settings/feature-catalog.json |
