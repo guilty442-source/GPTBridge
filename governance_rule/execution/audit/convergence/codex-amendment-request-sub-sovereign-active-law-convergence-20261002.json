@@ -1,0 +1,732 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v1",
+    "request_id":  "sub-sovereign-active-law-convergence-20261002",
+    "title":  "Sub-sovereign active-law owner convergence: retire live delegation to the abolished sub-sovereign layer per B162",
+    "summary":  "Human-governor directive 2026-10-02: B162 already declares SUB-SOVEREIGNS abolished and historical-only, and the SUB_SOVEREIGN_LAYER architecture registration is retired, yet 64 active provisions still delegate live authority to named sub-sovereign identities (ownership, module management, dispatch, verification, routing). This amendment rewrites those provisions so every former sub-sovereign duty is exercised directly by the registered core sovereign (per sovereign_hierarchy_registry parent_identity, A89 parent map, and A124/A125 learning transfer): decision-sovereign takes policy-architecture/health-maintenance-test/data-governance/priority-capability/change-acceptance duties; automation-sovereign takes all sync/resource/integration/third-party/dispatch duties; system-runtime-sovereign takes system+startup duties; permission-sovereign takes directory/identity-group module management; XINGCHENG takes learning/language-review/system-programming duties. Structural charter provisions (A35/A36/A73/A78-A85/A89/A90/A91/A96/A105/A118/B66) are rewritten to describe the retired boundary: sub-sovereign identities are preserved as historical lineage in sovereign_hierarchy_registry and may never hold active authority. Provisions that only mention sub-sovereigns in abolition, retirement, or revival-prohibition contexts (A17/A83/A84/A97/A102/A103/A111/B114/B162/C111/A124/A125/A129/B68/B69) keep their wording, with A125 fixed to drop its one live reference. Codex-text-only change; no implementation or file is moved.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "direct human-governor instruction 2026-10-02: sub-sovereigns declared abolished by B162 yet active law still names them as owners/managers; active ownership statements must successor to the five cores / Xingcheng, not linger under A24 legacy normalization",
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "auto_execute":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T07:29:50Z",
+                        "version_identity":  "E2:2026-10-02T07:29:50Z",
+                        "version_epoch":  2,
+                        "history_head":  "44b660d730c68cf344854c1daead7bfba9662f4897bb6f15ac53b3008570f754",
+                        "revision_sequence":  220
+                    },
+    "problem":  {
+                    "summary":  "B162 abolished the sub-sovereign layer (historical only, active-sub-sovereign forbidden) and SUB_SOVEREIGN_LAYER is retired in the architecture registry, but the active normative surface still assigns live authority to retired identities: OWNER clauses (A13/A42/A59/B2/B26/B111/C5/C6/D8/D22/D27), module-management delegations (A63/A64/A66-A69/A77/B44/B46/D42-D44), duty/flow statements (A31/A53/A87/A99/B22/B48/B65/C7/C8/C20/C24/C27/C31/C36-C40/C47/D3/D30/D55/D56/D77), sovereign-to-sub retirement chains (A78-A82/A85/B66), and structural roster/hierarchy charters (A35/A36/A73/A89/A90/A91/A96/A105/A118). Directory resolvers and evaluators see both \"abolished\" and \"active owner\" answers simultaneously.",
+                    "affected":  [
+                                     "articles",
+                                     "architecture_stale_reference_evidence"
+                                 ],
+                    "scope":  "codex-text convergence only; ownership moves to the registered parent core sovereign or Xingcheng; historical identities preserved as lineage; no file or implementation change"
+                },
+    "changes":  [
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A105"
+                                },
+                        "field":  "rule",
+                        "proposed":  "TEST-OWNERSHIP:owner=permission-sovereign in test_flow_directory and test_suite_architecture_directory means directory identity,schema,access and lifecycle authority only. management_owner=decision-sovereign is the centralized operational manager for one-module-one-suite inventory,test planning,scheduling,fixtures,execution coordination,evidence collection,retest and status reporting;it has no policy decision or direct module execution power and dispatches governed module test executors. A test flow lacking a physical management_owner field inherits this exact manager through this provision and its linked suite/module registry;future schema may add the field additively. Domain owners define expected domain truth and acceptance evidence but cannot self-register or suppress results. ROSTERS:top-level current institution roster is separately identified from the module layer. TOP={decision-sovereign,system-runtime-sovereign,automation-sovereign,permission-sovereign,星澄};Codex is excluded and remains rule declaration. SUB=none:all former sub-sovereign identities are abolished and historical only per B162;the retired roster is preserved in sovereign_hierarchy_registry as lineage. Each module keeps one owning core and no independent authority. Generic active lineage queries cannot be presented as the top-level roster. HISTORICAL-CORRECTION:H045 summary contains repaired legacy display text confidential 星澄 audit. History remains immutable;the authoritative correction annotation is confidential 星澄 audit. This annotation corrects display/interpretation only and does not replace H045 entry_hash,content,sequence or authority. Consumers displaying H045 must show the annotation and preserve original hash evidence. PENDING-TRUTH:35 mandated-pending-implementation directories,external signature requirements,Epoch-2 human signature and Language Governance FREEZE-PENDING remain genuine blockers. Normalization cannot mark them active/signed/stable;each closes only through its required evidence and a later immutable record.\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A105"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:permission-sovereign treated as test execution manager+maintenance manager making policy/permission decisions+domain owner self-registering or suppressing tests+top roster mixed with retired sub-sovereign identities+Codex in either active roster+alias replacing canonical sovereign ID+rewriting H045 history to fix display+annotation changing historical hash+pending/signature/freeze state closed without evidence."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A118"
+                                },
+                        "field":  "rule",
+                        "proposed":  "HISTORICAL-BOUNDARY:the former sovereign-sub-sovereign attachment is retired lineage under B162;a sovereign may address its registered managed modules directly without an intermediary,while every message still enters the canonical information-layer service and is carried only by the shared-layer typed transport implementation. ROUTE:sovereign identity -\u003e information-layer authorization+contract+correlation -\u003e shared-layer logical stream -\u003e managed module identity,and the reverse path uses the same contract. BIDIRECTIONAL:request,response,event,acknowledgement,cancellation,health,dispatch-status and evidence may originate from either endpoint within its role. BOUNDARY:direct means logical endpoint selection only;it never means in-process bypass,direct filesystem/database access,private import,unaudited IPC or authority inheritance. VALIDATION:each stream proves current registration,active identity,role,scope,permission,generation,schema,deadline,sequence and correlation before delivery. AUTHORITY:the sovereign retains only its declared decision or privileged power;the managed module retains implementation duties and gains no decision authority. INFORMATION-OWNERSHIP:information-layer owns information service and routing truth;shared-layer implements channel and contract;automation-sovereign operates and maintains transport;permission-sovereign decides access. ISOLATION:one sovereign-module stream has its own queue,budget,backpressure,checkpoint and fault domain;failure cannot interrupt unrelated streams. TOPOLOGY:attachment is resolved dynamically from the registered module ownership and identity generation,never from hard-coded physical addresses."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A118"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:direct-call bypass of information-layer+private cross-boundary method/import used as transport+permission inheritance from attachment+sub-sovereign revival+module self-authorization+unregistered attachment+hard-coded endpoint+cross-stream credential/evidence reuse+uncorrelated response+stale-generation delivery+failure propagation."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A125"
+                                },
+                        "field":  "rule",
+                        "proposed":  "RENAME:synchronization-sovereign is canonically renamed automation-sovereign; DISPLAY:自動主宰; IDENTITY:automation-sovereign is the sole active identity and inherits without expansion every former synchronization-sovereign duty,power,restriction,child relationship,module decision assignment,contract,receipt and lineage; RETIREMENT:the former name is a historical deprecated alias only and cannot authenticate,decide,receive assignment or coexist as an active sovereign; SCOPE:automation-sovereign decides automation synchronization,resource convergence,channel continuity,state convergence,release/update transactions,repair/backup,cleanup/retention,automatic logging and dependency coordination directly through its managed modules,excluding learning duties transferred to 星澄 by A124; EXECUTION:its exceptional certified update execution remains limited exactly by C52 and all other execution stays with registered module executors; MIGRATION:all current registries,contracts,metadata,rosters,module assignments,permission viewers and machine references resolve to automation-sovereign; compatibility input using the old alias must resolve one-way to automation-sovereign during a registered bounded migration and output only the canonical identity.\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A13"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:automation-sovereign; SCOPE:cross-sovereign-module-structural-interface/channel/sync/bus; BASIS:codex-delegation"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A13"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:automation-sovereign-decision-layer-coordinate/overstep-exec"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A31"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:星澄; INPUT:typed-errors+repair-outcomes+verification-results; LEARN:normalized-signature+success-rate+bounded-recipe; AUTOMATION:verified-repeatable-recipes-only; EXECUTION:maintenance-governed-executor"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A35"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SUB-SOVEREIGN:abolished and historical only per B162; no sub-sovereign may be created or hold active authority; CATALOG:the former parent-and-child map is preserved as retired lineage in sovereign_hierarchy_registry; RULE:every former domain duty is exercised directly by the registered parent core and its managed modules; STARTUP:system-runtime-sovereign owns startup duties directly; DECISION-DOMAINS:policy-architecture+health-maintenance-test+data-governance+priority-capability+change-acceptance duties are exercised by decision-sovereign; SYNCHRONIZATION-DOMAINS:resource-dependency-sync+dependency-sync+channel-contract-sync+release-update-sync+runtime-state-sync+repair-backup-sync+cleanup-retention-sync+automatic-log-sync duties are exercised by automation-sovereign; PERMISSION-DOMAINS:directory+identity-group duties are exercised by permission-sovereign; LEARNING-AND-LANGUAGE-DOMAINS:learning-evidence+language-review+system-programming duties are exercised by XINGCHENG; SPECIALIZED-SOVEREIGN:operates-without-sub-sovereign; RETIRED:every former sub-sovereign identity holds no active authority\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A35"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:active-sub-sovereign+sub-sovereign-layer-revival+duplicate-control-owner+multiple-parents+direct-execution+information-layer-bypass"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A36"
+                                },
+                        "field":  "rule",
+                        "proposed":  "EACH-MODULE:one-primary-domain+maximum-3-declared-capabilities; COUNT:distinct-authorized-control-or-dispatch-capabilities; OVERFLOW:mandatory-split+new-exclusive-identity+owning-core-reassignment-before-activation"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A42"
+                                },
+                        "field":  "rule",
+                        "proposed":  "PLATFORM-DECISION:decision-sovereign; PLATFORM-RUNTIME:runtime-sovereign; STARTUP:system-runtime-sovereign; SPECIALIZED-DOMAINS:declared-specialized-sovereigns; 星澄:auxiliary-read-only-review+autonomous-owned-domain"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A53"
+                                },
+                        "field":  "rule",
+                        "proposed":  "COLLABORATION-UNIT:task-envelope{task-id,request-id,origin,objective,scope,priority,deadline,dependency-set,input-contract,expected-output,assigned-owner,participant-list,runtime-generation,release-id,state-sequence,correlation-id}; ENTRY:all-sovereign-requests/events/results/decisions/proofs through-information-layer-official-entry; ORCHESTRATION:decision-sovereign decomposes-task+selects-one-accountable-domain-owner+declares-participants/dependencies/acceptance-criteria+validates-assignment; DOMAIN-VERDICT:each-specialized-sovereign decides-only-its-declared-domain and returns typed approve/deny/defer-with-reason/evidence/constraints/expiry; PERMISSION:permission-sovereign independently validates-identity/action/target/scope/purpose and denial-is-not-overridable-by-other-sovereign; CHANNEL:automation-sovereign manages-topology/routing/contracts/delivery-health modules but cannot-read-beyond-grant/change-content/choose-business-outcome; EXECUTION:runtime-sovereign validates-complete-proof-set/runtime-readiness then dispatches-to-governed-executor and verifies-result; STARTUP:system-runtime-sovereign coordinates-boot-only within its own startup phase and retains verified-readiness ownership; HEALTH:decision-sovereign observes-health+opens-bounded-maintenance-request; repair/code-change requires-decision-assignment+permission-proof+automation-sovereign-review-and-dispatch+runtime-validation; LEARNING:星澄 receives-redacted-outcomes+proposes-candidates-only and cannot-change-routing/policy/code/runtime; RESOURCE/DATA/THIRD-PARTY/LANGUAGE:former decision identities are retired; resource/dependency modules are managed by automation-sovereign and data-governance modules by decision-sovereign and language conformance+code authoring+automation coordination exclusively by 星澄 native model and auxiliary system under B69 boundaries; each core never-performs-another-domain-duty; 星澄:exclusive whole-system automation coordinator+programming/language-review native capability and may command governed tools/modules within valid user/Codex authorization; CODEX:protects-codex-integrity only and is-not-operational-workflow-coordinator; STATE-MACHINE:received\u003eassignment-validated\u003edomain-checks-pending\u003epermission-validated\u003eexecution-validated\u003edispatched\u003eresult-verified\u003ecompleted|denied|failed|expired; CONCURRENCY:independent-domain-checks parallel-after-assignment+dependent-gates serial+result-join requires-all-mandatory-current proofs; DELIVERY:at-least-once-transport+idempotency-key+deduplication+monotonic-per-task-sequence+acknowledgement; FAILURE:timeout/disconnect/stale-generation/schema-failure/missing-proof=\u003etyped-fail-closed-state+bounded-retry-with-jitter+resume-from-last-verified-checkpoint+audit; RECOVERY:reconnect reauthenticates+renews-subscription+replays-from-last-acknowledged-sequence+reconciles-snapshot-before-new-command; OBSERVABILITY:one-correlation-chain+owner/participant/timestamps/decision/proof/state-transition/latency/retry visible-at-authorized-level; FINALITY:accountable-owner accepts-domain-result+decision-sovereign accepts-cross-domain-task-completion without-overriding-domain-or-permission-denial\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A59"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SPECIAL-LAW:this-section exclusively governs every current-and-future directory+registry+catalog+index-of-authoritative-identities; OWNER:permission-sovereign solely owns directory definition+schema+identity+registration+classification+relationship+version+activation+retirement+read-scope+write-decision+supervision; EXECUTION:governed-executor only after exact permission-sovereign decision; STORAGE:decision-sovereign manages data integrity and storage modules without directory-content authority; DOMAIN-OWNERS:may submit candidates+read authorized projections+own referenced domain bodies but cannot create+rename+mutate+activate+retire directory entries; PRECEDENCE:this-special-law prevails over general provisions for directory matters; CONSOLIDATION:A5+C8+A55-B41 and every future directory provision inherit this ownership automatically; ENTRY:all directory access through permission-directory official entry or its explicitly registered typed subdirectory route; FAILURE:directory unavailable or inconsistent=\u003eaffected authorization fails-closed while unrelated runtime individuals remain available under B24 DIRECTORY-STORAGE:every directory managed by permission-core is persisted in the registered local PostgreSQL authority only; PostgreSQL is the sole current structured storage and transaction boundary for directory entries,relationships,lifecycle and write receipts; alternate embedded database,file,cache,mirror or module-private state cannot be directory authority or write fallback."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A63"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:information-layer+routes+sessions+messages+contracts+delivery+replay+redaction+confidential channels; OWNER:automation-sovereign owns-domain decisions and manages channel modules while permission-sovereign owns directory registration; IDENTITY:CODEX_INFORMATION_COMMUNICATION_SPECIAL_LAW+section-12+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+API-event-contract-directory+tool-route-directory; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:fail closed per affected route while unrelated individuals continue; EVIDENCE:typed contract+authenticated session+ordered idempotent delivery+scope filtering+health evidence"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A64"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:dependencies+licenses+provenance+SBOM+vulnerabilities+network access+external services+downloads+updates; OWNER:automation-sovereign owns-domain decisions and manages third-party dependency modules while permission-sovereign owns directory registration; IDENTITY:CODEX_THIRD_PARTY_NETWORK_SUPPLY_CHAIN_SPECIAL_LAW+section-18+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+model-resource-dependency-directory+API-event-contract-directory; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:quarantine affected artifact or route and keep unrelated capabilities available; EVIDENCE:exact identity+version+hash+signature+license+risk+network purpose+TLS+admission and revocation proof\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A66"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:redacted outcomes+learning evidence+candidate generation+evaluation+retention+promotion boundaries; OWNER:星澄 owns learning-domain decisions and manages learning modules while permission-sovereign owns directory registration; IDENTITY:CODEX_LEARNING_SYSTEM_SPECIAL_LAW+section-22+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+data-special-law+audit-special-law; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:discard unsafe or untraceable candidate without changing active behavior; EVIDENCE:source lineage+redaction+evaluation dataset+bounded experiment+human or sovereign promotion decision+rollback"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A67"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:health detection+diagnosis+containment+maintenance manuals+repair execution+verification+rollback+escalation; OWNER:decision-sovereign owns-domain decisions and manages health/maintenance modules while permission-sovereign owns directory registration; IDENTITY:CODEX_AUTOMATIC_REPAIR_SPECIAL_LAW+section-23+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+maintenance-manual-directory+fault-code-directory+test-flow-directory+runtime-special-law; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:contain exact failed owner and stop when scope proof or rollback safety is uncertain; EVIDENCE:registered fault+manual+permission+checkpoint+bounded steps+independent verification+stability window+audit"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A68"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:cryptographic algorithms+keys+certificates+tokens+signatures+encryption-at-rest/in-transit+rotation+revocation+hardware-backed handles; OWNER:automation-sovereign owns domain decisions and manages resource modules and permission-sovereign owns directory registration; IDENTITY:CODEX_CRYPTOGRAPHY_KEY_SPECIAL_LAW+section-25; AUTHORITY:codex+A60+D40; INPUT:registered identities+permission proof+current version+owner evidence; RULE:approved algorithms+non-exportable keys+owner isolation+rotation+revocation+expiry+signature verification+zero secret logging; RELATIONSHIPS:permission-special-law+directory-special-law+audit-special-law; LIFECYCLE:classify\u003eauthorize\u003eoperate\u003eobserve\u003everify\u003eretain-or-erase\u003eretire; VALIDATION:schema+owner+scope+permission+relationships+evidence; FAILURE:deny cryptographic operation and revoke affected session; EVIDENCE:append-only redacted proof+timestamp+correlation+verifier\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A69"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:backup+restore+disaster recovery+continuity+checkpoint+failover+rebuild+reconciliation across every stateful authority; OWNER:decision-sovereign owns domain decisions and manages health/maintenance modules and permission-sovereign owns directory registration; IDENTITY:CODEX_DISASTER_RECOVERY_SPECIAL_LAW+section-26; AUTHORITY:codex+A60+D40; INPUT:registered identities+permission proof+current version+owner evidence; RULE:declared RPO/RTO+owner-local immutable backup+restore test+dependency order+integrity proof+rollback+post-recovery reconciliation; RELATIONSHIPS:permission-special-law+directory-special-law+audit-special-law; LIFECYCLE:classify\u003eauthorize\u003eoperate\u003eobserve\u003everify\u003eretain-or-erase\u003eretire; VALIDATION:schema+owner+scope+permission+relationships+evidence; FAILURE:isolate failed owner and preserve last verified state; EVIDENCE:append-only redacted proof+timestamp+correlation+verifier\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A73"
+                                },
+                        "field":  "rule",
+                        "proposed":  "DECISION-SOVEREIGNS:{decision-sovereign+runtime-sovereign+automation-sovereign} make final in-domain decisions only and possess no execution power; PERMISSION-SOVEREIGN:independent privileged permission-authorization institution under A93; SUB-SOVEREIGN-PARENTS:abolished per B162;each core manages its modules directly with no intermediate control layer; MODULE-EXECUTION-LAYER:only execution actor; 星澄:independent privileged institution outside hierarchy; INFORMATION-LAYER:sole cross-layer route"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A77"
+                                },
+                        "field":  "rule",
+                        "proposed":  "IDENTITY:automation-sovereign; RANK:specialized-decision-sovereign; AUTHORITY:synchronization policy+priority+consistency target+conflict disposition+acceptance decision only; EXECUTION:none; SCOPE:cross-module state+version+contract+cursor+checkpoint+release+directory synchronization; FLOW:evidence\u003esync decision\u003eautomation-sovereign module assignment and coordination\u003emodule execution layer\u003etyped results\u003eindependent verification; CHANNEL:information-layer only; CONFLICT:registered generated artifacts are resolved automatically by the declared deterministic merge policy,then regenerated from canonical sources and fully validated;all other conflicts preserve authoritative sources,isolate affected scope and stop without overwrite/reset; BOUNDARY:no domain content ownership+no permission issuance+no direct transport or data mutation"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A78"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:maintenance-sovereign top-level identity is retired and its active responsibilities converge into decision-sovereign directly per B162; ROLE:decision-sovereign manages maintenance modules+assigns approved work+coordinates module division+collects evidence without an intermediate layer; HEALTH-DECISION:decision-sovereign; TEST-AND-MAINTENANCE-EXECUTION:module-execution-layer only; LINEAGE:former identities remain historical"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A78"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+decision-sovereign direct repair/test/process/file/data/runtime execution+parallel maintenance-sovereign+authority inheritance+acting outside codified decision boundary"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A79"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:data-sovereign identity is retired; its duties converge into decision-sovereign directly per B162 (the intermediate data-sub-sovereign is abolished); ROLE:decision-sovereign manages data modules+assigns approved data work+coordinates module division+collects evidence; DATA-DECISION:decision-sovereign; DATA-EXECUTION:module-execution-layer only; AUTHORITATIVE-DATA:existing Git+SQL+Rust-Vector-Engine/RAG+LLM authority boundaries remain unchanged"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A79"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+decision-sovereign direct database/schema/file/index/backup/restore/migration execution+parallel data-sovereign+authority inheritance+acting outside codified decision boundary"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A80"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:resource-sovereign identity is retired; its duties converge into automation-sovereign directly per B162 (the intermediate resource-sub-sovereign is abolished); ROLE:automation-sovereign manages resource modules+assigns approved work+coordinates module division+collects resource allocation and capacity evidence; DECISION:automation-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A80"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+automation-sovereign direct module execution+parallel resource-sovereign+authority inheritance+acting outside codified decision boundary"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A81"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:integration-sovereign identity is retired; its duties converge into automation-sovereign directly per B162 (the intermediate integration-sub-sovereign is abolished); ROLE:automation-sovereign manages integration modules+assigns approved work+coordinates module division+collects information channel and integration evidence; DECISION:automation-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A81"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+automation-sovereign direct module execution+parallel integration-sovereign+authority inheritance+acting outside codified decision boundary"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A82"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:third-party-sovereign identity is retired; its duties converge into automation-sovereign directly per B162 (the intermediate third-party-sub-sovereign is abolished); ROLE:automation-sovereign manages third-party modules+assigns approved work+coordinates module division+collects dependency and third-party evidence; DECISION:automation-sovereign; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A82"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+automation-sovereign direct module execution+parallel third-party-sovereign+authority inheritance+acting outside codified decision boundary"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A85"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:learning-system-sovereign identity is retired; learning duties belong to 星澄 directly per B162/A124 (the intermediate learning-system-sub-sovereign is abolished); ROLE:星澄 manages learning-system modules+assigns approved work+coordinates module division+collects learning module and outcome evidence; DECISION:星澄; EXECUTION:module-execution-layer only; LINEAGE:former identity remains historical"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A85"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+retired-learning-system-sub-sovereign independent decision+direct execution+parallel learning-system-sovereign+authority inheritance+acting outside automation-sovereign decision"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A87"
+                                },
+                        "field":  "rule",
+                        "proposed":  "ROLE:permission-sovereign; SOLE-AUTHORITY:review requested permission against codex+registered identity+scope+purpose+least privilege+separation+expiry+current evidence and issue typed review verdict approve|deny|require-change; POWER-LIMIT:no permission creation+grant+issuance+termination+identity management+directory ownership+directory registration+policy creation+supervision execution or any non-permission-domain decision; DIRECTORY-DECISION:decision-sovereign; DIRECTORY-MODULE-MANAGEMENT:permission-sovereign manages directory modules under decision-sovereign direction; EXECUTION:module-execution-layer only; PRECEDENCE:this provision narrows every prior permission-sovereign ownership or management phrase to read-only permission review unless a later human-governor law expressly changes it"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A89"
+                                },
+                        "field":  "rule",
+                        "proposed":  "PARENT-MAP:abolished per B162 and preserved only as retired lineage in sovereign_hierarchy_registry; DOMAIN-MAP:{decision-sovereign=\u003epolicy-architecture+health-maintenance-test+data-governance+priority-capability+change-acceptance}+{system-runtime-sovereign=\u003esystem+startup}+{automation-sovereign=\u003eresource+integration+third-party+release-update}+{permission-sovereign=\u003edirectory+identity-group}+{XINGCHENG=\u003elanguage-review+system-programming+learning}; RULE:each module has exactly one owning core+no decision power outside its owner+module management assignment coordination and evidence collection only; PERMISSION-STRUCTURE:permission-sovereign has no active review or decision power under A88, so language-review work requires 星澄 permission review and decision-sovereign decision before module assignment; EXECUTION:module-execution-layer only; CHANGE:any reassignment requires explicit human-governor successor law+lineage+architecture update"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A89"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:active-sub-sovereign+sub-sovereign-layer-revival+unassigned or multi-parent module+implicit owner+module decision or execution outside the module-execution layer+cross-owner assignment+authority inheritance+parallel legacy hierarchy"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A90"
+                                },
+                        "field":  "rule",
+                        "proposed":  "IDENTITY:directory-sub-sovereign is retired lineage under B162; directory module management is exercised directly by permission-sovereign; ROLE:permission-sovereign manages registered directory modules+assigns decision-approved work+coordinates module division+collects evidence; POWER:no decision+no permission review+no authorization+no execution beyond its registered scope; REVIEW:星澄; DECISION:decision-sovereign; EXECUTION:module-execution-layer only; SCOPE:directory only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A90"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:directory-sub-sovereign revival+permission-sovereign exceeding registered scope+direct execution+cross-domain management+parallel private registry"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A91"
+                                },
+                        "field":  "rule",
+                        "proposed":  "IDENTITY:identity-group-sub-sovereign is retired lineage under B162; identity-group module management is exercised directly by permission-sovereign; ROLE:permission-sovereign manages registered identity-group modules+assigns decision-approved work+coordinates module division+collects evidence; POWER:no decision+no permission review+no authorization+no execution beyond its registered scope; REVIEW:星澄; DECISION:decision-sovereign; EXECUTION:module-execution-layer only; SCOPE:identity-group only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A91"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:identity-group-sub-sovereign revival+permission-sovereign exceeding registered scope+direct execution+cross-domain management+parallel private registry"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A96"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:decision-sovereign; SOLE-DECISION:codex-based policy+architecture+priority+capability objective+health/maintenance/data outcome+change acceptance+permission purpose/scope; DOMAINS:{policy-architecture=\u003epolicy and architecture modules}+{health-maintenance-test=\u003ehealth maintenance and test modules}+{data-governance=\u003edata authority lifecycle integrity and schema modules}+{priority-capability=\u003epriority capability objective and permission-purpose evidence modules}+{change-acceptance=\u003echange impact acceptance and release-readiness evidence modules} managed directly by decision-sovereign; EACH-DOMAIN:one exclusive primary domain+module management assignment coordination evidence only; REMOVED:{maintenance-sub-sovereign+data-sub-sovereign+permission-sub-sovereign} formally superseded; all sub-sovereign intermediaries abolished per B162; BOUNDARY:permission authorization remains permission-sovereign and permission review remains 星澄; EXECUTION:module-execution-layer only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A96"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:overlapping domain scope+duplicate owner+sub-sovereign revival/decision/review/authorization/execution+cross-domain takeover+implicit policy+acceptance without independent evidence+permission boundary takeover"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A99"
+                                },
+                        "field":  "rule",
+                        "proposed":  "JOINT-SCOPE:information-layer; PERMISSION-SOVEREIGN-OWNS:exact permission authorization+grant/deny/renew/restrict/suspend/revoke for identity+route+action+data scope+credential handle+session expiry after current 星澄 review; AUTOMATION-SOVEREIGN-OWNS:channel operation and maintenance decisions including topology+contracts+delivery ordering+heartbeat+reconnect+backpressure+continuity+fault isolation+state/cursor/hash convergence+maintenance acceptance; ACTIVATION:state-changing route requires current permission authorization and automation channel-ready verdict as separate keys; MANAGEMENT:permission-sovereign manages permission/directory/identity modules while automation-sovereign manages channel operation/maintenance modules; EXECUTION:information-layer modules only; FAILURE:permission anomaly freezes exact authorization while channel anomaly isolates exact route and healthy routes continue; NO-MERGED-POWER:permission sovereign cannot operate or maintain channels and automation sovereign cannot authorize permissions; NONINTERVENTION:decision-sovereign and runtime-sovereign have no information-layer permission/channel operation/maintenance authority and may only submit typed requests or consume authorized status like other registered callers"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B111"
+                                },
+                        "field":  "rule",
+                        "proposed":  "MAIN-SYSTEM-USER-ENTRY:MAIN_SYSTEM_DESKTOP_EXE is the sole production user-facing startup entry and resolves dynamically through the registered architecture/directory identity; FORM:the entry is the governed desktop native executable, while a desktop shortcut is only a locator to that same identity and never a second entry; FLOW:desktop EXE\u003evisible UI shell\u003etyped SYS_GPTBRIDGE_START intent\u003einformation layer\u003esystem-runtime-sovereign management\u003eregistered module executor; LAUNCHER:LAUNCHER is the internal startup-core boundary contained by MAIN_SYSTEM and is not the user-facing entry,not an independent executable authority and not a second startup path; BOUNDARY:the desktop EXE may create or focus the UI and submit typed intent only; it cannot decide startup,perform governance checks directly,wake a backend directly or own runtime state; PROFILE:CLI,service,test,development and maintenance entry profiles are separately registered non-production interfaces and cannot claim main-system user-entry status; IDENTITY:no physical EXE filename or absolute path is normative; permission-governed resolution binds MAIN_SYSTEM_DESKTOP_EXE to one current artifact,content hash,platform,generation and SYS_GPTBRIDGE_START contract; LIFECYCLE:single-instance,generation correlation,ten-second startup deadline,UI-close backend termination and audit receipt remain controlled by B27+B28+B30+B51."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B2"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:system-runtime-sovereign; SCOPE:run+service-maintenance; INCLUDE:process-survival+runtime-integrity; BASIS:codex-delegation"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B2"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:system-runtime-sovereign-self-authorization-or-policy-modification"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B22"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CODE-REPLICATION:forbidden-without-permission-sovereign-authorization+automation-sovereign-dispatch; BOUNDARY:module-owner-territory-only; COPY:source-to-target-requires-explicit-grant+version-increment+independent-verification; SHARED-LAYER:contracts-and-neutral-infrastructure-only-no-code-duplication; INFORMATION-LAYER:routing-only-no-code-reproduction"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B26"
+                                },
+                        "field":  "rule",
+                        "proposed":  "STARTUP-SOVEREIGN-CAPABILITIES:[1-bootstrap-and-authority-readiness-orchestration,2-certified-dependency-DAG-and-sovereign-activation,3-readiness-handoff-or-owned-failure-rollback]; MAX-CAPABILITIES:3; START:receive-generation-bound-start-intent from-official-platform-entry through-bootstrap-information-route; CAPABILITY-1:own-startup-generation+preflight+minimal-information-mode+official-codex+permission-directory+permission-sovereign+normal-information-mode; CAPABILITY-2:consume-current-certified-manifest+validate-DAG/cycle/criticality+request-resource-budget+activate-independent-nodes-in-bounded-parallel+cancel-dependent-work-on-required-failure; CAPABILITY-3:assemble-readiness-proof+publish-authoritative-snapshot+atomically-handoff-runtime-ownership-to-runtime-sovereign or reverse-only-owned-activation-nodes+publish-exact-failure; OPTIMIZATION:critical-path-first+event-driven-readiness+verified-static-evidence-cache-keyed-by-release/environment/dependency-hash+no-duplicate-probe+adaptive-bounded-concurrency+deadline-budget-propagation; REENTRY:same-release-and-active-generation=\u003eattach+return-current-snapshot; stale/failed-generation=\u003enew-generation-after-owned-cleanup; OWNERSHIP-END:handoff-acknowledged=\u003esystem-runtime-sovereign-startup-phase-observe-status-only+no-runtime-control; INDEPENDENT-TOOLS:not-auto-started-as-main-core+remain-separate-individuals+explicit-lifecycle-request-only; STATUS:information-layer-sequenced-events with phase/node/progress/readiness/evidence/error/remediation-without-secret; USER-ACTION:none-for-normal-start/retry/reconnect\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B28"
+                                },
+                        "field":  "rule",
+                        "proposed":  "HANDOFF:system-runtime-sovereign(startup-phase)\u003einformation-layer\u003eruntime-sovereign; PROOF:startup-generation+release-id+codex-identity+permission-directory-version+information-layer-generation+activated-node-set+dependency-evidence+resource-allocation+health-baseline+timestamp+expiry+content-hash; ACCEPT:runtime-sovereign execution-validation+atomic-ack; BEFORE-ACK:system-runtime-sovereign(startup-phase) owns-startup-generation only; AFTER-ACK:runtime-sovereign owns-running-lifecycle and the startup phase cannot issue runtime commands; MAINTENANCE receives-health-baseline-only-after-handoff; DECISION receives-completion-result-only; RESTART:system-runtime submits-new-startup-intent after-owned-shutdown-or-generation-failure; STATUS-SOURCE:one-authoritative-snapshot+monotonic-sequence; LOST-ACK:query/reconcile-idempotently+never-repeat-side-effects; FAILURE-DURING-HANDOFF:no-dual-owner+runtime-remains-not-ready until-one-valid-ack\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B44"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:models+GPU+VRAM+CPU+memory+storage+residency+allocation+role assignment+fallback+checkpointing; OWNER:automation-sovereign owns-domain decisions and manages resource modules while permission-sovereign owns directory registration; IDENTITY:CODEX_MODEL_RESOURCE_GPU_SPECIAL_LAW+section-15+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+model-resource-dependency-directory+runtime-special-law; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:shed affected owner load and preserve complete input plus completed stages; EVIDENCE:fresh inventory+fixed role mapping+resource lease+exclusive residency+bounded retry+release proof\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B46"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:all information-layer channels including frontend-backend+sovereign+tool+event+state+health+startup+repair; OWNER:automation-sovereign owns channel-topology/delivery-health decisions and manages channel modules while permission-sovereign owns authorization and runtime-sovereign owns runtime recovery; STABILITY-SLO:each route declares availability+heartbeat interval+failure deadline+latency/error/backpressure thresholds+recovery objective+stability window; SESSION:generation-fenced+mutual-liveness+fresh authentication+monotonic sequence+bounded credentials+single active reconnect controller; DELIVERY:transactional outbox+at-least-once transport+idempotency key+deduplication+ordered acknowledgment+bounded replay+cursor persistence; LIVENESS:heartbeat work must have dedicated bounded execution budget and must never share a blocked domain-work queue; BACKPRESSURE:bounded queue+priority for control/heartbeat/ack+flow control+expiry+load shedding of noncritical updates+no control-channel starvation; RECONNECT:detect half-open/stale-open+invalidate old generation+single-flight exponential backoff with jitter+fresh session+subscription renewal+snapshot/cursor/hash reconciliation before ready; SUPERVISION:one owner+may survive renderer crash/reload while UI session remains open but intentional UI close stops matching backend+backend restart cannot terminate independent tools+recovery budget counts consecutive failed generations and resets only after verified readiness; FAULT-ELIMINATION:classify heartbeat timeout/session rejection/sequence gap/outbox stall/backpressure overflow/event-loop starvation/supervisor loss and remove the owning cause before stability claim; OBSERVABILITY:route-id+generation+last-send/receive/heartbeat/ack+queue depth+oldest age+retry count+disconnect cause+recovery latency without secret payload; VERIFICATION:fault injection covers peer kill+half-open+delayed ack+event-loop blocking+queue saturation+stale generation+supervisor death and proves automatic convergence without duplicate side effect; SUCCESS:current authenticated route+fresh liveness+zero unresolved sequence gap+authoritative state convergence+thresholds satisfied throughout declared stability window"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B48"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:backend source/configuration/contract/module changes while any certified system generation is running; OWNER:automation-sovereign reviews change+decision-sovereign classifies health+permission-sovereign authorizes+runtime-sovereign activates only a certified generation; CONTINUITY:editing staging compiling testing or rejecting candidate code cannot stop block restart disconnect degrade or mutate the active generation; ISOLATION:candidate workspace+module namespace+dependency graph+configuration+cache+database migration preparation and validation are separate from active runtime; PREFLIGHT:parse/type/contract/dependency/import/permission/resource/state-migration/rollback checks complete before activation; ACTIVATION:atomic generation pointer transition at safe boundary+in-flight request drain or checkpoint+old generation remains serviceable until successor readiness proven; FAILURE:any candidate error leaves active generation byte/state/session/release identity unchanged and quarantines candidate with typed evidence; HOT-RELOAD:only compatible certified modules+transactional module snapshot+ordered dependency reload+rollback all attempted modules on first fault; INCOMPATIBLE-CHANGE:blue-green successor generation+fresh session generation+state/outbox/cursor reconciliation before traffic switch; CHANNEL:heartbeat/ack/reconnect/control processing retains reserved capacity and cannot execute candidate compilation or heavy status assembly; RECOVERY:backend crash uses last active certified release never uncommitted candidate and preserves frontend host plus independent tools; SUCCESS:no lost acknowledged event+no duplicate side effect+no stale result+active release and runtime generation verified throughout stability window\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B65"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CANONICAL-NAME:runtime-sovereign; FORMER-NAME:system-runtime-sovereign retained only as historical alias; ROLE:runtime-domain decision sovereign with decision power only and no execution power; MODULE-FLOW:runtime decisions are exercised through runtime-sovereign module management+assignment+coordination and actual operations occur only in module execution layer; REFERENCES:all current law+architecture+directory+command+fault+manual+test+audit use runtime-sovereign; IDENTITY-CONTINUITY:sovereign_id system-runtime-sovereign remains the active stable identity and lineage key; canonical codex display name is runtime-sovereign"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B66"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CHANGE:startup-sovereign identity is retired and startup duties converge into runtime-sovereign directly per B162 (the intermediate startup-sub-sovereign is abolished); ROLE:runtime-sovereign manages startup modules+assigns approved startup work+coordinates module division+collects evidence; STARTUP-DECISION:runtime-sovereign; STARTUP-EXECUTION:module-execution-layer only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B66"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:sub-sovereign-layer-revival+startup-phase independent decision outside runtime-sovereign+direct process/service/runtime/UI/backend execution by non-executor+parallel startup-sovereign+authority inheritance+acting outside runtime-sovereign decision"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C20"
+                                },
+                        "field":  "rule",
+                        "proposed":  "STATUS:information-layer-real-time-to-all-active-ui; HEALTH-OWNER:decision-sovereign; REPAIR-DECISION:decision-sovereign; RUNTIME-RESTART:runtime-sovereign; CODE-CHANGE:automation-sovereign; LEARNING:星澄"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C24"
+                                },
+                        "field":  "rule",
+                        "proposed":  "HEALTH-STATES:healthy|degraded|recovering|critical|unknown; DIMENSIONS:governance-integrity+process-survival+runtime-readiness+dependency-readiness+information-channel-continuity+data-integrity+resource-headroom+security-signals+clock-validity+backup-recoverability; EACH-COMPONENT-HEALTH-CONTRACT:owner+typed-signals+sampling-or-event-source+thresholds+staleness-limit+dependency-map+severity+recovery-objective; MONITOR:continuous-events+bounded-active-probes+debounce+hysteresis+trend-detection; HEALTH-OWNER:decision-sovereign classifies health and preserves+coordinates-maintenance; PREVENTION:capacity-headroom+dependency-renewal+stale-state-reconciliation+bounded-housekeeping+verified-update-readiness; AUTOMATIC-PRESERVATION:signal\u003einformation-layer\u003emaintenance-classification\u003edecision\u003epermission-validation\u003eruntime-dispatch-or-automation-sovereign-dispatch\u003egoverned-executor\u003eindependent-verification\u003estability-window\u003einformation-layer-status+audit\u003e星澄-card-and-active-ui; RECOVERY-POLICY:idempotent+bounded-attempts+backoff+circuit-breaker+rollback-or-quarantine+preserve-user-work; SUCCESS:all-required-signals-current+thresholds-satisfied+independent-verification+declared-stability-window; FAILURE:critical-or-unknown+fail-closed-for-affected-capability+retain-evidence+user-notification+learning-outcome\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C27"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CONNECTION-DEFINITION:any-cross-process+cross-thread-message-channel+cross-layer+cross-module+cross-owner+frontend-backend+sovereign-module+module-executor+network+loopback+LAN+internet+WebSocket+HTTP/HTTPS+TCP/UDP+IPC+pipe+queue+event-bus+callback-bus+database+PostgreSQL+SQLite-cross-owner+Rust-Vector-Engine+RAG+Ollama+model-runtime+filesystem-cross-owner+repository+broker+tool+service+child-process-control+health-probe+administration+provisioning+startup+repair+test-or-script communication/session/request/read/write/control/status/event/data-transfer; SOLE-OWNER:information-layer; REQUIRED-ROUTE:authenticated-requester\u003eregistered-information-layer-entry\u003eauthorization+type+contract+scope+rate+observability+audit-gates\u003einformation-layer-owned-transport-adapter\u003eauthorized-destination\u003etyped-result-via-information-layer; PHYSICAL-CONNECTION:may-be-opened-only-by-information-layer-owned-adapter-on-behalf-of-approved-request+adapter-has-no-domain-decision; CREDENTIALS+TOKENS+PORTS+CONNECTION-POOLS+SESSIONS+RETRY+TIMEOUT+HEARTBEAT+BACKPRESSURE+RECONNECT:information-layer-custody; CALLER:request-only+no-transport-handle; DESTINATION:reply-only-through-originating-information-route; FAILURE:fail-closed+typed-error+audit+health-signal; COVERAGE:runtime+development+maintenance+migration+packaging+diagnostics+tests+one-off-scripts; INTERNAL-NON-CONNECTION:pure-in-process-function-call-inside-one-owner-and-one-layer-without-I/O/message/session/transport-handle remains-owner-internal; CURRENT-NORMALIZATION:C116 controls;SQLite is retired with zero active consumers;every affirmative SQLite use,fallback,reconciliation,authority or runtime clause in this provision is void and historical-only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C31"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CANONICAL-CODE-ROOT:DIR[DIR_PROJECT_ROOT]; SCOPE:all-GPTBridge-owned/authored/copied/generated/transformed/downloaded/vendored/patched/extracted/staged/executable project source+scripts+modules+packages+plugins+extensions+hooks+launchers+workers+migrations+code-templates+embedded-code+build-inputs+runtime-loaded-code+hot-update/hot-reload artifacts+test-code+repair-code+AI/programming-tool output+Git-worktrees/object-database/index/hooks; LOCATION-RULE:every-in-scope path after absolute-normalization+case-folding+drive-resolution+environment-expansion+short-name-resolution+symlink/junction/mount/reparse-target-resolution must-equal-root or be-strict-descendant-of-root; ROOT-BOUNDARY:path-component boundary not-string-prefix; DIRECTORY-AUTHORITY:permission-sovereign registers-all-approved-code-directories under-root only; PROGRAMMING:automation-sovereign may-plan/dispatch changes only-to-registered-descendants; EXECUTION:runtime-sovereign validates executable/module/script/working-directory/import/search/plugin/temp-generated-code paths before-dispatch; INFORMATION-LAYER:rejects cross-root code transfer/write/extract/load/execute requests+publishes typed-denial; GIT:main-repository+.git+all-worktrees+shared-object-database+hooks must-reside-within-root+external-worktree-path forbidden; GENERATION:temporary/generated/build/package/cache/coverage/test/recovery/repair code stored only-in-approved-root descendants+atomic-promote-within-same-boundary; IMPORT/PATH:PYTHONPATH/NODE_PATH/PATH/plugin/module-resolution cannot introduce GPTBridge project code from outside-root; ARCHIVE:pre-scan+canonicalize-each-entry+reject-absolute/parent-traversal/reparse/hardlink escape before-extract; HOT-UPDATE/REPAIR:source+staging+rollback+active-release all-inside-root and D28/D29 identity rules still-apply; AUDIT:operation+actor+requested-path+resolved-path+root+decision+content-hash+timestamp+correlation-id without-secret; CHECKPOINTS:startup+code-change+tool-call+Git-operation+dependency-install+generation+build+test+package+hot-update+repair+runtime-load; FAILURE:any-unresolved/ambiguous/nonexistent-parent/reparse-loop/case-alias/device-path/network-path/outside-root=\u003efail-closed+no-create/write/copy/move/load/import/execute+report-to-user; EXISTING-OUTSIDE-CODE:quarantine-reference+do-not-load+move requires-explicit-governed migration that first validates-destination-inside-root and never-deletes-source-until-hash-verified; THIRD-PARTY-BOUNDARY:operating-system executables and externally-installed immutable third-party runtimes are-not-GPTBridge-project-code and may-be-invoked only-by-exact-approved-identity through-C28 governed-executor+cannot receive/store/generate/modify GPTBridge code outside-root; DATA:non-code user data governed-separately+must-never-contain executable-project-code to-evade-boundary\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C36"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:Git history+SQL official mutable data+Rust-Vector-Engine/RAG semantic candidates+LLM inference boundary+schemas+transactions+retention+reconciliation; OWNER:decision-sovereign owns-domain decisions and manages data modules while permission-sovereign owns directory registration; IDENTITY:CODEX_DATA_AUTHORITY_STORAGE_RAG_SPECIAL_LAW+section-14+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+data-schema-authority-directory+backup-recovery-migration-directory; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:deny ambiguous or cross-owner mutation and preserve authoritative data; EVIDENCE:authority map+schema version+transaction proof+lineage+integrity hash+backup and restore verification"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C38"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:personal+sensitive+private+biometric+financial+behavioral data across collection+use+storage+indexing+inference+export+deletion; OWNER:decision-sovereign owns domain decisions and manages data modules and permission-sovereign owns directory registration; IDENTITY:CODEX_PRIVACY_PERSONAL_DATA_SPECIAL_LAW+section-24; AUTHORITY:codex+A60+D40; INPUT:registered identities+permission proof+current version+owner evidence; RULE:purpose limitation+data minimization+classification+consent or codex basis+field-level access+retention+erasure+non-inference; RELATIONSHIPS:permission-special-law+directory-special-law+audit-special-law; LIFECYCLE:classify\u003eauthorize\u003eoperate\u003eobserve\u003everify\u003eretain-or-erase\u003eretire; VALIDATION:schema+owner+scope+permission+relationships+evidence; FAILURE:deny access and contain affected data scope; EVIDENCE:append-only redacted proof+timestamp+correlation+verifier"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C39"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:all channel disconnect/reconnect and every automatic health preservation repair recovery watchdog startup or maintenance action; OWNER:information-layer owns reconnect state and delivery+decision-sovereign classifies failure+decision-sovereign approves repair objective+permission-sovereign validates mutation scope+automation-sovereign alone reviews code change; DISCONNECT:immediately invalidate ready+fence prior session/generation+preserve last acknowledged cursor/outbox/checkpoint+keep unrelated routes and independent tools running; RECONNECT:automatic single-flight+fresh authentication/session/generation+bounded exponential backoff+jitter+circuit breaker+subscription renewal+authoritative snapshot+gap detection+ordered idempotent replay+revision/hash convergence before ready; RECONNECT-IS-NOT-REPAIR:transport/session restoration may not write restore replace regenerate format revert reset checkout merge patch or otherwise mutate source code scripts manifests contracts schemas lockfiles or certified artifacts; AUTOMATIC-REPAIR-CODE-PROHIBITION:no automatic process sovereign agent watchdog maintenance task recovery tool startup routine or learned recipe may overwrite source code or select a code version; CODE-FAULT:quarantine evidence+keep last active certified release+fail closed only affected capability+submit typed change request; any source mutation requires explicit decision assignment+permission proof+system-programming review+versioned candidate+tests+human-authorized certified activation; BASELINE:repair may restore runtime state only from the exact active certified immutable artifact and only when byte-identical digest proves no source change; mismatch means stop and request human decision; PROTECTION:before any permitted repair record path identity+content hash+Git state+active release+rollback proof and after operation prove unchanged source hashes; RECOVERY-SUCCESS:channel current+cursor contiguous+snapshot/revision/hash converged+source tree and active release hashes unchanged+stability window passed\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C40"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:all automatic repair health preservation recovery startup watchdog maintenance learned recipe and governed repair execution; SUCCESSOR:C39 refined so automatic repair may perform only evidence-bounded minimal repair and never replacement or reset; OWNER:decision-sovereign diagnoses+decision-sovereign manages repair evidence while permission-sovereign grants exact path/action scope+automation-sovereign reviews any code repair method+governed executor applies+independent verifier accepts; REPAIR-DEFINITION:minimal localized correction to the identified defect while preserving unaffected bytes structure history configuration user work and active certified release; REQUIRED-BEFORE:exact fault code+root-cause evidence+target allowlist+before hash+Git index/worktree state+backup/checkpoint+patch plan+rollback proof+test plan+decision and permission proofs; ALLOWED:smallest deterministic in-place patch limited to authorized defective region+additive compatibility shim+configuration value correction+rebuild generated artifact from its same authoritative source when source itself is unchanged; PROHIBITED-METHOD:whole-file or directory replacement+copy-over+template/default restoration+Git checkout/reset/restore/revert/clean+branch/worktree switching+history rewrite+database snapshot rollback as code repair+package reinstall over source+regeneration that discards edits+delete-and-recreate+blind formatting+LLM whole-file rewrite; UNCOMMITTED-WORK:immutable to automatic repair+overlap means stop and request user decision; PATCH:three-way context+preimage hash+bounded changed lines+atomic write+postimage hash+diff review; FAILURE:patch mismatch test failure scope expansion ambiguity or hash drift=\u003eno mutation or atomic rollback of only this attempted patch+retain evidence; VERIFICATION:syntax/type/contract/focused regression+governance audit+source diff proves only authorized minimal repair+runtime stability window; RECONNECT:transport recovery remains source-nonmutating and cannot invoke code repair merely because a channel disconnected; LEARNING:may propose repair recipe only and cannot widen target choose version or execute without current proof\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C47"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OBJECTIVES:maximize stable availability+reduce preventable faults+minimize detection/containment/recovery time+preserve bounded execution latency+guarantee owner-local blast radius; OWNER:runtime-sovereign owns continuity+decision-sovereign owns health classification and reliability priorities+decision-sovereign manages repair verification+permission-sovereign owns exact authority+automation-sovereign owns budgets and resource allocation and manages resource modules+information-layer owns cross-layer signals; SLO:each capability declares availability+latency p50/p95/p99+throughput+error rate+queue age+resource headroom+fault budget+detection deadline+containment deadline+recovery objective+stability window; PREVENTION:typed contracts+bounded resources+dependency timeouts+bulkheads+circuit breakers+backpressure+admission control+idempotency+checkpointing+preflight+fault injection+capacity margin; SPEED:critical-path priority+parallel independent work+event-driven waits+bounded payloads+cache with freshness proof+no duplicate probes+no busy polling+deadline propagation+load shed noncritical work before control degradation; REPAIR:detect\u003eclassify exact fault code\u003eisolate\u003epreserve state/evidence\u003eselect registered manual\u003epermission check\u003ebounded minimal repair with no overwrite/reset\u003eindependent verification\u003estability window\u003eclose or escalate; REPAIR-LIMIT:no self-modification of source+no authority expansion+no repeated ineffective repair+failure budget and circuit breaker; ISOLATION:per-individual process+generation+queue+pool+quota+session+data+logs+repair+update+shutdown and shared dependency tenant/bulkhead; CASCADE-PREVENTION:one owner failure cannot restart+stop+mutate+starve+lower health verdict of another; MEASUREMENT:every release compares baseline/regression and blocks activation on reliability or latency regression beyond declared budget\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C5"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:decision-sovereign; SCOPE:system-health-monitor; INCLUDE:data-integrity-check+presentation"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C6"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:decision-sovereign; SCOPE:all-data-body-matters; ITEMS:structured/semantic-index/version-history; FUNC:access-spec-consistency-integrity-check+data-directory; BASIS:codex"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C6"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:decision-sovereign-overstep-exec/resource/permission"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C7"
+                                },
+                        "field":  "rule",
+                        "proposed":  "DATA-INTEGRITY-CHECK:decision-sovereign; SYSTEM-HEALTH-MONITOR:decision-sovereign; PRESENT:data-integrity-health-only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C7"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:maintenance-proxy-data-integrity-check; FORBID:retired-sub-sovereign-proxy-health-monitor"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C8"
+                                },
+                        "field":  "rule",
+                        "proposed":  "DIRECTORY-WRITE:permission-sovereign-decision; EXEC:governed-executor; STORE:decision-sovereign-declared; BASIS:codex+explicit-authorization DIRECTORY-STORAGE:every directory managed by permission-core is persisted in the registered local PostgreSQL authority only; PostgreSQL is the sole current structured storage and transaction boundary for directory entries,relationships,lifecycle and write receipts; alternate embedded database,file,cache,mirror or module-private state cannot be directory authority or write fallback."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D22"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:decision-sovereign; POWER:no-decision+no-execution; DUTIES:manage-maintenance-and-test-modules+assign-decision-approved-work+coordinate-module-division+collect-evidence+submit-status; DECISION:decision-sovereign owns health+maintenance+test-policy+acceptance decisions; DIRECTORY:permission-sovereign owns test-flow directory decisions; EXECUTION:module-execution-layer only; EVIDENCE:registered-test-flow-code+requirements-trace+positive-and-negative-results+failure-code+retest-proof+acceptance-decision+audit-record"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D27"
+                                },
+                        "field":  "rule",
+                        "proposed":  "VERIFY-AT:codex-load+startup-gate+release; CHECK:sovereign-table+active-lineage+canonical-folder+manifest+implementation-entry+parent+duties+capabilities; FAILURE:affected-role-inactive+user-report+audit-record; VERIFIER:system-runtime-sovereign-read-only-validator"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D3"
+                                },
+                        "field":  "rule",
+                        "proposed":  "AUDIT:ledger-per-managed-action; WRITE:governed-executor; STORE:decision-sovereign-declared; RETENTION:by-governance-policy; READ:codex+maintenance-analysis"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D30"
+                                },
+                        "field":  "rule",
+                        "proposed":  "VERSION-NAMESPACES:codex-version+application-version+tool-version+release-id+contract-version+runtime-generation are-distinct+typed+non-interchangeable; APPLICATION-VERSION-AUTHORITY:permission-sovereign-published-record-in-permission-directory; ACTIVE-RUNTIME-AUTHORITY:D29-active-certified-release-pointer; CODEX-VERSION-AUTHORITY:official-codex-only; TOOL-VERSION-AUTHORITY:each-tool-certified-manifest; CONTRACT-VERSION-AUTHORITY:registered-information-layer-contract; AUTOMATIC-REPAIR+LEARNING+MODEL+AI-REASONING:may-read-typed-version-evidence+may-report-mismatch+may-propose-candidate but-may-not-infer/normalize/convert/increment/decrement/select/rewrite/publish/repair/version-or-release-identity; COMPARISON:exact-namespace+canonical-format+issuer+certificate+content-root; STRING-ORDER+FLOAT+SEMVER-CONVERSION+DISPLAY-VERSION+mtime+Git-HEAD+package-default forbidden-as-runtime-authority; MISMATCH-CLASSIFICATION:unknown|metadata-drift|artifact-drift|contract-incompatible|certificate-invalid|release-pointer-invalid; ON-MISMATCH:freeze-affected-mutation+preserve-active-code+collect-evidence+information-layer\u003emaintenance-health-classification\u003edecision; METADATA-ONLY-DRIFT:permission-sovereign-decision+governed-metadata-correction+no-code-write; ARTIFACT-DRIFT:repair-byte-identical-to-active-certified-artifact-root-only; NEW-CODE-REQUIRED:automation-sovereign candidate\u003eD28 certification+atomic-release; INVALID-OR-AMBIGUOUS-EVIDENCE:fail-closed+no-reset+user-notification; AUTOMATIC-REPAIR-INPUT:immutable active-release-id+certificate-digest+artifact-root+target-path+expected-hash+operation-scope; AUTOMATIC-REPAIR-OUTPUT:before-hash+after-hash+release-id-unchanged+verification; VERSION-CHANGE:explicit-candidate+permission-sovereign publication+release-recertification only; DISPLAY-VERSION:presentation-only+never-decision-source\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D42"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:application+tool+contract+artifact versions+build+certification+activation+hot update+hot reload+rollback; OWNER:automation-sovereign owns-domain decisions and manages version/release modules while permission-sovereign owns directory registration; IDENTITY:CODEX_RELEASE_VERSION_SPECIAL_LAW+section-17+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+version-release-artifact-directory+test-flow-directory+runtime-special-law; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:retain last verified release and roll back only exact owner; EVIDENCE:integer version rule+artifact hash+compatibility+tests+staged activation+health window+rollback evidence"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D43"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:audit events+evidence+timestamps+clock trust+lineage+retention+redaction+verification; OWNER:decision-sovereign owns-domain decisions and manages health/maintenance modules while permission-sovereign owns directory registration; IDENTITY:CODEX_AUDIT_EVIDENCE_TIME_SPECIAL_LAW+section-19+immutable provision identities; AUTHORITY:codex+A60+D40 with special-over-general precedence only-inside-declared-scope; INPUT:registered directory identities+current version+permission proof+owner evidence; RULE:one accountable owner+typed decisions+governed executor only+no cross-domain authority; RELATIONSHIPS:permission-special-law+audit-evidence-retention-directory+all-special-laws; LIFECYCLE:register\u003evalidate\u003eactivate\u003eoperate\u003eobserve\u003erepair-or-rollback\u003eretire with versioned lineage; VALIDATION:identity+owner+scope+schema+relationships+permission+runtime generation+evidence all current; FAILURE:mark evidence untrusted and block evidence-dependent decisions; EVIDENCE:append-only record+UTC+IANA zone+monotonic sequence+correlation+content hash+retention and verifier proof"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D44"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:unit+contract+integration+system+failure-injection+security+performance+release+model evaluation and evidence; OWNER:automation-sovereign owns domain decisions and manages version/release modules and permission-sovereign owns directory registration; IDENTITY:CODEX_TEST_VALIDATION_EVALUATION_SPECIAL_LAW+section-27; AUTHORITY:codex+A60+D40; INPUT:registered identities+permission proof+current version+owner evidence; RULE:deterministic fixtures+isolated state+declared oracle+bounded timeout+negative cases+cleanup+reproducible evidence+independent release gate; RELATIONSHIPS:permission-special-law+directory-special-law+audit-special-law; LIFECYCLE:classify\u003eauthorize\u003eoperate\u003eobserve\u003everify\u003eretain-or-erase\u003eretire; VALIDATION:schema+owner+scope+permission+relationships+evidence; FAILURE:fail exact validation gate and forbid success or release; EVIDENCE:append-only redacted proof+timestamp+correlation+verifier"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D55"
+                                },
+                        "field":  "rule",
+                        "proposed":  "DIRECTORY:implementation-obligation registry owned by permission-sovereign; ENTRY:obligation-code+source-provision+implementation-owner+target-state+current-state+created-at+due-at+previous-state+verification-owner+acceptance-evidence+noncompliance-effect+escalation+waiver-rule; LIFECYCLE:mandated\u003eplanned\u003ein-progress\u003eevidence-submitted\u003everified\u003ecomplete or failed/escalated/superseded; DEADLINE:every open obligation has exact UTC due-at and next escalation; MANAGEMENT:domain owner implements+decision-sovereign verifies+permission-sovereign registers; FORCE:overdue or failed obligation remains visible and blocks affected activation+verified release; WAIVER:human-governor successor law only"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D56"
+                                },
+                        "field":  "exception",
+                        "proposed":  "星澄 may request a new scoped evidence view or challenge an acceptance verdict; the responsible sovereign retains decision authority and decision-sovereign retains verification management."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D77"
+                                },
+                        "field":  "rule",
+                        "proposed":  "TEST-OWNERSHIP:owner=permission-sovereign in test_flow_directory and test_suite_architecture_directory means directory identity,schema,access and lifecycle authority only. decision-sovereign is centralized management_owner for one-module-one-suite inventory,planning,scheduling,fixtures,execution coordination,evidence collection,retest and status reporting;it has no policy decision or direct module execution power and dispatches governed module test executors. A test flow without a physical management_owner field resolves it through its suite/module registry and this provision;unresolved mapping is incomplete evidence. Domain owners define expected domain truth/evidence but cannot self-register or suppress results. TEST-ACTIVATION:test suite status mandated means required but not proven active. A suite becomes active only through module path existence,ownership,language-appropriate unit tests,pytest integration when applicable,fixtures,isolation,cleanup,current passing evidence and maintenance-manager acceptance. Counts are always computed from current registries and never frozen into rules. ROSTERS:top current institution roster and active sub-sovereign roster are separate registry-derived views. TOP={decision-sovereign,system-runtime-sovereign,automation-sovereign,permission-sovereign,星澄};Codex is excluded. SUB is exactly the active children in sovereign_hierarchy_registry whose lineage/lifecycle/effective state and parent are consistent. Displaying a generic active lineage query as the top roster is forbidden. HISTORICAL-CORRECTION:H045 damaged display token is corrected by immutable annotation to confidential 星澄 audit;original history bytes,entry_hash,sequence and authority remain unchanged. Consumers display the annotation with raw evidence. DYNAMIC-PENDING:directory implementation,all test suites,external signatures,Epoch human signature and Language Governance lifecycle are read live from their canonical registries. pending/mandated/signature-required/FREEZE-PENDING remains a real blocker until its own acceptance evidence and immutable transition record pass. A count,report date or prior audit cannot be used as permanent current state. STATUS-SNAPSHOT:reports may state counts only with source revision,registry hash,generated_at and stale-after;after expiry or registry change they are observations,not rules."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D8"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SELF-HEALTH-TEST:necessary-for-self-maintenance-health; OWNER:decision-sovereign; SCOPE:governed-tools-declare-test-files; REQUIRE:collectable-offline+no-live-model-dependency; DETECT:governance-audit-collects-managed-test-files; BASIS:codex+D7-test-framework-tiering\\n\\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "architecture_stale_reference_evidence",
+                        "key":  {
+                                    "evidence_id":  "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT"
+                                },
+                        "field":  "current_reference_count",
+                        "proposed":  0
+                    },
+                    {
+                        "table":  "architecture_stale_reference_evidence",
+                        "key":  {
+                                    "evidence_id":  "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT"
+                                },
+                        "field":  "historical_reference_count",
+                        "proposed":  37
+                    },
+                    {
+                        "table":  "architecture_stale_reference_evidence",
+                        "key":  {
+                                    "evidence_id":  "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT"
+                                },
+                        "field":  "result",
+                        "proposed":  "PASS"
+                    },
+                    {
+                        "table":  "architecture_stale_reference_evidence",
+                        "key":  {
+                                    "evidence_id":  "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    }
+                ],
+    "proposed_successors":  [
+
+                            ],
+    "verification":  {
+                         "post_checks":  [
+                                             "no active rule/prohibition/exception delegates authority to a *-sub-sovereign identity (only abolition, retired-lineage and revival-prohibition mentions remain)",
+                                             "architecture_stale_reference_evidence current row reports current_reference_count=0 result=PASS",
+                                             "PostgreSQL/artifact parity PASS",
+                                             "zh-TW mirror parity PASS",
+                                             "codex-automation drift=false"
+                                         ]
+                     }
+}
