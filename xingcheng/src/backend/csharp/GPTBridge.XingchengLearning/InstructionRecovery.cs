@@ -75,9 +75,11 @@ internal static class InstructionRecovery
         _ => "star-instruction-recovery-eval-20261001",
     };
 
+    // Canonical ids only (AC §13-§14): a plan may spell an alias, but
+    // the lane's coverage vocabulary is the registry's.
     private static readonly string[] SupportedCapabilities =
         { "instruction_following", "context_tracking", "multi_turn",
-          "structured_output", "tool_calling", "reading_grounding",
+          "structured_output", "tool_calling", "reading",
           "rag", "math", "coding" };
 
     // §20 sub-metrics -> score weights, per capability.
@@ -4347,21 +4349,25 @@ internal static class InstructionRecovery
         var policy = SelfLearningPolicy.Load(toolRoot);
         // The plan declares which single capability this lane opens; the
         // freeze guard requires it to equal policy.ActiveCapability.
-        string cap = TransformerTrainingRepository.Str(plan, "capability")
-                     ?? throw new ExecutorError(
-                         "RECOVERY_PLAN_MISSING", "capability");
+        // AC §15/§16: resolve to the canonical id first — an alias is
+        // accepted for compatibility, an unknown name fails before any
+        // lane work begins.
+        string cap = CapabilityResolver.Require(
+            TransformerTrainingRepository.Str(plan, "capability")
+                ?? throw new ExecutorError(
+                    "RECOVERY_PLAN_MISSING", "capability"));
         if (!SupportedCapabilities.Contains(cap))
             throw new ExecutorError("RECOVERY_PLAN_MISSING",
                 $"unsupported recovery capability '{cap}'");
-        // Capability unification §82: the recovery lane's capability
-        // vocabulary is validated by the canonical registry — the
-        // supported list stays (it is the lane's implementation
-        // coverage), but a name that resolves to no canonical id is
-        // rejected before any lane work begins.
-        if (CapabilityRegistry.Resolve(cap) == null)
-            throw new ExecutorError("CAPABILITY_UNKNOWN",
-                $"recovery capability '{cap}' is not in the " +
-                "CapabilityRegistry");
+        // AC §17/§69: admission consults the canonical graph — the
+        // capability and its REQUIRES closure must carry complete
+        // architecture bindings; a missing binding blocks the lane.
+        var admission =
+            ArchitectureCapabilityBinding.AdmissionCheck(cap);
+        if (!TransformerTrainingRepository.Truthy(admission["ok"]))
+            throw new ExecutorError("CAPABILITY_ARCHITECTURE_INCOMPLETE",
+                $"capability '{cap}' binding findings: " +
+                $"{admission["findings"]}");
         Capability = cap;
         CapabilityFreeze.GuardJob("sft", cap, policy);
         string kind = TransformerTrainingRepository.Str(plan, "kind") ?? "sft";
@@ -4429,6 +4435,22 @@ internal static class InstructionRecovery
             {
                 ["at"] = XcPaths.IsoNow(), ["event"] = ev,
                 ["data"] = data,
+            });
+
+        // AC §18: the regression obligation is graph-derived — the
+        // capability under training, its REQUIRES closure, its
+        // REGRESSES_WITH neighbourhood and every protected capability.
+        // The plan's regression_suite file stays the eval instrument;
+        // the derived set is the audited coverage contract (no
+        // hand-picked subset may silently drop a protected floor).
+        string[] graphRegression =
+            CapabilityResolver.RegressionSuite(cap, toolRoot);
+        Led("regression_suite_derived",
+            new Dictionary<string, object?>
+            {
+                ["capability_id"] = cap,
+                ["capabilities"] = graphRegression,
+                ["requires_closure"] = admission["requires_closure"],
             });
 
         // ── dataset ───────────────────────────────────────────────────

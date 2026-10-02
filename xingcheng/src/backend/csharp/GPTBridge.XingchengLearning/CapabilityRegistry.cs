@@ -22,6 +22,11 @@ internal static class CapabilityRegistry
     public const string Format = "star-capability-registry/v1";
     public const string Rel =
         "xingcheng/runtime/state/capability-registry.json";
+    /// <summary>AC §26: the registry snapshot bound to the last
+    /// successful promotion — the promotion gate's delta baseline,
+    /// refreshed only when the gate allows.</summary>
+    public const string BaselineRel =
+        "xingcheng/runtime/state/capability-registry.promoted.json";
 
     public static readonly CapabilityDescriptor[] Canonical =
         CapabilitySeed.All;

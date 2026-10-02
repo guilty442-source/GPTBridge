@@ -280,6 +280,32 @@ $"gate-stderr-{Environment.ProcessId}.log";
                     $"capability-consistency findings=" +
                     $"{c["finding_count"]}");
             }),
+            // AC §25-§26: promotion reads the capability delta between
+            // the last promoted registry snapshot and the freshly
+            // emitted candidate — a protected capability REGRESSED
+            // blocks promotion outright.
+            new("capability-delta", true, () =>
+            {
+                string bf = Path.Combine(toolRoot,
+                    CapabilityRegistry.BaselineRel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                if (!File.Exists(bf))
+                    return Pass("no promoted registry baseline yet");
+                string cf = Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                var d = CapabilityDelta.Compare(bf, cf);
+                if (!TransformerTrainingRepository.Truthy(d["ok"]))
+                    return Fail("CAPABILITY_DELTA_REGRESSED",
+                        $"protected regression: " +
+                        $"{string.Join(",", (IEnumerable<object?>)
+                            d["blocking_capabilities"]!)}");
+                return Pass($"capability delta clean " +
+                    $"(regressed=0, " +
+                    $"newly_certified=" +
+                    $"{((IEnumerable<object?>)d["newly_certified"]!)
+                        .Count()})");
+            }),
             // ---------- bundle-bound runtime steps ----------
             new("architecture-drift", true, () => NeedBundle(() =>
                 ArchitectureDrift(bundle!))),
@@ -734,6 +760,26 @@ $"gate-stderr-{Environment.ProcessId}.log";
             ["checkpoint_contract"] = "XCN1 v10",
             ["release_source"] = "main",
         };
+        // AC §26: only an allowed promotion refreshes the capability
+        // baseline — a blocked gate must never re-baseline a
+        // regression into the record.
+        if (!blocked)
+            try
+            {
+                string bf = Path.Combine(toolRoot,
+                    CapabilityRegistry.BaselineRel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                string cf = Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                if (File.Exists(cf))
+                {
+                    Directory.CreateDirectory(
+                        Path.GetDirectoryName(bf)!);
+                    File.Copy(cf, bf, overwrite: true);
+                }
+            }
+            catch (Exception) { /* baseline refresh best-effort */ }
         string dir = Path.Combine(toolRoot,
             ReportRel.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(dir);

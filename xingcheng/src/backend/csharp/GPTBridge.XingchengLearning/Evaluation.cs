@@ -402,6 +402,13 @@ internal static class Evaluation
         if (!passed)
             RecordFailures(repo.ToolRoot, suiteId, candidateBundle,
                            adapterMetrics);
+        // AC §21-§22: a formal eval must leave hash-bound capability
+        // evidence — a clean exit code is never itself the evidence.
+        int evidenceRecorded = format == CapabilityFormat
+            ? RecordCapabilityEvidence(repo.ToolRoot, adapterId,
+                suiteId, suiteSha, candidateBundle, adapterMetrics,
+                baselineMetrics)
+            : 0;
         return new Dictionary<string, object?>
         {
             ["ok"] = true,
@@ -410,7 +417,67 @@ internal static class Evaluation
             ["format"] = format,
             ["comparison"] = comparison,
             ["evaluation"] = evaluation,
+            ["capability_evidence"] = evidenceRecorded,
         };
+    }
+
+    /// <summary>AC §21: after a capability-suite run, append one
+    /// ``star-capability-evidence/v1`` row per evaluated category that
+    /// resolves to a canonical capability — baseline vs candidate
+    /// score plus the regression flag, contribution=model. Recording
+    /// is best-effort per row so an exotic category name can never
+    /// mask the F# verdict it describes.</summary>
+    private static int RecordCapabilityEvidence(
+        string toolRoot, string adapterId, string suiteId,
+        string suiteSha, string candidateBundle,
+        Dictionary<string, object?> adapterMetrics,
+        Dictionary<string, object?> baselineMetrics)
+    {
+        int recorded = 0;
+        var cats = Child(adapterMetrics, "categories");
+        var baseCats = Child(baselineMetrics, "categories");
+        foreach (var kv in cats)
+        {
+            string? canonical = CapabilityRegistry.Resolve(kv.Key);
+            if (canonical == null) continue;
+            double rate = CategoryRate(kv.Value);
+            double baseRate = baseCats.TryGetValue(kv.Key,
+                out var bv) ? CategoryRate(bv) : double.NaN;
+            try
+            {
+                CapabilityEvidence.Record(toolRoot,
+                    new Dictionary<string, object?>
+                    {
+                        ["format"] = CapabilityEvidence.Format,
+                        ["capability_id"] = canonical,
+                        ["model_version"] = adapterId,
+                        ["candidate_id"] = adapterId,
+                        ["dataset_snapshot"] = suiteSha,
+                        ["eval_suite"] = suiteId,
+                        ["baseline"] = double.IsNaN(baseRate)
+                            ? null : baseRate,
+                        ["result"] = rate,
+                        ["regression"] = !double.IsNaN(baseRate) &&
+                            rate < baseRate,
+                        ["contribution"] = "model",
+                    });
+                ++recorded;
+            }
+            catch (Exception) { /* evidence must not mask verdict */ }
+        }
+        return recorded;
+    }
+
+    private static double CategoryRate(object? cat)
+    {
+        if (cat is not Dictionary<string, object?> c) return 1.0;
+        if (c.TryGetValue("pass_rate", out var pr))
+            return Convert.ToDouble(pr);
+        if (c.TryGetValue("passed", out var p) &&
+            c.TryGetValue("evaluated", out var e) &&
+            Convert.ToDouble(e) > 0)
+            return Convert.ToDouble(p) / Convert.ToDouble(e);
+        return 1.0;
     }
 
     /// <summary>Every failed suite run feeds the capability failure
