@@ -28,8 +28,13 @@ internal static class ArchitectureGate
     /// <summary>Evaluate a justification document
     /// {"format":"star-architecture-justification/v1",
     ///  "conditions":{...each condition: bool}, "evidence":{...}}.
-    /// </summary>
-    public static Dictionary<string, object?> Evaluate(JsonElement el)
+    /// §54 (capability unification): a document that claims
+    /// ``existing_architecture_cannot_solve`` for a named capability
+    /// must be backed by an ``star-architecture-limitation-evidence/v1``
+    /// record in the governed state — the claim alone is never
+    /// enough.</summary>
+    public static Dictionary<string, object?> Evaluate(
+        JsonElement el, string toolRoot = "")
     {
         var unmet = new List<object?>();
         var evidence = new Dictionary<string, object?>();
@@ -47,6 +52,30 @@ internal static class ArchitectureGate
         }
         else
             unmet.AddRange(Conditions.Cast<object?>());
+
+        // §54: claiming the architecture cannot solve a named
+        // capability requires recorded plateau evidence
+        // (ArchitectureLimitationEvidence) — the claim is
+        // demoted to unmet when the ledger has none.
+        if (el.ValueKind == JsonValueKind.Object &&
+            el.TryGetProperty("capability", out var capEl) &&
+            capEl.ValueKind == JsonValueKind.String &&
+            capEl.GetString() is { Length: > 0 } capName)
+        {
+            string? cap = CapabilityRegistry.Resolve(capName);
+            bool claimed = evidence.TryGetValue(
+                "existing_architecture_cannot_solve", out var e) &&
+                e is true;
+            if (claimed && cap != null && toolRoot.Length > 0 &&
+                !ArchitectureLimitationEvidence.HasFor(toolRoot, cap))
+            {
+                evidence["existing_architecture_cannot_solve"] = false;
+                if (!unmet.Contains("existing_architecture_cannot_solve"))
+                    unmet.Add("existing_architecture_cannot_solve");
+                evidence["limitation_evidence_missing"] = true;
+            }
+            evidence["limitation_capability"] = cap ?? capName;
+        }
 
         bool required = unmet.Count == 0;
         return new Dictionary<string, object?>

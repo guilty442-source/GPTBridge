@@ -407,7 +407,8 @@ internal static class Program
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? agf)
                             ? agf : "",
-                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+                        "ARCHITECTURE_CHANGE_NOT_JUSTIFIED"),
+                    toolRoot));
             if (flags.Contains("provenance-check"))
                 return Emit(BundleProvenance.Check(
                     toolRoot,
@@ -1439,7 +1440,8 @@ internal static class Program
                 return Emit(ArchitectureGate.Evaluate(
                     ToolContracts.ReadJson(
                         opts.TryGetValue("file", out string? ag)
-                            ? ag : "", "ARCHITECTURE_CHANGE_NOT_JUSTIFIED")));
+                            ? ag : "", "ARCHITECTURE_CHANGE_NOT_JUSTIFIED"),
+                    toolRoot));
             // §14/§19 dataset quality
             if (flags.Contains("data-quality"))
                 return Emit(DataQuality.Evaluate(

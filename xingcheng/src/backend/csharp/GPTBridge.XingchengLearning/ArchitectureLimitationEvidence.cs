@@ -65,7 +65,7 @@ internal static class ArchitectureLimitationEvidence
     public static Dictionary<string, object?> Record(
         JsonElement el, string toolRoot)
     {
-        string capRaw = CapabilityEvidence.Str(el, "capability");
+        string capRaw = Str(el, "capability");
         string? cap = CapabilityRegistry.Resolve(capRaw);
         if (cap == null)
             throw new ExecutorError("CAPABILITY_UNKNOWN", capRaw);
@@ -87,22 +87,17 @@ internal static class ArchitectureLimitationEvidence
             ["format"] = Format,
             ["capability_id"] = cap,
             ["training_attempts"] = attempts,
-            ["data_quality"] =
-                CapabilityEvidence.Str(el, "data_quality"),
-            ["scale_tested"] =
-                CapabilityEvidence.Str(el, "scale_tested"),
-            ["regression"] =
-                CapabilityEvidence.Str(el, "regression"),
-            ["plateau_evidence"] =
-                CapabilityEvidence.Str(el, "plateau_evidence"),
+            ["data_quality"] = Str(el, "data_quality"),
+            ["scale_tested"] = Str(el, "scale_tested"),
+            ["regression"] = Str(el, "regression"),
+            ["plateau_evidence"] = Str(el, "plateau_evidence"),
             ["kernel_resource_exclusions"] =
-                CapabilityEvidence.Str(el,
-                    "kernel_resource_exclusions"),
-            ["reason"] = CapabilityEvidence.Str(el, "reason"),
+                Str(el, "kernel_resource_exclusions"),
+            ["reason"] = Str(el, "reason"),
             ["recorded_at"] =
                 DateTimeOffset.UtcNow.ToString("o"),
         };
-        spec["limitation_hash"] = CapabilityEvidence.Hash(spec);
+        spec["limitation_hash"] = HashRec(spec);
 
         var store = Store(toolRoot);
         var lines = File.Exists(store)
