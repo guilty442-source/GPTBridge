@@ -1521,7 +1521,11 @@ Worker rules for codex work:
     Separately: registered `target_schema_hash` values use a
     governor-side recipe; the executor's `OBJECT_MANIFEST_V1`
     fingerprint will mismatch until the governor publishes the recipe
-    or authorizes a chain restamp.
+    or authorizes a chain restamp. Full packaged request:
+    `manual-amendment-request-sql-migration-registry-reconciliation-20261002.json`
+    (all restamps/retirements with live hashes + 89 registrations
+    precomputed + 4 open decisions incl. the 087/088 filename-prefix
+    collisions; predecessor rev 234 @ 11:31:06Z, re-stamp at intake).
 13. **Parity extractor reimplemented in C#; canonical binding still
     governor-blocked.** `MachineSchemaParity.cs` ports
     `SEAL_CANONICAL_V1` byte-exact (verified against a hand-computed
