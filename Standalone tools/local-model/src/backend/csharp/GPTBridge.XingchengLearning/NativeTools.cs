@@ -192,9 +192,22 @@ internal static class NativeTools
         }
         finally
         {
-            // Drain async output handlers: the timed WaitForExit overload
-            // does not guarantee redirected-output processing finished.
-            try { proc.WaitForExit(); } catch { /* already dead */ }
+            // Drain async output handlers — bounded. The parameterless
+            // WaitForExit waits for the redirected pipes to EOF, but a
+            // detached grandchild can inherit those handles and hold
+            // them open past the child's exit (ollama-service spawns a
+            // persistent `ollama serve`, which kept the collect lane
+            // deadlocked until killed). The handlers have already
+            // appended everything the child wrote; 15 s of grace keeps
+            // the drain guarantee without waiting on pipes the child
+            // no longer owns.
+            try
+            {
+                using var cts = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(15));
+                proc.WaitForExitAsync(cts.Token).GetAwaiter().GetResult();
+            }
+            catch { /* already dead / drain abandoned */ }
         }
 
         int exitCode;
