@@ -62,4 +62,14 @@ Equal(false, Matches(receipt), "empty-equal-hashes-never-verify");
 foreach (var field in new[] { "producer_semantic_hash", "validator_semantic_hash", "persistence_semantic_hash", "canonical_semantic_hash" }) receipt[field] = new string('0', 64);
 Equal(false, Matches(receipt), "arbitrary-equal-hashes-never-verify");
 if (args.Contains("--integration")) passed += ProjectionIntegration.Run();
+var normalize = typeof(SemanticHashToolchain).Assembly.GetType("GPTBridge.CodexPipeline.PgDsn", true)!
+    .GetMethod("Normalize", BindingFlags.Static | BindingFlags.NonPublic)!;
+var canonicalDsn = new Npgsql.NpgsqlConnectionStringBuilder
+{
+    Host = "127.0.0.1", Database = "scratch", Username = "fixture", Password = "fixture;quoted value",
+}.ConnectionString;
+var normalizedDsn = (string)normalize.Invoke(null, new object[] { canonicalDsn })!;
+Equal(canonicalDsn, normalizedDsn, "canonical-npgsql-dsn-roundtrip");
+normalizedDsn = (string)normalize.Invoke(null, new object[] { "host=127.0.0.1 dbname=scratch user=fixture password='fixture;quoted value'" })!;
+Equal("fixture;quoted value", new Npgsql.NpgsqlConnectionStringBuilder(normalizedDsn).Password, "libpq-quoted-semicolon-preserved");
 Console.WriteLine(JsonSerializer.Serialize(new { artifact = "schema-parity-evidence-regression", passed, failed = 0 }));
