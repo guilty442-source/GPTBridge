@@ -19,6 +19,7 @@ fn scratch() -> PathBuf {
 }
 
 fn snapshot_file(root: &std::path::Path) -> (PathBuf, String) {
+    std::fs::create_dir_all(root).unwrap();
     let f = root.join("snap.bin");
     std::fs::write(&f, b"snapshot-bytes").unwrap();
     let sha = crate::hash::sha256_hex(b"snapshot-bytes");
@@ -63,6 +64,7 @@ fn job(store: &std::path::Path, ds: &str) -> String {
 }
 
 fn artifact(root: &std::path::Path, bytes: &[u8]) -> PathBuf {
+    std::fs::create_dir_all(root).unwrap();
     let f = root.join(crate::meta_types::new_id("art"));
     std::fs::write(&f, bytes).unwrap();
     f
