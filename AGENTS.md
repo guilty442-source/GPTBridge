@@ -1328,5 +1328,51 @@ search/index/manifest projections from authoritative tables;
 `--mirror-zh` re-renders the five zh-TW mirror parts into
 `governance_rule/codex/` (read-only output).
 
-Current authority row: version 2026-09-29T05:25:52Z, 218 tables,
-23159 rows. The read-only Chinese mirror remains non-authoritative.
+Current authority row: version 2026-10-02T10:22:07Z (revision 224),
+218 tables, 23623 rows. The read-only Chinese mirror remains
+non-authoritative.
+
+## Codex Amendment Workflow
+
+Workers **never modify the codex directly** (the canonical artifact
+`governance_rule/codex/data/governance_codex.sql`, schema
+`gptbridge-codex-artifact/v1`; `governance_codex.db` is an empty legacy
+file; the five `governance_codex.zh-TW.part-*.txt` files are read-only
+mirrors). All changes go through the governed amendment pipeline:
+
+1. Author a `codex-amendment-request/v2` JSON artifact. Canonical
+   format: `governance_rule/execution/audit/convergence/codex-amendment-request-format.md`.
+   Required: `problem`, `predecessor` (codex_version + history_head),
+   `not_executed: true`, payload (`changes`/`proposed_successors`/
+   `proposed_change`). Forbidden: `auto_execute`, `status`,
+   `amendment_id` — execution gating lives in
+   `main-system/config/automation-flows.json` (`codex-amendment-intake`).
+2. Drop it into an intake dir: `main-system/runtime/state/` or
+   `governance_rule/execution/audit/convergence/`. Filename must equal
+   `request_id`: `codex-amendment-request-<slug>-<yyyymmdd>[-r<n>].json`.
+3. `GPTBridge.CodexPipeline` (resident `codex-amendment-intake` flow,
+   `auto_execute: true`) advances it: intake → successor staging
+   (`candidates/<id>.sql`) → five-sovereign audit → publish. Ledger:
+   `main-system/runtime/state/codex-amendments/requests/<id>.json`;
+   terminal files are renamed `.executed`/`.rejected`/`.withdrawn`.
+
+Evaluation tool:
+`governance_rule/execution/audit/convergence/formal-state-closure-evaluator.ps1`
+— run without args for a read-only current-registry evaluation report
+(JSON); `-Request` emits the amendment-request payload. Requires
+PowerShell (`powershell.exe -File`); there is **no Python installed** on
+this machine (`py` launcher exists but no interpreter).
+
+Worker rules for codex work:
+
+- **Dedup before authoring**: check `revision_history` tail and the
+  amendment ledger first — the fix may already be executed by another
+  worker (incident pattern: findings reported against an older head
+  that a concurrent session already amended).
+- A104: workers never self-seal; Ed25519 external signatures and
+  sealing certificates are human-governor scope only.
+- Amendment `changes` propose field-level row updates; closure/state
+  rows are rebuilt by the pipeline at the successor version — never
+  hand-edit `governance_codex.sql`.
+- Honest-closure rule: missing execution evidence stays
+  `INCOMPLETE_EVIDENCE`/`PENDING`; never fabricate PASS.
