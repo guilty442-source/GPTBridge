@@ -65,17 +65,116 @@ $obligations=@(Get-CodexRows 'implementation_obligations')
 $obligationCounts=[ordered]@{}
 foreach ($group in ($obligations | Group-Object current_state | Sort-Object Name)) { $obligationCounts[$group.Name]=$group.Count }
 $openObligations=@($obligations | Where-Object current_state -notin @('complete','superseded'))
-$classes=@(Get-CodexRows 'codex_article_classification' | Where-Object { $_.provision_id -in $activeIds -and $_.status -eq 'current' })
+$classes=@(Get-CodexRows 'codex_article_classification' | Where-Object { $_.provision_id -in $activeIds -and $_.status -in @('current','active') })
 $classCounts=[ordered]@{}
 foreach ($group in ($classes | Group-Object classification | Sort-Object Name)) { $classCounts[$group.Name]=$group.Count }
 $unknown=@($activeIds | Where-Object { $_ -notin $classes.provision_id }).Count + @($classes | Where-Object classification -eq 'UNKNOWN').Count
+$surface=@(Get-CodexRows 'current_normative_surface' | Where-Object lifecycle_state -eq 'active')
+$surfaceUnknown=@($surface | Where-Object surface_layer -eq 'UNKNOWN')
+$directories=@(Get-CodexRows 'directory_master_catalog' | Where-Object { -not $_.retired_version })
+$directoryOpen=@($directories | Where-Object implementation_state -notin @('active','verified','complete'))
+$canonical=@(Get-CodexRows 'project_architecture_directory')
+$normalized=@(Get-CodexRows 'a233_normalized_directory_entry' | Where-Object source_table -eq 'project_architecture_directory')
+$directoryMismatch=@(foreach ($row in $canonical) {
+    $projection=$normalized | Where-Object source_key -eq $row.architecture_code | Select-Object -First 1
+    if (-not $projection) { $row.architecture_code; continue }
+    $payload=$projection.domain_payload | ConvertFrom-Json
+    foreach ($field in $row.PSObject.Properties.Name) {
+        if ($row.$field -cne $payload.$field) { $row.architecture_code; break }
+    }
+})
+$duplicateGroups=@($activeArticles | Group-Object { Get-Digest @($_.rule,$_.prohibition,$_.exception) } | Where-Object Count -gt 1)
+$search=@(Get-CodexRows 'codex_search_document')
+# Compare using explicit local identities; never compare a row with itself inside a nested pipeline.
+$staleSearch=@(foreach ($doc in $search) {
+    $life=$lifecycle | Where-Object { $_.provision_type -eq $doc.provision_type -and $_.provision_id -eq $doc.provision_id } | Select-Object -First 1
+    if ($doc.version_identity -ne $head.version -or -not $life -or $doc.lifecycle_state -ne $life.lifecycle_state) { $doc.provision_id }
+})
+$sync=@(Get-CodexRows 'architecture_diagram_sync_evidence' | Where-Object status -eq 'current')
 $report=[ordered]@{
     authority='non-authoritative-current-registry-evaluation'; head=$head
     formal=[ordered]@{ total=$formal.Count; participating=$formalCurrent.Count; states=@($formal | Group-Object status | ForEach-Object { @{state=$_.Name;count=$_.Count} }); open_rule_count=$formalFindings.Count; findings=$formalFindings; input_digest=(Get-Digest $formal) }
     machine_schema=[ordered]@{ registered=$schemas.Count; open=$schemaOpen.Count; pending_codes=$schemaOpen; input_digest=(Get-Digest @($schemas,$schemaEvidence)) }
     obligations=[ordered]@{ total=$obligations.Count; counts=$obligationCounts; open=$openObligations.Count; input_digest=(Get-Digest $obligations) }
     classification=[ordered]@{ active_articles=$activeIds.Count; counts=$classCounts; unclassified=$unknown }
+    surface=[ordered]@{ active=$surface.Count; unknown=$surfaceUnknown.Count; layers=@($surface | Group-Object surface_layer | ForEach-Object { @{layer=$_.Name;count=$_.Count} }); input_digest=(Get-Digest $surface) }
+    directory=[ordered]@{ project_canonical=$canonical.Count;project_normalized=$normalized.Count;project_mismatches=$directoryMismatch;catalog_active=$directories.Count;catalog_open=$directoryOpen.Count;input_digest=(Get-Digest @($canonical,$normalized,$directories)) }
+    duplicate=[ordered]@{ exact_groups=$duplicateGroups.Count; semantic_review='PENDING_CURRENT_SEMANTIC_REVIEW' }
+    search=[ordered]@{ total=$search.Count;stale=$staleSearch.Count;input_digest=(Get-Digest $search) }
+    diagrams=$sync
     epochs=@(Get-CodexRows 'codex_version_epochs'); external=@(Get-CodexRows 'codex_external_closure_requirements'); closure=@(Get-CodexRows 'codex_convergence_closure')
 }
 if (-not $Request) { $report | ConvertTo-Json -Depth 50; exit }
-throw 'Request construction is not enabled until live inspection completes.'
+$changes=[Collections.Generic.List[object]]::new()
+function Add-Change([string]$Table,[object]$Key,[string]$Field,[object]$Value) {
+    $changes.Add(@{table=$Table;key=$Key;field=$Field;proposed=$Value})
+}
+function Amend-Law([string]$Id,[string]$Rule,[string]$Prohibition='') {
+    Add-Change 'articles' @{provision_id=$Id} 'rule' $Rule
+    if ($Prohibition) { Add-Change 'articles' @{provision_id=$Id} 'prohibition' $Prohibition }
+}
+Amend-Law 'A120' 'EPOCH-AUTHORITY:codex_version_epochs registers epoch identity and recovery genesis;exactly one E2 row is active while E2 is the current epoch. EPOCH-STATE:active means current epoch identity only,not cryptographic certification or release approval. BASELINE:baseline version,genesis identity,predecessor and recovery history head remain immutable origin evidence;they are not overwritten by each successor. CURRENT-GENERATION:metadata,seal_manifest,epoch_seal_manifest,certification_evidence and trust requirements bind the same current generation and registered epoch. GOVERNED-SEAL:sealed-governed-authorization records governed publication and deterministic integrity only. EXTERNAL-CERTIFICATION:D107 and D113 govern real Ed25519 2-of-3 verification;pending external signatures remain a separate release-blocking requirement. RETIREMENT:explicit governed successor only. FAILURE:missing epoch identity,multiple active epoch identities or inconsistent current roots fail closed.'
+$d124=($articles | Where-Object provision_id -eq 'D124').rule
+$d124=$d124.Replace('CERTIFICATION:sealed-governed-authorization is the sole current certification-state value and must equal current seal,epoch seal and certification evidence.','STATE-DIMENSIONS:seal_manifest and epoch_seal_manifest certification_state are governance-sealing state and must both be sealed-governed-authorization;certification_evidence.status is the distinct external-verification state and may remain external-signatures-required until actual detached verification;codex_version_epochs.status is epoch identity lifecycle and must be active for the current epoch. CONSISTENCY:these typed dimensions share current generation and epoch but must never be compared as one enum. CERTIFIED-SEAL-AND-RELEASE:D107 real Ed25519 2-of-3 verification and every applicable independent closure gate remain mandatory;governed sealing or active epoch identity alone cannot satisfy them.')
+Amend-Law 'D124' $d124 'FORBID:stale binding version+search lifecycle copied independently+stale special-law provision link+legacy backing schema claimed canonical+missing normalization plan+state-dimension-conflation+governed seal or active epoch presented cryptographically certified.'
+Amend-Law 'D107' (($articles | Where-Object provision_id -eq 'D107').rule + ' GOVERNED-SEAL:sealed-governed-authorization is an orthogonal publication/integrity state,not CERTIFIED_SEAL;an active epoch is an identity lifecycle state,not signature verification. EXTERNAL-GATE:the EXTERNAL_SIGNATURE closure requirement remains externally-blocked until actual current-generation Ed25519 threshold verification;an administrative retired-not-required label cannot repeal this gate.')
+Amend-Law 'B5' 'AUTHORITATIVE-FORM:current Codex authority is the canonical typed provision record with stable identity,lifecycle,lineage,declared normativity and governed generation. DECLARATIVE-NORM:the registered rule payload states the legal duty under D105;human-readable wording is not executable programming source. MACHINE-FORM:B17+D106+D114 separately control typed machine clauses,formal-rule mapping,predicate and execution evidence. CHINESE:the ordered read-only Chinese mirror is a non-authoritative comprehension projection,not an adjudication,execution,import,write or fallback source.' 'FORBID:standalone narrative replacing a registered provision+translation or mirror as adjudication authority+prose directly executed as machine predicate+style treated as semantic parity.'
+Amend-Law 'B17' 'REPRESENTATION:canonical typed provision records carry legal identity,lifecycle,generation,lineage and declared normativity under D105. MACHINE-CLAUSE:an authoritative executable clause has a stable clause identifier,typed inputs,deterministic predicate,decision,severity,controlling provision and current semantic parity evidence under D106+D114;uppercase machine tokens and ASCII structural delimiters describe this machine form. DECLARATIVE-NORM:registered human-readable normative rule payloads remain legal declarations under NORMATIVE_MANUAL or their expressly registered class;they are not merely historical because of writing style and cannot become executable machine guards without the corresponding current formal mapping. EXPLANATION:translation,examples,commentary and unregistered legacy prose have no independent authority. SEPARATION:formal_rule_mapping links each machine clause to its canonical legal source;the narrative source and machine form are distinct representations,not interchangeable evaluators. UNMAPPED:preserve the legal duty and mark machine enforcement or release parity INCOMPLETE_EVIDENCE;never infer PASS from narrative or a registered code alone. AMENDMENT:semantic changes require governed successor generation and lineage;mechanical in-place style rewriting under the same identity remains forbidden.' 'FORBID:unstructured narrative as standalone machine authority+prose-only executable guard+translation replacing canonical source+declared legal norm silently reclassified historical+unmapped machine enforcement+format-only parity claim+mechanical in-place style rewrite with same identity.'
+Add-Change 'codex_version_epochs' @{epoch=2} 'status' 'active'
+foreach ($pair in @(@('current_state','externally-blocked'),@('required_end_state','current-generation Ed25519 2-of-3 detached signatures verified against registered trust anchors'),@('verification','D106+D107+D113:actual detached cryptographic verification;status labels and governed integrity seals are not proof'),@('on_open_gate','CERTIFIED_SEAL and affected verified release denied until actual threshold evidence'))) {
+    Add-Change 'codex_external_closure_requirements' @{gate_code='EXTERNAL_SIGNATURE'} $pair[0] $pair[1]
+}
+$source="source=$($head.version);candidate=<successor-version>;"
+function Update-Closure([string]$Id,[string]$Required,[string]$Evidence,[long]$Open,[string]$Result) {
+    $key=@{closure_id=$Id}
+    foreach ($pair in @(@('version_identity','<successor-version>'),@('verified_at','<successor-version>'),@('status','current'),@('verifier','RULE_CODEX_CONVERGENCE/current-registry-evaluation'),@('required_subresults',$Required),@('evidence_roots',($source+$Evidence)),@('open_finding_count',$Open),@('result',$Result))) {
+        Add-Change 'codex_convergence_closure' $key $pair[0] $pair[1]
+    }
+}
+$formalEvidence="registry=$($formal.Count);participating=$($formalCurrent.Count);verified-labels=$(@($formalCurrent | Where-Object parity_status -eq 'VERIFIED').Count);retired=$(@($formal | Where-Object status -eq 'retired').Count);withdrawn=$(@($formal | Where-Object status -eq 'withdrawn').Count);input-sha256=$($report.formal.input_digest);open-rules=$($formalFindings.rule_code -join ',');findings-sha256=$(Get-Digest $formalFindings);NO_RUNTIME_PARITY_INFERRED"
+Update-Closure 'FORMAL_RULE_CLOSURE' 'all current participating rules require active controlling source,current-generation registry/evaluator/test/prose hashes and independent execution evidence' $formalEvidence $formalFindings.Count $(if ($formalFindings.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
+Update-Closure 'MACHINE_SCHEMA_CLOSURE' 'all registered schemas require independent current producer/validator/persistence/canonical execution evidence' "registered=$($schemas.Count);PENDING=$($schemaOpen.Count);input-sha256=$($report.machine_schema.input_digest);activation-and-verified-release=DENIED" $schemaOpen.Count 'INCOMPLETE_EVIDENCE'
+Update-Closure 'NORMATIVE_SURFACE_CLOSURE' 'active lifecycle identities require classified canonical current normative surface' "active=$($surface.Count);unknown=$($surfaceUnknown.Count);input-sha256=$($report.surface.input_digest)" $surfaceUnknown.Count $(if ($surfaceUnknown.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
+Update-Closure 'DIRECTORY_CLOSURE' 'canonical normalized project parity and registered directory governance acceptance' "project=$($canonical.Count)/$($normalized.Count);semantic-mismatches=$($directoryMismatch.Count);catalog=$($directories.Count);catalog-open=$($directoryOpen.Count);input-sha256=$($report.directory.input_digest)" ($directoryMismatch.Count+$directoryOpen.Count) $(if ($directoryMismatch.Count+$directoryOpen.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
+Update-Closure 'DUPLICATION_CLOSURE' 'exact active-payload uniqueness and current independent semantic duplication review' "exact-duplicate-groups=$($duplicateGroups.Count);semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW" ($duplicateGroups.Count+1) 'INCOMPLETE_EVIDENCE'
+Update-Closure 'SEARCH_CURRENTNESS_CLOSURE' 'search lifecycle and generation joined to canonical lifecycle;candidate search is rebuilt by the governed pipeline' "checked=$($search.Count);source-stale=$($staleSearch.Count);input-sha256=$($report.search.input_digest);candidate-publication-requires-search-rebuild" $staleSearch.Count $(if ($staleSearch.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
+$projectionOpen=@($sync | Where-Object { $_.result -ne 'PASS' -or $_.hash_match_count -ne $_.required_count -or $_.stale_count -ne 0 -or $_.missing_count -ne 0 }).Count
+Update-Closure 'PROJECTION_PARITY_CLOSURE' 'current measured architecture file registry parity;candidate seal/mirror/SQL parity validated by publication pipeline;not implementation certification' "diagram-required=$($sync.required_count);diagram-match=$($sync.hash_match_count);source-result=$($sync.result);independent-mirror-and-SQL-publication-gate=REQUIRED" $projectionOpen $(if ($projectionOpen) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
+$stateParts=@($obligationCounts.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ','
+$totalOpen=$formalFindings.Count+$schemaOpen.Count+$surfaceUnknown.Count+$directoryMismatch.Count+$directoryOpen.Count+$duplicateGroups.Count+1+$staleSearch.Count+$projectionOpen+$openObligations.Count+1
+Update-Closure 'CODEX_CONVERGENCE_CLOSURE' "NORMATIVE_SURFACE_CLOSURE|DIRECTORY_CLOSURE|MACHINE_SCHEMA_CLOSURE|FORMAL_RULE_CLOSURE|SEARCH_CURRENTNESS_CLOSURE|PROJECTION_PARITY_CLOSURE|DUPLICATION_CLOSURE|OBLIGATION:$stateParts|EXTERNAL_SIGNATURE:externally-blocked" "formal=$($formalFindings.Count);schema=$($schemaOpen.Count);surface=$($surfaceUnknown.Count);directory=$($directoryOpen.Count);semantic-duplication-review=1;open-obligations=$($openObligations.Count);external-signature=1;obligation-input-sha256=$($report.obligations.input_digest);counts=gate-instances-not-unique-incidents" $totalOpen 'INCOMPLETE_EVIDENCE'
+$oldMetric=Get-CodexRows 'codex_convergence_metrics' | Where-Object status -eq 'current' | Select-Object -Last 1
+$metric=[ordered]@{}
+foreach ($field in $oldMetric.PSObject.Properties) { $metric[$field.Name]=$field.Value }
+$metric.report_id='CONVERGENCE_CURRENT'
+$metric.active_article_count_before=$oldMetric.active_article_count_after
+$metric.active_article_count_after=$activeIds.Count
+$metric.core_article_count=@($surface | Where-Object { $_.object_type -eq 'article' -and $_.surface_layer -eq 'CORE_CONSTITUTIONAL' }).Count
+$metric.special_law_count=@($surface | Where-Object { $_.object_type -eq 'article' -and $_.surface_layer -like 'SPECIAL_LAW*' }).Count
+$metric.ordinance_count=@($surface | Where-Object { $_.object_type -eq 'article' -and $_.surface_layer -eq 'ORDINANCE' }).Count
+foreach ($kind in @('registry_fact','machine_shape','formal_logic','duplicate','mixed')) {
+    $metric[$kind+'_article_count_before']=$oldMetric.($kind+'_article_count_after')
+    $layer=@{registry_fact='REGISTRY_FACT';machine_shape='MACHINE_SCHEMA';formal_logic='FORMAL-RULE';duplicate='DUPLICATE';mixed='MIXED'}[$kind]
+    $metric[$kind+'_article_count_after']=@($surface | Where-Object { $_.object_type -eq 'article' -and $_.surface_layer -eq $layer }).Count
+}
+$metric.unknown_article_count=@($surfaceUnknown | Where-Object object_type -eq 'article').Count
+$metric.stale_effective_count=@(Get-CodexRows 'effective_provisions' | Where-Object { $_.current_binding_version -ne $head.version }).Count
+$metric.superseded_default_search_count=@($surface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count
+$metric.directory_coverage="project:$($canonical.Count)/$($normalized.Count);catalog:$($directories.Count);open:$($directoryOpen.Count)"
+$metric.machine_schema_parity="$($schemas.Count-$schemaOpen.Count)/$($schemas.Count)"
+$owners=@(Get-CodexRows 'formal_rule_ownership_map' | Where-Object status -in @('current','active'))
+$ownerGroups=@($owners | Group-Object invariant_code)
+$metric.formal_rule_single_owner_rate="$(@($ownerGroups | Where-Object Count -eq 1).Count)/$($ownerGroups.Count)"
+$metric.closure_duplication_count=@(Get-CodexRows 'codex_convergence_closure' | Where-Object status -eq 'current' | Group-Object closure_id | Where-Object Count -gt 1).Count
+$metric.result='INCOMPLETE_EVIDENCE';$metric.version_identity='<successor-version>';$metric.status='current'
+Add-Change 'codex_convergence_metrics' @{report_id=$oldMetric.report_id} 'status' 'superseded'
+$requestPayload=[ordered]@{
+    artifact='codex-amendment-request';authority='request-only';schema='codex-amendment-request/v1';request_id='certification-epoch-convergence-current-closure-20261002'
+    title='Separate formal state dimensions and rebuild current convergence closure'
+    summary='Preserve external Ed25519 release gate;activate epoch identity;separate narrative legal declarations from executable machine predicates;re-evaluate 89 formal rules and current closure debt without fabricating PASS.'
+    requested_by='decision-sovereign';origin='direct human-governor formal-state and closure audit;Codex/data only,no application runtime implementation'
+    change_class='architecture-authority';required_review='five-sovereign-audit-unanimous-pass';flow='A382/A488-non-disruptive-amendment-flow';not_executed=$true;auto_execute=$true
+    predecessor=@{codex_version=$head.version;version_identity="E$($head.version_epoch):$($head.version)";version_epoch=$head.version_epoch;history_head=$head.entry_hash;revision_sequence=$head.sequence}
+    changes=@($changes);proposed_successors=@(@{registry='codex_convergence_metrics';action='insert';rows=@($metric)})
+}
+$requestPayload | ConvertTo-Json -Depth 50
