@@ -88,6 +88,8 @@ flowchart LR
   IDS --> PG
 ```
 
+SQL 治理是 Automation Core 唯一治理引擎（C50，見第六節）的 SQL domain plane，不是獨立排程器、協調器或治理權威。PostgreSQL 的 migration、資料變更與驗證由已登錄 SQL 模組執行並回傳型別化收據，與 Git plane 收據合併為跨 domain joined receipt；兩側不得互為權威，世代不一致即未收斂並 fail-closed。
+
 PostgreSQL 是唯一正式結構化資料、共享傳輸、中央審計、權限投影及向量中繼資料權威。已刪除的嵌入式資料庫與 Qdrant 沒有現行消費者、回退或權威角色。vectord 原生服務只保存可重建的衍生語意索引，不得保存唯一業務真相。
 
 法典只固定原則、權威、權責、禁止事項、安全邊界、契約與資源上限。各擁有層可在這些原則內依即時量測自動調整演算法、資料結構、批次、併行、快取、查詢計畫、模型駐留與維護節奏；不得藉自適化改寫法典、擴張權限、改變業務語意或建立第二權威。
@@ -121,16 +123,34 @@ flowchart LR
 
 ```mermaid
 flowchart LR
+  DEC[Decision and Permission Artifacts] --> GE[Governance Engine<br/>Automation Core 唯一治理引擎]
+  GE --> GP[Git Domain Plane]
+  GE --> SP[SQL Domain Plane]
   WORK[Worker Change] --> COMMIT[Scoped Auto Commit]
-  COMMIT --> QUEUE[Integration Queue]
+  COMMIT --> GP
+  GP --> QUEUE[Integration Queue]
   QUEUE --> PRE[Conflict and Governance Precheck]
   PRE --> MERGE[Main Integration]
   MERGE --> AUDIT[Native Audit and Evidence]
   AUDIT --> FF[Fast-forward Clean Worktrees]
-  FF --> PUSH[Coordinator-only Push]
+  GP --> GR[Git Typed Receipt]
+  SP --> SR[SQL Typed Receipt]
+  GR --> JOIN[Cross-domain Joined Receipt]
+  SR --> JOIN
+  JOIN --> CONV[Single Convergence Result]
+  CONV --> PUSH[Push Gate]
 ```
 
-Git 只管理原始碼版本與開發歷史。每次提交限定明確路徑，禁止掃入其他工作者已暫存內容。只有同步協調器可推送；禁止 force-push、刪除 ref、無證據衝突覆寫與第二套 Git 編排器。可確定的生成檔衝突按已登錄策略重建；真實語義衝突 fail-closed。
+Git 只管理原始碼版本與開發歷史。每次提交限定明確路徑，禁止掃入其他工作者已暫存內容。禁止 force-push、刪除 ref、無證據衝突覆寫與第二套 Git 編排器。可確定的生成檔衝突按已登錄策略重建；真實語義衝突 fail-closed。
+
+治理引擎（C50）：Automation Core 擁有唯一一個已登錄治理引擎，是授權治理工作流的全系統唯一編排邊界。Git 與 SQL 是該引擎的兩個 domain plane，不是獨立排程器、協調器或治理權威；原「同步協調器」與 integration queue 僅是 Git plane 內的執行階段，推送只在 Push Gate（聯合收據收斂後）由引擎授權，不另設平行協調器。
+
+- 引擎接收現行決策與權限工件，排序相依、套用世代柵欄、協調有界 domain executor、合併收據、隔離衝突並發布單一收斂結果。
+- 權威分離：Git 僅為原始碼與不可變倉庫歷史的權威；PostgreSQL 僅為正式可變結構化資料與 Codex 狀態的權威；引擎不擁有任何 domain 真相，一側可用不得轉化為對另一側的權威。
+- 跨 domain 變更宣告單一 correlation identity、單一目標世代與有序交易計畫；Git 提交發布、SQL migration／資料變更、驗證與啟用要不收斂到同一已接受世代，要不該變更保持未完成並 fail-closed；不得假裝分散式交易，不得靜默部分成功。
+- 已登錄 Git 與 SQL 模組以有界 owner-language 工作回傳型別化收據；Runtime Core 擁有執行機制。
+- 失敗隔離：單一 plane 失敗只阻擋相依收斂路徑，保留最後已接受狀態與證據，不得破壞或晉升另一 plane。
+- 成功條件：Git、SQL、Codex、權限、runtime 與審計的身分、版本、雜湊與收據一致，且獨立驗證通過；收斂前不得回報成功。
 
 ## 七、程式語言與 UI
 
@@ -206,3 +226,4 @@ flowchart LR
 4. 快取、索引、遙測、備份與模型輸出永不因存在而取得權威。
 5. 未登錄通道、無界資源、靜默降級、第二套編排器與第二套資料權威一律禁止。
 6. 任何完整性、schema、權限、authority 或時間戳記世代衝突均 fail-closed。
+7. 全系統只有一個治理引擎；Git 與 SQL 是其 domain plane，跨 domain 變更以 joined receipt 收斂到同一已接受世代，否則視為未完成。
