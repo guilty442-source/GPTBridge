@@ -926,6 +926,55 @@ internal sealed class TrainingJobExecutor
         }
     }
 
+    /// <summary>Route a tokenize call through the resident session when
+    /// one is alive; transport failure falls back to one-shot.
+    /// A deterministic op failure (ok:false) mirrors the one-shot
+    /// EXECUTOR_MODELTOOL_FAILED instead of falling back.</summary>
+    private Dictionary<string, object?> TokenizeViaSession(
+        ModelToolSession? serve, string toolRoot, string stderrLog,
+        string tokenizerPath, string src, string dst, int maxLen, bool chat)
+    {
+        if (serve != null)
+        {
+            try
+            {
+                var (json, _) = serve.Request(new Dictionary<string, object?>
+                {
+                    ["op"] = "tokenize",
+                    ["tokenizer"] = tokenizerPath,
+                    ["in"] = src,
+                    ["out"] = dst,
+                    ["max_length"] = maxLen,
+                    ["chat"] = chat,
+                });
+                if (!TransformerTrainingRepository.Truthy(
+                        json.GetValueOrDefault("ok")))
+                    throw new ExecutorError("EXECUTOR_MODELTOOL_FAILED",
+                        TransformerTrainingRepository.Str(json, "error")
+                        ?? "serve tokenize failed");
+                return json;
+            }
+            catch (ExecutorError ex) when (
+                ex.ErrorCode == "EXECUTOR_MODELTOOL_FAILED")
+            {
+                throw;
+            }
+            catch (ExecutorError)
+            {
+                // transport failure: fall through to one-shot
+            }
+        }
+        var args = new List<string>
+        {
+            "tokenize", "--tokenizer", tokenizerPath,
+            "--in", src, "--out", dst,
+            "--max-length", maxLen.ToString(
+                System.Globalization.CultureInfo.InvariantCulture),
+        };
+        if (chat) args.Add("--chat");
+        return RunModelToolJson(toolRoot, stderrLog, args.ToArray());
+    }
+
     private Dictionary<string, object?> InvokeTrainerNative(
         List<Dictionary<string, object?>> trainDocs,
         List<Dictionary<string, object?>> valDocs,
@@ -986,6 +1035,17 @@ internal sealed class TrainingJobExecutor
                     $"tokenizer unavailable: {tkDir}");
         }
 
+        // -- resident serve session: one serve process for the whole job
+        //    (train+val tokenize share the cached tokenizer). Any failure
+        //    falls back to one-shot per call — the session only accelerates.
+        //    Released before the trainer runs: tokenize is done by then and
+        //    the trainer owns the machine alone.
+        string? serveBundle = initObj is string sbp && Directory.Exists(sbp)
+            ? sbp : null;
+        using var serve = serveBundle != null
+            ? ModelToolSession.TryStart(toolRoot, serveBundle, stderrLog)
+            : null;
+
         // -- source rows -> tokenized ids.
         bool chat = !configuration.TryGetValue("chat_wrap", out object? cw) ||
                     cw is not bool b || b; // default true
@@ -994,14 +1054,9 @@ internal sealed class TrainingJobExecutor
         string trainSrc = Path.Combine(outputDir, "train-src.jsonl");
         string trainIds = Path.Combine(outputDir, "train-ids.jsonl");
         WriteSourceRows(trainSrc, trainDocs, kind);
-        var tkArgs = new List<string>
-        {
-            "tokenize", "--tokenizer", tokenizerPath,
-            "--in", trainSrc, "--out", trainIds,
-            "--max-length", maxLen.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        };
-        if (chat && kind != "pretrain") tkArgs.Add("--chat");
-        var tkOut = RunModelToolJson(toolRoot, stderrLog, tkArgs.ToArray());
+        var tkOut = TokenizeViaSession(serve, toolRoot, stderrLog,
+            tokenizerPath, trainSrc, trainIds, maxLen,
+            chat && kind != "pretrain");
         if (TransformerTrainingRepository.Int(tkOut, "rows_out") < 2)
             throw new ExecutorError("EXECUTOR_EMPTY_SPLIT",
                 "tokenized train split produced no usable rows");
@@ -1014,23 +1069,17 @@ internal sealed class TrainingJobExecutor
         string valSrc = Path.Combine(outputDir, "val-src.jsonl");
         string valIds = Path.Combine(outputDir, "val-ids.jsonl");
         WriteSourceRows(valSrc, valDocs, kind);
-        var valTkArgs = new List<string>
-        {
-            "tokenize", "--tokenizer", tokenizerPath,
-            "--in", valSrc, "--out", valIds,
-            "--max-length", maxLen.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        };
-        if (chat && kind != "pretrain") valTkArgs.Add("--chat");
-        var valTkOut = RunModelToolJson(toolRoot, stderrLog, valTkArgs.ToArray());
+        var valTkOut = TokenizeViaSession(serve, toolRoot, stderrLog,
+            tokenizerPath, valSrc, valIds, maxLen,
+            chat && kind != "pretrain");
         int valRows = TransformerTrainingRepository.Int(valTkOut, "rows_out");
+        serve?.Dispose();
 
         // -- trainer job spec.
         double deadline = TransformerTrainingRepository.Num(
             configuration, "max_train_seconds");
         string emitCkpt = Path.Combine(outputDir, "final.xcn");
-        string? initBundleDir = initObj is string ip && Directory.Exists(ip)
-            ? ip : null;
-        var batchPlan = AdvisoryBatchPlan(configuration, initBundleDir, maxLen);
+        var batchPlan = AdvisoryBatchPlan(configuration, serveBundle, maxLen);
         var jobSpec = new Dictionary<string, object?>
         {
             ["task"] = kind,

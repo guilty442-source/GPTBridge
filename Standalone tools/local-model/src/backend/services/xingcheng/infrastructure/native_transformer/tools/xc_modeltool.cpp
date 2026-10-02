@@ -3572,6 +3572,67 @@ int mode_mtp_draft_probe(const Args& a) {
 }
 
 // ------------------------------------------------------------------ serve --
+// Resident load-once caches behind serve tokenize/eval/capability ops.
+// The infer path keeps its own Args-bundle engine untouched; these caches
+// serve the pipeline ops (train/val tokenize, candidate/baseline eval)
+// so a cycle stops reloading weights and tokenizers per invocation.
+struct ServeEngines {
+    // At most two bundles resident (candidate + baseline), LRU eviction.
+    // Node-based map: engines are never moved once constructed.
+    std::map<std::string, NativeInferenceEngine> engines;
+    std::map<std::string, uint64_t> use;
+    uint64_t tick = 0;
+    static constexpr size_t CAP = 2;
+    // Resident engine for bundle, loading on miss. Throws on load
+    // failure (nothing cached); the op reports and the loop survives.
+    NativeInferenceEngine& for_bundle(const std::string& bundle) {
+        auto it = engines.find(bundle);
+        if (it != engines.end()) { use[bundle] = ++tick; return it->second; }
+        if (engines.size() >= CAP) {
+            std::string victim;
+            uint64_t oldest = UINT64_MAX;
+            for (const auto& [b, t] : use)
+                if (t < oldest) { oldest = t; victim = b; }
+            auto vit = engines.find(victim);
+            if (vit != engines.end()) { vit->second.unload(); engines.erase(vit); }
+            use.erase(victim);
+        }
+        auto placed = engines.try_emplace(bundle);
+        try {
+            placed.first->second.load(bundle);
+        } catch (...) {
+            engines.erase(placed.first);
+            use.erase(bundle);
+            throw;
+        }
+        use[bundle] = ++tick;
+        return placed.first->second;
+    }
+    void drop(const std::string& bundle) {
+        auto it = engines.find(bundle);
+        if (it != engines.end()) { it->second.unload(); engines.erase(it); }
+        use.erase(bundle);
+    }
+};
+
+// Serve-side suite loader: same validation as suite_load but throwing
+// (never fail(): the serve loop must stay alive).
+JsonValue serve_suite_load(const std::string& path, const char* fmt,
+                           std::string& raw_out) {
+    if (!fs::exists(path))
+        throw std::runtime_error(std::string("SUITE_UNREADABLE:") + path);
+    std::string raw = slurp(path);
+    JsonParser p(raw);
+    JsonValue suite = p.parse();
+    const JsonValue* fv = suite.get("format_version");
+    std::string got = fv && fv->type == JsonValue::Type::String
+                          ? fv->string : std::string(fmt);
+    if (got != fmt)
+        throw std::runtime_error(std::string("SUITE_FORMAT_MISMATCH:") + got);
+    raw_out = raw;
+    return suite;
+}
+
 // Long-lived stdin/stdout JSON-lines inference worker. The C# tool host
 // owns the loopback HTTP surface + descriptor; this mode keeps the
 // engine resident and answers one request object per line.
@@ -3579,6 +3640,13 @@ int mode_mtp_draft_probe(const Args& a) {
 //   xc_modeltool serve --bundle <dir>
 //
 // In : {"op":"status"|"load"|"infer"|"unload"|"quit", ...}
+//   plus resident pipeline ops (load-once; same file/JSON contracts as
+//   the one-shot modes, with added "served":true and "exit_code"):
+//   tokenize {tokenizer,in,out,max_length?,chat?,vision_patch_dim?,
+//             vision_max_patches?}
+//   eval {bundle,suite,baseline_bundle?,baseline_metrics?}
+//   capability {bundle,suite,chat?,think_steps?,think_branches?,
+//               corpus_manifest?,baseline_report?}
 // Out: one JSON object per request line (flushed); EOF exits 0.
 // infer: {"prompt": verbatim} or {"messages":[{role,content}...]} (chat
 //        template applied here), plus optional sampling fields
@@ -3660,6 +3728,8 @@ int mode_serve(const Args& a) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
     NativeInferenceEngine engine;
+    ServeEngines eval_engines;  // resident candidate/baseline engines
+    std::map<std::string, ByteLevelBPETokenizer> tk_cache;  // by resolved path
     std::string ckpt_sha = manifest_field(bundle, "checkpoint_sha256");
     std::string model_version =
         ckpt_sha.size() > 16 ? ckpt_sha.substr(0, 16) : ckpt_sha;
@@ -4310,6 +4380,181 @@ int mode_serve(const Args& a) {
                   << ",\"decoder\":\"native-cpp\",\"cpp_runtime\":true"
                   << ",\"role\":\"decode\"}";
                 emit(o.str());
+                continue;
+            }
+            // ---- resident pipeline ops (load-once residency) ----
+            // tokenize: tokenizer cached by resolved path; file contract
+            // and summary JSON identical to one-shot mode (+served flag).
+            if (op == "tokenize") {
+                std::string tk_arg = jget_str(req, "tokenizer");
+                std::string in = jget_str(req, "in");
+                std::string out = jget_str(req, "out");
+                if (tk_arg.empty() || in.empty() || out.empty()) {
+                    err_obj("SERVE_TOKENIZE_ARGS_MISSING");
+                    continue;
+                }
+                if (!fs::exists(resolve_tokenizer_path(tk_arg)) ||
+                    !fs::exists(in)) {
+                    err_obj("SERVE_TOKENIZE_FILE_MISSING");
+                    continue;
+                }
+                int64_t max_len = (int64_t)serve_num(req, "max_length", 0);
+                bool chat = serve_bool(req, "chat", true);
+                int64_t vpdim = (int64_t)serve_num(req, "vision_patch_dim", 0);
+                int64_t vpmax = (int64_t)serve_num(req, "vision_max_patches", 0);
+                try {
+                    std::string tk_resolved = resolve_tokenizer_path(tk_arg);
+                    auto tit = tk_cache.find(tk_resolved);
+                    if (tit == tk_cache.end()) {
+                        ByteLevelBPETokenizer loaded =
+                            ByteLevelBPETokenizer::load(tk_resolved);
+                        tit = tk_cache.emplace(tk_resolved, std::move(loaded)).first;
+                    }
+                    std::string summary = tokenize_rows(
+                        tit->second, tk_resolved, max_len, chat,
+                        vpdim, vpmax, in, out);
+                    if (!summary.empty() && summary.back() == '}')
+                        summary.pop_back();
+                    else {
+                        err_obj("SERVE_TOKENIZE_FAILED:bad-summary");
+                        continue;
+                    }
+                    summary += ",\"served\":true,\"exit_code\":0}";
+                    emit(summary);
+                } catch (const std::exception& e) {
+                    std::string msg = e.what();
+                    if (msg.size() > 200) msg.resize(200);
+                    err_obj(std::string("SERVE_TOKENIZE_FAILED:") + msg);
+                }
+                continue;
+            }
+            // eval: candidate (+ optional baseline bundle) measured on
+            // resident cached engines; comparison identical to one-shot.
+            if (op == "eval") {
+                std::string ebundle = jget_str(req, "bundle");
+                std::string suite_path = jget_str(req, "suite");
+                if (ebundle.empty() || suite_path.empty()) {
+                    err_obj("SERVE_EVAL_ARGS_MISSING");
+                    continue;
+                }
+                std::string base_bundle = jget_str(req, "baseline_bundle");
+                const JsonValue* base_metrics = req.get("baseline_metrics");
+                bool has_base_metrics = base_metrics &&
+                    base_metrics->type == JsonValue::Type::Object;
+                if (!fs::is_directory(ebundle) || !fs::exists(suite_path) ||
+                    (!base_bundle.empty() && !fs::is_directory(base_bundle))) {
+                    err_obj("SERVE_EVAL_FILE_MISSING");
+                    continue;
+                }
+                try {
+                    std::string raw;
+                    JsonValue suite = serve_suite_load(
+                        suite_path, "star-native-eval-suite/v1", raw);
+                    std::string suite_sha = suite_sha256(raw);
+                    const JsonValue* gates = suite.get("quality_gates");
+                    if (!gates)
+                        throw std::runtime_error("EVAL_SUITE_MISSING_GATES");
+                    NativeInferenceEngine& eng = eval_engines.for_bundle(ebundle);
+                    JsonValue cand =
+                        eval_candidate_on_engine(eng, ebundle, suite);
+                    JsonValue baseline;
+                    baseline.type = JsonValue::Type::Object;
+                    if (!base_bundle.empty()) {
+                        NativeInferenceEngine& beng =
+                            eval_engines.for_bundle(base_bundle);
+                        baseline = eval_candidate_on_engine(beng, base_bundle, suite);
+                    } else if (has_base_metrics) {
+                        baseline = *base_metrics;
+                    } else {
+                        const JsonValue* bm = suite.get("baseline_metrics");
+                        if (bm) baseline = *bm;
+                    }
+                    std::string cmp_json = "{}";
+                    bool passed = false;
+                    if (baseline.type == JsonValue::Type::Object &&
+                        !baseline.object.empty()) {
+                        auto cmp = compare_metrics(baseline, cand, *gates);
+                        cmp_json = cmp.first;
+                        passed = cmp.second;
+                    } else {
+                        JsonValue empty;
+                        empty.type = JsonValue::Type::Object;
+                        auto cmp = compare_metrics(empty, cand, *gates);
+                        cmp_json = cmp.first;
+                        passed = cmp.second;
+                    }
+                    std::ostringstream o;
+                    o << "{\"ok\":true,\"mode\":\"eval\",\"suite_id\":\""
+                      << gptbridge::jsonlite::json_escape(jget_str(suite, "suite_id")) << "\""
+                      << ",\"suite_sha256\":\"" << suite_sha << "\""
+                      << ",\"passed\":" << (passed ? "true" : "false")
+                      << ",\"candidate\":" << gptbridge::jsonlite::json_serialize(cand)
+                      << ",\"baseline\":" << gptbridge::jsonlite::json_serialize(baseline)
+                      << ",\"comparison\":" << cmp_json
+                      << ",\"served\":true,\"exit_code\":" << (passed ? 0 : 2) << "}";
+                    emit(o.str());
+                } catch (const std::exception& e) {
+                    eval_engines.drop(ebundle);
+                    if (!base_bundle.empty()) eval_engines.drop(base_bundle);
+                    std::string msg = e.what();
+                    if (msg.size() > 200) msg.resize(200);
+                    err_obj(std::string("SERVE_EVAL_FAILED:") + msg);
+                }
+                continue;
+            }
+            // capability: full probe run on the resident cached engine.
+            if (op == "capability") {
+                std::string cbundle = jget_str(req, "bundle");
+                std::string suite_path = jget_str(req, "suite");
+                if (cbundle.empty() || suite_path.empty()) {
+                    err_obj("SERVE_CAPABILITY_ARGS_MISSING");
+                    continue;
+                }
+                if (!fs::is_directory(cbundle) || !fs::exists(suite_path)) {
+                    err_obj("SERVE_CAPABILITY_FILE_MISSING");
+                    continue;
+                }
+                bool chat = serve_bool(req, "chat", false);
+                int64_t think_steps = (int64_t)serve_num(req, "think_steps", 0);
+                int64_t think_branches = (int64_t)serve_num(req, "think_branches", 1);
+                if ((think_steps != 0 &&
+                     (think_steps < 1 || think_steps > 32)) ||
+                    think_branches < 1 || think_branches > 8) {
+                    err_obj("CAPABILITY_BAD_THINK_STEPS");
+                    continue;
+                }
+                std::string corpus = jget_str(req, "corpus_manifest");
+                std::string base_report = jget_str(req, "baseline_report");
+                if ((!corpus.empty() && !fs::exists(corpus)) ||
+                    (!base_report.empty() && !fs::exists(base_report))) {
+                    err_obj("SERVE_CAPABILITY_FILE_MISSING");
+                    continue;
+                }
+                try {
+                    std::string raw;
+                    JsonValue suite = serve_suite_load(
+                        suite_path, "star-capability-suite/v1", raw);
+                    std::string suite_sha = suite_sha256(raw);
+                    NativeInferenceEngine& eng = eval_engines.for_bundle(cbundle);
+                    CapabilityResult r = capability_run_on_engine(
+                        eng, cbundle, suite, suite_sha, chat,
+                        think_steps, think_branches, corpus, base_report);
+                    std::string body = r.output_json;
+                    if (!body.empty() && body.back() == '}') body.pop_back();
+                    else {
+                        err_obj("SERVE_CAPABILITY_FAILED:bad-report");
+                        continue;
+                    }
+                    body += ",\"served\":true,\"exit_code\":";
+                    body += std::to_string(r.exit_code);
+                    body += "}";
+                    emit(body);
+                } catch (const std::exception& e) {
+                    eval_engines.drop(cbundle);
+                    std::string msg = e.what();
+                    if (msg.size() > 200) msg.resize(200);
+                    err_obj(std::string("SERVE_CAPABILITY_FAILED:") + msg);
+                }
                 continue;
             }
             err_obj("SERVE_UNKNOWN_OP");
