@@ -67,6 +67,22 @@ internal static class SelfLearningPlane
                 if (!Enabled(root))
                     return 0; // kill switch — graceful, host re-checks
                 var interval = Interval(root);
+                // Scheduling is internalized in the tool body:
+                // xc-learning --schedule heartbeats at
+                // self-learning-schedule.json. A fresh heartbeat means the
+                // native resident loop owns cadence — this plane must not
+                // act as a second scheduler, so it defers the whole tick.
+                if (NativeSchedulerAlive(root))
+                {
+                    Persist(root, new JsonObject
+                    {
+                        ["at"] = DateTimeOffset.UtcNow.ToString("o"),
+                        ["action"] = "deferred",
+                        ["reason"] = "native-scheduler-alive",
+                    });
+                    await Task.Delay(interval);
+                    continue;
+                }
                 var started = Stopwatch.StartNew();
                 var outcome = await RunCycle(root);
                 Persist(root, outcome);
@@ -75,6 +91,30 @@ internal static class SelfLearningPlane
                     await Task.Delay(remaining);
             }
         }
+    }
+
+    /// True while the in-body scheduler is alive: its heartbeat file
+    /// carries the owning pid — liveness is the pid, not the timestamp,
+    /// because a training drain can legitimately stall a tick for hours.
+    private static bool NativeSchedulerAlive(string root)
+    {
+        var heartbeat = Path.Combine(root, "Standalone tools",
+            "local-model", "xingcheng", "runtime", "state",
+            "self-learning-schedule.json");
+        try
+        {
+            if (!File.Exists(heartbeat)) return false;
+            using var doc = JsonDocument.Parse(
+                File.ReadAllText(heartbeat));
+            if (!doc.RootElement.TryGetProperty("pid",
+                    out var pidEl) ||
+                pidEl.ValueKind != JsonValueKind.Number)
+                return false;
+            using var process = Process.GetProcessById(
+                pidEl.GetInt32());
+            return !process.HasExited;
+        }
+        catch { return false; }
     }
 
     /// One bounded cycle spawn. The result record is evidence, never

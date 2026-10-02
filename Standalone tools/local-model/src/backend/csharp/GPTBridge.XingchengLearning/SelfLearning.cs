@@ -728,6 +728,33 @@ internal static class SelfLearning
             intervalS > 0 ? intervalS : 900);
         var repository = new TransformerTrainingRepository(tool);
         var executor = new TrainingJobExecutor(repository, tool);
+        int pid = Environment.ProcessId;
+        void Heartbeat(string phase, Dictionary<string, object?>? result)
+        {
+            try
+            {
+                ModelLifecycle.AtomicWrite(heartbeatPath,
+                    CanonicalJson.PrettyDict(new Dictionary<string, object?>
+                    {
+                        ["format"] = "star-self-learning-schedule/v1",
+                        ["pid"] = pid,
+                        ["at"] = IsoNow(),
+                        ["interval_s"] = interval.TotalSeconds,
+                        ["phase"] = phase,
+                        ["last_action"] =
+                            result?.GetValueOrDefault("action"),
+                        ["job_id"] = result?.GetValueOrDefault("job_id"),
+                        ["reason"] = result?.GetValueOrDefault("reason"),
+                        ["error"] = result?.GetValueOrDefault("error"),
+                        ["error_code"] =
+                            result?.GetValueOrDefault("error_code"),
+                        ["ok"] = result != null &&
+                            TransformerTrainingRepository.Truthy(
+                                result.GetValueOrDefault("ok")),
+                    }) + "\n");
+            }
+            catch { /* heartbeat is evidence, never a gate */ }
+        }
         using (instanceLock)
         {
             while (true)
@@ -751,6 +778,7 @@ internal static class SelfLearning
                     else if (repository.QueuedJobs(1) is { Count: > 0 } q)
                     {
                         string jid = (string)q[0]["job_id"]!;
+                        Heartbeat("draining", new() { ["job_id"] = jid });
                         var rep = executor.RunJob(jid);
                         result = new Dictionary<string, object?>
                         {
@@ -763,6 +791,7 @@ internal static class SelfLearning
                     }
                     else
                     {
+                        Heartbeat("cycling", null);
                         result = RunCycle(tool);
                     }
                 }
@@ -775,31 +804,7 @@ internal static class SelfLearning
                             $"{exc.GetType().Name}:{exc.Message}",
                     };
                 }
-                try
-                {
-                    ModelLifecycle.AtomicWrite(heartbeatPath,
-                        CanonicalJson.PrettyDict(
-                            new Dictionary<string, object?>
-                            {
-                                ["format"] =
-                                    "star-self-learning-schedule/v1",
-                                ["pid"] =
-                                    System.Diagnostics.Process
-                                        .GetCurrentProcess().Id,
-                                ["at"] = IsoNow(),
-                                ["interval_s"] = interval.TotalSeconds,
-                                ["last_action"] =
-                                    result.GetValueOrDefault("action"),
-                                ["reason"] =
-                                    result.GetValueOrDefault("reason"),
-                                ["error"] =
-                                    result.GetValueOrDefault("error"),
-                                ["ok"] = TransformerTrainingRepository
-                                    .Truthy(result
-                                        .GetValueOrDefault("ok")),
-                            }) + "\n");
-                }
-                catch { /* heartbeat is evidence, never a gate */ }
+                Heartbeat("sleeping", result);
                 Thread.Sleep(interval);
             }
         }
