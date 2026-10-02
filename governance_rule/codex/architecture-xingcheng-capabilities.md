@@ -51,13 +51,14 @@ flowchart LR
     HW --> H4["resource governor quota<br/>(8 classes, training shed-first)"]
 
     KERNEL --> K1["star-kernel-registry<br/>trainer 32 / engine 19 / xstore 11 / xcorpus 8"]
-    KERNEL --> K2["star-kernel-policy<br/>deny_variants/deny_kernels/force_serial/<br/>max_threads — fail-closed"]
+    KERNEL --> K2["star-kernel-policy<br/>deny_variants/deny_kernels/force_serial/<br/>max_threads/dev_min_flops/vram_reserve_mb — fail-closed"]
+    KERNEL --> K3["star-accel-plane<br/>單一動態加速器：CPU lanes + CUDA device<br/>+ RAM/VRAM live 准入（trainer --accel-plane /<br/>modeltool accel-plane）"]
 ```
 
 ### Kernel Registry（autogen）
 
 <!-- autogen:xingcheng-kernels -->
-*autogen-scanner/v1 · 2106 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2105 files · main+devin+git+local-model+rag+ui*
 | lane | kernels | 來源 |
 |---|---|---|
 | trainer | 97 | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_kernels.h |
@@ -68,11 +69,11 @@ flowchart LR
 ## xc_modeltool 模式面（89 modes + mode-registry）
 
 <!-- autogen:xingcheng-modes -->
-*autogen-scanner/v1 · 2106 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2105 files · main+devin+git+local-model+rag+ui*
 | 類別 | 模式 |
 |---|---|
 | CACHE | `cache-smoke`, `context-probe`, `reuse-probe`, `hybrid-prefix-smoke`, `prefix-invalidation`, `delta-prefix-restore`, `sparse-probe`, `kv-gather-probe` |
-| CUDA | `probe-cuda`, `decode-graph-parity`, `cuda-parity-all`, `compute-plane` |
+| CUDA | `probe-cuda`, `decode-graph-parity`, `cuda-parity-all`, `compute-plane`, `accel-plane` |
 | EVAL | `eval`, `capability`, `vision-smoke`, `spec-probe`, `vision-budget`, `depth-probe`, `system1-head`, `system1-bench`, `mtp-speedup`, `mtp-draft-probe`, `npu-system1-bench`, `npu-embedding-bench`, `npu-prefill-bench`, `native-thinking-eval`, `spec-verify` |
 | EXPERT | `moe-analyze`, `expert-residency`, `expert-offload-bench`, `expert-quant-parity`, `expert-store-build`, `expert-store-read`, `prefetch-probe`, `shared-routed-isolation`, `expert-granularity-probe`, `router-analyze` |
 | MODEL | `tokenize`, `import-bundle`, `export-bundle`, `serve`, `mtp-runtime`, `ckpt-converge` |
@@ -83,7 +84,7 @@ flowchart LR
 | STATE | `memplan`, `statebench`, `memplane-probe`, `memplane-telemetry`, `memory-plan`, `state-snapshot`, `state-bench`, `state-drift`, `state2-smoke`, `sched-smoke` |
 | TRAINING | `corpus`, `distill-init`, `parameter-freeze-probe`, `sparse-optimizer-probe` |
 
-（count=90）
+（count=91）
 <!-- /autogen:xingcheng-modes -->
 
 | 類別 | 模式 |
@@ -94,7 +95,7 @@ flowchart LR
 | CACHE | cache-smoke, context-probe, reuse-probe, hybrid-prefix-smoke, prefix-invalidation, delta-prefix-restore, sparse-probe, kv-gather-probe |
 | PRECISION | parity, precision, precision-parity, delta-precision-probe, cpu-bf16-bench, bf16-cert, bf16-drift, quant-cert, blockwise-quant-probe, mtp-precision-parity |
 | STATE | memplan, memory-plan, statebench, state-bench, state-snapshot, state-drift, state2-smoke, sched-smoke, memplane-probe, memplane-telemetry |
-| CUDA | probe-cuda, decode-graph-parity, cuda-parity-all |
+| CUDA | probe-cuda, decode-graph-parity, cuda-parity-all, compute-plane, accel-plane |
 | EXPERT | moe-analyze, router-analyze, expert-residency, expert-offload-bench, expert-quant-parity, expert-store-build/read, prefetch-probe, shared-routed-isolation, expert-granularity-probe |
 | SCALE | pd-pipeline-bench, pd-transfer-smoke, scale-metrics, low-resource-sim, scale-sim, scale-status, future-scale-probe, npu-*, cpu-affinity-probe, system-reuse-probe, capacity-metrics, hw-baseline, hw-caps, param-reuse-probe, kernel-registry |
 | RAG | rag-prefix-bench |
@@ -103,7 +104,7 @@ flowchart LR
 ## xc-learning.exe 能力面（~100 verbs）
 
 <!-- autogen:xingcheng-verbs -->
-*autogen-scanner/v1 · 2106 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2105 files · main+devin+git+local-model+rag+ui*
 | verbs |
 |---|
 | `--active-compute-gate` `--adaptive-embedding` `--apply` `--arch-gate` `--arch-hash` `--architecture` `--artifact-register` `--axis-checks` `--baseline` `--baseline-off` `--bin-dir` `--binary-provenance` `--bottleneck-classify` `--budget` `--build` `--bundle` `--bundle-hash` `--call` `--cancel-job` `--candidate` `--candidate-off` `--candidate-on` `--cap-record` `--capabilities-resolve` `--capability` `--capability-floor-gate` `--capacity-ceiling` `--capacity-checks` `--capacity-kpis` `--capacity-proof` `--capacity-validate` `--caps-status` `--caps-validate` `--catalog-emit` `--catalog-validate` `--certification-gate` `--chat` `--checkpoint` `--checkpoint-hash` `--citation-metrics` `--code-task-validate` `--cognition-route` `--common` `--common-floor-gate` `--community-checks` `--config` `--confirmed` `--conflict-resolve` `--constraints` `--converge-check` `--core-contract` `--corpus` `--correction-validate` `--cost` `--count` `--cpu-plan` `--creative-profile` `--cuda-language-check` `--cuda-language-policy` `--cuda-plane-checks` `--cuda-training-plane` `--curriculum-stage-check` `--curriculum-stage-policy` `--data-order-probe` `--data-quality` `--dataset-purity-check` `--dataset-quality` `--db-status` `--decision-calibrate` `--decision-metrics` `--decision-trace` `--depth-efficiency` `--depth-inheritance-validate` `--depth-plan` `--depth-scale-probe` `--disable` `--distill-artifact-validate` `--distillation-contract` `--domain` `--done` `--drift-gate` `--dry-run` `--edge` `--eff-policy` `--eff-tier-plan` `--effective-compute` `--effective-policy` `--enable` `--eval-result` `--eval-result-validate` `--eval-status` `--eval-suites` `--eval-tier-policy` `--evaluate` `--event` `--evidence` `--evidence-cache` `--expert-granularity-compare` `--expert-lifecycle-gate` `--expert-lineage` `--expert-residency-plan` `--expert-scale-validate` `--expert-specialization` `--factuality` `--failure-classify-check` `--failure-pool-status` `--failure-record` `--feature-catalog` `--file` `--fim` `--fim-validate` `--force` `--freeze-map-validate` `--fused-adamw-status` `--gen-begin` `--gen-certify` `--gen-promote` `--gen-purge` `--gen-record` `--gen-status` `--generation` `--goal` `--golden-gate` `--graph` `--graph-add-edge` `--graph-add-node` `--graph-key-validate` `--graph-query` `--grounded-v2-validate` `--grounded-validate` `--grounding-gate` `--groupwise-eval` `--hardware-scale-search` `--harness-outcome` `--harness-register` `--harness-validate` `--heads` `--hidden` `--id` `--include-collected` `--injection-guard` `--interval-s` `--job` `--job-hash` `--job-id` `--key` `--kind` `--kv-heads` `--langcheck` `--language-scan` `--layers` `--lifetime-plan` `--lineage` `--manifest` `--maturation-baseline` `--maturation-complete` `--maturation-freeze` `--maturation-reopen` `--maturation-status` `--maturation-unsupported` `--maturity-baseline` `--maturity-checks` `--maturity-promotion` `--maturity-registry` `--memory-isolation` `--memory-read` `--memory-write` `--memplane-telemetry-validate` `--migrate` `--migrated` `--min-quality` `--modality-validate` `--mode` `--model-identity` `--model-merge` `--model-version` `--module-sensitivity` `--mutation` `--mutation-lease-abort` `--mutation-lease-acquire` `--mutation-lease-commit` `--mutation-lease-status` `--namespace` `--needed` `--no-builds` `--no-repair` `--node` `--note` `--notes` `--older-than-s` `--out` `--outcome-status` `--output` `--owner` `--param-efficiency` `--persona-get` `--persona-validate` `--plan` `--precision-policy` `--prefill-chunk` `--preflight` `--probs` `--profile` `--promotion-gate` `--provenance` `--provenance-check` `--provenance-compute` `--provenance-verify` `--quantization-validate` `--queue-job` `--rag-decide` `--rag-prefix-manifest` `--reap-stale` `--reason` `--reasoning-compression` `--record` `--recovery-dataset-build` `--recovery-eval` `--recovery-run` `--refusal-decide` `--refusal-eval` `--rejected` `--release-gate` `--repair` `--request` `--requirement` `--residency-plan` `--result` `--retention` `--retention-gate` `--retrieval-compression-gate` `--retrieval-efficiency` `--reward-gate` `--roleplay-compact` `--roleplay-create` `--roleplay-eval` `--roleplay-event` `--root` `--route-mode` `--router-stability` `--routing-aggregate` `--routing-record` `--routing-status` `--rows` `--run` `--run-jobs` `--run-once` `--runtime` `--runtime-hash` `--runtime-host-acquire` `--scale-hardware-gate` `--scale-precision-map` `--scale-profile-seed` `--scale-profile-validate` `--scale-promotion-gate` `--scale-resource-cert` `--scale-scorecard` `--scale-tier-validate` `--scale-tiers` `--schedule` `--schema` `--schema-from` `--schema-invalid` `--schema-to` `--seed` `--self-test` `--self-train-trigger` `--self-training-admit` `--self-training-circuit` `--self-training-contract` `--self-training-receipt` `--sequence-buckets` `--sequence-check` `--session` `--shared` `--silicon-checks` `--silicon-route` `--source` `--source-ckpt-sha256` `--speed-gate` `--stage` `--state` `--status` `--steer` `--step` `--steps` `--structured-validate` `--style` `--style-profile` `--subject` `--suite` `--summary` `--system1-checks` `--target` `--task` `--task-checkpoint` `--task-compact` `--task-create` `--task-plan` `--task-resume` `--task-revalidate` `--task-status` `--task-step` `--task-transition` `--taxonomy` `--teacher-collect` `--teacher-validate` `--text` `--thinking-compare` `--thinking-levels` `--time-to-quality` `--to` `--tokenizer` `--tool` `--tool-call-validate` `--tool-gate` `--tool-metrics` `--tool-result` `--tool-result-validate` `--tool-root` `--tool-validate` `--tools` `--total-ceiling` `--trace` `--trace-record` `--trace-status` `--trainable-budget` `--training-batch-plan` `--training-mixture` `--training-pilot` `--training-precision-map` `--training-precision-policy` `--training-repro` `--training-run-receipt` `--training-telemetry-validate` `--trajectory-validate` `--transformed` `--two-stage-retrieval` `--typed-decision-validate` `--val-permille` `--vector-tier-policy` `--verify-audit` `--version-dimensions` `--weight-method` `--weights` `--weights-sha256` `--xcn` |
