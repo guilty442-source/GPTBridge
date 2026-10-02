@@ -445,7 +445,7 @@ internal static partial class GenerationProjections
                 .Replace('/', Path.DirectorySeparatorChar);
             var file = Path.GetFullPath(Path.Combine(Repo.Root(),
                 relative));
-            if ((row[4]?.ToString() ?? "") != version) stale++;
+            if ((row[3]?.ToString() ?? "") != version) stale++;
             if (!File.Exists(file))
             {
                 missing++;

@@ -1,0 +1,82 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "current-binding-registry-convergence-20261002",
+  "title": "Converge current-binding registries: JULIA_COMPUTE payload, MODEL_DIALOGUE display name, stale-reference evidence single-current, version_window_resolution placeholder",
+  "summary": "Human-governor directive 2026-10-02 (法典修正案 execution): four residual registry drifts. (1) a233_normalized_directory_entry[JULIA_COMPUTE].domain_payload still embeds entity_kind=internal-service/retired_version=null while the canonical row retired at 2026-10-02T05:10:02Z - re-issued with fresh lineage after julia-compute-a233-payload-sync-20261002 was mechanically rejected on a stale predecessor; payload and content_hash identical to that reviewed draft. (2) architecture_display_name_registry[MODEL_DIALOGUE/zh-TW] still registers 模型對話 while active B56/B80 fix the display name as 對話 - registry rebound. (3) architecture_stale_reference_evidence carries two status=current rows, one whose evidence_id literally contains the unsubstituted sentinel <successor-version>, and both claim current_reference_count=0 while active law still assigns ownership to abolished sub-sovereigns (A13, B2, A42, C7, C8, C20 pending the separate sub-sovereign convergence amendment) - both stale rows are superseded and a single honest current row records the six open references as INCOMPLETE_EVIDENCE. (4) metadata.version_window_resolution still carries the unsubstituted literal CURRENT=<successor-version>; replaced by a stable pointer to codex_version_authority_registry so the key can never drift again. The active architecture_diagram_artifact_registry rows and ARCHITECTURE_DIAGRAM_SYNC_CURRENT are rebound atomically by the pipeline itself during this publish (RebuildDiagramSync, C102/D124). Codex/registry-only change: no implementation is modified.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: 執行法典修正案 — CURRENT_AUTHORITATIVE/registry drift 與 evidence 完整性收斂",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T07:08:35Z",
+    "version_identity": "E2:2026-10-02T07:08:35Z",
+    "version_epoch": 2,
+    "history_head": "3e39dfcdb0cc3d60864ea00a28a0ba2698c8af45c8d8596c2e6dbd4adeed4e63",
+    "revision_sequence": 218
+  },
+  "problem": {
+    "summary": "a233 JULIA_COMPUTE payload diverges from canonical retirement shape; MODEL_DIALOGUE display registry drifts from active B56/B80; architecture_stale_reference_evidence violates single-current (two current rows, one with literal placeholder id) and claims zero current stale references while six active provisions still delegate to abolished sub-sovereigns; metadata.version_window_resolution embeds an unsubstituted successor sentinel."
+  },
+  "changes": [
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": { "entry_code": "JULIA_COMPUTE", "source_table": "project_architecture_directory" },
+      "field": "domain_payload",
+      "proposed": "{\"architecture_code\":\"JULIA_COMPUTE\",\"canonical_name\":\"julia-compute\",\"command_codes\":\"\",\"data_authority\":\"julia-compute-owned scratch state (rebuildable)\",\"dependencies\":\"governance codex|information layer|shared layer\",\"entity_kind\":\"retired-former-scientific-compute-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered scientific-compute service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\julia-compute\",\"responsibilities\":\"statistics and scientific compute; optimization-simulation (A610 Python-work-transfer successor)\",\"retired_version\":\"2026-10-02T05:10:02Z\",\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}",
+      "also": {
+        "content_hash": "9955604100294a6a7708181f1a64c5606d9f726a0ebc3762e56ccc22f8d177b1",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "table": "architecture_display_name_registry",
+      "key": { "architecture_code": "MODEL_DIALOGUE", "locale": "zh-TW" },
+      "field": "display_name",
+      "proposed": "對話",
+      "also": { "version_identity": "<successor-version>" }
+    },
+    {
+      "table": "architecture_stale_reference_evidence",
+      "key": { "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN@<successor-version>" },
+      "field": "status",
+      "proposed": "superseded"
+    },
+    {
+      "table": "architecture_stale_reference_evidence",
+      "key": { "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN@2026-09-16T09:22:51Z" },
+      "field": "status",
+      "proposed": "superseded"
+    },
+    {
+      "table": "metadata",
+      "key": { "key": "version_window_resolution" },
+      "field": "value",
+      "proposed": "CURRENT=codex_version_authority_registry:CURRENT_AUTHORITATIVE; RECOVERED_2026-09-23T14:49:21Z=historical-non-current-incomplete-epoch-certification; normative-language-delta=consolidated-current"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "architecture_stale_reference_evidence",
+      "action": "insert",
+      "rows": [
+        {
+          "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT",
+          "current_reference_count": 6,
+          "historical_reference_count": 1,
+          "result": "INCOMPLETE_EVIDENCE",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-10-02T07:20:00Z",
+    "expected_audit_result": "a233 JULIA_COMPUTE payload matches canonical retirement shape; MODEL_DIALOGUE display name = 對話 per B56/B80; exactly one current stale-reference row, no placeholder id, count honestly records the six open sub-sovereign ownership references; version_window_resolution carries a stable registry pointer instead of a literal sentinel; the publish itself rebinds all 13 active diagram registry rows and ARCHITECTURE_DIAGRAM_SYNC_CURRENT to the successor version"
+  }
+}
