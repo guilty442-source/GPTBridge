@@ -1614,7 +1614,29 @@ internal sealed class TransformerTrainingRepository
             ["automatic_weight_replacement"] = false,
             ["role_database_ownership_preserved"] = true,
             ["metadata_shadow"] = ShadowStatus(),
+            ["metadata_parity"] = ParityProbe(),
         };
+    }
+
+    /// <summary>Phase A parity probe for --db-status (§38-§41, §102):
+    /// compares PG vs xstore reconstructed state. A scan failure is
+    /// reported, never hidden — but it must not break db-status itself.</summary>
+    private Dictionary<string, object?> ParityProbe()
+    {
+        try
+        {
+            return MetadataParityCheck.Run(this);
+        }
+        catch (Exception e)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["format"] = MetadataParityCheck.ReportFormat,
+                ["ok"] = false,
+                ["status"] = "scan-failed",
+                ["error"] = e.Message,
+            };
+        }
     }
 
     public Dictionary<string, object?> Maintain()
