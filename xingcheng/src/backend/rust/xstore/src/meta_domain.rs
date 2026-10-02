@@ -15,7 +15,7 @@
 //!
 //! Candidate/eval/release/runtime ops live in meta_release.rs.
 
-use crate::meta_state::{key, State};
+use crate::meta_state::State;
 use crate::meta_types as mt;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -113,7 +113,7 @@ fn check_expected(st: &State, rt: &str, id: &str, p: &Value) -> Result<(), Strin
     Ok(())
 }
 
-fn audit_spec(entity_type: &str, entity_id: &str, event_type: &str, payload: Value) -> mt::EventSpec {
+pub fn audit_spec(entity_type: &str, entity_id: &str, event_type: &str, payload: Value) -> mt::EventSpec {
     let eid = mt::new_id("star-transformer-audit");
     mt::EventSpec {
         event_type: event_type.into(),

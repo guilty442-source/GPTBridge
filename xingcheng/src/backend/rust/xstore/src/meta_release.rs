@@ -196,7 +196,7 @@ pub fn release(st: &State, p: &Value) -> Result<(Vec<mt::EventSpec>, Value), Str
     let release_id = mt::new_id("star-transformer-release");
     let mut specs: Vec<mt::EventSpec> = Vec::new();
     let mut previous_adapter_id = Value::Null;
-    let mut new_status = status.clone();
+    let new_status: String;
     let mut touch_runtime = false;
     let mut new_active = if active.is_empty() { Value::Null } else { json!(active) };
     let mut new_previous = if previous.is_empty() { Value::Null } else { json!(previous) };

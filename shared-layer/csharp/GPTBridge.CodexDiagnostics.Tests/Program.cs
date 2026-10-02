@@ -1,11 +1,12 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GPTBridge.ToolHost;
 using GPTBridge.ToolHost.App;
 
-if (args.Length > 0 && args[0] != "--live")
+if (args.Length > 0 && args[0] is not ("--live" or "--deployed"))
 {
     if (args[0] == "--fixture")
     {
@@ -84,6 +85,30 @@ try
             Require(result["ok"]?.GetValue<bool>() == true, "native-entry:" + folder + verb);
             Require(result["root"]!.GetValue<string>() == root && result["cwd"]!.GetValue<string>() == root, "workspace-root-bound");
         }
+    }
+    if (args.Contains("--deployed"))
+    {
+        var repo = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.."));
+        var deployed = Assembly.LoadFrom(Path.Combine(repo, "Standalone tools/model-dialogue/dist/GPTBridge.ToolHost.App.dll"));
+        var run = deployed.GetType("GPTBridge.ToolHost.App.CodexDiagnostics", true)!
+            .GetMethod("RunAsync", BindingFlags.Public | BindingFlags.Static)!;
+        var task = (Task<JsonObject>)run.Invoke(null, new object[] { env, "--mirror-check", CancellationToken.None })!;
+        result = await task;
+        Require(result["ok"]?.GetValue<bool>() == true && result["root"]?.GetValue<string>() == root, "deployed-root-bound-native-entry");
+        task = (Task<JsonObject>)run.Invoke(null, new object[] { env, "--repair-projections", CancellationToken.None })!;
+        result = await task;
+        Require(result["error_code"]?.GetValue<string>() == "CODEX_DIAGNOSTIC_VERB_DENIED", "deployed-mutation-verb-denied");
+        var live = new GovernedEnvironment
+        {
+            ToolId = "model-dialogue", ProjectRoot = repo, ToolRoot = root,
+            SessionToken = "test", ShutdownToken = "test", SidecarExecutable = "test", Port = 1,
+        };
+        task = (Task<JsonObject>)run.Invoke(null, new object[] { live, "--mirror-check", CancellationToken.None })!;
+        result = await task;
+        Require(result["ok"]?.GetValue<bool>() == true && result["error_code"] is null, "deployed-live-mirror-entry");
+        task = (Task<JsonObject>)run.Invoke(null, new object[] { live, "--arch-docs", CancellationToken.None })!;
+        result = await task;
+        Require(result["error_code"] is null && result["errors"] is JsonArray, "deployed-live-architecture-entry");
     }
     result = await CodexDiagnostics.RunProcessAsync(Fixture("stderr"), TimeSpan.FromSeconds(5), default);
     Require(result["ok"]?.GetValue<bool>() == true, "stderr-saturation-does-not-deadlock");

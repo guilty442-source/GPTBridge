@@ -10,7 +10,7 @@
 //! events committed but the index stale, open paths detect the drift
 //! (tail hash != head.last_event_hash) and rebuild (§25).
 
-use crate::meta_log::{self, Scan};
+use crate::meta_log::{self};
 use crate::meta_state::{self, State};
 use crate::meta_types as mt;
 use serde_json::{json, Value};
@@ -149,13 +149,14 @@ pub fn load_canonical(store: &Path) -> Result<State, String> {
     meta_state::materialize(&scan)
 }
 
-/// Load for a mutation: index fast path when in step, else replay.
-/// `write=true` callers go on to rebuild the index after committing.
+/// Load for a mutation: index fast path when in step, else snapshot-
+/// accelerated replay over the verified canonical scan (§83).
 pub fn load_state(store: &Path) -> Result<State, String> {
     if let Some(st) = load_index(store) {
         return Ok(st);
     }
-    load_canonical(store)
+    let scan = meta_log::scan(store)?;
+    crate::meta_snap::load_accelerated(store, &scan)
 }
 
 /// Rebuild the derived index from the canonical log (§22/§96) and

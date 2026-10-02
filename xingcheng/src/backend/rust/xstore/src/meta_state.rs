@@ -50,6 +50,7 @@ impl State {
             .take_while(move |(k, _)| k.starts_with(&prefix))
             .map(|(_, v)| v)
     }
+    #[allow(dead_code)]
     pub fn find_by(&self, rt: &str, field: &str, val: &str) -> Option<&Record> {
         self.list(rt).find(|r| {
             r.payload.get(field).and_then(|v| v.as_str()) == Some(val)
@@ -163,6 +164,24 @@ pub fn check_invariants(st: &State) -> Result<(), String> {
         if !crate::meta_domain::JOB_STATES.contains(&s) {
             return Err(format!(
                 "XSTORE_RECOVERY_REQUIRED: job {} illegal status {s}",
+                r.record_id
+            ));
+        }
+    }
+    for r in st.list(mt::RT_CANDIDATE) {
+        let s = r.payload["status"].as_str().unwrap_or("");
+        if !crate::meta_domain::CANDIDATE_STATES.contains(&s) {
+            return Err(format!(
+                "XSTORE_RECOVERY_REQUIRED: candidate {} illegal status {s}",
+                r.record_id
+            ));
+        }
+    }
+    for r in st.list(mt::RT_DATASET) {
+        let s = r.payload["state"].as_str().unwrap_or("");
+        if !crate::meta_domain::DATASET_STATES.contains(&s) {
+            return Err(format!(
+                "XSTORE_RECOVERY_REQUIRED: dataset {} illegal state {s}",
                 r.record_id
             ));
         }

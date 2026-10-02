@@ -71,7 +71,7 @@ flowchart LR
 ## 二進位容器家族
 
 <!-- autogen:xingcheng-containers -->
-*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
 | Magic | 定義/引用來源 |
 |---|---|
 | `XCB1` | devin:xingcheng/contracts/xnc/vectors/manifest.json, devin:xingcheng/src/backend/cpp/src/xcb_batch.h, devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/contracts/xnc/vectors/manifest.json (+14) |
@@ -131,7 +131,7 @@ jobs/<id>/
 ## JSONL/JSON artifact 索引（producer → consumer）
 
 <!-- autogen:xingcheng-formats -->
-*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
 | format tag | 來源檔 |
 |---|---|
 | `coding-agent-trajectory/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs (+2) |
@@ -209,6 +209,11 @@ jobs/<id>/
 | `star-transformer-sft/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs (+2) |
 | `star-typed-decision/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_system1.h, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_system1.h (+8) |
 | `star-xcn-header/v1` | devin:xingcheng/src/backend/rust/xc-format/src/main.rs, git:xingcheng/src/backend/rust/xc-format/src/main.rs, local-model:xingcheng/src/backend/rust/xc-format/src/main.rs, xingcheng/src/backend/rust/xc-format/src/main.rs (+2) |
+| `star-xstore-metadata-epoch/v1` | xingcheng/src/backend/rust/xstore/src/meta_lease.rs |
+| `star-xstore-metadata-head/v1` | xingcheng/src/backend/rust/xstore/src/meta_index.rs |
+| `star-xstore-metadata-index/v1` | xingcheng/src/backend/rust/xstore/src/meta_index.rs |
+| `star-xstore-metadata-lease/v1` | xingcheng/src/backend/rust/xstore/src/meta_lease.rs |
+| `star-xstore-metadata-operations/v1` | xingcheng/src/backend/rust/xstore/src/meta_index.rs |
 | `xnc-vectors/v1` | devin:xingcheng/contracts/xnc/vectors/manifest.json, git:xingcheng/contracts/xnc/vectors/manifest.json, local-model:xingcheng/contracts/xnc/vectors/manifest.json, xingcheng/contracts/xnc/vectors/manifest.json (+2) |
 | `xstore-audit-append/v1` | devin:xingcheng/src/backend/rust/xstore/src/audit.rs, git:xingcheng/src/backend/rust/xstore/src/audit.rs, local-model:xingcheng/src/backend/rust/xstore/src/audit.rs, xingcheng/src/backend/rust/xstore/src/audit.rs (+2) |
 | `xstore-audit-verify/v1` | devin:xingcheng/src/backend/rust/xstore/src/audit.rs, git:xingcheng/src/backend/rust/xstore/src/audit.rs, local-model:xingcheng/src/backend/rust/xstore/src/audit.rs, xingcheng/src/backend/rust/xstore/src/audit.rs (+2) |
@@ -219,6 +224,12 @@ jobs/<id>/
 | `xstore-fail-mark/v1` | devin:xingcheng/src/backend/rust/xstore/src/failpool.rs, git:xingcheng/src/backend/rust/xstore/src/failpool.rs, local-model:xingcheng/src/backend/rust/xstore/src/failpool.rs, xingcheng/src/backend/rust/xstore/src/failpool.rs (+2) |
 | `xstore-get/v1` | devin:xingcheng/src/backend/rust/xstore/src/main.rs, git:xingcheng/src/backend/rust/xstore/src/main.rs, local-model:xingcheng/src/backend/rust/xstore/src/main.rs, xingcheng/src/backend/rust/xstore/src/main.rs (+2) |
 | `xstore-hash/v1` | devin:xingcheng/src/backend/rust/xstore/src/main.rs, git:xingcheng/src/backend/rust/xstore/src/main.rs, local-model:xingcheng/src/backend/rust/xstore/src/main.rs, xingcheng/src/backend/rust/xstore/src/main.rs (+2) |
+| `xstore-metadata-get/v1` | xingcheng/src/backend/rust/xstore/src/meta_api.rs |
+| `xstore-metadata-mutation/v1` | xingcheng/src/backend/rust/xstore/src/meta_tx.rs |
+| `xstore-metadata-query/v1` | xingcheng/src/backend/rust/xstore/src/meta_api.rs |
+| `xstore-metadata-rebuild-index/v1` | xingcheng/src/backend/rust/xstore/src/meta_api.rs |
+| `xstore-metadata-snapshot-created/v1` | xingcheng/src/backend/rust/xstore/src/meta_snap.rs |
+| `xstore-metadata-verify/v1` | xingcheng/src/backend/rust/xstore/src/meta_api.rs |
 | `xstore-put/v1` | devin:xingcheng/src/backend/rust/xstore/src/main.rs, git:xingcheng/src/backend/rust/xstore/src/main.rs, local-model:xingcheng/src/backend/rust/xstore/src/main.rs, xingcheng/src/backend/rust/xstore/src/main.rs (+2) |
 | `xstore-snapshot-verify/v1` | devin:xingcheng/src/backend/rust/xstore/src/snapshot.rs, git:xingcheng/src/backend/rust/xstore/src/snapshot.rs, local-model:xingcheng/src/backend/rust/xstore/src/snapshot.rs, xingcheng/src/backend/rust/xstore/src/snapshot.rs (+2) |
 | `xstore-snapshot/v1` | devin:xingcheng/src/backend/rust/xstore/src/snapshot.rs, git:xingcheng/src/backend/rust/xstore/src/snapshot.rs, local-model:xingcheng/src/backend/rust/xstore/src/snapshot.rs, xingcheng/src/backend/rust/xstore/src/snapshot.rs (+2) |
@@ -245,7 +256,7 @@ jobs/<id>/
 ## PostgreSQL 表（`gptbridge_xingcheng`）
 
 <!-- autogen:xingcheng-pgtables -->
-*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
 | 表 | 定義/引用來源 |
 |---|---|
 | `transformer_adapter_candidate` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
@@ -258,10 +269,10 @@ jobs/<id>/
 | `transformer_runtime_model_state` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 | `transformer_schema_metadata` | devin:main-system/config/sql-schema-contract.json, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:main-system/config/sql-schema-contract.json, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+8) |
 | `transformer_training_audit_event` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
-| `transformer_training_dataset` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
+| `transformer_training_dataset` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+3) |
 | `transformer_training_dataset_example` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 | `transformer_training_dataset_snapshot_key` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
-| `transformer_training_job` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GenerationMigration.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GenerationMigration.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+8) |
+| `transformer_training_job` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GenerationMigration.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GenerationMigration.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+9) |
 | `transformer_training_repository` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 <!-- /autogen:xingcheng-pgtables -->
 
