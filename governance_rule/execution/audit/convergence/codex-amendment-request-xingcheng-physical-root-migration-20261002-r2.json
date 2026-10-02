@@ -2,7 +2,7 @@
   "artifact": "codex-amendment-request",
   "authority": "request-only",
   "schema": "codex-amendment-request/v1",
-  "request_id": "xingcheng-physical-root-migration-20261002-r1",
+  "request_id": "xingcheng-physical-root-migration-20261002-r2",
   "title": "Rebind Xingcheng canonical registrations to the independent top-level xingcheng root",
   "summary": "The Xingcheng package, contracts and institution data root were physically relocated from 'Standalone tools/local-model' to the independent top-level 'xingcheng' root (xingcheng/src, xingcheng/contracts, xingcheng/xingcheng). Codex live registrations still carry the retired nested paths: project_architecture_directory.physical_root for XINGCHENG_INSTITUTION_ROOT, MODEL_TRAINING and MODEL_TRAINING_NATIVE. This amendment rebinds those three live registration fields; superseded article text retaining the nested path is immutable history and is intentionally not rewritten.",
   "requested_by": "permission-sovereign",
@@ -12,11 +12,11 @@
   "flow": "A382/A488-non-disruptive-amendment-flow",
   "not_executed": true,
   "predecessor": {
-    "codex_version": "2026-10-02T06:22:55Z",
-    "version_identity": "E2:2026-10-02T06:22:55Z",
+    "codex_version": "2026-10-02T06:58:32Z",
+    "version_identity": "E2:2026-10-02T06:58:32Z",
     "version_epoch": 2,
     "history_head": "b0be149280e99d2fd75d1685c68459acb38153132fc16d1cd7d80db8f98d3c18",
-    "revision_sequence": 216
+    "revision_sequence": 217
   },
   "changes": [
     {
