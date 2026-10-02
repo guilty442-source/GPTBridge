@@ -1,0 +1,75 @@
+{
+  "artifact": "current-law-projection-convergence-verification",
+  "authority": "non-authoritative-audit-evidence",
+  "generation": {
+    "version": "2026-10-02T09:02:09Z",
+    "revision": 223,
+    "history_head": "96c52d5899843e4ede641b2ad71c31d6ad49a14954928ee251af54a5a94b06a7"
+  },
+  "architecture_sync": {
+    "independently_measured_file_hashes": 13,
+    "registry": {
+      "evidence_id": "ARCHITECTURE_DIAGRAM_SYNC_CURRENT",
+      "codex_version": "2026-10-02T09:02:09Z",
+      "required_count": 13,
+      "registered_count": 13,
+      "present_count": 13,
+      "hash_match_count": 13,
+      "read_only_count": 0,
+      "stale_count": 0,
+      "missing_count": 0,
+      "result": "PASS",
+      "verified_at_utc": "2026-10-02T09:02:09Z",
+      "verifier": "deterministic-file-registry-validator",
+      "status": "current"
+    },
+    "scope": "file-registry parity only;not runtime implementation certification"
+  },
+  "directory": {
+    "canonical": 54,
+    "normalized": 54,
+    "mismatches": []
+  },
+  "active_law_sub_sovereign_scan": {
+    "evidence_id": "CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT",
+    "current_reference_count": 0,
+    "historical_reference_count": 35,
+    "result": "PASS",
+    "version_identity": "2026-10-02T09:02:09Z",
+    "status": "current"
+  },
+  "machine_schema": {
+    "registered": 77,
+    "registry_parity": {
+      "PENDING": 77
+    },
+    "evidence": {
+      "PENDING": 77
+    },
+    "obligation": "pending",
+    "reason": "No independent current producer/validator/persistence execution evidence;legacy descriptor hashes retained but not promoted."
+  },
+  "checks": {
+    "regression_cases": 11,
+    "mirror": {
+      "errors": [],
+      "ok": true,
+      "root": "E:\\GPTBridge\\governance_rule\\codex"
+    },
+    "sql": {
+      "mismatches": [],
+      "result": "PASS",
+      "row_count": 23588,
+      "table_count": 218
+    },
+    "architecture": {
+      "ok": true,
+      "scope": "document completeness only;backlog not certified"
+    }
+  },
+  "remaining": [
+    "Xingcheng startup/hosting split requires runtime implementation and actual lifecycle verification.",
+    "ai-assistant/file-sorter/investment-mobile/vaultly native executor backlog remains fail-closed.",
+    "No blanket /v1 replacement;format revision and HTTP path identities preserved."
+  ]
+}

@@ -75,7 +75,7 @@ flowchart TB
 ### 獨立工具清單（autogen）
 
 <!-- autogen:project-tools -->
-*autogen-scanner/v1 · 2340 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2348 files · main+devin+git+local-model+rag+ui*
 | 工具 | manifest version | runtime | native entry | 樹 |
 |---|---|---|---|---|
 | `ai-assistant` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |

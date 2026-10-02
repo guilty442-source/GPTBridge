@@ -26,6 +26,18 @@
 //                         persists logs + state; --status reads state
 //   --model-maturity-status
 //                         shortcut for --model-maturity --status
+//   --native-only-check [--scan-process <pid>]
+//                         Native-Only P0 dependency gate
+//                         (star-native-only-gate/v1): build manifests,
+//                         link inputs, source refs, PE import tables
+//                         and optionally a live process's modules
+//   --cuda-native-check   star-cuda-native-check/v1: driver_api_only,
+//                         toolkit linkage, external kernel libs and
+//                         native/certified kernel counts
+//   --native-dependency-inventory
+//                         §104 dependency inventory with
+//                         REQUIRED_PLATFORM/XINGCHENG_OWNED/
+//                         EXTERNAL_REMOVE/LEGACY_MIGRATION_ONLY classes
 //
 // All output is JSON on stdout (same contract as the Python lane); exit
 // code is 0 unless the top-level result carries ok=false.
@@ -122,6 +134,19 @@ internal static class Program
                 return Emit(DataBoundary.Check(toolRoot,
                     opts.TryGetValue("path", out string? bp)
                         ? bp : ""));
+            // Native-Only P0 gate (§98–§119): manifest/link/binary
+            // audits; --scan-process <pid> adds the §102 live-module
+            // scan. All three verbs are read-only.
+            if (flags.Contains("native-only-check"))
+                return Emit(NativeDependencyGate.NativeOnlyCheck(
+                    toolRoot,
+                    opts.TryGetValue("scan-process", out string? sp) &&
+                    int.TryParse(sp, out int spid) ? spid : -1));
+            if (flags.Contains("cuda-native-check"))
+                return Emit(NativeDependencyGate.CudaNativeCheck(
+                    toolRoot));
+            if (flags.Contains("native-dependency-inventory"))
+                return Emit(NativeDependencyGate.Inventory(toolRoot));
             if (flags.Contains("maturation-status"))
                 return Emit(MaturationStatus(toolRoot));
             if (flags.Contains("maturation-freeze"))
