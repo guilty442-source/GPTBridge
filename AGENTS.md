@@ -365,6 +365,23 @@ interface documentation only — never execution.
 > over-grant → `ACCELERATION_PLAN_OVER_GRANT`, §43). Without `--grant`
 > the planner emits `grant_bound=false` — planning verbs carry no
 > production execution authority.
+>
+> Successor phase in force: **Capability Maturation Closure directive
+> §0-§129** (2026-10-02) — no new capabilities/taxonomies/ladders; the
+> goal is pushing every canonical capability through
+> IMPLEMENTED→EVALUATED→CERTIFIED→MATURE behind floors, baselines and
+> protected regression. Phase-1/2 landings:
+> `CapabilityMaturityService.cs` (`star-capability-maturity/v1` state
+> store at `runtime/state/capability-maturity.json` — §5 state machine
+> with an evidence-derived ceiling; §12 floor axes incl. runtime/
+> architecture/stability; §16/§17 baseline refresh on certify/mature
+> only; §14 MATURE ⇒ PROTECTED; §10 auto-REGRESSED; §11 REOPENED keeps
+> history) and `CapabilityRegressionMatrix.cs`
+> (`star-capability-regression-matrix/v1` — §24 rows=candidate
+> capability × protected columns, cells derived from the graph + §26
+> core set; §28 runtime axes scored separately, §29). Verbs:
+> `--capability-maturity` (§100-§101 report), `--capability-floor`,
+> `--capability-transition`, `--capability-matrix`.
 
 Capabilities are **first-class descriptors**, never their own runtime /
 model / store / scheduler. All capabilities ride the single xc-fused-1
