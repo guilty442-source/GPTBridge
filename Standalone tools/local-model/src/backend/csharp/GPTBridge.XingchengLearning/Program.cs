@@ -1642,6 +1642,8 @@ internal static class Program
             "[--no-builds] | " +
             "--verify-audit | --db-status | " +
             "--migrate | --teacher-collect [--dry-run] | " +
+            "--corpus --registry <j> --root <d> --tokenizer <t> " +
+            "--out <d> [--policy <j>] | " +
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
             "[--include-collected] [--val-permille N] | " +
             "--evaluate --job-id <id> --bundle <dir> --suite <suite.json> " +

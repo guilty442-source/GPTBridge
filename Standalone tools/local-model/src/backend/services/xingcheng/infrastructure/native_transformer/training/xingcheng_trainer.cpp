@@ -101,12 +101,16 @@
 //   env:   XCT_TPU_THREADS / XCT_TPU_SIMD=0 override the job fields.
 //   lanes: disjoint-output partitions keep results identical for any
 //          thread count; SIMD keeps one fixed order per build.
-//   data:  { path, format(sft|pretrain|dpo), max_rows }
+//   data:  { path, format(sft|pretrain|dpo|grpo), max_rows }
 //
-// data rows:  sft      {"input_ids":[...],"labels":[...]}   (-100 = masked)
+// data rows:  governed container is XCB1 (xcb_batch.h — binary token
+//             batches; magic-sniffed). Legacy JSONL remains readable
+//             for registered datasets:
+//             sft      {"input_ids":[...],"labels":[...]}   (-100 = masked)
 //             pretrain {"input_ids":[...]}                  (labels = shifted)
 //             dpo      {"chosen":{"input_ids":[...],"labels":[...]},
 //                       "rejected":{"input_ids":[...],"labels":[...]}}
+//             grpo     {"prompt_ids":[...],"completion_ids":[...]}
 //
 // checkpoint: star-native-ckpt/v1 binary — magic, config, then name/shape/f32
 //             tensors in deterministic order. emit_checkpoint is written to a

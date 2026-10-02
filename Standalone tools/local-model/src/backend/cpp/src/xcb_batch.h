@@ -201,6 +201,8 @@ class Reader {
         const uint8_t flags = static_cast<uint8_t>(d_[pos_ + 1]);
         if (d_[pos_ + 2] != 0 || d_[pos_ + 3] != 0)
             throw XcbError("XCB_RECORD_RESERVED");
+        if (flags & ~static_cast<uint8_t>(1))
+            throw XcbError("XCB_RECORD_FLAGS");
         pos_ += 4;
         if (r.kind != Kind::kPretrain && r.kind != Kind::kSft &&
             r.kind != Kind::kDpo && r.kind != Kind::kGrpo)
