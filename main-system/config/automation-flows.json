@@ -45,6 +45,7 @@
       "toolbox-registry-reconcile": "system-runtime",
       "cag-context-refresh": "automation",
       "resource-mode-advisor": "system-runtime",
+      "idle-service-reap": "system-runtime",
       "file-sorter-automation": "tool-internal",
       "xingcheng-internal-maintenance": "xingcheng-internal",
       "self-learning": "xingcheng-internal",
@@ -355,6 +356,14 @@
       "pausable": false,
       "enabled": false,
       "description": "native port delivered (B167/B38): 自動模式顧問併入唯一 C++23 管制器 native/resource_governor/governor_advisor.*，於既有 watch 週期內評估（無第二行程/平行 watcher，B159）。控制律：auto.ceiling=high 為使用中上限（80%，使用者前景保留餘裕）；idle_full_speed＋idle_after_s=300 無輸入時上限放寬至 idle_ceiling=turbo（閒置全速 90% 檔，worker 需求升檔目標＝有效上限本身），使用者回來 urgent 立即降回；power_saving_schedule 00:00-07:00→sleep 立即；strained/整機超載→low 立即；worker 需求＋餘裕→升檔 streak_up 連續評估（≤ceiling）；降檔 streak_down＋cooldown_s=600；rules_error fail-closed 保留已驗證狀態。狀態 runtime/state/resource-mode-advisor.json，切換稽核 runtime/state/resource-mode-audit.jsonl；手動選檔（app:set-resource-mode）關閉 auto_mode。"
+    },
+    "idle-service-reap": {
+      "owner": "gptbridge-backend tools/reaper.rs（system-runtime 核心：工具生命週期擁有者）",
+      "kind": "private-loop",
+      "interval_s": 30,
+      "pausable": true,
+      "enabled": false,
+      "description": "閒置後端/服務自動關閉：backend 內 reaper 執行緒每 poll_s 掃 running registry，對每個受管工具 runtime GET /metrics；last_activity_at 距今 ≥ idle_after_s 且 in_flight_requests=0、active_ws_connections=0、worker_queue_size=0 連續 min_observations 次 → governed stop_tool（authenticated /shutdown＋3s 緩衝＋kill 後援），收割前再探一次收窄 TOCTOU。runtime 未發佈新計量欄位（舊版二進位）→ fail-closed 永不收割；manifest lifecycle.unloadable=false 豁免。重啟由 toolbox_start_tool 按需契約承接（收割不收功能）。政策單一來源：resource-governor-rules.json idle_reap 區塊（本檔案僅登記/文件；kill switch=idle_reap.enabled=false）。狀態 runtime/state/idle-reaper.json，稽核 runtime/state/idle-reaper.jsonl。"
     },
     "file-sorter-automation": {
       "owner": "FileSorterAutomationService（file-sorter 工具行程內）",

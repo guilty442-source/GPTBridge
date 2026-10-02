@@ -63,6 +63,11 @@ public sealed class GovernedToolHost
     private readonly ConcurrentDictionary<string, object?> _waiters = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly DateTimeOffset _startTime = DateTimeOffset.UtcNow;
+    // Idle-reap signal: last activity tick (UTC) + live WS client count,
+    // published on /metrics so the backend reaper can distinguish an
+    // unused runtime from one quietly serving an open tool window.
+    private long _lastActivityTicks = DateTimeOffset.UtcNow.Ticks;
+    private long _activeWs;
 
     private IToolTransport? _transport;
     private volatile JsonObject? _lastNotification;
@@ -92,6 +97,21 @@ public sealed class GovernedToolHost
     public event Action? Stopped;
 
     public void RequestShutdown() => _shutdown.Cancel();
+
+    /// <summary>Any command/connection activity resets the idle clock.</summary>
+    public void RecordActivity() =>
+        Interlocked.Exchange(
+            ref _lastActivityTicks, DateTimeOffset.UtcNow.Ticks);
+
+    /// <summary>WS client attach/detach — an open tool window holds a
+    /// connection, so a positive count always reads as "in use".</summary>
+    public void WsConnected()
+    {
+        Interlocked.Increment(ref _activeWs);
+        RecordActivity();
+    }
+
+    public void WsDisconnected() => Interlocked.Decrement(ref _activeWs);
 
     /// <summary>Cancel an in-flight request (WS toolbox_cancel_tool_run).</summary>
     public bool CancelRequest(string requestId)
@@ -129,6 +149,7 @@ public sealed class GovernedToolHost
         if (_executor is not IWsCommandSurface surface
             || !surface.OwnsCommand(command))
             throw new PermissionDeniedException();
+        RecordActivity();
         using var requestCts = CancellationTokenSource
             .CreateLinkedTokenSource(ct, _shutdown.Token);
         _inFlight[requestId] = requestCts;
@@ -179,20 +200,28 @@ public sealed class GovernedToolHost
         return snapshot;
     }
 
-    public JsonObject MetricsSnapshot() => new()
+    public JsonObject MetricsSnapshot()
     {
-        ["channel_health"] = new JsonObject(
-            _channelHealth.Select(p =>
-                new KeyValuePair<string, JsonNode?>(
-                    p.Key, p.Value.AsJson())).ToArray()),
-        ["worker_queue_size"] = _waiters.Count,
-        ["processing_channels"] = new JsonArray(
-            _processingChannels.Select(c => (JsonNode)c).ToArray()),
-        ["notification_queue_size"] = 0,
-        ["last_notification"] = _lastNotification?.DeepClone(),
-        ["uptime_seconds"] =
-            (DateTimeOffset.UtcNow - _startTime).TotalSeconds,
-    };
+        var lastActivityTicks = Interlocked.Read(ref _lastActivityTicks);
+        return new()
+        {
+            ["channel_health"] = new JsonObject(
+                _channelHealth.Select(p =>
+                    new KeyValuePair<string, JsonNode?>(
+                        p.Key, p.Value.AsJson())).ToArray()),
+            ["worker_queue_size"] = _waiters.Count,
+            ["processing_channels"] = new JsonArray(
+                _processingChannels.Select(c => (JsonNode)c).ToArray()),
+            ["notification_queue_size"] = 0,
+            ["last_notification"] = _lastNotification?.DeepClone(),
+            ["uptime_seconds"] =
+                (DateTimeOffset.UtcNow - _startTime).TotalSeconds,
+            ["in_flight_requests"] = _inFlight.Count,
+            ["active_ws_connections"] = Interlocked.Read(ref _activeWs),
+            ["last_activity_at"] = new DateTimeOffset(
+                lastActivityTicks, TimeSpan.Zero).ToString("O"),
+        };
+    }
 
     public string WorkspaceInstanceId => _env.WorkspaceInstanceId();
     public string SessionToken => _env.SessionToken;
@@ -337,6 +366,7 @@ public sealed class GovernedToolHost
         var command = "";
         JsonObject result;
         var cancelled = false;
+        RecordActivity();
         try
         {
             if (payload is null)

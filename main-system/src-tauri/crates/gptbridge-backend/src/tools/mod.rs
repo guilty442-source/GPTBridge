@@ -25,6 +25,7 @@ use gptbridge_core::native::paths;
 mod env;
 mod identity;
 mod lifecycle;
+pub(crate) mod reaper;
 mod runtime;
 mod ui;
 

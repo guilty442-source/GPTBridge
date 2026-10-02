@@ -82,6 +82,44 @@ public class ToolHostServerTests
         var json = JsonNode.Parse(body)!.AsObject();
         Assert.NotNull(json["channel_health"]);
         Assert.NotNull(json["uptime_seconds"]);
+        // idle-reap contract: activity clock + in-flight + live WS count
+        Assert.Equal(0, json["in_flight_requests"]!.GetValue<int>());
+        Assert.Equal(0, json["active_ws_connections"]!.GetValue<int>());
+        Assert.NotNull(json["last_activity_at"]);
+    }
+
+    [Fact]
+    public async Task Metrics_tracks_live_ws_connections()
+    {
+        var (host, server, port) = await StartServerAsync();
+        await using var _ = server;
+        await using var __ = host;
+
+        using var client = new HttpClient();
+        using var socket = new ClientWebSocket();
+        var uri = new Uri(
+            $"ws://127.0.0.1:{port}/?token={new string('b', 64)}"
+            + $"&instance={host.WorkspaceInstanceId}");
+        await socket.ConnectAsync(uri, CancellationToken.None);
+
+        var body = await client.GetStringAsync(
+            $"http://127.0.0.1:{port}/metrics");
+        var json = JsonNode.Parse(body)!.AsObject();
+        Assert.Equal(1, json["active_ws_connections"]!.GetValue<int>());
+
+        await socket.CloseAsync(
+            WebSocketCloseStatus.NormalClosure, null,
+            CancellationToken.None);
+        for (var i = 0; i < 40; i++)
+        {
+            body = await client.GetStringAsync(
+                $"http://127.0.0.1:{port}/metrics");
+            json = JsonNode.Parse(body)!.AsObject();
+            if (json["active_ws_connections"]!.GetValue<int>() == 0)
+                return;
+            await Task.Delay(25);
+        }
+        Assert.Fail("active_ws_connections did not return to 0");
     }
 
     [Fact]

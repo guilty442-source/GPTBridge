@@ -217,7 +217,16 @@ public sealed class ToolHostServer : IAsyncDisposable
         }
         var wsContext = await context
             .AcceptWebSocketAsync(null).ConfigureAwait(false);
-        await DrainWebSocketAsync(wsContext.WebSocket).ConfigureAwait(false);
+        _host.WsConnected();
+        try
+        {
+            await DrainWebSocketAsync(wsContext.WebSocket)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _host.WsDisconnected();
+        }
     }
 
     /// <summary>Per-connection state: one writer at a time, a linked
@@ -298,6 +307,7 @@ public sealed class ToolHostServer : IAsyncDisposable
         try
         {
             var message = JsonNode.Parse(raw) as JsonObject;
+            _host.RecordActivity();
             command = message?["command"]?.GetValue<string>()?.Trim() ?? "";
             var payload = message?["payload"] as JsonObject;
             if (command.Length == 0 || payload is null)

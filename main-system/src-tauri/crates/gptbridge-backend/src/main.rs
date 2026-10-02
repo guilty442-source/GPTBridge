@@ -470,6 +470,11 @@ fn main() {
     // launch path — the native resource governor runs --watch under
     // this supervision (no Run-key/scheduled-task second entry).
     resource_governor_host::start();
+    // Idle-reap enforcement (system-runtime): on-demand governed tool
+    // runtimes unload when unused (resident-core.json on-demand
+    // contract); policy lives in the governor rules file
+    // (idle_reap), the stop path stays inside this registry owner.
+    tools::reaper::start();
     println!("gptbridge-backend listening on 127.0.0.1:{port}");
     for stream in listener.incoming() {
         match stream {
