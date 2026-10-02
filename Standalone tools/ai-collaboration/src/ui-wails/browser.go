@@ -502,15 +502,20 @@ func (m *BrowserManager) ensureSession(id, owner, url string,
 	return s, nil
 }
 
-func (m *BrowserManager) waitReady(s *session) bool {
+func (m *BrowserManager) waitReady(s *session, errCh chan error) error {
 	deadline := time.Now().Add(embedTimeout)
 	for time.Now().Before(deadline) {
+		select {
+		case err := <-errCh:
+			return err
+		default:
+		}
 		if s.chromium.GetController() != nil {
-			return true
+			return nil
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	return false
+	return errors.New("WEBVIEW2_INIT_TIMEOUT")
 }
 
 func (m *BrowserManager) activate(id string) {

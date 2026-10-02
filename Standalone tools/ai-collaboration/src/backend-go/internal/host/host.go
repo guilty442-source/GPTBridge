@@ -26,8 +26,11 @@ import (
 	"gptbridge.local/ai-collaboration-backend/internal/wsproto"
 )
 
-// BrowserOpTimeout bounds one delegated DOM op.
-const BrowserOpTimeout = 30 * time.Second
+// BrowserOpTimeout bounds one delegated DOM op.  Must exceed the UI's
+// session-creation budget (embedTimeout = 90s) so a cold WebView2
+// environment build does not surface as an op timeout while the UI is
+// still legitimately attaching.
+const BrowserOpTimeout = 120 * time.Second
 
 // Host owns the governed tool backend.
 type Host struct {
