@@ -459,13 +459,13 @@ internal static class Maturation300M
         // readiness, plateau, regression, resource/runtime exclusion).
         // The sequence id resolves to the canonical registry id the
         // evidence ledger indexes on.
-        string? canonical = CapabilityRegistry.Resolve(capability);
-        if (canonical == null ||
-            !ArchitectureLimitationEvidence.HasFor(toolRoot, canonical))
+        string canonical =
+            CapabilityRegistry.Resolve(capability) ?? capability;
+        if (!ArchitectureLimitationEvidence.HasFor(toolRoot, canonical))
             throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
                 $"unsupported requires recorded " +
                 $"ArchitectureLimitationEvidence for '{capability}' " +
-                "(§22) — declare it via --architecture-limitation " +
+                "(§22) — declare it via --arch-limitation-record " +
                 "before marking the sequence slot unsupported");
         var caps = (Dictionary<string, object?>)state["capabilities"]!;
         caps[capability] = new Dictionary<string, object?>

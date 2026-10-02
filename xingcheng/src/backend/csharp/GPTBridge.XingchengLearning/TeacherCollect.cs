@@ -25,18 +25,12 @@ internal sealed class TeacherDistillationPolicy
     public const string Format = "star-teacher-distillation-policy/v1";
 
     public bool Enabled = false;
-    /// <summary>AC §57-§59: "native" uses a governed Xingcheng bundle
-    /// (active/mature generation) as the teacher through xc_modeltool
-    /// serve; "ollama" is the B154-registered external lane. With no
-    /// legitimate teacher the lane DISABLES — never a silent Ollama
-    /// fallback (§59).</summary>
-    public string Source = "ollama";
+    /// <summary>AC §57-§58: each scope's teacher spec is a governed
+    /// Xingcheng bundle — "self" (pinned native-engine checkpoint) or
+    /// a tool-root-relative bundle path resolved by
+    /// ResolveTeacherBundle. With no configured teacher the lane
+    /// reports idle/disabled — never an external fallback (§59).</summary>
     public Dictionary<string, string> Teachers = new(StringComparer.Ordinal);
-    /// <summary>Native teacher bundles per scope — scope id -> bundle
-    /// directory. Only governed xingcheng generation bundles qualify;
-    /// a missing/unreadable bundle disables that scope's prompts (§58).</summary>
-    public Dictionary<string, string> NativeBundles =
-        new(StringComparer.Ordinal);
     public List<Dictionary<string, string>> Prompts = new();
     public int MaxRowsPerRun = 24;
     public int MaxNewTokens = 256;
@@ -53,10 +47,8 @@ internal sealed class TeacherDistillationPolicy
     {
         ["format"] = Format,
         ["enabled"] = Enabled,
-        ["teacher_source"] = Source,
+        ["teacher_source"] = "native",
         ["teachers"] = Teachers.ToDictionary(
-            p => p.Key, p => (object?)p.Value, StringComparer.Ordinal),
-        ["native_teacher_bundles"] = NativeBundles.ToDictionary(
             p => p.Key, p => (object?)p.Value, StringComparer.Ordinal),
         ["max_rows_per_run"] = MaxRowsPerRun,
         ["max_new_tokens"] = MaxNewTokens,
@@ -83,15 +75,6 @@ internal sealed class TeacherDistillationPolicy
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             var el = doc.RootElement;
             policy.Enabled = GetBool(el, "enabled", false);
-            string src = GetStr(el, "teacher_source");
-            policy.Source = src is "native" or "ollama" ? src : "ollama";
-            if (el.TryGetProperty("native_teacher_bundles", out var nb)
-                && nb.ValueKind == JsonValueKind.Object)
-                foreach (var p in nb.EnumerateObject())
-                    if (p.Value.ValueKind == JsonValueKind.String
-                        && (p.Value.GetString() ?? "").Length > 0)
-                        policy.NativeBundles[p.Name] =
-                            p.Value.GetString()!;
             policy.MaxRowsPerRun = GetInt(el, "max_rows_per_run",
                 policy.MaxRowsPerRun);
             policy.MaxNewTokens = GetInt(el, "max_new_tokens",
