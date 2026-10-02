@@ -6087,26 +6087,6 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
     },
     {
-      "id": "formal-rule:evaluator:FR-OLLAMA-ON-DEMAND",
-      "kind": "file-contains",
-      "markers": [
-        "\"FR-OLLAMA-ON-DEMAND\""
-      ],
-      "path": "governance_rule/execution/formal_rules/evaluators.json"
-    },
-    {
-      "id": "formal-rule:row:FR-OLLAMA-ON-DEMAND",
-      "items": "tables.formal_rule_registry",
-      "kind": "json-array-min-count",
-      "markers": [
-        "rule_code=FR-OLLAMA-ON-DEMAND",
-        "controlling_provision_id=B154",
-        "status=evaluator-parity-verified"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
-    },
-    {
       "id": "formal-rule:evaluator:FR-TASK-LIFECYCLE",
       "kind": "file-contains",
       "markers": [
@@ -27711,7 +27691,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3585,
+    "native_checks": 3583,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27734,7 +27714,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T12:11:33Z",
+  "generated_at": "2026-10-02T12:42:27Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
