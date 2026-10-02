@@ -524,6 +524,16 @@ internal static class Program
                         cmx, toolRoot));
                 return Emit(CapabilityRegressionMatrix.Emit(toolRoot));
             }
+            // ---- maturation-closure §105: four-axis dataset purity
+            //      gate (eval overlap / regression / golden / holdout
+            //      leakage) checked before any formal maturity eval
+            //      result may stand as evidence.
+            if (flags.Contains("dataset-purity"))
+                return Emit(DatasetPurityGate.Check(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dp)
+                            ? dp : "", "DATASET_PURITY_VIOLATION"),
+                    toolRoot));
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -1966,6 +1976,7 @@ internal static class Program
             "--capability-transition --capability <id> --state <s> " +
             "[--note <t>] | " +
             "--capability-matrix [--capability <id>] | " +
+            "--dataset-purity --file <f.json> | " +
             "--capability-runtime-profile --capability <id> | " +
             "--failure-attribute --file <f.json> | " +
             "--arch-limitation-record --file <f.json> | " +
