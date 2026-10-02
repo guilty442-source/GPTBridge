@@ -184,6 +184,46 @@ worktrees — run when the tree is in a state you want committed):
 & shared-layer\csharp\GPTBridge.GitAutomation\publish\GPTBridge.GitAutomation.exe --once --root E:\GPTBridge
 ```
 
+## Multi-Worker Division of Labor（分工執行守則）
+
+Multiple agent sessions may share one worktree (e.g. two Devin sessions
+on `.worktrees/devin`). The unit of ownership is the **file**, not the
+worktree. Distilled from the 2026-10-02 capability-chain split
+(Registry/Graph/Evidence by one worker, ArchitectureCapabilityBinding
+by another):
+
+1. **Claim before starting.** Check `.git/gptbridge-automation/claims/`
+   for active claims; write your own
+   `<worker>-<task>-<date>.json` listing the file paths you will touch
+   plus a TTL. Delete the claim file when done.
+2. **Prefer new files.** When dividing a task, take slices that are new
+   modules/contracts (zero merge surface) over edits to files a sibling
+   is actively changing.
+3. **Never edit a live file.** Before editing, `git status` + `git log`
+   in the target worktree — a file modified minutes ago under another
+   worker's commits is theirs; find a disjoint slice or wait.
+4. **Match the sibling's conventions.** Read their committed modules
+   first (format strings, `Emit`/`Validate`/`Check` shape, error-code
+   vocabulary, `XcPaths`/`CanonicalJson`/`ModelLifecycle` helpers) so
+   the split lands as one coherent design, not two dialects.
+5. **Auto-sweep attribution.** The commit sweep commits dirty files
+   under a generic `auto-commit` message. Commit your files promptly
+   and path-scoped; if a sweep lands your work under a generic message,
+   annotate attribution non-destructively with `git notes` (precedent:
+   `808a9895`).
+6. **Generated artifacts resolve by regeneration.** Merge conflicts in
+   derived projections (`audit_checks_manifest.json`, codex mirrors)
+   are resolved by keeping the newest emission — merge `main` into your
+   branch and take the newer side; never hand-merge generated content.
+   Workers fix conflicts on their own branch; only the sync coordinator
+   merges into `main`.
+7. **dir-exists activation gates.** Commit-time audits check that
+   codex-mandated `architecture_activation_states` target roots exist on
+   disk — a missing registered dir blocks every commit in the repo, not
+   just yours. Creating the registered directory satisfies the
+   precondition (it is not activation evidence — the row's
+   `INCOMPLETE_EVIDENCE` state stands until governed migration lands).
+
 ## 星澄 Self-Learning & Automatic Upgrade
 
 > Normative authority: Codex D131。
@@ -1392,7 +1432,13 @@ Worker rules for codex work:
    is compiled and unit-tested but not smoke-tested end-to-end. Pending
    check: start `xingcheng` ToolHost → descriptor +
    `/v1/status` + session token → `model-dialogue` cold-start path.
-   Requires the pinned `xc_modeltool` bundle; do not fake the evidence.
+   The governed env is minted by the main-system backend
+   (`gptbridge-backend`), which is **not currently running** — the
+   smoke must go through `toolbox_start_tool{xingcheng}` on the
+   backend WS once it is up; launching the ToolHost exe bare returns
+   `PERMISSION_DENIED` by design. Requires the pinned `xc_modeltool`
+   bundle (`xingcheng/runtime/devin/gen-consolidate/bundle`, present);
+   do not fake the evidence.
 3. **Deferred native lanes stay fail-closed.** `ai-assistant` business
    executor (DeferredExecutor), `file-sorter` native executor,
    `investment-mobile` native entry, and `vaultly`
@@ -1405,9 +1451,8 @@ Worker rules for codex work:
    evidence row's `codex_version`/`version_identity` matches the live
    head and, if needed, run the fresh published binary with
    `--repair-projections` directly.
-5. **Other workers' in-flight changes.** `native/resource_governor`,
-   `XingchengLearning/ResourceGovernance*` and
-   `GPTBridge.CodexPipeline/MigrationExecutor.cs` land via separate
+5. **Other workers' in-flight changes.** `native/resource_governor`
+   and `XingchengLearning/ResourceGovernance*` land via separate
    workers; do not sweep them into unrelated commits (path-scoped
    commits only).
 6. **xstore Native Metadata Authority takeover not done.** The
@@ -1426,33 +1471,50 @@ Worker rules for codex work:
    + governance capability only — removal requires a codex amendment
    (B154 retirement) plus code removal; do not delete the capability
    without the amendment landing first.
-8. **Published `xc-learning.exe` is stale.** The binary in
-   `XingchengLearning/publish/` predates the native-only gate verbs
-   (`--native-only-check`, `--cuda-native-check`) present in source;
-   rebuild + republish before any gate output can count as evidence.
-   Related: `cuda_rtlane.h` was retired in `1a05cc74a` (orphan
-   cudart_static/toolkit surface); the production lane is Driver API
-   + in-tree PTX only.
-9. **`Standalone tools/julia-compute/` folder pending removal.** Codex
-   `JULIA_COMPUTE` is `retired` (entity_kind
-   `retired-former-scientific-compute-service`, retired_version
-   2026-10-02) but the folder still exists; codex-amendment candidates
-   (`julia-compute-a233-payload-sync-20261002`) are still in flight.
-   Remove the folder once the retirement convergence lands (E14 /
-   global-cleaner precedent); do not delete mid-amendment.
-10. **Codex data-dir residue needs a governor decision.**
+8. **Codex data-dir residue needs a governor decision.**
     `governance_rule/codex/data/` holds a 0-byte `governance_codex.db`
     plus a 12.6 MB `governance_codex.sql` dump, while the project
     architecture doc forbids retaining SQL dumps/DB mirrors. Codex is
     read-only for workers — a human governor must decide; do not touch.
-11. **Codex open evidence gaps block verified release.**
+9. **Codex open evidence gaps block verified release.**
     `directory_activation_state` shows `DIR_DATA_SCHEMA_AUTHORITY` =
     `INCOMPLETE_EVIDENCE` / `verified-release-denied` / `open`, and
     `postgresql_role_registry` holds only the `ROLE_INVENTORY_REQUIRED`
     placeholder (`INCOMPLETE_EVIDENCE`). These require real evidence
     production via the governed pipeline — never hand-edit the rows.
-12. **No system Python on this host.** `Python313` lacks `python.exe`
+10. **No system Python on this host.** `Python313` lacks `python.exe`
     and the `py` launcher finds no install, so the retired
     `python -m governance_rule.execution.audit` entry cannot run.
     Expected (Python lane retired, B166); audit evidence must come from
     the governed C#/native pipeline and the pre-commit hooks.
+11. **Governed migration executor now exists; live chain is still
+    unapplied.** `shared-layer/csharp/GPTBridge.CodexPipeline/
+    MigrationExecutor.cs` implements `sql_migration_executor_contract`
+    (`--migration-status` read-only, `--migration-apply --sequence N`,
+    fail-closed on every contract gate, append-only hash-chained
+    receipts, `pg_try_advisory_lock` global lock). Verified end-to-end
+    on `gptbridge_scratch`. Live `gptbridge` still has **0 receipts**
+    and 110/148 migration files with no applied objects — do not claim
+    migration closure. `--migration-db` is a scratch-only test hook,
+    never point it at the governed DB.
+12. **Migration registry reconciliation needs three governor
+    decisions** (evidence: `migration-live-catalog-probe-20261002.json`
+    + `implementation-obligations-evidence-refresh-20261002.json`):
+    (a) 15 source-hash mismatches are post-registration semantic
+    *repairs* (2026-09-26 `e487bc473`/`99ba911f3`) — the current files
+    are correct; the fix is a governed **restamp**, never a file
+    revert; (b) registry sequences 25/37/45/46 point to files
+    intentionally deleted in `26c63f79e` (sqlite/qdrant retirement) —
+    retire the rows, **do not recreate** the files (a new file can
+    never hash-match the stamp); (c) 89 on-disk files are unregistered
+    — per-file governed register/retire/supersede decisions required.
+    Separately: registered `target_schema_hash` values use a
+    governor-side recipe; the executor's `OBJECT_MANIFEST_V1`
+    fingerprint will mismatch until the governor publishes the recipe
+    or authorizes a chain restamp.
+13. **`semantic_hash_toolchain.py` retired with the Python lane.** The
+    machine-schema parity extractor referenced by the 2026-09-24 staged
+    restamp proposal no longer exists; when the governor selects a
+    canonical recipe (option A or B in that proposal), the extractor
+    must be reimplemented in the C# lane before parity can close.
+    Item 1's `PENDING` state stays until then.
