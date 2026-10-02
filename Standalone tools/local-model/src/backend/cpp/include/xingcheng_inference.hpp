@@ -282,9 +282,22 @@ private:
     std::string architecture_generation_;
 };
 
+// B81 language ownership: the tokenizer is a Rust-owned capability
+// (xcorpus/src/tokenizer.rs). This class is a thin handle over the
+// xtok/v1 C ABI — resolved at run time from xcorpus.dll (xtok_abi.h),
+// fail-closed when the owner lane is absent. All tokenize/detokenize
+// state lives in the Rust lane; no C++ tokenizer implementation
+// remains in this process.
 class ByteLevelBPETokenizer {
 public:
     static ByteLevelBPETokenizer load(const std::string& tokenizer_json_path);
+
+    ByteLevelBPETokenizer() = default;
+    ~ByteLevelBPETokenizer();
+    ByteLevelBPETokenizer(const ByteLevelBPETokenizer&) = delete;
+    ByteLevelBPETokenizer& operator=(const ByteLevelBPETokenizer&) = delete;
+    ByteLevelBPETokenizer(ByteLevelBPETokenizer&& o) noexcept;
+    ByteLevelBPETokenizer& operator=(ByteLevelBPETokenizer&& o) noexcept;
 
     std::vector<int64_t> encode(
         const std::string& text,
@@ -292,29 +305,10 @@ public:
         bool add_eos = false,
         int64_t max_length = 0) const;
     std::string decode(const std::vector<int64_t>& ids, bool skip_special = true) const;
-    int64_t vocab_size() const { return vocab_size_; }
+    int64_t vocab_size() const;
 
 private:
-    struct SpecialToken {
-        std::string text;
-        int64_t id = 0;
-    };
-
-    std::unordered_map<std::string, int64_t> vocab_;
-    std::vector<std::string> id_to_token_;
-    std::vector<std::pair<std::string, std::string>> merges_;
-    std::unordered_map<std::string, int64_t> merge_rank_;
-    std::vector<SpecialToken> special_tokens_;
-    // Ids of special_tokens_ actually present in vocab_ — decode()
-    // skip_special consults this set instead of a hardcoded id range, so
-    // ordinary tokens (bundle vocab: '!' '"' '#' '$' '%' at ids 4-8) are
-    // never dropped when the bundle carries fewer special tokens.
-    std::unordered_set<int64_t> special_ids_;
-    std::vector<std::string> byte_to_token_;
-    std::unordered_map<std::string, unsigned char> token_to_byte_;
-    int64_t vocab_size_ = 0;
-
-    std::vector<int64_t> encode_segment(const std::string& text) const;
+    void* xtok_ = nullptr; // owned xtok handle; released in ~dtor
 };
 
 class NativeInferenceEngine {

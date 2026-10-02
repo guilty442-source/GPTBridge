@@ -8,10 +8,8 @@
 //! One JSON object on stdout; errors to stderr with exit 2 — the same
 //! governed-subprocess contract as xc_modeltool.
 
-mod corpus;
-mod scan;
-mod textutil;
-mod tokenizer;
+use xcorpus::corpus;
+use xcorpus::kernels;
 
 use std::process::ExitCode;
 
@@ -42,9 +40,25 @@ fn main() -> ExitCode {
         eprintln!("usage: xcorpus corpus --registry <json> --root <dir> --tokenizer <p> --out <dir> [opts]");
         return ExitCode::from(2);
     }
-    match argv[0].as_str() {
+    let cmd = argv[0].as_str();
+    let a = parse_args(&argv[1..]);
+    // star-kernel-policy/v1: --policy <path> or XCT_KERNEL_POLICY;
+    // unreadable/denied policy fails closed.
+    let pol = match kernels::policy_load(
+        &kernels::policy_path(a.get("policy")),
+    ) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::from(2);
+        }
+    };
+    if let Err(e) = kernels::policy_gate(&pol, cmd) {
+        eprintln!("{e}");
+        return ExitCode::from(2);
+    }
+    match cmd {
         "corpus" => {
-            let a = parse_args(&argv[1..]);
             let args = corpus::Args {
                 registry: a.get("registry").cloned().unwrap_or_default(),
                 root: a.get("root").cloned().unwrap_or_default(),
@@ -67,6 +81,15 @@ fn main() -> ExitCode {
                     ExitCode::from(2)
                 }
             }
+        }
+        "kernel-registry" => {
+            println!(
+                "{}",
+                serde_json::to_string(&kernels::registry_emit(
+                    a.get("policy")))
+                .unwrap()
+            );
+            ExitCode::SUCCESS
         }
         _ => {
             eprintln!("unknown mode: {}", argv[0]);

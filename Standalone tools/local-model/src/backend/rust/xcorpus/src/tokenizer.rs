@@ -3,7 +3,7 @@
 //! mapping, merge-by-lowest-rank, fixed special-token set. bos is the
 //! literal id 1 and eos the literal id 2, matching the C++ encode().
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const SPECIALS: [&str; 9] = [
     "<|pad|>", "<|bos|>", "<|eos|>", "<|unk|>", "<|system|>",
@@ -12,9 +12,12 @@ const SPECIALS: [&str; 9] = [
 
 pub struct ByteLevelBpeTokenizer {
     vocab: HashMap<String, i64>,
+    id_to_token: Vec<String>,
     merge_rank: HashMap<String, i64>,
     special_tokens: Vec<(String, i64)>, // sorted longest-first
+    special_ids: HashSet<i64>,
     byte_to_token: Vec<String>,
+    token_to_byte: HashMap<String, u8>,
 }
 
 fn push_cp_utf8(out: &mut String, cp: u32) {
@@ -105,13 +108,33 @@ impl ByteLevelBpeTokenizer {
             .filter_map(|t| vocab.get(*t).map(|&id| (t.to_string(), id)))
             .collect();
         special_tokens.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        let special_ids: HashSet<i64> =
+            special_tokens.iter().map(|(_, id)| *id).collect();
+
+        let max_id = vocab.values().copied().max().unwrap_or(-1);
+        let mut id_to_token = vec![String::new(); (max_id + 1) as usize];
+        for (tok, &id) in &vocab {
+            id_to_token[id as usize] = tok.clone();
+        }
+        let token_to_byte: HashMap<String, u8> = byte_to_token
+            .iter()
+            .enumerate()
+            .map(|(b, t)| (t.clone(), b as u8))
+            .collect();
 
         Ok(Self {
             vocab,
+            id_to_token,
             merge_rank,
             special_tokens,
+            special_ids,
             byte_to_token,
+            token_to_byte,
         })
+    }
+
+    pub fn vocab_size(&self) -> i64 {
+        self.id_to_token.len() as i64
     }
 
     fn special_at(&self, text: &[u8], pos: usize) -> Option<&(String, i64)> {
@@ -176,4 +199,120 @@ impl ByteLevelBpeTokenizer {
             .map(|p| *self.vocab.get(p).unwrap_or(&3)) // unk
             .collect()
     }
+
+    /// encode with the engine's max_length contract: truncate to
+    /// max_length and, when add_eos was requested, pin the last id to
+    /// eos — identical to the C++ tail.
+    pub fn encode_limited(
+        &self,
+        text: &[u8],
+        add_bos: bool,
+        add_eos: bool,
+        max_length: i64,
+    ) -> Vec<i64> {
+        let mut ids = self.encode(text, add_bos, add_eos);
+        if max_length > 0 && ids.len() as i64 > max_length {
+            ids.truncate(max_length as usize);
+            if add_eos {
+                if let Some(last) = ids.last_mut() {
+                    *last = 2;
+                }
+            }
+        }
+        ids
+    }
+
+    /// decode(ids, skip_special) — byte-exact port of the C++ decode:
+    /// id→token, UTF-8 units mapped back through token_to_byte, unknown
+    /// ids emit ' ' when !skip_special, then sanitize_utf8.
+    pub fn decode(&self, ids: &[i64], skip_special: bool) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for &id in ids {
+            if id < 0 || id as usize >= self.id_to_token.len() {
+                if !skip_special {
+                    bytes.push(b' ');
+                }
+                continue;
+            }
+            if skip_special && self.special_ids.contains(&id) {
+                continue;
+            }
+            let token = self.id_to_token[id as usize].as_bytes();
+            let mut i = 0usize;
+            while i < token.len() {
+                let lead = token[i];
+                let width = if lead & 0xE0 == 0xC0 {
+                    2
+                } else if lead & 0xF0 == 0xE0 {
+                    3
+                } else if lead & 0xF8 == 0xF0 {
+                    4
+                } else {
+                    1
+                };
+                if i + width > token.len() {
+                    bytes.push(b' ');
+                    break;
+                }
+                let unit = &token[i..i + width];
+                match self.token_to_byte.get(
+                    std::str::from_utf8(unit).unwrap_or(""),
+                ) {
+                    Some(&b) => bytes.push(b),
+                    None => bytes.extend_from_slice(unit),
+                }
+                i += width;
+            }
+        }
+        sanitize_utf8(&bytes)
+    }
+}
+
+// Byte-exact port of engine_json.h sanitize_utf8: ASCII passes, valid
+// multi-byte sequences pass, anything else emits U+FFFD and consumes
+// the whole truncated tail (errors='replace' semantics).
+fn sanitize_utf8(input: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(input.len());
+    let mut i = 0usize;
+    while i < input.len() {
+        let c = input[i];
+        if c < 0x80 {
+            out.push(c);
+            i += 1;
+            continue;
+        }
+        let width = if c & 0xE0 == 0xC0 {
+            2
+        } else if c & 0xF0 == 0xE0 {
+            3
+        } else if c & 0xF8 == 0xF0 {
+            4
+        } else {
+            0
+        };
+        let mut valid = width > 0 && i + width <= input.len();
+        if valid {
+            for k in 1..width {
+                if input[i + k] & 0xC0 != 0x80 {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        if valid {
+            out.extend_from_slice(&input[i..i + width]);
+            i += width;
+        } else {
+            out.extend_from_slice(&[0xEF, 0xBF, 0xBD]);
+            if width > 0 {
+                i += 1;
+                while i < input.len() && input[i] & 0xC0 == 0x80 {
+                    i += 1;
+                }
+            } else {
+                i += 1;
+            }
+        }
+    }
+    out
 }

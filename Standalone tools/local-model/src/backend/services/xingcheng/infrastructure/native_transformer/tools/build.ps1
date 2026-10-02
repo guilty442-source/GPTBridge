@@ -30,4 +30,13 @@ if ($env:CUDA_PATH -and
 if (!(Test-Path (Join-Path $root 'obj'))) { New-Item -ItemType Directory (Join-Path $root 'obj') | Out-Null }
 cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc $cudaDefs /I`"$incNat`" /I`"$incCpp`" /I`"$cppSrc`" /I`"$train`" $cudaInc `"$root\xc_modeltool.cpp`" `"$engine`" `"$cppSrc\cuda_bridge.cpp`" `"$cppSrc\cuda_kernels.cpp`" `"$nat\transformer.c`" `"$nat\kv_pool.c`" /Fe`"$exe`" /Fo`"$root\obj\\`" /link $cudaLib"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Output "built: $exe"
+# Rust tokenizer lane (B81): xcorpus.dll provides the xtok/v1 ABI the
+# engine binds at run time; it must sit next to the consuming exe.
+$xcorpus = Join-Path $repo 'Standalone tools\local-model\src\backend\rust\xcorpus'
+$xtok = Join-Path $xcorpus 'target\release\xcorpus.dll'
+if (!(Test-Path $xtok)) {
+    cargo build --release --manifest-path (Join-Path $xcorpus 'Cargo.toml') | Out-Null
+    if (!(Test-Path $xtok)) { Write-Error "xcorpus.dll missing — tokenizer lane unavailable"; exit 1 }
+}
+Copy-Item $xtok (Join-Path $root 'xcorpus.dll') -Force
+Write-Output "built: $exe (+ xcorpus.dll tokenizer lane)"

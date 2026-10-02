@@ -667,8 +667,12 @@ pub fn run(a: &Args) -> Result<String, String> {
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0),
         textutil::json_escape(
+            // std::fs::canonicalize on Windows returns the verbatim
+            // "\\?\C:\" form; strip the prefix to match the C++ lane's
+            // std::filesystem::absolute output byte-for-byte.
             &std::fs::canonicalize(&root)
                 .map(|p| p.to_string_lossy().into_owned())
+                .map(|s| s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
                 .unwrap_or_else(|_| a.root.clone())
         ),
         textutil::json_escape(&a.registry),
