@@ -1,0 +1,955 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "sql-migration-registry-reconciliation-20261002",
+    "title":  "Reconcile sql_migration_registry with live migration sources and open governed registration for the unregistered backlog",
+    "summary":  "Registry/live reconciliation: restamp 15 intentionally revised source hashes, retire 4 deliberately removed files, register 89 unregistered migration files (hashes precomputed); plus two recipe/sequence decisions for the governor.",
+    "requested_by":  "devin-cli-evidence-worker",
+    "origin":  "Worker evidence gathering under ordered-release preparation; measurement via GPTBridge.CodexPipeline --migration-status (migration-executor-status/v1) against live gptbridge DB; no execution authority requested",
+    "problem":  {
+                    "summary":  "sql_migration_registry diverges from shared-layer/migrations: 15 registered rows carry source hashes of pre-repair files, 4 rows name files deliberately deleted at lane retirement, and 89 on-disk migration files have no registry row. sql_migration_receipt_registry holds 0 receipts and sql_schema_drift_evidence is stale UNVERIFIED/FAIL_CLOSED. The governed executor exists (MigrationExecutor.cs, scratch-verified) but cannot legally apply anything until the registry is reconciled."
+                },
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "auto_execute":  false,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-02T11:31:06Z",
+                        "revision_sequence":  234,
+                        "version_identity":  "E2:2026-10-02T11:31:06Z",
+                        "history_head":  "9513b490189ec518498c39c60a6c4c8ba60739175a502e700c38d6a2ec314c54",
+                        "observed_head_at_authoring":  "2026-10-02T11:40:02Z",
+                        "basis_note":  "predecessor pinned to last ledger-verified basis (rev 234); head advanced during authoring — re-stamp at governor intake"
+                    },
+    "changes":  [
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000008",
+                                    "sequence":  "8"
+                                },
+                        "proposed":  "bf4ed0782d5aab20fea152455982f9be075748f4d6e7eb3628aa6db87ee34aa1",
+                        "evidence":  "live sha256 of shared-layer/migrations/008_rls_role_isolation.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000009",
+                                    "sequence":  "9"
+                                },
+                        "proposed":  "ed57fe91c45f4a2318088f9937881e095095b024e7ef7c92f26f7ea18c7c3cfb",
+                        "evidence":  "live sha256 of shared-layer/migrations/009_rag_canonical_execution_columns.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000011",
+                                    "sequence":  "11"
+                                },
+                        "proposed":  "347a818df88ee2380518300aef6c69e54b6f5a69737e176b5694cf2d4d3fb6df",
+                        "evidence":  "live sha256 of shared-layer/migrations/011_data_invariants.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000012",
+                                    "sequence":  "12"
+                                },
+                        "proposed":  "f4f8b5eef8efe025d5847bb7dd04d7249a642326963317f6ab228d08f64833b4",
+                        "evidence":  "live sha256 of shared-layer/migrations/012_cross_engine_consistency.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000018",
+                                    "sequence":  "18"
+                                },
+                        "proposed":  "2d45f9a3ca3daa30822cce19cfd0c8a068055962e1c6725bfdfa5122a0f7044b",
+                        "evidence":  "live sha256 of shared-layer/migrations/018_data_lineage.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000019",
+                                    "sequence":  "19"
+                                },
+                        "proposed":  "6096497e1aeaef60e794a5f78ef0625e7e18979e8a763e102273e4e4a32e627a",
+                        "evidence":  "live sha256 of shared-layer/migrations/019_authority_marker.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000021",
+                                    "sequence":  "21"
+                                },
+                        "proposed":  "73215ea63f9fae66c7dbdfdddc1340446dfa32b0fa9563f8b9f3acc0144c173a",
+                        "evidence":  "live sha256 of shared-layer/migrations/021_permission_snapshot.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000022",
+                                    "sequence":  "22"
+                                },
+                        "proposed":  "ede38934c86be03d36faf5c867b7e349caace1bc44c03af98dab64f80a8e7fe6",
+                        "evidence":  "live sha256 of shared-layer/migrations/022_schema_ownership_lock.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000023",
+                                    "sequence":  "23"
+                                },
+                        "proposed":  "12998067d8851766d63a4c586af082bb6b91f10e10dd9c8a332305f8042653f7",
+                        "evidence":  "live sha256 of shared-layer/migrations/023_ddl_audit.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000028",
+                                    "sequence":  "28"
+                                },
+                        "proposed":  "e7292a7fedb47e10263f9d9fb5ac40e29af348bf00a9258bf0fe69b536ec799c",
+                        "evidence":  "live sha256 of shared-layer/migrations/028_rebuild_certification.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000029",
+                                    "sequence":  "29"
+                                },
+                        "proposed":  "5065cb204347b933a4c569ac121062023454d3417bc1a47d96338970a85cf17b",
+                        "evidence":  "live sha256 of shared-layer/migrations/029_watchdog_bloat_rpo_rto.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000030",
+                                    "sequence":  "30"
+                                },
+                        "proposed":  "6bd7e4a52a911d2c7d8bea4da21cf0baaacda499e0933bb169456733c5c5bd5e",
+                        "evidence":  "live sha256 of shared-layer/migrations/030_readonly_domain_startup_cert.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000031",
+                                    "sequence":  "31"
+                                },
+                        "proposed":  "cbccd7b66cf344f2b57c9cdf798cdeb5407e331834d8d394415b1e507cf295a1",
+                        "evidence":  "live sha256 of shared-layer/migrations/031_slo_metrics.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000035",
+                                    "sequence":  "35"
+                                },
+                        "proposed":  "01f52c27f66f6c0e74f23ef4f6afba1a954540edb6389c13747a0e1a1d9cbb34",
+                        "evidence":  "live sha256 of shared-layer/migrations/035_audit_hot_history_separation.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "migration_source_hash",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000040",
+                                    "sequence":  "40"
+                                },
+                        "proposed":  "321271593f43809b7dce4416eab18afb892ac7ab9cd35c344185064b1a886155",
+                        "evidence":  "live sha256 of shared-layer/migrations/040_database_release_manifest.sql; file intentionally revised post-registration (see git 2026-09-26 repair commits), current file is canonical"
+                    },
+                    {
+                        "field":  "status",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000025",
+                                    "sequence":  "25"
+                                },
+                        "proposed":  "retired-source-removed",
+                        "evidence":  "shared-layer/migrations/025_sqlite_generation_fence.sql deleted deliberately (sqlite/qdrant lane retirement 2026-09-26); no replacement exists and any new file can never hash-match the registered value"
+                    },
+                    {
+                        "field":  "status",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000037",
+                                    "sequence":  "37"
+                                },
+                        "proposed":  "retired-source-removed",
+                        "evidence":  "shared-layer/migrations/037_sqlite_classification.sql deleted deliberately (sqlite/qdrant lane retirement 2026-09-26); no replacement exists and any new file can never hash-match the registered value"
+                    },
+                    {
+                        "field":  "status",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000045",
+                                    "sequence":  "45"
+                                },
+                        "proposed":  "retired-source-removed",
+                        "evidence":  "shared-layer/migrations/045_sqlite_template_release.sql deleted deliberately (sqlite/qdrant lane retirement 2026-09-26); no replacement exists and any new file can never hash-match the registered value"
+                    },
+                    {
+                        "field":  "status",
+                        "table":  "sql_migration_registry",
+                        "key":  {
+                                    "migration_id":  "MIG_PG_000046",
+                                    "sequence":  "46"
+                                },
+                        "proposed":  "retired-source-removed",
+                        "evidence":  "shared-layer/migrations/046_qdrant_contract_version.sql deleted deliberately (sqlite/qdrant lane retirement 2026-09-26); no replacement exists and any new file can never hash-match the registered value"
+                    }
+                ],
+    "proposed_registrations":  [
+                                   {
+                                       "filename_prefix":  50,
+                                       "forward_identity":  "shared-layer/migrations/050_unified_lifecycle_state.sql",
+                                       "migration_source_hash":  "1d0e0bd6ab63c3ec1129f958a632fdfa5f1470b5cfb69aa79aff4f56064c7461",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  51,
+                                       "forward_identity":  "shared-layer/migrations/051_transport_retention.sql",
+                                       "migration_source_hash":  "7dfdacfb2c60387598ea9bcbc6d5319cb187283142d459290914816688724d1d",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  52,
+                                       "forward_identity":  "shared-layer/migrations/052_audit_retention_layering.sql",
+                                       "migration_source_hash":  "04eeb2816b9f06b7b35277a381fc2fe3c60038bf9157fbbd11f0dc486f1fd678",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  55,
+                                       "forward_identity":  "shared-layer/migrations/055_purge_queue.sql",
+                                       "migration_source_hash":  "e581d0b637f555c14633bc2c1a70361d99b3eaf5c241fb47381d92a10abdeecb",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  56,
+                                       "forward_identity":  "shared-layer/migrations/056_archive_catalog.sql",
+                                       "migration_source_hash":  "9e6b24db5e8774ee3c8961bfec2ae8146e5d1954f9d51faeaeb85275d5b16b81",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  57,
+                                       "forward_identity":  "shared-layer/migrations/057_archive_versioning.sql",
+                                       "migration_source_hash":  "0503258eb3d6db430c1de3f00ee478f639a19fb0023b2a3936c672bba2931d85",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  58,
+                                       "forward_identity":  "shared-layer/migrations/058_transport_priority_queue.sql",
+                                       "migration_source_hash":  "e66d66322ce543873626ac033081eeddc9de8a793ad2b077b2307eb82ca96da9",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  59,
+                                       "forward_identity":  "shared-layer/migrations/059_retention_hold.sql",
+                                       "migration_source_hash":  "c76ae1189217c37c47fcc7a6f0a010e7abb76dd2f6ebc7980be6565a60bab5db",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  60,
+                                       "forward_identity":  "shared-layer/migrations/060_dependency_check.sql",
+                                       "migration_source_hash":  "e6a931c9b179d51c1f894d1e778d938c1ff59bea1cc06cab7ed528850404be2e",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  61,
+                                       "forward_identity":  "shared-layer/migrations/061_archive_restore_test.sql",
+                                       "migration_source_hash":  "bbf7ab605391bcbf81f67080277d0ba3408a20c42d8191d4b5b08a2d2079fc59",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  62,
+                                       "forward_identity":  "shared-layer/migrations/062_capacity_quota.sql",
+                                       "migration_source_hash":  "8f95490ed7395e41b65c5931c08546dc05561b80a3d94c0c0b42ed72fbca8e4d",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  63,
+                                       "forward_identity":  "shared-layer/migrations/063_purge_audit.sql",
+                                       "migration_source_hash":  "d9997ba29e42d3fb7a0951eebd4fe5bac48cd0faa54819da80efce4491caac3d",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  64,
+                                       "forward_identity":  "shared-layer/migrations/064_audit_hash_chain.sql",
+                                       "migration_source_hash":  "8c7f22f6d5a2dc23dd56fba0349e485115fea7c01f2e4d9e919329c995fe5ee0",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  65,
+                                       "forward_identity":  "shared-layer/migrations/065_reconcile_batch_digest.sql",
+                                       "migration_source_hash":  "e0e022df735178bbe6967d16123aa78c6ec93d9faebf5beb68a099b8bd59a979",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  66,
+                                       "forward_identity":  "shared-layer/migrations/066_resource_content_hash.sql",
+                                       "migration_source_hash":  "3f95e34b99893076e2a6ece6bc709b2b4dfdf4e27864b87e7ddbb6e3cc3a46c1",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  69,
+                                       "forward_identity":  "shared-layer/migrations/069_merkle_root.sql",
+                                       "migration_source_hash":  "98eb5e86bb278852934c9c3706251e5702c2d87b7e002e2fbbd4da20eaafbc1d",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  70,
+                                       "forward_identity":  "shared-layer/migrations/070_integrity_snapshot.sql",
+                                       "migration_source_hash":  "1774a446e1a7731395d4d7304a3e6eff44c8eb927f9166ed339192cf920fc307",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  71,
+                                       "forward_identity":  "shared-layer/migrations/071_restore_verification.sql",
+                                       "migration_source_hash":  "8633bf32d70de4fa829f6d321b5b9317785210f91e73993978e8350461f9dd21",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  72,
+                                       "forward_identity":  "shared-layer/migrations/072_tamper_state.sql",
+                                       "migration_source_hash":  "f410ecb20e0129005c208d5dbe572a6d6674117a2e5abd96e07aad90ec90bf2e",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  73,
+                                       "forward_identity":  "shared-layer/migrations/073_fail_closed.sql",
+                                       "migration_source_hash":  "352dcf8c115532086139e2b0de8a9cf9cb0464a4c7d818ad9ed4850a5651fa29",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  74,
+                                       "forward_identity":  "shared-layer/migrations/074_version_lock.sql",
+                                       "migration_source_hash":  "3c0739f44f7fc160664bc90db5376e97a6e08a9b37b46948e6a79cf16441457c",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  75,
+                                       "forward_identity":  "shared-layer/migrations/075_compatibility_matrix_ext.sql",
+                                       "migration_source_hash":  "602f6265ae7a9d45ccc094de005ec69345dfa0ca7968604f4e7ba47fb3e06acc",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  76,
+                                       "forward_identity":  "shared-layer/migrations/076_upgrade_classification.sql",
+                                       "migration_source_hash":  "a3b4121a6c8686b60bcb791e7b28fa6fe903a31484ed15389798840461376bc1",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  77,
+                                       "forward_identity":  "shared-layer/migrations/077_driver_compatibility_test.sql",
+                                       "migration_source_hash":  "1127b23511aeea045c0515b360fd697f60d7f399388420472a3d94cd77443ef2",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  78,
+                                       "forward_identity":  "shared-layer/migrations/078_pg_major_upgrade_rehearsal.sql",
+                                       "migration_source_hash":  "132d134375e6b9c9fd8320d9c95f19df100608582898e0106f769cc815843758",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  81,
+                                       "forward_identity":  "shared-layer/migrations/081_sbom_dependency_inventory.sql",
+                                       "migration_source_hash":  "fb9ae624546a5dfd316b79604c1923381346052ffc160d3d8b490f16278f48a2",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  82,
+                                       "forward_identity":  "shared-layer/migrations/082_vulnerability_risk.sql",
+                                       "migration_source_hash":  "7444bb7b29fe9f038cb438dcbf97dce19baec061f36dd1babb790234c47bc070",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  83,
+                                       "forward_identity":  "shared-layer/migrations/083_dependency_drift.sql",
+                                       "migration_source_hash":  "8b90e0dc8cb259cb43f0227fad615bebdcdab302fb77d7db936e448d9651643e",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  84,
+                                       "forward_identity":  "shared-layer/migrations/084_offline_bundle.sql",
+                                       "migration_source_hash":  "f0bb51a966a3a40d545cfefcd751a2af39663249b3a14ab838a3bb98aa9aae3b",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  85,
+                                       "forward_identity":  "shared-layer/migrations/085_release_signature.sql",
+                                       "migration_source_hash":  "a7f736d4849be08261c759b92310335e5b0eee473c250469cc1eec8b4818b267",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  86,
+                                       "forward_identity":  "shared-layer/migrations/086_lineage_core.sql",
+                                       "migration_source_hash":  "d941270453794426b286bb1c02a4a75147d4797eccf3f6a3f4b8b2de6f3f9968",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  87,
+                                       "forward_identity":  "shared-layer/migrations/087_read_models.sql",
+                                       "migration_source_hash":  "c18a71403e4095a58d491aad7988a75588804789bae6e38819dd5d01bf4fd82c",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "prefix-collision-087/088-pair requires explicit sequence assignment",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  87,
+                                       "forward_identity":  "shared-layer/migrations/087_security_identity_control.sql",
+                                       "migration_source_hash":  "e5674db94d6f71fe6c7a996a98a3258ab520beecf051275988084691f5d489d6",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "prefix-collision-087/088-pair requires explicit sequence assignment",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  88,
+                                       "forward_identity":  "shared-layer/migrations/088_rag_capacity_governance.sql",
+                                       "migration_source_hash":  "a3be7ee1e698486e00f309f1cf0d50602b48cce4b89a7cfe4e6e75ef8e9b84f5",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "prefix-collision-087/088-pair requires explicit sequence assignment",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  88,
+                                       "forward_identity":  "shared-layer/migrations/088_recovery_plan.sql",
+                                       "migration_source_hash":  "12073317326cef0f200b8a52cc3ac3f60519bafec1be8ac0e62747daff9f34dc",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "prefix-collision-087/088-pair requires explicit sequence assignment",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  89,
+                                       "forward_identity":  "shared-layer/migrations/089_recovery_incident.sql",
+                                       "migration_source_hash":  "72c41eca930bb13198e73601b32b8176a136b861a10eded72a4ee8314e4b36dc",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  90,
+                                       "forward_identity":  "shared-layer/migrations/090_recovery_state_machine.sql",
+                                       "migration_source_hash":  "6bd319a706400489bbbca5363eee8d37e5935f98feeea4ebc1337628e9349594",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  91,
+                                       "forward_identity":  "shared-layer/migrations/091_pg_offline_recovery.sql",
+                                       "migration_source_hash":  "b4af9f2ff8d59509df013e743f49fb6025810b5dad5b4b798d73cf050aa5ca86",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  92,
+                                       "forward_identity":  "shared-layer/migrations/092_pg_recovery_verification.sql",
+                                       "migration_source_hash":  "ddf21472fe4efe4e2eebe8bd72e8dd9d2d56353bd34865dbdf2e1ce70a4deabc",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  93,
+                                       "forward_identity":  "shared-layer/migrations/093_reconcile_recovery_phase.sql",
+                                       "migration_source_hash":  "2d36380b3246c04a4b1241f5723112506d3f16fea6fab5223ab14d9e48863ca3",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  94,
+                                       "forward_identity":  "shared-layer/migrations/094_recovery_generation.sql",
+                                       "migration_source_hash":  "9f3304e7a86b71b48d5f329eafc333dbb6cfe8949b60055557fb28f953db5876",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  95,
+                                       "forward_identity":  "shared-layer/migrations/095_recovery_barrier.sql",
+                                       "migration_source_hash":  "69e4ff8660cf51837bd70e8f6d27c041e8f957736fa133a4347d526bba2806b6",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  96,
+                                       "forward_identity":  "shared-layer/migrations/096_transport_recovery.sql",
+                                       "migration_source_hash":  "365c48d7e0f1cd03b6fe991a92a7316a5609b26913391bc571fb18fcc4142438",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  97,
+                                       "forward_identity":  "shared-layer/migrations/097_unknown_commit_resolution.sql",
+                                       "migration_source_hash":  "62c55ef0e492aa394b715a91bd03d75fe820b70793dd60e1f02a62be2a7db551",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  98,
+                                       "forward_identity":  "shared-layer/migrations/098_lease_recovery.sql",
+                                       "migration_source_hash":  "706999b94dcea37114b87981c3b355d0aaa37a92a68c0efdfcc55cfffb259d3f",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  100,
+                                       "forward_identity":  "shared-layer/migrations/100_recovery_priority.sql",
+                                       "migration_source_hash":  "a63ce457c808016140b91ac0d7daeb80b26e52f24550b6fb8c012e0ce4965738",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  105,
+                                       "forward_identity":  "shared-layer/migrations/105_backup_restore_orchestration.sql",
+                                       "migration_source_hash":  "25f9e2cada3ceb72c504038caab896460dfe264193a90b8ec45ac534957a999a",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  106,
+                                       "forward_identity":  "shared-layer/migrations/106_pitr_boundary.sql",
+                                       "migration_source_hash":  "de88318f12b4c46b8d84bf13997c9027b51fca37479899195a97576671b2bba8",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  107,
+                                       "forward_identity":  "shared-layer/migrations/107_recovery_retry_policy.sql",
+                                       "migration_source_hash":  "7bcdc8ee8422bb949c3854853037ee51133dad17628a012b23f62023a4d73967",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  108,
+                                       "forward_identity":  "shared-layer/migrations/108_recovery_checkpoint.sql",
+                                       "migration_source_hash":  "ff0f3fd2ecd1e500566d95b16720cd033db4fdd167347a788d09e4453c756d27",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  109,
+                                       "forward_identity":  "shared-layer/migrations/109_recovery_idempotency.sql",
+                                       "migration_source_hash":  "7eca922c83c70be1f2c0ad7fd5d30d505dfc0c341c54b699a7293f627e9855a1",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  110,
+                                       "forward_identity":  "shared-layer/migrations/110_recovery_safety_fence.sql",
+                                       "migration_source_hash":  "e608b3c025a063600fff2787e49cd7021d8fd2f68b8394f002e049e180f980cb",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  111,
+                                       "forward_identity":  "shared-layer/migrations/111_chaos_drill.sql",
+                                       "migration_source_hash":  "a299458964276c6b3978b738eb5c3cb6014ae9d224b255316bf4c294d5ef808f",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  112,
+                                       "forward_identity":  "shared-layer/migrations/112_recovery_certification.sql",
+                                       "migration_source_hash":  "5d9ae19534630d57c4c58b895e09633f551eb5da01669aa15749f91f52ff24bc",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  113,
+                                       "forward_identity":  "shared-layer/migrations/113_workflow_operation.sql",
+                                       "migration_source_hash":  "485e6000388abf1f1a81d089dfca3f15e2d5c5db38d25d103e437404e17673e6",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  114,
+                                       "forward_identity":  "shared-layer/migrations/114_data_layer_contract.sql",
+                                       "migration_source_hash":  "afeb960501136242799ef83570975da06894c65ac567645da07bd8a8f29cef80",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  115,
+                                       "forward_identity":  "shared-layer/migrations/115_dependency_classification.sql",
+                                       "migration_source_hash":  "b0b65116a373e06399c6a39396ec25a27c66d1d40eed3f8297c05c3a49d525a0",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  116,
+                                       "forward_identity":  "shared-layer/migrations/116_startup_phase.sql",
+                                       "migration_source_hash":  "ece211cb6a0617eaf4022c14e917e32f781ecab2a0316e39d5c6eef22facf48c",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  117,
+                                       "forward_identity":  "shared-layer/migrations/117_startup_phase_gate.sql",
+                                       "migration_source_hash":  "4eda3e26880cb55e51beb3f63bd1b5359beed4767af72a27efe0fd53574449a4",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  118,
+                                       "forward_identity":  "shared-layer/migrations/118_schema_readiness.sql",
+                                       "migration_source_hash":  "6f78405fb5984e186e44621b826388df660abd05409b4e24d38c3de67d434cbe",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  119,
+                                       "forward_identity":  "shared-layer/migrations/119_rag_readiness_gate.sql",
+                                       "migration_source_hash":  "83ef40a14d976facb0909502242c72df75201cfbf5d7ba0dcbee17a9da0e01cf",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  120,
+                                       "forward_identity":  "shared-layer/migrations/120_shutdown_phase.sql",
+                                       "migration_source_hash":  "b9e1c12ad45d7d6705d0192afbb0ea2dc216e7981bc99c8cd80e6bb70d572462",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  121,
+                                       "forward_identity":  "shared-layer/migrations/121_shutdown_audit.sql",
+                                       "migration_source_hash":  "706596200ec1faabc83952f7275af8fd6173d82a5379c099f2e104135fdb90a1",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  122,
+                                       "forward_identity":  "shared-layer/migrations/122_unclean_shutdown_detection.sql",
+                                       "migration_source_hash":  "1248cc282a332bfe39528a45e8eccf4766384e73ed2318a0d957bdd654799805",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  123,
+                                       "forward_identity":  "shared-layer/migrations/123_cache_invalidation_policy.sql",
+                                       "migration_source_hash":  "f13205282de3261bde64ef558e67203bf66340a83f90975b4540429baa1faef4",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  124,
+                                       "forward_identity":  "shared-layer/migrations/124_data_layer_dependency_graph.sql",
+                                       "migration_source_hash":  "763b27fe86e0e5901fc9129a7843a53ab5724cc8c0a243453b902a81e948f6a6",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  125,
+                                       "forward_identity":  "shared-layer/migrations/125_integration_rule.sql",
+                                       "migration_source_hash":  "439a1712cdffad14c937172dd924ed67e43d84e2bde8622127b2463860c5c0fc",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  126,
+                                       "forward_identity":  "shared-layer/migrations/126_transport_lease_idempotency_catchup.sql",
+                                       "migration_source_hash":  "611529b6a73045848b813352660cc7b3158e06cfe15c13aa46a0604762db2f8c",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  127,
+                                       "forward_identity":  "shared-layer/migrations/127_audit_hash_chain_insert_time.sql",
+                                       "migration_source_hash":  "3b6306fca69137b676d22ae2b7669e2fb94cccbb0b0d0a2f57d51102a5881b53",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  128,
+                                       "forward_identity":  "shared-layer/migrations/128_ddl_guard_role_fence_and_workflow_fingerprint.sql",
+                                       "migration_source_hash":  "ee7b437ef3e81792855ad73b2698718a1e8855e2143254afd9e6e8a4a4db50cf",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  129,
+                                       "forward_identity":  "shared-layer/migrations/129_permission_projection_runtime.sql",
+                                       "migration_source_hash":  "afdaf453ae69d2c052cea0f5c3dbb6cea499954aaed2d96f2fada76ee3d5e18e",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  130,
+                                       "forward_identity":  "shared-layer/migrations/130_maintenance_schema.sql",
+                                       "migration_source_hash":  "cd322764ac9b41819a5b2c3876ca9432edb551c6b19320884cf8e63166540dbd",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  131,
+                                       "forward_identity":  "shared-layer/migrations/131_rag_generation_registry.sql",
+                                       "migration_source_hash":  "bc331e340462b4fdb328f792b5fae10553a4fbf27b25124144574ccfa38d660e",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  133,
+                                       "forward_identity":  "shared-layer/migrations/133_rag_canonical_outbox_event.sql",
+                                       "migration_source_hash":  "e5de02f259ca828c5d1efe9086df97221aadbec43004d977507e64bfd8e14e95",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  134,
+                                       "forward_identity":  "shared-layer/migrations/134_trading_system.sql",
+                                       "migration_source_hash":  "1d63faa8ead08e525ef3df5fd69a720aa8a3396ad727da5e20fe1fe881e3dfea",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  135,
+                                       "forward_identity":  "shared-layer/migrations/135_market_data.sql",
+                                       "migration_source_hash":  "8617a07cd91b7fb262b28c705785cebd005cdb06ba9626c8e2317cd595a776b0",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  136,
+                                       "forward_identity":  "shared-layer/migrations/136_fund_data.sql",
+                                       "migration_source_hash":  "e5b489c3df4a77a8d5424837d88c2dfee38dfa31b614bd8853e87b42442befa8",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  137,
+                                       "forward_identity":  "shared-layer/migrations/137_ai_intelligence.sql",
+                                       "migration_source_hash":  "582391165fcdaa2d10d3a312bbab1bb66a196eebe94a4abad5b2c3b283cc128e",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  138,
+                                       "forward_identity":  "shared-layer/migrations/138_strategy_backtest.sql",
+                                       "migration_source_hash":  "2f27eb9413f213cf21cc61a15ede29d628642bd06cb9d6d6f42937338f50fe31",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  139,
+                                       "forward_identity":  "shared-layer/migrations/139_simulation_trading.sql",
+                                       "migration_source_hash":  "69257953ec99acc4dc1b1c2c001243c8208f3664c3bd99f9683a596629b71cf3",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  140,
+                                       "forward_identity":  "shared-layer/migrations/140_live_trading.sql",
+                                       "migration_source_hash":  "820490c120f558167ea1437f6ff6d0bda1e1593a485ca1004bcdf80a886c48be",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  141,
+                                       "forward_identity":  "shared-layer/migrations/141_offline_broker.sql",
+                                       "migration_source_hash":  "b05bf0065925c033fe1c0583c1ba4521cf746d8b9391c9a26b1d9e1362cbc1d8",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  142,
+                                       "forward_identity":  "shared-layer/migrations/142_asset_management.sql",
+                                       "migration_source_hash":  "d8e932b600fbd5e5615eebd043d0921ea7a3be9316c794cffcc4dc79acebc633",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  143,
+                                       "forward_identity":  "shared-layer/migrations/143_monitoring_center.sql",
+                                       "migration_source_hash":  "792a64c8725dedf27beefd77ee8878580e30bb24f5c91b33240d06f0b52eece3",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  144,
+                                       "forward_identity":  "shared-layer/migrations/144_autotrading_center.sql",
+                                       "migration_source_hash":  "579a168967350fa29e7d1890a0f92bc09386662befff9167d95674f7492551b5",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  145,
+                                       "forward_identity":  "shared-layer/migrations/145_baseline_reanchor.sql",
+                                       "migration_source_hash":  "8ec7564fe85e16ca4c38158c602daf6bfb7ab56f06613116fdf0cc7623ec30d9",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  146,
+                                       "forward_identity":  "shared-layer/migrations/146_governance_nonce.sql",
+                                       "migration_source_hash":  "e607cfddfab4c72f218ca153b40c07819fe1c91da959ebda483f77dd7a047902",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  147,
+                                       "forward_identity":  "shared-layer/migrations/147_state_outbox.sql",
+                                       "migration_source_hash":  "2c34c8dbfc3aa8331da38d6ded6c5066a99e0c15546e777e49ba5b7d5ce2a34c",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   },
+                                   {
+                                       "filename_prefix":  148,
+                                       "forward_identity":  "shared-layer/migrations/148_rag_canonical_chunk_embedding.sql",
+                                       "migration_source_hash":  "05febb22885ea0a1aa5933dbfe514f24c3444fd99f28af0066ea5e0d9cf0b2eb",
+                                       "proposed_status":  "registered-pending-governed-apply",
+                                       "sequence_note":  "",
+                                       "target_schema_hash":  "TO_BE_EVIDENCED_AT_APPLY (executor computes OBJECT_MANIFEST_V1 live post-state inside the governed transaction)"
+                                   }
+                               ],
+    "governor_decisions":  [
+                               "registry-status vocabulary for source-removed rows (proposed: retired-source-removed)",
+                               "dense vs sparse sequence numbering for the 89 registrations and explicit assignment for the 087/088 filename-prefix collisions",
+                               "target_schema_hash recipe identity: confirm registry-historical recipe equals executor OBJECT_MANIFEST_V1, or authorize a manifest-recipe restamp alongside",
+                               "authorization to apply the reconciled chain under the governed executor once registered (not requested here; separate governed apply decision)"
+                           ],
+    "evidence":  {
+                     "measured":  "migration-executor-status/v1 live output 2026-10-02: registry_rows=50, match=30, SQL_SCHEMA_VERSION_MISMATCH=15, SOURCE_FILE_MISSING=4, unregistered_files=89, committed_receipts=0, next_applicable_sequence=1",
+                     "artifacts":  [
+                                       "governance_rule/execution/audit/convergence/migration-live-catalog-probe-20261002.json",
+                                       "governance_rule/execution/audit/convergence/implementation-obligations-evidence-refresh-20261002.json"
+                                   ]
+                 },
+    "acceptance":  {
+                       "expected_state":  "registry source hashes match on-disk files or rows are retired; every migration file is either registered or explicitly excluded; executor can legally walk next_applicable_sequence under governor authorization",
+                       "criteria":  [
+                                        "0 source-hash mismatches",
+                                        "0 registry rows naming absent files without retired status",
+                                        "89 files registered or excluded with recorded reason",
+                                        "receipt chain begins only after governor apply authorization"
+                                    ]
+                   }
+}

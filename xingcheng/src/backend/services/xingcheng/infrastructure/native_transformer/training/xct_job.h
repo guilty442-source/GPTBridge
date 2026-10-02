@@ -865,6 +865,23 @@ static JsonValue run_job(const JsonValue& job) {
     // transitions the job to PAUSED_BY_RESOURCE_GOVERNOR.
     put("paused", bol(paused_by_governor));
     put("paused_at_step", num(paused_by_governor ? step : -1));
+    // §54 star-resource-usage-receipt/v1 producer half: when the job
+    // ran inside a grant, the report carries the usage facts the
+    // governance plane folds into the receipt it submits to xstore.
+    if (grant_id_env && grant_id_env[0]) {
+        JsonValue rc; rc.type = JsonValue::Type::Object;
+        rc.object.emplace_back("format",
+            str("star-resource-usage-receipt/v1"));
+        rc.object.emplace_back("grant_id", str(grant_id_env));
+        rc.object.emplace_back("cpu_threads_used",
+            num((double)tpu_threads()));
+        rc.object.emplace_back("wall_time_s", num(now_s() - t0));
+        rc.object.emplace_back("steps_completed", num(step));
+        rc.object.emplace_back("paused", bol(paused_by_governor));
+        rc.object.emplace_back("checkpoint_path",
+            str(tc.emit_ckpt.c_str()));
+        put("resource_receipt", rc);
+    }
     put("params_finite", bol(finite));
     put("checkpoint_emitted", bol(emitted));
     put("checkpoint_path", str(tc.emit_ckpt.c_str()));

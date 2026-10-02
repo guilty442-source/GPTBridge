@@ -339,5 +339,30 @@ int main() {
     }
     NT_END_TEST(SUITE, "renew_extends_valid_until");
 
+    /* 場景 B（§56 dynamic resize）：quota 12→4，既有 grant 必須被重寫
+     * 為更小上限（signature 變動 → 覆寫＋稽核），threads 不得維持 8。 */
+    NT_TEST(SUITE, "grant_cycle_resize_shrinks_existing_grant") {
+        const fs::path dir = temp_state_dir();
+        write_request_file(dir, "rr-b");
+        gov::Snapshot snap = snap_with_budget(12, false);
+        auto stats = gr::run_grant_cycle(dir, snap, rules_gpu_on(),
+                                         1000.0);
+        NT_CHECK(stats.granted + stats.partial == 1, "granted");
+        /* 第二輪：同一 request，類別配額縮到 4。 */
+        snap = snap_with_budget(4, false);
+        stats = gr::run_grant_cycle(dir, snap, rules_gpu_on(), 1010.0);
+        jl::JsonValue doc = jl::JsonParser(
+            read_text(dir / "resource-grants" / "rr-b.json")).parse();
+        const jl::JsonValue* g = doc.get("grant");
+        NT_CHECK(g != nullptr &&
+                     g->type == jl::JsonValue::Type::Object,
+                 "grant still live after resize");
+        NT_CHECK(g->get("cpu_threads_max")->number <= 4.0,
+                 "resized down to quota (spec §56)");
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    }
+    NT_END_TEST(SUITE, "grant_cycle_resize_shrinks_existing_grant");
+
     return native_tests::report("resource_governor_grants_suite.json");
 }

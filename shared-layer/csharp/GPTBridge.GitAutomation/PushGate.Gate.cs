@@ -103,6 +103,13 @@ internal static partial class PushGate
                     return Done("suite-manifest-missing");
                 gate["rebuilt"] = true;
             }
+            // Rust tokenizer backend (xcorpus.dll) is a cargo artifact,
+            // never checked in: stage it next to the suites before the
+            // orchestrator run, or fail closed with the lane detail.
+            var rustBackend = EnsureXcorpusBackend(
+                root, binDir, config.BuildTimeoutS);
+            if (rustBackend is not null)
+                return Done($"xcorpus-backend:{rustBackend}");
             var run = Git.Exec(exe, binDir, new[]
             {
                 "--run", "--bin", binDir,
