@@ -442,7 +442,7 @@ internal sealed class AiAssistantExecutor
         return Ok(new JsonObject
         {
             ["positions"] = positions,
-            ["funds"] = positions,
+            ["funds"] = positions.DeepClone(),
             ["data_state"] = positions.Count > 0
                 ? "manual-journal" : "empty",
         });
