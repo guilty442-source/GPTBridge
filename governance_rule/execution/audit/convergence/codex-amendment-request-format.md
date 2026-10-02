@@ -17,9 +17,14 @@ rewritten. v2 applies to new submissions only.
   automatically retired by renaming `….json` → `….json.<state>`
   (`.executed` / `.rejected` / `.withdrawn`) — the intake glob stops
   rescanning it while the evidence stays on disk, and the record gains
-  `retired_request_path` provenance. A live request's `supersedes`
-  (or legacy `resubmission_of`) also auto-withdraws the named
-  non-terminal request in the same pass.
+  `retired_request_path` + `file_retired_at` provenance. A live
+  request's `supersedes` (or legacy `resubmission_of`) also
+  auto-withdraws the named non-terminal request in the same pass.
+  A retired file is audit evidence for **72 hours** after
+  `file_retired_at` (file mtime is the fallback for files retired
+  before provenance recording); the intake sweep then deletes it and
+  the ledger record — request hash, full transition history, retired
+  path — remains the permanent trail.
 - **Drop locations** (intake dirs, scanned by `Driver.IntakeDirs`):
   - `main-system/runtime/state/`
   - `governance_rule/execution/audit/convergence/`

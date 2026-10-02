@@ -417,9 +417,79 @@ internal static partial class Driver
         }
     }
 
+    /// <summary>Retired intake files are audit evidence, not permanent
+    /// residents: after this grace window the file is deleted and the
+    /// ledger record (request hash, full transition history,
+    /// ``retired_request_path``) remains the authoritative trail.</summary>
+    private static readonly TimeSpan RetiredFileTtl =
+        TimeSpan.FromHours(72);
+
+    /// <summary>Delete retired intake files (``….json.<terminal-state>``)
+    /// whose retirement is older than the 72-hour audit window.  The
+    /// retired timestamp is taken from the ledger's ``file_retired_at``
+    /// when available, falling back to the file's last-write time for
+    /// files retired before provenance recording existed.</summary>
+    internal static List<string> SweepRetiredFiles(
+        CodexAmendmentRequestLedger ledger)
+    {
+        var removed = new List<string>();
+        var cutoff = DateTime.UtcNow - RetiredFileTtl;
+        foreach (var directory in IntakeDirs())
+        {
+            if (!Directory.Exists(directory))
+                continue;
+            foreach (var path in Directory.GetFiles(directory,
+                IntakeGlob + ".*"))
+            {
+                var name = Path.GetFileName(path);
+                var dot = name.LastIndexOf('.');
+                var suffix = dot >= 0 ? name[(dot + 1)..] : "";
+                if (!Lifecycle.TerminalStates.Contains(suffix))
+                    continue;
+                var retiredAt = File.GetLastWriteTimeUtc(path);
+                var baseName = name[..(name.Length
+                    - suffix.Length - 1)]; // strip ".<state>"
+                if (baseName.EndsWith(".json", StringComparison.Ordinal))
+                    baseName = baseName[..^5]; // strip ".json"
+                var idTail = baseName.StartsWith(
+                    "codex-amendment-request-", StringComparison.Ordinal)
+                    ? baseName["codex-amendment-request-".Length..]
+                    : baseName;
+                foreach (var candidate in new[] { idTail, baseName })
+                {
+                    var record = ledger.LoadRecord(candidate);
+                    if (record is null
+                        || (record.TryGetValue("retired_request_path",
+                                out var rp) && rp?.ToString()
+                            != path))
+                        continue;
+                    var stamp = record.TryGetValue("file_retired_at",
+                        out var fr) ? fr?.ToString() ?? "" : "";
+                    if (DateTimeOffset.TryParse(stamp,
+                            out var parsed))
+                        retiredAt = parsed.UtcDateTime;
+                    break;
+                }
+                if (retiredAt > cutoff)
+                    continue;
+                try
+                {
+                    File.Delete(path);
+                    removed.Add(path);
+                }
+                catch (Exception error) when (error is IOException
+                    or UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+        return removed;
+    }
+
     /// <summary>Advance every staged non-terminal request once —
-    /// superseded requests are withdrawn first and every terminal
-    /// intake file is retired out of the scan glob.</summary>
+    /// superseded requests are withdrawn first, every terminal intake
+    /// file is retired out of the scan glob, and retired files past the
+    /// 72-hour audit window are deleted (ledger record persists).</summary>
     public static async Task<List<Dictionary<string, object?>>>
         AdvanceAll(
             IEnumerable<string>? intakeDirs = null,
@@ -457,6 +527,15 @@ internal static partial class Driver
                 result.TryGetValue("state", out var st)
                     ? st?.ToString() ?? "" : "");
         }
+        var removed = SweepRetiredFiles(ledger);
+        if (removed.Count > 0)
+            results.Add(new Dictionary<string, object?>(
+                StringComparer.Ordinal)
+            {
+                ["sweep"] = "retired-files",
+                ["removed_count"] = removed.Count,
+                ["removed"] = removed.Cast<object?>().ToList(),
+            });
         return results;
     }
 }
