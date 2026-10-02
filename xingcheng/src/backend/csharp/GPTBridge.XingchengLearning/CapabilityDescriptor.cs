@@ -114,6 +114,12 @@ internal sealed class CapabilityFloor
     public double MaxRegressionPct = 0.0;
     public string[] RequiredEvals = Array.Empty<string>();
     public string[] RequiredEvidence = { "eval_result" };
+    // Maturation-closure §12: the floor is per-capability and hard —
+    // runtime/architecture/stability checks are separate axes; a high
+    // score on one can never compensate a failure on another (§13).
+    public string[] RequiredRuntimeChecks = Array.Empty<string>();
+    public string[] RequiredArchitectureChecks = Array.Empty<string>();
+    public string[] RequiredStabilityChecks = Array.Empty<string>();
 
     public Dictionary<string, object?> ToDict() => new()
     {
@@ -122,6 +128,12 @@ internal sealed class CapabilityFloor
         ["required_evals"] = RequiredEvals.Cast<object?>().ToList(),
         ["required_evidence"] =
             RequiredEvidence.Cast<object?>().ToList(),
+        ["required_runtime_checks"] =
+            RequiredRuntimeChecks.Cast<object?>().ToList(),
+        ["required_architecture_checks"] =
+            RequiredArchitectureChecks.Cast<object?>().ToList(),
+        ["required_stability_checks"] =
+            RequiredStabilityChecks.Cast<object?>().ToList(),
     };
 }
 
@@ -143,7 +155,7 @@ internal sealed class CapabilityDescriptor
     public static readonly string[] Statuses =
     {
         "UNAVAILABLE", "IMPLEMENTED", "TRAINING", "EVALUATED",
-        "CERTIFIED", "MATURE", "REGRESSED",
+        "CERTIFIED", "MATURE", "REGRESSED", "REOPENED",
     };
     // §61 resource-hint vocabulary (hint only — never a demand).
     public static readonly string[] ResourceClasses =
