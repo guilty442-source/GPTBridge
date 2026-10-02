@@ -42,13 +42,13 @@ flowchart LR
 
     DATA --> D1["xcorpus corpus:<br/>registry gate→scan→dedup(MinHash)→<br/>pack→manifest"]
     DATA --> D2["xstore: ckpt-*/put/get/verify-store/<br/>snapshot/audit-*/fail-*"]
-    DATA --> D3["PG schemas + role DB collectors"]
-    DATA --> D4["teacher-collect distillation"]
+    DATA --> D3["PG schemas + role DB collectors<br/>（→xstore metadata 接管中）"]
+    DATA --> D4["teacher-collect distillation<br/>（B154 註冊；native-only 消除中）"]
 
     HW --> H1["hw-caps / hw-baseline / probe-cuda"]
     HW --> H2["expert-residency / offload-bench /<br/>expert-store (XEB1)"]
     HW --> H3["scale/low-resource-sim / pd-pipeline /<br/>memory-plan / memplane"]
-    HW --> H4["resource governor quota<br/>(8 classes, training shed-first)"]
+    HW --> H4["主系統 resource governor grant<br/>(ResourceGovernorClient +<br/>XingchengLocalResourceAllocator；<br/>星澄無自有 quota/governor)"]
 
     KERNEL --> K1["star-kernel-registry<br/>trainer 32 / engine 19 / xstore 11 / xcorpus 8"]
     KERNEL --> K2["star-kernel-policy<br/>deny_variants/deny_kernels/force_serial/<br/>max_threads/dev_min_flops/vram_reserve_mb — fail-closed"]
