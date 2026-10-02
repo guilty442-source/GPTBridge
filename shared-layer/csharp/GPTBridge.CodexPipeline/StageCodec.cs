@@ -147,7 +147,8 @@ internal static partial class StageCodec
     /// order, same statements; a failed chunk aborts exactly like the
     /// failing single statement did.</summary>
     internal static void ExecStatements(NpgsqlConnection connection,
-        IEnumerable<string> statements)
+        IEnumerable<string> statements,
+        NpgsqlTransaction? transaction = null)
     {
         var chunk = new StringBuilder(BatchMaxBytes / 4);
         var count = 0;
@@ -156,7 +157,8 @@ internal static partial class StageCodec
             if (count == 0)
                 return;
             var sql = chunk.ToString();
-            using (var command = new NpgsqlCommand(sql, connection))
+            using (var command = new NpgsqlCommand(sql, connection,
+                transaction))
             {
                 try
                 {
@@ -386,8 +388,7 @@ internal static partial class StageCodec
         Exec(connection, $"DROP SCHEMA IF EXISTS {Q(schema)} CASCADE");
         Exec(connection, $"CREATE SCHEMA {Q(schema)}");
         Exec(connection, $"SET search_path TO {Q(schema)}, pg_catalog");
-        foreach (var statement in statements)
-            Exec(connection, statement);
+        ExecStatements(connection, statements);
         return statements
             .Where(s => s.StartsWith("CREATE TABLE \"",
                 StringComparison.Ordinal))

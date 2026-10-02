@@ -327,13 +327,12 @@ internal static class PgImport
             $"SET LOCAL search_path TO \"{PgDsn.CodexSchema}\", "
             + "pg_catalog");
         foreach (var statement in statements)
-        {
             if (statement.StartsWith("INSERT INTO",
                 StringComparison.Ordinal))
                 totalRows += 1;
-            // sql-ok: governed artifact codec, line-per-statement
-            Exec(target, transaction, statement);
-        }
+        // sql-ok: governed artifact codec, line-per-statement — chunked
+        // into multi-statement commands inside the guarded transaction.
+        StageCodec.ExecStatements(target, statements, transaction);
         SealAuthority(target, transaction, codexVersion, sourceDigest,
             sortedTables.Count, totalRows);
         transaction.Commit();

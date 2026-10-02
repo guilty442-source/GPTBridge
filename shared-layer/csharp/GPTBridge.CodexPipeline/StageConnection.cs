@@ -265,12 +265,26 @@ internal sealed class StageConnection : IDisposable
     public StageCursor Executemany(string statement,
         IReadOnlyList<IReadOnlyList<object?>> rows)
     {
-        var translated = Translate(statement);
+        var translated = ToNpgsqlText(Translate(statement));
         var affected = 0;
-        foreach (var row in rows)
+        // Projection rebuilds stage tens of thousands of rows; batch
+        // parameter sets into one round-trip per chunk instead of one
+        // command per row.
+        const int batchRows = 256;
+        for (var offset = 0; offset < rows.Count; offset += batchRows)
         {
-            using var command = NewCommand(translated, row);
-            affected += Math.Max(command.ExecuteNonQuery(), 0);
+            using var batch = new NpgsqlBatch(_connection, _transaction);
+            var limit = Math.Min(batchRows, rows.Count - offset);
+            for (var i = 0; i < limit; i++)
+            {
+                var row = rows[offset + i];
+                var command = new NpgsqlBatchCommand(translated);
+                for (var p = 0; p < row.Count; p++)
+                    command.Parameters.Add(new NpgsqlParameter(
+                        $"p{p}", row[p] ?? DBNull.Value));
+                batch.BatchCommands.Add(command);
+            }
+            affected += Math.Max(batch.ExecuteNonQuery(), 0);
         }
         return new StageCursor(new List<object?[]>(), new(), affected);
     }

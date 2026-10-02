@@ -148,13 +148,19 @@ internal static partial class UpdatePipeline
         return row?[0]?.ToString()?.Trim() ?? "";
     }
 
-    /// <summary>Baseline: the live generation's acknowledged legacy
-    /// violations.</summary>
-    private static List<string[]> SourceForeignKeyViolations(
-        string database)
+    /// <summary>Version and baseline (acknowledged legacy) foreign-key
+    /// violations of the live generation — read in one store session so
+    /// the artifact materializes only once.</summary>
+    private static (string Version, List<string[]> Violations)
+        SourceIdentity(string database)
     {
         using var store = AmendmentContract.OpenCodexStore(database);
-        return UpdateValidation.ForeignKeyViolations(store.Connection);
+        var row = store.Connection.Execute(
+            "SELECT value FROM metadata WHERE key='codex_version'")
+            .FetchOne();
+        var version = row?[0]?.ToString()?.Trim() ?? "";
+        return (version,
+            UpdateValidation.ForeignKeyViolations(store.Connection));
     }
 
     private static bool SamePath(string left, string right) =>
@@ -227,6 +233,8 @@ internal static partial class UpdatePipeline
         foreach (var name in ChineseMirror.PartNames)
             digests[name] = Digest(Path.Combine(root, name));
         var fenceId = Guid.NewGuid().ToString();
+        var (sourceVersion, sourceViolations) =
+            SourceIdentity(isolatedDatabase);
         var stage = new IsolatedStage
         {
             FenceId = fenceId,
@@ -234,10 +242,9 @@ internal static partial class UpdatePipeline
             StagingRoot = staging,
             Database = isolatedDatabase,
             Parts = parts.ToArray(),
-            SourceVersion = ReadVersion(isolatedDatabase),
+            SourceVersion = sourceVersion,
             SourceDigests = digests,
-            SourceFkViolations =
-                SourceForeignKeyViolations(isolatedDatabase),
+            SourceFkViolations = sourceViolations,
         };
         WriteJson(Path.Combine(staging, IsolationMarker),
             new Dictionary<string, object?>(StringComparer.Ordinal)
