@@ -100,8 +100,12 @@ internal static class CapabilityFailureAttribution
         else if (cause.Length > 0 && CauseMap.TryGetValue(
                      cause, out string? mapped))
         {
-            // A non-model cause with a model leg is MIXED (§48).
-            cls = modelSignal ? "MIXED_FAILURE" : mapped;
+            // §50 hard rule: a governor/quota cause is RESOURCE_FAILURE
+            // even when a model leg exists — a revoke is never model
+            // evidence. Other non-model causes with a model leg are
+            // MIXED (§48).
+            cls = mapped == "RESOURCE_FAILURE" ? mapped
+                : modelSignal ? "MIXED_FAILURE" : mapped;
         }
         else if (cause.Length > 0)
         {

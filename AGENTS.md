@@ -373,7 +373,25 @@ Verbs (`xc-learning.exe`): `--capability-registry` (emit+persist),
 `--capability-evidence --file <f.json>` (record §20 evidence),
 `--capability-evidence-status [--capability <id>]`,
 `--capability-delta --baseline <f> --candidate <f>` (§90-§92
-promotion delta; protected-capability regression blocks promotion).
+promotion delta; protected-capability regression blocks promotion),
+`--capability-runtime-profile --capability <id>` (§55-§57: one
+CompiledExecutionPlan profile per capability — BALANCED /
+CONTEXT_HEAVY / REASONING_ENABLED / TOOL_STRICT / EDGE; never a new
+runtime, never kernel selection), `--failure-attribute --file <f>`
+(§46-§48: every failure classifies to MODEL / RUNTIME / DATA / TOOL /
+RESOURCE / SERVICE / MIXED before any training lane),
+`--arch-limitation-record --file <f>` /
+`--arch-limitation-status [--capability <id>]` (§52-§53 plateau
+evidence; §54 precondition of `--arch-gate`).
+
+Phase-4 wiring (§46-§54, §100): `--failure-record` runs
+`CapabilityFailureAttribution` first — a RESOURCE_FAILURE is routed
+to the governor and never enters the failure pool; the verdict echo
+carries `attribution` + `pool_eligible`/`trainable`. `ArchitectureGate`
+(`--arch-gate`) now requires a recorded
+`star-architecture-limitation-evidence/v1` entry when a justification
+claims `existing_architecture_cannot_solve` for a named capability —
+the claim alone demotes to unmet.
 
 Admission wiring (phase 2, §82/§98): SFT jobs and the
 single-capability recovery lane validate declared capabilities through
@@ -383,13 +401,11 @@ spellings (`reading` → `reading_grounding`).
 
 `FeatureCatalog` is the *Implementation Feature Catalog* (§29): it
 answers "which mechanisms exist?", never "which capabilities are
-mature?". Phase 3 landed: `CapabilityEvidence`
-(`star-capability-evidence/v1`, §20 hash-bound evidence chain) and
-`CapabilityDelta` (`star-capability-delta/v1`, §90-§92 promotion
-delta). Later phases (pending): `ArchitectureCapabilityBinding`
-promotion to a standalone contract, capability_id propagation into
-autonomous learning / resource requests / accel plan, release-gate
-consistency wiring (§101), alias convergence of legacy names (§103).
+mature?". Phases 1-5 landed: registry/graph/eval-map/progression/
+consistency (phase 1), admission wiring (phase 2), evidence + delta
+(phase 3), failure attribution + runtime profiles + architecture
+limitation evidence (phase 4), release-gate consistency wiring
+(§101). Later (pending): alias convergence of legacy names (§103).
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 

@@ -53,8 +53,7 @@ internal static class CapabilityRuntimeProfile
         {
             "coding" or "context_tracking" or "long_context" or
             "multi_turn" => "CONTEXT_HEAVY",
-            "native_thinking" or "math" or "system1" =>
-                "REASONING_ENABLED",
+            "native_thinking" or "math" => "REASONING_ENABLED",
             "tool_calling" or "structured_output" => "TOOL_STRICT",
             _ => "BALANCED",
         };
