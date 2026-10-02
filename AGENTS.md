@@ -1141,7 +1141,7 @@ is active**, so foreground / user work always keeps machine headroom; when the
 user is idle ≥ `idle_after_s` (300 s, via `GetLastInputInfo`) the effective
 ceiling relaxes to `idle_ceiling` (`high` — 閒置全速), and returning activity
 urgently demotes anything above `ceiling` (streak/cooldown exempt).
-`power_saving_schedule` (22:00–07:00) forces `sleep` at night.  Control law:
+`power_saving_schedule` (00:00–07:00 Taipei) forces `sleep` at night.  Control law:
 responsiveness strain or machine overload → `low` immediately (urgent,
 cooldown-exempt); worker demand + machine headroom → upgrade after
 `streak_up` evaluations, clamped to the effective ceiling; downgrades need

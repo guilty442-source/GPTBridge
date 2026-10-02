@@ -354,7 +354,7 @@
       "interval_s": 60,
       "pausable": false,
       "enabled": false,
-      "description": "native port delivered (B167/B38): 自動模式顧問併入唯一 C++23 管制器 native/resource_governor/governor_advisor.*，於既有 watch 週期內評估（無第二行程/平行 watcher，B159）。控制律：auto.ceiling=medium 為使用中上限（使用者前景保留餘裕）；idle_full_speed＋idle_after_s=300 無輸入時上限放寬至 idle_ceiling=high（閒置全速），使用者回來 urgent 立即降回；power_saving_schedule 22:00-07:00→sleep 立即；strained/整機超載→low 立即；worker 需求＋餘裕→升檔 streak_up 連續評估（≤ceiling）；降檔 streak_down＋cooldown_s=600；rules_error fail-closed 保留已驗證狀態。狀態 runtime/state/resource-mode-advisor.json，切換稽核 runtime/state/resource-mode-audit.jsonl；手動選檔（app:set-resource-mode）關閉 auto_mode。"
+      "description": "native port delivered (B167/B38): 自動模式顧問併入唯一 C++23 管制器 native/resource_governor/governor_advisor.*，於既有 watch 週期內評估（無第二行程/平行 watcher，B159）。控制律：auto.ceiling=medium 為使用中上限（使用者前景保留餘裕）；idle_full_speed＋idle_after_s=300 無輸入時上限放寬至 idle_ceiling=high（閒置全速），使用者回來 urgent 立即降回；power_saving_schedule 00:00-07:00→sleep 立即；strained/整機超載→low 立即；worker 需求＋餘裕→升檔 streak_up 連續評估（≤ceiling）；降檔 streak_down＋cooldown_s=600；rules_error fail-closed 保留已驗證狀態。狀態 runtime/state/resource-mode-advisor.json，切換稽核 runtime/state/resource-mode-audit.jsonl；手動選檔（app:set-resource-mode）關閉 auto_mode。"
     },
     "file-sorter-automation": {
       "owner": "FileSorterAutomationService（file-sorter 工具行程內）",
