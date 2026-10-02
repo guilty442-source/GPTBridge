@@ -202,16 +202,41 @@ std::expected<ResourceRequest, std::string> parse_request(
 
 namespace {
 
-/* 早退拒絕鏈：emergency → 未知類別 → 類別暫停/零配額 → GPU 硬性需求。
- * 回傳 false 表示請求仍可裁決。 */
+/* kShedOrder 位次（0=training 最先淘汰）；benchmark 與 training 同級；
+ * -1 = 不受壓力削讓（serving 類：interactive/model/rag/network）。 */
+int shed_rank_of(std::string_view workload_class) {
+    if (workload_class == kBenchmarkClass) return 0;
+    const auto cls = work_class_from_name(workload_class);
+    if (!cls) return -1;
+    constexpr int n = static_cast<int>(
+        sizeof(kShedOrder) / sizeof(kShedOrder[0]));
+    for (int i = 0; i < n; ++i)
+        if (kShedOrder[i] == *cls) return i;
+    return -1;   /* interactive 不在 shed order */
+}
+
+/* 早退拒絕鏈：emergency → 未知類別 → 壓力削讓 → 類別暫停/零配額 →
+ * GPU 硬性需求。回傳 false 表示請求仍可裁決。 */
 bool deny_early(const ResourceRequest& request, const GrantContext& ctx,
                 GrantDecision& d) {
+    const int shed_rank = shed_rank_of(request.workload_class);
     if (ctx.emergency) {
         d.response = GrantResponse::Denied;
         d.reason = "emergency-pressure";
     } else if (!ctx.class_known) {
         d.response = GrantResponse::Denied;
         d.reason = "unknown-workload-class:" + request.workload_class;
+    } else if (ctx.pressure == PressureTier::Active &&
+               shed_rank >= 0 && shed_rank <= 3) {
+        /* §22 + A598：ACTIVE_PRESSURE 下 compute/background 類
+         * （training/batch/verification/maintenance）新 grant 全部
+         * DEFERRED；既有 grant 由週期層 resize/revoke 收縮。 */
+        d.response = GrantResponse::Deferred;
+        d.reason = "active-pressure-shed";
+    } else if (ctx.pressure == PressureTier::Pre && shed_rank == 0) {
+        /* §21：PRE_PRESSURE 禁止新 lane——training 為 shed 首位（A598）。 */
+        d.response = GrantResponse::Deferred;
+        d.reason = "pre-pressure-shed";
     } else if (ctx.class_paused || ctx.class_quota <= 0) {
         d.response = GrantResponse::Deferred;
         d.reason = "class-paused-or-zero-quota";

@@ -1,0 +1,42 @@
+{
+  "artifact": "xingcheng-model-service-smoke/v1",
+  "authority": "read-only-observation-not-implementation-acceptance",
+  "observed_at": "2026-10-02T11:44:00Z",
+  "workspace_instance_id": "243aee46a69777a07dacf19c",
+  "backend": {
+    "binary": "main-system/src-tauri/target/release/gptbridge-backend.exe",
+    "note": "pre-smoke binary dated 2026-09-30 predated a0d76af5b (xingcheng enclave manifest scan); first toolbox_start_tool returned TOOL_UNKNOWN. Rebuilt release backend at ~11:41Z picked up xingcheng/xingcheng/manifest.json discovery.",
+    "first_attempt": { "command": "toolbox_start_tool", "tool_id": "xingcheng", "ok": false, "error_code": "TOOL_UNKNOWN" }
+  },
+  "start_tool": {
+    "command": "toolbox_start_tool",
+    "payload_tool_id": "xingcheng",
+    "request_id": "smoke-1",
+    "result": { "ok": true, "status": "running", "tool_id": "xingcheng", "ui_mode": "governed-source-ui", "ui_pid": 5072 }
+  },
+  "descriptor": {
+    "path": "xingcheng/xingcheng/runtime/ipc/model-service.json",
+    "schema": "star-model-service-descriptor/v1",
+    "tool_id": "xingcheng",
+    "lifecycle_owner": "xingcheng/toolhost-model-service",
+    "consumer_policy": "csharp-orchestrator-client-only",
+    "port": 5377,
+    "pid": 31092,
+    "token_file": "model-service-session-token",
+    "token_file_present": true
+  },
+  "http_gate": {
+    "no_token_status": 403,
+    "with_token_status": 200,
+    "with_token_body": {"ok": true, "service": "xc-model-service", "decoder": "native-cpp", "cpp_runtime": true, "loaded": false, "worker": "not-started", "service_port": 5377, "auto_release": {"idle_seconds": 300, "inflight": 0}}
+  },
+  "consumer_leg": {
+    "command": "toolbox_start_tool",
+    "payload_tool_id": "model-dialogue",
+    "request_id": "smoke-2",
+    "result": { "ok": true, "status": "running", "tool_id": "model-dialogue", "ui_pid": 19156 }
+  },
+  "lazy_serve_confirmed": "worker stayed 'not-started' until /v1/infer; descriptor + /v1/status required no bundle load; xc_modeltool spawns lazily",
+  "teardown": "toolbox_stop_tool issued for xingcheng and model-dialogue; ToolHost processes exited; backend left running as the governed resident host",
+  "scope_note": "smoke covers governed start -> descriptor -> authenticated /v1/status; it does NOT exercise inference (/v1/infer with bundle load) or star_chat delivery"
+}

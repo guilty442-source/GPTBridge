@@ -1426,19 +1426,18 @@ Worker rules for codex work:
    `pending`. To close: produce real producer/validator/persistence/
    semantic-hash evidence per schema and rebuild via
    `--repair-projections`; never mark `complete` without that evidence.
-2. **Xingcheng model-service runtime smoke not yet run.** The executor
-   re-home (`XingchengModelServiceExecutor`, owner
-   `xingcheng/toolhost-model-service`, `toolbox_start_tool(xingcheng)`)
-   is compiled and unit-tested but not smoke-tested end-to-end. Pending
-   check: start `xingcheng` ToolHost → descriptor +
-   `/v1/status` + session token → `model-dialogue` cold-start path.
-   The governed env is minted by the main-system backend
-   (`gptbridge-backend`), which is **not currently running** — the
-   smoke must go through `toolbox_start_tool{xingcheng}` on the
-   backend WS once it is up; launching the ToolHost exe bare returns
-   `PERMISSION_DENIED` by design. Requires the pinned `xc_modeltool`
-   bundle (`xingcheng/runtime/devin/gen-consolidate/bundle`, present);
-   do not fake the evidence.
+2. **Xingcheng model-service runtime smoke DONE (2026-10-02).**
+   Evidence: `convergence/xingcheng-model-service-smoke-20261002.json`.
+   Governed path: rebuilt `gptbridge-backend` (the 09-30 binary predated
+   `a0d76af5b`'s xingcheng manifest scan → first attempt returned
+   `TOOL_UNKNOWN`), then `toolbox_start_tool{xingcheng}` → running;
+   descriptor `tool_id=xingcheng`,
+   `lifecycle_owner=xingcheng/toolhost-model-service`,
+   `consumer_policy=csharp-orchestrator-client-only`; `/v1/status`
+   no-token → 403, token → 200 (`loaded:false`, lazy serve confirmed);
+   `toolbox_start_tool{model-dialogue}` → running. Scope: covers
+   start/descriptor/auth-gate only — `/v1/infer` bundle load and
+   `star_chat` delivery not exercised.
 3. **Deferred native lanes stay fail-closed.** `ai-assistant` business
    executor (DeferredExecutor), `file-sorter` native executor,
    `investment-mobile` native entry, and `vaultly`

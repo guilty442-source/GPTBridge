@@ -58,6 +58,12 @@ gr::ResourceRequest req(const std::string& overrides = "") {
     return parsed.value_or(gr::ResourceRequest{});
 }
 
+gr::ResourceRequest req_class(const std::string& cls) {
+    gr::ResourceRequest r = req();
+    r.workload_class = cls;
+    return r;
+}
+
 gr::ResourceRequest req_gpu_required() {
     auto parsed = gr::parse_request(request_json(
         "\"gpu_optional\":true"));
@@ -208,6 +214,34 @@ int main() {
                  "emergency denied (spec §23)");
     }
     NT_END_TEST(SUITE, "emergency_denies_new_requests");
+
+    /* §21/§22 + A598：PRE → shed 首位（training）DEFERRED；
+     * ACTIVE → shed 前段（training…maintenance）DEFERRED；
+     * serving 類（model/rag/interactive）不受壓力削讓。 */
+    NT_TEST(SUITE, "pressure_defers_shed_first_classes") {
+        gr::GrantContext c = ctx(12);
+        c.pressure = gov::PressureTier::Pre;
+        auto tr = gr::adjudicate(req_class("training"), c);
+        NT_CHECK(tr.response == gr::GrantResponse::Deferred &&
+                     tr.reason == "pre-pressure-shed",
+                 "PRE defers training (new-lane ban)");
+        auto md = gr::adjudicate(req_class("model"), c);
+        NT_CHECK(md.response == gr::GrantResponse::Granted,
+                 "model still granted at PRE");
+        c.pressure = gov::PressureTier::Active;
+        tr = gr::adjudicate(req_class("training"), c);
+        NT_CHECK(tr.response == gr::GrantResponse::Deferred &&
+                     tr.reason == "active-pressure-shed",
+                 "ACTIVE defers training");
+        auto bt = gr::adjudicate(req_class("batch"), c);
+        NT_CHECK(bt.response == gr::GrantResponse::Deferred,
+                 "ACTIVE defers batch");
+        md = gr::adjudicate(req_class("model"), c);
+        NT_CHECK(md.response == gr::GrantResponse::Granted,
+                 "model still granted at ACTIVE");
+        std::ignore = md;
+    }
+    NT_END_TEST(SUITE, "pressure_defers_shed_first_classes");
 
     NT_TEST(SUITE, "vram_negative_means_client_resolves_percent") {
         auto c = ctx(12);
