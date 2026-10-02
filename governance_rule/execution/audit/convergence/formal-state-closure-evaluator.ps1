@@ -1,4 +1,4 @@
-param([switch]$Request,[switch]$Verify)
+param([switch]$Request,[switch]$Verify,[switch]$Summary)
 $ErrorActionPreference = 'Stop'
 $codexLines = Get-Content -LiteralPath 'governance_rule/codex/data/governance_codex.sql' -Encoding UTF8
 $rowCache = @{}
@@ -104,6 +104,10 @@ $report=[ordered]@{
     search=[ordered]@{ total=$search.Count;stale=$staleSearch.Count;input_digest=(Get-Digest $search) }
     diagrams=$sync
     epochs=@(Get-CodexRows 'codex_version_epochs'); external=@(Get-CodexRows 'codex_external_closure_requirements'); closure=@(Get-CodexRows 'codex_convergence_closure')
+}
+if ($Summary) {
+    [ordered]@{head=$head;active_articles=$activeIds.Count;unknown_articles=@($surfaceUnknown | Where-Object object_type -eq 'article').Count;nonactive_default_visible=@($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count;metrics=@(Get-CodexRows 'codex_convergence_metrics' | Where-Object status -eq 'current');search=$report.search;surface=$report.surface} | ConvertTo-Json -Depth 12
+    exit
 }
 if ($Verify) {
     $checks=[Collections.Generic.List[string]]::new()
