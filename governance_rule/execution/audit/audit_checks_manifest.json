@@ -20936,6 +20936,11 @@
       "path": "governance_rule/execution/audit/audit_sql_patterns.py"
     },
     {
+      "id": "forbidden-source:governance_rule/execution/audit/convergence/registry-snapshot-reconciliation.ps1",
+      "kind": "file-not-exists",
+      "path": "governance_rule/execution/audit/convergence/registry-snapshot-reconciliation.ps1"
+    },
+    {
       "id": "forbidden-source:governance_rule/execution/audit/export_audit_manifest.py",
       "kind": "file-not-exists",
       "path": "governance_rule/execution/audit/export_audit_manifest.py"
@@ -21939,6 +21944,26 @@
       "id": "forbidden-source:governance_rule/permission_directory/registries/permissions/tool_routes.py",
       "kind": "file-not-exists",
       "path": "governance_rule/permission_directory/registries/permissions/tool_routes.py"
+    },
+    {
+      "id": "forbidden-source:main-system/development-tools/ollama/Modelfile.cline",
+      "kind": "file-not-exists",
+      "path": "main-system/development-tools/ollama/Modelfile.cline"
+    },
+    {
+      "id": "forbidden-source:main-system/development-tools/ollama/Modelfile.cline2",
+      "kind": "file-not-exists",
+      "path": "main-system/development-tools/ollama/Modelfile.cline2"
+    },
+    {
+      "id": "forbidden-source:main-system/development-tools/ollama/Modelfile.cline3",
+      "kind": "file-not-exists",
+      "path": "main-system/development-tools/ollama/Modelfile.cline3"
+    },
+    {
+      "id": "forbidden-source:main-system/development-tools/ollama/qwen25-original.Modelfile",
+      "kind": "file-not-exists",
+      "path": "main-system/development-tools/ollama/qwen25-original.Modelfile"
     },
     {
       "id": "forbidden-source:main-system/governance/__init__.py",
@@ -27686,7 +27711,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3580,
+    "native_checks": 3585,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27709,7 +27734,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T11:58:45Z",
+  "generated_at": "2026-10-02T12:11:33Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

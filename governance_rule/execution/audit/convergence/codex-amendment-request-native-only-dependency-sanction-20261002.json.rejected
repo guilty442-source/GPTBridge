@@ -1,0 +1,59 @@
+{
+    "artifact": "codex-amendment-request",
+    "authority": "request-only",
+    "schema": "codex-amendment-request/v2",
+    "request_id": "native-only-dependency-sanction-20261002",
+    "title": "Resolve the remaining production-scope native-only blocking findings blocking the production-closure candidate pin",
+    "summary": "After worker-side fixes removed the telemetry/probe findings that were code-fixable, the release-gate native-dependency step still fails on a small set of production-scope dependencies whose removal is an architecture-authority decision, not a worker fix: the Npgsql PostgreSQL adapter (whose authority the governor re-confirmed on 2026-10-02) and eight third-party Rust crates inside xstore/xcorpus. A governed sanction list or a mandated migration contract is required before the production-closure §3 native-only prerequisite can pass.",
+    "requested_by": "devin-cli-evidence-worker",
+    "origin": "Production-closure directive §3 prerequisite derivation (--production-prereqs) against release-gate report gate-20261002-120127.json; native-only-check dev/prod finding split inspected per finding",
+    "problem": {
+        "summary": "release-gate step native-dependency = FAIL with production-scope blocking findings. Worker-fixed already: (a) nvml.dll dynamic telemetry load removed from cuda_kernels.cpp (§35 telemetry_library is a spec violation; sensors now honestly unmeasured); (b) onnxruntime/onnxruntime_providers_openvino presence-probe rows removed from xcm_silicon.h npu-ep-enum (external ML runtime probing is outside the production contract); (c) System.Management nuget replaced with kernel32 Toolhelp32 P/Invoke in NativeTools.ChildPids. Remaining findings need governor adjudication:"
+    },
+    "change_class": "architecture-authority",
+    "required_review": "human-governor",
+    "flow": "A382/A488-non-disruptive-amendment-flow",
+    "not_executed": true,
+    "auto_execute": false,
+    "open_decisions": [
+        {
+            "id": "sanction-npgsql-xingcheng",
+            "finding": "postgresql_required + third_party_nuget: Npgsql PackageReference in GPTBridge.XingchengLearning.csproj and Npgsql source-ref in Pg.cs (scope=production, blocking=true)",
+            "context": "2026-10-02 decision reversal kept PostgreSQL (gptbridge_xingcheng*) as the formal structured metadata authority and cancelled the xstore metadata takeover. Directive §143 lists 'PostgreSQL required = false' as a production end-state, which conflicts with the current authority assignment.",
+            "options": [
+                "A. Sanction Npgsql as the governed metadata adapter for the duration of the production-closure phase; record §143 as a deferred end-state with an explicit transition contract",
+                "B. Declare a bounded migration contract moving the xingcheng metadata plane off PostgreSQL before certification may proceed",
+                "C. Split scopes: sanction Npgsql for the learning/orchestration plane only, while the production runtime binary itself carries no PostgreSQL dependency"
+            ]
+        },
+        {
+            "id": "sanction-rust-crates",
+            "finding": "third_party_rust_crates blocking=8: xstore/Cargo.toml (serde_json, sha2, memmap2, unicode_categories, time), xcorpus/Cargo.toml (serde_json, sha2, unicode-normalization)",
+            "context": "These crates implement content hashing (sha2), JSON contracts (serde_json), memory-mapping (memmap2) and Unicode semantics (unicode-normalization/unicode_categories). Reimplementing them in-crate would be error-prone and is arguably worse for auditability than a governed allowlist.",
+            "options": [
+                "A. Publish a governed sanctioned-crate allowlist for the Rust plane naming these crates+versions",
+                "B. Mandate in-repo reimplementation (high risk, multi-week)",
+                "C. Mixed: sanction hash/serialization crates, require audit or replacement for the rest"
+            ]
+        },
+        {
+            "id": "probe-vs-violation-policy",
+            "finding": "Pattern-level: the scan treats any source reference to a forbidden module in production scope as blocking, including presence-probe code (LoadLibrary to detect-and-report)",
+            "context": "The removed onnxruntime EP probe and removed nvml telemetry were both detection/telemetry surfaces, not dependency use. If the governor wants a 'probe-sanctioned' class (detect presence without linking), the check vocabulary needs a governed addition; otherwise the removal already performed stands as the contract.",
+            "options": [
+                "A. Keep strict reading (removal was correct; no sanction needed)",
+                "B. Introduce a governed 'detection-probe' classification permitting load-and-release presence checks for named vendor DLLs"
+            ]
+        }
+    ],
+    "resolved_in_code": [
+        "cuda_kernels.cpp: NvmlLib dynamic binding removed; xcuda_gpu_stats returns 0 (sensors honestly unmeasured) — §35 telemetry_library",
+        "xcm_silicon.h: onnxruntime.dll + onnxruntime_providers_openvino.dll probe rows removed from mode_npu_ep_enum — external_tensor_library",
+        "NativeTools.cs ChildPids: System.Management/WMI replaced by kernel32 Toolhelp32 snapshot; System.Management PackageReference removed — third_party_nuget"
+    ],
+    "evidence": {
+        "release_gate_report": "xingcheng/xingcheng/runtime/logs/release-gate/gate-20261002-120127.json",
+        "prereq_derivation": "--production-prereqs (star-production-certification/v1)",
+        "remaining_dev_only_findings": "47 EXTERNAL_REMOVE + 6 LEGACY_MIGRATION_ONLY in dev-only scope (test-suite .bat files, _nfguard) — non-blocking per the gate's own scoping; recorded for completeness, not requested for sanction"
+    }
+}
