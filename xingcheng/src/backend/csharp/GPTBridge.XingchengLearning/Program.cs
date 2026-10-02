@@ -534,6 +534,48 @@ internal static class Program
                         opts.TryGetValue("file", out string? dp)
                             ? dp : "", "DATASET_PURITY_VIOLATION"),
                     toolRoot));
+            // ---- maturation-closure §47-§53/§108: multi-lane
+            //      candidate competition — plan validation (shared
+            //      invariants, §49 divergent keys) + winner selection
+            //      on capability evidence (never throughput).
+            if (flags.Contains("multilane-plan"))
+                return Emit(MultiLaneMaturation.ValidatePlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mlp)
+                            ? mlp : "", "MULTILANE_PLAN_DENIED")));
+            if (flags.Contains("multilane-winner"))
+                return Emit(MultiLaneMaturation.SelectWinner(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mlw)
+                            ? mlw : "", "NO_WINNER")));
+            // ---- maturation-closure §78-§80: post distill/compress/
+            //      quantize protected-floor recheck — every protected
+            //      capability must be re-tested at the stricter of
+            //      certified baseline and formal floor; breaches
+            //      auto-REGRESS (§10).
+            if (flags.Contains("protected-floor-recheck"))
+            {
+                var pf = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? pff)
+                        ? pff : "", "POST_TRANSFORMATION_REGRESSION");
+                var post = new Dictionary<string, double>();
+                if (pf.TryGetProperty("post", out var ps) &&
+                    ps.ValueKind == JsonValueKind.Object)
+                    foreach (var kv in ps.EnumerateObject())
+                    {
+                        string? id = CapabilityRegistry.Resolve(
+                            kv.Name);
+                        if (id == null)
+                            throw new ExecutorError("CAPABILITY_UNKNOWN",
+                                kv.Name);
+                        post[id] = kv.Value.GetDouble();
+                    }
+                return Emit(CapabilityMaturityService
+                    .ProtectedFloorRecheck(toolRoot,
+                        pf.TryGetProperty("phase", out var phv)
+                            ? phv.GetString() ?? "compress" : "compress",
+                        post));
+            }
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -1977,6 +2019,9 @@ internal static class Program
             "[--note <t>] | " +
             "--capability-matrix [--capability <id>] | " +
             "--dataset-purity --file <f.json> | " +
+            "--multilane-plan --file <f.json> | " +
+            "--multilane-winner --file <f.json> | " +
+            "--protected-floor-recheck --file <f.json> | " +
             "--capability-runtime-profile --capability <id> | " +
             "--failure-attribute --file <f.json> | " +
             "--arch-limitation-record --file <f.json> | " +
