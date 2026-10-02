@@ -29,7 +29,7 @@ namespace GPTBridge.CodexPipeline;
 /// projection is not derivable.  Re-stamping is a governor action;
 /// this probe never writes parity state.
 /// </summary>
-internal static class MachineSchemaParity
+internal static partial class MachineSchemaParity
 {
     public const string Recipe = SemanticHashToolchain.Recipe;
     internal static readonly string[] DescriptorFields = SemanticHashToolchain.DescriptorFields;
@@ -47,42 +47,43 @@ internal static class MachineSchemaParity
     /// ``--parity-descriptor &lt;code&gt;`` for recipe debugging.</summary>
     public static Dictionary<string, object?> Describe(string code)
     {
+        var authority = PgExport.AuthorityState();
         using var connection = PgDsn.Readonly();
         using var command = new NpgsqlCommand(
-            $"SELECT r.*, p.canonical_semantic_hash "
+            $"SELECT r.*, {EvidenceColumns} "
             + $"FROM {PgDsn.CodexSchema}.machine_schema_registry r "
             + $"LEFT JOIN {PgDsn.CodexSchema}.machine_schema_parity_evidence p"
             + "  ON p.schema_code = r.schema_code "
             + "WHERE r.schema_code = @c", connection);
         command.Parameters.AddWithValue("c", code);
-        using var reader = command.ExecuteReader();
-        if (!reader.Read())
-            return new Dictionary<string, object?>
-            {
-                ["error"] = "SCHEMA_CODE_UNKNOWN", ["code"] = code,
-            };
         var row = new Dictionary<string, object?>(
             StringComparer.Ordinal);
-        for (var i = 0; i < reader.FieldCount; i++)
-            row[reader.GetName(i)] =
-                reader.IsDBNull(i) ? null : reader.GetValue(i);
-        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        using (var reader = command.ExecuteReader())
         {
-            ["schema_code"] = code,
-            ["recipe"] = Recipe,
-            ["descriptor"] = CanonicalDescriptorJson(row),
-            ["producer_semantic_hash"] =
-                SealHash(BuildDescriptor(row)),
-            ["canonical_semantic_hash"] =
-                row["canonical_semantic_hash"],
-        };
+            if (!reader.Read())
+                return new Dictionary<string, object?>
+                {
+                    ["error"] = "SCHEMA_CODE_UNKNOWN", ["code"] = code,
+                };
+            for (var i = 0; i < reader.FieldCount; i++)
+                row[reader.GetName(i)] =
+                    reader.IsDBNull(i) ? null : reader.GetValue(i);
+        }
+        AssertGeneration(authority, PgExport.AuthorityState());
+        var result = EvaluateEvidence(row, (string)authority["codex_version"]!);
+        result["recipe"] = Recipe;
+        result["descriptor"] = CanonicalDescriptorJson(row);
+        result["generation"] = authority["codex_version"];
+        result["source_sha256"] = authority["source_sha256"];
+        return result;
     }
 
     public static Dictionary<string, object?> Probe()
     {
+        var authority = PgExport.AuthorityState();
         using var connection = PgDsn.Readonly();
         using var command = new NpgsqlCommand(
-            $"SELECT r.*, p.canonical_semantic_hash "
+            $"SELECT r.*, {EvidenceColumns} "
             + $"FROM {PgDsn.CodexSchema}.machine_schema_registry r "
             + $"LEFT JOIN {PgDsn.CodexSchema}.machine_schema_parity_evidence p"
             + "  ON p.schema_code = r.schema_code ORDER BY r.schema_code",
@@ -104,27 +105,30 @@ internal static class MachineSchemaParity
         var results = new List<Dictionary<string, object?>>();
         foreach (var row in rows)
         {
-            var canonical =
-                row["canonical_semantic_hash"] as string;
-            var storedContent = row["content_hash"] as string;
-            results.Add(SemanticHashToolchain.EvaluateRow(
-                row, canonical, storedContent));
+            results.Add(EvaluateEvidence(row, (string)authority["codex_version"]!));
         }
-
+        AssertGeneration(authority, PgExport.AuthorityState());
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["artifact"] = "machine-schema-parity-probe/v1",
             ["recipe"] = Recipe,
+            ["generation"] = authority["codex_version"],
+            ["source_sha256"] = authority["source_sha256"],
             ["descriptor_fields"] = DescriptorFields,
             ["rows"] = results.Count,
             ["producer_validator_pass"] = results.Count(r =>
                 (string)r["producer_validator_layer"]! == "PASS"),
             ["canonical_match"] = results.Count(r =>
                 (string)r["persistence_layer"]! == "MATCH"),
+            ["current_evidence_pass"] = results.Count(r =>
+                (string)r["current_evidence_status"]! == "PASS"),
+            ["current_evidence_open"] = results.Count(r =>
+                (string)r["current_evidence_status"]! != "PASS"),
             ["note"] = "CANONICAL_MISMATCH is evidence, not a pass; "
                 + "restamp or descriptor-projection publication is a "
                 + "governor action. This probe never writes parity "
-                + "state.",
+                + "state. Registry labels and descriptor hash matches do not "
+                + "certify current-generation evidence.",
             ["results"] = results,
         };
     }
