@@ -149,3 +149,5 @@ main-system/data/automatic-repair/
 # .NET build/test artifacts (C# migration; never source-of-record)
 *.obj
 TestResults/
+
+.fake

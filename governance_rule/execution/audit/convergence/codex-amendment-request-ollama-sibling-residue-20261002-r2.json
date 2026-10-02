@@ -1,0 +1,176 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "ollama-sibling-residue-20261002-r2",
+    "title":  "Converge Ollama residue in sibling provisions and registries after executed B154 retirement",
+    "summary":  "Amendment b154-ollama-retirement-20261002 executed at rev 235 and retired B154 outright: Ollama holds no active authority, the teacher-distillation lane is decommissioned, and no module may start, probe, lazy-activate, route to or depend on an Ollama instance. Implementation removal has landed (native/ollama_service deleted and pinned file-not-exists, TeacherCollect.cs deleted, --teacher-collect is a fail-closed TEACHER_LANE_RETIRED stub, teacher-distillation.json disabled-retired, backend dependency entry removed). Sibling provisions and registries still grant or describe Ollama authority: B155 enumerates \u0027the local model and Ollama\u0027 plus teacher distillation as on-demand modules, B25 lists OLLAMA in the no-global-fixed-criticality set, A130 maps objectives to the \u0027teacher-distillation pipeline\u0027, C32 and P113 grant Ollama a C-drive install exception, formal_rule_registry row FR-OLLAMA-ON-DEMAND (controlling provision B154) still verifies active, module_capability_registry row \u0027ollama\u0027 still shows runtime_state=active, and codex metadata still carries the ollama demand/location keys. This request converges those rows to the executed retirement: active clauses drop Ollama/teacher-distillation grants and registry/metadata residue is marked retired. Historical tables that record observations (local_model_registry/semantic_model_registry OLLAMA_LOCAL rows, OLLAMA_* fault-code directory vocabulary, test_flow_fault_links) are left as read-only history per the retired article\u0027s own text.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "implementation follow-through of executed amendment b154-ollama-retirement-20261002 (rev 235): the retirement request itself listed sibling provisions still naming Ollama/teacher-distillation (B155 enumeration, A130, B25, C32) as a separate convergence item",
+    "problem":  {
+                    "summary":  "B154 is retired with FORBID:ollama-service-activation-or-start|teacher-distillation-via-external-model-service|..., but live sibling provisions still grant Ollama on-demand activation (B155), name it in the criticality clause (B25), map objectives to the teacher-distillation pipeline (A130), and grant it a C-drive install exception (C32 rule+exception, P113 statement). Active registry/metadata rows (FR-OLLAMA-ON-DEMAND, module_capability_registry \u0027ollama\u0027, metadata ollama_local_model_demand / ollama_runtime_download_storage_root / location-exception keys) still describe the retired lane as operative.",
+                    "affected":  [
+                                     "articles",
+                                     "principles",
+                                     "formal_rule_registry",
+                                     "module_capability_registry",
+                                     "metadata"
+                                 ],
+                    "scope":  "codex-text and registry convergence only; no file, binary or implementation change"
+                },
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T11:52:44Z",
+                        "version_identity":  "E2:2026-10-02T11:52:44Z",
+                        "version_epoch":  2,
+                        "history_head":  "3499f80b4de874010334ef4a6e49b69a1f16585fe31a7834feab9f485128bc4b",
+                        "revision_sequence":  237
+                    },
+    "changes":  [
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B155"
+                                },
+                        "field":  "rule",
+                        "proposed":  "The main system keeps only a minimal resident core (IPC/command routing, governance and permission gates, launcher and runtime state, backend gateway and request registry, bounded maintenance health monitoring); every other module and service starts on demand: the full RAG/CAG/DAG pipeline, the native local model, independent tools, embeddings/reranker, the native self-distillation lane, indexing and offline maintenance. Activation is governed lazy activation with a readiness wait and idle unload; failures are fail-closed and reported as degraded; there is no pre-warm, no silent restart and no silent fallback to an unauthorised path. Capability state stays separate from run state so the UI shows not-started rather than failed; activation counts, cold-start latency, readiness waits and unload counts enter the performance baseline.\nExisting lazy implementations (lazy RAG/CAG construction, on-demand independent tools and the model activation broker) are the foundation; no new sovereign or parallel lifecycle is created. The goal is lower idle power and local load: modules activate only when used and unload when idle; the idle baseline (RAM/CPU/GPU power and utilisation) is the acceptance reference and must be tracked continuously, and residency must never be traded for start-up speed.\nLazy RAG/CAG and on-demand tool/model activation already exist as implementation advantages; the explicit resident-vs-on-demand policy and its observability are not yet recorded or enforced."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B25"
+                                },
+                        "field":  "rule",
+                        "proposed":  "AUTHORITATIVE-STARTUP-ORDER:B26+B30; DEPENDENCY-DECLARATION:each-service states identity+owner+required-by+criticality+readiness-contract+deadline+retry-budget+shutdown-order; POSTGRESQL/RUST-VECTOR-ENGINE:no-global-fixed-criticality+critical-only-when-required-by-a-core-ready-contract in-current-certified-manifest; MISSING-OPTIONAL:do-not-block-core+publish-capability-degraded; MISSING-CAPABILITY-CRITICAL:block-that-capability-only; MISSING-CORE-CRITICAL:block-core-ready; RECLASSIFICATION:new-certified-manifest+decision-acceptance+permission-validation; LEGACY-HARDCODED-SEQUENCE:no-effect\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A130"
+                                },
+                        "field":  "rule",
+                        "proposed":  "Integrated registered Codex contract objectives: seven operational goals (high speed, high performance, low load, automated operation, high stability, autonomous learning and upgrade); Xingcheng can chat with the user and complete tasks through governed permission and safety gates; no huge dataset is required; the model is quantifiable, distillable, accelerable, reason-capable and web-searchable. Each objective maps to an existing registered Codex contract mechanism (acceleration chapter, resource governance, automation division, convergence chapter, self-learning, L5/L6, T1-T4 tiers, maturity ladder, native self-distillation lane, C core / C++ layer / caches / quantization, governed web channel).\nThe objectives must be pursued through the existing sovereign structure and mechanisms; no new sovereign or parallel control system is introduced.\nregistered Codex contract integrated-objectives block records the mapping; the objectives themselves are program goals, not new components."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C32"
+                                },
+                        "field":  "rule",
+                        "proposed":  "DEPENDENCY-ROOT:DIR[DIR_MANAGED_DEPENDENCY_ROOT] is sole managed dependency root; Windows-native registered tools are the only exceptions. ADMISSION:staging directory may be created only after new-dependency permission or for an already registered update candidate. ACTIVE-LAYOUT:environments|runtimes|sdks|toolchains|packages|caches|models|staging; each identity has exactly one ACTIVE and at most one ROLLBACK_ONLY generation. PURGE:after retention expiry and zero references,automatic deletion removes old version directories,package/cache objects,old environments and staging remnants; audit receipts remain in PostgreSQL,not as executable artifacts.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C32"
+                                },
+                        "field":  "exception",
+                        "proposed":  "Only Windows 11 native tools serviced by Windows are exempt; the exception does not permit GPTBridge project code or unrelated dependencies outside their canonical roots"
+                    },
+                    {
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P113"
+                                },
+                        "field":  "statement",
+                        "proposed":  "ENVIRONMENT-DEPENDENCY-LOCATION:canonical-root=E:\\AI; INTERPRETER/RUNTIME/SDK/TOOLCHAIN/PACKAGE/MODEL/MANAGED-SERVICE-BINARY:install-inside-root-only; GPTBRIDGE-CODE:E:\\GPTBridge-only; EXCEPTIONS:Windows-11-native-tools-at-OS-owned-paths; OTHER-INSTALL-ROOT:none"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-OLLAMA-ON-DEMAND"
+                                },
+                        "field":  "status",
+                        "proposed":  "retired"
+                    },
+                    {
+                        "table":  "module_capability_registry",
+                        "key":  {
+                                    "module_identity":  "ollama"
+                                },
+                        "field":  "runtime_state",
+                        "proposed":  "retired"
+                    },
+                    {
+                        "table":  "module_capability_registry",
+                        "key":  {
+                                    "module_identity":  "ollama"
+                                },
+                        "field":  "availability",
+                        "proposed":  "retired"
+                    },
+                    {
+                        "table":  "module_capability_registry",
+                        "key":  {
+                                    "module_identity":  "ollama"
+                                },
+                        "field":  "status",
+                        "proposed":  "retired"
+                    },
+                    {
+                        "table":  "metadata",
+                        "key":  {
+                                    "key":  "ollama_local_model_demand"
+                                },
+                        "field":  "value",
+                        "proposed":  "retired:b154-ollama-retirement-20261002-executed;no-live-demand-lane"
+                    },
+                    {
+                        "table":  "metadata",
+                        "key":  {
+                                    "key":  "ollama_runtime_download_storage_root"
+                                },
+                        "field":  "value",
+                        "proposed":  "retired:b154-ollama-retirement-20261002-executed;no-registered-paths"
+                    },
+                    {
+                        "table":  "metadata",
+                        "key":  {
+                                    "key":  "managed_environment_location_exceptions"
+                                },
+                        "field":  "value",
+                        "proposed":  "WINDOWS_NATIVE_TOOL"
+                    },
+                    {
+                        "table":  "metadata",
+                        "key":  {
+                                    "key":  "managed_environment_location_rule"
+                                },
+                        "field":  "value",
+                        "proposed":  "all-managed-resources-under-E:\\GPTBridge-except-windows-native-tools"
+                    },
+                    {
+                        "table":  "metadata",
+                        "key":  {
+                                    "key":  "environment_dependency_outside_canonical_root"
+                                },
+                        "field":  "value",
+                        "proposed":  "forbidden-except-windows11-native"
+                    }
+                ],
+    "acceptance":  {
+                       "expected_state":  "No active provision clause or non-retired registry row grants Ollama activation, on-demand status, criticality classification, teacher-distillation authority or a C-drive install exception; FR-OLLAMA-ON-DEMAND and the \u0027ollama\u0027 module_capability_registry row read retired; metadata no longer registers an Ollama demand lane or location exception; projections rebuild to the successor version",
+                       "criteria":  [
+                                        "active-corpus clause scan: B155, B25, A130, C32 (rule and exception) and P113 contain no Ollama grant or teacher-distillation-pipeline reference",
+                                        "formal_rule_registry.FR-OLLAMA-ON-DEMAND status=retired",
+                                        "module_capability_registry row module_identity=ollama reads runtime_state=retired, availability=retired, status=retired",
+                                        "metadata keys ollama_local_model_demand and ollama_runtime_download_storage_root carry retired markers; location-exception keys no longer name Ollama",
+                                        "PostgreSQL/artifact parity PASS",
+                                        "zh-TW mirror parity PASS"
+                                    ],
+                       "evidence":  [
+                                        "executed amendment codex-amendment-request-b154-ollama-retirement-20261002.json.executed (rev 235, retired B154)",
+                                        "implementation removal: native/ollama_service deleted and pinned file-not-exists in governance_rule/execution/audit/retired_sources.json; TeacherCollect.cs deleted; --teacher-collect emits TEACHER_LANE_RETIRED; xingcheng/xingcheng/runtime/settings/teacher-distillation.json disabled-retired; gptbridge-backend status payload, startup_manifest.json, resident-core.json, data-architecture-contract.json, release-dependencies.json and DependencyProbes.cs carry no Ollama dependency/probe/activation path"
+                                    ],
+                       "out_of_scope":  [
+                                            "local_model_registry and semantic_model_registry OLLAMA_LOCAL observation rows - read-only inventory history under the retired article\u0027s \u0027historical registrations remain read-only history\u0027 clause; a separate inventory-state convergence may restamp them",
+                                            "OLLAMA_* fault-code directory entries and test_flow_fault_links rows - fault vocabulary and historical test linkage, not live authority; retiring them is a separate traceability decision",
+                                            "metadata key non_ollama_model_root - the key name is descriptive of the E:\\AI non-Ollama model root and grants no Ollama authority",
+                                            "superseded/historical article text retaining old wording (immutable history)",
+                                            "Standalone tools/ai-assistant manifest owner fields (investment_analysis_owner, *_update_owner) still naming the retired ollama lane - implementation-layer residue to be converged after this amendment lands (the tool\u0027s python runtime is already retired so no live path exists)"
+                                        ]
+                   }
+}
