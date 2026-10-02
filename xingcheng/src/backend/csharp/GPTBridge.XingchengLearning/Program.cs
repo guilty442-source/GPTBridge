@@ -491,6 +491,17 @@ internal static class Program
                         suite.Cast<object?>().ToList(),
                 });
             }
+            // §31-§37 architecture-side binding: governed projection +
+            // admission answer (resolve → REQUIRES closure → binding
+            // integrity) for self-learning / recovery / Multi-Lane.
+            if (flags.Contains("capability-binding"))
+                return Emit(ArchitectureCapabilityBinding.Emit(
+                    toolRoot));
+            if (flags.Contains("capability-binding-check"))
+                return Emit(ArchitectureCapabilityBinding
+                    .AdmissionCheck(
+                        opts.TryGetValue("capability",
+                            out string? cba) ? cba : ""));
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
