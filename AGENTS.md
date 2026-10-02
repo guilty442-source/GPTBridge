@@ -339,6 +339,32 @@ interface documentation only — never execution.
 > xingcheng writes only into `resource-requests`/`resource-reports`/
 > `resource-receipts` (and the client audit file) — governor state
 > and grant files stay governor-owned.
+>
+> Batch-2 landings (§100 第二批, commit `c1fdc94df`): `InstructionRecovery`
+> admission now resolves the plan capability through `CapabilityResolver`
+> (alias accepted, unknown → `CAPABILITY_UNKNOWN`) and runs
+> `ArchitectureCapabilityBinding.AdmissionCheck` over the canonical id —
+> a missing binding on the capability or its REQUIRES closure blocks the
+> lane with `CAPABILITY_ARCHITECTURE_INCOMPLETE` (§17/§69); the lane
+> ledger records the graph-derived regression contract via
+> `CapabilityResolver.RegressionSuite` (§18). `Evaluation.RunEvaluation`
+> now appends `star-capability-evidence/v1` rows per evaluated category
+> after a capability-suite run — canonical id, candidate, suite hash,
+> baseline/result/regression, `contribution=model` (§21-§22).
+> `ConvergenceGate` gained a critical `capability-delta` step comparing
+> the freshly emitted registry against
+> `state/capability-registry.promoted.json`; protected regression blocks
+> promotion, and the baseline refreshes only when the gate allows (§26).
+>
+> Batch-3 landings (§100 第三批, commit `18517c1b9`):
+> `ResourceErrors.GrantRequired` (`RESOURCE_GRANT_REQUIRED`, §10) —
+> `PreflightResourceGate` names a null post-preflight grant explicitly
+> instead of dereferencing it, and `--training-batch-plan --grant <file>`
+> routes through `TrainingAcceleration.GrantBoundBatchPlan` so plan
+> envelopes are grant-bound (effective VRAM = min(driver, grant), §41;
+> over-grant → `ACCELERATION_PLAN_OVER_GRANT`, §43). Without `--grant`
+> the planner emits `grant_bound=false` — planning verbs carry no
+> production execution authority.
 
 Capabilities are **first-class descriptors**, never their own runtime /
 model / store / scheduler. All capabilities ride the single xc-fused-1
