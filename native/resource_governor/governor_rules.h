@@ -221,6 +221,18 @@ struct Features {
     double limiter_min_percent = kLimiterMinDynamicPct;
     double limiter_step_percent = kLimiterStepPct;
     bool priority_escalate = false;
+    /* 回收機制（reclaim）：mem_used ≥ reclaim_mem_pct 時每週期按 RSS
+     * 降序批次修整工作集（前景/排除/治理平面豁免），自動釋放 RAM。 */
+    bool reclaim_enabled = false;
+    double reclaim_mem_pct = kReclaimMemPct;
+    int reclaim_batch = kReclaimBatch;
+    double reclaim_min_mb = kReclaimMinMb;
+    /* 池動態信封（pool_dynamic）：非互動池 CPU Job 率隨機器壓力升降
+     * （受壓→收緊至 floor；平靜且頂帽→放回預設）。互動層不壓。 */
+    bool pool_dynamic = false;
+    double pool_relief_cpu_pct = kPoolReliefCpuPct;
+    double pool_floor_percent = kPoolFloorPercent;
+    double pool_step_percent = kPoolStepPercent;
     bool worker_job_cap = false;
     double worker_job_percent = kWorkerCpuBudgetPct;
     long long worker_job_memory_bytes = 0;

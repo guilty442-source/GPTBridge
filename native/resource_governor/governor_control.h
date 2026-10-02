@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cmath>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,8 @@ struct RegState {
     /* 自動模式顧問跨週期滯回狀態（B167/B38 原生接替；
      * streak/last_switch 另經 resource-mode-advisor.json 跨重啟）。 */
     AdvisorState advisor;
+    /* 池動態信封：pool → 目前套用的 CPU Job 率（跨週期；未記錄=預設）。 */
+    std::map<int, double> pool_cpu_applied;
 };
 
 enum class RegEvent { PreEntered, Entered, Released, PreReleased };

@@ -398,5 +398,36 @@ int main() {
     }
     NT_END_TEST(SUITE, "grant_cycle_resize_shrinks_existing_grant");
 
+    NT_TEST(SUITE, "active_pressure_scales_vram_and_ram_grants") {
+        /* GPU/RAM 回收：ACTIVE_PRESSURE 時 make_context 依
+         * grant_pressure_vram_scale / grant_pressure_ram_scale 縮減
+         * 授予上限 — grant resize 後服務端輪詢即協作釋放資源。 */
+        gov::Snapshot snap = snap_with_budget(12, false);
+        gov::RulesDoc rules = rules_gpu_on();
+        gr::GrantContext normal =
+            gr::make_context(snap, rules, "training", 0, 1000.0);
+        NT_CHECK(normal.vram_budget_percent == 50.0, "normal keeps vram 50%");
+        NT_CHECK(normal.knobs.ram_share == 0.5, "normal ram share");
+        snap.concurrency_budget->pressure = gov::PressureTier::Active;
+        gr::GrantContext hot =
+            gr::make_context(snap, rules, "training", 0, 1000.0);
+        NT_CHECK(hot.vram_budget_percent == 25.0,
+                 "active pressure halves vram budget");
+        NT_CHECK(hot.knobs.ram_share == 0.25,
+                 "active pressure halves ram share");
+        NT_CHECK(hot.gpu_enabled, "gpu still enabled — budget shrunk only");
+
+        /* 旋鈕可經 rules defaults 覆寫（0.2 → 五倍壓縮）。 */
+        rules.defaults["grant_pressure_vram_scale"] = [] {
+            jl::JsonValue v;
+            v.type = jl::JsonValue::Type::Number;
+            v.number = 0.2;
+            return v;
+        }();
+        hot = gr::make_context(snap, rules, "training", 0, 1000.0);
+        NT_CHECK(hot.vram_budget_percent == 10.0, "scale knob override");
+    }
+    NT_END_TEST(SUITE, "active_pressure_scales_vram_and_ram_grants");
+
     return native_tests::report("resource_governor_grants_suite.json");
 }

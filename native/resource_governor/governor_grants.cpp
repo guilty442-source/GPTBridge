@@ -115,6 +115,12 @@ GrantKnobs resolve_knobs(
     k.background_threads_cap =
         static_cast<int>(num("grant_bg_threads_max", 0));
     k.benchmark_quota = static_cast<int>(num("benchmark_quota", 0));
+    k.pressure_vram_scale =
+        std::clamp(num("grant_pressure_vram_scale", k.pressure_vram_scale),
+                   0.0, 1.0);
+    k.pressure_ram_scale =
+        std::clamp(num("grant_pressure_ram_scale", k.pressure_ram_scale),
+                   0.0, 1.0);
     return k;
 }
 
@@ -415,6 +421,16 @@ GrantContext make_context(const Snapshot& snap, const RulesDoc& rules,
         if (vp != mode_defaults.end())
             ctx.vram_budget_percent =
                 std::clamp(json_num_or(&vp->second, 0.0), 0.0, 100.0);
+    }
+    /* 壓力回收（§22 延伸）：ACTIVE_PRESSURE 時依旋鈕比例縮減 VRAM/RAM
+     * 授予上限——既有 grant 經 resize 更新檔案，消費端輪詢到更小上限
+     * 即協作釋放顯存/記憶體；ram_available 本身已是即時量測值。 */
+    if (ctx.pressure == PressureTier::Active) {
+        ctx.vram_budget_percent = std::clamp(
+            ctx.vram_budget_percent * ctx.knobs.pressure_vram_scale,
+            0.0, 100.0);
+        ctx.knobs.ram_share = std::clamp(
+            ctx.knobs.ram_share * ctx.knobs.pressure_ram_scale, 0.0, 1.0);
     }
     return ctx;
 }

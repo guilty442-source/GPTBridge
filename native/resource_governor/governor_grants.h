@@ -121,6 +121,11 @@ struct GrantKnobs {
     long long io_write_cap = 0;
     int background_threads_cap = 0;        /* rules: grant_bg_threads_max */
     int benchmark_quota = 0;               /* rules: benchmark_quota */
+    /* 壓力回收：ACTIVE_PRESSURE 時 vram_budget_percent 乘此比例（0–1），
+     * 既有 grant resize 後服務端輪詢到更小上限即協作釋放顯存；
+     * ram_share 同理縮減新授予的 RAM 上限。 */
+    double pressure_vram_scale = 0.5;      /* rules: grant_pressure_vram_scale */
+    double pressure_ram_scale = 0.5;       /* rules: grant_pressure_ram_scale */
 };
 
 struct GrantContext {

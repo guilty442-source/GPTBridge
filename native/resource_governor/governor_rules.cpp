@@ -257,6 +257,24 @@ Features resolve_features(
                    0.5, 50.0);
     out.priority_escalate =
         feature_enabled(std::nullopt, defaults, "priority_escalate");
+    /* 回收機制與池動態信封旋鈕（mode preset/defaults 皆可覆寫）。 */
+    out.reclaim_enabled =
+        feature_enabled(std::nullopt, defaults, "reclaim_enabled");
+    out.reclaim_mem_pct = std::clamp(
+        json_num_or(find("reclaim_mem_pct"), kReclaimMemPct), 30.0, 99.0);
+    out.reclaim_batch = std::max(
+        1, static_cast<int>(json_num_or(find("reclaim_batch"), kReclaimBatch)));
+    out.reclaim_min_mb = std::clamp(
+        json_num_or(find("reclaim_min_mb"), kReclaimMinMb), 64.0, 65536.0);
+    out.pool_dynamic =
+        feature_enabled(std::nullopt, defaults, "pool_dynamic");
+    out.pool_relief_cpu_pct = std::clamp(
+        json_num_or(find("pool_relief_cpu_pct"), kPoolReliefCpuPct),
+        30.0, 100.0);
+    out.pool_floor_percent = std::clamp(
+        json_num_or(find("pool_floor_percent"), kPoolFloorPercent), 1.0, 90.0);
+    out.pool_step_percent = std::clamp(
+        json_num_or(find("pool_step_percent"), kPoolStepPercent), 0.5, 50.0);
     out.worker_job_cap =
         feature_enabled(config.worker_job_cap, defaults, "worker_job_cap");
     const double job_percent = config.worker_job_percent.has_value()

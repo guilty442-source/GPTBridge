@@ -22,6 +22,15 @@ struct PbCandidate {
     ProcKey key;
 };
 
+/* 回收候選：reclaim_pass 依 RSS 降序取用；登記於 process_sample
+ * （前景/排除/治理平面在候選登記前已豁免）。 */
+struct ReclaimCandidate {
+    ProcKey key;
+    int pid = 0;
+    std::string name;
+    double rss_mb = 0.0;
+};
+
 struct CycleEnv {
     const GovernorConfig& config;
     const RulesDoc& rules;
@@ -51,6 +60,9 @@ struct CycleEnv {
     std::map<Pool, double> pool_cpu_sum;
     std::map<Pool, double> pool_rss_mb;
     std::map<Pool, int> pool_count;
+    /* 池動態信封：各池第一位存活成員 pid（resize 共享 Job 時用）。 */
+    std::map<Pool, int> pool_member_pid;
+    std::vector<ReclaimCandidate> reclaim_candidates;
     std::vector<jsonlite::JsonValue> actions;
     std::vector<ProcRow> rows;
     std::set<ProcKey> seen;
@@ -66,6 +78,12 @@ void apply_rule_static(CycleEnv& env, const ProcSample& sample,
 
 /* 逐行程處理步驟（governor_cycle_steps.cpp）。 */
 void process_sample(CycleEnv& env, ProcSample sample);
+
+/* 週期末批次步驟（governor_cycle_steps.cpp）：
+ *  - reclaim_pass：RAM 壓力下按 RSS 降序批次修整工作集（自動釋放）。
+ *  - pool_rebalance：池動態信封——非互動池 CPU Job 率隨壓力升降。 */
+void reclaim_pass(CycleEnv& env);
+void pool_rebalance(CycleEnv& env);
 
 }  // namespace governor
 }  // namespace gptbridge

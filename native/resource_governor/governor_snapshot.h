@@ -76,6 +76,8 @@ struct PoolLedger {
     double ram_pct = 0.0;
     double cpu_budget_pct = 0.0;
     double ram_budget_pct = 0.0;
+    /* 池動態信封：目前實際套用的 CPU Job 率（≤0 = 未動態調整/預設）。 */
+    double cpu_applied_pct = 0.0;
     bool over_budget = false;
 };
 
@@ -117,6 +119,9 @@ struct Snapshot {
     bool pb_strained = false;
     int pb_demoted = 0;
     int pb_max = kProbBalanceMaxDemotions;
+    /* 回收機制：reclaim pass 本週期狀態（壓力中/已修整數）。 */
+    bool reclaim_active = false;
+    int reclaim_trimmed = 0;
     Features features;
     Thresholds thresholds;
     std::string rules_path;
@@ -210,6 +215,10 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
                         {"ram_pct", jnum(ledger.ram_pct)},
                         {"budget_cpu_pct", jnum(ledger.cpu_budget_pct)},
                         {"budget_ram_pct", jnum(ledger.ram_budget_pct)},
+                        {"cpu_applied_pct",
+                         jnum(ledger.cpu_applied_pct > 0.0
+                                  ? ledger.cpu_applied_pct
+                                  : ledger.cpu_budget_pct)},
                         {"over_budget", jbool(ledger.over_budget)}}));
     return jobj({
         {"interval", jnum(snap.interval)},
@@ -267,6 +276,10 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
                 jnum(snap.features.limiter_step_percent)},
                {"priority_escalate",
                 jbool(snap.features.priority_escalate)},
+               {"reclaim_enabled",
+                jbool(snap.features.reclaim_enabled)},
+               {"reclaim_mem_pct", jnum(snap.features.reclaim_mem_pct)},
+               {"pool_dynamic", jbool(snap.features.pool_dynamic)},
                {"worker_job_cap", jbool(snap.features.worker_job_cap)},
                {"worker_job_percent", jnum(snap.features.worker_job_percent)},
                {"resp_strain_ratio", jnum(snap.features.resp_ratio)},
@@ -281,6 +294,12 @@ inline jsonlite::JsonValue snapshot_to_json(const Snapshot& snap) {
                {"rules_loaded", jbool(snap.rules_loaded)},
                {"rules_error", snap.rules_error.empty() ? jnull()
                                                         : jstr(snap.rules_error)}})},
+        {"reclaim",
+         jobj({{"enabled", jbool(snap.features.reclaim_enabled)},
+               {"active", jbool(snap.reclaim_active)},
+               {"trimmed", jint(snap.reclaim_trimmed)},
+               {"mem_used_pct", jnum(round1(snap.mem_used_pct))},
+               {"threshold_pct", jnum(snap.features.reclaim_mem_pct)}})},
         {"worker_admission_hold", jbool(snap.worker_admission_hold)},
         {"auto_mode", jbool(snap.auto_mode)},
         {"advisor", snap.advisor ? *snap.advisor : jnull()},

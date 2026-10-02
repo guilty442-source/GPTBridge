@@ -199,6 +199,10 @@ void fill_snapshot_core(CycleEnv& env, const RegUpdate& update) {
                 (ledger.ram_budget_pct > 0 &&
                  ledger.ram_pct > ledger.ram_budget_pct);
         }
+        const auto applied = env.regulation.pool_cpu_applied.find(
+            static_cast<int>(pool));
+        if (applied != env.regulation.pool_cpu_applied.end())
+            ledger.cpu_applied_pct = round1(applied->second);
         env.snap.pools[pool_name(pool)] = ledger;
     }
     env.snap.top_cpu.assign(by_cpu.begin(),
@@ -393,6 +397,8 @@ Snapshot govern_once(const GovernorConfig& config, const RulesDoc& rules,
         process_sample(env, std::move(sample));
     sweep_dead_records(env);
     probalance_pass(env);
+    reclaim_pass(env);
+    pool_rebalance(env);
     const RegUpdate update = finalize_ledger(env);
     fill_concurrency_budget(env);
     fill_snapshot_core(env, update);

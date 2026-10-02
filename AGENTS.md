@@ -1092,6 +1092,25 @@ when it drops under extreme (rule-held/pb/bg/foreground exempt).  Protected:
 Windows system processes, security software (including the user's antivirus)
 and the governor itself.
 
+Per-backend-service dynamic control (`defaults`, all off unless declared):
+with `pool_dynamic` each non-interactive pool's shared Job CPU envelope is
+re-resolved every cycle — while the machine is pressured
+(`cpu_load ≥ pool_relief_cpu_pct` or responsiveness strain / active
+regulation) the envelope tightens by `pool_step_percent` toward
+`pool_floor_percent`; when calm and the pool's demand rides its cap
+(≥ 90% of the applied rate) it relaxes back toward the preset.  The
+interactive lane is never squeezed, and the applied rate is reported as
+`pools.<name>.cpu_applied_pct` in the snapshot.
+RAM reclamation (`reclaim_enabled`): when machine `mem_used_pct` reaches
+`reclaim_mem_pct` the governor trims the largest working sets ≥
+`reclaim_min_mb` in batches of `reclaim_batch` per cycle (RSS-descending,
+trim cooldown respected; foreground/excluded/governance exempt) so RAM is
+auto-released before paging pressure builds.  GPU/RAM grant reclaim runs
+through the grant lane: at `ACTIVE_PRESSURE`, `make_context` scales
+`vram_budget_percent` by `grant_pressure_vram_scale` and the RAM share for
+new grants by `grant_pressure_ram_scale`, so existing grants resize smaller
+and cooperating services release VRAM/RAM on their next poll.
+
 ```powershell
 # build
 powershell -NoProfile -ExecutionPolicy Bypass -File native\resource_governor\build.ps1

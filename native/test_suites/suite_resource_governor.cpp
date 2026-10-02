@@ -608,5 +608,63 @@ int main() {
     }
     NT_END_TEST(SUITE, "priority_escalates_to_idle_and_steps_back");
 
+    NT_TEST(SUITE, "reclaim_pass_trims_largest_under_mem_pressure") {
+        /* 回收機制：mem_used ≥ reclaim_mem_pct 時按 RSS 降序批次修整
+         * 工作集（每週期 reclaim_batch 個）；前景行程與小行程豁免，
+         * 低於閾值完全不動作；跨週期受 trim_cooldown 節制補齊。 */
+        const std::string text =
+            R"({"defaults": {"reclaim_enabled": true, "reclaim_mem_pct": 80,)"
+            R"( "reclaim_batch": 2, "reclaim_min_mb": 500}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
+        FakeEngine engine;
+        engine.sys = sys8();
+        engine.sys.mem_used_pct = 85.0;
+        engine.foreground = 960;
+        gov::GovernorConfig config = base_config();
+        config.dry_run = false;
+        /* 高於測試 RSS：把冷靜修整路徑（maybe_trim）與 reclaim 分離。 */
+        config.mem_trim_mb = 10000.0;
+        gov::CycleContext ctx = base_ctx();
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+        auto big = [](int pid, double rss) {
+            gov::ProcSample s = worker_proc(pid, 1.0);
+            s.rss_mb = rss;
+            s.create_ms = 4000000 + pid;
+            return s;
+        };
+        engine.procs = {big(951, 3000.0), big(952, 2000.0), big(953, 1000.0),
+                        big(954, 100.0), big(960, 4000.0)};
+        gov::Snapshot snap = gov::govern_once(config, *parsed, engine, records,
+                                              regulation, ctx, logs);
+        NT_CHECK(snap.reclaim_active && snap.reclaim_trimmed == 2,
+                 "reclaim active, batch bound");
+        NT_CHECK(has_call(engine.calls, "trim:951"), "largest trimmed first");
+        NT_CHECK(has_call(engine.calls, "trim:952"), "second trimmed");
+        NT_CHECK(!has_call(engine.calls, "trim:953"), "batch bound holds");
+        NT_CHECK(!has_call(engine.calls, "trim:954"), "below min_mb skipped");
+        NT_CHECK(!has_call(engine.calls, "trim:960"), "foreground exempt");
+
+        /* 下一週期仍在 cooldown（+200 < 300）：已修整的 951/952 跳過，
+         * 批次補齊第三個候選。 */
+        ctx.now_mono += 200.0;
+        engine.calls.clear();
+        snap = gov::govern_once(config, *parsed, engine, records, regulation,
+                                ctx, logs);
+        NT_CHECK(has_call(engine.calls, "trim:953"), "next cycle trims rest");
+        NT_CHECK(count_calls(engine.calls, "trim:") == 1, "cooldown respected");
+
+        ctx.now_mono += 400.0;
+        engine.sys.mem_used_pct = 50.0;
+        engine.calls.clear();
+        snap = gov::govern_once(config, *parsed, engine, records, regulation,
+                                ctx, logs);
+        NT_CHECK(!snap.reclaim_active, "inactive below threshold");
+        NT_CHECK(!has_call(engine.calls, "trim:"), "no trim when calm");
+    }
+    NT_END_TEST(SUITE, "reclaim_pass_trims_largest_under_mem_pressure");
+
     return native_tests::report("resource_governor_suite.json");
 }

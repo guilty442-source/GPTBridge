@@ -485,7 +485,17 @@ void process_sample(CycleEnv& env, ProcSample sample) {
      * 區：不寫動作、不標記狀態，下一輪啟用時重新正常收斂。 */
     if (env.ctx.disabled) return;
 
+    /* 回收候選登記：reclaim_pass 依 RSS 降序取用；前景行程在此豁免，
+     * 排除規則與治理平面已於上方提前回傳。 */
+    if (sample.pid != env.foreground &&
+        sample.rss_mb >= env.features.reclaim_min_mb)
+        env.reclaim_candidates.push_back(
+            {key, sample.pid, sample.name, sample.rss_mb});
+
     pool_envelope(env, sample, pool, record);
+    /* 池動態信封：記錄各池存活成員 pid 供 resize 共享 Job。 */
+    if (record.pool_member && pool != Pool::None)
+        env.pool_member_pid.try_emplace(pool, sample.pid);
     job_cap_and_pb(env, sample, plane, key, record);
     if (rule != nullptr && !record.rule_applied) {
         record.rule_applied = true;
@@ -516,6 +526,90 @@ void process_sample(CycleEnv& env, ProcSample sample) {
     if (calm_now && record.calm >= env.config.calm_samples) {
         release_static(env, sample, record);
         release_lasso(env, sample, key, record);
+    }
+}
+
+/* ================================================================== */
+/* 週期末批次步驟                                                       */
+/* ================================================================== */
+
+/* RAM 自動回收：機器記憶體 ≥ reclaim_mem_pct 時按 RSS 降序批次修整
+ * 工作集（修整為軟性——行程可重新分頁，不毀資料）。 */
+void reclaim_pass(CycleEnv& env) {
+    env.snap.reclaim_active =
+        env.features.reclaim_enabled &&
+        env.sys.mem_used_pct >= env.features.reclaim_mem_pct;
+    env.snap.reclaim_trimmed = 0;
+    if (!env.snap.reclaim_active || env.ctx.disabled) return;
+    std::vector<ReclaimCandidate> ordered = env.reclaim_candidates;
+    std::sort(ordered.begin(), ordered.end(),
+              [](const ReclaimCandidate& a, const ReclaimCandidate& b) {
+                  return a.rss_mb > b.rss_mb;
+              });
+    for (const ReclaimCandidate& cand : ordered) {
+        if (env.snap.reclaim_trimmed >= env.features.reclaim_batch) break;
+        auto it = env.records.find(cand.key);
+        if (it == env.records.end()) continue;
+        if (env.ctx.now_mono - it->second.last_trim_mono <
+            env.config.trim_cooldown)
+            continue;
+        const bool ok = env.dry_run || env.engine.trim(cand.pid);
+        if (!ok) continue;
+        it->second.last_trim_mono = env.ctx.now_mono;
+        env.snap.reclaim_trimmed += 1;
+        env.actions.push_back(
+            jobj({{"action", jstr("reclaim-trimmed")},
+                  {"pid", jint(cand.pid)},
+                  {"name", jstr(cand.name)},
+                  {"mem_mb", jnum(round1(cand.rss_mb))},
+                  {"mem_used_pct", jnum(round1(env.sys.mem_used_pct))}}));
+    }
+}
+
+/* 池動態信封：機器受壓（回應緊張/調節中/CPU ≥ pool_relief_cpu_pct）
+ * 時非互動池共享 Job 率逐步收緊至 pool_floor_percent；平靜且池需求
+ * 頂住帽緣（≥ 現值 90%）時逐步放回預設。互動層不壓（回應度優先）。 */
+void pool_rebalance(CycleEnv& env) {
+    if (!env.features.pool_dynamic || !env.rules.pools_enabled ||
+        env.ctx.disabled)
+        return;
+    const bool pressure =
+        env.strained || env.regulation.active ||
+        env.sys.cpu_load_machine >= env.features.pool_relief_cpu_pct;
+    for (const auto& [pool, policy] : env.rules.pools) {
+        if (!policy.enabled || policy.cpu_limit_percent <= 0.0 ||
+            pool == Pool::Interactive)
+            continue;
+        const auto member = env.pool_member_pid.find(pool);
+        if (member == env.pool_member_pid.end()) continue;
+        const int slot = static_cast<int>(pool);
+        const auto applied_it = env.regulation.pool_cpu_applied.find(slot);
+        const double applied = applied_it != env.regulation.pool_cpu_applied.end()
+                                   ? applied_it->second
+                                   : policy.cpu_limit_percent;
+        double desired = applied;
+        if (pressure) {
+            desired = std::max(env.features.pool_floor_percent,
+                               applied - env.features.pool_step_percent);
+        } else if (applied < policy.cpu_limit_percent - 0.05) {
+            const double demand =
+                env.pool_cpu_sum[pool] / std::max(1, env.logical);
+            if (demand >= applied * 0.9)
+                desired = std::min(policy.cpu_limit_percent,
+                                   applied + env.features.pool_step_percent);
+        }
+        if (std::abs(desired - applied) < 0.05) continue;
+        const bool ok = env.dry_run ||
+                        env.engine.cpu_limit(pool_job_key(pool), member->second,
+                                             desired, 0, 0);
+        if (!ok) continue;
+        env.regulation.pool_cpu_applied[slot] = desired;
+        env.actions.push_back(
+            jobj({{"action", jstr("pool-envelope-resized")},
+                  {"pool", jstr(pool_name(pool))},
+                  {"from", jnum(round1(applied))},
+                  {"to", jnum(round1(desired))},
+                  {"pressure", jbool(pressure)}}));
     }
 }
 
