@@ -1120,7 +1120,13 @@ urgently demotes anything above `ceiling` (streak/cooldown exempt).
 responsiveness strain or machine overload → `low` immediately (urgent,
 cooldown-exempt); worker demand + machine headroom → upgrade after
 `streak_up` evaluations, clamped to the effective ceiling; downgrades need
-`streak_down` evaluations plus `cooldown_s`.
+`streak_down` evaluations plus `cooldown_s`.  Signals are EMA-smoothed
+(`signal_alpha`, default 0.5): machine overload and headroom judge the
+smoothed value so a single busy/quiet sampling window cannot flip the mode,
+while `strain_instant_margin` (default 10) keeps truly extreme spikes urgent;
+`eval_interval_busy_s` (default 20, ≤0 disables) shortens the eval interval
+to a busy cadence while strained, overloaded, or mid-transition so both
+urgent response and calm recovery land sooner.
 Manual mode selection via `app:set-resource-mode` sets `auto_mode=false`
 (user intent wins).  Advisor state persists in
 `main-system/runtime/state/resource-mode-advisor.json`; mode switches append

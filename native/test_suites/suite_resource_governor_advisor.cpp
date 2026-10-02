@@ -395,7 +395,8 @@ int main() {
             R"({"auto_mode": true,)"
             R"("auto": {"signal_alpha": 0.3, "strain_instant_margin": 12.5,)"
             R"( "eval_interval_busy_s": 15},)"
-            R"("modes": {"low": {}, "medium": {}}})";
+            R"("power_saving_schedule": {"enabled": false},)"
+            R"("modes": {"low": {}, "medium": {}, "high": {}}})";
         auto parsed = gov::parse_rules(text);
         NT_CHECK(parsed.has_value() && parsed->error.empty(), "parse ok");
         NT_CHECK(std::abs(parsed->advisor.signal_alpha - 0.3) < 1e-9,
@@ -407,7 +408,8 @@ int main() {
         /* busy ≤0 停用 → 恆用基礎節拍。 */
         const std::string off =
             R"({"auto_mode": true, "auto": {"eval_interval_busy_s": 0},)"
-            R"("modes": {"low": {}, "medium": {}}})";
+            R"("power_saving_schedule": {"enabled": false},)"
+            R"("modes": {"low": {}, "medium": {}, "high": {}}})";
         auto parsed_off = gov::parse_rules(off);
         NT_CHECK(parsed_off.has_value() &&
                      parsed_off->advisor.eval_interval_busy_s == 0.0,
