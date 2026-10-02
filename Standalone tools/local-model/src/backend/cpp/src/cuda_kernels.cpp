@@ -962,6 +962,21 @@ int xcuda_sm_count() {
     return xcd::dev().sm_count > 0 ? xcd::dev().sm_count : 0;
 }
 
+// Host physical memory (MB) for the star-accel-plane telemetry — kept
+// behind the C ABI so consuming TUs (the trainer) never need windows.h
+// and its legacy far/near macros. Returns 1 on success, 0 otherwise;
+// output parameters may be null independently.
+int xcm_host_mem_mb(long long* total_mb, long long* avail_mb) {
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof(ms);
+    if (!GlobalMemoryStatusEx(&ms)) return 0;
+    if (total_mb != nullptr)
+        *total_mb = (long long)(ms.ullTotalPhys >> 20);
+    if (avail_mb != nullptr)
+        *avail_mb = (long long)(ms.ullAvailPhys >> 20);
+    return 1;
+}
+
 // NVML instantaneous sensors for the §66 hardware baseline — same
 // run-time binding rule as every other CUDA dependency: nvml.dll ships
 // with the driver, nothing is import-linked, and any missing symbol or

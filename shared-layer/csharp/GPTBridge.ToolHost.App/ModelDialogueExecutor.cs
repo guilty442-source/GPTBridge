@@ -153,6 +153,26 @@ internal sealed class ModelDialogueExecutor
             if (string.IsNullOrWhiteSpace(checkpoint)) return false;
             var path = Path.GetFullPath(Path.IsPathRooted(checkpoint)
                 ? checkpoint : Path.Combine(_localModelRoot, checkpoint));
+            // Data residency: an out-of-boundary pin refuses to serve —
+            // the bundle must resolve inside a registered xingcheng
+            // domain root (institution root or the model-dialogue star
+            // directory).
+            var roots = new[]
+            {
+                Path.Combine(_localModelRoot, "xingcheng"),
+                Path.GetFullPath(Path.Combine(
+                    _localModelRoot, "..", "model-dialogue",
+                    "xingcheng")),
+            };
+            var inBoundary = roots.Any(r =>
+            {
+                var root = Path.GetFullPath(r);
+                return path.Equals(root,
+                        StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith(root + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase);
+            });
+            if (!inBoundary) return false;
             return File.Exists(Path.Combine(path, "manifest.json"))
                 && File.Exists(Path.Combine(path, "weights.bin"));
         }

@@ -376,9 +376,12 @@ internal static class Program
                 if (opts.TryGetValue("capability", out string? rcp) &&
                     rcp.Length > 0)
                     InstructionRecovery.Capability = rcp;
+                // Boundary: an explicit --out must stay in-domain.
+                var rdoAssert = opts.TryGetValue("out", out string? rdo)
+                    && rdo.Length > 0
+                    ? DataBoundary.AssertInside(toolRoot, rdo) : "";
                 return Emit(InstructionRecovery.BuildDataset(
-                    opts.TryGetValue("out", out string? rdo)
-                        ? rdo : "",
+                    rdoAssert,
                     opts.TryGetValue("count", out string? rc) &&
                         int.TryParse(rc, out int rcv) ? rcv : 2800,
                     opts.TryGetValue("seed", out string? rsd) &&

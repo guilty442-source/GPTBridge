@@ -296,7 +296,11 @@ internal static class GenerationMigration
         if (!WeightMethods.Contains(weightMethod))
             throw new ExecutorError("GEN_WEIGHT_METHOD",
                 $"expected one of {string.Join("/", WeightMethods)}");
-        string weights = Path.GetFullPath(weightsPath);
+        // Data residency: the generation candidate's weights are
+        // xingcheng-owned — an out-of-boundary source can never be
+        // registered, staged or pinned.
+        string weights = DataBoundary.AssertInside(
+            toolRoot, weightsPath);
         if (!File.Exists(weights) && !Directory.Exists(weights))
             throw new ExecutorError("GEN_WEIGHTS_MISSING", weights);
         if (!IsBundleDir(weights) &&
