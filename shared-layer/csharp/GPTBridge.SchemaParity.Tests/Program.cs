@@ -20,6 +20,10 @@ void Equal(object expected, object? actual, string name)
     passed++;
 }
 Equal("PASS", Evaluate(row)["current_evidence_status"], "complete-current-receipt");
+var verified = new Dictionary<string, object?>(row) { ["parity_status"] = "VERIFIED" };
+Equal("PASS", Evaluate(verified)["current_evidence_status"], "canonical-registry-label-with-current-receipt");
+verified["evidence_generation"] = "old";
+Equal("INCOMPLETE_EVIDENCE", Evaluate(verified)["current_evidence_status"], "verified-label-alone-does-not-pass");
 Equal("CANONICAL_MISMATCH", SemanticHashToolchain.EvaluateRow(row, new string('0', 64), hash)["persistence_layer"], "content-hash-cannot-mask-canonical-mismatch");
 Equal("MATCH", SemanticHashToolchain.EvaluateRow(row, null, hash)["persistence_layer"], "legacy-content-hash-fallback");
 foreach (var field in new[] { "parity_status", "evidence_status", "evidence_generation", "canonical_semantic_hash", "evidence_producer_hash", "evidence_validator_hash", "evidence_persistence_hash" })

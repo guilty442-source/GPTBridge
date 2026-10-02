@@ -26,8 +26,9 @@ internal static partial class MachineSchemaParity
             row.GetValueOrDefault("canonical_semantic_hash") as string,
             row.GetValueOrDefault("content_hash") as string);
         var reasons = new List<string>();
-        if (!Equals(row.GetValueOrDefault("parity_status"), "PASS"))
-            reasons.Add("REGISTRY_PARITY_NOT_PASS");
+        var registryStatus = row.GetValueOrDefault("parity_status") as string;
+        if (registryStatus is not ("PASS" or "VERIFIED"))
+            reasons.Add("REGISTRY_PARITY_NOT_VERIFIED");
         if (!Equals(row.GetValueOrDefault("evidence_status"), "PASS"))
             reasons.Add("EVIDENCE_NOT_PASS");
         if (string.IsNullOrWhiteSpace(generation)
