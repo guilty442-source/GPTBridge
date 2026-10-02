@@ -432,7 +432,7 @@
       "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; codex-amendment-intake tick → Driver.AdvanceAll in-process)",
       "kind": "periodic",
       "pausable": false,
-      "enabled": false,
+      "enabled": true,
       "description": "Codex 修訂請求管線驅動（pausable=false 保障治理關鍵路徑不受資源管制/睡眠模式暫停）：掃描受管 intake（main-system/runtime/state 與 governance_rule/execution/audit/convergence 的 codex-amendment-request-*.json）→ ledger.begin 取得 lineage lock → build_successor 建候選（PG 權威匯出為 non-authoritative .sql artifact）→ run_five_sovereign_audit → ready-for-governor → auto_execute=true 時經 codex_amendment_executor 自動解除唯讀、ATOMIC-PUBLISH 至 PostgreSQL 權威、恢復唯讀並封印（五主權一致稽核憑證為封印條件，executor 於變更前重新驗證；失敗一律終態 rejected，owner 以 -rN 重送）。auto_execute=false 時停在 ready-for-governor 由 human governor 手動 codex_amendment_executor --apply。xingcheng 收據需 governed web-search callable（xingcheng_web_search 經 GovernedRequestClient → local-model）；未接線時 defer（successor-built）而非永久拒絕。CLI：shared-layer/csharp/GPTBridge.CodexPipeline/publish/GPTBridge.CodexPipeline.exe --scan|--request|--all [--auto-execute]（Python driver 已退役 B167/B38）",
       "interval_s": 300,
       "auto_execute": true
