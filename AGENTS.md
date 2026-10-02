@@ -1469,14 +1469,15 @@ Worker rules for codex work:
    been removed; the assessment that xstore has no metadata contract
    surface stands (that absence is now the intended end state, not an
    open gap). No migration work remains here.
-7. **Ollama dependency elimination not done.** `ollama-service.exe`
-   and the teacher-distillation lane (`TeacherCollect.cs`,
-   `--teacher-collect`, `teacher-distillation.json`) still exist;
-   codex B154 still registers Ollama teacher distillation (enabled by
-   the 2026-09-30 governor directive). Native-Only is currently gate
-   + governance capability only — removal requires a codex amendment
-   (B154 retirement) plus code removal; do not delete the capability
-   without the amendment landing first.
+7. **Ollama dependency: B154 retired (executed 2026-10-02T11:40Z, rev
+   235); code removal in progress.** Amendment
+   `b154-ollama-retirement-20261002` rewrote B154 to
+   `RETIREMENT:…/FORBID:ollama-service-activation-or-start|…` and set
+   `provision_lifecycle_status=retired`. Remaining work: remove
+   `ollama-service.exe` lane, `TeacherCollect.cs`, `--teacher-collect`,
+   `teacher-distillation.json` and any routing/probe code so the runtime
+   matches; sibling articles B155/A130/B25/C32 still mention Ollama —
+   residue convergence amendment requested separately.
 8. **Codex open evidence gaps block verified release.**
     `postgresql_role_registry` is now populated (48 rows observed live
     2026-10-02, live↔registry delta = 0, evidence
@@ -1526,8 +1527,16 @@ Worker rules for codex work:
     Python-semantics hash for AUDIT_EVENT) — verbs `--schema-parity`
     (full probe) and `--parity-descriptor <code>` (diagnostic).
     Current evidence `machine-schema-parity-probe-20261002.json`:
-    77/77 producer=validator PASS, 0/77 canonical match. The remaining
-    step is purely governor-side: publish the canonical descriptor
-    projection or authorize a restamp (staged proposal
+    77/77 producer=validator PASS, 0/77 canonical match. A second,
+    oracle-verified port `SemanticHashToolchain.cs` (recovered Python
+    source at `675fa045b^`, byte-parity proven incl. `default=str`,
+    ensure_ascii escapes and `|`-split fallback) now exposes
+    `BuildDescriptor`/`ComputeProducerHash`/`EvaluateRow` as pure
+    functions — use it as the reference; `MachineSchemaParity.cs` has
+    two divergences vs the oracle (`raw as string` drops non-string
+    descriptor values to null; `"G17"` floats differ from Python
+    shortest-round-trip) and should be reconciled onto the shared port.
+    The remaining step is purely governor-side: publish the canonical
+    descriptor projection or authorize a restamp (staged proposal
     `codex-amendment-proposal-machine-schema-parity-restamp-20260924`).
     Item 1's `PENDING` state stays until then.
