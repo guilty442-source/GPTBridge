@@ -153,7 +153,16 @@ pub fn commit_events(
     let mut prev = scan.head_hash.clone();
     let mut seq = scan.events.last().map(|e| e.seq).unwrap_or(0);
     let mut hashes = Vec::with_capacity(specs.len());
+    // One record mutates at most once per transaction — a duplicate
+    // would make two events claim the same revision chain position.
+    let mut seen = std::collections::HashSet::new();
     for spec in specs {
+        if !seen.insert((&spec.record_type, &spec.record_id)) {
+            return Err(format!(
+                "XSTORE_TX_DUP: {}/{} twice in one transaction",
+                spec.record_type, spec.record_id
+            ));
+        }
         seq += 1;
         let (line, eh) = mt::make_event_line(
             seq, transaction_id, operation_id, spec, actor, &prev,
