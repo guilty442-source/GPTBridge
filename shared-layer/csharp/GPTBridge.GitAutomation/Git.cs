@@ -15,7 +15,31 @@ internal static class Git
     public static GitResult Run(
         string? workDirectory, IReadOnlyList<string> args,
         int timeoutMs = DefaultTimeoutMs) =>
-        Exec("git", workDirectory, args, timeoutMs);
+        Exec(ResolveExecutable(), workDirectory, args, timeoutMs);
+
+    // Git for Windows cmd/git.exe is a launcher. Start the installed native
+    // binary directly so a stalled launcher cannot hold the automation lane.
+    internal static string ResolveExecutable()
+    {
+        if (!OperatingSystem.IsWindows()) return "git";
+        foreach (var entry in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var directory = entry.Trim('"');
+            if (!File.Exists(Path.Combine(directory, "git.exe"))) continue;
+            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(directory));
+            var root = name.Equals("cmd", StringComparison.OrdinalIgnoreCase)
+                       || name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+                ? Path.GetDirectoryName(directory) : directory;
+            foreach (var lane in new[] { "ucrt64", "mingw64", "mingw32" })
+            {
+                var native = Path.Combine(root!, lane, "bin", "git.exe");
+                if (File.Exists(native)) return native;
+            }
+            return Path.Combine(directory, "git.exe");
+        }
+        return "git";
+    }
 
     /// <summary>Bounded arbitrary subprocess (dotnet/powershell/native
     /// tools) — same timeout/kill semantics as git runs.</summary>
@@ -42,7 +66,10 @@ internal static class Git
                 ?? throw new InvalidOperationException("git spawn failed");
             var stdout = process.StandardOutput.ReadToEndAsync();
             var stderr = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(timeoutMs))
+            var deadline = Stopwatch.StartNew();
+            if (!process.WaitForExit(timeoutMs)
+                || !Task.WaitAll(new Task[] { stdout, stderr },
+                    Math.Max(0, timeoutMs - (int)deadline.ElapsedMilliseconds)))
             {
                 try { process.Kill(entireProcessTree: true); }
                 catch (InvalidOperationException) { }

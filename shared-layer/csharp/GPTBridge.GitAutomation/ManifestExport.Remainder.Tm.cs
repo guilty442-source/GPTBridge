@@ -43,11 +43,7 @@ internal static partial class ManifestExport
                 }
             }
         }
-        foreach (var p in Directory
-                     .EnumerateFiles(root, "manifest.json",
-                         SearchOption.AllDirectories)
-                     .Where(f => Path.GetRelativePath(root, f)
-                         .Split(Path.DirectorySeparatorChar).Length == 5)
+        foreach (var p in DepthFourManifests(root)
                      .Where(f => ManifestScanned(root, f)))
             tmPaths.Add(p);
         // The xingcheng enclave's bound manifest lives at

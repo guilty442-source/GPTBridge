@@ -13,6 +13,17 @@ namespace GPTBridge.GitAutomation;
 /// </summary>
 internal static partial class ManifestExport
 {
+    // Equivalent to */*/*/*/manifest.json without traversing every deeper
+    // runtime object, build output and nested checkout before filtering.
+    internal static IEnumerable<string> DepthFourManifests(string root)
+    {
+        IEnumerable<string> directories = new[] { root };
+        for (var depth = 0; depth < 4; depth++)
+            directories = directories.SelectMany(Directory.EnumerateDirectories).ToArray();
+        return directories.Select(dir => Path.Combine(dir, "manifest.json"))
+            .Where(File.Exists);
+    }
+
     private const string ManifestRelative =
         "governance_rule/execution/audit/audit_checks_manifest.json";
 
