@@ -1451,6 +1451,11 @@ Worker rules for codex work:
    evidence row's `codex_version`/`version_identity` matches the live
    head and, if needed, run the fresh published binary with
    `--repair-projections` directly.
+   As of 2026-10-02 ~19:40 the main-system backend is down and the
+   orphaned `GPTBridge.Automation.exe` (parent dead, all state files
+   stale since 07:35) was killed; its `*.lock` files in
+   `main-system/runtime/state/` are stale markers the next governed
+   host may reclaim or clear.
 5. **Other workers' in-flight changes.** `native/resource_governor`
    and `XingchengLearning/ResourceGovernance*` land via separate
    workers; do not sweep them into unrelated commits (path-scoped
