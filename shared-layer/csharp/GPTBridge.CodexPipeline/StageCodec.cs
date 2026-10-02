@@ -135,6 +135,57 @@ internal static partial class StageCodec
         }
     }
 
+    /// <summary>Batch bounds for artifact replay: governed artifacts are
+    /// one-statement-per-line, so chunks stay well inside server limits
+    /// while cutting ~24k round-trips to a few dozen.</summary>
+    private const int BatchMaxStatements = 512;
+    private const int BatchMaxBytes = 1 << 20;
+
+    /// <summary>Execute governed artifact statements as chunked
+    /// multi-statement commands (simple protocol — the artifact carries
+    /// literals only, never parameters).  Semantics are unchanged: same
+    /// order, same statements; a failed chunk aborts exactly like the
+    /// failing single statement did.</summary>
+    internal static void ExecStatements(NpgsqlConnection connection,
+        IEnumerable<string> statements)
+    {
+        var chunk = new StringBuilder(BatchMaxBytes / 4);
+        var count = 0;
+        void Flush()
+        {
+            if (count == 0)
+                return;
+            var sql = chunk.ToString();
+            using (var command = new NpgsqlCommand(sql, connection))
+            {
+                try
+                {
+                    command.ExecuteNonQuery();
+                }
+                catch (PostgresException error)
+                {
+                    var head = sql.Length > 160
+                        ? sql[..160] + "…" : sql;
+                    throw new PostgresException(error.MessageText
+                        + $" [batch:{count} statements from: {head}]",
+                        error.Severity, error.InvariantSeverity,
+                        error.SqlState);
+                }
+            }
+            chunk.Clear();
+            count = 0;
+        }
+        foreach (var statement in statements)
+        {
+            if (count > 0 && (count >= BatchMaxStatements
+                || chunk.Length + statement.Length > BatchMaxBytes))
+                Flush();
+            chunk.Append(statement).Append('\n');
+            count += 1;
+        }
+        Flush();
+    }
+
     // ------------------------------------------------------------------
     // Artifact codec: deterministic .sql dump
     // ------------------------------------------------------------------
