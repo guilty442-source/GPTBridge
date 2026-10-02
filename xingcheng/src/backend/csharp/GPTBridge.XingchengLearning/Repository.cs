@@ -1058,7 +1058,7 @@ internal sealed class TransformerTrainingRepository
                 else if (res.ValueKind == JsonValueKind.String)
                     sr = res.GetString();
             }
-            string expected = claim.Result switch
+            string expected = claim.Item1 switch
             {
                 JobClaimResult.Claimed => "claimed",
                 JobClaimResult.Busy => "busy",
@@ -1067,7 +1067,7 @@ internal sealed class TransformerTrainingRepository
             };
             if (!string.Equals(sr, expected, StringComparison.Ordinal))
                 ShadowMismatch("claim_job",
-                    $"pg={claim.Result} xstore={sr ?? "none"}");
+                    $"pg={claim.Item1} xstore={sr ?? "none"}");
         }
         return claim;
     }
@@ -1476,6 +1476,7 @@ internal sealed class TransformerTrainingRepository
             AppendAudit(db, eventType, entityType, entityId, payload);
             return 0;
         });
+        ShadowAudit(eventType, entityType, entityId, payload);
     }
 
     internal Dictionary<string, object?> AppendAudit(
@@ -1612,12 +1613,21 @@ internal sealed class TransformerTrainingRepository
             ["base_weights_immutable"] = true,
             ["automatic_weight_replacement"] = false,
             ["role_database_ownership_preserved"] = true,
+            ["metadata_shadow"] = ShadowStatus(),
         };
     }
 
     public Dictionary<string, object?> Maintain()
     {
         var before = DatabaseStatus();
+        var maintainPayload = new Dictionary<string, object?>
+        {
+            ["schema_version"] = SchemaVersion,
+            ["integrity_before"] = before["engine_integrity"],
+            ["audit_chain_before"] =
+                ((Dictionary<string, object?>)before["audit_chain"]!)["ok"],
+        };
+        bool recorded = false;
         InTx(db =>
         {
             db.Execute("ANALYZE");
@@ -1634,19 +1644,19 @@ internal sealed class TransformerTrainingRepository
                     shouldRecord = true;
             }
             if (shouldRecord || (bool)before["ok"]! != true)
+            {
                 AppendAudit(db,
                     eventType: "database-maintained",
                     entityType: "training-database",
                     entityId: DatabaseName,
-                    payload: new Dictionary<string, object?>
-                    {
-                        ["schema_version"] = SchemaVersion,
-                        ["integrity_before"] = before["engine_integrity"],
-                        ["audit_chain_before"] =
-                            ((Dictionary<string, object?>)before["audit_chain"]!)["ok"],
-                    });
+                    payload: maintainPayload);
+                recorded = true;
+            }
             return 0;
         });
+        if (recorded)
+            ShadowAudit("database-maintained", "training-database",
+                        DatabaseName, maintainPayload);
         return DatabaseStatus();
     }
 
