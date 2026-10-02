@@ -18,6 +18,14 @@
 //   --verify-audit        repository audit-chain verification
 //   --db-status           repository/schema status
 //   --migrate             ensure the training repository schema
+//   --model-maturity [--checkpoint <bundle|xcn> | --preset small]
+//                     [--max-level N] [--eval-file F] [--live-cycle]
+//                     [--save] [--status]
+//                         star-model-maturity/v1 ladder (native successor
+//                         of the retired python maturity module); --save
+//                         persists logs + state; --status reads state
+//   --model-maturity-status
+//                         shortcut for --model-maturity --status
 //
 // All output is JSON on stdout (same contract as the Python lane); exit
 // code is 0 unless the top-level result carries ok=false.
@@ -52,6 +60,23 @@ internal static class Program
 
         try
         {
+            if (flags.Contains("model-maturity"))
+                return Emit(flags.Contains("status")
+                    ? ModelMaturity.Status(toolRoot)
+                    : ModelMaturity.Certify(
+                        toolRoot,
+                        opts.TryGetValue("checkpoint", out string? cp)
+                            ? cp : null,
+                        opts.TryGetValue("preset", out string? pr)
+                            ? pr : null,
+                        opts.TryGetValue("max-level", out string? ml) &&
+                            int.TryParse(ml, out int mlv) ? mlv : 7,
+                        opts.TryGetValue("eval-file", out string? ef)
+                            ? File.ReadAllText(ef) : "",
+                        flags.Contains("live-cycle"),
+                        flags.Contains("save")));
+            if (flags.Contains("model-maturity-status"))
+                return Emit(ModelMaturity.Status(toolRoot));
             if (flags.Contains("status") && !flags.Contains("retention"))
                 return Emit(Status(toolRoot));
             if (flags.Contains("preflight"))

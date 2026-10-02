@@ -512,7 +512,8 @@ internal static class EngineSettings
     public static string PinCheckpoint(string toolRoot, string artifactPath)
     {
         DataBoundary.AssertInside(toolRoot, artifactPath);
-        string settingsPath = Path.Combine(toolRoot, XcPaths.EngineSettingsRel);
+        string settingsPath = Path.Combine(
+            toolRoot, XcPaths.EngineSettingsRel);
         var settings = new Dictionary<string, object?>();
         string existing = XcPaths.SettingsReadPath(
             toolRoot, XcPaths.EngineSettingsRel);

@@ -9,7 +9,7 @@ flowchart TD
     POLICY[法典與治理政策] --> MODELCFG[job.model → ModelConfig]
     POLICY --> TRAINCFG[job.train → TrainCfg]
     POLICY --> DATACFG[job.data]
-    POLICY --> SETTINGS[runtime/settings 政策檔]
+    POLICY --> SETTINGS[xingcheng/runtime/settings 政策檔]
     POLICY --> ENV[環境變數覆寫]
     POLICY --> SERVECFG[serve 推論參數]
     POLICY --> GOV[resource governor 配額]
@@ -57,6 +57,34 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 
 ## 環境變數
 
+<!-- autogen:xingcheng-env -->
+*autogen-scanner/v1 · 2107 files · main+devin+git+local-model+rag+ui*
+| var | 讀取處 |
+|---|---|
+| `GPTBRIDGE_IPC_PORT` | devin:native/tool_runtime/tool_host.cpp, git:native/tool_runtime/tool_host.cpp, local-model:native/tool_runtime/tool_host.cpp, native/tool_runtime/tool_host.cpp (+2) |
+| `GPTBRIDGE_POSTGRES_DSN` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+8) |
+| `GPTBRIDGE_PROJECT_ROOT` | devin:native/test_suites/suite_tool_host_cases_c.cpp, git:native/test_suites/suite_tool_host_cases_c.cpp, local-model:native/test_suites/suite_tool_host_cases_c.cpp, native/test_suites/suite_tool_host_cases_c.cpp (+2) |
+| `GPTBRIDGE_ROOT` | devin:native/ollama_service/ollama_service.cpp, git:native/ollama_service/ollama_service.cpp, local-model:native/ollama_service/ollama_service.cpp, native/ollama_service/ollama_service.cpp (+2) |
+| `GPTBRIDGE_SIMD_LEVEL` | devin:native/test_suites/suite_simd_kernels.cpp, git:native/test_suites/suite_simd_kernels.cpp, local-model:native/test_suites/suite_simd_kernels.cpp, native/test_suites/suite_simd_kernels.cpp (+2) |
+| `XCB_PARITY_OUT` | devin:Standalone tools/local-model/src/backend/rust/xcorpus/src/xcb.rs |
+| `XCT_GC_CSA` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_CSA_GROUP` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_E` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_INT` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_K` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_PLAIN` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_SHARED` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_KERNEL_POLICY` | devin:Standalone tools/local-model/src/backend/rust/xcorpus/src/kernels.rs, devin:Standalone tools/local-model/src/backend/rust/xstore/src/kernels.rs, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h (+1) |
+| `XCT_TPU_SIMD` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+8) |
+| `XCT_TPU_THREADS` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+8) |
+| `XCT_TPU_TILE4` | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XINGCHENG_BUNDLE_DIR` | devin:native/test_suites/suite_model_common.hpp, git:native/test_suites/suite_model_common.hpp, local-model:native/test_suites/suite_model_common.hpp, native/test_suites/suite_model_common.hpp (+2) |
+| `XINGCHENG_CPP_CUDA_GRAPH` | devin:Standalone tools/local-model/src/backend/cpp/src/cuda_kernels.cpp, git:Standalone tools/local-model/src/backend/cpp/src/cuda_kernels.cpp, local-model:Standalone tools/local-model/src/backend/cpp/src/cuda_kernels.cpp, Standalone tools/local-model/src/backend/cpp/src/cuda_kernels.cpp (+2) |
+| `XINGCHENG_HYBRID_CPU_PCT` | devin:Standalone tools/local-model/src/backend/cpp/src/engine_kernels.h, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, Standalone tools/local-model/src/backend/cpp/src/engine_kernels.h |
+| `XINGCHENG_SHARED_PG_SCHEMA` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+2) |
+| `XINGCHENG_TRAINER_CUDA_OPT` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/MainlineConvergence.cs, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_kernels.h, devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+11) |
+<!-- /autogen:xingcheng-env -->
+
 | var | 效果 |
 |---|---|
 | `XCT_TPU_THREADS` / `XCT_TPU_SIMD=0` / `XCT_TPU_TILE4=0` | 覆寫 train.threads / simd / tile4 GEMM |
@@ -67,13 +95,25 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 
 ## 政策/設定檔
 
+<!-- autogen:xingcheng-settings -->
+*autogen-scanner/v1 · 2107 files · main+devin+git+local-model+rag+ui*
+| 檔案 | format | 所在樹 |
+|---|---|---|
+| `kernel-policy.json` | `star-kernel-policy` | main:Standalone tools/local-model/xingcheng/runtime/settings/kernel-policy.json |
+| `native-engine.json` | `—` | main:Standalone tools/local-model/xingcheng/runtime/settings/native-engine.json |
+| `retention.json` | `star-retention-policy/v1` | main:Standalone tools/local-model/xingcheng/runtime/settings/retention.json |
+| `self-learning.json` | `star-self-learning-policy/v1` | main:Standalone tools/local-model/xingcheng/runtime/settings/self-learning.json |
+| `teacher-distillation.json` | `star-teacher-distillation-policy/v1` | main:Standalone tools/local-model/xingcheng/runtime/settings/teacher-distillation.json |
+| `web-search.json` | `—` | main:Standalone tools/local-model/xingcheng/runtime/settings/web-search.json |
+<!-- /autogen:xingcheng-settings -->
+
 | 檔案 | format | 關鍵欄位 |
 |---|---|---|
-| `runtime/settings/self-learning.json` | `star-self-learning-policy/v1` | enabled, min_new_examples(24), auto_activate, suites[], max_steps(400), lr(5e-5), quiet_hours 22:00-07:00, inference_exclusion(T), capability_training_frozen, capability_training_mode, dpo_*, self_training_mode, degradation_probe_* 等 40+ keys |
-| `runtime/settings/retention.json` | `star-retention-policy/v1` | enabled, keep_job_dirs(3), keep_logs_days(30), keep_maturity_reports(10), keep_snapshots(5), keep_weight_versions(1) |
-| `runtime/settings/native-engine.json` | — | enabled, checkpoint 釘選, cpu_threads, cpp_cuda, sampling |
-| `runtime/settings/kernel-policy.json` | `star-kernel-policy` | enabled, force_serial, max_threads, deny_variants[simd\|tile4\|cuda], deny_kernels[] |
-| `runtime/settings/teacher-distillation.json` | `star-teacher-distillation-policy/v1` | enabled(F), teachers{}, prompts[], max_rows(24), quality_score(0.92), temperature(0.2) |
+| `xingcheng/runtime/settings/self-learning.json` | `star-self-learning-policy/v1` | enabled, min_new_examples(24), auto_activate, suites[], max_steps(400), lr(5e-5), quiet_hours 22:00-07:00, inference_exclusion(T), capability_training_frozen, capability_training_mode, dpo_*, self_training_mode, degradation_probe_* 等 40+ keys |
+| `xingcheng/runtime/settings/retention.json` | `star-retention-policy/v1` | enabled, keep_job_dirs(3), keep_logs_days(30), keep_maturity_reports(10), keep_snapshots(5), keep_weight_versions(1) |
+| `xingcheng/runtime/settings/native-engine.json` | — | enabled, checkpoint 釘選, cpu_threads, cpp_cuda, sampling |
+| `xingcheng/runtime/settings/kernel-policy.json` | `star-kernel-policy` | enabled, force_serial, max_threads, deny_variants[simd\|tile4\|cuda], deny_kernels[] |
+| `xingcheng/runtime/settings/teacher-distillation.json` | `star-teacher-distillation-policy/v1` | enabled(F), teachers{}, prompts[], max_rows(24), quality_score(0.92), temperature(0.2) |
 
 ## serve 推論參數
 

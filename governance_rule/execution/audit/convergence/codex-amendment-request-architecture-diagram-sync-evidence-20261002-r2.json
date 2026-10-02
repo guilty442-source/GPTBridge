@@ -1,0 +1,178 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "architecture-diagram-sync-evidence-20261002-r2",
+  "title": "Refresh architecture-diagram sync evidence and content hashes for the 13-artifact active set",
+  "summary": "After rev 207 registered the four xingcheng diagram artifacts, the active architecture-diagram set is 13, but the current architecture_diagram_sync_evidence record (ARCHITECTURE_DIAGRAM_SYNC_CURRENT) is still bound to codex version 2026-10-02T04:05:01Z with required=9/hash_match=9, verified at 04:25:31Z — it covers neither the new xingcheng rows nor the current 2026-10-02T04:58:41Z generation. Additionally, content drift on the mirror docs (autogen scanner sections and manual edits) left 11 of 13 registry content_hash values stale; a fresh validation finds all 13 artifacts present with the hashes recorded here. This amendment (a) refreshes registry content_hash/validated_at for the drifted rows, binding them to the successor version; (b) supersedes the stale CURRENT evidence row and records a new current evidence row over the 13-artifact set bound to the successor version.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: the formal sync evidence record predates the xingcheng artifact registration and the current codex generation — converge evidence and registry hashes to the active 13-artifact set.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T04:58:41Z",
+    "version_identity": "E2:2026-10-02T04:58:41Z",
+    "version_epoch": 2,
+    "history_head": "6f90491ea1aa93a109037315c7ad41d8098a0a7e6aa20f603ccfca3ab27d5153",
+    "revision_sequence": 209
+  },
+  "problem": {
+    "summary": "architecture_diagram_sync_evidence current row asserts required=9/hash_match=9 against codex version 2026-10-02T04:05:01Z (verified 04:25:31Z) while the active artifact set is 13 and the live generation is 2026-10-02T04:58:41Z; 11 of 13 registry content_hash values no longer match the on-disk artifacts, so the formal evidence under-represents and mis-binds the governed set."
+  },
+  "changes": [],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_AI_ASSISTANT" },
+      "set": {
+        "content_hash": "a9273537b64f737a1bcb85ab3532d09013ab208319d51259e83d70d75759ecc9",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_AI_COLLABORATION" },
+      "set": {
+        "content_hash": "df82cf395df28a7da1b64a634840352c0aa3e6a3aa83b30a358bd790729ea355",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_FILE_SORTER" },
+      "set": {
+        "content_hash": "6b1cc24c295608d5b6b2dd49a830a53e72d59420e6984ee1d5274283755dc84c",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_INVESTMENT_MOBILE" },
+      "set": {
+        "content_hash": "6410c43f3b1e776a23f25edf272f60e150d9bea335a7a34474ec9bc327265f7c",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_LOCAL_MODEL" },
+      "set": {
+        "content_hash": "6bed0efc28187e45453470fc1fb30879635167a6e04e90831b2e1a921b8628bb",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_MODEL_DIALOGUE" },
+      "set": {
+        "content_hash": "f4249be69bd9dddd51a1c82e516cc87c1b2443d24de4611557a117234f314f25",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_TOOL_VAULTLY" },
+      "set": {
+        "content_hash": "4d91e5d82a3b42e8b59ac5c3357b2336aab5e4edbdb74bab348ba2780a28fac0",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_XINGCHENG_ARCHITECTURE" },
+      "set": {
+        "content_hash": "6c4a36eb93061a92ff6b8111f136ac5e7c8bc44965f7503efb8f887eedf26dfe",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_XINGCHENG_CAPABILITIES" },
+      "set": {
+        "content_hash": "defa4205c088d53b19c2f254c36e5e5f464a312c1fa88e8703c2c2ebe76e0270",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_XINGCHENG_DATA" },
+      "set": {
+        "content_hash": "07469e84dfd11e8b83e99d6f5cc215c308f83de7a67fee3e1ea31f4bd873c1f5",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": { "diagram_code": "ARCH_XINGCHENG_PARAMETERS" },
+      "set": {
+        "content_hash": "3d627ea593f1da2d7dd619cde60209e2d897bdc0b3e35df59bcd6d52f917abbb",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:59:18Z"
+      }
+    },
+    {
+      "registry": "architecture_diagram_sync_evidence",
+      "action": "insert",
+      "rows": [
+        {
+          "evidence_id": "ARCHITECTURE_DIAGRAM_SYNC@2026-10-02T04:05:01Z",
+          "codex_version": "2026-10-02T04:05:01Z",
+          "required_count": 9,
+          "registered_count": 9,
+          "present_count": 9,
+          "hash_match_count": 9,
+          "read_only_count": 9,
+          "stale_count": 0,
+          "missing_count": 0,
+          "result": "PASS",
+          "verified_at_utc": "2026-10-02T04:25:31Z",
+          "verifier": "deterministic-file-registry-validator",
+          "status": "superseded"
+        }
+      ]
+    },
+    {
+      "registry": "architecture_diagram_sync_evidence",
+      "action": "update",
+      "key": { "evidence_id": "ARCHITECTURE_DIAGRAM_SYNC_CURRENT" },
+      "set": {
+        "codex_version": "<successor-version>",
+        "required_count": 13,
+        "registered_count": 13,
+        "present_count": 13,
+        "hash_match_count": 13,
+        "read_only_count": 13,
+        "stale_count": 0,
+        "missing_count": 0,
+        "result": "PASS",
+        "verified_at_utc": "2026-10-02T04:59:18Z",
+        "verifier": "deterministic-file-registry-validator",
+        "status": "current"
+      }
+    }
+  ]
+}

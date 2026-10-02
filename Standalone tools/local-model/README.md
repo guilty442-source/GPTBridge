@@ -4,7 +4,7 @@
 
 本地模型版本與第三方套件版本保留其實際版本，不套用全域版本 1 正規化；模型識別與設定、套件 manifest 及 lockfile 統一由 Git 記錄與追蹤。Git 遠端連線預設仍為停用。
 
-生成路徑只有一條：星澄自訓 Transformer（`xingcheng-native-transformer`），由 `StarNativeRuntime` 在行程內經 `native_engine` 執行；checkpoint、功能開關與 GPU 預算由 `runtime/settings/native-engine.json` 與 model lifecycle 治理。權重缺失或引擎停用時一律 fail-closed，不回退任何第三方模型。
+生成路徑只有一條：星澄自訓 Transformer（`xingcheng-native-transformer`），由 `StarNativeRuntime` 在行程內經 `native_engine` 執行；checkpoint、功能開關與 GPU 預算由 `xingcheng/runtime/settings/native-engine.json` 與 model lifecycle 治理。權重缺失或引擎停用時一律 fail-closed，不回退任何第三方模型。
 
 `model-dialogue/` 是純對話介面與獨立生命週期程式，只在 GPTBridge 主系統中以 `star-chat` 顯示。介面不再提供訓練、外部協作或能力編成工作區；訓練與能力編成只由星澄原生模型內部自行處理。
 

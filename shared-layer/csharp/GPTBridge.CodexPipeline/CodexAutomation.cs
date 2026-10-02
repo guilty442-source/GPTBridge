@@ -21,7 +21,11 @@ namespace GPTBridge.CodexPipeline;
 ///                           derived projections first, re-verifies,
 ///                           only then re-exports the .sql artifact and
 ///                           re-renders the zh-TW mirrors (authority is
-///                           never written by this pass).
+///                           never written by this pass).  Also refreshes
+///                           the autogen blocks inside the
+///                           architecture-*.md view documents so the
+///                           projection never drifts from the scanned
+///                           implementation trees (autogen-scanner/v1).
 ///
 /// State: ``main-system/runtime/state/codex-automation.json``; single
 /// instance enforced by ``codex-automation.lock`` (exclusive handle).
@@ -180,6 +184,7 @@ internal static class CodexAutomation
         if (!File.Exists(artifact))
         {
             PgExport.ExportPostgresqlCodex(artifact);
+            UpdatePipeline.SetReadOnly(artifact);
             actions.Add("export:artifact-missing");
         }
 
@@ -204,8 +209,11 @@ internal static class CodexAutomation
         if ((string?)parity["result"] == "FAIL")
         {
             // Authority moved legitimately (sealed amendment) — refresh
-            // the interchange artifact to match.
+            // the interchange artifact to match.  The artifact is sealed
+            // read-only between exports; unseal, rewrite, re-seal.
+            UpdatePipeline.SetReadOnly(artifact, false);
             PgExport.ExportPostgresqlCodex(artifact);
+            UpdatePipeline.SetReadOnly(artifact);
             detail["export_mismatches"] = parity["mismatches"];
             actions.Add("export:authority-drift");
         }
@@ -220,6 +228,17 @@ internal static class CodexAutomation
         }
         detail["mirror_errors"] = mirrorErrors
             .Cast<object?>().ToList();
+
+        // Architecture-*.md autogen blocks are derived projections of
+        // the implementation trees — refresh them in the same pass so
+        // the normative view never drifts.  A refresh failure surfaces
+        // as not-ok exactly like mirror_errors.
+        var arch = ArchitectureProjection.Refresh(Repo.Root());
+        detail["arch_projection"] = arch;
+        if (arch["changed"] is List<object?> archChanged
+            && archChanged.Count > 0)
+            actions.Add("arch-projection");
+
         if (actions.Count == 0)
             actions.Add("clean");
 
@@ -227,7 +246,8 @@ internal static class CodexAutomation
         {
             ["ok"] = detail["parity"] is "PASS"
                 && polluted == 0
-                && mirrorErrors.Length == 0,
+                && mirrorErrors.Length == 0
+                && arch["ok"] is true,
             ["actions"] = actions,
             ["detail"] = detail,
         };

@@ -1,0 +1,56 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "codex-version-authority-pointer-convergence-20261002-r5",
+  "title": "Converge the Codex current-authority pointer",
+  "summary": "Demote the stale 2026-09-28 authority pointer and publish exactly one CURRENT_AUTHORITATIVE row for the successor generation so the derived registry agrees with current search, lifecycle and seal state.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: codex_version_authority_registry CURRENT_AUTHORITATIVE pointer is stale and cannot be trusted as current generation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T05:10:02Z",
+    "version_identity": "E2:2026-10-02T05:10:02Z",
+    "version_epoch": 2,
+    "history_head": "569dc243a221ca928c73c6769062940d60b88305b1ff5c890dfc2966d664d030",
+    "revision_sequence": 211
+  },
+  "changes": [
+    {
+      "table": "codex_version_authority_registry",
+      "key": {
+        "version_identity": "2026-09-28T08:03:01Z"
+      },
+      "field": "authority_status",
+      "proposed": "HISTORICAL_SUPERSEDED",
+      "also": {
+        "successor_version": "<successor-version>",
+        "retired_at": "<successor-version>",
+        "reason": "latest-successor-published",
+        "immutable": 1,
+        "current_binding_version": "<successor-version>"
+      }
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "codex_version_authority_registry",
+      "action": "insert",
+      "rows": [
+        {
+        "version_identity": "<successor-version>",
+        "authority_status": "CURRENT_AUTHORITATIVE",
+        "successor_version": null,
+        "retired_at": null,
+        "reason": "latest-published-version",
+        "immutable": 0,
+          "current_binding_version": "<successor-version>"
+        }
+      ]
+    }
+  ]
+}

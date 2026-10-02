@@ -143,9 +143,8 @@ internal sealed class ModelDialogueExecutor
     {
         try
         {
-            var settings = Path.Combine(
-                _localModelRoot, "runtime", "settings",
-                "native-engine.json");
+            var settings =
+                LocalModelExecutor.EngineSettingsPath(_localModelRoot);
             using var doc = JsonDocument.Parse(File.ReadAllText(settings));
             var checkpoint = doc.RootElement
                 .TryGetProperty("checkpoint", out var c)
@@ -1188,8 +1187,8 @@ internal sealed class ModelDialogueExecutor
         Check("star-chat-同隨", File.Exists(starChat), starChat);
         var descriptor = Path.Combine(_ipcDir, "model-service.json");
         Check("模型服務描述元", File.Exists(descriptor), descriptor);
-        var engineSettings = Path.Combine(
-            _localModelRoot, "runtime", "settings", "native-engine.json");
+        var engineSettings =
+            LocalModelExecutor.EngineSettingsPath(_localModelRoot);
         Check("原生引擎設定", File.Exists(engineSettings)
             && BundlePinned(), engineSettings);
 

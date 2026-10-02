@@ -104,9 +104,23 @@ internal sealed class LocalModelExecutor
         return File.Exists(legacy) ? legacy : canonical;
     }
 
+    /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
+    /// copy under the legacy local-model settings dir is accepted
+    /// read-only. Writes always target the canonical path.</summary>
+    internal static string EngineSettingsPath(string toolRoot)
+    {
+        var canonical = Path.Combine(
+            toolRoot, "xingcheng", "runtime", "settings",
+            "native-engine.json");
+        if (File.Exists(canonical)) return canonical;
+        var legacy = Path.Combine(
+            toolRoot, "runtime", "settings", "native-engine.json");
+        return File.Exists(legacy) ? legacy : canonical;
+    }
+
     /// <summary>
-    /// Read xingcheng/runtime/settings/native-engine.json and resolve
-    /// the pinned
+    /// Read xingcheng/runtime/settings/native-engine.json and resolve the
+    /// pinned
     /// inference bundle. The checkpoint value may point at a bundle dir
     // directly or at a source .pt whose exported bundle is matched by
     /// source_checkpoint + size (parity with ModelServiceLocator).

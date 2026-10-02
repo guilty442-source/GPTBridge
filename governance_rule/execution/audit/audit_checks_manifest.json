@@ -3595,7 +3595,7 @@
     {
       "id": "activation:target:AI_ASSISTANT",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/ai-assistant"
+      "path": "Standalone tools/ai-assistant"
     },
     {
       "id": "activation:owner:AI_COLLABORATION",
@@ -3645,7 +3645,7 @@
     {
       "id": "activation:target:AI_COLLABORATION",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/ai-collaboration"
+      "path": "Standalone tools/ai-collaboration"
     },
     {
       "id": "activation:owner:CODEX_LAYER",
@@ -3695,7 +3695,7 @@
     {
       "id": "activation:target:CODEX_LAYER",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/governance_rule"
+      "path": "governance_rule"
     },
     {
       "id": "activation:owner:EVENT_SERVICE",
@@ -3745,7 +3745,7 @@
     {
       "id": "activation:target:EVENT_SERVICE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/information-layer/events"
+      "path": "main-system/information-layer/events"
     },
     {
       "id": "activation:owner:FILE_SORTER",
@@ -3795,7 +3795,7 @@
     {
       "id": "activation:target:FILE_SORTER",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/file-sorter"
+      "path": "Standalone tools/file-sorter"
     },
     {
       "id": "activation:owner:GOVERNANCE_CODEX",
@@ -3845,7 +3845,7 @@
     {
       "id": "activation:target:GOVERNANCE_CODEX",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/governance_rule/codex"
+      "path": "governance_rule/codex"
     },
     {
       "id": "activation:owner:INFORMATION_LAYER",
@@ -3895,7 +3895,7 @@
     {
       "id": "activation:target:INFORMATION_LAYER",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/information-layer"
+      "path": "main-system/information-layer"
     },
     {
       "id": "activation:owner:IPC_SERVICE",
@@ -3945,7 +3945,7 @@
     {
       "id": "activation:target:IPC_SERVICE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/information-layer/ipc"
+      "path": "main-system/information-layer/ipc"
     },
     {
       "id": "activation:owner:LAUNCHER",
@@ -3995,7 +3995,7 @@
     {
       "id": "activation:target:LAUNCHER",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/launcher"
+      "path": "main-system/launcher"
     },
     {
       "id": "activation:owner:LOCAL_MODEL",
@@ -4045,7 +4045,7 @@
     {
       "id": "activation:target:LOCAL_MODEL",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/local-model"
+      "path": "Standalone tools/local-model"
     },
     {
       "id": "activation:owner:MAIN_SYSTEM",
@@ -4095,7 +4095,7 @@
     {
       "id": "activation:target:MAIN_SYSTEM",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system"
+      "path": "main-system"
     },
     {
       "id": "activation:owner:MODEL_DIALOGUE",
@@ -4145,7 +4145,7 @@
     {
       "id": "activation:target:MODEL_DIALOGUE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/model-dialogue"
+      "path": "Standalone tools/model-dialogue"
     },
     {
       "id": "activation:owner:POSTGRESQL_AUTHORITY",
@@ -4195,7 +4195,7 @@
     {
       "id": "activation:target:POSTGRESQL_AUTHORITY",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/information-layer/postgresql"
+      "path": "main-system/information-layer/postgresql"
     },
     {
       "id": "activation:owner:PROJECT_GPTBRIDGE",
@@ -4245,7 +4245,7 @@
     {
       "id": "activation:target:PROJECT_GPTBRIDGE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge"
+      "path": "."
     },
     {
       "id": "activation:owner:QDRANT_AUTHORITY",
@@ -4340,7 +4340,7 @@
     {
       "id": "activation:target:SHARED_LAYER",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/shared-layer"
+      "path": "shared-layer"
     },
     {
       "id": "activation:owner:SOVEREIGN_DECISION_LAYER",
@@ -4390,7 +4390,7 @@
     {
       "id": "activation:target:SOVEREIGN_DECISION_LAYER",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/governance/sovereigns"
+      "path": "main-system/governance/sovereigns"
     },
     {
       "id": "activation:owner:STANDALONE_TOOLS",
@@ -4440,7 +4440,7 @@
     {
       "id": "activation:target:STANDALONE_TOOLS",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools"
+      "path": "Standalone tools"
     },
     {
       "id": "activation:owner:STATE_SERVICE",
@@ -4490,7 +4490,7 @@
     {
       "id": "activation:target:STATE_SERVICE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/main-system/information-layer/state"
+      "path": "main-system/information-layer/state"
     },
     {
       "id": "activation:owner:SUB_SOVEREIGN_LAYER",
@@ -4585,7 +4585,7 @@
     {
       "id": "activation:target:VAULTLY",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/vaultly"
+      "path": "Standalone tools/vaultly"
     },
     {
       "id": "activation:owner:STAR_DIRECTORY",
@@ -4680,7 +4680,7 @@
     {
       "id": "activation:target:INVESTMENT_MOBILE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/investment-mobile"
+      "path": "Standalone tools/investment-mobile"
     },
     {
       "id": "activation:owner:BUSINESS_LOGIC_CSHARP",
@@ -4730,7 +4730,7 @@
     {
       "id": "activation:target:BUSINESS_LOGIC_CSHARP",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/business-logic-csharp"
+      "path": "Standalone tools/business-logic-csharp"
     },
     {
       "id": "activation:owner:NATIVE_COMPUTE_CORE",
@@ -4780,7 +4780,7 @@
     {
       "id": "activation:target:NATIVE_COMPUTE_CORE",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/native/core"
+      "path": "native/core"
     },
     {
       "id": "activation:owner:XINGCHENG_INSTITUTION_ROOT",
@@ -4830,7 +4830,7 @@
     {
       "id": "activation:target:XINGCHENG_INSTITUTION_ROOT",
       "kind": "dir-exists",
-      "path": "E:/GPTBridge/Standalone tools/local-model/xingcheng"
+      "path": "Standalone tools/local-model/xingcheng"
     },
     {
       "id": "activation:owner:MODEL_TRAINING",
@@ -26796,6 +26796,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_collaboration:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_collaboration:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26804,6 +26815,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ragd-rs/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_collaboration:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "optional": true,
+      "path": "Standalone tools/vaultly/src"
     },
     {
       "glob": "*.py",
@@ -26884,6 +26906,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_nexus:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_nexus:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26892,6 +26925,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ragd-rs/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_nexus:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "optional": true,
+      "path": "Standalone tools/vaultly/src"
     },
     {
       "glob": "*.py",
@@ -26972,6 +27016,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:file_sorter:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:file_sorter:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26980,6 +27035,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ragd-rs/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:file_sorter:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "optional": true,
+      "path": "Standalone tools/vaultly/src"
     },
     {
       "glob": "*.py",
@@ -27060,6 +27126,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:investment_mobile:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:investment_mobile:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27068,6 +27145,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ragd-rs/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:investment_mobile:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "optional": true,
+      "path": "Standalone tools/vaultly/src"
     },
     {
       "glob": "*.py",
@@ -27148,6 +27236,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:xingcheng:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:xingcheng:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27156,6 +27255,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ragd-rs/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:xingcheng:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "optional": true,
+      "path": "Standalone tools/vaultly/src"
     },
     {
       "glob": "*.py",
@@ -27247,6 +27357,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:vaultly:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:vaultly:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27335,6 +27456,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:star_chat:Standalone tools/model-dialogue/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "optional": true,
+      "path": "Standalone tools/model-dialogue/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:star_chat:Standalone tools/ragd-rs/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27343,6 +27475,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/ragd-rs/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:star_chat:Standalone tools/vaultly/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "optional": true,
+      "path": "Standalone tools/vaultly/src"
     },
     {
       "glob": "*.py",
@@ -27432,7 +27575,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3562,
+    "native_checks": 3575,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27455,7 +27598,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T05:26:53Z",
+  "generated_at": "2026-10-02T06:17:07Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

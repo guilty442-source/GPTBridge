@@ -34,6 +34,7 @@ internal static partial class Program
         string? successorVersion = null;
         var authorityState = false;
         var repairProjections = false;
+        var archProjections = false;
         var mirrorZh = false;
         var mirrorCheck = false;
         var archDocs = false;
@@ -74,6 +75,8 @@ internal static partial class Program
                 case "--auto-execute": autoExecute = true; break;
                 case "--authority-state": authorityState = true; break;
                 case "--repair-projections": repairProjections = true;
+                    break;
+                case "--arch-projections": archProjections = true;
                     break;
                 case "--mirror-zh": mirrorZh = true; break;
                 case "--mirror-check": mirrorCheck = true; break;
@@ -249,6 +252,9 @@ internal static partial class Program
             if (repairProjections)
                 return Emit(
                     GenerationProjections.RepairLiveProjections());
+            if (archProjections)
+                return Emit(ArchitectureProjection.Refresh(
+                    Repo.Root()));
             if (mirrorZh)
             {
                 var codexRoot = UpdatePipeline.CanonicalCodexRoot();

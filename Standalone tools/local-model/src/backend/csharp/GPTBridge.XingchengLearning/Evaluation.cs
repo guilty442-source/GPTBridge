@@ -165,6 +165,43 @@ internal static class Evaluation
         }
     }
 
+    /// <summary>Route an engine op (capability/eval) through the resident
+    /// session when one is alive; transport failure falls back to
+    /// one-shot. Returns decoded JSON plus the op exit code (0 ok,
+    /// 2 gate-failed). A deterministic op failure (ok:false) throws
+    /// EVAL_TOOL_FAILED, mirroring one-shot.</summary>
+    private static (Dictionary<string, object?> json, int exitCode) EngineOp(
+        ModelToolSession? serve, string modelToolExe, string[] oneShotArgs,
+        Dictionary<string, object?> request, string workingDir,
+        string stderrLog, double timeoutS = 7200)
+    {
+        if (serve != null)
+        {
+            try
+            {
+                var (json, code) = serve.Request(request, timeoutS);
+                if (!TransformerTrainingRepository.Truthy(
+                        json.GetValueOrDefault("ok")))
+                    throw new ExecutorError("EVAL_TOOL_FAILED",
+                        TransformerTrainingRepository.Str(json, "error")
+                        ?? "serve op failed");
+                return (json, code);
+            }
+            catch (ExecutorError ex) when (
+                ex.ErrorCode == "EVAL_TOOL_FAILED")
+            {
+                throw;
+            }
+            catch (ExecutorError)
+            {
+                // transport failure: fall through to one-shot
+            }
+        }
+        var run = NativeTools.Run(modelToolExe, oneShotArgs, workingDir,
+                                  stderrLog, timeoutS: timeoutS);
+        return (ParseStdoutJson(run, "EVAL_TOOL_FAILED"), run.ExitCode);
+    }
+
     /// <summary>Evaluate a candidate bundle against one suite and record
     /// the result in the governed repository. Returns
     /// {ok, passed, comparison, evaluation|error}.</summary>
@@ -216,6 +253,11 @@ internal static class Evaluation
         Dictionary<string, object?> baselineMetrics;
         Dictionary<string, object?> comparison;
         string suiteSha = TransformerTrainingRepository.Sha256File(suitePath);
+        // Resident serve session for this evaluation: baseline + candidate
+        // share cached engines (no reload between them). Falls back to
+        // one-shot per call on any transport failure.
+        using var serve = ModelToolSession.TryStart(
+            execRoot, candidateBundle, stderrLog);
         try
         {
             if (format == CapabilityFormat)
@@ -230,13 +272,17 @@ internal static class Evaluation
                     baselineReportPath = Path.Combine(
                         Path.GetTempPath(),
                         $"xc-cap-base-{Guid.NewGuid():N}.json");
-                    var baseRun = NativeTools.Run(
-                        NativeTools.ModelToolExe(execRoot),
-                        new[] { "capability", "--bundle", baselineBundle,
-                                "--suite", suitePath },
-                        repo.ToolRoot, stderrLog, timeoutS: 7200);
-                    var baseOut = ParseStdoutJson(
-                        baseRun, "EVAL_TOOL_FAILED");
+                    var baseArgs = new[] { "capability", "--bundle", baselineBundle,
+                                "--suite", suitePath };
+                    var (baseOut, _) = EngineOp(serve,
+                        NativeTools.ModelToolExe(execRoot), baseArgs,
+                        new Dictionary<string, object?>
+                        {
+                            ["op"] = "capability",
+                            ["bundle"] = baselineBundle,
+                            ["suite"] = suitePath,
+                        },
+                        repo.ToolRoot, stderrLog);
                     File.WriteAllText(
                         baselineReportPath,
                         CanonicalJson.PlainDict(
@@ -256,11 +302,21 @@ internal static class Evaluation
                     if (corpusManifest != null)
                         args.AddRange(new[] { "--corpus-manifest", corpusManifest });
                     if (chat) args.Add("--chat");
-                    var run = NativeTools.Run(
-                        NativeTools.ModelToolExe(execRoot), args,
-                        repo.ToolRoot, stderrLog, timeoutS: 7200);
-                    var output = ParseStdoutJson(run, "EVAL_TOOL_FAILED");
-                    enginePassed = run.ExitCode == 0 &&
+                    var capRequest = new Dictionary<string, object?>
+                    {
+                        ["op"] = "capability",
+                        ["bundle"] = candidateBundle,
+                        ["suite"] = suitePath,
+                    };
+                    if (baselineReportPath != null)
+                        capRequest["baseline_report"] = baselineReportPath;
+                    if (corpusManifest != null)
+                        capRequest["corpus_manifest"] = corpusManifest;
+                    if (chat) capRequest["chat"] = true;
+                    var (output, capExit) = EngineOp(serve,
+                        NativeTools.ModelToolExe(execRoot), args.ToArray(),
+                        capRequest, repo.ToolRoot, stderrLog);
+                    enginePassed = capExit == 0 &&
                         TransformerTrainingRepository.Truthy(
                             output.GetValueOrDefault("passed"));
                     var report = Child(output, "report");
@@ -284,13 +340,20 @@ internal static class Evaluation
                 };
                 if (baselineBundle.Length > 0)
                     args.AddRange(new[] { "--baseline-bundle", baselineBundle });
-                var run = NativeTools.Run(
-                    NativeTools.ModelToolExe(execRoot), args,
-                    repo.ToolRoot, stderrLog, timeoutS: 7200);
-                var output = ParseStdoutJson(run, "EVAL_TOOL_FAILED");
-                if (run.ExitCode != 0 && run.ExitCode != 2)
+                var evalRequest = new Dictionary<string, object?>
+                {
+                    ["op"] = "eval",
+                    ["bundle"] = candidateBundle,
+                    ["suite"] = suitePath,
+                };
+                if (baselineBundle.Length > 0)
+                    evalRequest["baseline_bundle"] = baselineBundle;
+                var (output, evalExit) = EngineOp(serve,
+                    NativeTools.ModelToolExe(execRoot), args.ToArray(),
+                    evalRequest, repo.ToolRoot, stderrLog);
+                if (evalExit != 0 && evalExit != 2)
                     throw new ExecutorError("EVAL_TOOL_FAILED",
-                        $"modeltool eval exited {run.ExitCode}");
+                        $"modeltool eval exited {evalExit}");
                 enginePassed = TransformerTrainingRepository.Truthy(
                     output.GetValueOrDefault("passed"));
                 adapterMetrics = Child(output, "candidate");

@@ -1,0 +1,84 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "unified-git-sql-governance-engine-20261002",
+  "title": "Unify Git and SQL governance under one governance engine",
+  "summary": "Establish one automation-core governance engine for Git and SQL governance orchestration while preserving Git history and PostgreSQL data as distinct domain authorities with separate transactions, permissions and failure boundaries.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: 統一GIT、SQL、治理引擎",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T05:23:31Z",
+    "version_identity": "E2:2026-10-02T05:23:31Z",
+    "version_epoch": 2,
+    "history_head": "71634b5b4b0adc587af1bb190517ced5ffd7fe897d38b17242b6525ac4286039",
+    "revision_sequence": 212
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "C50" },
+      "field": "rule",
+      "proposed": "OWNER:automation-core. GOVERNANCE-ENGINE:one registered governance engine is the sole system-wide orchestration boundary for authorized governance workflows,including Git coordination and SQL governance;Git and SQL are domain planes of that engine and never independent schedulers,coordinators or governance authorities. RESPONSIBILITY:the engine receives current decision and permission artifacts,orders dependencies,applies generation fences,coordinates bounded domain executors,joins receipts,isolates conflicts and publishes one convergence result. AUTHORITY-SEPARATION:Git remains authority only for source and immutable repository history;PostgreSQL remains authority only for official mutable structured data and Codex state;the governance engine owns neither domain truth and cannot translate availability in one domain into authority over the other. ATOMICITY:a cross-domain change declares one correlation identity,one intended generation and one ordered transaction plan;Git commit publication,SQL migration or data mutation,verification and activation either converge to the same accepted generation or the affected change remains incomplete and fail-closed;no distributed transaction fiction or silent partial success is permitted. EXECUTION:registered Git and SQL modules perform bounded owner-language work and return typed receipts;runtime-core owns execution mechanics. FAILURE:a failure in one plane blocks only the dependent convergence path,preserves the last accepted state and evidence,and cannot corrupt or promote the other plane. SUCCESS:required Git,SQL,Codex,permission,runtime and audit identities,versions,hashes and receipts agree and independent verification passes."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C50" },
+      "field": "prohibition",
+      "proposed": "FORBID:second-governance-engine+independent-Git-or-SQL-scheduler+parallel-coordinator+governance-engine-owning-domain-truth+Git-as-SQL-authority+SQL-as-Git-authority+cross-domain-authority-collapse+automation-self-authorization+module-authority+overlapping-module-owner+implicit-target+mixed-generation-activation+partial-success-reported-as-converged+unverified-overwrite-reset-delete-update-repair-migration-or-restore+success-before-convergence"
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C66" },
+      "field": "rule",
+      "proposed": "GIT-ROLE:Git is the source and immutable repository-history plane inside the single C50 governance engine;MAIN:sole stable integration branch;WORKTREES:DIR[DIR_GIT_WORKTREES]+registered ephemeral worktrees;ENTRY:one registered Git adapter only;SCHEDULING:all Git observation,commit,merge,synchronization,audit and delivery work is scheduled only by the C50 governance engine and has no private watcher,coordinator or policy loop;EVENTS:file,HEAD,worker,commit and queue events with bounded reconciliation;TRACKING:allowlist authored source,Codex,contracts,SQL migrations,required configuration,non-rebuildable test or audit evidence and human documentation;IGNORE:runtime state,logs,cache,temp,build output,packages,virtual environments,models,database instances,coverage,generated indexes,rebuildable output and secrets;SELF-COMMIT:stable,path-scoped,no foreign stage and write-lock clear;QUEUE:immutable commit,base,worker,task,priority and policy;CONFLICT:registered generated artifacts regenerate,one canonical owner resolves deterministic content,and every other conflict quarantines and preserves;CROSS-DOMAIN:when a Git change carries SQL migration or governance input,the governance engine binds commit identity,migration identity,target generation and receipts before activation;Git records provenance but never certifies SQL truth;DELIVERY:integrate,audit,verify cross-domain convergence,fast-forward,central equality and origin push;MAINTENANCE:locks,leases,worktree registry,fsck,refs,hooks,divergence and audit continuity;CLEANUP:ignored expendable artifacts only by registered retention and never unmerged work."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C66" },
+      "field": "prohibition",
+      "proposed": "FORBID:second-governance-engine+second-Git-watcher-scheduler-or-coordinator+Git-private-policy-loop+raw-Git-write+worker-push+whole-index-commit+tracking-excluded-output+secret-tracking+moving-branch-merge+unbounded-poll-or-retry+ambiguous-semantic-conflict-choice+force-push+ref-delete+history-rewrite+destructive-reset+delete-unmerged-work+Git-commit-treated-as-SQL-certification+push-before-audit-cross-domain-convergence-and-central-equality"
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C81" },
+      "field": "rule",
+      "proposed": "SQL-AUTHORITY:PostgreSQL is the sole SQL authority. GOVERNANCE-ENGINE:SQL inventory,migration,drift,security projection,transport,audit,backup,capacity,maintenance and readiness workflows are scheduled only as the SQL plane of the single C50 governance engine;the SQL plane has registered executors but no independent scheduler,coordinator or governance authority. TRIGGER:migration,schema,role,RLS,index,restore,connection-generation and workload-health events. SAFE-ACTIONS:ordered migration,analyze,vacuum,registered additive index,pool or batch adjustment,generation fence,read-only switch and evidence refresh within current authority and permission. GIT-BINDING:SQL migrations carried by Git bind immutable commit identity,migration-chain identity,target schema generation and PostgreSQL execution receipt;Git proves source provenance,PostgreSQL proves applied SQL state,and only the governance engine may join them into a convergence verdict. UNSAFE:destructive DDL,unknown effect,authority conflict,missing receipt or generation mismatch fails closed and quarantines;no alternate SQL engine or manual normal path."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "C81" },
+      "field": "prohibition",
+      "proposed": "FORBID:second-governance-engine+second-SQL-authority+second-SQL-scheduler-maintainer-or-coordinator+SQL-private-policy-loop+out-of-band-DDL+runtime-role-DDL+manual-confirmation-as-normal-maintenance+automatic-destructive-DDL+write-under-drift+restore-authority-without-certification+retired-engine-fallback+Git-commit-as-applied-SQL-proof+SQL-state-as-Git-history-proof+cross-domain-generation-mismatch+activation-without-joined-receipts"
+    },
+    {
+      "table": "metadata",
+      "key": { "key": "git_automation_owner" },
+      "field": "value",
+      "proposed": "C50_UNIFIED_GOVERNANCE_ENGINE|GIT_DOMAIN_PLANE|single-entry-single-scheduler-single-coordinator"
+    },
+    {
+      "table": "metadata",
+      "key": { "key": "sql_automatic_maintenance" },
+      "field": "value",
+      "proposed": "C50_UNIFIED_GOVERNANCE_ENGINE|SQL_DOMAIN_PLANE|single-scheduler|registered-executors|fail-closed"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "metadata",
+      "action": "insert",
+      "rows": [
+        {
+          "key": "unified_governance_engine",
+          "value": "C50|one-engine|Git-domain-plane|SQL-domain-plane|distinct-authorities|joined-convergence"
+        }
+      ]
+    }
+  ]
+}

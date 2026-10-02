@@ -194,7 +194,7 @@ worktrees — run when the tree is in a state you want committed):
 > `xc_modeltool.exe`), reached only through audited subprocesses.
 > Production scheduling is unchanged — cycles run inside the
 > xingcheng tool process via the governed system channel.
-> Tunables single source: `Standalone tools/local-model/runtime/settings/self-learning.json`。
+> Tunables single source: `Standalone tools/local-model/xingcheng/runtime/settings/self-learning.json`。
 
 The native model learns from its own verified data and can upgrade itself
 through the same governed pipeline used for manual training:
@@ -215,7 +215,7 @@ through the same governed pipeline used for manual training:
    as baseline,
 5. only if every gate passes: register the adapter, `stage`, and — when
    `auto_activate` is set — `activate`, register the weights in the model
-   lifecycle, pin `runtime/settings/native-engine.json` to the new artifact
+   lifecycle, pin `xingcheng/runtime/settings/native-engine.json` to the new artifact
    and prune the previous generation (only the latest generation is kept).
 
 Any failure is fail-closed: the active weights, the runtime checkpoint and
@@ -239,7 +239,7 @@ in the self-learning state. `curriculum_intent_map` scopes each cycle's
 dataset by intent per course (`sft-refresh` currently prioritizes the
 weakest measured capabilities — instruction/tool_call_format/math/
 code/reading — plus forward-looking multi_turn/context_tracking intents,
-excluding saturated `conversation` traffic). Policy: `runtime/settings/self-learning.json`
+excluding saturated `conversation` traffic). Policy: `xingcheng/runtime/settings/self-learning.json`
 (`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
 reports: `xingcheng/runtime/logs/self-learning-*.json`.
 
@@ -356,15 +356,15 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 > Native lane landed (B167/B38 successor): `Retention.cs` inside
 > `GPTBridge.XingchengLearning` (`xc-learning.exe`, C#) — same policy,
 > same fail-closed boundary rules as the retired Python lane.
-> Tunables single source: `Standalone tools/local-model/runtime/settings/retention.json`。
+> Tunables single source: `Standalone tools/local-model/xingcheng/runtime/settings/retention.json`。
 
 Bounds local-model runtime growth: old governed job dirs, logs, maturity /
 self-learning reports and SFT snapshots are pruned by count and age.
 **Never deletes** paths referenced by any `lifecycle.json` artifact version
-or the checkpoint pinned in `runtime/settings/native-engine.json`
+or the checkpoint pinned in `xingcheng/runtime/settings/native-engine.json`
 (unresolvable paths are fail-closed kept). Deletions append to
 `xingcheng/runtime/logs/retention.jsonl`. Policy:
-`runtime/settings/retention.json` (`enabled=false` disables everything).
+`xingcheng/runtime/settings/retention.json` (`enabled=false` disables everything).
 Scheduled operation: the `retention` flow (`kind=periodic`, `interval_s=3600`)
 is registered by `SelfLearningDriver` (`main-system/src-core/tasks/self_learning_driver.py`)
 through `AutomationCore`. Each tick submits `xingcheng_retention_sweep` via the
@@ -417,7 +417,7 @@ Single-active-generation upgrade flow in `xc-learning.exe`:
    Any gate failure → manifest `FAILED`, nothing activated.
 4. `--gen-promote` (requires certified): registers+activates the
    target weights in the model lifecycle, pins
-   `runtime/settings/native-engine.json`, flips
+   `xingcheng/runtime/settings/native-engine.json`, flips
    `state/generation/state.json` ACTIVE_GENERATION.
 5. `--gen-purge` (dry-run unless `--apply`): deletes predecessor
    executable artifacts — unreferenced bundles and retired weight
@@ -715,7 +715,7 @@ Operational test/fixture bundles and probe scripts live under
 > below (`TrainingJobExecutor`, `gpu_coordinator`, `auto_release.py`,
 > `NativeTransformerEngine`, `chat_foundation_dataset.py`) are removed;
 > the policy contracts remain binding on their native successors.
-> Tunables single source: `Standalone tools/local-model/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
+> Tunables single source: `Standalone tools/local-model/xingcheng/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
   `shared_layer.adaptive.gpu_coordinator` before starting: jobs wait for
@@ -779,7 +779,7 @@ Governance boundary is unchanged: the only entry point is the governed
 `xingcheng_web_search` command (former `local_ai_lifecycle._run_web_search`,
 retired with the Python lane — B166),
 which audits into `web_search_log` and returns bounded metadata.
-Provider chain is driven by `runtime/settings/web-search.json`
+Provider chain is driven by `xingcheng/runtime/settings/web-search.json`
 (`provider`: `auto`/`searchd`/`searxng`; env `XINGCHENG_SEARCH_PROVIDER`
 /`XINGCHENG_SEARCHD_URL`/`XINGCHENG_SEARXNG_URL` override; `auto_start`
 lazily spawns `searchd-go/bin/searchd.exe`). `auto` = searchd first,
