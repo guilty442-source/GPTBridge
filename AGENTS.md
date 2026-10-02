@@ -351,12 +351,29 @@ Phase-1 implementation (C# governance lane,
   orphan training path, missing binding, missing regression dep,
   missing evidence, capability/runtime confusion) — the release-gate
   consistency gate substrate (§101).
+- `CapabilityEvidence.cs` — `star-capability-evidence/v1` (§20):
+  append-only hash-bound evidence chain at
+  `xingcheng/runtime/state/capability-evidence.jsonl`; records carry
+  capability_id/model_version/candidate_id/dataset_snapshot/
+  eval_suite/baseline/result/regression/runtime_profile/
+  resource_profile/contribution/timestamp/evidence_hash;
+  RUNTIME_AUGMENTED rows must attribute model vs runtime
+  contribution (§7).
+- `CapabilityDelta.cs` — `star-capability-delta/v1` (§90-§92):
+  registry-vs-registry promotion delta reporting improved / unchanged
+  / regressed / unsupported / newly_certified; a protected capability
+  below floor or any certified-capability regression blocks
+  promotion.
 
 Verbs (`xc-learning.exe`): `--capability-registry` (emit+persist),
 `--capability-graph`, `--capability-eval-map`,
 `--capability-progression`, `--capability-resolve --capability <name>`,
 `--capability-validate [--file <f>]`, `--capability-consistency`,
-`--capability-regression-suite --capability <id>`.
+`--capability-regression-suite --capability <id>`,
+`--capability-evidence --file <f.json>` (record §20 evidence),
+`--capability-evidence-status [--capability <id>]`,
+`--capability-delta --baseline <f> --candidate <f>` (§90-§92
+promotion delta; protected-capability regression blocks promotion).
 
 Admission wiring (phase 2, §82/§98): SFT jobs and the
 single-capability recovery lane validate declared capabilities through
