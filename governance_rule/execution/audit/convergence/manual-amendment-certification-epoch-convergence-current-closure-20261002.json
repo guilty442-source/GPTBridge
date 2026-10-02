@@ -1,0 +1,876 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "certification-epoch-convergence-current-closure-20261002",
+  "title": "Separate formal state dimensions and rebuild current convergence closure",
+  "summary": "Preserve external Ed25519 release gate;activate epoch identity;separate narrative legal declarations from executable machine predicates;re-evaluate 89 formal rules and current closure debt without fabricating PASS.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor formal-state and closure audit;Codex/data only,no application runtime implementation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "version_epoch": 2,
+    "codex_version": "2026-10-02T09:02:09Z",
+    "revision_sequence": 223,
+    "version_identity": "E2:2026-10-02T09:02:09Z",
+    "history_head": "96c52d5899843e4ede641b2ad71c31d6ad49a14954928ee251af54a5a94b06a7"
+  },
+  "changes": [
+    {
+      "field": "rule",
+      "table": "articles",
+      "key": {
+        "provision_id": "A120"
+      },
+      "proposed": "EPOCH-AUTHORITY:codex_version_epochs registers epoch identity and recovery genesis;exactly one E2 row is active while E2 is the current epoch. EPOCH-STATE:active means current epoch identity only,not cryptographic certification or release approval. BASELINE:baseline version,genesis identity,predecessor and recovery history head remain immutable origin evidence;they are not overwritten by each successor. CURRENT-GENERATION:metadata,seal_manifest,epoch_seal_manifest,certification_evidence and trust requirements bind the same current generation and registered epoch. GOVERNED-SEAL:sealed-governed-authorization records governed publication and deterministic integrity only. EXTERNAL-CERTIFICATION:D107 and D113 govern real Ed25519 2-of-3 verification;pending external signatures remain a separate release-blocking requirement. RETIREMENT:explicit governed successor only. FAILURE:missing epoch identity,multiple active epoch identities or inconsistent current roots fail closed."
+    },
+    {
+      "field": "rule",
+      "table": "articles",
+      "key": {
+        "provision_id": "D124"
+      },
+      "proposed": "CURRENT-PROJECTION:every amendment atomically rebuilds current_binding_version for all active and superseded lifecycle identities and every effective projection row to the current Codex version. SEARCH-LIFECYCLE:codex_search_document.lifecycle_state is joined from provision_lifecycle_status during build and is never independently copied. SPECIAL-LAW:current links resolve through provision_supersession_edges to one active successor;retired-no-successor links are removed or replaced by an explicit active controlling basis. DIRECTORY:B42-normalized_directory_entry is the canonical active representation;legacy backing schemas are source projections only. PLAN:all master directories have a normalization plan or born-normalized evidence. ACCESS:registered modules have no inherent Codex access;only an explicitly authorized bounded adapter session under A121 may mediate permitted read-only access,without delegated sovereign credentials or authority. STATE-DIMENSIONS:seal_manifest and epoch_seal_manifest certification_state are governance-sealing state and must both be sealed-governed-authorization;certification_evidence.status is the distinct external-verification state and may remain external-signatures-required until actual detached verification;codex_version_epochs.status is epoch identity lifecycle and must be active for the current epoch. CONSISTENCY:these typed dimensions share current generation and epoch but must never be compared as one enum. CERTIFIED-SEAL-AND-RELEASE:D107 real Ed25519 2-of-3 verification and every applicable independent closure gate remain mandatory;governed sealing or active epoch identity alone cannot satisfy them."
+    },
+    {
+      "field": "prohibition",
+      "table": "articles",
+      "key": {
+        "provision_id": "D124"
+      },
+      "proposed": "FORBID:stale binding version+search lifecycle copied independently+stale special-law provision link+legacy backing schema claimed canonical+missing normalization plan+state-dimension-conflation+governed seal or active epoch presented cryptographically certified."
+    },
+    {
+      "field": "rule",
+      "table": "articles",
+      "key": {
+        "provision_id": "D107"
+      },
+      "proposed": "IDENTITY:each seal record is either CANDIDATE_SEAL,CERTIFIED_SEAL or RETIRED_SEAL and binds a unique seal_id,version_identity,content_root,history_head,identity_root,lineage_root,created_at and certification state. IMMUTABILITY:a changed root or history head creates a new candidate identity and never overwrites a sealed identity. CERTIFICATION:Ed25519 2-of-3 external signatures and valid trust anchors are mandatory for CERTIFIED_SEAL. STATUS:technical output is standardized as TECHNICAL_AUDIT_PASS or TECHNICAL_AUDIT_FAIL;legal closure is CODEX_CERTIFICATION_COMPLETE or CODEX_CERTIFICATION_INCOMPLETE;release is VERIFIED_RELEASE_APPROVED or VERIFIED_RELEASE_DENIED. A technical pass with pending signatures always yields CODEX_CERTIFICATION_INCOMPLETE and VERIFIED_RELEASE_DENIED. HISTORY:the post-deletion revision chain begins at its declared recovery genesis and proves only successors from that genesis;it must not claim reconstructed deleted history. OBLIGATIONS:mandated,planned,in-progress,evidence-submitted,verified,complete,escalated and failed remain distinct;an incomplete release-blocking obligation denies affected verified release and is never promoted by audit wording. GOVERNED-SEAL:sealed-governed-authorization is an orthogonal publication/integrity state,not CERTIFIED_SEAL;an active epoch is an identity lifecycle state,not signature verification. EXTERNAL-GATE:the EXTERNAL_SIGNATURE closure requirement remains externally-blocked until actual current-generation Ed25519 threshold verification;an administrative retired-not-required label cannot repeal this gate."
+    },
+    {
+      "field": "rule",
+      "table": "articles",
+      "key": {
+        "provision_id": "B5"
+      },
+      "proposed": "AUTHORITATIVE-FORM:current Codex authority is the canonical typed provision record with stable identity,lifecycle,lineage,declared normativity and governed generation. DECLARATIVE-NORM:the registered rule payload states the legal duty under D105;human-readable wording is not executable programming source. MACHINE-FORM:B17+D106+D114 separately control typed machine clauses,formal-rule mapping,predicate and execution evidence. CHINESE:the ordered read-only Chinese mirror is a non-authoritative comprehension projection,not an adjudication,execution,import,write or fallback source."
+    },
+    {
+      "field": "prohibition",
+      "table": "articles",
+      "key": {
+        "provision_id": "B5"
+      },
+      "proposed": "FORBID:standalone narrative replacing a registered provision+translation or mirror as adjudication authority+prose directly executed as machine predicate+style treated as semantic parity."
+    },
+    {
+      "field": "rule",
+      "table": "articles",
+      "key": {
+        "provision_id": "B17"
+      },
+      "proposed": "REPRESENTATION:canonical typed provision records carry legal identity,lifecycle,generation,lineage and declared normativity under D105. MACHINE-CLAUSE:an authoritative executable clause has a stable clause identifier,typed inputs,deterministic predicate,decision,severity,controlling provision and current semantic parity evidence under D106+D114;uppercase machine tokens and ASCII structural delimiters describe this machine form. DECLARATIVE-NORM:registered human-readable normative rule payloads remain legal declarations under NORMATIVE_MANUAL or their expressly registered class;they are not merely historical because of writing style and cannot become executable machine guards without the corresponding current formal mapping. EXPLANATION:translation,examples,commentary and unregistered legacy prose have no independent authority. SEPARATION:formal_rule_mapping links each machine clause to its canonical legal source;the narrative source and machine form are distinct representations,not interchangeable evaluators. UNMAPPED:preserve the legal duty and mark machine enforcement or release parity INCOMPLETE_EVIDENCE;never infer PASS from narrative or a registered code alone. AMENDMENT:semantic changes require governed successor generation and lineage;mechanical in-place style rewriting under the same identity remains forbidden."
+    },
+    {
+      "field": "prohibition",
+      "table": "articles",
+      "key": {
+        "provision_id": "B17"
+      },
+      "proposed": "FORBID:unstructured narrative as standalone machine authority+prose-only executable guard+translation replacing canonical source+declared legal norm silently reclassified historical+unmapped machine enforcement+format-only parity claim+mechanical in-place style rewrite with same identity."
+    },
+    {
+      "field": "status",
+      "table": "codex_version_epochs",
+      "key": {
+        "epoch": 2
+      },
+      "proposed": "active"
+    },
+    {
+      "field": "current_state",
+      "table": "codex_external_closure_requirements",
+      "key": {
+        "gate_code": "EXTERNAL_SIGNATURE"
+      },
+      "proposed": "externally-blocked"
+    },
+    {
+      "field": "required_end_state",
+      "table": "codex_external_closure_requirements",
+      "key": {
+        "gate_code": "EXTERNAL_SIGNATURE"
+      },
+      "proposed": "current-generation Ed25519 2-of-3 detached signatures verified against registered trust anchors"
+    },
+    {
+      "field": "verification",
+      "table": "codex_external_closure_requirements",
+      "key": {
+        "gate_code": "EXTERNAL_SIGNATURE"
+      },
+      "proposed": "D106+D107+D113:actual detached cryptographic verification;status labels and governed integrity seals are not proof"
+    },
+    {
+      "field": "on_open_gate",
+      "table": "codex_external_closure_requirements",
+      "key": {
+        "gate_code": "EXTERNAL_SIGNATURE"
+      },
+      "proposed": "CERTIFIED_SEAL and affected verified release denied until actual threshold evidence"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "all current participating rules require active controlling source,current-generation registry/evaluator/test/prose hashes and independent execution evidence"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;registry=89;participating=80;verified-labels=80;retired=5;withdrawn=4;input-sha256=3cf8e513a49a460988e1fd581d43e0d506bdd5b7103cbd65322fcebdde8a71bd;open-rules=FR-BACKEND-LIFECYCLE,FR-CONNECTION-RECOVERY,FR-CONNECTION-STATE,FR-CONVERGENCE-PLAN,FR-DEV-RUNTIME-SEPARATION,FR-DIALOGUE-TRAINING,FR-EVAL-SUITE,FR-EXECUTION-LEASE,FR-GIT-SQL-RAG-CAG-DAG-DIVISION,FR-GPU-ACCEL-TRACK,FR-IMPL-PRECEDENCE,FR-INFER-CONSISTENCY,FR-INTEGRATION-SEQUENCE,FR-KV-CACHE-TESTS,FR-LANG-LAYERING,FR-MAINT-UPDATE-INTEGRATION,FR-MODEL-MATURITY,FR-MODEL-MOE,FR-MODEL-SCALING,FR-MODEL-TRAINING-TIERS,FR-MODULE-HASH-CHAIN,FR-MOE-QC,FR-MULTI-CONFIG-GPT,FR-MULTI-CORE-PARALLEL,FR-NO-SUB-SOVEREIGN-ALL-MODULES,FR-OLLAMA-ON-DEMAND,FR-ONDEMAND-MODULES,FR-PRETRAIN-DATA-PIPELINE,FR-RELEASE-MANIFEST,FR-REQUEST-LIFECYCLE,FR-REQUEST-REGISTRY,FR-SINGLE-PURPOSE-MODULE,FR-SMALL-MODEL-BASELINE,FR-SOVEREIGN-TO-CORE-ENGINE,FR-TASK-LIFECYCLE,FR-TOOL-CALLING-COMPETENCE,FR-TRAIN-NTP-CORRECTNESS,FR-WEIGHT-EVOLUTION,FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE,RULE_BACKEND_HANDOFF,RULE_CALL_BOUNDARY,RULE_CAPABILITY_DISPATCH,RULE_CODEX_CONVERGENCE,RULE_CONNECTION_ROUTE,RULE_DELEGATED_A498,RULE_DELEGATION_VALIDATION,RULE_EXECUTION_PIPELINE,RULE_EXECUTION_VERIFICATION_SEPARATION,RULE_FILE_OPERATION_RELIABILITY,RULE_FINAL_ARCHITECTURE,RULE_GIT_WORKTREE,RULE_GO_RUST_RUNTIME,RULE_HEALTH_CONTRACT,RULE_IDENTITY_CONVERSION,RULE_INFRA_VERSIONS,RULE_JS_NATIVE,RULE_LANGUAGE_REALLOCATION,RULE_LANGUAGE_TABLE_OFFICIAL,RULE_LANGUAGE_VERSIONS,RULE_MACHINE_SCHEMA,RULE_MAIN_SYSTEM_CSHARP14,RULE_MATURE_CAPABILITY_PRESERVATION,RULE_MODEL_DIALOGUE_MODE,RULE_NATIVE_COMPUTE_C23,RULE_NATIVE_PROMOTION,RULE_PRECEDENCE_RESOLUTION,RULE_RAG_PROVENANCE,RULE_RELEASE_VERIFICATION,RULE_RESOURCE_GOVERNOR_CPP23,RULE_RETIRED_DEPENDENCIES,RULE_ROLE_SEPARATION,RULE_RUNTIME_AUTHORITY_RESOLUTION,RULE_RUST_TESTS,RULE_SQL_GOVERNANCE_CLOSURE,RULE_SQL_MIGRATION_AUTHORITY,RULE_TEST_AUDIT_RESPONSIBILITY,RULE_TEST_SUITE_CARDINALITY,RULE_TEST_TOOLS,RULE_TOOL_RUNTIME,RULE_VECTOR_ENGINE_RUST;findings-sha256=a8296a5a17756544b28f71dd9edbaabbe104491f5361ebf3fb433a2a00ac4013;NO_RUNTIME_PARITY_INFERRED"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": 80
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "all registered schemas require independent current producer/validator/persistence/canonical execution evidence"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;registered=77;PENDING=77;input-sha256=68065715783ac1bfa87b6bcbc615919fee4ce8bfa790e374c0f1fbc1ec935a59;activation-and-verified-release=DENIED"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": 77
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "active lifecycle identities require classified canonical current normative surface"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;active=990;unknown=185;input-sha256=27c5cedb5f367084fdf0fb3120e0be041084ca8d30972965e66d0b1f79ad027a"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": 185
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "canonical normalized project parity and registered directory governance acceptance"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;project=54/54;semantic-mismatches=0;catalog=81;catalog-open=40;input-sha256=07c41b549bf8f1da350e566f0667ba94f66064e72962d1efd25b052e5e070ab9"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": 40
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "exact active-payload uniqueness and current independent semantic duplication review"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;exact-duplicate-groups=0;semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": 1
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "search lifecycle and generation joined to canonical lifecycle;candidate search is rebuilt by the governed pipeline"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;checked=906;source-stale=0;input-sha256=b5ef863360010364fb6c759ebaa43372b429eeb51b7c2d812e4a04a711277d8c;candidate-publication-requires-search-rebuild"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "PASS"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "current measured architecture file registry parity;candidate seal/mirror/SQL parity validated by publication pipeline;not implementation certification"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;diagram-required=13;diagram-match=13;source-result=PASS;independent-mirror-and-SQL-publication-gate=REQUIRED"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": 0
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "PASS"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "verifier",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "RULE_CODEX_CONVERGENCE/current-registry-evaluation"
+    },
+    {
+      "field": "required_subresults",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "NORMATIVE_SURFACE_CLOSURE|DIRECTORY_CLOSURE|MACHINE_SCHEMA_CLOSURE|FORMAL_RULE_CLOSURE|SEARCH_CURRENTNESS_CLOSURE|PROJECTION_PARITY_CLOSURE|DUPLICATION_CLOSURE|OBLIGATION:complete=2,evidence-submitted=1,mandated=58,pending=1,superseded=1|EXTERNAL_SIGNATURE:externally-blocked"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T09:02:09Z;candidate=<successor-version>;formal=80;schema=77;surface=185;directory=40;semantic-duplication-review=1;open-obligations=60;external-signature=1;obligation-input-sha256=12e924fe8d50aa23ed6d92745c8310825a6edac1a31f0d2af34a03e55d25387f;counts=gate-instances-not-unique-incidents"
+    },
+    {
+      "field": "open_finding_count",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": 444
+    },
+    {
+      "field": "result",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "status",
+      "table": "codex_convergence_metrics",
+      "key": {
+        "report_id": "CONVERGENCE@2026-09-16T14:48:49Z"
+      },
+      "proposed": "superseded"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "re-evaluated registry=89;participating=80;historical-VERIFIED-labels=80;current-evidence-open=80;registry/evaluator/test/prose proof required;source=2026-10-02T09:02:09Z"
+    },
+    {
+      "field": "pending_codes",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "FR-BACKEND-LIFECYCLE|FR-CONNECTION-RECOVERY|FR-CONNECTION-STATE|FR-CONVERGENCE-PLAN|FR-DEV-RUNTIME-SEPARATION|FR-DIALOGUE-TRAINING|FR-EVAL-SUITE|FR-EXECUTION-LEASE|FR-GIT-SQL-RAG-CAG-DAG-DIVISION|FR-GPU-ACCEL-TRACK|FR-IMPL-PRECEDENCE|FR-INFER-CONSISTENCY|FR-INTEGRATION-SEQUENCE|FR-KV-CACHE-TESTS|FR-LANG-LAYERING|FR-MAINT-UPDATE-INTEGRATION|FR-MODEL-MATURITY|FR-MODEL-MOE|FR-MODEL-SCALING|FR-MODEL-TRAINING-TIERS|FR-MODULE-HASH-CHAIN|FR-MOE-QC|FR-MULTI-CONFIG-GPT|FR-MULTI-CORE-PARALLEL|FR-NO-SUB-SOVEREIGN-ALL-MODULES|FR-OLLAMA-ON-DEMAND|FR-ONDEMAND-MODULES|FR-PRETRAIN-DATA-PIPELINE|FR-RELEASE-MANIFEST|FR-REQUEST-LIFECYCLE|FR-REQUEST-REGISTRY|FR-SINGLE-PURPOSE-MODULE|FR-SMALL-MODEL-BASELINE|FR-SOVEREIGN-TO-CORE-ENGINE|FR-TASK-LIFECYCLE|FR-TOOL-CALLING-COMPETENCE|FR-TRAIN-NTP-CORRECTNESS|FR-WEIGHT-EVOLUTION|FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE|RULE_BACKEND_HANDOFF|RULE_CALL_BOUNDARY|RULE_CAPABILITY_DISPATCH|RULE_CODEX_CONVERGENCE|RULE_CONNECTION_ROUTE|RULE_DELEGATED_A498|RULE_DELEGATION_VALIDATION|RULE_EXECUTION_PIPELINE|RULE_EXECUTION_VERIFICATION_SEPARATION|RULE_FILE_OPERATION_RELIABILITY|RULE_FINAL_ARCHITECTURE|RULE_GIT_WORKTREE|RULE_GO_RUST_RUNTIME|RULE_HEALTH_CONTRACT|RULE_IDENTITY_CONVERSION|RULE_INFRA_VERSIONS|RULE_JS_NATIVE|RULE_LANGUAGE_REALLOCATION|RULE_LANGUAGE_TABLE_OFFICIAL|RULE_LANGUAGE_VERSIONS|RULE_MACHINE_SCHEMA|RULE_MAIN_SYSTEM_CSHARP14|RULE_MATURE_CAPABILITY_PRESERVATION|RULE_MODEL_DIALOGUE_MODE|RULE_NATIVE_COMPUTE_C23|RULE_NATIVE_PROMOTION|RULE_PRECEDENCE_RESOLUTION|RULE_RAG_PROVENANCE|RULE_RELEASE_VERIFICATION|RULE_RESOURCE_GOVERNOR_CPP23|RULE_RETIRED_DEPENDENCIES|RULE_ROLE_SEPARATION|RULE_RUNTIME_AUTHORITY_RESOLUTION|RULE_RUST_TESTS|RULE_SQL_GOVERNANCE_CLOSURE|RULE_SQL_MIGRATION_AUTHORITY|RULE_TEST_AUDIT_RESPONSIBILITY|RULE_TEST_SUITE_CARDINALITY|RULE_TEST_TOOLS|RULE_TOOL_RUNTIME|RULE_VECTOR_ENGINE_RUST"
+    },
+    {
+      "field": "governance_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "certification_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "CODEX_CERTIFICATION_INCOMPLETE"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "lifecycle-counts:complete=2,evidence-submitted=1,mandated=58,pending=1,superseded=1;total=63;open=60;evidence-submitted is not accepted;superseded is not open"
+    },
+    {
+      "field": "pending_codes",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "FINAL_CONVERGENCE_IMPLEMENTATION_PLAN|OBL_A334_RUNTIME_GATE_FULL_COVERAGE|OBL_ANTI_JAILBREAK|OBL_ARCHITECTURE_CATALOG|OBL_AUTHORITY_MARKER|OBL_BACKUP_RESTORE_AUTHORITY|OBL_BLOAT_VACUUM_CONTROL|OBL_BUSINESS_LOGIC_CSHARP_PARENT|OBL_CAPACITY_WATERMARK|OBL_CENTRAL_AUDIT_SQL|OBL_CHANNEL_ANOMALY_ISOLATION|OBL_CONNECTION_GENERATION_FENCE|OBL_DAG_CAG_RAG_HYBRID|OBL_DATA_CONTRACT_HANDSHAKE|OBL_DATA_LINEAGE|OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY|OBL_DATA_SLO|OBL_DATABASE_STARTUP_CERTIFICATION|OBL_DDL_AUDIT|OBL_DEV_RUNTIME_SEPARATION|OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE|OBL_DOMAIN_READ_ONLY_EMERGENCY|OBL_FORMAL_EVALUATOR_V2_PARITY|OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION|OBL_IMPLEMENTATION_PRECEDENCE|OBL_INTEGRATED_OBJECTIVES|OBL_LANGUAGE_DEPENDENCY_DAG_GATE|OBL_LAYERED_ARCHITECTURE|OBL_LONG_TRANSACTION_WATCHDOG|OBL_MACHINE_SCHEMA_PARITY|OBL_MAINTENANCE_UPDATE_INTEGRATION|OBL_MODEL_SCALING_STRATEGY|OBL_MODEL_TRAINING_GOVERNANCE_PARENT|OBL_NATIVE_COMPUTE_CORE_CLASS|OBL_NATIVE_PROMOTION_RECORD_CHECKER|OBL_NORMALIZED_TEST_FLOW_COVERAGE|OBL_ORPHAN_SCANNER|OBL_PERMISSION_PROOF_SNAPSHOT|OBL_POSTGRESQL_AUTHORITY|OBL_REBUILD_CERTIFICATION|OBL_RPO_RTO_CLASS|OBL_SCHEMA_DRIFT_GATE|OBL_SCHEMA_OWNERSHIP_LOCK|OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE|OBL_SHARED_TRANSPORT_SQL|OBL_SQL_GOVERNANCE_CLOSURE|OBL_SQL_HEALTH_READINESS|OBL_SQL_MIGRATION|OBL_SQL_SECURITY_PROJECTION|OBL_SQL_TEST|OBL_SQLITE_FALLBACK|OBL_SYSTEM_RELIABILITY|OBL_TEST_SUITE_DIRECTORY|OBL_TOP_LEVEL_PATHS|OBL_TWO_PHASE_DELETION|OBL_WEIGHT_EVOLUTION|OBL_WORKLOAD_CLASS|OBL_WRITE_PROVENANCE|OBL_XINGCHENG_PRIMARY_GOAL|OBL_星澄_AUDIT"
+    },
+    {
+      "field": "governance_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "certification_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "CODEX_CERTIFICATION_INCOMPLETE"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "current registry evaluation;formal-open=80;schema-open=77;surface-open=185;directory-open=40;semantic-review-pending=1;open-obligations=60;external-signature-blocked=1"
+    },
+    {
+      "field": "pending_codes",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "UNKNOWN_ARTICLE_CLASSIFICATION|MACHINE_SCHEMA_PARITY|FORMAL_RULE_PARITY|DIRECTORY_GOVERNANCE_DATA|SEMANTIC_DUPLICATION_REVIEW|IMPLEMENTATION_OBLIGATIONS|EXTERNAL_SIGNATURE"
+    },
+    {
+      "field": "governance_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "certification_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "CODEX_CERTIFICATION_INCOMPLETE"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "current"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "DENIED:union of all registered open components plus all 60 open obligations and actual external signature gate;no verification inferred from technical audit or status labels"
+    },
+    {
+      "field": "pending_codes",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "AI_ASSISTANT|AI_COLLABORATION|CAPABILITY_DISPATCH_CLOSURE|CODEX_CONVERGENCE_CLOSURE|CORE_ENGINE_EQUIVALENCE_CLOSURE|CURRENT_NORMATIVE_SURFACE_CLOSURE|DIR_API_EVENT_CONTRACT|DIR_AUDIT_EVIDENCE_RETENTION|DIR_AUTHORED_SOURCE_INVENTORY|DIR_BACKUP_RECOVERY_MIGRATION|DIR_CAPABILITY_REGISTRY|DIR_CHANNEL_SESSION_ROUTE_STATE|DIR_CODEX_REFERENCE_CODE_REGISTRY|DIR_CONFIG_CREDENTIAL_SECRET|DIR_CROSS_STORE_RECONCILIATION|DIR_DATA_PLATFORM_OBSERVABILITY|DIR_DATA_SCHEMA_AUTHORITY|DIR_DEPENDENCY_COMPATIBILITY_GRAPH|DIR_GOVERNANCE_PERFORMANCE_EVIDENCE|DIR_IDENTITY_GROUP|DIR_IDENTITY_MODULE|DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE|DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION|DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS|DIR_LEGACY_ROOT_RETIREMENT|DIR_MODEL_RESOURCE_DEPENDENCY|DIR_MODULE_ASSIGNMENT|DIR_MODULE_LINE_COUNT_REGISTRY|DIR_MODULE_SELF_DECOMPOSITION|DIR_NATIVE_PROMOTION_RECORD|DIR_PERMISSION_CAPABILITY|DIR_REPAIR_ACTION_PROVENANCE|DIR_RUNTIME_INSTANCE_GENERATION|DIR_SERVICE_PROCESS_PORT_ENV|DIR_SOURCE_LINE_LIMIT_EVIDENCE|DIR_SOVEREIGN_HIERARCHY|DIR_TOOL_FAILURE_ISOLATION|DIR_TOOL_ROUTE|DIR_UI_WINDOW_FEATURE_ENTRY|DIR_UNIFIED_DATA_HEALTH|DIR_UPDATE_SYNCHRONIZATION_TRANSACTION|DIR_USER_COMMAND_SIGNATURE|DIR_VERSION_RELEASE_ARTIFACT|DIR_XINGCHENG_COMPLIANCE_FINDINGS|DIR_XINGCHENG_CONFIDENTIAL_AUDIT|DIR_XINGCHENG_FAULT_DECISION|DIR_XINGCHENG_GOVERNANCE|DIRECTORY_GOVERNANCE_DATA|EVENT_SERVICE|EXTERNAL_SIGNATURE|FILE_SORTER|FINAL_CONVERGENCE_IMPLEMENTATION_PLAN|FINAL_PROJECT_CONVERGENCE_CLOSURE|FORMAL_EVALUATOR_PARITY|FORMAL_RULE_PARITY|FORMAL_RULE_PARITY_CLOSURE|FREEZE_PENDING|GLOBAL_CLEANER|IMPLEMENTATION_OBLIGATIONS|INVESTMENT_MOBILE|IPC_SERVICE|LANGUAGE_GOVERNANCE_FREEZE|LAUNCHER|LOCAL_MODEL|MACHINE_SCHEMA_PARITY|MACHINE_SCHEMA_PARITY_CLOSURE|MAIN_SYSTEM|MODEL_DIALOGUE|OBL_A334_RUNTIME_GATE_FULL_COVERAGE|OBL_ANTI_JAILBREAK|OBL_ARCHITECTURE_CATALOG|OBL_AUTHORITY_MARKER|OBL_BACKUP_RESTORE_AUTHORITY|OBL_BLOAT_VACUUM_CONTROL|OBL_BUSINESS_LOGIC_CSHARP_PARENT|OBL_CAPACITY_WATERMARK|OBL_CENTRAL_AUDIT_SQL|OBL_CHANNEL_ANOMALY_ISOLATION|OBL_CONNECTION_GENERATION_FENCE|OBL_DAG_CAG_RAG_HYBRID|OBL_DATA_CONTRACT_HANDSHAKE|OBL_DATA_LINEAGE|OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY|OBL_DATA_SLO|OBL_DATABASE_STARTUP_CERTIFICATION|OBL_DDL_AUDIT|OBL_DEV_RUNTIME_SEPARATION|OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE|OBL_DOMAIN_READ_ONLY_EMERGENCY|OBL_FORMAL_EVALUATOR_V2_PARITY|OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION|OBL_IMPLEMENTATION_PRECEDENCE|OBL_INTEGRATED_OBJECTIVES|OBL_LANGUAGE_DEPENDENCY_DAG_GATE|OBL_LAYERED_ARCHITECTURE|OBL_LONG_TRANSACTION_WATCHDOG|OBL_MACHINE_SCHEMA_PARITY|OBL_MAINTENANCE_UPDATE_INTEGRATION|OBL_MODEL_SCALING_STRATEGY|OBL_MODEL_TRAINING_GOVERNANCE_PARENT|OBL_NATIVE_COMPUTE_CORE_CLASS|OBL_NATIVE_PROMOTION_RECORD_CHECKER|OBL_NORMALIZED_TEST_FLOW_COVERAGE|OBL_ORPHAN_SCANNER|OBL_PERMISSION_PROOF_SNAPSHOT|OBL_POSTGRESQL_AUTHORITY|OBL_REBUILD_CERTIFICATION|OBL_RPO_RTO_CLASS|OBL_SCHEMA_DRIFT_GATE|OBL_SCHEMA_OWNERSHIP_LOCK|OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE|OBL_SHARED_TRANSPORT_SQL|OBL_SQL_GOVERNANCE_CLOSURE|OBL_SQL_HEALTH_READINESS|OBL_SQL_MIGRATION|OBL_SQL_SECURITY_PROJECTION|OBL_SQL_TEST|OBL_SQLITE_FALLBACK|OBL_SYSTEM_RELIABILITY|OBL_TEST_SUITE_DIRECTORY|OBL_TOP_LEVEL_PATHS|OBL_TWO_PHASE_DELETION|OBL_WEIGHT_EVOLUTION|OBL_WORKLOAD_CLASS|OBL_WRITE_PROVENANCE|OBL_XINGCHENG_PRIMARY_GOAL|OBL_星澄_AUDIT|OBLIGATION_CLOSURE|POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY|RULE_CALL_BOUNDARY|RULE_CONNECTION_ROUTE|RULE_EXECUTION_PIPELINE|RULE_HEALTH_CONTRACT|RULE_IDENTITY_CONVERSION|RULE_MACHINE_SCHEMA|RULE_PRECEDENCE_RESOLUTION|RULE_RELEASE_VERIFICATION|RULE_ROLE_SEPARATION|RULE_TEST_SUITE_CARDINALITY|SEARCH_CURRENTNESS_CLOSURE|SHARED_LAYER|STATE_SERVICE|SUB_SOVEREIGN_RETIREMENT_CLOSURE|SYSTEM_MODULARIZATION|SYSTEM_RESCUE|UNKNOWN_ARTICLE_CLASSIFICATION|VAULTLY|VERSION_CURRENTNESS_CLOSURE"
+    },
+    {
+      "field": "governance_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "certification_state",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "VERIFIED_RELEASE_DENIED"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "status",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "current"
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "codex_convergence_metrics",
+      "rows": [
+        {
+          "report_id": "CONVERGENCE_CURRENT",
+          "active_article_count_before": 365,
+          "active_article_count_after": 442,
+          "core_article_count": 225,
+          "special_law_count": 32,
+          "ordinance_count": 0,
+          "registry_fact_article_count_before": 0,
+          "registry_fact_article_count_after": 0,
+          "machine_shape_article_count_before": 0,
+          "machine_shape_article_count_after": 0,
+          "formal_logic_article_count_before": 0,
+          "formal_logic_article_count_after": 0,
+          "duplicate_article_count_before": 0,
+          "duplicate_article_count_after": 0,
+          "mixed_article_count_before": 0,
+          "mixed_article_count_after": 0,
+          "unknown_article_count": 185,
+          "stale_effective_count": 0,
+          "superseded_default_search_count": 0,
+          "directory_coverage": "project:54/54;catalog:81;open:40",
+          "machine_schema_parity": "0/77",
+          "formal_rule_single_owner_rate": "82/82",
+          "closure_duplication_count": 0,
+          "result": "INCOMPLETE_EVIDENCE",
+          "version_identity": "<successor-version>",
+          "status": "current"
+        }
+      ],
+      "action": "insert"
+    }
+  ]
+}

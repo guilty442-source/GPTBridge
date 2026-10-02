@@ -1,4 +1,4 @@
-param([switch]$Request)
+param([switch]$Request,[switch]$Verify)
 $ErrorActionPreference = 'Stop'
 $codexLines = Get-Content -LiteralPath 'governance_rule/codex/data/governance_codex.sql' -Encoding UTF8
 $rowCache = @{}
@@ -69,7 +69,8 @@ $classes=@(Get-CodexRows 'codex_article_classification' | Where-Object { $_.prov
 $classCounts=[ordered]@{}
 foreach ($group in ($classes | Group-Object classification | Sort-Object Name)) { $classCounts[$group.Name]=$group.Count }
 $unknown=@($activeIds | Where-Object { $_ -notin $classes.provision_id }).Count + @($classes | Where-Object classification -eq 'UNKNOWN').Count
-$surface=@(Get-CodexRows 'current_normative_surface' | Where-Object lifecycle_state -eq 'active')
+$allSurface=@(Get-CodexRows 'current_normative_surface')
+$surface=@($allSurface | Where-Object lifecycle_state -eq 'active')
 $surfaceUnknown=@($surface | Where-Object surface_layer -eq 'UNKNOWN')
 $directories=@(Get-CodexRows 'directory_master_catalog' | Where-Object { -not $_.retired_version })
 $directoryOpen=@($directories | Where-Object implementation_state -notin @('active','verified','complete'))
@@ -103,6 +104,43 @@ $report=[ordered]@{
     search=[ordered]@{ total=$search.Count;stale=$staleSearch.Count;input_digest=(Get-Digest $search) }
     diagrams=$sync
     epochs=@(Get-CodexRows 'codex_version_epochs'); external=@(Get-CodexRows 'codex_external_closure_requirements'); closure=@(Get-CodexRows 'codex_convergence_closure')
+}
+if ($Verify) {
+    $checks=[Collections.Generic.List[string]]::new()
+    function Assert-State([bool]$Condition,[string]$Name) {
+        if (-not $Condition) { throw "FORMAL_STATE_INVARIANT:$Name" }
+        $checks.Add($Name)
+    }
+    $epochRows=@(Get-CodexRows 'codex_version_epochs' | Where-Object epoch -eq $head.version_epoch)
+    Assert-State ($epochRows.Count -eq 1 -and $epochRows[0].status -eq 'active') 'single-active-current-epoch'
+    $seal=@(Get-CodexRows 'seal_manifest' | Where-Object version -eq $head.version)
+    $epochSeal=@(Get-CodexRows 'epoch_seal_manifest' | Where-Object version -eq $head.version)
+    $cert=@(Get-CodexRows 'certification_evidence' | Where-Object version -eq $head.version)
+    Assert-State ($seal.Count -eq 1 -and $epochSeal.Count -eq 1 -and $seal[0].certification_state -eq 'sealed-governed-authorization' -and $epochSeal[0].certification_state -eq $seal[0].certification_state) 'governance-seal-dimension-parity'
+    Assert-State ($cert.Count -eq 1 -and $cert[0].status -eq 'external-signatures-required') 'external-certification-not-fabricated'
+    $external=Get-CodexRows 'codex_external_closure_requirements' | Where-Object gate_code -eq 'EXTERNAL_SIGNATURE'
+    Assert-State ($external.current_state -eq 'externally-blocked') 'external-threshold-gate-retained'
+    $closure=@(Get-CodexRows 'codex_convergence_closure' | Where-Object status -eq 'current')
+    Assert-State (@($closure | Where-Object version_identity -ne $head.version).Count -eq 0) 'all-convergence-closure-rows-current'
+    $formalClosure=$closure | Where-Object closure_id -eq 'FORMAL_RULE_CLOSURE'
+    Assert-State ($formalClosure.open_finding_count -eq $formalFindings.Count -and $formalClosure.result -eq 'INCOMPLETE_EVIDENCE') 'formal-findings-recomputed-not-status-only-pass'
+    $schemaClosure=$closure | Where-Object closure_id -eq 'MACHINE_SCHEMA_CLOSURE'
+    Assert-State ($schemaClosure.open_finding_count -eq $schemaOpen.Count -and $schemaClosure.result -eq 'INCOMPLETE_EVIDENCE') 'schema-dependent-closure-fail-closed'
+    $metric=@(Get-CodexRows 'codex_convergence_metrics' | Where-Object status -eq 'current')
+    Assert-State ($metric.Count -eq 1 -and $metric[0].version_identity -eq $head.version -and $metric[0].machine_schema_parity -eq "$($schemas.Count-$schemaOpen.Count)/$($schemas.Count)") 'single-current-metrics-dynamic-schema-denominator'
+    Assert-State ($metric[0].active_article_count_after -eq $activeIds.Count -and $metric[0].unknown_article_count -eq @($surfaceUnknown | Where-Object object_type -eq 'article').Count -and $metric[0].superseded_default_search_count -eq @($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count) 'current-metrics-match-all-surface-measurements'
+    $aggregate=$closure | Where-Object closure_id -eq 'CODEX_CONVERGENCE_CLOSURE'
+    foreach ($state in $obligationCounts.Keys) {
+        Assert-State ($aggregate.required_subresults.Contains("$state=$($obligationCounts[$state])")) "obligation-lifecycle-count:$state"
+    }
+    $release=Get-CodexRows 'governance_closure_state' | Where-Object component_code -eq 'VERIFIED_RELEASE'
+    $pending=([string]$release.pending_codes).Split('|')
+    Assert-State ($release.version_identity -eq $head.version -and $release.certification_state -eq 'VERIFIED_RELEASE_DENIED' -and 'EXTERNAL_SIGNATURE' -in $pending) 'current-verified-release-denied'
+    Assert-State (@($openObligations | Where-Object { $_.obligation_code -notin $pending }).Count -eq 0) 'all-open-obligations-in-release-union'
+    $format=($articles | Where-Object provision_id -eq 'B17').rule
+    Assert-State ($format.Contains('DECLARATIVE-NORM:') -and $format.Contains('MACHINE-CLAUSE:') -and $format.Contains('UNMAPPED:')) 'narrative-and-executable-representations-separated'
+    [ordered]@{artifact='formal-state-convergence-verification';authority='non-authoritative-audit-evidence';generation=$head.version;revision=$head.sequence;result='PASS';checks=@($checks);formal_registry=$formal.Count;formal_participating=$formalCurrent.Count;formal_open=$formalFindings.Count;schema_open=$schemaOpen.Count;obligations=$obligationCounts;release='VERIFIED_RELEASE_DENIED';convergence='INCOMPLETE_EVIDENCE'} | ConvertTo-Json -Depth 20
+    exit
 }
 if (-not $Request) { $report | ConvertTo-Json -Depth 50; exit }
 $changes=[Collections.Generic.List[object]]::new()
@@ -159,7 +197,7 @@ foreach ($kind in @('registry_fact','machine_shape','formal_logic','duplicate','
 }
 $metric.unknown_article_count=@($surfaceUnknown | Where-Object object_type -eq 'article').Count
 $metric.stale_effective_count=@(Get-CodexRows 'effective_provisions' | Where-Object { $_.current_binding_version -ne $head.version }).Count
-$metric.superseded_default_search_count=@($surface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count
+$metric.superseded_default_search_count=@($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count
 $metric.directory_coverage="project:$($canonical.Count)/$($normalized.Count);catalog:$($directories.Count);open:$($directoryOpen.Count)"
 $metric.machine_schema_parity="$($schemas.Count-$schemaOpen.Count)/$($schemas.Count)"
 $owners=@(Get-CodexRows 'formal_rule_ownership_map' | Where-Object status -in @('current','active'))
@@ -168,6 +206,27 @@ $metric.formal_rule_single_owner_rate="$(@($ownerGroups | Where-Object Count -eq
 $metric.closure_duplication_count=@(Get-CodexRows 'codex_convergence_closure' | Where-Object status -eq 'current' | Group-Object closure_id | Where-Object Count -gt 1).Count
 $metric.result='INCOMPLETE_EVIDENCE';$metric.version_identity='<successor-version>';$metric.status='current'
 Add-Change 'codex_convergence_metrics' @{report_id=$oldMetric.report_id} 'status' 'superseded'
+$graph=@(Get-CodexRows 'governance_closure_state' | Where-Object status -in @('current','active'))
+$releasePending=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($component in $graph) {
+    if ($component.component_code -eq 'VERIFIED_RELEASE') { continue }
+    if ($component.governance_state -ne 'PASS') {
+        [void]$releasePending.Add($component.component_code)
+        foreach ($code in ([string]$component.pending_codes).Split('|')) { if ($code) { [void]$releasePending.Add($code) } }
+    }
+}
+foreach ($obligation in $openObligations) { [void]$releasePending.Add($obligation.obligation_code) }
+foreach ($code in @('EXTERNAL_SIGNATURE','MACHINE_SCHEMA_PARITY','FORMAL_EVALUATOR_PARITY','CODEX_CONVERGENCE_CLOSURE')) { [void]$releasePending.Add($code) }
+function Update-Graph([string]$Code,[string]$Summary,[string]$Pending,[string]$Certification='CODEX_CERTIFICATION_INCOMPLETE') {
+    if ($Code -notin $graph.component_code) { throw "CLOSURE_COMPONENT_MISSING:$Code" }
+    foreach ($pair in @(@('evidence_summary',$Summary),@('pending_codes',$Pending),@('governance_state','INCOMPLETE_EVIDENCE'),@('certification_state',$Certification),@('version_identity','<successor-version>'),@('status','current'))) {
+        Add-Change 'governance_closure_state' @{component_code=$Code} $pair[0] $pair[1]
+    }
+}
+Update-Graph 'FORMAL_EVALUATOR_PARITY' "re-evaluated registry=$($formal.Count);participating=$($formalCurrent.Count);historical-VERIFIED-labels=$($formalCurrent.Count);current-evidence-open=$($formalFindings.Count);registry/evaluator/test/prose proof required;source=$($head.version)" ($formalFindings.rule_code -join '|')
+Update-Graph 'IMPLEMENTATION_OBLIGATIONS' "lifecycle-counts:$stateParts;total=$($obligations.Count);open=$($openObligations.Count);evidence-submitted is not accepted;superseded is not open" ($openObligations.obligation_code -join '|')
+Update-Graph 'CODEX_CONVERGENCE_CLOSURE' "current registry evaluation;formal-open=$($formalFindings.Count);schema-open=$($schemaOpen.Count);surface-open=$($surfaceUnknown.Count);directory-open=$($directoryOpen.Count);semantic-review-pending=1;open-obligations=$($openObligations.Count);external-signature-blocked=1" 'UNKNOWN_ARTICLE_CLASSIFICATION|MACHINE_SCHEMA_PARITY|FORMAL_RULE_PARITY|DIRECTORY_GOVERNANCE_DATA|SEMANTIC_DUPLICATION_REVIEW|IMPLEMENTATION_OBLIGATIONS|EXTERNAL_SIGNATURE'
+Update-Graph 'VERIFIED_RELEASE' "DENIED:union of all registered open components plus all $($openObligations.Count) open obligations and actual external signature gate;no verification inferred from technical audit or status labels" (($releasePending | Sort-Object) -join '|') 'VERIFIED_RELEASE_DENIED'
 $requestPayload=[ordered]@{
     artifact='codex-amendment-request';authority='request-only';schema='codex-amendment-request/v1';request_id='certification-epoch-convergence-current-closure-20261002'
     title='Separate formal state dimensions and rebuild current convergence closure'
