@@ -1,0 +1,56 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "unified-governance-migration-recovery-audit-20261002",
+  "title": "Unify migration recovery audit and maintenance governance",
+  "summary": "Converge C82,C89,C90,C111 on C50 with joined current-generation evidence,independent review and bounded failure isolation.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: 統一治理; Codex-only",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T06:04:00Z",
+    "version_identity": "E2:2026-10-02T06:04:00Z",
+    "version_epoch": 2,
+    "history_head": "653539661862b559ad3b7f4cc5c7b1481dff72b8c23a441ffe1cc12fc24243d8",
+    "revision_sequence": 214
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C82"
+      },
+      "field": "rule",
+      "proposed": "MIGRATION-AUTOMATION:DIR_DATA_SCHEMA_AUTHORITY+sql-migration contract+sql-governance-closure contract are automatically regenerated and verified from ordered immutable migrations and live PostgreSQL introspection; INVARIANT:declared_schema_hash=replayed_schema_hash=live_introspected_schema_hash; CHAIN:N.source=N-1.target+gapless+single-head; EVENT:new-migration or catalog change triggers replay+receipt+directory parity+closure evidence; MISMATCH:SQL_SCHEMA_DRIFT fail-closed+read-only/quarantine; only migration executor may apply DDL GOVERNANCE-UNITY:C50 alone controls orchestration,dependency order,current-generation fencing,cancellation and receipt convergence;domain executors retain their registered scope and create no separate governance authority. Completion requires current permission,execution receipts and independent verification;missing or conflicting evidence isolates the affected scope and remains incomplete."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C89"
+      },
+      "field": "rule",
+      "proposed": "AUTOMATIC-AUDIT-TRANSPORT-MAINTENANCE:append-only audit and shared transport automatically verify identity+correlation+causation+idempotency+ordering+retention+consumer ownership+sequence continuity; backlog,orphan,lease and retention events trigger bounded repair/reconciliation through the sole C50 governance engine; unknown effects quarantine without replaying non-idempotent work GOVERNANCE-UNITY:C50 alone controls orchestration,dependency order,current-generation fencing,cancellation and receipt convergence;domain executors retain their registered scope and create no separate governance authority. Completion requires current permission,execution receipts and independent verification;missing or conflicting evidence isolates the affected scope and remains incomplete."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C90"
+      },
+      "field": "rule",
+      "proposed": "AUTOMATIC-RECOVERY:backup creation,restore rehearsal,retention and restore certification are scheduled by the sole C50 governance engine; restore never creates authority; reopening requires automatic migration/schema/hash/RLS/role/security-projection/lineage/generation verification and connection-generation fence; any failed root keeps the affected scope read-only or closed GOVERNANCE-UNITY:C50 alone controls orchestration,dependency order,current-generation fencing,cancellation and receipt convergence;domain executors retain their registered scope and create no separate governance authority. Completion requires current permission,execution receipts and independent verification;missing or conflicting evidence isolates the affected scope and remains incomplete."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C111"
+      },
+      "field": "rule",
+      "proposed": "MAINTENANCE-UPDATE-INTEGRATION:the five current cores coordinate through registered modules under the single C50 governance engine. automation-core schedules update and backup modules;decision-core determines health acceptance and repair disposition;permission-core enforces scope and records directory/audit evidence;runtime-core performs governed process cutover or rollback;xingcheng-assistant independently audits alignment and notifies the user. Every module is single-owner,typed,fail-closed and non-authoritative. Historical maintenance sub-sovereign names are lineage-only under B162. GOVERNANCE-UNITY:C50 alone controls orchestration,dependency order,current-generation fencing,cancellation and receipt convergence;domain executors retain their registered scope and create no separate governance authority. Completion requires current permission,execution receipts and independent verification;missing or conflicting evidence isolates the affected scope and remains incomplete."
+    }
+  ]
+}
