@@ -245,34 +245,36 @@ reports: `xingcheng/runtime/logs/self-learning-*.json`.
 
 ### Scheduled operation (production path)
 
-Self-learning is scheduled centrally through `AutomationCore` — the
-`self-learning` flow in `main-system/config/automation-flows.json`
-(`kind=periodic`, `interval_s=900`, `pausable=true`, `enabled` = manifest
-kill switch). `SelfLearningDriver`
-(`main-system/src-core/tasks/self_learning_driver.py`), started by the
-startup executor, owns the cadence: each tick pre-checks the tool's
-policy/state JSON (only to avoid waking a stopped tool for a cycle that
-cannot run), wakes `local-model` through the governed
-`ToolboxService.start_tool` path when cold (suppressed for 1 h after a
-user-initiated stop, and while `worker_admission_hold`/`regulation_active`
-are set), then submits `xingcheng_self_learning_cycle` via
-`request_tool_execution` (queue-and-return — training is never run inside
-the scheduler tick).
+The scheduling mechanism lives **inside the tool body**:
+`xc-learning.exe --schedule [--interval-s N]` (default 900 s) starts a
+resident loop that paces the same governed `RunCycle` used by
+`--run-once`. Single-instance arbitration is a lock file at
+`xingcheng/runtime/state/self-learning-schedule.lock` — a second
+`--schedule` exits 1 with `lock held`, so duplicate schedulers are
+impossible. Each tick writes a `star-self-learning-schedule/v1`
+heartbeat to `xingcheng/runtime/state/self-learning-schedule.json`
+(pid, phase `draining`/`cycling`/`sleeping`, last action, error).
 
-The cycle itself executes **inside the xingcheng tool process** through the
-governed system channel — this is required because `inference_exclusion`
-(§2.7-4) inspects the process-local engine caches (Python +
-C++), which an external watcher cannot see. A re-entrant lock in the
-service guarantees one cycle at a time; all policy gates (enabled,
-min_new_examples, min_interval, quiet hours, GPU backoff, failure breaker,
-daily budget, inference exclusion) are authoritatively enforced by
-`run_cycle` in the tool, not duplicated in the driver. Responses are
-drained on the next tick into a bounded ledger; driver state:
-`main-system/runtime/state/self-learning-driver.json`.
+Tick order is **drain before cycle**: a `queued` job takes precedence
+and is run through the same serial claim (`TryClaimTrainingJob`), then
+a live-state job defers the tick, and only a free lane runs a new
+cycle. `RunCycleImpl` itself also defers (`action=deferred`) when any
+job is in flight or queued — a cycle can never pile up duplicate
+queued rows while the serial lane is occupied. All policy gates
+(kill switch, quiet hours, min_new_examples, failure breaker,
+inference exclusion, governor quota, single training lane) stay
+authoritative inside `RunCycle`; the loop only paces.
 
-Do NOT run `--watch` as production scheduling — it is a debugging aid only.
-A denied registration (kill switch / unlisted flow) never falls back to a
-private loop.
+The `self-learning` flow in `main-system/config/automation-flows.json`
+remains as a registry/document entry with `enabled=false`. The
+external `GPTBridge.Automation` self-learning plane additionally
+defers whenever the native scheduler's heartbeat pid is alive — it
+must never become a second scheduler.
+
+```powershell
+# resident scheduler (single instance; kill switch still applies)
+& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --schedule
+```
 
 ```powershell
 # status / one-shot / force (ignore the new-example threshold) / kill switch
