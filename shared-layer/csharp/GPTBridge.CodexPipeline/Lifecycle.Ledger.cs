@@ -420,6 +420,20 @@ internal sealed class CodexAmendmentRequestLedger
         return RecordFromPayload(record);
     }
 
+    /// <summary>Record where a terminal request's intake file was
+    /// retired to — provenance only; never mutates lifecycle state,
+    /// so it is safe on terminal records.</summary>
+    public void MarkFileRetired(string requestId, string retiredPath)
+    {
+        var record = LoadRecord(requestId);
+        if (record is null)
+            return;
+        record["retired_request_path"] = retiredPath;
+        record["file_retired_at"] = Repo.UtcNow();
+        Repo.AtomicJson(record["record_path"]?.ToString()
+            ?? RecordPathFor(requestId), record);
+    }
+
     public LifecycleRecord Reject(string requestId, string reason,
         Dictionary<string, object?>? evidence = null)
     {

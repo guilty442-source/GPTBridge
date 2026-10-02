@@ -328,7 +328,98 @@ internal static partial class Driver
         return result;
     }
 
-    /// <summary>Advance every staged non-terminal request once.</summary>
+    /// <summary>Retire one intake file whose ledger record is already
+    /// terminal: rename ``….json`` to ``….json.<state>`` so the intake
+    /// glob stops rescanning it while the evidence stays on disk.  The
+    /// ledger record keeps provenance in ``retired_request_path``.</summary>
+    internal static string? RetireTerminalFile(string requestPath,
+        CodexAmendmentRequestLedger ledger, string requestId,
+        string state)
+    {
+        if (!Lifecycle.TerminalStates.Contains(state)
+            || requestPath.Length == 0)
+            return null;
+        var retired = requestPath + "." + state;
+        if (!File.Exists(requestPath) || File.Exists(retired))
+            return null;
+        try
+        {
+            File.Move(requestPath, retired);
+        }
+        catch (Exception error) when (error is IOException
+            or UnauthorizedAccessException)
+        {
+            return null;
+        }
+        if (requestId.Length > 0)
+            ledger.MarkFileRetired(requestId, retired);
+        return retired;
+    }
+
+    /// <summary>A live request's ``supersedes`` (v2) or legacy
+    /// ``resubmission_of`` withdraws the named request: a target that was
+    /// dropped but never scanned is begun first so it still lands in the
+    /// ledger, then every non-terminal record transitions to
+    /// ``withdrawn``.  Its intake file is retired when the same pass
+    /// reaches it.</summary>
+    private static void WithdrawSuperseded(
+        IReadOnlyList<Dictionary<string, object?>> scan,
+        CodexAmendmentRequestLedger ledger)
+    {
+        var byId = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in scan)
+        {
+            if (item.TryGetValue("valid", out var v) && v is true
+                && item.TryGetValue("request_id", out var rid))
+            {
+                var id = rid?.ToString() ?? "";
+                if (id.Length > 0)
+                    byId[id] = item["path"]?.ToString() ?? "";
+            }
+        }
+        foreach (var item in scan)
+        {
+            if (!(item.TryGetValue("valid", out var v) && v is true))
+                continue;
+            var requestId = item["request_id"]?.ToString() ?? "";
+            var state = item["state"]?.ToString() ?? "";
+            if (Lifecycle.TerminalStates.Contains(state))
+                continue;
+            var target = (item.TryGetValue("supersedes", out var sp)
+                    ? sp?.ToString() ?? "" : "").Trim();
+            if (target.Length == 0)
+                target = (item.TryGetValue("resubmission_of",
+                        out var ro) ? ro?.ToString() ?? "" : "").Trim();
+            if (target.Length == 0 || target == requestId)
+                continue;
+            var record = ledger.LoadRecord(target);
+            if (record is null
+                && byId.TryGetValue(target, out var targetPath)
+                && targetPath.Length > 0)
+            {
+                try { ledger.Begin(targetPath); }
+                catch (AmendmentLifecycleError) { }
+                record = ledger.LoadRecord(target);
+            }
+            if (record is null)
+                continue;
+            var targetState = record.TryGetValue("state", out var ts)
+                ? ts?.ToString() ?? "" : "";
+            if (Lifecycle.TerminalStates.Contains(targetState))
+                continue;
+            try
+            {
+                ledger.Transition(target, Lifecycle.StateWithdrawn,
+                    new Dictionary<string, object?>
+                    { ["superseded_by"] = requestId });
+            }
+            catch (AmendmentLifecycleError) { }
+        }
+    }
+
+    /// <summary>Advance every staged non-terminal request once —
+    /// superseded requests are withdrawn first and every terminal
+    /// intake file is retired out of the scan glob.</summary>
     public static async Task<List<Dictionary<string, object?>>>
         AdvanceAll(
             IEnumerable<string>? intakeDirs = null,
@@ -340,19 +431,31 @@ internal static partial class Driver
     {
         ledger ??= new CodexAmendmentRequestLedger();
         var results = new List<Dictionary<string, object?>>();
-        foreach (var item in ScanRequests(intakeDirs, ledger))
+        var scan = ScanRequests(intakeDirs, ledger);
+        WithdrawSuperseded(scan, ledger);
+        foreach (var item in scan)
         {
+            var path = item["path"]?.ToString() ?? "";
             var valid = item.TryGetValue("valid", out var v)
                 && v is true;
             var state = item.TryGetValue("state", out var s)
                 ? s?.ToString() ?? "" : "";
             if (valid && Lifecycle.TerminalStates.Contains(state))
+            {
+                RetireTerminalFile(path, ledger,
+                    item["request_id"]?.ToString() ?? "", state);
                 continue;
-            results.Add(await AdvanceRequest(
-                item["path"]?.ToString() ?? "",
+            }
+            var result = await AdvanceRequest(path,
                 ledger: ledger, sourceDatabase: sourceDatabase,
                 successorVersion: successorVersion, gate: gate,
-                autoExecute: autoExecute));
+                autoExecute: autoExecute);
+            results.Add(result);
+            RetireTerminalFile(path, ledger,
+                result.TryGetValue("request_id", out var rid)
+                    ? rid?.ToString() ?? "" : "",
+                result.TryGetValue("state", out var st)
+                    ? st?.ToString() ?? "" : "");
         }
         return results;
     }

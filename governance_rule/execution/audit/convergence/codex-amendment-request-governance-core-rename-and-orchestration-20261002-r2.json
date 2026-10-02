@@ -1,0 +1,132 @@
+{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v1",
+    "request_id":  "governance-core-rename-and-orchestration-20261002-r2",
+    "title":  "Rename Decision Core to Governance Core and assign orchestration exclusively to Automation Core",
+    "summary":  "Re-issue of governance-core-rename-20261002 (lost to a concurrent amendment built on the same predecessor) combined with the orchestration assignment: governance-core handles governance business only (policy, architecture, change and result acceptance) and is forbidden from orchestration, scheduling, priority ordering and dependency sequencing; automation-core owns all orchestration (scheduling, priority ordering, dependency/state sequencing, dispatch assignment, synchronization). Pure responsibility/naming change: execution authority, permission-core and xingcheng-assistant duties and the decision-sovereign identity are unchanged.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "direct human-governor instruction 2026-10-02: rename the decision core to the governance core; give orchestration responsibility to the automation core; the governance core handles governance business only",
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "auto_execute":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T07:19:52Z",
+                        "version_identity":  "E2:2026-10-02T07:19:52Z",
+                        "version_epoch":  2,
+                        "history_head":  "b0be149280e99d2fd75d1685c68459acb38153132fc16d1cd7d80db8f98d3c18",
+                        "revision_sequence":  219
+                    },
+    "changes":  [
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A111"
+                                },
+                        "field":  "rule",
+                        "proposed":  "ROLES:GOVERNANCE_CORE=POLICY_AND_ACCEPTANCE;PERMISSION_CORE=IDENTITY_SCOPE_PERMISSION_DIRECTORY_SECURITY_ENFORCEMENT;RUNTIME_CORE=STARTUP_PROCESS_LIFECYCLE_GOVERNED_EXECUTION;AUTOMATION_CORE=AUTHORIZED_WORKFLOW_SCHEDULING_AND_SYNCHRONIZATION;XINGCHENG_ASSISTANT=INSPECTION_NOTIFICATION_USER_PERMISSION_PRESENTATION;XINGCHENG=NATIVE_MODEL_OWNED_CAPABILITIES;MODULE=BOUNDED_EXECUTION_WITHOUT_AUTHORITY;INFORMATION_LAYER=TYPED_CONTRACT_AND_STATUS. PIPELINE:decision intent\u003epermission validation\u003eregistered dispatch\u003emodule execution\u003etyped receipt\u003estatus projection. Each request activates exactly one role identity per participant;co-location never merges roles."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A132"
+                                },
+                        "field":  "rule",
+                        "proposed":  "FINAL-ARCHITECTURE:governance-core,permission-core,runtime-core,automation-core and xingcheng-assistant are the five peer cores; Xingcheng is a separate native-model identity. RESPONSIBILITY:governance-core owns policy and acceptance decisions only (no orchestration);permission-core owns identity,scope,permission,directory and security enforcement;runtime-core owns startup,process lifecycle and governed execution;automation-core owns authorized workflow orchestration (scheduling,priority ordering,dependency/state sequencing),dispatch assignment and synchronization;xingcheng-assistant owns inspection,notification and user permission presentation. EXECUTION:C and Rust own deterministic runtime and lifecycle hot paths,C++ owns inference,audit,test execution and resource governance,CSharp owns application/API/workflow/test orchestration,FSharp owns business rules and high-correctness analysis,Go owns high-concurrency network/file/batch work. CONTRACT:all cross-core work uses registered versioned contracts,bounded execution,permission checks,receipts and fail-closed outcomes. Python has only the two request-scoped B4 responsibilities and is never a core host,coordinator or execution fallback."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A52"
+                                },
+                        "field":  "rule",
+                        "proposed":  "AUTOMATIC-VALIDATION-CHAIN:governance-core validates assignment;permission-core automatically evaluates identity+action+target+scope+purpose+expiry+risk+grant/revocation+least-privilege and emits allow/deny authorization artifact;runtime-core validates artifact+executor+generation+resources+contract and dispatches; all stages are event-driven,typed,non-skippable and independently audited; any missing/stale/conflicting proof fails closed; normal operation requires no interactive confirmation"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A84"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CURRENT:system-programming sovereign and sub-sovereign identities are abolished and historical only. OWNER:automation-core orchestrates authorized programming workflows;runtime-core owns governed execution;governance-core owns acceptance;permission-core enforces scope;registered modules perform work without authority."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A98"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SCOPE:every executable,service,worker,adapter,UI,test,maintenance and automation component. ASSIGNMENT:each capability maps to exactly one B162 core responsibility and one registered execution-module owner where execution exists. MAP:policy+acceptance\u003egovernance-core;identity+directory+permission+security-enforcement\u003epermission-core;startup+process+lifecycle+execution\u003eruntime-core;workflow+orchestration+priority-ordering+dependency-sequencing+synchronization+update+retention\u003eautomation-core;inspection+notification+user-permission-presentation\u003exingcheng-assistant;native-model+learning+programming-review\u003eXingcheng. MULTI-CAPABILITY:split independently assignable work into registered modules and express remaining relations as versioned dependency edges. CHANGE:owner change requires current Codex authority,affected graph,atomic cutover,one current owner and evidence."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B114"
+                                },
+                        "field":  "rule",
+                        "proposed":  "SUCCESSOR:B114 completely supersedes A35,B61,A73 and A89 for current topology and startup interpretation. TOPOLOGY:the current roster is generated from active identity lifecycle and B162 and contains exactly governance-core,permission-core,runtime-core,automation-core and xingcheng-assistant as peer cores; XINGCHENG remains a separate native-model service identity outside the independent-tool roster. Historical sub-sovereign rows are lineage-only and excluded from every current roster,parent,route and ownership projection. STARTUP:MAIN_SYSTEM_DESKTOP_EXE\u003evisible UI\u003eSYS_GPTBRIDGE_START\u003einformation layer\u003eruntime-core governed startup modules."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B162"
+                                },
+                        "field":  "prohibition",
+                        "proposed":  "FORBID:active-sub-sovereign+module-independent-authority+mixed-XINGCHENG/assistant-identity-or-data+retired-Python/NumPy/JAX-role+Python-residency+Python-mechanical/test/audit/fallback+business-or-implementation-rule-as-Codex-authority+governance-core-direct-module-execution+runtime-core-self-authorization-or-policy-modification+automation-core-permission-generation-or-result-acceptance+assistant-as-repair-or-upgrade-authority+tool-as-executor-of-record+module-self-governance+module-cross-owner-execution"
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B162"
+                                },
+                        "field":  "rule",
+                        "proposed":  "CONTROL:B162 is the sole current five-core and historical sub-sovereign responsibility boundary (A604 lineage);CORES:governance-core owns all decisions and governance management with zero execution power (policy+architecture+change and result acceptance;FORBID:direct module execution+orchestration+scheduling+priority-ordering+dependency-sequencing),permission-core owns identity management+all directory and registry list management+codex governance-plane management (identity registry,directory boundaries,managed registry paths,GOVERNANCE_CODEX entry,codex read-session mint and dual-key grants;codex content authority remains the PostgreSQL codex itself;no execution power),runtime-core is the sole execution authority (startup+process+lifecycle+governed dispatch+execution validation;FORBID:self-authorization+policy modification),automation-core owns all system-wide automation flows and orchestration with no execution power (scheduling+priority-ordering+dependency/state-sequencing+dispatch assignment only;FORBID:permission generation+result acceptance),xingcheng-assistant owns global review+inspection+audit authority as read-side supervision (all typed receipts and audit evidence converge into its review surface;FORBID:user-choice substitution+xingcheng data persistence+repair authority+upgrade authority+learning ownership);XINGCHENG:separate native-model service identity owning self-learning+self-repair proposals+model evolution,with independent lifecycle+data scope from LOCAL_MODEL and no independent-tool card;SUB-SOVEREIGNS:abolished and historical only;EXECUTION-BOUNDARY:business executes at the registered-module layer only;independent tools are physical isolation containers (process tree+lifecycle+data domain+UI+owner root) and are not business executors;modules hold single owner+single primary responsibility+contracts versioned by internal timestamps and no independent authority;LANGUAGE:current responsibility table controls implementation ownership;PYTHON+NUMPY+JAX:retired,with zero role,residency,dependency,artifact or fallback responsibility and final and immediately effective;DELEGATION:business rules,algorithms,parameters,suite composition and operational tuning are owner-local non-authoritative rules bounded by this Codex."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C111"
+                                },
+                        "field":  "rule",
+                        "proposed":  "MAINTENANCE-UPDATE-INTEGRATION:the five current cores coordinate through registered modules under the single C50 governance engine. automation-core schedules update and backup modules;governance-core determines health acceptance and repair disposition;permission-core enforces scope and records directory/audit evidence;runtime-core performs governed process cutover or rollback;xingcheng-assistant independently audits alignment and notifies the user. Every module is single-owner,typed,fail-closed and non-authoritative. Historical maintenance sub-sovereign names are lineage-only under B162. GOVERNANCE-UNITY:C50 alone controls orchestration,dependency order,current-generation fencing,cancellation and receipt convergence;domain executors retain their registered scope and create no separate governance authority. Completion requires current permission,execution receipts and independent verification;missing or conflicting evidence isolates the affected scope and remains incomplete."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C50"
+                                },
+                        "field":  "rule",
+                        "proposed":  "OWNER:automation-core. GOVERNANCE-ENGINE:one registered governance engine is the sole system-wide orchestration boundary for authorized governance workflows,including Git coordination and SQL governance;Git and SQL are domain planes of that engine and never independent schedulers,coordinators or governance authorities. RESPONSIBILITY:the engine receives current decision and permission artifacts,orders dependencies,applies generation fences,coordinates bounded domain executors,joins receipts,isolates conflicts and publishes one convergence result. AUTHORITY-SEPARATION:Git remains authority only for source and immutable repository history;PostgreSQL remains authority only for official mutable structured data and Codex state;the governance engine owns neither domain truth and cannot translate availability in one domain into authority over the other. ATOMICITY:a cross-domain change declares one correlation identity,one intended generation and one ordered transaction plan;Git commit publication,SQL migration or data mutation,verification and activation either converge to the same accepted generation or the affected change remains incomplete and fail-closed;no distributed transaction fiction or silent partial success is permitted. EXECUTION:registered Git and SQL modules perform bounded owner-language work and return typed receipts;runtime-core owns execution mechanics. FAILURE:a failure in one plane blocks only the dependent convergence path,preserves the last accepted state and evidence,and cannot corrupt or promote the other plane. SUCCESS:required Git,SQL,Codex,permission,runtime and audit identities,versions,hashes and receipts agree and independent verification passes. GOVERNANCE-UNITY:C50 controls the one governance orchestration engine for all registered system-wide workflows,including Git,SQL,Codex publication,permission-registry synchronization,release,maintenance,recovery and audit delivery. Every plane uses the same current Codex generation,task identity,correlation chain,permission proof,dependency ordering,cancellation and convergence contract. Governance-core retains decisions and acceptance;permission-core retains identity,scope and permission;runtime-core retains governed execution;automation-core retains orchestration;xingcheng-assistant retains independent read-side review. Domain executors cannot establish another control plane. A domain-specific operating loop remains bounded by its registered owner and cannot become a system-wide governance scheduler. Publication requires current authority-pointer,search,lifecycle,seal and mirror parity;stale or mixed generation blocks the affected activation."
+                    },
+                    {
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D137"
+                                },
+                        "field":  "rule",
+                        "proposed":  "GRANULARITY:isolate one unit or one module (selectable)|PURPOSE:failure boundary failure must not propagate to other units|EXECUTION:isolation+release+freeze executed by runtime core|ADJUDICATION:governance core when needed|AUDIT:full audit trail mandatory|SCOPE:on-demand only no permanent isolation without cause"
+                    },
+                    {
+                        "table":  "metadata",
+                        "key":  {
+                                    "key":  "five_core_roster"
+                                },
+                        "field":  "value",
+                        "proposed":  "governance-core|permission-core|runtime-core|automation-core|xingcheng-assistant"
+                    },
+                    {
+                        "table":  "project_architecture_directory",
+                        "key":  {
+                                    "architecture_code":  "UNIT_DECISION"
+                                },
+                        "field":  "logical_boundary",
+                        "proposed":  "governance core|policy+adjudication+fail-closed"
+                    }
+                ],
+    "evidence":  {
+                     "lost_update":  "governance-core-rename-20261002 reported executed but its successor (07:18:51Z) was superseded by current-binding-registry-convergence-20261002-r2 (07:19:52Z), both built on predecessor 07:08:35Z; the live codex still carries decision-core",
+                     "already_owned":  "B162 and C50 already give automation-core system-wide orchestration; this removes the overlapping priority/dependency duties from the governance core"
+                 }
+}

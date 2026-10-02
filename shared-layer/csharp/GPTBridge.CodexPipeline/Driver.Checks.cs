@@ -149,6 +149,10 @@ internal static partial class Driver
                             ? s?.ToString() ?? "" : "",
                         ["scope"] = request.Scope
                             .Cast<object?>().ToList(),
+                        ["supersedes"] =
+                            Repo.Str(request.Payload, "supersedes"),
+                        ["resubmission_of"] =
+                            Repo.Str(request.Payload, "resubmission_of"),
                     };
             }
         }
