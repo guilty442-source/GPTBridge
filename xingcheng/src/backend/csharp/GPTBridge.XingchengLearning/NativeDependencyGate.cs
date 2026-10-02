@@ -271,6 +271,11 @@ internal static class NativeDependencyGate
         @"\.visible\s+\.entry\s+([A-Za-z_]\w*)",
         RegexOptions.Compiled);
 
+    private static readonly Regex CudaToolkitModuleRe = new(
+        @"cudart|cublas|cudnn|nvrtc|nvjitlink|cufft|curand|cusolver|" +
+        @"cusparse|nccl|nvgraph|npp|nvjpeg",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public static Dictionary<string, object?> CudaNativeCheck(
         string toolRoot)
     {
@@ -288,18 +293,22 @@ internal static class NativeDependencyGate
         bool nvrtc = Linked("nvrtc") || Linked("nvjitlink");
         bool nvml = Linked("nvml");
 
-        // Dynamic-load audit: every dll-load target the sources reach
-        // for must classify platform (driver/own); a toolkit load breaks
-        // driver_api_only even without a static import.
+        // Dynamic-load audit: driver_api_only means the CUDA compute
+        // path is reached exclusively through the Driver API — any
+        // toolkit module load (cudart/cublas/nvrtc/...) breaks it even
+        // without a static import. NVML is telemetry (§35 violation),
+        // reported separately rather than folded into this flag.
         var dynLoads = findings.Where(f => f.Kind == "dll-load")
             .Select(f => (string)f.ToDict()["detail"]!).ToList();
         var extKernelLibs = findings.Where(f =>
                 f.Check == "gpu_library" ||
                 f.Check == "cutlass").Select(f => (object?)f.ToDict())
             .ToList();
-        bool driverApiOnly = !(cudart || cublas || cudnn || nvrtc) &&
-            dynLoads.All(d => d.Contains("nvcuda.dll") ||
-                              d.Contains("cuda.dll"));
+        bool toolkitDyn = dynLoads.Any(CudaToolkitModuleRe.IsMatch);
+        bool nvmlDyn = dynLoads.Any(d => d.Contains(
+            "nvml.dll", StringComparison.OrdinalIgnoreCase));
+        bool driverApiOnly =
+            !(cudart || cublas || cudnn || nvrtc) && !toolkitDyn;
 
         // Native kernel counts: in-tree PTX .entry symbols plus the
         // governed star-kernel-registry emit when the tool is built.
@@ -361,7 +370,7 @@ internal static class NativeDependencyGate
                 ["scope"] = NativeDependencyScan.ScopeOf(b.Path),
             }).ToList();
 
-        bool ok = driverApiOnly && extKernelLibs.All(
+        bool ok = driverApiOnly && !nvmlDyn && extKernelLibs.All(
             f => !(bool)((Dictionary<string, object?>)f)["blocking"]!);
         return new Dictionary<string, object?>
         {
@@ -373,7 +382,7 @@ internal static class NativeDependencyGate
             ["cublas_linked"] = cublas,
             ["cudnn_linked"] = cudnn,
             ["nvrtc_linked"] = nvrtc,
-            ["nvml_linked"] = nvml,
+            ["nvml_linked"] = nvml || nvmlDyn,
             ["external_kernel_libs"] = extKernelLibs,
             ["dynamic_module_loads"] = dynLoads,
             ["native_kernel_count"] = nativeCount,

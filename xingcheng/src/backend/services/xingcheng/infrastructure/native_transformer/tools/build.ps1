@@ -2,7 +2,12 @@
 $ErrorActionPreference = 'Stop'
 $vsvars = 'E:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repo = (Resolve-Path (Join-Path $root '..\..\..\..\..\..\..\..\..')).Path
+# repo-relative include (portable): walk up until
+# native/include/gptbridge_native.h is found — the same marker
+# training/build.ps1 uses; a fixed .. count broke on the enclave move.
+$repo = $root
+while ($repo -and -not (Test-Path -LiteralPath (Join-Path $repo 'native\include\gptbridge_native.h'))) { $repo = Split-Path -Parent $repo }
+if (-not $repo) { throw 'REPO_ROOT_NOT_FOUND:native\include\gptbridge_native.h' }
 $incNat = Join-Path $repo 'native\include'
 $incCpp = Join-Path $repo 'xingcheng\src\backend\cpp\include'
 $train = Join-Path $root '..\training'
