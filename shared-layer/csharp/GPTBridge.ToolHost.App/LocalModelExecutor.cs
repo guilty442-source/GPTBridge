@@ -163,11 +163,20 @@ internal sealed class LocalModelExecutor
                 : 0;
         var cppCuda = root.TryGetProperty("cpp_cuda", out var cu)
             && cu.ValueKind == JsonValueKind.True;
+        // AutoRelease idle budget (auto_release_idle_seconds, default
+        // 300 s; 0/negative disables idle eviction — pressure eviction
+        // stays armed either way).
+        var idleReleaseSeconds =
+            root.TryGetProperty("auto_release_idle_seconds", out var ar)
+            && ar.ValueKind == JsonValueKind.Number
+                ? Math.Max(0, ar.GetInt32())
+                : 300;
 
         // Pinned bundle directory (current contract).
         if (Directory.Exists(checkpointPath)
             && IsBundleDir(checkpointPath))
-            return (checkpointPath, defaults, cpuThreads, cppCuda);
+            return (checkpointPath, defaults, cpuThreads, cppCuda,
+                idleReleaseSeconds);
 
         // Legacy contract: checkpoint is the source .pt; find its bundle.
         if (File.Exists(checkpointPath))
@@ -202,7 +211,8 @@ internal sealed class LocalModelExecutor
                             && sz.GetInt64() != size)
                             continue;
                         if (IsBundleDir(dir))
-                            return (dir, defaults, cpuThreads, cppCuda);
+                            return (dir, defaults, cpuThreads, cppCuda,
+                                idleReleaseSeconds);
                     }
                     catch (JsonException) { /* skip unreadable bundle */ }
                 }
@@ -311,6 +321,7 @@ internal sealed class LocalModelExecutor
             descriptor.ToJsonString() + "\n");
 
         _acceptLoop = Task.Run(AcceptLoopAsync);
+        _watchdog = Task.Run(AutoReleaseLoopAsync);
     }
 
     private static void WriteJson(
@@ -437,6 +448,12 @@ internal sealed class LocalModelExecutor
                 foreach (var (key, value) in _samplingDefaults)
                     if (op[key] is null && value is not null)
                         op[key] = value.DeepClone();
+                // In-flight reference: the request holds a strong ref
+                // on the engine — the AutoRelease watchdog can never
+                // evict while this counter is non-zero.
+                Interlocked.Increment(ref _inflight);
+                Interlocked.Exchange(ref _lastActivityTicks,
+                    DateTime.UtcNow.Ticks);
                 JsonObject? reply;
                 try
                 {
@@ -453,6 +470,12 @@ internal sealed class LocalModelExecutor
                         ["ok"] = false,
                         ["error_code"] = "MODEL_SERVICE_SHUTDOWN",
                     };
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _lastActivityTicks,
+                        DateTime.UtcNow.Ticks);
+                    Interlocked.Decrement(ref _inflight);
                 }
                 catch (Exception ex)
                 {
@@ -610,6 +633,109 @@ internal sealed class LocalModelExecutor
         });
         _child = child;
         return child;
+    }
+
+    // ---------------------------------------------------- auto-release --
+
+    /// <summary>Idle/pressure eviction watchdog (AutoReleaseManager
+    /// successor). Periodically checks: engine loaded → no in-flight
+    /// request → idle timeout or governed memory pressure → send the
+    /// serve child's ``unload`` op (graceful eviction; the worker
+    /// process stays resident-but-empty). Every eviction appends an
+    /// audit entry to xingcheng/runtime/logs/auto-release.jsonl.</summary>
+    private async Task AutoReleaseLoopAsync()
+    {
+        var ct = _cts.Token;
+        var interval = TimeSpan.FromSeconds(
+            Math.Clamp(_idleReleaseSeconds / 4, 15, 60));
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(interval, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { break; }
+            if (!_engineLoaded) continue;
+            if (Volatile.Read(ref _inflight) > 0) continue;
+
+            string? reason = null;
+            var idleS = (DateTime.UtcNow.Ticks
+                - Interlocked.Read(ref _lastActivityTicks))
+                / TimeSpan.TicksPerSecond;
+            if (_idleReleaseSeconds > 0
+                && idleS >= _idleReleaseSeconds)
+                reason = $"idle-timeout:{idleS}s>={_idleReleaseSeconds}s";
+            var pressure = MemoryPressure();
+            if (reason is null && pressure is not null)
+                reason = pressure;
+            if (reason is null) continue;
+
+            // Re-check under the op lock implicitly: ServeOpAsync
+            // serializes against any infer that started meanwhile —
+            // worst case a just-completed engine unloads once and the
+            // next request reloads it (never mid-request eviction).
+            var reply = await ServeOpAsync(
+                    new JsonObject { ["op"] = "unload" },
+                    spawnIfAbsent: false, ct)
+                .ConfigureAwait(false);
+            var evicted = reply?["ok"]?.GetValue<bool>() != false;
+            _lastRelease =
+                $"{reason} at {DateTime.UtcNow:O} (evicted={evicted})";
+            AppendReleaseAudit(reason, evicted, idleS);
+        }
+    }
+
+    /// <summary>Governed memory-pressure signal: the resource
+    /// governor's concurrency budget marks the model class
+    /// ``paused`` (shed signal) or reports critical memory usage.</summary>
+    private string? MemoryPressure()
+    {
+        try
+        {
+            var state = Path.Combine(_env.ProjectRoot, "main-system",
+                "runtime", "state", "resource-governor.json");
+            if (!File.Exists(state)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(state));
+            var root = doc.RootElement;
+            if (root.TryGetProperty("concurrency_budget", out var cb)
+                && cb.TryGetProperty("classes", out var classes)
+                && classes.TryGetProperty("model", out var model)
+                && model.TryGetProperty("state", out var s)
+                && s.GetString() == "paused")
+                return "memory-pressure:model-class-paused";
+            if (root.TryGetProperty("mem_used_pct", out var m)
+                && m.ValueKind == JsonValueKind.Number
+                && m.GetDouble() >= 92.0)
+                return "memory-pressure:mem-used>=92%";
+        }
+        catch { /* unreadable governor state → no pressure signal */ }
+        return null;
+    }
+
+    private void AppendReleaseAudit(
+        string reason, bool evicted, long idleSeconds)
+    {
+        try
+        {
+            var logs = Path.Combine(
+                _env.ToolRoot, "xingcheng", "runtime", "logs");
+            Directory.CreateDirectory(logs);
+            var entry = new JsonObject
+            {
+                ["format"] = "star-auto-release/v1",
+                ["at"] = DateTimeOffset.UtcNow.ToString("O"),
+                ["event"] = "engine-evict",
+                ["reason"] = reason,
+                ["evicted"] = evicted,
+                ["idle_seconds"] = idleSeconds,
+                ["bundle"] = Path.GetFileName(_bundleDir),
+            };
+            File.AppendAllText(
+                Path.Combine(logs, "auto-release.jsonl"),
+                entry.ToJsonString() + "\n",
+                new UTF8Encoding(false));
+        }
+        catch { /* audit is best-effort; eviction already happened */ }
     }
 
     private void KillChild()

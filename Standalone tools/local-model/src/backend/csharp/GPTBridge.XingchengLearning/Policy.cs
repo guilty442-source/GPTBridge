@@ -10,12 +10,12 @@ namespace GPTBridge.XingchengLearning;
 
 internal static class XcPaths
 {
-    public const string SelfLearningPolicyRel = "runtime/settings/self-learning.json";
+    public const string SelfLearningPolicyRel = "xingcheng/runtime/settings/self-learning.json";
     public const string SelfLearningStateRel = "xingcheng/runtime/state/self-learning.json";
     public const string SelfLearningSnapshotRel = "xingcheng/runtime/state/self-learning";
     public const string LogsRel = "xingcheng/runtime/logs";
-    public const string RetentionPolicyRel = "runtime/settings/retention.json";
-    public const string EngineSettingsRel = "runtime/settings/native-engine.json";
+    public const string RetentionPolicyRel = "xingcheng/runtime/settings/retention.json";
+    public const string EngineSettingsRel = "xingcheng/runtime/settings/native-engine.json";
     public const string RetentionAuditRel = "xingcheng/runtime/logs/retention.jsonl";
     public const string JobsRel = "xingcheng/runtime/models/jobs";
     public const string LifecycleGlobRel = "xingcheng/runtime/models/lifecycle";
@@ -30,6 +30,22 @@ internal static class XcPaths
         { "checkpoint", "checkpoint_path", "weights", "weights_path", "artifact_path" };
     public static readonly string[] ProbeValues =
         { "星火測試", "QZ-88", "13 + 29", "6 × 7" };
+
+    // Xingcheng-owned settings live under the institution root
+    // (XINGCHENG_INSTITUTION_ROOT/runtime/settings). A pre-migration copy
+    // under the legacy local-model settings dir is still honored
+    // read-only so a missing canonical file can never silently unlock a
+    // policy default; writes always target the canonical path.
+    public const string LegacySettingsDirRel = "runtime/settings";
+
+    public static string SettingsReadPath(string toolRoot, string canonicalRel)
+    {
+        string canonical = Path.Combine(toolRoot, canonicalRel);
+        if (File.Exists(canonical)) return canonical;
+        string legacy = Path.Combine(
+            toolRoot, LegacySettingsDirRel, Path.GetFileName(canonicalRel));
+        return File.Exists(legacy) ? legacy : canonical;
+    }
 
     public static string IsoNow()
         => DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
@@ -165,7 +181,8 @@ internal sealed class SelfLearningPolicy
 
     public static SelfLearningPolicy Load(string toolRoot)
     {
-        string path = Path.Combine(toolRoot, XcPaths.SelfLearningPolicyRel);
+        string path = XcPaths.SettingsReadPath(
+            toolRoot, XcPaths.SelfLearningPolicyRel);
         var policy = new SelfLearningPolicy();
         if (!File.Exists(path))
             return policy;
@@ -426,7 +443,8 @@ internal sealed class RetentionPolicy
 
     public static RetentionPolicy Load(string toolRoot)
     {
-        string path = Path.Combine(toolRoot, XcPaths.RetentionPolicyRel);
+        string path = XcPaths.SettingsReadPath(
+            toolRoot, XcPaths.RetentionPolicyRel);
         var policy = new RetentionPolicy();
         if (!File.Exists(path))
             return policy;
@@ -466,12 +484,14 @@ internal sealed class RetentionPolicy
             ? d : fallback;
 }
 
-/// <summary>runtime/settings/native-engine.json access (checkpoint pin).</summary>
+/// <summary>xingcheng/runtime/settings/native-engine.json access
+/// (checkpoint pin).</summary>
 internal static class EngineSettings
 {
     public static string? PinnedCheckpoint(string toolRoot)
     {
-        string path = Path.Combine(toolRoot, XcPaths.EngineSettingsRel);
+        string path = XcPaths.SettingsReadPath(
+            toolRoot, XcPaths.EngineSettingsRel);
         if (!File.Exists(path))
             return null;
         try
@@ -494,11 +514,13 @@ internal static class EngineSettings
         DataBoundary.AssertInside(toolRoot, artifactPath);
         string settingsPath = Path.Combine(toolRoot, XcPaths.EngineSettingsRel);
         var settings = new Dictionary<string, object?>();
-        if (File.Exists(settingsPath))
+        string existing = XcPaths.SettingsReadPath(
+            toolRoot, XcPaths.EngineSettingsRel);
+        if (File.Exists(existing))
         {
             try
             {
-                using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+                using var doc = JsonDocument.Parse(File.ReadAllText(existing));
                 foreach (var p in doc.RootElement.EnumerateObject())
                     settings[p.Name] = ModelLifecycle.Decode(p.Value);
             }
