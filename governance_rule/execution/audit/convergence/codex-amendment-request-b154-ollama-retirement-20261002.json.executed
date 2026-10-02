@@ -1,0 +1,72 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "b154-ollama-retirement-20261002",
+  "title": "Retire B154 ollama-on-demand-activation: teacher-distillation lane decommissioned under the native-only direction",
+  "summary": "Governor worklist item 7: B154 still registers Ollama as an external service with explicit demand lanes including teacher distillation (live implementation residue: ollama-service.exe, TeacherCollect.cs, --teacher-collect, teacher-distillation.json). The governed direction is native-only: Xingcheng teacher signal comes from the native self-distillation lane and no external model service is a teacher. This amendment retires B154 outright: rule and prohibition are rewritten to retirement language consistent with retired-article convention (C87/C88), and provision_lifecycle_status moves to retired with no successor. Codex-law change only; implementation removal of the Ollama/teacher-collect artifacts follows separately and is never part of this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "governor worklist item 7 (2026-10-02): codex B154 still registers Ollama teacher distillation while the teacher-distillation lane is decommissioned; related live request xingcheng-native-teacher-self-distillation-20261002 narrows B154 only - this request proposes full article retirement per the native-only direction",
+  "problem": {
+    "summary": "B154 (ollama-on-demand-activation, lifecycle_state=active) registers Ollama as a governed on-demand external service with enumerated demand lanes - teacher distillation, expert consultation, embeddings, reranking, approved model routing - plus LOCAL-MODEL-DEMAND. The teacher-distillation lane is decommissioned and the project direction is native-only, so the article's active authority grants no longer reflect law.",
+    "affected": ["articles", "provision_lifecycle_status"],
+    "scope": "codex-text and lifecycle convergence only; sibling articles still naming Ollama or teacher distillation as on-demand lanes (B155 resident-core enumeration, A130, B25, C32) are a separate convergence item; no file, binary or implementation change"
+  },
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T11:31:06Z",
+    "version_identity": "E2:2026-10-02T11:31:06Z",
+    "version_epoch": 2,
+    "history_head": "9513b490189ec518498c39c60a6c4c8ba60739175a502e700c38d6a2ec314c54",
+    "revision_sequence": 234
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": { "provision_id": "B154" },
+      "field": "rule",
+      "proposed": "RETIREMENT:Ollama is retired as a registered external service and holds no active authority;the teacher-distillation lane is decommissioned under the native-only direction and Xingcheng teacher signal is produced only by the native self-distillation lane on governed canonical weights;no module may start,probe,lazy-activate,route to or depend on an Ollama instance for teacher distillation,expert consultation,embeddings,reranking,approved model routing or local-model demand;the former governed lazy activation,sleep-policy unload,process-registry audit and LOCAL-MODEL-DEMAND clauses are non-operative lineage;historical registrations,audit rows and demand records remain read-only history;reactivation of any external model service requires a successor amendment registering a new explicit demand lane."
+    },
+    {
+      "table": "articles",
+      "key": { "provision_id": "B154" },
+      "field": "prohibition",
+      "proposed": "FORBID:ollama-service-activation-or-start|teacher-distillation-via-external-model-service|ollama-embeddings-reranking-or-model-routing|local-model-demand-resolved-through-ollama|silent-fallback-or-unauthorized-path-to-ollama|external-model-service-as-xingcheng-teacher|reactivation-without-successor-amendment"
+    },
+    {
+      "table": "provision_lifecycle_status",
+      "key": { "provision_type": "article", "provision_id": "B154" },
+      "field": "lifecycle_state",
+      "proposed": "retired"
+    },
+    {
+      "table": "provision_lifecycle_status",
+      "key": { "provision_type": "article", "provision_id": "B154" },
+      "field": "evidence",
+      "proposed": "ollama-on-demand-lane-retired;teacher-distillation-decommissioned;native-only-direction;no-current-role"
+    }
+  ],
+  "acceptance": {
+    "expected_state": "provision_lifecycle_status.article/B154 is lifecycle_state=retired with no successor_identity; B154 rule and prohibition carry retirement language only and no active clause grants Ollama activation, teacher-distillation, routing or local-model-demand authority; projections rebuild to the successor version",
+    "criteria": [
+      "B154 lifecycle_state=retired in provision_lifecycle_status with empty successor_identity",
+      "active-corpus clause scan: no active clause registers Ollama as a service, demand target or teacher-distillation lane",
+      "PostgreSQL/artifact parity PASS",
+      "zh-TW mirror parity PASS"
+    ],
+    "evidence": [
+      "gptbridge_codex.articles B154 pre-amendment text registering teacher distillation as an explicit Ollama demand",
+      "implementation residue: native/ollama_service/bin/ollama-service.exe, xingcheng .../GPTBridge.XingchengLearning/TeacherCollect.cs (--teacher-collect), xingcheng/xingcheng/runtime/settings/teacher-distillation.json",
+      "retired-article convention: C87/C88 lifecycle_state=retired with RETIREMENT rule text"
+    ],
+    "out_of_scope": [
+      "sibling active provisions still naming Ollama/teacher-distillation (B155 enumeration, A130, B25, C32) - separate convergence amendment",
+      "the parallel narrowing request xingcheng-native-teacher-self-distillation-20261002 (governor dispositions decide which lands; if this retirement executes first, that request's B154 edit is moot)",
+      "implementation-side removal of ollama-service.exe, TeacherCollect.cs, --teacher-collect flag and teacher-distillation.json (implementation lane, not codex law)",
+      "superseded/historical article text retaining old wording (immutable history)"
+    ]
+  }
+}

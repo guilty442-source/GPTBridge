@@ -1,30 +1,29 @@
 param([switch]$Request,[switch]$Verify,[switch]$Summary)
 $ErrorActionPreference = 'Stop'
-$codexLines = Get-Content -LiteralPath 'governance_rule/codex/data/governance_codex.sql' -Encoding UTF8
+$projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../..'))
+Set-Location -LiteralPath $projectRoot
+$pipeline = Join-Path $projectRoot 'shared-layer/csharp/GPTBridge.CodexPipeline/publish/GPTBridge.CodexPipeline.exe'
+function Invoke-CodexCheck([string]$Operation) {
+    $output = & $pipeline $Operation
+    if ($LASTEXITCODE -ne 0) { throw "CODEX_READ_FAILED:$Operation" }
+    $output | Out-String | ConvertFrom-Json
+}
+$authority = Invoke-CodexCheck '--authority-state'
+$mirrorCheck = Invoke-CodexCheck '--mirror-check'
+if (-not $mirrorCheck.ok) { throw 'CODEX_MIRROR_INVALID' }
+# Verified projections are evaluation inputs, never a local authority.
+$mirrorParts = @(1..5 | ForEach-Object {
+    Get-Content -LiteralPath "governance_rule/codex/governance_codex.zh-TW.part-$_.txt" -Raw -Encoding UTF8 | ConvertFrom-Json
+})
+if (@($mirrorParts | Where-Object codex_version -ne $authority.codex_version).Count) {
+    throw 'BLOCKED_GENERATION_DRIFT'
+}
 $rowCache = @{}
 function Get-CodexRows([string]$Table) {
     if (-not $rowCache.ContainsKey($Table)) {
-        $prefix = 'INSERT INTO "' + $Table + '" '
-        $parsed = foreach ($line in $codexLines) {
-            if (-not $line.StartsWith($prefix)) { continue }
-            $split = $line.IndexOf(' VALUES ')
-            $names = @([regex]::Matches($line.Substring(0,$split), '"([^"]+)"') | Select-Object -Skip 1 | ForEach-Object { $_.Groups[1].Value })
-            $tokens = [regex]::Matches($line.Substring($split), "E'((?:\\.|[^'\\])*)'|\bNULL\b|-?\d+(?:\.\d+)?")
-            if ($names.Count -ne $tokens.Count) { throw "SQL_PARSE:$Table" }
-            $fields = [ordered]@{}
-            for ($index=0; $index -lt $names.Count; $index++) {
-                $token=$tokens[$index]
-                if ($token.Groups[1].Success) {
-                    $value = [regex]::Replace($token.Groups[1].Value, '\\(.)', {
-                        param($match)
-                        switch ($match.Groups[1].Value) { 'n' { "`n" } 'r' { "`r" } 't' { "`t" } default { $match.Groups[1].Value } }
-                    })
-                } elseif ($token.Value -eq 'NULL') { $value=$null } else { $value=[long]$token.Value }
-                $fields[$names[$index]]=$value
-            }
-            [pscustomobject]$fields
-        }
-        $rowCache[$Table]=@($parsed)
+        $owners = @($mirrorParts | Where-Object { $_.tables.PSObject.Properties.Name -contains $Table })
+        if ($owners.Count -ne 1) { throw "CODEX_TABLE_PROJECTION_INVALID:$Table" }
+        $rowCache[$Table]=@($owners[0].tables.$Table)
     }
     $rowCache[$Table]
 }
@@ -33,7 +32,10 @@ function Get-Digest([object]$Value) {
     $hasher=[Security.Cryptography.SHA256]::Create()
     try { ([BitConverter]::ToString($hasher.ComputeHash($bytes))).Replace('-','').ToLowerInvariant() } finally { $hasher.Dispose() }
 }
-$head=Get-CodexRows 'revision_history' | Select-Object -Last 1
+$head=Get-CodexRows 'revision_history' | Sort-Object { [long]$_.sequence } | Select-Object -Last 1
+if ($head.version -ne $authority.codex_version -or (Invoke-CodexCheck '--authority-state').codex_version -ne $head.version) {
+    throw 'BLOCKED_GENERATION_DRIFT'
+}
 $lifecycle=@(Get-CodexRows 'provision_lifecycle_status')
 $articles=@(Get-CodexRows 'articles')
 $activeIds=@($lifecycle | Where-Object { $_.provision_type -eq 'article' -and $_.lifecycle_state -eq 'active' } | ForEach-Object provision_id)

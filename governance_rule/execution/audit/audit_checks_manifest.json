@@ -2946,6 +2946,42 @@
       "path": "scripts/devin-cli-p6-test-sla.py"
     },
     {
+      "exclude": [
+        "node_modules",
+        "target",
+        "bin",
+        "obj"
+      ],
+      "glob": "*.py",
+      "id": "python-retirement:source:*.py",
+      "kind": "glob-absent",
+      "path": ""
+    },
+    {
+      "exclude": [
+        "node_modules",
+        "target",
+        "bin",
+        "obj"
+      ],
+      "glob": "*.pyw",
+      "id": "python-retirement:source:*.pyw",
+      "kind": "glob-absent",
+      "path": ""
+    },
+    {
+      "exclude": [
+        "node_modules",
+        "target",
+        "bin",
+        "obj"
+      ],
+      "glob": "*.pyi",
+      "id": "python-retirement:source:*.pyi",
+      "kind": "glob-absent",
+      "path": ""
+    },
+    {
       "id": "python-retirement:inventory-parses",
       "kind": "json-parses",
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -26874,17 +26910,6 @@
     },
     {
       "glob": "*.py",
-      "id": "cross-import:ai_collaboration:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import ai_collaboration",
-        "from ai_collaboration"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
-    },
-    {
-      "glob": "*.py",
       "id": "cross-import:ai_collaboration:Standalone tools/local-model/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26992,17 +27017,6 @@
       ],
       "optional": true,
       "path": "Standalone tools/investment-mobile/src"
-    },
-    {
-      "glob": "*.py",
-      "id": "cross-import:ai_nexus:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import ai_nexus",
-        "from ai_nexus"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
     },
     {
       "glob": "*.py",
@@ -27116,17 +27130,6 @@
     },
     {
       "glob": "*.py",
-      "id": "cross-import:file_sorter:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import file_sorter",
-        "from file_sorter"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
-    },
-    {
-      "glob": "*.py",
       "id": "cross-import:file_sorter:Standalone tools/local-model/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27234,17 +27237,6 @@
       ],
       "optional": true,
       "path": "Standalone tools/file-sorter/src"
-    },
-    {
-      "glob": "*.py",
-      "id": "cross-import:investment_mobile:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import investment_mobile",
-        "from investment_mobile"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
     },
     {
       "glob": "*.py",
@@ -27369,17 +27361,6 @@
     },
     {
       "glob": "*.py",
-      "id": "cross-import:xingcheng:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import xingcheng",
-        "from xingcheng"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
-    },
-    {
-      "glob": "*.py",
       "id": "cross-import:xingcheng:Standalone tools/local-model/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27490,17 +27471,6 @@
     },
     {
       "glob": "*.py",
-      "id": "cross-import:vaultly:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import vaultly",
-        "from vaultly"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
-    },
-    {
-      "glob": "*.py",
       "id": "cross-import:vaultly:Standalone tools/local-model/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27608,17 +27578,6 @@
       ],
       "optional": true,
       "path": "Standalone tools/investment-mobile/src"
-    },
-    {
-      "glob": "*.py",
-      "id": "cross-import:star_chat:Standalone tools/julia-compute/src",
-      "kind": "tree-not-contains",
-      "markers": [
-        "import star_chat",
-        "from star_chat"
-      ],
-      "optional": true,
-      "path": "Standalone tools/julia-compute/src"
     },
     {
       "glob": "*.py",
@@ -27752,7 +27711,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3586,
+    "native_checks": 3582,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27775,7 +27734,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T11:14:30Z",
+  "generated_at": "2026-10-02T11:42:20Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

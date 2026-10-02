@@ -1,0 +1,73 @@
+{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "a132-python-full-retirement-20261002",
+    "title":  "Unify A132 and B4 with project-wide Python retirement",
+    "summary":  "Human-governor directive: remove the two B4 responsibility exception from A132 and align its referenced B4 with the already effective complete retirement in B73/B74. Law/data only; no implementation changes.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "Direct human-governor instruction 2026-10-02: 統一 Python 規則，A132 改為全面退役，只改法典不實作。",
+    "problem":  {
+                    "summary":  "A132 and referenced B4 preserve two request-scoped Python roles that conflict with B73/B74 zero-role and zero-residency retirement."
+                },
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-02T11:17:55Z",
+                        "revision_sequence":  233,
+                        "version_identity":  "E2:2026-10-02T11:17:55Z",
+                        "history_head":  "8dd7cef843481810a4d48c57861c65132f66aefeda34695130f0134f4e0e75c5"
+                    },
+    "changes":  [
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A132"
+                                },
+                        "proposed":  "FINAL-ARCHITECTURE:decision-core,permission-core,runtime-core,automation-core and xingcheng-assistant are the five peer cores; Xingcheng is a separate native-model identity. RESPONSIBILITY:decision-core owns policy and acceptance decisions;permission-core owns identity,scope,permission,directory and security enforcement;runtime-core owns startup,process lifecycle and governed execution;automation-core owns authorized workflow scheduling and synchronization;xingcheng-assistant owns inspection,notification and user permission presentation. EXECUTION:C and Rust own deterministic runtime and lifecycle hot paths,C++ owns inference,audit,test execution and resource governance,CSharp owns application/API/workflow/test orchestration,FSharp owns business rules and high-correctness analysis,Go owns high-concurrency network/file/batch work. CONTRACT:all cross-core work uses registered versioned contracts,bounded execution,permission checks,receipts and fail-closed outcomes. PYTHON-RETIREMENT:Python is fully retired throughout the project under B4/B73/B74; ACTIVE-ROLE:none; normal and on-demand Python process count zero; no governance semantic adapter,training job,core host,coordinator or execution fallback is permitted."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A132"
+                                },
+                        "proposed":  "FORBID:sovereign-to-engine-transition-state+Python-active-role-or-residency+Python-governance-adapter-or-training-job+Python-core-host-or-coordinator-or-execution-fallback+duplicate-core-owner+module-self-authorization+unregistered-cross-core-route+unbounded-execution"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B4"
+                                },
+                        "proposed":  "FINAL-PYTHON-RESPONSIBILITY:Python is fully retired throughout the project under B73/B74; ACTIVE-ROLE:none. RESIDENCY:normal and on-demand Python process count is zero. The former request-scoped governance semantic adapter and Xingcheng JAX/XLA training responsibilities are abolished without exception. SOURCE-VALIDITY:no Python source root,module,package or dependency is conforming; retired Python is not a supported compatibility or fallback path. OWNERSHIP:current responsibilities resolve only to registered non-Python owners under B76/B166 and the applicable domain special law. TEST-AUDIT:Python,pytest and Python validators have zero formal responsibility in testing,audit,verification,release and push flows. REPLACEMENT:any successor capability requires a separately registered non-Python owner amendment."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B4"
+                                },
+                        "proposed":  "FORBID:Python-active-role-or-residency+Python-governance-semantic-adapter+Python-JAX-XLA-training-job+Python-source-root-module-package-or-dependency+Python-test-audit-verification-release-push+Python-runtime-fallback+retired-role-restoration"
+                    }
+                ],
+    "acceptance":  {
+                       "expected_state":  "A132 and B4 consistently declare complete Python retirement with zero active roles and zero normal/on-demand processes, matching B73/B74.",
+                       "evidence":  [
+                                        "Current B73/B74 complete retirement provisions"
+                                    ],
+                       "out_of_scope":  [
+                                            "Runtime implementation,process control,file deletion,dependency installation,commits,pushes",
+                                            "Immutable historical provisions and signature closure"
+                                        ],
+                       "criteria":  [
+                                        "A132 no longer permits two request-scoped B4 responsibilities",
+                                        "B4 grants neither a governance adapter nor a training exception",
+                                        "Five-sovereign audit and successor projections agree"
+                                    ]
+                   }
+}

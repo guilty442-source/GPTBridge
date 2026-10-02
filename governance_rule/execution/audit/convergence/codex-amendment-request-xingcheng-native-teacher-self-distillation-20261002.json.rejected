@@ -1,0 +1,35 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "xingcheng-native-teacher-self-distillation-20261002",
+  "title": "移除星澄 Ollama teacher 路徑：教師改為純原生自我蒸餾",
+  "summary": "Governor directive 2026-10-02: remove the Ollama teacher path from the xingcheng architecture/data surfaces. B154 is revised so teacher distillation is no longer a registered Ollama demand; xingcheng teacher data is produced only by the native self-distillation lane (NativeDistillationPlane on governed xc-fused-1 weights and lifecycle-verified generations), and an external model service is never a xingcheng teacher. All other B154 on-demand lifecycle rules (LOCAL-MODEL-DEMAND, PACKAGE-AUTO-DEFER, audit/ownership clauses) are unchanged. Code removal (TeacherCollect Ollama collector, --teacher-collect, teacher-distillation.json, diagram nodes) follows as implementation, never inside this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "human-governor directive: 移除 Ollama 路徑：星澄架構、資料圖仍有 Ollama teacher，改為純原生教師／自我蒸餾",
+  "change_class": "authority-duty",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T11:31:06Z",
+    "version_identity": "E2:2026-10-02T11:31:06Z",
+    "version_epoch": 2,
+    "history_head": "9513b490189ec518498c39c60a6c4c8ba60739175a502e700c38d6a2ec314c54",
+    "revision_sequence": 234
+  },
+  "problem": {
+    "summary": "B154 still registers teacher distillation as an explicit Ollama demand, so xingcheng architecture and data surfaces (diagrams, TeacherCollect lane, teacher-distillation.json) keep an external-model teacher dependency. The governed direction is native-only: teacher signal must come from self-distillation on the single canonical stack, never a loopback external service."
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "B154"
+      },
+      "field": "rule",
+      "proposed": "Ollama is a registered external service with on-demand lifecycle,not a resident startup dependency. It starts only for an explicit registered need such as expert consultation,embeddings,reranking or approved model routing,through governed lazy activation;it unloads when idle under resource policy. XINGCHENG-TEACHER-NATIVE:teacher distillation is no longer a registered Ollama demand;Xingcheng teacher data is produced only by the native self-distillation lane (the NativeDistillationPlane operating on governed xc-fused-1 weights and lifecycle-verified generations),and an external model service is never a xingcheng teacher. Startup probes may inspect availability without starting or pre-warming the service. Start and stop are audited in the Process Registry;GPTBridge may stop only an instance it started,while a user-started instance may only receive a governed request. Failed start reports degraded and never silently switches paths;after shutdown only a new explicit demand or single-item permission may restart it. Cold-start and first-token latency remain observable evidence. LOCAL-MODEL-DEMAND:an explicitly authorized local-model activation is a registered Ollama demand. The local-model lifecycle first checks installation and readiness,starts Ollama only when installed but not ready,and waits at most 8 seconds;failure is fail-closed and local-model cannot report running. An Ollama instance started by GPTBridge is unloaded by the sleep policy after the configured warm interval;an externally started instance is never stopped by ownership inference.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+    }
+  ]
+}

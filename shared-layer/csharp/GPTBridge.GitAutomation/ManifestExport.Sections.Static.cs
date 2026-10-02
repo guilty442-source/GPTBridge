@@ -540,6 +540,20 @@ internal static partial class ManifestExport
                 ["kind"] = "file-not-exists",
                 ["path"] = forbidden,
             });
+        // A132/B4/B73/B74 retire every Python source role, including
+        // tests, verification adapters and training/tooling scripts.
+        foreach (var pattern in new[] { "*.py", "*.pyw", "*.pyi" })
+            e.Checks.Add(new JsonObject
+            {
+                ["id"] = $"python-retirement:source:{pattern}",
+                ["kind"] = "glob-absent",
+                ["path"] = "",
+                ["glob"] = pattern,
+                ["exclude"] = Emitter.Arr(new[]
+                {
+                    "node_modules", "target", "bin", "obj",
+                }),
+            });
         const string retireInv =
             "governance_rule/execution/audit/" +
             "pytest_retirement_inventory.json";

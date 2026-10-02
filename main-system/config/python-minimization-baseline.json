@@ -1,429 +1,399 @@
 {
-  "contract": "PYTHON_MINIMIZATION_BASELINE",
-  "contract_version": 1,
-  "minimum_supported_contract_version": 1,
-  "authority": "governance-rule-only",
-  "description": "Python 最小化驗收線基準（Phase 1 凍結）：歸零區只減不增，新 production Python 只准進 governance/training/development-verification。量測口徑：production runtime .py（排除 tests/eval/scripts/build/acceptance/migration/provision/rehearsal、__pycache__/.venv），啟發式首命中分桶，邊界約 ±10%。",
-  "metadata": {
-    "contract_revision": 14,
-    "measured_at": "2026-09-29T15:30:00+08:00",
-    "method": "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
-    "tolerance_note": "margins approx ±10%; adjudicate per-module on dispute",
-    "adjudications_rev2": [
-      "vector_scope.py -> GOVERNANCE (permission scoping semantics, zero vector ops)",
-      "vectord_backend.py -> GOVERNANCE (decision-level ownership declaration, zero vector ops)",
-      "local_ai_embedding.py -> RAG (RAG-grounding mixin for inference)"
-    ],
-    "adjudications_rev3": [
-      "governor-disposition=authorized-interim-reanchor (codex metadata governor_disposition_python_minimization_baselines, amendment python-minimization-baseline-adjudication-20260928-r2, sealed-governed-certification, codex 2026-09-28T10:34:14Z); ratchet resumes from adjudicated values and continues only-tighten",
-      "INFERENCE loc 13453->13600: residency/boundary guard additions (human-governor directive 2026-09-28, xingcheng-internal)",
-      "RAG loc 24840->25407: PERF-07 engine-side embed path (index_document_text/embed_bytes/query_text) under B157 compute-at-owner",
-      "VECTOR loc 506->535: canonical f64-le record intake in vector_store (PERF-07)",
-      "PROC_MGMT loc 15731->15773: worker lifecycle wiring under bounded-executor work",
-      "FILE_IO loc 18209->18222",
-      "BUSINESS loc 41819->42016: xingcheng command/intent surface",
-      "GENERAL_APP files 557->565 loc 112829->114858: bounded admission executor/budget_source/thread_budget concurrency-budget layer, net of store.py pool-extraction shrinkage",
-      "GOVERNANCE files 203->204 loc 56985->57457: amendment pipeline + audit convergence growth",
-      "NETWORK loc 4287->4285: ratchet tightened to measured",
-      "VERIFICATION row kept (inert: current classifiers measure 0); re-key deferred to next phase adjudication"
-    ],
-    "tightenings": [
-      "rev4 tighten: GENERAL_APP 565/114858 -> 564/114493 (codex_pin_sync + architecture_artifact_sync consolidated into tasks/codex_sync_drivers.py, shared _SyncDriverBase; -1 file -365 loc). Downward-only, no adjudication needed.",
-      "rev5 tighten: GENERAL_APP 564/114493 -> 558/113560 (-6 files -933 loc): retired-sovereign dead mixin cluster removed (maintenance_status/lifecycle/learning/capability/identity, zero refs post-A592/A604 retirement) + concurrent worker deletion. Downward-only.",
-      "rev6 tighten: GENERAL_APP 567/113698 -> 562/112797 (-5 files -901 loc): orphan A369 draft modules in shared_layer/database removed (bloat_budget, capacity_certification, capacity_governor, pg_drill_adapter, write_governor — zero imports, zero lazy-exports, zero registry/test/doc refs; live capabilities served by watchdog.py/rag_capacity.py/restore_drill.py/recovery_orchestrator.py). GOVERNANCE 209/58492 -> 208/58383 (-1 file -109 loc): git_concurrency.py dead lock-scope helper removed (zero refs; baseline rebind via build_baseline toolchain). Downward-only, no adjudication needed.",
-      "rev7 tighten (measured): GENERAL_APP 538/108822 -> 533/107330 (-5f/-1492): orphan dead code removed - maintenance_update+maintenance_repair_chain (retired maintenance-sovereign mixin pair, zero composers), contract_validator (zero callers; audit_artifacts check_compatibility_matrix is the live surface), batch_api (zero refs), chinese_semantic_engine_20260921_144621 (dated snapshot beside live engine). RAG 91/25407 -> 90/25259 (-148): subarchitectures.py orphan adapter registry never imported so adapters never registered. TRAINING 26/9412 -> 26->26... 9412->8972 (-2f/-440): tool_call_dataset (duplicate TOOL_COMMAND_MAP; live map in native_tool_orchestrator.py) + vocab_ratio (zero refs). a549_benchmark.py also deleted (excluded from measurement by benchmark substr). execution_lease.py restored - bound by EXECUTION_LEASE_CONTRACT.json contract artifact. Downward-only.",
-      "rev8 tighten: GENERAL_APP 533/107330 -> 525/106291 (-8f/-1039: perf/e2e suite deleted + orphan sweep); GOVERNANCE 57751 -> 57665 (-86: emit() dedup refactor in export_audit_manifest.py more than absorbed new native-check declarations). Downward-only, no adjudication needed."
-    ],
-    "adjudications_rev4": [
-      "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev4, amendment python-minimization-baseline-adjudication-20260928-r3, sealed-governed-certification)",
-      "GOVERNANCE files 204->205 loc 57537->58250+: legacy_python_verification_adapter.py + audit machinery (commit 48ade54b, codex-mandated governance growth)"
-    ],
-    "adjudications_rev5": [
-      "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev5, amendment python-minimization-baseline-adjudication-20260928-r5, sealed-governed-certification certificate feef703c)",
-      "GENERAL_APP files 558->567 loc 113560->113698: shared-layer modularization split (pg_adapter_*, store_async_*, connection_acquire, store_*_ops) - codex-mandated single-responsibility work stream"
-    ],
-    "adjudications_rev6": [
-      "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev6, amendment python-minimization-baseline-adjudication-20260928-r6, sealed-governed-certification certificate 2e4b530d)",
-      "GOVERNANCE files 205->209 loc 58293->58492: codex_postgresql export/import split, native_audit_gate, audit_self_health, export_audit_manifest, source_ownership/protected_attrs - codex-mandated governance machinery"
-    ],
-    "adjudications_rev7": [
-      "GOVERNANCE loc 57658->57668 (+10): adjudicated interim re-anchor; codex-mandated audit machinery growth, amendment sealed cert b39d5057 at 2026-09-28T13:28:03Z"
-    ],
-    "adjudications_rev8": [
-      "GOVERNANCE loc 57668->57751 (+83): adjudicated interim re-anchor; native-migration stream expresses new manifest kinds in the Python generator (export_audit_manifest.py), incl. test_global_cleaner_retired native migration; amendment r9 sealed cert 5f89ab07 @ 2026-09-28T14:04:18Z; only-tighten resumes"
-    ],
-    "adjudications_rev9": [
-      "measurement-correction (sealed r10, cert 14e2e522, codex 2026-09-28): scan_roots += main-system/governance, main-system/information-layer, main-system/run.py, local-model-hub/src; re-anchor GOVERNANCE 207/57665->246/66392 (+39f/+8727 sovereign tree), GENERAL_APP 525/106291->539/108070 (+14f/+1779, incl. main-system/run.py via new file-level scan root), PROC_MGMT 56/15619->59/15986 (+3f/+367). Coverage correction, not new code; only-tighten resumes on the wider surface."
-    ],
-    "adjudications_rev10": [
-      "VECTOR migration adjudicated (operator-governor, request vector-degraded-store-migration-decision-20260928 -> native-degraded-store): vector_store.py rewritten in place as thin loopback client over governed vectord instance (127.0.0.1:8093, own --store-dir snapshot, lazy _ensure_daemon); all persistence/filtering/similarity ranking now Rust-owned. VECTOR 535->133 (-402, floor = thin client until RAG bucket's own P3 migration). Parity evidence: live smoke vs real vectord binary (ensure/replace/query/query_text/scope-fence/delete_resource/status all verified incl. similarity ordering).",
-      "RAG loc 25259->25268 (+9): LocalRagRepository.delete_document added — repairs latent defect where DegradedRagBackend.delete_resource called nonexistent methods on both layers (degraded delete never actually deleted). Adjudicated part of native-degraded-store disposition.",
-      "GOVERNANCE loc 66392->66398 (+6): worker-stream audit machinery churn; adjudicated interim re-anchor (operator), consistent with r7/r8 precedent.",
-      "GENERAL_APP 539/108070 -> 531/106733 (-8f/-1337): worker-stream orphan sweep (shared_layer/database backup_budget/capacity_watermark et al). Downward-only."
-    ],
-    "adjudications_rev11": [
-      "GOVERNANCE loc 66398->67125 (+727): operator-governor directed interim re-anchor; export_audit_manifest.py native-migration check-emission growth — codex-mandated audit machinery, same class as adjudications_rev6/rev8; only-tighten resumes"
-    ],
-    "adjudications_rev12": [
-      "rev13 tighten (measured, downward-only): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed — modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval/native_eval_suite + eval/* retired; TRAINING 7/1920 -> 3/644; GENERAL_APP 528/104834 -> 525/103264; BUSINESS 229/41131 -> 41109; PROC_MGMT 59/15903 -> 15896; GOVERNANCE allowed_zones 67125 -> 67056 aligned with zero_targets. 30->72 retired_sources.json file-not-exists pins now guard resurrection."
-    ],
-    "adjudications_rev14": [
-      "governor-disposition=authorized-interim-reanchor (operator-governor directive 2026-09-29 handle-the-commit-blockage; audit-package + test-suite refactor unblock; pending worker requests: python-minimization-audit-package-split-request-20260929-devin + python-minimization-reanchor-request-20260929); ratchet resumes only-tighten from measured",
-      "GOVERNANCE 246/67056 -> 310/70500 (measured 293/68809 + documented live-churn headroom for the active multi-worker window, within the contract's ±10% tolerance): devin audit-package split +16f/+573 (A50 source-size refactor: audit_artifacts->10 domain modules, export_audit_manifest->6 modules, audit_delegated, architecture_registry split, native_audit_engine_build) + foreign in-flight worker growth adjudicated interim; same class as adjudications_rev6/rev8/rev11",
-      "PROC_MGMT 59/15896 -> 65/16400 (measured 61/15994), FILE_IO 98/18222 -> 105/19000 (measured 99/18615), NETWORK 19/4285 -> 22/4900 (measured 19/4704), BUSINESS 229/41109 -> 245/42500 (measured 234/41457), GENERAL_APP 525/103264 -> 560/104000 (measured 539/103042), RAG measured 86->87/25372->95/26000 with headroom: foreign in-flight worker growth on the live tree; interim re-anchor per governor directive, not a waiver of per-module adjudication",
-      "downward re-anchors (only-tighten, no headroom restored): INFERENCE 14/6423 -> 13/6106, RAG 90/25268 -> 86/25162, TRAINING 3/644 -> 1/223"
-    ]
-  },
-  "zero_targets": {
-    "INFERENCE": {
-      "files": 13,
-      "loc": 6106
-    },
-    "RAG": {
-      "files": 95,
-      "loc": 26000
-    },
-    "VECTOR": {
-      "files": 1,
-      "loc": 133
-    },
-    "UI": {
-      "files": 9,
-      "loc": 1034
-    },
-    "PROC_MGMT": {
-      "files": 65,
-      "loc": 16400
-    },
-    "FILE_IO": {
-      "files": 105,
-      "loc": 19000
-    },
-    "NETWORK": {
-      "files": 22,
-      "loc": 4900
-    },
-    "BUSINESS": {
-      "files": 245,
-      "loc": 42500
-    },
-    "GENERAL_APP": {
-      "files": 560,
-      "loc": 104000
-    },
-    "GOVERNANCE": {
-      "files": 310,
-      "loc": 70500,
-      "policy": "thin-to-minimum, stays-python"
-    }
-  },
-  "allowed_zones": {
-    "GOVERNANCE": {
-      "files": 310,
-      "loc": 70500,
-      "policy": "thin-to-minimum, stays-python"
-    },
-    "TRAINING": {
-      "files": 1,
-      "loc": 223,
-      "policy": "misclassified-live-surfaces-only; executor/framework retired per B167/B38/E180"
-    },
-    "VERIFICATION": {
-      "files": 0,
-      "loc": 0,
-      "policy": "development-only"
-    }
-  },
-  "migration_plan": {
-    "INFERENCE": {
-      "phase": 3,
-      "target": "cpp",
-      "entry": [
-        "native_engine.generate_via_native_engine",
-        "model_service_http"
-      ],
-      "note": "C# native-abi primary, then delete Python path"
-    },
-    "RAG": {
-      "phase": 3,
-      "target": "rust",
-      "entry": [
-        "core_system/rag",
-        "local_rag_retrieval"
-      ],
-      "note": "orchestration to Rust; vectord ready"
-    },
-    "VECTOR": {
-      "phase": 3,
-      "target": "rust",
-      "entry": [
-        "shared_layer/local/vector_store"
-      ],
-      "note": "rides RAG degraded pipeline; degraded math into vectord or delete-if-always-available decision"
-    },
-    "UI": {
-      "phase": 3,
-      "target": "csharp",
-      "entry": [
-        "model-dialogue star_chat service"
-      ],
-      "note": "TS UI stays; Python service to C#"
-    },
-    "PROC_MGMT": {
-      "phase": 4,
-      "target": "csharp+rust+c",
-      "entry": [
-        "toolbox",
-        "isolation",
-        "activation",
-        "worker_pool"
-      ],
-      "note": "orchestration C#, lifecycle Rust, hot path C"
-    },
-    "FILE_IO": {
-      "phase": 4,
-      "target": "rust+go",
-      "entry": [
-        "file-sorter",
-        "vaultly workers"
-      ],
-      "note": "file service boundary"
-    },
-    "NETWORK": {
-      "phase": 4,
-      "target": "go+rust",
-      "entry": [
-        "browser_automation (rides collab/P4)",
-        "ipc server (rides backend hosting)",
-        "searchd.py (rides RAG/P3)",
-        "transport_proxy (C# parity exists)"
-      ],
-      "note": "split by owner phase; no standalone move"
-    },
-    "BUSINESS": {
-      "phase": 4,
-      "target": "csharp+fsharp",
-      "entry": [
-        "investment trading",
-        "xingcheng commands",
-        "collab"
-      ],
-      "note": "C# Application + F# Domain Core"
-    },
-    "GENERAL_APP": {
-      "phase": 5,
-      "target": "per-module",
-      "entry": [
-        "MS:tasks->csharp",
-        "MS:ipc->rust",
-        "SL:database->decision-needed",
-        "SL:workflow->tbd"
-      ],
-      "note": "largest bucket; per-module parity migration; psycopg exclusivity needs governor decision"
-    },
-    "GOVERNANCE": {
-      "phase": 5,
-      "target": "thin-in-place",
-      "entry": [
-        "audit/git/codex machinery candidates for csharp/rust/c"
-      ],
-      "note": "semantics stay Python; mechanical layers move out"
-    }
-  },
-  "measurement": {
-    "recipe": "py-bucket-budget/v1",
-    "note": "production runtime .py only; tests/eval/scripts/build/acceptance/migration/provision/rehearsal/cache excluded; first-match substring classification over the '/'-normalized lowercase repo-relative path; unmatched -> GENERAL_APP",
-    "scan_roots": [
-      "Standalone tools/local-model/src",
-      "Standalone tools/model-dialogue/src",
-      "main-system/src-core",
-      "shared-layer/src",
-      "governance_rule",
-      "Standalone tools/file-sorter/src",
-      "Standalone tools/vaultly/src",
-      "Standalone tools/ai-assistant/src",
-      "Standalone tools/ai-collaboration/src",
-      "Standalone tools/investment-mobile/src",
-      "main-system/governance",
-      "main-system/information-layer",
-      "main-system/run.py",
-      "Standalone tools/local-model/local-model-hub/src"
-    ],
-    "exclude_dirs": [
-      "__pycache__",
-      ".venv",
-      "node_modules",
-      ".git",
-      "dist-ui",
-      "target",
-      "bin",
-      "obj",
-      ".kilo",
-      ".worktrees"
-    ],
-    "exclude_file_substr": [
-      "test_",
-      "_test",
-      "conftest",
-      "/tests/",
-      "/eval/",
-      "benchmark",
-      "/scripts/",
-      "build_",
-      "setup.py",
-      "_stage_e2e",
-      "acceptance",
-      "migration",
-      "provision",
-      "rehearsal"
-    ],
-    "rules": {
-      "TRAINING": [
-        "native_transformer/training",
-        "jax_backend",
-        "training/corpus",
-        "chat_foundation_dataset",
-        "self_learning",
-        "maturity.py",
-        "pretrain",
-        "/sft",
-        "dpo",
-        "distillation",
-        "corpus.py",
-        "tokenizer",
-        "bpe.py",
-        "dataset"
-      ],
-      "INFERENCE": [
-        "native_engine.py",
-        "native_runtime.py",
-        "native_inference.py",
-        "cpp_runtime.py",
-        "native_transformer/inference",
-        "native_transformer/modules",
-        "native_transformer/execution",
-        "infer_transformer",
-        "infer_planning",
-        "infer_handle",
-        "model_service_http",
-        "cpp_export",
-        "native_constants",
-        "cuda",
-        "kv_cache",
-        "transformer",
-        "generate.py"
-      ],
-      "RAG": [
-        "local_rag_retrieval",
-        "core_system/rag",
-        "local/local_rag",
-        "rag_capacity",
-        "rag_contracts",
-        "rag_metadata",
-        "retrieval",
-        "hybrid.py",
-        "rerank",
-        "context_builder",
-        "evidence",
-        "cag_",
-        "local_ai_embedding"
-      ],
-      "VECTOR": [
-        "canonical_vector_runtime",
-        "local/vector_store",
-        "vector_store",
-        "hnsw"
-      ],
-      "UI": [
-        "model-dialogue/src",
-        "star_chat",
-        "backendSocket",
-        "toolWindow",
-        "ui_backend",
-        "presenters",
-        "views",
-        "pages"
-      ],
-      "PROC_MGMT": [
-        "tool_process_registry",
-        "toolbox_",
-        "tool_isolation",
-        "model_service_activation",
-        "activation_broker",
-        "lifecycle",
-        "launcher/scripts",
-        "process_registry",
-        "worker_pool",
-        "automation_supervisor"
-      ],
-      "FILE_IO": [
-        "file_sorter",
-        "sorter_",
-        "cleanup_scanner",
-        "file_watcher",
-        "vaultly",
-        "download",
-        "scan",
-        "organize",
-        "undo.py"
-      ],
-      "NETWORK": [
-        "browser_automation",
-        "provider_session",
-        "browser_session",
-        "searchd",
-        "web_search",
-        "searxng",
-        "fetcher",
-        "crawler",
-        "http_client",
-        "websocket",
-        "socket",
-        "ipc/server",
-        "channel_runtime",
-        "transport_proxy"
-      ],
-      "BUSINESS": [
-        "investment_mobile/trading",
-        "ai_nexus",
-        "trading_store",
-        "market",
-        "fund",
-        "backtest",
-        "simulation",
-        "portfolio",
-        "oms",
-        "broker",
-        "order",
-        "risk.py",
-        "strategy",
-        "xingcheng_commands",
-        "command_parser",
-        "command_channels",
-        "intent",
-        "grounding",
-        "plan",
-        "collab_"
-      ],
-      "GOVERNANCE": [
-        "governance_rule",
-        "permission",
-        "sovereigns",
-        "audit",
-        "codex",
-        "fault_",
-        "policy",
-        "decision",
-        "auth",
-        "secrets",
-        "generation.py",
-        "session_identity",
-        "vector_scope",
-        "vectord_backend"
-      ]
-    },
-    "fallback_bucket": "GENERAL_APP"
-  },
-  "baseline_rev": "rev14-interim-reanchor-governor-directed",
-  "revision_note": "rev14 interim re-anchor (governor-directed, measured 2026-09-29T15:30+08:00): GOVERNANCE->310/70500, PROC_MGMT->65/16400, FILE_IO->105/19000, NETWORK->22/4900, BUSINESS->245/42500, GENERAL_APP->560/104000, RAG->95/26000 (each = measured + documented live-churn headroom); tightened to measured: INFERENCE->13/6106, TRAINING->1/223. See adjudications_rev14. Prior note: rev13 tighten (measured): INFERENCE 48/12708 -> 14/6423 (-34f/-6285): E180 PyTorch inference stack landed in 65de5d44 — native_transformer modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval, native_eval_suite, eval/*, training_repo_schema, adapter_registry, repository_audit/jobs all retired; native_engine.py is now a control-plane shim over cpp_runtime only. TRAINING 7/1920 -> 3/644, GENERAL_APP 528/104834 -> 525/103264, BUSINESS 229/41131 -> 41109, PROC_MGMT 59/15903 -> 15896, GOVERNANCE allowed_zones 67125 -> 67056 (aligned with zero_targets). Retired-source resurrection pins: retired_sources.json now 72 paths incl. all E180 deletions. Downward-only."
+    "contract":  "PYTHON_MINIMIZATION_BASELINE",
+    "contract_version":  1,
+    "minimum_supported_contract_version":  1,
+    "authority":  "governance-rule-only",
+    "description":  "A132/B4/B73/B74: Python fully retired; zero source roles and zero normal/on-demand residency, including governance, training, tests and verification. Historical metadata below grants no exception.",
+    "metadata":  {
+                     "contract_revision":  14,
+                     "measured_at":  "2026-09-29T15:30:00+08:00",
+                     "method":  "py-bucket-budget/v1 recipe embedded in this artifact; enforced by native audit check python-minimization:bucket-budget",
+                     "tolerance_note":  "margins approx ±10%; adjudicate per-module on dispute",
+                     "adjudications_rev2":  [
+                                                "vector_scope.py -\u003e GOVERNANCE (permission scoping semantics, zero vector ops)",
+                                                "vectord_backend.py -\u003e GOVERNANCE (decision-level ownership declaration, zero vector ops)",
+                                                "local_ai_embedding.py -\u003e RAG (RAG-grounding mixin for inference)"
+                                            ],
+                     "adjudications_rev3":  [
+                                                "governor-disposition=authorized-interim-reanchor (codex metadata governor_disposition_python_minimization_baselines, amendment python-minimization-baseline-adjudication-20260928-r2, sealed-governed-certification, codex 2026-09-28T10:34:14Z); ratchet resumes from adjudicated values and continues only-tighten",
+                                                "INFERENCE loc 13453-\u003e13600: residency/boundary guard additions (human-governor directive 2026-09-28, xingcheng-internal)",
+                                                "RAG loc 24840-\u003e25407: PERF-07 engine-side embed path (index_document_text/embed_bytes/query_text) under B157 compute-at-owner",
+                                                "VECTOR loc 506-\u003e535: canonical f64-le record intake in vector_store (PERF-07)",
+                                                "PROC_MGMT loc 15731-\u003e15773: worker lifecycle wiring under bounded-executor work",
+                                                "FILE_IO loc 18209-\u003e18222",
+                                                "BUSINESS loc 41819-\u003e42016: xingcheng command/intent surface",
+                                                "GENERAL_APP files 557-\u003e565 loc 112829-\u003e114858: bounded admission executor/budget_source/thread_budget concurrency-budget layer, net of store.py pool-extraction shrinkage",
+                                                "GOVERNANCE files 203-\u003e204 loc 56985-\u003e57457: amendment pipeline + audit convergence growth",
+                                                "NETWORK loc 4287-\u003e4285: ratchet tightened to measured",
+                                                "VERIFICATION row kept (inert: current classifiers measure 0); re-key deferred to next phase adjudication"
+                                            ],
+                     "tightenings":  [
+                                         "rev4 tighten: GENERAL_APP 565/114858 -\u003e 564/114493 (codex_pin_sync + architecture_artifact_sync consolidated into tasks/codex_sync_drivers.py, shared _SyncDriverBase; -1 file -365 loc). Downward-only, no adjudication needed.",
+                                         "rev5 tighten: GENERAL_APP 564/114493 -\u003e 558/113560 (-6 files -933 loc): retired-sovereign dead mixin cluster removed (maintenance_status/lifecycle/learning/capability/identity, zero refs post-A592/A604 retirement) + concurrent worker deletion. Downward-only.",
+                                         "rev6 tighten: GENERAL_APP 567/113698 -\u003e 562/112797 (-5 files -901 loc): orphan A369 draft modules in shared_layer/database removed (bloat_budget, capacity_certification, capacity_governor, pg_drill_adapter, write_governor — zero imports, zero lazy-exports, zero registry/test/doc refs; live capabilities served by watchdog.py/rag_capacity.py/restore_drill.py/recovery_orchestrator.py). GOVERNANCE 209/58492 -\u003e 208/58383 (-1 file -109 loc): git_concurrency.py dead lock-scope helper removed (zero refs; baseline rebind via build_baseline toolchain). Downward-only, no adjudication needed.",
+                                         "rev7 tighten (measured): GENERAL_APP 538/108822 -\u003e 533/107330 (-5f/-1492): orphan dead code removed - maintenance_update+maintenance_repair_chain (retired maintenance-sovereign mixin pair, zero composers), contract_validator (zero callers; audit_artifacts check_compatibility_matrix is the live surface), batch_api (zero refs), chinese_semantic_engine_20260921_144621 (dated snapshot beside live engine). RAG 91/25407 -\u003e 90/25259 (-148): subarchitectures.py orphan adapter registry never imported so adapters never registered. TRAINING 26/9412 -\u003e 26-\u003e26... 9412-\u003e8972 (-2f/-440): tool_call_dataset (duplicate TOOL_COMMAND_MAP; live map in native_tool_orchestrator.py) + vocab_ratio (zero refs). a549_benchmark.py also deleted (excluded from measurement by benchmark substr). execution_lease.py restored - bound by EXECUTION_LEASE_CONTRACT.json contract artifact. Downward-only.",
+                                         "rev8 tighten: GENERAL_APP 533/107330 -\u003e 525/106291 (-8f/-1039: perf/e2e suite deleted + orphan sweep); GOVERNANCE 57751 -\u003e 57665 (-86: emit() dedup refactor in export_audit_manifest.py more than absorbed new native-check declarations). Downward-only, no adjudication needed."
+                                     ],
+                     "adjudications_rev4":  [
+                                                "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev4, amendment python-minimization-baseline-adjudication-20260928-r3, sealed-governed-certification)",
+                                                "GOVERNANCE files 204-\u003e205 loc 57537-\u003e58250+: legacy_python_verification_adapter.py + audit machinery (commit 48ade54b, codex-mandated governance growth)"
+                                            ],
+                     "adjudications_rev5":  [
+                                                "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev5, amendment python-minimization-baseline-adjudication-20260928-r5, sealed-governed-certification certificate feef703c)",
+                                                "GENERAL_APP files 558-\u003e567 loc 113560-\u003e113698: shared-layer modularization split (pg_adapter_*, store_async_*, connection_acquire, store_*_ops) - codex-mandated single-responsibility work stream"
+                                            ],
+                     "adjudications_rev6":  [
+                                                "governor-disposition=authorized-interim-reanchor (codex metadata adjudications_rev6, amendment python-minimization-baseline-adjudication-20260928-r6, sealed-governed-certification certificate 2e4b530d)",
+                                                "GOVERNANCE files 205-\u003e209 loc 58293-\u003e58492: codex_postgresql export/import split, native_audit_gate, audit_self_health, export_audit_manifest, source_ownership/protected_attrs - codex-mandated governance machinery"
+                                            ],
+                     "adjudications_rev7":  [
+                                                "GOVERNANCE loc 57658-\u003e57668 (+10): adjudicated interim re-anchor; codex-mandated audit machinery growth, amendment sealed cert b39d5057 at 2026-09-28T13:28:03Z"
+                                            ],
+                     "adjudications_rev8":  [
+                                                "GOVERNANCE loc 57668-\u003e57751 (+83): adjudicated interim re-anchor; native-migration stream expresses new manifest kinds in the Python generator (export_audit_manifest.py), incl. test_global_cleaner_retired native migration; amendment r9 sealed cert 5f89ab07 @ 2026-09-28T14:04:18Z; only-tighten resumes"
+                                            ],
+                     "adjudications_rev9":  [
+                                                "measurement-correction (sealed r10, cert 14e2e522, codex 2026-09-28): scan_roots += main-system/governance, main-system/information-layer, main-system/run.py, local-model-hub/src; re-anchor GOVERNANCE 207/57665-\u003e246/66392 (+39f/+8727 sovereign tree), GENERAL_APP 525/106291-\u003e539/108070 (+14f/+1779, incl. main-system/run.py via new file-level scan root), PROC_MGMT 56/15619-\u003e59/15986 (+3f/+367). Coverage correction, not new code; only-tighten resumes on the wider surface."
+                                            ],
+                     "adjudications_rev10":  [
+                                                 "VECTOR migration adjudicated (operator-governor, request vector-degraded-store-migration-decision-20260928 -\u003e native-degraded-store): vector_store.py rewritten in place as thin loopback client over governed vectord instance (127.0.0.1:8093, own --store-dir snapshot, lazy _ensure_daemon); all persistence/filtering/similarity ranking now Rust-owned. VECTOR 535-\u003e133 (-402, floor = thin client until RAG bucket\u0027s own P3 migration). Parity evidence: live smoke vs real vectord binary (ensure/replace/query/query_text/scope-fence/delete_resource/status all verified incl. similarity ordering).",
+                                                 "RAG loc 25259-\u003e25268 (+9): LocalRagRepository.delete_document added — repairs latent defect where DegradedRagBackend.delete_resource called nonexistent methods on both layers (degraded delete never actually deleted). Adjudicated part of native-degraded-store disposition.",
+                                                 "GOVERNANCE loc 66392-\u003e66398 (+6): worker-stream audit machinery churn; adjudicated interim re-anchor (operator), consistent with r7/r8 precedent.",
+                                                 "GENERAL_APP 539/108070 -\u003e 531/106733 (-8f/-1337): worker-stream orphan sweep (shared_layer/database backup_budget/capacity_watermark et al). Downward-only."
+                                             ],
+                     "adjudications_rev11":  [
+                                                 "GOVERNANCE loc 66398-\u003e67125 (+727): operator-governor directed interim re-anchor; export_audit_manifest.py native-migration check-emission growth — codex-mandated audit machinery, same class as adjudications_rev6/rev8; only-tighten resumes"
+                                             ],
+                     "adjudications_rev12":  [
+                                                 "rev13 tighten (measured, downward-only): INFERENCE 48/12708 -\u003e 14/6423 (-34f/-6285): E180 PyTorch inference stack landed — modules/kernels/inference/execution/quantization/checkpoint/cpp_export/benchmark/capability_eval/native_eval_suite + eval/* retired; TRAINING 7/1920 -\u003e 3/644; GENERAL_APP 528/104834 -\u003e 525/103264; BUSINESS 229/41131 -\u003e 41109; PROC_MGMT 59/15903 -\u003e 15896; GOVERNANCE allowed_zones 67125 -\u003e 67056 aligned with zero_targets. 30-\u003e72 retired_sources.json file-not-exists pins now guard resurrection."
+                                             ],
+                     "adjudications_rev14":  [
+                                                 "governor-disposition=authorized-interim-reanchor (operator-governor directive 2026-09-29 handle-the-commit-blockage; audit-package + test-suite refactor unblock; pending worker requests: python-minimization-audit-package-split-request-20260929-devin + python-minimization-reanchor-request-20260929); ratchet resumes only-tighten from measured",
+                                                 "GOVERNANCE 246/67056 -\u003e 310/70500 (measured 293/68809 + documented live-churn headroom for the active multi-worker window, within the contract\u0027s ±10% tolerance): devin audit-package split +16f/+573 (A50 source-size refactor: audit_artifacts-\u003e10 domain modules, export_audit_manifest-\u003e6 modules, audit_delegated, architecture_registry split, native_audit_engine_build) + foreign in-flight worker growth adjudicated interim; same class as adjudications_rev6/rev8/rev11",
+                                                 "PROC_MGMT 59/15896 -\u003e 65/16400 (measured 61/15994), FILE_IO 98/18222 -\u003e 105/19000 (measured 99/18615), NETWORK 19/4285 -\u003e 22/4900 (measured 19/4704), BUSINESS 229/41109 -\u003e 245/42500 (measured 234/41457), GENERAL_APP 525/103264 -\u003e 560/104000 (measured 539/103042), RAG measured 86-\u003e87/25372-\u003e95/26000 with headroom: foreign in-flight worker growth on the live tree; interim re-anchor per governor directive, not a waiver of per-module adjudication",
+                                                 "downward re-anchors (only-tighten, no headroom restored): INFERENCE 14/6423 -\u003e 13/6106, RAG 90/25268 -\u003e 86/25162, TRAINING 3/644 -\u003e 1/223"
+                                             ]
+                 },
+    "zero_targets":  {
+                         "INFERENCE":  {
+                                           "files":  0,
+                                           "loc":  0
+                                       },
+                         "RAG":  {
+                                     "files":  0,
+                                     "loc":  0
+                                 },
+                         "VECTOR":  {
+                                        "files":  0,
+                                        "loc":  0
+                                    },
+                         "UI":  {
+                                    "files":  0,
+                                    "loc":  0
+                                },
+                         "PROC_MGMT":  {
+                                           "files":  0,
+                                           "loc":  0
+                                       },
+                         "FILE_IO":  {
+                                         "files":  0,
+                                         "loc":  0
+                                     },
+                         "NETWORK":  {
+                                         "files":  0,
+                                         "loc":  0
+                                     },
+                         "BUSINESS":  {
+                                          "files":  0,
+                                          "loc":  0
+                                      },
+                         "GENERAL_APP":  {
+                                             "files":  0,
+                                             "loc":  0
+                                         },
+                         "GOVERNANCE":  {
+                                            "files":  0,
+                                            "loc":  0,
+                                            "policy":  "thin-to-minimum, stays-python"
+                                        }
+                     },
+    "allowed_zones":  {
+                          "GOVERNANCE":  {
+                                             "files":  0,
+                                             "loc":  0,
+                                             "policy":  "thin-to-minimum, stays-python"
+                                         },
+                          "TRAINING":  {
+                                           "files":  0,
+                                           "loc":  0,
+                                           "policy":  "misclassified-live-surfaces-only; executor/framework retired per B167/B38/E180"
+                                       },
+                          "VERIFICATION":  {
+                                               "files":  0,
+                                               "loc":  0,
+                                               "policy":  "development-only"
+                                           }
+                      },
+    "migration_plan":  {
+                           "INFERENCE":  {
+                                             "phase":  3,
+                                             "target":  "cpp",
+                                             "entry":  [
+                                                           "native_engine.generate_via_native_engine",
+                                                           "model_service_http"
+                                                       ],
+                                             "note":  "C# native-abi primary, then delete Python path"
+                                         },
+                           "RAG":  {
+                                       "phase":  3,
+                                       "target":  "rust",
+                                       "entry":  [
+                                                     "core_system/rag",
+                                                     "local_rag_retrieval"
+                                                 ],
+                                       "note":  "orchestration to Rust; vectord ready"
+                                   },
+                           "VECTOR":  {
+                                          "phase":  3,
+                                          "target":  "rust",
+                                          "entry":  [
+                                                        "shared_layer/local/vector_store"
+                                                    ],
+                                          "note":  "rides RAG degraded pipeline; degraded math into vectord or delete-if-always-available decision"
+                                      },
+                           "UI":  {
+                                      "phase":  3,
+                                      "target":  "csharp",
+                                      "entry":  [
+                                                    "model-dialogue star_chat service"
+                                                ],
+                                      "note":  "TS UI stays; Python service to C#"
+                                  },
+                           "PROC_MGMT":  {
+                                             "phase":  4,
+                                             "target":  "csharp+rust+c",
+                                             "entry":  [
+                                                           "toolbox",
+                                                           "isolation",
+                                                           "activation",
+                                                           "worker_pool"
+                                                       ],
+                                             "note":  "orchestration C#, lifecycle Rust, hot path C"
+                                         },
+                           "FILE_IO":  {
+                                           "phase":  4,
+                                           "target":  "rust+go",
+                                           "entry":  [
+                                                         "file-sorter",
+                                                         "vaultly workers"
+                                                     ],
+                                           "note":  "file service boundary"
+                                       },
+                           "NETWORK":  {
+                                           "phase":  4,
+                                           "target":  "go+rust",
+                                           "entry":  [
+                                                         "browser_automation (rides collab/P4)",
+                                                         "ipc server (rides backend hosting)",
+                                                         "searchd.py (rides RAG/P3)",
+                                                         "transport_proxy (C# parity exists)"
+                                                     ],
+                                           "note":  "split by owner phase; no standalone move"
+                                       },
+                           "BUSINESS":  {
+                                            "phase":  4,
+                                            "target":  "csharp+fsharp",
+                                            "entry":  [
+                                                          "investment trading",
+                                                          "xingcheng commands",
+                                                          "collab"
+                                                      ],
+                                            "note":  "C# Application + F# Domain Core"
+                                        },
+                           "GENERAL_APP":  {
+                                               "phase":  5,
+                                               "target":  "per-module",
+                                               "entry":  [
+                                                             "MS:tasks-\u003ecsharp",
+                                                             "MS:ipc-\u003erust",
+                                                             "SL:database-\u003edecision-needed",
+                                                             "SL:workflow-\u003etbd"
+                                                         ],
+                                               "note":  "largest bucket; per-module parity migration; psycopg exclusivity needs governor decision"
+                                           },
+                           "GOVERNANCE":  {
+                                              "phase":  5,
+                                              "target":  "thin-in-place",
+                                              "entry":  [
+                                                            "audit/git/codex machinery candidates for csharp/rust/c"
+                                                        ],
+                                              "note":  "semantics stay Python; mechanical layers move out"
+                                          }
+                       },
+    "measurement":  {
+                        "recipe":  "py-bucket-budget/v1",
+                        "note":  "production runtime .py only; tests/eval/scripts/build/acceptance/migration/provision/rehearsal/cache excluded; first-match substring classification over the \u0027/\u0027-normalized lowercase repo-relative path; unmatched -\u003e GENERAL_APP",
+                        "scan_roots":  [
+                                           "."
+                                       ],
+                        "exclude_dirs":  [
+                                             ".git",
+                                             ".worktrees",
+                                             "node_modules",
+                                             "target",
+                                             "bin",
+                                             "obj"
+                                         ],
+                        "exclude_file_substr":  [
+
+                                                ],
+                        "rules":  {
+                                      "TRAINING":  [
+                                                       "native_transformer/training",
+                                                       "jax_backend",
+                                                       "training/corpus",
+                                                       "chat_foundation_dataset",
+                                                       "self_learning",
+                                                       "maturity.py",
+                                                       "pretrain",
+                                                       "/sft",
+                                                       "dpo",
+                                                       "distillation",
+                                                       "corpus.py",
+                                                       "tokenizer",
+                                                       "bpe.py",
+                                                       "dataset"
+                                                   ],
+                                      "INFERENCE":  [
+                                                        "native_engine.py",
+                                                        "native_runtime.py",
+                                                        "native_inference.py",
+                                                        "cpp_runtime.py",
+                                                        "native_transformer/inference",
+                                                        "native_transformer/modules",
+                                                        "native_transformer/execution",
+                                                        "infer_transformer",
+                                                        "infer_planning",
+                                                        "infer_handle",
+                                                        "model_service_http",
+                                                        "cpp_export",
+                                                        "native_constants",
+                                                        "cuda",
+                                                        "kv_cache",
+                                                        "transformer",
+                                                        "generate.py"
+                                                    ],
+                                      "RAG":  [
+                                                  "local_rag_retrieval",
+                                                  "core_system/rag",
+                                                  "local/local_rag",
+                                                  "rag_capacity",
+                                                  "rag_contracts",
+                                                  "rag_metadata",
+                                                  "retrieval",
+                                                  "hybrid.py",
+                                                  "rerank",
+                                                  "context_builder",
+                                                  "evidence",
+                                                  "cag_",
+                                                  "local_ai_embedding"
+                                              ],
+                                      "VECTOR":  [
+                                                     "canonical_vector_runtime",
+                                                     "local/vector_store",
+                                                     "vector_store",
+                                                     "hnsw"
+                                                 ],
+                                      "UI":  [
+                                                 "model-dialogue/src",
+                                                 "star_chat",
+                                                 "backendSocket",
+                                                 "toolWindow",
+                                                 "ui_backend",
+                                                 "presenters",
+                                                 "views",
+                                                 "pages"
+                                             ],
+                                      "PROC_MGMT":  [
+                                                        "tool_process_registry",
+                                                        "toolbox_",
+                                                        "tool_isolation",
+                                                        "model_service_activation",
+                                                        "activation_broker",
+                                                        "lifecycle",
+                                                        "launcher/scripts",
+                                                        "process_registry",
+                                                        "worker_pool",
+                                                        "automation_supervisor"
+                                                    ],
+                                      "FILE_IO":  [
+                                                      "file_sorter",
+                                                      "sorter_",
+                                                      "cleanup_scanner",
+                                                      "file_watcher",
+                                                      "vaultly",
+                                                      "download",
+                                                      "scan",
+                                                      "organize",
+                                                      "undo.py"
+                                                  ],
+                                      "NETWORK":  [
+                                                      "browser_automation",
+                                                      "provider_session",
+                                                      "browser_session",
+                                                      "searchd",
+                                                      "web_search",
+                                                      "searxng",
+                                                      "fetcher",
+                                                      "crawler",
+                                                      "http_client",
+                                                      "websocket",
+                                                      "socket",
+                                                      "ipc/server",
+                                                      "channel_runtime",
+                                                      "transport_proxy"
+                                                  ],
+                                      "BUSINESS":  [
+                                                       "investment_mobile/trading",
+                                                       "ai_nexus",
+                                                       "trading_store",
+                                                       "market",
+                                                       "fund",
+                                                       "backtest",
+                                                       "simulation",
+                                                       "portfolio",
+                                                       "oms",
+                                                       "broker",
+                                                       "order",
+                                                       "risk.py",
+                                                       "strategy",
+                                                       "xingcheng_commands",
+                                                       "command_parser",
+                                                       "command_channels",
+                                                       "intent",
+                                                       "grounding",
+                                                       "plan",
+                                                       "collab_"
+                                                   ],
+                                      "GOVERNANCE":  [
+                                                         "governance_rule",
+                                                         "permission",
+                                                         "sovereigns",
+                                                         "audit",
+                                                         "codex",
+                                                         "fault_",
+                                                         "policy",
+                                                         "decision",
+                                                         "auth",
+                                                         "secrets",
+                                                         "generation.py",
+                                                         "session_identity",
+                                                         "vector_scope",
+                                                         "vectord_backend"
+                                                     ]
+                                  },
+                        "fallback_bucket":  "GENERAL_APP"
+                    },
+    "baseline_rev":  "full-retirement-zero-budget",
+    "revision_note":  "Implementation convergence to current A132/B4/B73/B74: every bucket budget is zero; scan the project root including tests, scripts and training. Prior adjudications are historical evidence only."
 }

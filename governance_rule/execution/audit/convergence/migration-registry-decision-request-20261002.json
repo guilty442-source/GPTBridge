@@ -1,0 +1,112 @@
+{
+  "artifact": "governor-decision-request/v1",
+  "authority": "request-only",
+  "decision_class": "governor-decision-required",
+  "note": "This is NOT a codex-amendment-request and carries no execution authority. It presents measured registry-vs-source divergence in gptbridge_codex.sql_migration_registry / sql_migration_authority_registry and asks the governor to disposition each class. No registry row is modified by this artifact.",
+  "id": "migration-registry-decision-request-20261002",
+  "date": "2026-10-02",
+  "subject": "Migration registry reconciliation: 15 source-hash mismatches, 4 rows pointing to deleted files, 89 unregistered on-disk migrations",
+  "requested_by": "audit-worker:devin-desktop",
+  "evidence_sources": [
+    "governance_rule/execution/audit/convergence/migration-live-catalog-probe-20261002.json",
+    "governance_rule/execution/audit/convergence/implementation-obligations-evidence-refresh-20261002.json",
+    "live PostgreSQL read-only measurement: gptbridge_codex.sql_migration_registry (50 rows = 1 genesis + 49 ordered-source-verified), gptbridge_codex.sql_migration_authority_registry (49 rows ordered-source-verified)",
+    "filesystem enumeration: shared-layer/migrations/*.sql = 134 files",
+    "git history: commits e487bc473, 99ba911f3, 26c63f79e (all 2026-09-26)"
+  ],
+  "measured_state": {
+    "registry_rows": 49,
+    "registered_files_present_on_disk": 45,
+    "registered_files_missing_on_disk": 4,
+    "registered_present_hash_match": 30,
+    "registered_present_hash_mismatch": 15,
+    "on_disk_files_total": 134,
+    "on_disk_unregistered": 89,
+    "receipts_live": "gptbridge_codex.sql_migration_receipt_registry = 0 rows; chain never executed (next_applicable_sequence=1)"
+  },
+  "decisions": [
+    {
+      "decision_id": "MIG-REG-A-RESTAMP-15",
+      "class": "registry-hash-mismatch",
+      "authority": "governor-decision-required",
+      "finding": "15 registered migrations have migration_source_hash (and sql_migration_authority_registry.source_hash) values that no longer equal the SHA-256 of the current file bytes. Every one of the 15 files was last modified on 2026-09-26 by commit e487bc473 ('vectord renames, pg-sole-authority migrations') and/or 99ba911f3 ('retire residual Qdrant/SQLite semantics across source, migrations, tests, and codex registries'; its message states 'Repair migration defects found by full-replay validation (008, 019, 030, 035, 055, 134, 138, 029/031 seed names); 133/133 migrations replay clean'). These are post-registration semantic repairs: the current files are the corrected versions.",
+      "proposed_resolution": "governed RESTAMP of migration_source_hash (and the sql_migration_authority_registry.source_hash twin) to the measured current file SHA-256 for each listed sequence. Files must NOT be reverted to match stale registry hashes.",
+      "must_not_do": "do not revert file content; do not delete or reorder registry rows; restamp preserves sequence and chain order",
+      "evidence_mismatches": [
+        { "sequence": 8,  "file": "shared-layer/migrations/008_rls_role_isolation.sql",            "registered_source_hash": "ad616a90b283fef9e2029a97c0b92ae6e22a27a6d5b1c144c045e67301e083c7", "measured_file_sha256": "bf4ed0782d5aab20fea152455982f9be075748f4d6e7eb3628aa6db87ee34aa1", "last_modified_by": "99ba911f3" },
+        { "sequence": 9,  "file": "shared-layer/migrations/009_rag_canonical_execution_columns.sql","registered_source_hash": "5d604088c08a66370a53bca62a3b9768e505aaf59077594fe69c65a09ba91bbc", "measured_file_sha256": "ed57fe91c45f4a2318088f9937881e095095b024e7ef7c92f26f7ea18c7c3cfb", "last_modified_by": "e487bc473" },
+        { "sequence": 11, "file": "shared-layer/migrations/011_data_invariants.sql",                 "registered_source_hash": "da1f4a0f03a0ddc3ccbb292ff942fe7f1fe52af124c83c2bda27f81258a75db3", "measured_file_sha256": "347a818df88ee2380518300aef6c69e54b6f5a69737e176b5694cf2d4d3fb6df", "last_modified_by": "e487bc473" },
+        { "sequence": 12, "file": "shared-layer/migrations/012_cross_engine_consistency.sql",        "registered_source_hash": "e3f29cc5be35cad9f7ba1dc37bbdc60d81896a5dd1171c37956255b88cd035dc", "measured_file_sha256": "f4f8b5eef8efe025d5847bb7dd04d7249a642326963317f6ab228d08f64833b4", "last_modified_by": "e487bc473" },
+        { "sequence": 18, "file": "shared-layer/migrations/018_data_lineage.sql",                    "registered_source_hash": "e712f6027fcc54ee626486b43823264fad8cf65f69589006bf78d19c6dea184e", "measured_file_sha256": "2d45f9a3ca3daa30822cce19cfd0c8a068055962e1c6725bfdfa5122a0f7044b", "last_modified_by": "e487bc473" },
+        { "sequence": 19, "file": "shared-layer/migrations/019_authority_marker.sql",                "registered_source_hash": "799ad355ef041accee4326e464efb9a869f68aa5d506525b406b9e5786979eed", "measured_file_sha256": "6096497e1aeaef60e794a5f78ef0625e7e18979e8a763e102273e4e4a32e627a", "last_modified_by": "e487bc473+99ba911f3" },
+        { "sequence": 21, "file": "shared-layer/migrations/021_permission_snapshot.sql",             "registered_source_hash": "de19a8a298d9aa6ec147afa5fd0f3f162f586a76b80100331da922be8415b976", "measured_file_sha256": "73215ea63f9fae66c7dbdfdddc1340446dfa32b0fa9563f8b9f3acc0144c173a", "last_modified_by": "99ba911f3" },
+        { "sequence": 22, "file": "shared-layer/migrations/022_schema_ownership_lock.sql",           "registered_source_hash": "0e45aa9b6f2d92f07fcec1bc2d04787e9825e39e9b88ae6e48640c11269a7ce0", "measured_file_sha256": "ede38934c86be03d36faf5c867b7e349caace1bc44c03af98dab64f80a8e7fe6", "last_modified_by": "99ba911f3" },
+        { "sequence": 23, "file": "shared-layer/migrations/023_ddl_audit.sql",                       "registered_source_hash": "6b89926ebf4ad5f57f9f33c83db5ba9e6884cb4c88ce3cc6e8fba8c9bafd2164", "measured_file_sha256": "12998067d8851766d63a4c586af082bb6b91f10e10dd9c8a332305f8042653f7", "last_modified_by": "99ba911f3" },
+        { "sequence": 28, "file": "shared-layer/migrations/028_rebuild_certification.sql",           "registered_source_hash": "59e2dbab9fea6a519e789ba07e1cfc84579a40e6f28bf8eaaea98e3559a67eba", "measured_file_sha256": "e7292a7fedb47e10263f9d9fb5ac40e29af348bf00a9258bf0fe69b536ec799c", "last_modified_by": "99ba911f3" },
+        { "sequence": 29, "file": "shared-layer/migrations/029_watchdog_bloat_rpo_rto.sql",          "registered_source_hash": "a933f6948d6a776d6aa11f0a61ff458765c9642474e72b19f3de3e74defa5795", "measured_file_sha256": "5065cb204347b933a4c569ac121062023454d3417bc1a47d96338970a85cf17b", "last_modified_by": "99ba911f3" },
+        { "sequence": 30, "file": "shared-layer/migrations/030_readonly_domain_startup_cert.sql",    "registered_source_hash": "2d24e4596ad81b0187f1b58d34187adda99409dec6bb873cc72183bfe2a7435d", "measured_file_sha256": "6bd7e4a52a911d2c7d8bea4da21cf0baaacda499e0933bb169456733c5c5bd5e", "last_modified_by": "99ba911f3" },
+        { "sequence": 31, "file": "shared-layer/migrations/031_slo_metrics.sql",                     "registered_source_hash": "b40ecfc062c60cf259cc9109ea5ddcaa8af5c46dfde34074263c38c68cc935f4", "measured_file_sha256": "cbccd7b66cf344f2b57c9cdf798cdeb5407e331834d8d394415b1e507cf295a1", "last_modified_by": "99ba911f3" },
+        { "sequence": 35, "file": "shared-layer/migrations/035_audit_hot_history_separation.sql",    "registered_source_hash": "fc092bd512ea0ef9a0f78f160385df3cccb355dfffaa211c758b799802ddb3e3", "measured_file_sha256": "01f52c27f66f6c0e74f23ef4f6afba1a954540edb6389c13747a0e1a1d9cbb34", "last_modified_by": "99ba911f3" },
+        { "sequence": 40, "file": "shared-layer/migrations/040_database_release_manifest.sql",       "registered_source_hash": "be2232463705bdc5884f47277007d3905f1a0a49f899a43eea41dc0f3bc92a47", "measured_file_sha256": "321271593f43809b7dce4416eab18afb892ac7ab9cd35c344185064b1a886155", "last_modified_by": "e487bc473" }
+      ]
+    },
+    {
+      "decision_id": "MIG-REG-B-RETIRE-4",
+      "class": "registered-row-source-deleted",
+      "authority": "governor-decision-required",
+      "finding": "4 registered sequences point to source files that no longer exist on disk. All four were intentionally deleted on 2026-09-26 by commit 26c63f79e ('retire sqlite/qdrant artifacts: drop obsolete engines, migrations, retire module names'), part of the Qdrant/SQLite production retirement. Each row is currently status=ordered-source-verified in both sql_migration_registry (MIG_PG_000025/37/45/46) and sql_migration_authority_registry (025_sqlite_generation_fence / 037_sqlite_classification / 045_sqlite_template_release / 046_qdrant_contract_version).",
+      "proposed_resolution": "governed RETIREMENT of the 4 registry rows (and their sql_migration_authority_registry twins) to a retired status; the files must NOT be recreated (a recreated file could never match the registered hash and would resurrect retired sqlite/qdrant semantics).",
+      "must_not_do": "do not recreate the deleted .sql files; do not reuse the freed sequence numbers for new migrations",
+      "evidence_missing_files": [
+        { "sequence": 25, "migration_id": "MIG_PG_000025", "file": "shared-layer/migrations/025_sqlite_generation_fence.sql", "exists_on_disk": false, "deleted_by": "26c63f79e", "registry_source_hash": "e026e8cb63fabcd399fede85769521ed857d7ea2d919b19c893f039e50728522" },
+        { "sequence": 37, "migration_id": "MIG_PG_000037", "file": "shared-layer/migrations/037_sqlite_classification.sql",  "exists_on_disk": false, "deleted_by": "26c63f79e", "registry_source_hash": "e690a4d3715b63e2d1bc602800218818273b29c0a41f70b174f88e86ffac4c2c" },
+        { "sequence": 45, "migration_id": "MIG_PG_000045", "file": "shared-layer/migrations/045_sqlite_template_release.sql", "exists_on_disk": false, "deleted_by": "26c63f79e", "registry_source_hash": "e9f75054290bde642ab8c94d66543b14484b9970daea861433e54f0668637910" },
+        { "sequence": 46, "migration_id": "MIG_PG_000046", "file": "shared-layer/migrations/046_qdrant_contract_version.sql", "exists_on_disk": false, "deleted_by": "26c63f79e", "registry_source_hash": "d98b4efd3a96c880a6d74c00cadb2fc5b8b158bad4a0212d93ffad43a80f7cd4" }
+      ],
+      "note": "Commit 26c63f79e also deleted 13 further migration files (053/054/067/068/079/080/099/101/102/103/104/126/132) that were never registered, so they carry no registry cleanup obligation."
+    },
+    {
+      "decision_id": "MIG-REG-C-UNREGISTERED-89",
+      "class": "on-disk-unregistered",
+      "authority": "governor-decision-required",
+      "finding": "89 .sql files exist under shared-layer/migrations/ with no row in sql_migration_registry (registered basenames are 001-024, 026-036, 038-044, 047-049 = 45 files; 134 on disk total). Each needs a per-file governor disposition.",
+      "proposed_resolution": "per-file governed decision: REGISTER (assign next ordered sequence, stamp source hash, join the ordered chain), RETIRE (mark file non-authoritative), or SUPERSEDE (fold into an existing or new registered migration). Duplicate-numbered pairs (087_*, 088_*) require explicit ordering or supersede resolution first.",
+      "must_not_do": "do not execute unregistered files; do not let the executor chain skip sequences silently; duplicate sequence prefixes must not both register",
+      "evidence_unregistered_files": [
+        "050_unified_lifecycle_state.sql", "051_transport_retention.sql", "052_audit_retention_layering.sql",
+        "055_purge_queue.sql", "056_archive_catalog.sql", "057_archive_versioning.sql", "058_transport_priority_queue.sql",
+        "059_retention_hold.sql", "060_dependency_check.sql", "061_archive_restore_test.sql", "062_capacity_quota.sql",
+        "063_purge_audit.sql", "064_audit_hash_chain.sql", "065_reconcile_batch_digest.sql", "066_resource_content_hash.sql",
+        "069_merkle_root.sql", "070_integrity_snapshot.sql", "071_restore_verification.sql", "072_tamper_state.sql",
+        "073_fail_closed.sql", "074_version_lock.sql", "075_compatibility_matrix_ext.sql", "076_upgrade_classification.sql",
+        "077_driver_compatibility_test.sql", "078_pg_major_upgrade_rehearsal.sql", "081_sbom_dependency_inventory.sql",
+        "082_vulnerability_risk.sql", "083_dependency_drift.sql", "084_offline_bundle.sql", "085_release_signature.sql",
+        "086_lineage_core.sql", "087_read_models.sql", "087_security_identity_control.sql", "088_rag_capacity_governance.sql",
+        "088_recovery_plan.sql", "089_recovery_incident.sql", "090_recovery_state_machine.sql", "091_pg_offline_recovery.sql",
+        "092_pg_recovery_verification.sql", "093_reconcile_recovery_phase.sql", "094_recovery_generation.sql", "095_recovery_barrier.sql",
+        "096_transport_recovery.sql", "097_unknown_commit_resolution.sql", "098_lease_recovery.sql", "100_recovery_priority.sql",
+        "105_backup_restore_orchestration.sql", "106_pitr_boundary.sql", "107_recovery_retry_policy.sql", "108_recovery_checkpoint.sql",
+        "109_recovery_idempotency.sql", "110_recovery_safety_fence.sql", "111_chaos_drill.sql", "112_recovery_certification.sql",
+        "113_workflow_operation.sql", "114_data_layer_contract.sql", "115_dependency_classification.sql", "116_startup_phase.sql",
+        "117_startup_phase_gate.sql", "118_schema_readiness.sql", "119_rag_readiness_gate.sql", "120_shutdown_phase.sql",
+        "121_shutdown_audit.sql", "122_unclean_shutdown_detection.sql", "123_cache_invalidation_policy.sql",
+        "124_data_layer_dependency_graph.sql", "125_integration_rule.sql", "126_transport_lease_idempotency_catchup.sql",
+        "127_audit_hash_chain_insert_time.sql", "128_ddl_guard_role_fence_and_workflow_fingerprint.sql",
+        "129_permission_projection_runtime.sql", "130_maintenance_schema.sql", "131_rag_generation_registry.sql",
+        "133_rag_canonical_outbox_event.sql", "134_trading_system.sql", "135_market_data.sql", "136_fund_data.sql",
+        "137_ai_intelligence.sql", "138_strategy_backtest.sql", "139_simulation_trading.sql", "140_live_trading.sql",
+        "141_offline_broker.sql", "142_asset_management.sql", "143_monitoring_center.sql", "144_autotrading_center.sql",
+        "145_baseline_reanchor.sql", "146_governance_nonce.sql", "147_state_outbox.sql", "148_rag_canonical_chunk_embedding.sql"
+      ]
+    }
+  ],
+  "advisory_open_questions_not_decisions_here": [
+    "target_schema_hash recipe: executor measures live manifest via OBJECT_MANIFEST_V1 but registered target_schema_hash values were stamped under a different governor-side recipe - governor must publish the recipe or authorize a restamp of the hash chain before the chain can execute",
+    "machine_schema_registry parity: 77 PENDING rows; proposal codex-amendment-proposal-machine-schema-parity-restamp-20260924 is staged; its referenced extractor toolchain was retired with the Python lane"
+  ],
+  "blocking_context": "until MIG-REG-A and MIG-REG-B are dispositioned the ordered chain cannot execute (registry-hash verification is fail-closed); until MIG-REG-C is dispositioned the live catalog keeps diverging from declared migration state (probe: 709 declared objects missing live, 522 live-only objects)",
+  "verification": {
+    "method": "SHA-256 of current file bytes vs sql_migration_registry.migration_source_hash for every registered forward_identity; Test-Path per registered file; registry-vs-disk basename diff for unregistered set; git show --stat / git log --follow for commit attribution",
+    "reproducibility": "deterministic; measurement performed 2026-10-02 against the live database and the working tree"
+  }
+}

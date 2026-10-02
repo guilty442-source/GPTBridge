@@ -1,0 +1,1097 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "codex-postgresql-role-inventory-and-release-boundary-20261002",
+  "title": "Replace role placeholder with catalog observations and retain release denial",
+  "summary": "Registry/data only: observe47 actual PostgreSQL roles without grants;refresh data-schema activation binding;role identity,purpose,permission and RLS compliance remain incomplete",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor finding: role registry placeholder and open data-schema directory;no role or permission implementation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T11:12:52Z",
+    "version_identity": "E2:2026-10-02T11:12:52Z",
+    "version_epoch": 2,
+    "history_head": "1fea96cbe59d542f26023ba94625955806435a67f08152dfa27cecc1daaa9df7",
+    "revision_sequence": 232
+  },
+  "changes": [
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "FORMAL_RULE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;registry=89;participating=80;open=80;input-sha256=3cf8e513a49a460988e1fd581d43e0d506bdd5b7103cbd65322fcebdde8a71bd;NO_RUNTIME_PARITY_INFERRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "MACHINE_SCHEMA_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;registered=77;open=77;input-sha256=68065715783ac1bfa87b6bcbc615919fee4ce8bfa790e374c0f1fbc1ec935a59;activation-and-verified-release=DENIED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;active=990;unknown=185;input-sha256=39170cc97a6958e5630f6ec2b1f67b3b3e580e18d1691f0315e80dc3f04e4b14"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DIRECTORY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;project=54/54;semantic-mismatches=0;catalog=81;catalog-open=40;input-sha256=0600f63e72324dc4e11d67d6c4b28c5e0f451678fef5b3ea6aa2463c89ec48dc;suite-projection=17/17;suite-retired=3;suite-mandated-roots-missing=14;model-evidence=INCOMPLETE_EVIDENCE"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "DUPLICATION_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;exact-duplicate-groups=0;semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;checked=906;source-stale=0;input-sha256=2d15d1f38b358a0611041f6c8486c66a635c2514dc506db5fe8724dbf1f27575;candidate-publication-requires-search-rebuild"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "PROJECTION_PARITY_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;diagram-required=13;diagram-match=13;source-result=PASS;independent-mirror-and-SQL-publication-gate=REQUIRED"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "verified_at",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_roots",
+      "table": "codex_convergence_closure",
+      "key": {
+        "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;candidate-generation=bound-by-version_identity-field;formal=80;schema=77;surface=185;directory=40;semantic-review=1;open-obligations=60;obligation-counts={\"complete\":2,\"evidence-submitted\":1,\"mandated\":58,\"pending\":1,\"superseded\":1};obligation-input-sha256=12e924fe8d50aa23ed6d92745c8310825a6edac1a31f0d2af34a03e55d25387f;external-signature=1;counts=gate-instances-not-unique-incidents;additional-suite-root-gap=14;additional-model-evidence-gap=24"
+    },
+    {
+      "field": "version_identity",
+      "table": "codex_convergence_metrics",
+      "key": {
+        "report_id": "CONVERGENCE_CURRENT"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "evidence_summary",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "source=2026-10-02T11:12:52Z;registry=89;participating=80;open=80;no-execution-parity-inferred"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "FORMAL_EVALUATOR_PARITY"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "IMPLEMENTATION_OBLIGATIONS"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "CODEX_CONVERGENCE_CLOSURE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "field": "version_identity",
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "directory_activation_state",
+      "key": {
+        "directory_code": "DIR_DATA_SCHEMA_AUTHORITY"
+      },
+      "field": "version_identity",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "postgresql_role_registry",
+      "key": {
+        "role_identity": "ROLE_INVENTORY_REQUIRED"
+      },
+      "field": "status",
+      "proposed": "superseded"
+    },
+    {
+      "table": "postgresql_role_registry",
+      "key": {
+        "role_identity": "ROLE_INVENTORY_REQUIRED"
+      },
+      "field": "purpose",
+      "proposed": "Historical inventory placeholder superseded by read-only catalog observation of47 actual roles;role governance acceptance remains INCOMPLETE_EVIDENCE;not a PostgreSQL role"
+    },
+    {
+      "table": "postgresql_role_registry",
+      "key": {
+        "role_identity": "ROLE_INVENTORY_REQUIRED"
+      },
+      "field": "version_identity",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "postgresql_role_registry",
+      "key": {
+        "role_identity": "ROLE_INVENTORY_REQUIRED"
+      },
+      "field": "revision",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "field": "pending_codes",
+      "proposed": "AI_ASSISTANT|AI_COLLABORATION|CAPABILITY_DISPATCH_CLOSURE|CODEX_CONVERGENCE_CLOSURE|CORE_ENGINE_EQUIVALENCE_CLOSURE|CURRENT_NORMATIVE_SURFACE_CLOSURE|DIRECTORY_GOVERNANCE_DATA|DIR_API_EVENT_CONTRACT|DIR_AUDIT_EVIDENCE_RETENTION|DIR_AUTHORED_SOURCE_INVENTORY|DIR_BACKUP_RECOVERY_MIGRATION|DIR_CAPABILITY_REGISTRY|DIR_CHANNEL_SESSION_ROUTE_STATE|DIR_CODEX_REFERENCE_CODE_REGISTRY|DIR_CONFIG_CREDENTIAL_SECRET|DIR_CROSS_STORE_RECONCILIATION|DIR_DATA_PLATFORM_OBSERVABILITY|DIR_DATA_SCHEMA_AUTHORITY|DIR_DEPENDENCY_COMPATIBILITY_GRAPH|DIR_GOVERNANCE_PERFORMANCE_EVIDENCE|DIR_IDENTITY_GROUP|DIR_IDENTITY_MODULE|DIR_LANGUAGE_GOVERNANCE_DERIVED_STATE|DIR_LANGUAGE_GOVERNANCE_FINAL_DECISION|DIR_LANGUAGE_GOVERNANCE_REGRESSION_CORPUS|DIR_LEGACY_ROOT_RETIREMENT|DIR_MODEL_RESOURCE_DEPENDENCY|DIR_MODULE_ASSIGNMENT|DIR_MODULE_LINE_COUNT_REGISTRY|DIR_MODULE_SELF_DECOMPOSITION|DIR_NATIVE_PROMOTION_RECORD|DIR_PERMISSION_CAPABILITY|DIR_REPAIR_ACTION_PROVENANCE|DIR_RUNTIME_INSTANCE_GENERATION|DIR_SERVICE_PROCESS_PORT_ENV|DIR_SOURCE_LINE_LIMIT_EVIDENCE|DIR_SOVEREIGN_HIERARCHY|DIR_TOOL_FAILURE_ISOLATION|DIR_TOOL_ROUTE|DIR_UI_WINDOW_FEATURE_ENTRY|DIR_UNIFIED_DATA_HEALTH|DIR_UPDATE_SYNCHRONIZATION_TRANSACTION|DIR_USER_COMMAND_SIGNATURE|DIR_VERSION_RELEASE_ARTIFACT|DIR_XINGCHENG_COMPLIANCE_FINDINGS|DIR_XINGCHENG_CONFIDENTIAL_AUDIT|DIR_XINGCHENG_FAULT_DECISION|DIR_XINGCHENG_GOVERNANCE|EVENT_SERVICE|EXTERNAL_SIGNATURE|FILE_SORTER|FINAL_CONVERGENCE_IMPLEMENTATION_PLAN|FINAL_PROJECT_CONVERGENCE_CLOSURE|FORMAL_EVALUATOR_PARITY|FORMAL_RULE_PARITY|FORMAL_RULE_PARITY_CLOSURE|FR-BACKEND-LIFECYCLE|FR-CONNECTION-RECOVERY|FR-CONNECTION-STATE|FR-CONVERGENCE-PLAN|FR-DEV-RUNTIME-SEPARATION|FR-DIALOGUE-TRAINING|FR-EVAL-SUITE|FR-EXECUTION-LEASE|FR-GIT-SQL-RAG-CAG-DAG-DIVISION|FR-GPU-ACCEL-TRACK|FR-IMPL-PRECEDENCE|FR-INFER-CONSISTENCY|FR-INTEGRATION-SEQUENCE|FR-KV-CACHE-TESTS|FR-LANG-LAYERING|FR-MAINT-UPDATE-INTEGRATION|FR-MODEL-MATURITY|FR-MODEL-MOE|FR-MODEL-SCALING|FR-MODEL-TRAINING-TIERS|FR-MODULE-HASH-CHAIN|FR-MOE-QC|FR-MULTI-CONFIG-GPT|FR-MULTI-CORE-PARALLEL|FR-NO-SUB-SOVEREIGN-ALL-MODULES|FR-OLLAMA-ON-DEMAND|FR-ONDEMAND-MODULES|FR-PRETRAIN-DATA-PIPELINE|FR-RELEASE-MANIFEST|FR-REQUEST-LIFECYCLE|FR-REQUEST-REGISTRY|FR-SINGLE-PURPOSE-MODULE|FR-SMALL-MODEL-BASELINE|FR-SOVEREIGN-TO-CORE-ENGINE|FR-TASK-LIFECYCLE|FR-TOOL-CALLING-COMPETENCE|FR-TRAIN-NTP-CORRECTNESS|FR-WEIGHT-EVOLUTION|FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE|FREEZE_PENDING|GLOBAL_CLEANER|IMPLEMENTATION_OBLIGATIONS|INVESTMENT_MOBILE|IPC_SERVICE|LANGUAGE_GOVERNANCE_FREEZE|LAUNCHER|LOCAL_MODEL|MACHINE_SCHEMA_PARITY|MACHINE_SCHEMA_PARITY_CLOSURE|MAIN_SYSTEM|MODEL_DIALOGUE|OBLIGATION_CLOSURE|OBL_A334_RUNTIME_GATE_FULL_COVERAGE|OBL_ANTI_JAILBREAK|OBL_ARCHITECTURE_CATALOG|OBL_AUTHORITY_MARKER|OBL_BACKUP_RESTORE_AUTHORITY|OBL_BLOAT_VACUUM_CONTROL|OBL_BUSINESS_LOGIC_CSHARP_PARENT|OBL_CAPACITY_WATERMARK|OBL_CENTRAL_AUDIT_SQL|OBL_CHANNEL_ANOMALY_ISOLATION|OBL_CONNECTION_GENERATION_FENCE|OBL_DAG_CAG_RAG_HYBRID|OBL_DATABASE_STARTUP_CERTIFICATION|OBL_DATA_CONTRACT_HANDSHAKE|OBL_DATA_LINEAGE|OBL_DATA_SCHEMA_AUTHORITY_DIRECTORY|OBL_DATA_SLO|OBL_DDL_AUDIT|OBL_DEV_RUNTIME_SEPARATION|OBL_DIRECTORY_GOVERNANCE_DATA_CLOSURE|OBL_DOMAIN_READ_ONLY_EMERGENCY|OBL_FORMAL_EVALUATOR_V2_PARITY|OBL_IDENTITY_AUTHENTICATION_SIMPLIFICATION|OBL_IMPLEMENTATION_PRECEDENCE|OBL_INTEGRATED_OBJECTIVES|OBL_LANGUAGE_DEPENDENCY_DAG_GATE|OBL_LAYERED_ARCHITECTURE|OBL_LONG_TRANSACTION_WATCHDOG|OBL_MACHINE_SCHEMA_PARITY|OBL_MAINTENANCE_UPDATE_INTEGRATION|OBL_MODEL_SCALING_STRATEGY|OBL_MODEL_TRAINING_GOVERNANCE_PARENT|OBL_NATIVE_COMPUTE_CORE_CLASS|OBL_NATIVE_PROMOTION_RECORD_CHECKER|OBL_NORMALIZED_TEST_FLOW_COVERAGE|OBL_ORPHAN_SCANNER|OBL_PERMISSION_PROOF_SNAPSHOT|OBL_POSTGRESQL_AUTHORITY|OBL_REBUILD_CERTIFICATION|OBL_RPO_RTO_CLASS|OBL_SCHEMA_DRIFT_GATE|OBL_SCHEMA_OWNERSHIP_LOCK|OBL_SEVEN_INDEPENDENT_TOOL_ARCHITECTURE_CONVERGENCE|OBL_SHARED_TRANSPORT_SQL|OBL_SQLITE_FALLBACK|OBL_SQL_GOVERNANCE_CLOSURE|OBL_SQL_HEALTH_READINESS|OBL_SQL_MIGRATION|OBL_SQL_SECURITY_PROJECTION|OBL_SQL_TEST|OBL_SYSTEM_RELIABILITY|OBL_TEST_SUITE_DIRECTORY|OBL_TOP_LEVEL_PATHS|OBL_TWO_PHASE_DELETION|OBL_WEIGHT_EVOLUTION|OBL_WORKLOAD_CLASS|OBL_WRITE_PROVENANCE|OBL_XINGCHENG_PRIMARY_GOAL|OBL_星澄_AUDIT|POSTGRESQL_AUTHORITY|POSTGRESQL_ROLE_GOVERNANCE|QDRANT_AUTHORITY|RULE_BACKEND_HANDOFF|RULE_CALL_BOUNDARY|RULE_CAPABILITY_DISPATCH|RULE_CODEX_CONVERGENCE|RULE_CONNECTION_ROUTE|RULE_DELEGATED_A498|RULE_DELEGATION_VALIDATION|RULE_EXECUTION_PIPELINE|RULE_EXECUTION_VERIFICATION_SEPARATION|RULE_FILE_OPERATION_RELIABILITY|RULE_FINAL_ARCHITECTURE|RULE_GIT_WORKTREE|RULE_GO_RUST_RUNTIME|RULE_HEALTH_CONTRACT|RULE_IDENTITY_CONVERSION|RULE_INFRA_VERSIONS|RULE_JS_NATIVE|RULE_LANGUAGE_REALLOCATION|RULE_LANGUAGE_TABLE_OFFICIAL|RULE_LANGUAGE_VERSIONS|RULE_MACHINE_SCHEMA|RULE_MAIN_SYSTEM_CSHARP14|RULE_MATURE_CAPABILITY_PRESERVATION|RULE_MODEL_DIALOGUE_MODE|RULE_NATIVE_COMPUTE_C23|RULE_NATIVE_PROMOTION|RULE_PRECEDENCE_RESOLUTION|RULE_RAG_PROVENANCE|RULE_RELEASE_VERIFICATION|RULE_RESOURCE_GOVERNOR_CPP23|RULE_RETIRED_DEPENDENCIES|RULE_ROLE_SEPARATION|RULE_RUNTIME_AUTHORITY_RESOLUTION|RULE_RUST_TESTS|RULE_SQL_GOVERNANCE_CLOSURE|RULE_SQL_MIGRATION_AUTHORITY|RULE_TEST_AUDIT_RESPONSIBILITY|RULE_TEST_SUITE_CARDINALITY|RULE_TEST_TOOLS|RULE_TOOL_RUNTIME|RULE_VECTOR_ENGINE_RUST|SEARCH_CURRENTNESS_CLOSURE|SEMANTIC_DUPLICATION_REVIEW|SHARED_LAYER|STATE_SERVICE|SUB_SOVEREIGN_RETIREMENT_CLOSURE|SYSTEM_MODULARIZATION|SYSTEM_RESCUE|UNKNOWN_ARTICLE_CLASSIFICATION|VAULTLY|VERSION_CURRENTNESS_CLOSURE"
+    },
+    {
+      "table": "governance_closure_state",
+      "key": {
+        "component_code": "VERIFIED_RELEASE"
+      },
+      "field": "evidence_summary",
+      "proposed": "DENIED:open components and obligations plus external signature and PostgreSQL role governance;47 observed role records are inventory evidence only;DIR_DATA_SCHEMA_AUTHORITY remains open/INCOMPLETE_EVIDENCE/verified-release-denied;no rights,identity,purpose,RLS or least-privilege acceptance inferred."
+    }
+  ],
+  "proposed_successors": [
+    {
+      "registry": "postgresql_role_registry",
+      "action": "insert",
+      "rows": [
+        {
+          "role_identity": "gptbridge_index_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_index_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_migration_owner",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_ai_assistant_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_ai_assistant_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_ai_collaboration_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_ai_collaboration_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_file_sorter_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_file_sorter_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_global_cleaner_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_global_cleaner_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_investment_mobile_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_investment_mobile_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_local_ai_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_local_ai_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_shared_layer_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_shared_layer_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_system_rescue_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_system_rescue_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_vaultly_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_vaultly_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_xingcheng",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_xingcheng_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_module_xingcheng_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_owner",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_reader",
+          "login_allowed": 1,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_runtime",
+          "login_allowed": 1,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_transport_executor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_xingcheng_internal",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "gptbridge_xingcheng_reader",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_checkpoint",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_create_subscription",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_database_owner",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:public;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_execute_server_program",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_maintain",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_monitor",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_read_all_data",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_read_all_settings",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_read_all_stats",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_read_server_files",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_signal_autovacuum_worker",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_signal_backend",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_stat_scan_tables",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_use_reserved_connections",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_write_all_data",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "pg_write_server_files",
+          "login_allowed": 0,
+          "superuser": 0,
+          "createdb": 0,
+          "createrole": 0,
+          "replication": 0,
+          "bypass_rls": 0,
+          "owner_scope": "observed-owned-schemas:;authorization-scope-unverified",
+          "purpose": "PostgreSQL built-in role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        },
+        {
+          "role_identity": "postgres",
+          "login_allowed": 1,
+          "superuser": 1,
+          "createdb": 1,
+          "createrole": 1,
+          "replication": 1,
+          "bypass_rls": 1,
+          "owner_scope": "observed-owned-schemas:cognition|gptbridge_ai_nexus|gptbridge_audit|gptbridge_codex|gptbridge_codex_codex_stage_27fdc35c27e02692_5a5bc4ab|gptbridge_codex_codex_stage_383509abba2e50b7_3e798a33|gptbridge_codex_codex_stage_3de77e66c3db8efb_85923e34|gptbridge_codex_codex_stage_55ac7fc5da59cce2_2c449fb9|gptbridge_codex_codex_stage_56c83a6e17f98386_89704401|gptbridge_codex_codex_stage_56c83a6e17f98386_c6ef337d|gptbridge_codex_codex_stage_56c83a6e17f98386_cbe15729|gptbridge_codex_codex_stage_56c83a6e17f98386_ced7e8f3|gptbridge_codex_codex_stage_5c2d819fbec95456_1a97022b|gptbridge_codex_codex_stage_96a83ed60874743d_d320618a|gptbridge_codex_codex_stage_ef5c022e9791971e_b9e4675d|gptbridge_collab|gptbridge_file_sorter|gptbridge_identity|gptbridge_index|gptbridge_investment_mobile|gptbridge_legacy|gptbridge_maintenance|gptbridge_migration|gptbridge_perf|gptbridge_permission|gptbridge_rag|gptbridge_repair|gptbridge_security|gptbridge_trading|gptbridge_transport|gptbridge_vaultly|gptbridge_workflow|gptbridge_xingcheng|gptbridge_xingcheng_coding|gptbridge_xingcheng_investment|gptbridge_xingcheng_main|gptbridge_xingcheng_mathematical|identity|im_test_2b2add747cb5|im_test_944e805f2a59|im_test_a865a47da9a1|im_test_b1b1bb70d82f|information_schema|module_audit|module_data|module_state|outbox_test_7042bc8ff43e|outbox_test_7a7036e31b9d|outbox_test_a958695efe5b|outbox_test_c4bd408402e2|outbox_test_e96c330861f2|pg_catalog|pg_temp_42|pg_temp_67|pg_toast|pg_toast_temp_42|pg_toast_temp_67|registry|rrq_test_05187491b1fc|rrq_test_063fcd958d24|rrq_test_0af67b5e5a0c|rrq_test_116f3885a267|rrq_test_13c50fe5e340|rrq_test_18b63923612b|rrq_test_4b05a86f563a|rrq_test_588d90468f18|rrq_test_6909837ee1b7|rrq_test_75e801b96105|rrq_test_792be1cc5f5e|rrq_test_a477c81e40b5|rrq_test_b396bd8cf3c1|rrq_test_be05809f2c1a|rrq_test_d2f326661cca|rrq_test_d5eb04ff1b84|rrq_test_dc45435b9c1b|rrq_test_f2e3149db684|vect_test_3bb0f1660ad9|vect_test_3cd821a6f62e|vect_test_6a5a8a3c5463|vect_test_6dc59f238404|vect_test_a0a178146f04|vect_test_be4030556239|vect_test_cd12b32d9528|vect_test_ce8e7fba1bd9|vect_test_d2c7a65ab478|vect_test_f15b1a74b4cf|vect_test_f900195c30f6|vect_test_fd736ab5e73d|vect_test_fe9c9fbcb7c9|vs_test_0609ab2ec381|xc_test_coding_a00bfb5da5|xc_test_investment_0ca26cc701|xc_test_investment_a00bfb5da5|xc_test_main_a00bfb5da5|xc_test_mathematical_a00bfb5da5|xc_test_shared_a00bfb5da5;authorization-scope-unverified",
+          "purpose": "Observed cluster role;governed purpose unverified;observed_at=2026-10-02T11:16:42Z;evidence=governance_rule/execution/audit/convergence/postgresql-role-observation-20261002.json",
+          "governed_identity": "UNVERIFIED;no identity inferred from role name",
+          "version_identity": "<successor-version>",
+          "status": "INCOMPLETE_EVIDENCE",
+          "revision": "<successor-version>",
+          "evidence_hash": "522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36"
+        }
+      ]
+    },
+    {
+      "registry": "governance_closure_state",
+      "action": "insert",
+      "rows": [
+        {
+          "component_code": "POSTGRESQL_ROLE_GOVERNANCE",
+          "structural_state": "catalog-observed",
+          "governance_state": "INCOMPLETE_EVIDENCE",
+          "certification_state": "CODEX_CERTIFICATION_INCOMPLETE",
+          "evidence_summary": "Observed47 actual roles,including built-ins;source=pg_roles+pg_namespace+pg_auth_members;observed_at=2026-10-02T11:16:42Z;evidence-file-sha256=522d461392056dd99e32e03ce5de0c18fdfe40c5517d2d5858873554619c9c36;observational coverage only;purpose,governed identity,least privilege,RLS and lifecycle validation not certified;no grant or role mutation",
+          "pending_codes": "gptbridge_index_executor|gptbridge_index_reader|gptbridge_migration_owner|gptbridge_module_ai_assistant_executor|gptbridge_module_ai_assistant_reader|gptbridge_module_ai_collaboration_executor|gptbridge_module_ai_collaboration_reader|gptbridge_module_file_sorter_executor|gptbridge_module_file_sorter_reader|gptbridge_module_global_cleaner_executor|gptbridge_module_global_cleaner_reader|gptbridge_module_investment_mobile_executor|gptbridge_module_investment_mobile_reader|gptbridge_module_local_ai_executor|gptbridge_module_local_ai_reader|gptbridge_module_shared_layer_executor|gptbridge_module_shared_layer_reader|gptbridge_module_system_rescue_executor|gptbridge_module_system_rescue_reader|gptbridge_module_vaultly_executor|gptbridge_module_vaultly_reader|gptbridge_module_xingcheng|gptbridge_module_xingcheng_executor|gptbridge_module_xingcheng_reader|gptbridge_owner|gptbridge_reader|gptbridge_runtime|gptbridge_transport_executor|gptbridge_xingcheng_internal|gptbridge_xingcheng_reader|pg_checkpoint|pg_create_subscription|pg_database_owner|pg_execute_server_program|pg_maintain|pg_monitor|pg_read_all_data|pg_read_all_settings|pg_read_all_stats|pg_read_server_files|pg_signal_autovacuum_worker|pg_signal_backend|pg_stat_scan_tables|pg_use_reserved_connections|pg_write_all_data|pg_write_server_files|postgres",
+          "version_identity": "<successor-version>",
+          "status": "current",
+          "priority": "P0"
+        }
+      ]
+    }
+  ]
+}

@@ -25,7 +25,7 @@ flowchart TB
     end
 
     subgraph RUST["Rust 資料面"]
-        XSTORE["xstore.exe<br/>content-addressed store + XCN verify<br/>→ Native Metadata Authority（接管中）"]
+        XSTORE["xstore.exe<br/>content-addressed store + XCN verify<br/>（物件/快照/內容雜湊/衍生索引；metadata 權威在 PG）"]
         XCORPUS["xcorpus.exe / xcorpus.dll<br/>corpus pipeline + xtok tokenizer ABI"]
     end
 
@@ -42,7 +42,7 @@ flowchart TB
     end
 
     subgraph EXT["外部依賴"]
-        PG[("PostgreSQL<br/>gptbridge_xingcheng* schemas<br/>（過渡期正式路徑 → xstore metadata 接管中）")]
+        PG[("PostgreSQL<br/>gptbridge_xingcheng* schemas<br/>（正式結構化 metadata 權威）")]
         CONSUMERS["model-dialogue ToolHost / NativeModelClient<br/>(C# orchestrator-only consumers)"]
         OLLAMA["ollama-service.exe<br/>teacher distillation (loopback 11434)<br/>（B154 註冊；native-only dependency 消除中）"]
     end
@@ -93,7 +93,7 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2376 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2381 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |

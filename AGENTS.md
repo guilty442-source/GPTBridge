@@ -1460,24 +1460,16 @@ Worker rules for codex work:
    and `XingchengLearning/ResourceGovernance*` land via separate
    workers; do not sweep them into unrelated commits (path-scoped
    commits only).
-6. **xstore Native Metadata Authority takeover not done — no xstore-
-   side metadata contract exists yet.** The decided architecture makes
-   `xstore` the native metadata authority for xingcheng, but
-   `XingchengLearning/Repository.cs` still writes the
-   `gptbridge_xingcheng` PG tables (dataset/job/candidate/
-   evaluation/audit) and SelfLearning still connects to PG directly.
-   Assessed 2026-10-02: the `xstore` crate
-   (`xingcheng/src/backend/rust/xstore`) currently implements
-   checkpoints, snapshots, failure pools, audit JSONL and the kernel
-   registry — it has **no metadata/table authority surface** (no
-   registry schema for dataset/job/candidate/evaluation rows).
-   The takeover therefore needs a governed metadata contract in
-   xstore first; implementing one unilaterally would be
-   self-authorizing architecture (deny-by-default). The
-   `architecture-xingcheng-{architecture,data,capabilities}.md` views
-   carry `（過渡期正式路徑 → xstore metadata 接管中）` marks; the
-   migration itself remains open implementation work pending that
-   contract.
+6. **xstore metadata-authority takeover CANCELLED (2026-10-02
+   decision reversal).** PostgreSQL remains the formal structured
+   metadata authority (`gptbridge_xingcheng*` schemas — dataset/job/
+   candidate/evaluation/audit rows); `xstore` is scoped to objects,
+   snapshots, content hashes and derived indexes only — never a
+   metadata/table authority. The earlier "接管中" marks in
+   `architecture-xingcheng-{architecture,data,capabilities}.md` have
+   been removed; the assessment that xstore has no metadata contract
+   surface stands (that absence is now the intended end state, not an
+   open gap). No migration work remains here.
 7. **Ollama dependency elimination not done.** `ollama-service.exe`
    and the teacher-distillation lane (`TeacherCollect.cs`,
    `--teacher-collect`, `teacher-distillation.json`) still exist;
