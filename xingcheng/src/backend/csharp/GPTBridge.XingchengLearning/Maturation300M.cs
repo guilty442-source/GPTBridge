@@ -328,7 +328,7 @@ internal static class Maturation300M
             // --maturation-reopen.
             if (capability.Length == 0)
                 return;
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"capability '{capability}' is denied: the 300M " +
                 "maturation sequence is complete; reopen a bounded " +
                 "lane with --maturation-reopen");
@@ -339,7 +339,7 @@ internal static class Maturation300M
                 "maturation sequence");
         if (!string.Equals(capability, head.Id,
                            StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"capability '{capability}' is not the sequence head " +
                 $"'{head.Id}'; earlier capabilities must reach frozen " +
                 "first");
@@ -355,7 +355,7 @@ internal static class Maturation300M
         CapabilitySpec? head = Head(state);
         if (head == null || !string.Equals(capability, head.Id,
                 StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"cannot freeze '{capability}': sequence head is " +
                 $"'{head?.Id ?? "none"}'");
         if (string.IsNullOrWhiteSpace(evidenceRef))
@@ -443,7 +443,7 @@ internal static class Maturation300M
         CapabilitySpec? head = Head(state);
         if (head == null || !string.Equals(capability, head.Id,
                 StringComparison.OrdinalIgnoreCase))
-            throw new ExecutorError("CAPABILITY_OUT_OF_SEQUENCE",
+            throw new ExecutorError("CAPABILITY_SEQUENCE_VIOLATION",
                 $"cannot mark '{capability}' unsupported: sequence "
                 + $"head is '{head?.Id ?? "none"}'");
         if (string.IsNullOrWhiteSpace(evidenceRef))

@@ -1,19 +1,21 @@
 // TeacherCollect.cs — governed teacher-distillation collector.
 //
-// B154 registers teacher distillation as an explicit Ollama demand:
-// the service is activated lazily through the governed
-// ollama-service.exe lane (probe → ensure → generate → audited),
-// loopback-only, and unloads under the resource policy. XingCheng
-// never calls a model endpoint directly.
+// Native self-distillation lane (B154 successor direction): the teacher
+// signal is produced by XingCheng's own governed weights through
+// `xc_modeltool serve --bundle <dir>` + the `infer` op — never an
+// external model service. A scope's teacher spec is "self" (the pinned
+// native-engine checkpoint) or a tool-root-relative bundle artifact
+// path; anything else fails closed. The serve session is
+// process-scoped demand residency (load-once, disposed with the run) —
+// no resident teacher daemon exists.
 //
-// Flow: load policy -> demand-activate Ollama -> per prompt call the
-// scope's configured teacher on 127.0.0.1:11434 -> validate bounds ->
+// Flow: load policy -> resolve each scope's teacher bundle -> per
+// prompt call `infer` on the native engine -> validate bounds ->
 // INSERT deterministic rows into gptbridge_xingcheng_<scope>
 // .language_training_example. The normal run_cycle collects them like
 // any other verified example — collection never touches training
 // itself. Deterministic example_ids make re-runs idempotent.
 
-using System.Net.Http;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
@@ -23,14 +25,25 @@ internal sealed class TeacherDistillationPolicy
     public const string Format = "star-teacher-distillation-policy/v1";
 
     public bool Enabled = false;
+    /// <summary>AC §57-§59: "native" uses a governed Xingcheng bundle
+    /// (active/mature generation) as the teacher through xc_modeltool
+    /// serve; "ollama" is the B154-registered external lane. With no
+    /// legitimate teacher the lane DISABLES — never a silent Ollama
+    /// fallback (§59).</summary>
+    public string Source = "ollama";
     public Dictionary<string, string> Teachers = new(StringComparer.Ordinal);
+    /// <summary>Native teacher bundles per scope — scope id -> bundle
+    /// directory. Only governed xingcheng generation bundles qualify;
+    /// a missing/unreadable bundle disables that scope's prompts (§58).</summary>
+    public Dictionary<string, string> NativeBundles =
+        new(StringComparer.Ordinal);
     public List<Dictionary<string, string>> Prompts = new();
     public int MaxRowsPerRun = 24;
     public int MaxNewTokens = 256;
     public double QualityScore = 0.92;
     public double Temperature = 0.2;
     public int RequestTimeoutS = 180;
-    public int EnsureTimeoutS = 60;
+    public int ServeTimeoutS = 60;
     public int MinTargetChars = 1;
     public int MaxTargetChars = 4096;
 
@@ -40,14 +53,17 @@ internal sealed class TeacherDistillationPolicy
     {
         ["format"] = Format,
         ["enabled"] = Enabled,
+        ["teacher_source"] = Source,
         ["teachers"] = Teachers.ToDictionary(
+            p => p.Key, p => (object?)p.Value, StringComparer.Ordinal),
+        ["native_teacher_bundles"] = NativeBundles.ToDictionary(
             p => p.Key, p => (object?)p.Value, StringComparer.Ordinal),
         ["max_rows_per_run"] = MaxRowsPerRun,
         ["max_new_tokens"] = MaxNewTokens,
         ["quality_score"] = QualityScore,
         ["temperature"] = Temperature,
         ["request_timeout_s"] = RequestTimeoutS,
-        ["ensure_timeout_s"] = EnsureTimeoutS,
+        ["serve_timeout_s"] = ServeTimeoutS,
         ["min_target_chars"] = MinTargetChars,
         ["max_target_chars"] = MaxTargetChars,
         ["prompts"] = Prompts.Count,
@@ -67,6 +83,15 @@ internal sealed class TeacherDistillationPolicy
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             var el = doc.RootElement;
             policy.Enabled = GetBool(el, "enabled", false);
+            string src = GetStr(el, "teacher_source");
+            policy.Source = src is "native" or "ollama" ? src : "ollama";
+            if (el.TryGetProperty("native_teacher_bundles", out var nb)
+                && nb.ValueKind == JsonValueKind.Object)
+                foreach (var p in nb.EnumerateObject())
+                    if (p.Value.ValueKind == JsonValueKind.String
+                        && (p.Value.GetString() ?? "").Length > 0)
+                        policy.NativeBundles[p.Name] =
+                            p.Value.GetString()!;
             policy.MaxRowsPerRun = GetInt(el, "max_rows_per_run",
                 policy.MaxRowsPerRun);
             policy.MaxNewTokens = GetInt(el, "max_new_tokens",
@@ -77,8 +102,8 @@ internal sealed class TeacherDistillationPolicy
                 policy.Temperature);
             policy.RequestTimeoutS = GetInt(el, "request_timeout_s",
                 policy.RequestTimeoutS);
-            policy.EnsureTimeoutS = GetInt(el, "ensure_timeout_s",
-                policy.EnsureTimeoutS);
+            policy.ServeTimeoutS = GetInt(el, "serve_timeout_s",
+                GetInt(el, "ensure_timeout_s", policy.ServeTimeoutS));
             policy.MinTargetChars = GetInt(el, "min_target_chars",
                 policy.MinTargetChars);
             policy.MaxTargetChars = GetInt(el, "max_target_chars",
@@ -135,7 +160,7 @@ internal sealed class TeacherDistillationPolicy
 
 internal static class TeacherCollect
 {
-    private const string SourceTypePrefix = "teacher-distill-ollama:";
+    private const string SourceTypePrefix = "teacher-distill-native:";
     private const string AuditRel =
         "xingcheng/runtime/logs/teacher-distillation.jsonl";
 
@@ -160,17 +185,12 @@ internal static class TeacherCollect
                 ["checked_at"] = XcPaths.IsoNow(),
             };
 
-        // B154 governed lazy activation — demand only, never a resident.
-        var ensure = EnsureOllama(tool, policy.EnsureTimeoutS);
-        if (!TransformerTrainingRepository.Truthy(ensure["ok"]))
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false, ["action"] = "blocked",
-                ["reason"] = "ollama-demand-activation-failed",
-                ["ensure"] = ensure,
-                ["checked_at"] = XcPaths.IsoNow(),
-            };
-
+        // Native demand residency — one xc_modeltool serve session per
+        // resolved teacher bundle for the duration of this run.
+        var sessions = new Dictionary<string, ModelToolSession>(
+            StringComparer.Ordinal);
+        var bundleCache = new Dictionary<string, string>(
+            StringComparer.Ordinal);
         var inserted = new List<object?>();
         var skipped = new List<object?>();
         var errors = new List<object?>();
@@ -192,8 +212,8 @@ internal static class TeacherCollect
                 });
                 continue;
             }
-            if (!policy.Teachers.TryGetValue(scope, out string? model)
-                || model.Length == 0)
+            if (!policy.Teachers.TryGetValue(scope, out string? spec)
+                || spec.Length == 0)
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
@@ -202,29 +222,87 @@ internal static class TeacherCollect
                 });
                 continue;
             }
+            if (!bundleCache.TryGetValue(spec, out string? bundleDir))
+            {
+                try
+                {
+                    bundleDir = ResolveTeacherBundle(tool, spec);
+                    bundleCache[spec] = bundleDir;
+                }
+                catch (Exception exc)
+                {
+                    bundleCache[spec] = "";
+                    errors.Add(new Dictionary<string, object?>
+                    {
+                        ["scope"] = scope, ["teacher"] = spec,
+                        ["reason"] =
+                            $"teacher-bundle:{exc.GetType().Name}:" +
+                            exc.Message,
+                    });
+                    continue;
+                }
+            }
+            if (bundleDir.Length == 0)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["scope"] = scope, ["teacher"] = spec,
+                    ["reason"] = "teacher-bundle-unresolved",
+                });
+                continue;
+            }
+            if (!sessions.TryGetValue(bundleDir,
+                    out ModelToolSession? session))
+            {
+                session = ModelToolSession.TryStart(
+                    tool, bundleDir,
+                    Path.Combine(tool, XcPaths.LogsRel,
+                        "teacher-serve-stderr.log"),
+                    policy.ServeTimeoutS);
+                if (session is null)
+                {
+                    errors.Add(new Dictionary<string, object?>
+                    {
+                        ["scope"] = scope, ["teacher"] = spec,
+                        ["reason"] = "native-serve-unavailable",
+                    });
+                    sessions[bundleDir] = null!;
+                    continue;
+                }
+                sessions[bundleDir] = session;
+            }
+            if (session is null)
+            {
+                skipped.Add(new Dictionary<string, object?>
+                {
+                    ["scope"] = scope, ["teacher"] = spec,
+                    ["reason"] = "native-serve-unavailable",
+                });
+                continue;
+            }
 
             string exampleId = "star-train-" +
                 TransformerTrainingRepository.Sha256Text(
-                    $"teacher-distill|{scope}|{model}|{prompt}")[..32];
+                    $"teacher-distill|{scope}|{spec}|{prompt}")[..32];
             if (ExampleExists(tool, scope, exampleId))
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
-                    ["scope"] = scope, ["model"] = model,
+                    ["scope"] = scope, ["teacher"] = spec,
                     ["example_id"] = exampleId,
                     ["reason"] = "already-collected",
                 });
                 continue;
             }
 
-            var gen = Generate(model, prompt,
+            var gen = Generate(session, prompt,
                 policy.MaxNewTokens, policy.Temperature,
                 policy.RequestTimeoutS);
             if (!TransformerTrainingRepository.Truthy(gen["ok"]))
             {
                 errors.Add(new Dictionary<string, object?>
                 {
-                    ["scope"] = scope, ["model"] = model,
+                    ["scope"] = scope, ["teacher"] = spec,
                     ["reason"] = gen.GetValueOrDefault("error"),
                 });
                 continue;
@@ -236,7 +314,7 @@ internal static class TeacherCollect
             {
                 skipped.Add(new Dictionary<string, object?>
                 {
-                    ["scope"] = scope, ["model"] = model,
+                    ["scope"] = scope, ["teacher"] = spec,
                     ["reason"] = $"target-out-of-bounds:{target.Length}",
                 });
                 continue;
@@ -246,10 +324,11 @@ internal static class TeacherCollect
             {
                 ["bounded_output"] = true,
                 ["quality_gate"] = "star-gpt-training-gate/v1",
-                ["received_via"] = "ollama-loopback-only",
+                ["received_via"] = "xc-modeltool-serve-infer",
                 ["direct_external_write"] = false,
                 ["reviewed_by"] = "xc-learning-teacher-collect",
-                ["teacher_model"] = model,
+                ["teacher_model"] = spec,
+                ["teacher_bundle"] = bundleDir,
                 ["scope"] = scope,
                 ["response_digest"] =
                     TransformerTrainingRepository.Sha256Text(target),
