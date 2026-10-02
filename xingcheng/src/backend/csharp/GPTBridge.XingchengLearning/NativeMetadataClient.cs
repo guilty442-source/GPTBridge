@@ -170,10 +170,17 @@ internal sealed class NativeMetadataClient
         return map;
     }
 
-    private static object? ToValue(JsonElement el) => el.ValueKind switch
+    /// <summary>JsonElement → CLR value. Also used by the parity lane to
+    /// normalize PG-side canonical text through the same numeric pipeline
+    /// as xstore-returned records (f64 boundary: shortest-roundtrip text
+    /// differs across languages, values are equal).</summary>
+    internal static object? ToValue(JsonElement el) => el.ValueKind switch
     {
         JsonValueKind.String => el.GetString(),
-        JsonValueKind.Number => el.TryGetInt64(out long l) ? l : el.GetDouble(),
+        // NOTE: the ternary must not promote long→double or Norm-based
+        // parity comparison loses the integer/boolean distinction.
+        JsonValueKind.Number => el.TryGetInt64(out long l)
+            ? (object)l : el.GetDouble(),
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Null => null,

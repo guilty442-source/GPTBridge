@@ -66,11 +66,11 @@ internal static class MetadataParityCheck
                 "example_count, format_version, created_by " +
                 "FROM transformer_training_dataset"),
             r => (string)r["dataset_id"]!,
-            meta.Query(NativeMetadataClient.Types.Dataset),
+            meta.Query(NativeMetadataClient.Types.Dataset, null, 500000),
             r => (string)r["dataset_id"]!,
             new[] { "content_sha256", "snapshot_sha256", "state",
                     "example_count", "format_version", "created_by" },
-            mismatches);
+            mismatches, compared);
         compared["transformer_training_dataset"] = true;
 
         // ---- dataset examples -------------------------------------------
@@ -80,11 +80,11 @@ internal static class MetadataParityCheck
                 "source_example_id, source_revision, quality_score " +
                 "FROM transformer_training_dataset_example"),
             r => $"{r["dataset_id"]}/{r["ordinal"]}",
-            meta.Query(NativeMetadataClient.Types.DatasetExample),
+            meta.Query(NativeMetadataClient.Types.DatasetExample, null, 500000),
             r => $"{r["dataset_id"]}/{r["ordinal"]}",
             new[] { "split", "content_sha256", "source_example_id",
                     "source_revision", "quality_score" },
-            mismatches);
+            mismatches, compared);
         compared["transformer_training_dataset_example"] = true;
 
         // ---- training jobs ------------------------------------------------
@@ -94,11 +94,11 @@ internal static class MetadataParityCheck
                 "requested_by, output_path, error_code " +
                 "FROM transformer_training_job"),
             r => (string)r["job_id"]!,
-            meta.Query(NativeMetadataClient.Types.TrainingJob),
+            meta.Query(NativeMetadataClient.Types.TrainingJob, null, 500000),
             r => (string)r["job_id"]!,
             new[] { "dataset_id", "status", "configuration_sha256",
                     "requested_by", "output_path", "error_code" },
-            mismatches);
+            mismatches, compared);
         compared["transformer_training_job"] = true;
 
         // ---- adapter candidates -------------------------------------------
@@ -107,11 +107,11 @@ internal static class MetadataParityCheck
                 "SELECT adapter_id, job_id, dataset_id, artifact_sha256, " +
                 "status, adapter_format FROM transformer_adapter_candidate"),
             r => (string)r["adapter_id"]!,
-            meta.Query(NativeMetadataClient.Types.Candidate),
+            meta.Query(NativeMetadataClient.Types.Candidate, null, 500000),
             r => (string)r["adapter_id"]!,
             new[] { "job_id", "dataset_id", "artifact_sha256", "status",
                     "adapter_format" },
-            mismatches);
+            mismatches, compared);
         compared["transformer_adapter_candidate"] = true;
 
         // ---- evaluations ----------------------------------------------------
@@ -120,11 +120,11 @@ internal static class MetadataParityCheck
                 "SELECT evaluation_id, adapter_id, suite_id, suite_sha256, " +
                 "passed, evaluated_by FROM transformer_adapter_evaluation"),
             r => (string)r["evaluation_id"]!,
-            meta.Query(NativeMetadataClient.Types.Evaluation),
+            meta.Query(NativeMetadataClient.Types.Evaluation, null, 500000),
             r => (string)r["evaluation_id"]!,
             new[] { "adapter_id", "suite_id", "suite_sha256", "passed",
                     "evaluated_by" },
-            mismatches);
+            mismatches, compared);
         compared["transformer_adapter_evaluation"] = true;
 
         // ---- releases -------------------------------------------------------
@@ -133,11 +133,11 @@ internal static class MetadataParityCheck
                 "SELECT release_id, adapter_id, action, previous_adapter_id, " +
                 "governed_by, reason FROM transformer_adapter_release"),
             r => (string)r["release_id"]!,
-            meta.Query(NativeMetadataClient.Types.Release),
+            meta.Query(NativeMetadataClient.Types.Release, null, 500000),
             r => (string)r["release_id"]!,
             new[] { "adapter_id", "action", "previous_adapter_id",
                     "governed_by", "reason" },
-            mismatches);
+            mismatches, compared);
         compared["transformer_adapter_release"] = true;
 
         // ---- runtime singleton ----------------------------------------------
@@ -182,9 +182,23 @@ internal static class MetadataParityCheck
             "FROM transformer_training_audit_event " +
             "WHERE event_type <> 'xstore-metadata-shadow-failed'")
             .Select(r =>
-                $"{r["event_type"]}|{r["entity_type"]}|{r["entity_id"]}|" +
-                CanonicalJson.CanonicalDocument(
-                    (string)r["payload_json"]!))
+            {
+                // Compare payload VALUES, not text: canonical float bytes
+                // differ across the Rust boundary (serde shortest-
+                // roundtrip vs C# R-format) for the identical f64.
+                string payloadNorm = "null";
+                try
+                {
+                    using var doc = JsonDocument.Parse(
+                        (string)r["payload_json"]!);
+                    if (NativeMetadataClient.ToValue(doc.RootElement) is
+                        IReadOnlyDictionary<string, object?> pd)
+                        payloadNorm = CanonicalJson.CanonicalDict(pd);
+                }
+                catch (JsonException) { /* malformed payload stays raw */ }
+                return $"{r["event_type"]}|{r["entity_type"]}|" +
+                       $"{r["entity_id"]}|{payloadNorm}";
+            })
             .ToList();
         var xsAudit = meta.Query(NativeMetadataClient.Types.Audit,
                                  null, 100_000)
@@ -255,7 +269,8 @@ internal static class MetadataParityCheck
         List<Dictionary<string, object?>> xsRows,
         Func<Dictionary<string, object?>, string> xsKey,
         string[] fields,
-        List<Dictionary<string, object?>> mismatches)
+        List<Dictionary<string, object?>> mismatches,
+        Dictionary<string, object?> compared)
     {
         var pg = new Dictionary<string, Dictionary<string, object?>>(
             StringComparer.Ordinal);
@@ -265,6 +280,9 @@ internal static class MetadataParityCheck
             StringComparer.Ordinal);
         foreach (var r in xsRows)
             xs[xsKey(r)] = r;
+        compared[$"{table}/pg_rows"] = pgRows.Count;
+        compared[$"{table}/xs_rows"] = xsRows.Count;
+        compared[$"{table}/xs_keys"] = xs.Count;
         foreach (var (id, row) in pg)
         {
             if (!xs.TryGetValue(id, out var xr))
@@ -305,14 +323,14 @@ internal static class MetadataParityCheck
         {
             int xc = xsCount.TryGetValue(e, out int n) ? n : 0;
             if (xc != c)
-                mismatches.Add(Mismatch(table, e.Length > 80 ? e[..80] : e,
+                mismatches.Add(Mismatch(table, e.Length > 4000 ? e[..4000] : e,
                     "multiplicity", c.ToString(CultureInfo.InvariantCulture),
                     xc.ToString(CultureInfo.InvariantCulture)));
         }
         foreach (var (e, c) in xsCount)
             if (!pgCount.ContainsKey(e))
                 mismatches.Add(Mismatch(table,
-                    e.Length > 80 ? e[..80] : e, "multiplicity",
+                    e.Length > 4000 ? e[..4000] : e, "multiplicity",
                     "0", c.ToString(CultureInfo.InvariantCulture)));
     }
 }

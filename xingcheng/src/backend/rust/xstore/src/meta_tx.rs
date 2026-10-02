@@ -134,7 +134,15 @@ fn mutate_locked(
             "original": done,
         }));
     }
-    let (specs, result) = dispatch(&st, op, params)?;
+    let (mut specs, result) = dispatch(&st, op, params)?;
+    // Backfill lane: domain ops carry suppress_audit so their implicit
+    // audit records are not double-emitted — the migration replays the
+    // authoritative audit history itself via audit_many.
+    if params.get("suppress_audit").and_then(|x| x.as_bool())
+        == Some(true)
+    {
+        specs.retain(|s| s.record_type != mt::RT_AUDIT);
+    }
     let transaction_id = mt::new_id("xmt");
     let mut receipt_records = Vec::new();
     let mut head = st.head_hash.clone();

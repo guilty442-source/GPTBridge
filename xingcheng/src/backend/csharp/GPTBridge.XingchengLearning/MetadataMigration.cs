@@ -129,6 +129,7 @@ internal static class MetadataMigration
             {
                 meta.ShadowOp("create_dataset", new Dictionary<string, object?>
                 {
+                    ["dataset_id"] = datasetId, // preserve PG identity verbatim
                     ["content_sha256"] = ds["content_sha256"],
                     ["snapshot_path"] = ds["snapshot_path"],
                     ["snapshot_sha256"] = ds["snapshot_sha256"],
@@ -136,6 +137,7 @@ internal static class MetadataMigration
                     ["created_by"] = ds["created_by"],
                     ["format_version"] = ds["format_version"],
                     ["skip_file_check"] = true, // historical snapshots may be pruned
+                    ["suppress_audit"] = true,  // audit history replays verbatim below
                     ["examples"] = examples.Select(e => (object)e).ToList(),
                 });
                 emitted += 1 + examples.Count;
@@ -146,6 +148,7 @@ internal static class MetadataMigration
                         ["record_type"] = "training_dataset",
                         ["record_id"] = datasetId,
                         ["to"] = state,
+                        ["suppress_audit"] = true,
                     });
                 dsOk++;
             }

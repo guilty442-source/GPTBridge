@@ -5,10 +5,8 @@
 use crate::meta_api as api;
 use crate::meta_index as idx;
 use crate::meta_log as log;
-use crate::meta_state as st;
 use crate::meta_tx as tx;
 use serde_json::json;
-use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 

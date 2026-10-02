@@ -206,10 +206,32 @@ pub fn create_dataset(st: &State, p: &Value) -> Result<(Vec<mt::EventSpec>, Valu
     if train < 1 || val < 1 {
         return Err("META_DATASET_EMPTY_SPLIT: need train+validation".into());
     }
-    let dataset_id = format!(
+    let derived_id = format!(
         "star-transformer-dataset-{}",
         &mt::sha256_text(&format!("{content}:{snap_sha}"))[..24]
     );
+    // A supplied dataset_id preserves PG identity verbatim (shadow +
+    // backfill lanes re-emit the authoritative id — rows created under
+    // older identity formulas must not be re-keyed, §8 parity).
+    let dataset_id = {
+        let d = s(p, "dataset_id");
+        if d.is_empty() { derived_id } else { d }
+    };
+    if let Some(r) = st.get(mt::RT_DATASET, &dataset_id) {
+        // PG PRIMARY KEY semantics: same id + same unique key is the
+        // idempotent re-register; same id + different key is a conflict.
+        if s(&r.payload, "content_sha256") == content
+            && s(&r.payload, "snapshot_sha256") == snap_sha
+        {
+            return Ok((Vec::new(), json!({
+                "result": "existing",
+                "dataset_id": dataset_id,
+            })));
+        }
+        return Err(format!(
+            "META_UNIQUE: dataset_id {dataset_id} conflict"
+        ));
+    }
     let uniq = format!("{content}|{snap_sha}");
     if let Some(r) = st
         .list(mt::RT_DATASET)
@@ -268,7 +290,9 @@ pub fn create_dataset(st: &State, p: &Value) -> Result<(Vec<mt::EventSpec>, Valu
         "example_count": examples.len(),
         "training_example_count": train,
         "validation_example_count": val,
-        "created_by": created_by,
+        // PG audits the caller's raw created_by (not the defaulted row
+        // value) — parity requires the same bytes.
+        "created_by": s(p, "created_by"),
     })));
     Ok((specs, json!({"result": "created", "dataset_id": dataset_id})))
 }
@@ -325,7 +349,8 @@ pub fn create_job(st: &State, p: &Value) -> Result<(Vec<mt::EventSpec>, Value), 
     specs.push(audit_spec("training-job", &job_id, "training-job-created", json!({
         "dataset_id": dataset_id,
         "configuration_sha256": cfg_sha,
-        "requested_by": requested_by,
+        // raw caller value — PG audits the parameter, not the default.
+        "requested_by": s(p, "requested_by"),
     })));
     Ok((specs, json!({"result": "queued", "job_id": job_id})))
 }

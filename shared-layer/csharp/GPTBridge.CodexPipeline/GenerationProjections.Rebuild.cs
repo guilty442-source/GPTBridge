@@ -611,6 +611,7 @@ internal static partial class GenerationProjections
             RebuildStaleReferenceEvidence(connection, version);
             RebuildSchemaParityStatus(connection);
             RebuildDiagramSync(connection, version);
+            RebuildClosureBookkeeping(connection, version);
             var historyHead = AppendRevision(connection, version,
                 epoch,
                 changeId.Length > 0 ? changeId

@@ -1,0 +1,62 @@
+{
+  "artifact": "closure-bookkeeping-in-pipeline-rebuild-evidence",
+  "authority": "non-authoritative-audit-evidence",
+  "worker": "devin-desktop-2",
+  "recorded_at_utc": "2026-10-02T13:35:00Z",
+  "scope": "D119/D122 durable fix: convergence closure bookkeeping is now recomputed inside every governed publication instead of by post-hoc refresh amendments",
+  "implementation": {
+    "new_file": "shared-layer/csharp/GPTBridge.CodexPipeline/GenerationProjections.ClosureBookkeeping.cs",
+    "hook": "shared-layer/csharp/GPTBridge.CodexPipeline/GenerationProjections.Rebuild.cs — RebuildClosureBookkeeping(connection, version) invoked after RebuildDiagramSync and before AppendRevision/AppendSealRows so seal fingerprints cover the recomputed rows",
+    "semantics_source": "governance_rule/execution/audit/convergence/formal-state-closure-evaluator.ps1 lines 191-265 (Update-Closure/metrics/Update-Graph measurements) ported verbatim; evaluator parity confirmed by PASS below",
+    "tables_recomputed": [
+      "codex_convergence_closure (8 current rows: version_identity, verified_at, open_finding_count, evidence_roots, required_subresults, result)",
+      "codex_convergence_metrics (CONVERGENCE_CURRENT row: all dynamic counts, schema parity denominator, surface measurements)",
+      "governance_closure_state (FORMAL_EVALUATOR_PARITY, IMPLEMENTATION_OBLIGATIONS, CODEX_CONVERGENCE_CLOSURE, VERIFIED_RELEASE — evidence_summary, pending_codes union incl. all open obligations + EXTERNAL_SIGNATURE, version_identity)"
+    ]
+  },
+  "execution": {
+    "request": "closure-generation-refresh-20261002-r6",
+    "request_state": "executed at 2026-10-02T13:33:06Z via intake flow (submitted -> under-review -> successor-built -> auditing -> audit-passed -> ready-for-governor -> executed)",
+    "r4_r5_note": "r4 and r5 were rejected CANDIDATE_OUTPUT_EXISTS because a manual --request invocation raced the transient intake executor; r6 was dropped without a manual run and executed cleanly",
+    "published_generation": "2026-10-02T13:32:25Z",
+    "revision": 245
+  },
+  "verification": {
+    "command": "formal-state-generation-bound.ps1 -Verify (generation-fenced formal-state-closure-evaluator)",
+    "result": "PASS",
+    "checks": 20,
+    "failures": [],
+    "measured_at_generation": "2026-10-02T13:32:25Z",
+    "closure_rows": {
+      "FORMAL_RULE_CLOSURE": 79,
+      "MACHINE_SCHEMA_CLOSURE": 77,
+      "NORMATIVE_SURFACE_CLOSURE": 184,
+      "DIRECTORY_CLOSURE": 40,
+      "DUPLICATION_CLOSURE": 1,
+      "SEARCH_CURRENTNESS_CLOSURE": 0,
+      "PROJECTION_PARITY_CLOSURE": 0,
+      "CODEX_CONVERGENCE_CLOSURE": 442
+    },
+    "metrics": {
+      "machine_schema_parity": "0/77",
+      "unknown_article_count": 184,
+      "superseded_default_search_count": 0,
+      "active_article_count_after": 441
+    },
+    "governance_state": {
+      "VERIFIED_RELEASE": "VERIFIED_RELEASE_DENIED",
+      "external_gate": "externally-blocked (EXTERNAL_SIGNATURE in pending union)"
+    }
+  },
+  "durable_effect": "every subsequent amendment execution recomputes closure bookkeeping inside the staged candidate pre-seal; post-hoc closure-refresh amendments are no longer required for generation binding",
+  "remaining_open_structure": {
+    "formal_rules_unverified": 79,
+    "machine_schema_parity_open": 77,
+    "implementation_obligations_open": 60,
+    "unknown_normative_surface": 184,
+    "directory_catalog_open": 40,
+    "semantic_duplication_review": "PENDING_CURRENT_SEMANTIC_REVIEW",
+    "external_ed25519_signatures": "externally-blocked",
+    "verified_release": "VERIFIED_RELEASE_DENIED"
+  }
+}

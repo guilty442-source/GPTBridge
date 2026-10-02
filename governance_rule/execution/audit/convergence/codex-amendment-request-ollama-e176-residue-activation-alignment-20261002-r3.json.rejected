@@ -1,0 +1,80 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "ollama-e176-residue-activation-alignment-20261002-r3",
+  "title": "Remove E176 Ollama install exception, rebind MODEL_DIALOGUE dependency to xingcheng service, and align mandated activation states",
+  "summary": "Three residue classes remain after executed amendments rev 235 (B154 retirement), rev 238 (sibling convergence), rev 242 (module_capability_registry retirement) and rev 243 (Ollama provider/fault-vocabulary/directory residue). (1) Edict E176 still carries EXCEPTION-2 granting Ollama runtime+download+model-store install rights at registered C-drive paths - the last live install exception for the retired service. (2) project_architecture_directory row MODEL_DIALOGUE still declares 'registered local model runtime' as a dependency, while the runtime consumes the independent xingcheng model service via toolbox_start_tool(xingcheng) and its ToolHost /v1 contract; local-model no longer appears on the service start path. (3) architecture_activation_states rows BLOCK_XINGCHENG and UNIT_ASSISTANT read current_state=mandated vs required_state=active, the only two mismatched rows in the table - required_state must stay 'mandated' until physical-root hosting, separate-host isolation, migration receipt and independent verification evidence exist (the directory's own logical_boundary text forbids counting an empty directory as activation evidence). B154 itself already reads as a pure retirement record (lifecycle retired, rule is the retirement clause), and all nine OLLAMA_* fault codes plus the PROJECT_GPTBRIDGE dependency field were already converged by the rev-243 amendment - this request covers the remainder only.",
+  "requested_by": "decision-sovereign",
+  "origin": "codex-vs-implementation convergence pass ordered by governor: clear the last live Ollama residue (E176 install exception), align MODEL_DIALOGUE registry dependency semantics with current runtime, and unify BLOCK_XINGCHENG/UNIT_ASSISTANT directory/activation state pending activation evidence",
+  "problem": {
+    "summary": "E176 still grants the retired Ollama lane an install exception; MODEL_DIALOGUE still names the retired local-model carrier as a dependency instead of the xingcheng service it actually uses; BLOCK_XINGCHENG/UNIT_ASSISTANT demand 'active' while their physical roots are registered-but-unimplemented intended targets, producing the only two state mismatches in architecture_activation_states.",
+    "affected": [
+      "edicts",
+      "project_architecture_directory",
+      "architecture_activation_states"
+    ],
+    "scope": "codex-text and registry convergence only; no file, binary or implementation change"
+  },
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T13:13:02Z",
+    "version_identity": "E2:2026-10-02T13:13:02Z",
+    "version_epoch": 2,
+    "history_head": "8bb9185448237a23a84e22b626392277b21f308d2fdfab258649953e77b7470f",
+    "revision_sequence": 243
+  },
+  "changes": [
+    {
+      "table": "edicts",
+      "key": { "provision_id": "E176" },
+      "field": "edict",
+      "proposed": "ROOT:E:\AI; INSTALL-ONLY:runtime|interpreter|SDK|toolchain|package|library|non-Ollama-model|managed-service-binary|dependency-cache; EXCEPTION-1:Windows-11-native-tools-at-OS-owned-paths; PROJECT-CODE:E:\GPTBridge-only;PACKAGE-MANAGER:download-channels=visual-studio-installer|winget+language-managers-offline-vendored-only+bun-download-forbidden+vendor-install-paths-permitted+other-exceptions-require-explicit-permission+python-node-forbidden; OTHER-PROJECT-LOCAL/GLOBAL/PROFILE/TEMP/DRIVE/UNC/FALLBACK/IN-PLACE-UPDATE:none"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_DIALOGUE" },
+      "field": "dependencies",
+      "proposed": "registered xingcheng model service|information layer|model core adapters"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": { "architecture_code": "BLOCK_XINGCHENG" },
+      "field": "required_state",
+      "proposed": "mandated"
+    },
+    {
+      "table": "architecture_activation_states",
+      "key": { "architecture_code": "UNIT_ASSISTANT" },
+      "field": "required_state",
+      "proposed": "mandated"
+    }
+  ],
+  "acceptance": {
+    "expected_state": "edict E176 carries no Ollama install exception; MODEL_DIALOGUE depends on the registered xingcheng model service, not the retired local-model carrier; BLOCK_XINGCHENG and UNIT_ASSISTANT read mandated/mandated and may only be restamped to active after physical-root hosting, separate-host isolation, migration receipt and independent verification evidence land; projections rebuild to the successor version",
+    "criteria": [
+      "edicts row provision_id=E176 contains no Ollama exception clause",
+      "project_architecture_directory MODEL_DIALOGUE dependencies reference the xingcheng model service and no local-model carrier",
+      "architecture_activation_states rows BLOCK_XINGCHENG and UNIT_ASSISTANT read current_state=mandated, required_state=mandated",
+      "OLLAMA_* fault_code_directory rows remain retired (rev 243 state preserved)",
+      "PostgreSQL/artifact parity PASS",
+      "zh-TW mirror parity PASS"
+    ],
+    "evidence": [
+      "executed amendment codex-amendment-request-b154-ollama-retirement-20261002 (rev 235) forbids any module starting/probing/routing/depending on an Ollama instance",
+      "executed amendment codex-amendment-request-ollama-sibling-residue-20261002-r2 (rev 238) retired FR-OLLAMA-ON-DEMAND and the ollama capability row",
+      "executed rev-243 amendment retired all nine OLLAMA_* fault codes and cleared the PROJECT_GPTBRIDGE Ollama dependency field",
+      "architecture-tool-model-dialogue.md records the landed runtime path toolbox_start_tool(xingcheng) via xingcheng ToolHost /v1 contract",
+      "project_architecture_directory BLOCK_XINGCHENG/UNIT_ASSISTANT logical_boundary text declares the registered roots unimplemented intended targets requiring prior approved amendment plus verified migration evidence"
+    ],
+    "out_of_scope": [
+      "physical relocation of xingcheng member sources into blocks/xingcheng - requires separate governed amendment plus verified migration evidence before activation restamp",
+      "maintenance-manual-directory entries owned by learning-evidence-sync-sub-sovereign identities - historical directory vocabulary",
+      "B154 retirement record retained as history; already reads as pure retirement clause",
+      "non-Ollama-model token in E176 INSTALL-ONLY list - model-category descriptor, not an Ollama grant"
+    ]
+  }
+}

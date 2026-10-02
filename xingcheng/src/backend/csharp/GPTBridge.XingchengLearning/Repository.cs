@@ -766,6 +766,7 @@ internal sealed class TransformerTrainingRepository
         row["inserted"] = inserted;
         ShadowEmit("create_dataset", new Dictionary<string, object?>
         {
+            ["dataset_id"] = datasetId,   // PG-authoritative identity (§8)
             ["content_sha256"] = contentDigest,
             ["snapshot_path"] = snapshotFile,
             ["snapshot_sha256"] = snapshotDigest,
