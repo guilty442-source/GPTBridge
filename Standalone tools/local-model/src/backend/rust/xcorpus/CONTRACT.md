@@ -31,15 +31,22 @@ malformed referenced policy fails closed before any scan.
 Given the same registry/root/tokenizer the emitted artifacts are
 byte-identical to the C++ lane:
 
-- `train-ids.jsonl` / `valid-ids.jsonl` — EOS-separated packing,
-  one shared pack cursor across docs/splits (matching the C++ emit
-  order, including the cross-split flush behaviour).
+- `train-ids.xcb` / `valid-ids.xcb` — XCB1 binary token batches
+  (`xcb.rs`, byte-parity with the C++ `xcb::Writer`): EOS-separated
+  packing, one shared pack cursor across docs/splits (matching the
+  C++ emit order, including the cross-split flush behaviour). The
+  `producer` meta field names the emitting lane (`xcorpus` vs
+  `xcm_corpus`), so container bytes differ in the meta block only;
+  record payloads are identical.
 - `documents.jsonl` — field order fixed; `dataset_version` =
   sha256 of this file, so parity is provable by the digest.
 - `train-records.jsonl` / `valid-records.jsonl` — overlap-gate records
   (`norm_text_sha` = sha256(py_strip(nfc(text)))).
 - `corpus-cache.jsonl` — `star-corpus-file-cache/v1`; unchanged files
-  (size + FILETIME-tick mtime match) reuse derived records.
+  (size + FILETIME-tick mtime match) reuse derived records. Cached
+  token ids ship as `ids_b64` (base64 little-endian i32 — binary
+  payload, never a JSON number array); legacy `ids` arrays written by
+  the pre-XCB1 lane remain readable.
 - `manifest.json` — identical schema/counters; `created_at`, `root`,
   `registry` are the only run-specific fields.
 

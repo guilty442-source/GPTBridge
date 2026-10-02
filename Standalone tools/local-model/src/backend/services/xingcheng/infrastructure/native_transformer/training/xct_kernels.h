@@ -1,4 +1,4 @@
-﻿// xct_kernels.h ??star-kernel-registry + star-kernel-policy.
+﻿// xct_kernels.h —star-kernel-registry + star-kernel-policy.
 // Included once by xingcheng_trainer.cpp inside namespace xct, after
 // xct_util.h and xct_tpu.h (needs ModelConfig, g_tpu, tpu_threads,
 // tpu_has_avx2_fma) and before xct_job.h (run_job calls
@@ -20,7 +20,7 @@
 //    "deny_kernels":["<registry name>", ...]}
 // Resolution order: --kernel-policy <path> arg, else XCT_KERNEL_POLICY
 // env, else no policy. A referenced-but-unreadable or malformed policy
-// is a hard fail ??never silently ignored. A policy whose format tag or
+// is a hard fail —never silently ignored. A policy whose format tag or
 // enabled flag is wrong is likewise rejected. deny_kernels refuses any
 // job whose model/task activates the denied kernel's family;
 // deny_variants pin the affected lanes off; force_serial/max_threads
@@ -204,7 +204,7 @@ struct KernelPolicy {
 };
 
 // CLI/env-selected policy path. main() may set --kernel-policy; the env
-// var XCT_KERNEL_POLICY overrides nothing ??the explicit arg wins.
+// var XCT_KERNEL_POLICY overrides nothing —the explicit arg wins.
 static std::string g_kernel_policy_arg;
 
 static std::string kernel_policy_path() {
@@ -250,7 +250,7 @@ static KernelPolicy kernel_policy_load(const std::string& path) {
 }
 
 // The kernel families a (config, task) pair will actually dispatch.
-// deny_kernels is meaningful only against this set ??denying a family
+// deny_kernels is meaningful only against this set —denying a family
 // the job never reaches is recorded but inert.
 static std::unordered_set<std::string>
 kernel_active_families(const ModelConfig& c, const std::string& task) {

@@ -152,7 +152,16 @@ fn load_cache(out_dir: &Path) -> HashMap<String, FileCacheRec> {
                     }
                 }
             }
-            if let Some(ids) = v.get("ids").and_then(|x| x.as_array()) {
+            // Binary-hot-data rule: ids_b64 is the governed field; the
+            // legacy `ids` JSON array remains readable so caches written
+            // by the pre-XCB1 lane still hit. Malformed ids_b64 demotes
+            // the record to a cache miss — never an empty-ids hit.
+            if let Some(enc) = v.get("ids_b64").and_then(|x| x.as_str()) {
+                match crate::xcb::b64_dec_i32(enc) {
+                    Some(ids) => r.doc.ids = ids,
+                    None => r.present = false,
+                }
+            } else if let Some(ids) = v.get("ids").and_then(|x| x.as_array()) {
                 r.doc.ids = ids
                     .iter()
                     .filter_map(|t| t.as_i64())
@@ -652,14 +661,17 @@ pub fn run(a: &Args) -> Result<String, String> {
                 }
                 line.push_str(&format!("\"{k:016x}\""));
             }
-            line.push_str("],\"ids\":[");
-            for (t, id) in rec.doc.ids.iter().enumerate() {
-                if t > 0 {
-                    line.push(',');
+            // Binary-hot-data rule: cached token ids ship as base64
+            // LE-i32, never a JSON number array. On range overflow the
+            // field is omitted (next run re-parses — fail-safe).
+            match crate::xcb::b64_enc_i32(&rec.doc.ids) {
+                Ok(enc) => {
+                    line.push_str("],\"ids_b64\":\"");
+                    line.push_str(&enc);
+                    line.push_str("\"}\n");
                 }
-                line.push_str(&id.to_string());
+                Err(_) => line.push_str("]}\n"),
             }
-            line.push_str("]}\n");
             cc.write_all(line.as_bytes())
                 .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
         }

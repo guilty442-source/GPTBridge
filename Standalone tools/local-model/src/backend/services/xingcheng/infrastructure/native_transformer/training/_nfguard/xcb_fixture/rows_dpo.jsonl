@@ -1,0 +1,4 @@
+{"prompt":"Say hi","chosen":"Hello there.","rejected":"idk"}
+{"prompt":"2+2=?","chosen":"4","rejected":"5"}
+{"prompt":"Capital of Taiwan?","chosen":"Taipei.","rejected":"Tokyo."}
+{"prompt":"Say bye","chosen":"Goodbye.","rejected":"whatever"}

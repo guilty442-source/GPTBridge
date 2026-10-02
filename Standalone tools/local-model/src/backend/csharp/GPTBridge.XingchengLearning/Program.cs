@@ -2016,8 +2016,10 @@ internal static class Program
             tk is string tkStr &&
             string.Equals(tkStr, "pretrain", StringComparison.OrdinalIgnoreCase);
         var snapshot = isPretrain
-            ? SftDataset.BuildPretrainDataset(snapshotPath, byScope, valPermille)
-            : SftDataset.BuildSftDataset(snapshotPath, byScope, valPermille);
+            ? SftDataset.BuildPretrainDataset(snapshotPath, byScope,
+                valPermille, toolRoot: toolRoot)
+            : SftDataset.BuildSftDataset(snapshotPath, byScope,
+                valPermille, toolRoot: toolRoot);
         var repo = new TransformerTrainingRepository(toolRoot);
         var dataset = repo.CreateDataset(
             contentSha256: (string)snapshot["content_sha256"]!,
@@ -2170,7 +2172,7 @@ internal static class Program
             {
                 ["main"] = examples,
             },
-            valPermille: 500);
+            valPermille: 500, toolRoot: toolRoot);
         steps.Add(new Dictionary<string, object?>
         {
             ["step"] = "snapshot",

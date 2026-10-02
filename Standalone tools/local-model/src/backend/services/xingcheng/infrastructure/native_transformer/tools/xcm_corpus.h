@@ -286,6 +286,87 @@ int mode_corpus(const Args& a) {
         CorpusDoc doc;
         std::vector<uint64_t> band_keys;
     };
+    // Binary-hot-data rule: cached token ids are base64 little-endian
+    // i32 — a binary payload inside the JSONL metadata envelope, never
+    // a JSON number array. Encode failure (id out of i32 range) omits
+    // the field so the next run re-parses; decode failure behaves as a
+    // cache miss — both fail-safe, never silently wrong ids.
+    static const char kB64[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    auto b64_enc_i32 = [](const std::vector<int64_t>& ids,
+                          std::string& out) -> bool {
+        std::string bytes;
+        bytes.reserve(ids.size() * 4);
+        for (int64_t t : ids) {
+            if (t < std::numeric_limits<int32_t>::min() ||
+                t > std::numeric_limits<int32_t>::max())
+                return false;
+            const int32_t v = (int32_t)t;
+            bytes.append(reinterpret_cast<const char*>(&v), 4);
+        }
+        out.clear();
+        out.reserve((bytes.size() + 2) / 3 * 4);
+        const unsigned char* p =
+            reinterpret_cast<const unsigned char*>(bytes.data());
+        for (size_t i = 0; i < bytes.size(); i += 3) {
+            const size_t rem = bytes.size() - i;
+            const uint32_t n = ((uint32_t)p[i] << 16) |
+                               (rem > 1 ? (uint32_t)p[i + 1] << 8 : 0) |
+                               (rem > 2 ? (uint32_t)p[i + 2] : 0);
+            out.push_back(kB64[(n >> 18) & 63]);
+            out.push_back(kB64[(n >> 12) & 63]);
+            out.push_back(rem > 1 ? kB64[(n >> 6) & 63] : '=');
+            out.push_back(rem > 2 ? kB64[n & 63] : '=');
+        }
+        return true;
+    };
+    auto b64_dec_i32 = [](const std::string& s,
+                          std::vector<int64_t>& out) -> bool {
+        if (s.size() % 4 != 0) return false;
+        auto val = [](char c) -> int {
+            if (c >= 'A' && c <= 'Z') return c - 'A';
+            if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+            if (c >= '0' && c <= '9') return c - '0' + 52;
+            if (c == '+') return 62;
+            if (c == '/') return 63;
+            return -1;
+        };
+        std::string bytes;
+        const size_t chunks = s.size() / 4;
+        bytes.reserve(chunks * 3);
+        for (size_t i = 0; i < chunks; ++i) {
+            const bool last = i == chunks - 1;
+            size_t pad = 0;
+            if (last)
+                for (size_t j = 0; j < 4 && s[i * 4 + 3 - j] == '='; ++j)
+                    ++pad;
+            if (pad > 2) return false;
+            uint32_t n = 0;
+            for (size_t j = 0; j < 4; ++j) {
+                const char c = s[i * 4 + j];
+                if (c == '=') {
+                    if (!last || j < 4 - pad) return false;
+                } else {
+                    if (pad > 0 && j >= 4 - pad) return false;
+                    const int v = val(c);
+                    if (v < 0) return false;
+                    n |= (uint32_t)v << (18 - 6 * j);
+                }
+            }
+            bytes.push_back((char)(n >> 16));
+            if (pad < 2) bytes.push_back((char)(n >> 8));
+            if (pad < 1) bytes.push_back((char)n);
+        }
+        if (bytes.size() % 4 != 0) return false;
+        out.clear();
+        out.reserve(bytes.size() / 4);
+        for (size_t i = 0; i + 4 <= bytes.size(); i += 4) {
+            int32_t v;
+            std::memcpy(&v, bytes.data() + i, 4);
+            out.push_back((int64_t)v);
+        }
+        return true;
+    };
     std::unordered_map<std::string, FileCacheRec> fcache;
     {
         const fs::path cp = out_dir / "corpus-cache.jsonl";
@@ -346,12 +427,22 @@ int mode_corpus(const Args& a) {
                             }
                         }
                     }
-                    const JsonValue* iv = v.get("ids");
-                    if (iv && iv->type == JsonValue::Type::Array) {
-                        r.doc.ids.reserve(iv->array.size());
-                        for (const auto& t : iv->array)
-                            if (t.type == JsonValue::Type::Number)
-                                r.doc.ids.push_back((int64_t)t.number);
+                    // Binary-hot-data rule: ids_b64 (base64 LE-i32) is
+                    // the governed field; the legacy `ids` JSON array
+                    // remains readable so pre-XCB1 caches still hit.
+                    const JsonValue* ib = v.get("ids_b64");
+                    if (ib && ib->type == JsonValue::Type::String) {
+                        if (!b64_dec_i32(ib->string, r.doc.ids))
+                            r.present = false;  // malformed → cache miss
+                    } else {
+                        const JsonValue* iv = v.get("ids");
+                        if (iv && iv->type == JsonValue::Type::Array) {
+                            r.doc.ids.reserve(iv->array.size());
+                            for (const auto& t : iv->array)
+                                if (t.type == JsonValue::Type::Number)
+                                    r.doc.ids.push_back(
+                                        (int64_t)t.number);
+                        }
                     }
                 }
                 fcache[rv->string] = std::move(r);
@@ -649,12 +740,11 @@ int mode_corpus(const Args& a) {
                               (unsigned long long)rec.band_keys[b]);
                 cc << '"' << hx << '"';
             }
-            cc << "],\"ids\":[";
-            for (size_t t = 0; t < rec.doc.ids.size(); ++t) {
-                if (t) cc << ',';
-                cc << rec.doc.ids[t];
-            }
-            cc << "]}\n";
+            std::string enc;
+            if (b64_enc_i32(rec.doc.ids, enc))
+                cc << "],\"ids_b64\":\"" << enc << "\"}\n";
+            else
+                cc << "]}\n";  // out-of-range id → uncacheable, reparse
         }
         if (!cc) fail("CORPUS_OUT_UNWRITABLE");
     }

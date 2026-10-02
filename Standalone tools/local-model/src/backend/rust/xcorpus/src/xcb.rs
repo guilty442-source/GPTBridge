@@ -77,6 +77,94 @@ impl<W: Write + Seek> Writer<W> {
     }
 }
 
+// ------------------------------------------------------------------ b64 --
+// Binary-hot-data rule: the incremental corpus cache keeps per-file
+// token ids as base64 little-endian i32 (binary payload in a JSONL
+// metadata envelope), never a JSON number array.
+
+const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/// ids must fit i32 (vocab < 2^31); returns Err on overflow so the
+/// caller drops the ids field (cache miss → reparse, fail-safe).
+pub fn b64_enc_i32(ids: &[i64]) -> Result<String, &'static str> {
+    let mut bytes = Vec::with_capacity(ids.len() * 4);
+    for &t in ids {
+        if t < i32::MIN as i64 || t > i32::MAX as i64 {
+            return Err("XCB_IDS_RANGE");
+        }
+        bytes.extend_from_slice(&(t as i32).to_le_bytes());
+    }
+    let mut s = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for c in bytes.chunks(3) {
+        let b = [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0)];
+        let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        s.push(B64[(n >> 18) as usize & 63] as char);
+        s.push(B64[(n >> 12) as usize & 63] as char);
+        s.push(if c.len() > 1 { B64[(n >> 6) as usize & 63] as char } else { '=' });
+        s.push(if c.len() > 2 { B64[n as usize & 63] as char } else { '=' });
+    }
+    Ok(s)
+}
+
+/// Strict decoder: standard alphabet + '=' padding only, output byte
+/// count must be a multiple of 4. None → caller treats as cache miss.
+pub fn b64_dec_i32(s: &str) -> Option<Vec<i64>> {
+    fn val(c: u8) -> Option<u32> {
+        match c {
+            b'A'..=b'Z' => Some((c - b'A') as u32),
+            b'a'..=b'z' => Some((c - b'a' + 26) as u32),
+            b'0'..=b'9' => Some((c - b'0' + 52) as u32),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+    let raw = s.as_bytes();
+    if raw.is_empty() {
+        return Some(Vec::new());
+    }
+    if raw.len() % 4 != 0 {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(raw.len() / 4 * 3);
+    for (i, c) in raw.chunks(4).enumerate() {
+        let last = i == raw.len() / 4 - 1;
+        let pad = if !last { 0 } else { c.iter().rev().take_while(|&&x| x == b'=').count() };
+        if pad > 2 || (!last && c.contains(&b'=')) {
+            return None;
+        }
+        let mut n = 0u32;
+        for (j, &x) in c.iter().enumerate() {
+            if x == b'=' {
+                if j < 4 - pad {
+                    return None;
+                }
+            } else {
+                if pad > 0 && j >= 4 - pad {
+                    return None; // data char inside padding
+                }
+                n |= val(x)? << (18 - 6 * j);
+            }
+        }
+        bytes.push((n >> 16) as u8);
+        if pad < 2 {
+            bytes.push((n >> 8) as u8);
+        }
+        if pad < 1 {
+            bytes.push(n as u8);
+        }
+    }
+    if bytes.len() % 4 != 0 {
+        return None;
+    }
+    Some(
+        bytes
+            .chunks(4)
+            .map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]) as i64)
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
