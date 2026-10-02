@@ -63,7 +63,7 @@ inline fs::path find_repo_root() {
 }
 
 /* bundle 目錄：env XINGCHENG_BUNDLE_DIR 優先；其次讀
-   runtime/settings/native-engine.json 的 checkpoint 釘定（正式
+   xingcheng/runtime/settings/native-engine.json 的 checkpoint 釘定（正式
    推論 bundle，self-learning 換代會更新此 pin，測試永遠對齊
    生產工件）；最後掃
    <repo>/Standalone tools/local-model/xingcheng/runtime/models/
@@ -80,9 +80,14 @@ inline bool looks_like_bundle(const fs::path& d) {
 
 inline fs::path find_pinned_bundle(const fs::path& root) {
     const fs::path toolRoot = root / "Standalone tools" / "local-model";
-    const fs::path settings =
-        toolRoot / "runtime" / "settings" / "native-engine.json";
+    fs::path settings = toolRoot / "xingcheng" / "runtime" /
+                        "settings" / "native-engine.json";
     std::error_code ec;
+    // canonical Xingcheng-owned path first; pre-migration legacy copy
+    // under local-model/runtime is read-only fallback.
+    if (!fs::exists(settings, ec))
+        settings = toolRoot / "runtime" / "settings" /
+                   "native-engine.json";
     if (!fs::exists(settings, ec)) return fs::path();
     jl::JsonValue doc;
     try {

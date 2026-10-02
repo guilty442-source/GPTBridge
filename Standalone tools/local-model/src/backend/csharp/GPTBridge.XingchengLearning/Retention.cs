@@ -4,7 +4,8 @@
 // pruning old governed job dirs, logs, maturity/self-learning reports and
 // SFT snapshots by count and age. Never deletes paths referenced by any
 // lifecycle.json artifact version or the checkpoint pinned in
-// runtime/settings/native-engine.json (unresolvable paths are fail-closed
+// xingcheng/runtime/settings/native-engine.json (unresolvable paths are
+// fail-closed
 // kept). Deletions append to xingcheng/runtime/logs/retention.jsonl; the
 // audit log itself is capped at the newest 1000 lines once it exceeds
 // 1500. Boundary: retention may never touch anything outside

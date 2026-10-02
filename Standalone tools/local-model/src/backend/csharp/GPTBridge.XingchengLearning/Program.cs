@@ -1838,7 +1838,7 @@ internal static class Program
     private static string InferToolRoot()
     {
         // Walk ancestors looking for the local-model marker
-        // (runtime/settings/self-learning.json or xingcheng/).
+        // (xingcheng/runtime/settings/self-learning.json or xingcheng/).
         var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (dir != null)
         {

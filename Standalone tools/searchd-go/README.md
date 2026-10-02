@@ -30,7 +30,7 @@ go test ./...
 
 ## Python 整合
 
-`runtime/settings/web-search.json`：
+`xingcheng/runtime/settings/web-search.json`：
 
 ```json
 {

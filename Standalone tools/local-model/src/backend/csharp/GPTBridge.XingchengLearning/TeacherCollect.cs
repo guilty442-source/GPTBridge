@@ -34,7 +34,7 @@ internal sealed class TeacherDistillationPolicy
     public int MinTargetChars = 1;
     public int MaxTargetChars = 4096;
 
-    public static string Rel => "runtime/settings/teacher-distillation.json";
+    public static string Rel => "xingcheng/runtime/settings/teacher-distillation.json";
 
     public Dictionary<string, object?> ToDict() => new()
     {
@@ -59,7 +59,7 @@ internal sealed class TeacherDistillationPolicy
     public static TeacherDistillationPolicy Load(string toolRoot)
     {
         var policy = new TeacherDistillationPolicy();
-        string path = Path.Combine(toolRoot, Rel);
+        string path = XcPaths.SettingsReadPath(toolRoot, Rel);
         try
         {
             if (!File.Exists(path))

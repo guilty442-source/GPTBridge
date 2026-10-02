@@ -327,7 +327,7 @@
       "interval_s": 900,
       "pausable": true,
       "enabled": false,
-      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載。排程已內化本體：xc-learning.exe --schedule 以 xingcheng/runtime/state/self-learning-schedule.lock 單例仲裁、常駐迴圈驅動同一 RunCycle（drain 佇列→cycle），心跳寫入 self-learning-schedule.json；所有政策閘門（kill switch、quiet hours、min_new_examples、inference exclusion、governor quota、單一訓練車道、lane-busy deferral）由本體權威執行。本 flow 保留為登記/文件用途並維持 enabled=false —— 外部 GPTBridge.Automation self-learning 平面不得再產生排程器（避免第二調度者）。kill switch 仍以 runtime/settings/self-learning.json enabled 為準。"
+      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載。排程已內化本體：xc-learning.exe --schedule 以 xingcheng/runtime/state/self-learning-schedule.lock 單例仲裁、常駐迴圈驅動同一 RunCycle（drain 佇列→cycle），心跳寫入 self-learning-schedule.json；所有政策閘門（kill switch、quiet hours、min_new_examples、inference exclusion、governor quota、單一訓練車道、lane-busy deferral）由本體權威執行。本 flow 保留為登記/文件用途並維持 enabled=false —— 外部 GPTBridge.Automation self-learning 平面不得再產生排程器（避免第二調度者）。kill switch 仍以 xingcheng/runtime/settings/self-learning.json enabled 為準。"
     },
     "retention": {
       "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（local-model 受管 lane；native port B167/B38 已交付）",

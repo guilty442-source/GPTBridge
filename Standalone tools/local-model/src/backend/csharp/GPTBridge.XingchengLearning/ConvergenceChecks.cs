@@ -514,9 +514,8 @@ internal static class ConvergenceChecks
                     Path.Combine(toolRoot, "src")).Count == 0),
             new("repo-training-frozen", () =>
             {
-                string sp = Path.Combine(
-                    toolRoot, "runtime", "settings",
-                    "self-learning.json");
+                string sp = XcPaths.SettingsReadPath(
+                    toolRoot, XcPaths.SelfLearningPolicyRel);
                 if (!File.Exists(sp)) return true;
                 using var doc = JsonDocument.Parse(File.ReadAllText(sp));
                 // 禮3/禮28: while the frozen flag is set, no scheduler may

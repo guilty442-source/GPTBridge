@@ -16,6 +16,18 @@
     "$kw": {}
   },
   "XINGCHENG_PACKAGE_ROOT": "Standalone tools/local-model/src/backend/services/xingcheng",
+  "XINGCHENG_OWNED_LANES": [
+    "Standalone tools/local-model/src/backend/services/xingcheng",
+    "Standalone tools/local-model/src/backend/cpp",
+    "Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning",
+    "Standalone tools/local-model/src/backend/fsharp/GPTBridge.XingchengEval",
+    "Standalone tools/local-model/src/backend/rust/xc-format",
+    "Standalone tools/local-model/src/backend/rust/xc-runtime-host",
+    "Standalone tools/local-model/src/backend/rust/xstore",
+    "Standalone tools/local-model/src/backend/rust/xcorpus",
+    "Standalone tools/local-model/contracts",
+    "Standalone tools/local-model/xingcheng"
+  ],
   "XINGCHENG_REQUIRED_LAYERS": {
     "$call": "frozenset",
     "$args": [
@@ -263,6 +275,7 @@
     "AI_ASSISTANT_PACKAGE_ROOT",
     "AI_ASSISTANT_REQUIRED_LAYERS",
     "XINGCHENG_PACKAGE_ROOT",
+    "XINGCHENG_OWNED_LANES",
     "XINGCHENG_REQUIRED_LAYERS",
     "MAIN_SYSTEM_FORBIDDEN_BUSINESS_TERMS",
     "INVESTMENT_MOBILE_PACKAGE_ROOT",

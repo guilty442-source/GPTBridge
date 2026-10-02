@@ -27,7 +27,7 @@ internal static class ArchitectureProjection
     {
         "Standalone tools/local-model/src",
         "Standalone tools/local-model/contracts",
-        "Standalone tools/local-model/runtime/settings",
+        "Standalone tools/local-model/xingcheng/runtime/settings",
         "native",
         "main-system/config",
     };

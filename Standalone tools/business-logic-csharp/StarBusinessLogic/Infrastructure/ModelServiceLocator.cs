@@ -85,7 +85,7 @@ public static class ModelServiceLocator
         return new Application.HttpModelClient(endpoint.Endpoint, sessionToken: endpoint.SessionToken, timeout: timeout);
     }
 
-    // P11/MS6 受管傳輸選擇：runtime/settings/native-engine.json 的
+    // P11/MS6 受管傳輸選擇：xingcheng/runtime/settings/native-engine.json 的
     // `csharp_transport` 決定編排層走哪條路——
     //   "http"（缺省，現行行為）：loopback HTTP + session token（C++ xc_modeltool 子行程）
     //   "native-abi"：同行程 C ABI（NativeModelClient），C++ 引擎 DLL 直接宿主
@@ -109,9 +109,22 @@ public static class ModelServiceLocator
         }
     }
 
+    // Canonical Xingcheng-owned settings path; a pre-migration copy under
+    // the legacy local-model settings dir is accepted read-only.
+    private static string EngineSettingsPath(string toolRoot)
+    {
+        var canonical = Path.Combine(
+            toolRoot, "xingcheng", "runtime", "settings",
+            "native-engine.json");
+        if (File.Exists(canonical)) return canonical;
+        var legacy = Path.Combine(
+            toolRoot, "runtime", "settings", "native-engine.json");
+        return File.Exists(legacy) ? legacy : canonical;
+    }
+
     private static string ReadTransport(string toolRoot)
     {
-        var settingsPath = Path.Combine(toolRoot, "runtime", "settings", "native-engine.json");
+        var settingsPath = EngineSettingsPath(toolRoot);
         if (!File.Exists(settingsPath)) return "http";
         try
         {
@@ -145,7 +158,7 @@ public static class ModelServiceLocator
     // bundle 只由受管 export 管線產生——此處純消費，缺合法 bundle 即 fail-closed。
     private static string ResolveBundleDir(string toolRoot)
     {
-        var settingsPath = Path.Combine(toolRoot, "runtime", "settings", "native-engine.json");
+        var settingsPath = EngineSettingsPath(toolRoot);
         string? checkpoint = null;
         try
         {
