@@ -366,6 +366,33 @@ interface documentation only — never execution.
 > the planner emits `grant_bound=false` — planning verbs carry no
 > production execution authority.
 >
+> Batch-4 landings (§100 第四批, commit `40f9ee0af`): the orphaned
+> toolkit `cuda_rtlane.h` is retired in this worktree too (main-worktree
+> retirement: `1a05cc74a`); `cuda-parity-all` now sweeps the §32
+> training hot shapes (768×768 / 768×2048 / 2048×768 / 768×1024 /
+> 768×8192) plus the trainer's fp32 lane (`xcuda_sgemm_f32` — the
+> cuBLAS replacement), so the parity report is §37 promotion evidence.
+>
+> Batch-6 landing (§100 第六批): `TeacherCollect` is native-only —
+> each scope's teacher spec resolves to a governed Xingcheng bundle
+> ("self" = pinned native-engine checkpoint, else a boundary-checked
+> bundle dir) and generates through `xc_modeltool serve` infer; no
+> legitimate teacher → disabled, never an external fallback (§57-§59).
+> B154's Ollama registration row still needs the governed amendment
+> before it is unregistered.
+>
+> Batch-7 landings (§100 第七批, commit `fe8eea849`): the release gate
+> gained two critical steps — `native-dependency` (§73 blocking
+> findings + driver-only CUDA contract) and `resource-contract` (§75:
+> every usage receipt's grant_id must resolve to a governor-issued
+> grant file).
+>
+> **Decision reversal (2026-10-02):** the xstore metadata-authority
+> takeover is CANCELLED — PostgreSQL (`gptbridge_xingcheng*`) remains
+> the formal structured metadata authority; xstore is scoped to
+> objects/snapshots/content-hashes/derived indexes only. The §46-§52
+> shadow→parity→flip batch is void.
+>
 > Successor phase in force: **Capability Maturation Closure directive
 > §0-§129** (2026-10-02) — no new capabilities/taxonomies/ladders; the
 > goal is pushing every canonical capability through
