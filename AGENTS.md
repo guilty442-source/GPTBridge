@@ -549,6 +549,17 @@ Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
 - **C 已就定位** — `native/bridge/gptbridge_native.c` +
   `engine_c_abi.cpp`/`xingcheng_engine_c.h` 維持 ABI 邊界，不長肉。
 
+### 星澄 Native Contract（XNC，Codex B81 `NATIVE-CONTRACT` / rev 200）
+
+XNC 是星澄域內**唯一** artifact contract 家族：控制面 = versioned
+binary/text manifest；資料面 = packed binary。註冊成員：`XCN`
+（model checkpoint）、`XDS`（dataset）、`XCR`（receipt）、`XST`
+（state）、`XEV`（evaluation）。C++23 / Rust / C# 各 lane 實作自己的
+reader/writer，共守同一份 owner-local byte-level spec——法典只綁
+家族唯一性、雙平面切分、成員種類與跨語言一致義務，byte layout
+不寫入法典。成員識別以名稱經權威 contract registry 解析（rev 199
+version-neutrality），法典內不釘版本後綴。
+
 ## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
 
 同一 **HybridCausalDecoder** 提供兩條能力路徑 —— System-1 不是第二顆
