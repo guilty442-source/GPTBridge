@@ -486,6 +486,37 @@ internal sealed class NativeMetadataClient
     public JsonElement ShadowOp(string op, Dictionary<string, object?> prms)
         => Mutate(op, prms);
 
+    /// <summary>Bulk typed-record write for migration backfill (§87):
+    /// the whole batch commits as ONE transaction/receipt. Each record
+    /// must carry record_id; per-record rules match PutRecord.</summary>
+    public JsonElement PutMany(
+        string recordType,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> records,
+        string? operationId = null)
+    {
+        var prms = new Dictionary<string, object?>
+        {
+            ["record_type"] = recordType,
+            ["records"] = records.Select(r => (object)r).ToList(),
+        };
+        if (operationId != null) prms["operation_id"] = operationId;
+        return Mutate("put_many", prms);
+    }
+
+    /// <summary>Bulk canonical-audit backfill: one transaction, one
+    /// receipt covering every event.</summary>
+    public JsonElement AuditMany(
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> events,
+        string? operationId = null)
+    {
+        var prms = new Dictionary<string, object?>
+        {
+            ["events"] = events.Select(e => (object)e).ToList(),
+        };
+        if (operationId != null) prms["operation_id"] = operationId;
+        return Mutate("audit_many", prms);
+    }
+
     // -------------------------------------------------------- operation --
 
     /// <summary>metadata-verify: canonical scan + materialize + receipts

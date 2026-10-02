@@ -213,12 +213,20 @@ internal static class Program
                 return Emit(new TransformerTrainingRepository(toolRoot)
                     .DatabaseStatus());
             if (flags.Contains("migrate"))
-                return Emit(new Dictionary<string, object?>
+            {
+                // §102: the PG → xstore metadata backfill rides the
+                // existing --migrate verb (Phase A shadow replay, §87).
+                var repo = new TransformerTrainingRepository(toolRoot);
+                var outMap = new Dictionary<string, object?>
                 {
                     ["ok"] = true,
-                    ["migrated"] =
-                        new TransformerTrainingRepository(toolRoot).Maintain(),
-                });
+                    ["migrated"] = repo.Maintain(),
+                };
+                if (flags.Contains("xstore-backfill"))
+                    outMap["xstore_backfill"] =
+                        MetadataMigration.Backfill(repo);
+                return Emit(outMap);
+            }
             // B154 retired (executed 2026-10-02, rev 235): the external
             // model-service teacher lane is decommissioned and the flag
             // stays only as a fail-closed stub — the lane can never be

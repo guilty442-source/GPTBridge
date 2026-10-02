@@ -53,6 +53,10 @@ inline constexpr int kProbBalanceMaxDemotions = 5;
 inline constexpr double kDefaultLimiterPercent = 10.0;
 inline constexpr double kLimiterMinPercent = 1.0;
 inline constexpr double kLimiterMaxPercent = 100.0;
+/* 動態升降（個別程序）：limiter 下限與每週期步進；持續 extreme
+ * 逐步收緊至下限、需求回落逐步放寬回預設上限。 */
+inline constexpr double kLimiterMinDynamicPct = 5.0;
+inline constexpr double kLimiterStepPct = 2.0;
 
 /* Win32 priority class 數值（跨平台標頭內僅作代碼傳遞，實際呼叫在 .cpp）。 */
 inline constexpr int kPriorityNormal = 0x20;

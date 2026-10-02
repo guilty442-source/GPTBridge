@@ -44,6 +44,7 @@ void record_row(CycleEnv& env, const ProcSample& sample, Plane plane, Pool pool,
     const std::string plane_text = plane_name(plane);
     std::vector<std::string> flags;
     if (record.pb_set) flags.push_back("probalance");
+    if (record.prio_idle) flags.push_back("idle-priority");
     if (record.bg_set) flags.push_back("background");
     if (record.eco_set) flags.push_back("ecoqos");
     if (record.limit_set) flags.push_back("limit");
@@ -235,6 +236,32 @@ void busy_tiers(CycleEnv& env, const ProcSample& sample, ProcessRecord& record,
                                     {"cpu", jnum(round1(sample.cpu_percore))},
                                     {"mem_mb", jnum(round1(sample.rss_mb))}}));
     }
+    /* 動態升降——優先序再降一級：持續 busy 超過 sustain+extreme_sustain
+     * 且當下仍 extreme 的行程由 below_normal 降為 idle；跌回 extreme
+     * 以下先回到 below_normal（完整釋放仍走 calm 路徑）。規則優先序、
+     * pb/bg 持有與前景行程一律不動。 */
+    if (env.features.priority_escalate && record.prio_set &&
+        !record.pb_set && !record.bg_set && !record.rule_priority.has_value() &&
+        sample.pid != env.foreground) {
+        if (!record.prio_idle && extreme_now &&
+            record.busy >= env.thr.sustain + env.thr.extreme_sustain) {
+            if (!env.dry_run)
+                env.engine.set_priority(sample.pid, kPriorityIdle);
+            record.prio_idle = true;
+            env.actions.push_back(jobj({{"action", jstr("priority-idle")},
+                                        {"pid", jint(sample.pid)},
+                                        {"name", jstr(sample.name)},
+                                        {"cpu", jnum(round1(sample.cpu_percore))}}));
+        } else if (record.prio_idle && !extreme_now) {
+            if (!env.dry_run)
+                env.engine.set_priority(sample.pid, kPriorityBelowNormal);
+            record.prio_idle = false;
+            env.actions.push_back(jobj({{"action", jstr("priority-idle-released")},
+                                        {"pid", jint(sample.pid)},
+                                        {"name", jstr(sample.name)},
+                                        {"cpu", jnum(round1(sample.cpu_percore))}}));
+        }
+    }
     if (extreme_now && env.thr.affinity && record.busy >= env.thr.extreme_sustain &&
         !record.aff_set) {
         auto current = env.engine.get_affinity(sample.pid);
@@ -282,6 +309,7 @@ void tier_lasso(CycleEnv& env, const ProcSample& sample, Plane plane,
             env.dry_run ||
             env.engine.cpu_limit(key, sample.pid, env.features.limiter_percent, 0, 0);
         record.limit_set = true;
+        record.limit_percent = env.features.limiter_percent;
         env.actions.push_back(jobj({{"action", jstr("cpu-limited")},
                                     {"pid", jint(sample.pid)},
                                     {"name", jstr(sample.name)},
@@ -290,6 +318,41 @@ void tier_lasso(CycleEnv& env, const ProcSample& sample, Plane plane,
                                      jnum(env.features.limiter_percent)},
                                     {"ok", jbool(ok)}}));
     }
+}
+
+/* 動態升降——逐行程 Job 比率：已限速 worker 每週期重算上限。
+ * 仍 extreme（頂住帽緣）→ 收緊 limiter_step，下限 limiter_min；
+ * 量測低於帽緣一半（需求回落）→ 放寬 limiter_step，上限回到
+ * limiter_percent 預設；中間帶不動。比率調整經既有 Job 更新路徑
+ * （同 key 已是成員時僅改比率），完整解除仍走 calm 釋放。 */
+void dynamic_limiter(CycleEnv& env, const ProcSample& sample, Plane plane,
+                     const ProcKey& key, ProcessRecord& record,
+                     bool extreme_now, bool just_applied) {
+    if (just_applied || !env.features.limiter_dynamic || !record.limit_set ||
+        record.rule_hold.count("limit") != 0 || !is_worker_plane(plane))
+        return;
+    const double ceiling_percore =
+        record.limit_percent * std::max(1, env.logical);
+    double desired = record.limit_percent;
+    if (extreme_now && record.busy >= env.thr.sustain)
+        desired = std::max(env.features.limiter_min_percent,
+                           record.limit_percent - env.features.limiter_step_percent);
+    else if (ceiling_percore > 0.0 &&
+             sample.cpu_percore <= ceiling_percore * 0.5)
+        desired = std::min(env.features.limiter_percent,
+                           record.limit_percent + env.features.limiter_step_percent);
+    if (std::abs(desired - record.limit_percent) < 0.05) return;
+    const double from = record.limit_percent;
+    const bool ok =
+        env.dry_run || env.engine.cpu_limit(key, sample.pid, desired, 0, 0);
+    if (ok || env.dry_run) record.limit_percent = desired;
+    env.actions.push_back(jobj({{"action", jstr("cpu-limit-adjusted")},
+                                {"pid", jint(sample.pid)},
+                                {"name", jstr(sample.name)},
+                                {"cpu", jnum(round1(sample.cpu_percore))},
+                                {"from", jnum(round1(from))},
+                                {"to", jnum(round1(desired))},
+                                {"ok", jbool(ok)}}));
 }
 
 /* 冷靜高 RSS → working-set 修整（coldown 受 trim_cooldown 限制）。 */
@@ -336,6 +399,7 @@ void release_static(CycleEnv& env, const ProcSample& sample,
             env.engine.set_priority(sample.pid, target);
         }
         record.prio_set = false;
+        record.prio_idle = false;
         env.actions.push_back(jobj({{"action", jstr("restored")},
                                     {"pid", jint(sample.pid)},
                                     {"name", jstr(sample.name)},
@@ -443,7 +507,10 @@ void process_sample(CycleEnv& env, ProcSample sample) {
     record.calm = calm_now ? record.calm + 1 : 0;
 
     busy_tiers(env, sample, record, busy_now, extreme_now, sustain_need);
+    const bool limit_newly_set = !record.limit_set;
     tier_lasso(env, sample, plane, key, record, extreme_now);
+    dynamic_limiter(env, sample, plane, key, record, extreme_now,
+                    limit_newly_set);
     maybe_trim(env, sample, record, calm_now);
     release_pb(env, sample, record, calm_now);
     if (calm_now && record.calm >= env.config.calm_samples) {

@@ -245,6 +245,18 @@ Features resolve_features(
                                : json_num_or(find("limiter_percent"),
                                              kDefaultLimiterPercent);
     out.limiter_percent = std::clamp(limiter, kLimiterMinPercent, kLimiterMaxPercent);
+    /* 動態升降旋鈕（mode preset/defaults 皆可覆寫；CLI 無對應旗標）。 */
+    out.limiter_dynamic =
+        feature_enabled(std::nullopt, defaults, "limiter_dynamic");
+    out.limiter_min_percent =
+        std::clamp(json_num_or(find("limiter_min_percent"),
+                               kLimiterMinDynamicPct),
+                   kLimiterMinPercent, kLimiterMaxPercent);
+    out.limiter_step_percent =
+        std::clamp(json_num_or(find("limiter_step_percent"), kLimiterStepPct),
+                   0.5, 50.0);
+    out.priority_escalate =
+        feature_enabled(std::nullopt, defaults, "priority_escalate");
     out.worker_job_cap =
         feature_enabled(config.worker_job_cap, defaults, "worker_job_cap");
     const double job_percent = config.worker_job_percent.has_value()

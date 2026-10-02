@@ -31,6 +31,8 @@ struct ProcessRecord {
     int busy = 0;
     int calm = 0;
     bool prio_set = false;
+    bool prio_idle = false; /* 動態升降：below_normal 之上再降 idle 層 */
+    double limit_percent = 0.0; /* 目前套用的 Job CpuRate（0 = 未限速） */
     bool aff_set = false;
     bool reg_aff_set = false;
     double last_trim_mono = 0.0;

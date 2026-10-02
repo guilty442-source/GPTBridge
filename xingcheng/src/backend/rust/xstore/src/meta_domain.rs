@@ -484,3 +484,102 @@ pub fn audit_event(p: &Value) -> Result<(Vec<mt::EventSpec>, Value), String> {
     let spec = audit_spec(&entity_type, &entity_id, &et, payload);
     Ok((vec![spec], json!({"result": "audited"})))
 }
+
+// ---- migration backfill ------------------------------------------------------
+//
+// Bulk ops exist for the PG → xstore migration export/import (§87):
+// replaying tens of thousands of historical rows one process-call at a
+// time is infeasible, so a bulk call commits the whole batch as ONE
+// governed transaction (one commit, one receipt covering every record).
+// Per-record validation is identical to the singular ops; a pending
+// fold tracks intra-batch revision chains so a batch may update a
+// record it just created.
+
+/// put_many: {record_type, records:[{record_id, ...payload}]}.
+/// Honors caller-supplied created_at/updated_at (historical rows keep
+/// their original timestamps); fills them when absent.
+pub fn put_many(st: &State, p: &Value) -> Result<(Vec<mt::EventSpec>, Value), String> {
+    let rt = need(p, "record_type")?;
+    if !mt::is_known_type(&rt) {
+        return Err(format!("XSTORE_TYPE_UNKNOWN: {rt}"));
+    }
+    let records = p
+        .get("records")
+        .and_then(|x| x.as_array())
+        .ok_or("META_FIELD_REQUIRED: records")?;
+    // One mutation per record per transaction (commit_events rejects a
+    // duplicate (record_type,record_id) as XSTORE_TX_DUP) — the event-
+    // hash chain position of an intra-batch second write cannot exist
+    // yet, so batches carry each record at most once.
+    let mut seen = HashSet::new();
+    let mut specs = Vec::with_capacity(records.len());
+    let mut created = 0u64;
+    let mut updated = 0u64;
+    for rec in records {
+        let id = need(rec, "record_id")?;
+        if mt::is_singleton(&rt) && id != "1" && rt == mt::RT_RUNTIME_STATE {
+            return Err(format!(
+                "META_SINGLETON_ID: runtime_model_state id must be 1"
+            ));
+        }
+        if !seen.insert(id.clone()) {
+            return Err(format!("XSTORE_TX_DUP: {rt}/{id} twice in one batch"));
+        }
+        let (prev, rev, existed) = match st.get(&rt, &id) {
+            Some(r) => (r.event_hash.clone(), r.revision + 1, true),
+            None => (mt::GENESIS.into(), 1, false),
+        };
+        if mt::is_append_only(&rt) && existed {
+            return Err(format!("XSTORE_IMMUTABLE: {rt}/{id}"));
+        }
+        let mut payload = rec.clone();
+        // record_id stays inside the payload for row-shape parity;
+        // historical rows keep their original timestamps.
+        if payload.get("created_at").and_then(|x| x.as_str())
+            .map(|s| s.is_empty()).unwrap_or(true)
+        {
+            payload["created_at"] = json!(mt::now_iso());
+        }
+        if payload.get("updated_at").and_then(|x| x.as_str())
+            .map(|s| s.is_empty()).unwrap_or(true) && existed
+        {
+            payload["updated_at"] = json!(mt::now_iso());
+        }
+        let ev = if existed { "record-updated" } else { "record-created" };
+        specs.push(mt::EventSpec {
+            event_type: ev.into(),
+            record_type: rt.clone(),
+            record_id: id.clone(),
+            payload,
+            previous_revision_hash: prev,
+            revision: rev,
+        });
+        if existed { updated += 1 } else { created += 1 }
+    }
+    Ok((
+        specs,
+        json!({"result": "bulk", "created": created, "updated": updated,
+               "record_type": rt, "count": records.len()}),
+    ))
+}
+
+/// audit_many: {events:[{event_type, entity_type, entity_id, payload}]}
+/// — bulk canonical-audit backfill; one transaction, one receipt.
+pub fn audit_many(p: &Value) -> Result<(Vec<mt::EventSpec>, Value), String> {
+    let events = p
+        .get("events")
+        .and_then(|x| x.as_array())
+        .ok_or("META_FIELD_REQUIRED: events")?;
+    let mut specs = Vec::with_capacity(events.len());
+    for e in events {
+        let et = need(e, "event_type")?;
+        let entity_type = need(e, "entity_type")?;
+        let entity_id = need(e, "entity_id")?;
+        let payload = e.get("payload").cloned().unwrap_or(json!({}));
+        specs.push(audit_spec(&entity_type, &entity_id, &et, payload));
+    }
+    Ok((
+        specs,
+        json!({"result": "audited", "count": events.len()}),
+    ))
+}

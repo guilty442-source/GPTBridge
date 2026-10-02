@@ -77,6 +77,8 @@ fn dispatch(
         "reject_candidate" => rel::reject_candidate(st, p),
         "init_runtime" => rel::init_runtime(st, p),
         "audit" => dom::audit_event(p),
+        "put_many" => dom::put_many(st, p),
+        "audit_many" => dom::audit_many(p),
         "put" => {
             let rt = p.get("record_type").and_then(|x| x.as_str())
                 .ok_or("META_FIELD_REQUIRED: record_type")?;

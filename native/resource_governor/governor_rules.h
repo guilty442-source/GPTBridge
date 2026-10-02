@@ -212,6 +212,15 @@ struct Features {
     bool background_mode = false;
     bool ecoqos = false;
     double limiter_percent = kDefaultLimiterPercent;
+    /* 動態升降：limiter_dynamic 啟用時每週期按需求重算 Job 比率
+     * （pressed→收緊 limiter_step 至 limiter_min；slack→放寬回
+     * limiter_percent）；priority_escalate 啟用時 busy 持續超過
+     * sustain+extreme_sustain 且當下仍 extreme 的行程由
+     * below_normal 再降 idle，跌回 extreme 以下先回 below_normal。 */
+    bool limiter_dynamic = false;
+    double limiter_min_percent = kLimiterMinDynamicPct;
+    double limiter_step_percent = kLimiterStepPct;
+    bool priority_escalate = false;
     bool worker_job_cap = false;
     double worker_job_percent = kWorkerCpuBudgetPct;
     long long worker_job_memory_bytes = 0;
