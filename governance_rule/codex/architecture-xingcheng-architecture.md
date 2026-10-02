@@ -93,9 +93,63 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 1112 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2340 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
+| `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-format.exe` | Rust | git:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-format.exe` | Rust | local-model:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-format.exe` | Rust | main:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-format.exe` | Rust | rag:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-format.exe` | Rust | ui:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-learning.exe` | C# | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | main:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | rag:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | ui:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-runtime-host.exe` | Rust | devin:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xc-runtime-host.exe` | Rust | git:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xc-runtime-host.exe` | Rust | local-model:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xc-runtime-host.exe` | Rust | main:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xc-runtime-host.exe` | Rust | rag:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xc-runtime-host.exe` | Rust | ui:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xcorpus.dll` | Rust | devin:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.dll` | Rust | git:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.dll` | Rust | local-model:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.dll` | Rust | main:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.dll` | Rust | rag:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.dll` | Rust | ui:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | devin:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | git:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | local-model:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | main:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | rag:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | ui:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xct-executor.exe` | C# | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | main:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | rag:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | ui:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xingcheng_trainer.exe` | C++ | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | main:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | main:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | rag:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | rag:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | ui:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | ui:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xstore.exe` | Rust | devin:xingcheng/src/backend/rust/xstore/Cargo.toml |
+| `xstore.exe` | Rust | git:xingcheng/src/backend/rust/xstore/Cargo.toml |
+| `xstore.exe` | Rust | local-model:xingcheng/src/backend/rust/xstore/Cargo.toml |
+| `xstore.exe` | Rust | main:xingcheng/src/backend/rust/xstore/Cargo.toml |
+| `xstore.exe` | Rust | rag:xingcheng/src/backend/rust/xstore/Cargo.toml |
+| `xstore.exe` | Rust | ui:xingcheng/src/backend/rust/xstore/Cargo.toml |
 <!-- /autogen:xingcheng-binaries -->
 
 ## 治理邊界

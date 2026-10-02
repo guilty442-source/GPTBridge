@@ -58,14 +58,26 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 環境變數
 
 <!-- autogen:xingcheng-env -->
-*autogen-scanner/v1 · 1112 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2340 files · main+devin+git+local-model+rag+ui*
 | var | 讀取處 |
 |---|---|
-| `GPTBRIDGE_IPC_PORT` | devin:native/tool_runtime/tool_host.cpp, git:native/tool_runtime/tool_host.cpp, local-model:native/tool_runtime/tool_host.cpp, native/tool_runtime/tool_host.cpp (+2) |
-| `GPTBRIDGE_PROJECT_ROOT` | devin:native/test_suites/suite_tool_host_cases_c.cpp, git:native/test_suites/suite_tool_host_cases_c.cpp, local-model:native/test_suites/suite_tool_host_cases_c.cpp, native/test_suites/suite_tool_host_cases_c.cpp (+2) |
-| `GPTBRIDGE_ROOT` | devin:native/ollama_service/ollama_service.cpp, git:native/ollama_service/ollama_service.cpp, local-model:native/ollama_service/ollama_service.cpp, native/ollama_service/ollama_service.cpp (+2) |
-| `GPTBRIDGE_SIMD_LEVEL` | devin:native/test_suites/suite_simd_kernels.cpp, git:native/test_suites/suite_simd_kernels.cpp, local-model:native/test_suites/suite_simd_kernels.cpp, native/test_suites/suite_simd_kernels.cpp (+2) |
-| `XINGCHENG_BUNDLE_DIR` | devin:native/test_suites/suite_model_common.hpp, git:native/test_suites/suite_model_common.hpp, local-model:native/test_suites/suite_model_common.hpp, native/test_suites/suite_model_common.hpp (+2) |
+| `GPTBRIDGE_POSTGRES_DSN` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+8) |
+| `XCB_PARITY_OUT` | devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, local-model:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, xingcheng/src/backend/rust/xcorpus/src/xcb.rs (+2) |
+| `XCT_GC_CSA` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_CSA_GROUP` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_E` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_INT` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_K` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_PLAIN` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_GC_SHARED` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_KERNEL_POLICY` | devin:xingcheng/src/backend/rust/xcorpus/src/kernels.rs, devin:xingcheng/src/backend/rust/xstore/src/kernels.rs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h (+26) |
+| `XCT_TPU_SIMD` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+8) |
+| `XCT_TPU_THREADS` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+8) |
+| `XCT_TPU_TILE4` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XINGCHENG_CPP_CUDA_GRAPH` | devin:xingcheng/src/backend/cpp/src/cuda_kernels.cpp, git:xingcheng/src/backend/cpp/src/cuda_kernels.cpp, local-model:xingcheng/src/backend/cpp/src/cuda_kernels.cpp, xingcheng/src/backend/cpp/src/cuda_kernels.cpp (+2) |
+| `XINGCHENG_HYBRID_CPU_PCT` | devin:xingcheng/src/backend/cpp/src/engine_kernels.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, git:xingcheng/src/backend/cpp/src/engine_kernels.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h (+8) |
+| `XINGCHENG_SHARED_PG_SCHEMA` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+2) |
+| `XINGCHENG_TRAINER_CUDA_OPT` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/MainlineConvergence.cs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_kernels.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+20) |
 <!-- /autogen:xingcheng-env -->
 
 | var | 效果 |
@@ -79,9 +91,15 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 政策/設定檔
 
 <!-- autogen:xingcheng-settings -->
-*autogen-scanner/v1 · 1112 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2340 files · main+devin+git+local-model+rag+ui*
 | 檔案 | format | 所在樹 |
 |---|---|---|
+| `kernel-policy.json` | `star-kernel-policy` | main:xingcheng/xingcheng/runtime/settings/kernel-policy.json |
+| `native-engine.json` | `—` | main:xingcheng/xingcheng/runtime/settings/native-engine.json |
+| `retention.json` | `star-retention-policy/v1` | main:xingcheng/xingcheng/runtime/settings/retention.json |
+| `self-learning.json` | `star-self-learning-policy/v1` | main:xingcheng/xingcheng/runtime/settings/self-learning.json |
+| `teacher-distillation.json` | `star-teacher-distillation-policy/v1` | main:xingcheng/xingcheng/runtime/settings/teacher-distillation.json |
+| `web-search.json` | `—` | main:xingcheng/xingcheng/runtime/settings/web-search.json |
 <!-- /autogen:xingcheng-settings -->
 
 | 檔案 | format | 關鍵欄位 |
