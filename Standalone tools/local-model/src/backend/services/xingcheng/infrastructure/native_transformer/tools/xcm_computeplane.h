@@ -222,3 +222,118 @@ int mode_compute_plane(const Args& a) {
         hyb_gf, hyb_df, hyb_sp);
     return 0;
 }
+
+// accel-plane — star-accel-plane emit for the engine lane: the same
+// single dynamic-accelerator contract the trainer reports via
+// --accel-plane. Caps are live-detected (CPU SIMD/cores/RAM, device
+// CC/SM/VRAM), the resolved block folds env opt-ins and the active
+// star-kernel-policy pins into the lanes the engine would actually
+// dispatch, and counters stay at zero (this process performs no
+// offloads). Detection/reporting only — the lanes' own gates stay
+// authoritative until the plane becomes the dispatch authority.
+int mode_accel_plane(const Args& a) {
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof(ms);
+    long long ram_total = 0, ram_free = 0;
+    if (GlobalMemoryStatusEx(&ms)) {
+        ram_total = (long long)(ms.ullTotalPhys >> 20);
+        ram_free = (long long)(ms.ullAvailPhys >> 20);
+    }
+    long long fb = 0, tb = 0;
+    int ccm = 0, ccn = 0;
+    const bool cuda = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
+    const int sm = cuda ? xcuda_sm_count() : 0;
+    const int simd_level = gptbridge_native_simd_effective_level();
+
+    // star-kernel-policy — same --policy / XCT_KERNEL_POLICY resolution
+    // as kernel-registry; deny_variants narrow the resolved lanes.
+    std::string ppath = a.get("policy");
+    if (ppath.empty()) {
+        if (const char* e = std::getenv("XCT_KERNEL_POLICY"))
+            ppath = e;
+    }
+    bool pol_loaded = false, pol_enabled = true;
+    std::string pol_err;
+    std::vector<std::string> deny_v;
+    if (!ppath.empty()) {
+        try {
+            JsonValue pol = parse_json_file(ppath);
+            if (jget_str(pol, "format") != "star-kernel-policy") {
+                pol_err = "FORMAT_MISMATCH";
+            } else {
+                pol_loaded = true;
+                const JsonValue* en = pol.get("enabled");
+                pol_enabled =
+                    !(en && en->type == JsonValue::Type::Bool &&
+                      !en->boolean);
+                const JsonValue* dv = pol.get("deny_variants");
+                if (dv && dv->type == JsonValue::Type::Array)
+                    for (const auto& e : dv->array)
+                        if (e.type == JsonValue::Type::String)
+                            deny_v.push_back(e.string);
+            }
+        } catch (...) {
+            pol_err = "UNREADABLE_OR_MALFORMED";
+        }
+    }
+    const auto denied = [&](const char* v) {
+        return pol_loaded && pol_enabled &&
+               std::find(deny_v.begin(), deny_v.end(),
+                         std::string(v)) != deny_v.end();
+    };
+    const auto envf = [](const char* n) {
+        const char* v = std::getenv(n);
+        return v != nullptr &&
+               (std::strcmp(v, "1") == 0 ||
+                std::strcmp(v, "true") == 0 ||
+                std::strcmp(v, "TRUE") == 0 ||
+                std::strcmp(v, "yes") == 0);
+    };
+    const bool cuda_opt = envf("XINGCHENG_CPP_CUDA");
+    const bool hyb_env = envf("XINGCHENG_HYBRID_MATMUL");
+    const int hyb_pct = [&] {
+        const char* v = std::getenv("XINGCHENG_HYBRID_CPU_PCT");
+        int p = v ? std::atoi(v) : 25;
+        return p < 0 ? 0 : (p > 50 ? 50 : p);
+    }();
+    const bool cuda_lane = cuda_opt && cuda && !denied("cuda");
+    const bool hyb_lane =
+        hyb_env && cuda && !denied("cuda") && !denied("hybrid") &&
+        hyb_pct > 0;
+
+    std::ostringstream dv;
+    dv << "[";
+    for (size_t i = 0; i < deny_v.size(); ++i)
+        dv << (i ? "," : "") << "\"" << deny_v[i] << "\"";
+    dv << "]";
+
+    std::printf(
+        "{\"ok\":%s,\"format\":\"star-accel-plane\",\"lane\":\"engine\","
+        "\"cpu\":{\"cores\":%u,\"simd_level\":%d,\"ram_total_mb\":%lld,"
+        "\"ram_free_mb\":%lld},"
+        "\"gpu\":{\"available\":%s,\"cc\":\"%d.%d\",\"sm_count\":%d,"
+        "\"vram_total_mb\":%lld,\"vram_free_mb\":%lld},"
+        "\"resolved\":{\"cuda_lane\":%s,\"cuda_opt_in\":%s,"
+        "\"bf16_lane\":%s,\"fp8_lane\":%s,\"kv_lane\":%s,"
+        "\"hybrid_lane\":%s,\"hybrid_cpu_pct\":%d},"
+        "\"counters\":{\"dev_calls\":0,\"denied_off\":0,"
+        "\"denied_work\":0,\"denied_vram\":0},"
+        "\"policy\":{\"source\":\"%s\",\"loaded\":%s,"
+        "\"deny_variants\":%s,\"error\":%s}}\n",
+        pol_err.empty() ? "true" : "false",
+        (unsigned)si.dwNumberOfProcessors, simd_level, ram_total,
+        ram_free,
+        cuda ? "true" : "false", ccm, ccn, sm,
+        (long long)(tb >> 20), cuda ? (long long)(fb >> 20) : 0,
+        cuda_lane ? "true" : "false", cuda_opt ? "true" : "false",
+        envf("XINGCHENG_CPP_CUDA_BF16") ? "true" : "false",
+        envf("XINGCHENG_CPP_CUDA_FP8") ? "true" : "false",
+        envf("XINGCHENG_CPP_CUDA_KV") ? "true" : "false",
+        hyb_lane ? "true" : "false", hyb_pct,
+        ppath.c_str(), pol_loaded ? "true" : "false",
+        dv.str().c_str(),
+        pol_err.empty() ? "null" : ("\"" + pol_err + "\"").c_str());
+    return 0;
+}

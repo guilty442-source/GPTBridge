@@ -427,6 +427,30 @@ static int kernel_registry_emit() {
     }
     o << "],\"error\":"
       << (pol_err.empty() ? "null" : "\"" + jesc(pol_err) + "\"")
+      << "},\"accel\":{";
+    // The accel plane is part of the same contract: caps are detected
+    // once, the resolved lane reflects policy pins, and the counters
+    // stay at zero (emit runs before any dispatch).
+    accel_detect();
+    if (pol.loaded && pol.enabled) {
+        if (pol.dev_min_flops > 0)
+            g_accel.dev_min_flops = pol.dev_min_flops;
+        if (pol.vram_reserve_mb > 0)
+            g_accel.vram_reserve_mb = pol.vram_reserve_mb;
+    }
+    accel_refresh_mem();
+    o << "\"cuda_opt\":" << (g_accel.cuda_opt ? "true" : "false")
+      << ",\"cuda_dev\":" << (g_accel.cuda_dev ? "true" : "false")
+      << ",\"cuda_denied\":" << (g_accel.cuda_denied ? "true" : "false")
+      << ",\"cuda_lane\":" << (g_accel.cuda ? "true" : "false")
+      << ",\"cc\":\"" << g_accel.cc_major << "." << g_accel.cc_minor
+      << "\",\"sm_count\":" << g_accel.sm_count
+      << ",\"dev_min_flops\":" << g_accel.dev_min_flops
+      << ",\"vram_reserve_mb\":" << g_accel.vram_reserve_mb
+      << ",\"ram_total_mb\":" << g_accel.ram_total_mb
+      << ",\"ram_free_mb\":" << g_accel.ram_free_mb
+      << ",\"vram_total_mb\":" << g_accel.vram_total_mb
+      << ",\"vram_free_mb\":" << g_accel.vram_free_mb
       << "},\"kernels\":[";
     first = true;
     for (const auto& e : kKernelRegistry) {
@@ -449,6 +473,64 @@ static int kernel_registry_emit() {
         first = false;
     }
     o << "]}\n";
+    std::printf("%s", o.str().c_str());
+    return 0;
+}
+
+// --accel-plane: emit star-accel-plane — the resolved single dynamic
+// accelerator surface for this host. Detection is live (caps + memory
+// now), the resolved block is what dispatch will honour under the
+// active policy, and counters start at zero until a job runs.
+static int accel_plane_emit() {
+    KernelPolicy pol;
+    std::string pol_err;
+    try {
+        pol = kernel_policy_load(kernel_policy_path());
+    } catch (const char* e) {
+        pol_err = e;
+    }
+    accel_detect();
+    if (pol.loaded && pol.enabled) {
+        if (pol.dev_min_flops > 0)
+            g_accel.dev_min_flops = pol.dev_min_flops;
+        if (pol.vram_reserve_mb > 0)
+            g_accel.vram_reserve_mb = pol.vram_reserve_mb;
+    }
+    accel_refresh_mem();
+    std::ostringstream o;
+    o << "{\"ok\":" << (pol_err.empty() ? "true" : "false")
+      << ",\"format\":\"star-accel-plane\",\"lane\":\"trainer\","
+      << "\"cpu\":{\"cores\":" << (int)std::thread::hardware_concurrency()
+      << ",\"threads\":" << tpu_threads()
+      << ",\"simd\":\"" << tpu_simd_name() << "\""
+      << ",\"tile4\":" << (g_tpu.tile4 ? "true" : "false")
+      << ",\"ram_total_mb\":" << g_accel.ram_total_mb
+      << ",\"ram_free_mb\":" << g_accel.ram_free_mb
+      << "},\"gpu\":{\"available\":"
+      << (g_accel.cuda_dev ? "true" : "false")
+      << ",\"cc\":\"" << g_accel.cc_major << "." << g_accel.cc_minor
+      << "\""
+      << ",\"sm_count\":" << g_accel.sm_count
+      << ",\"vram_total_mb\":" << g_accel.vram_total_mb
+      << ",\"vram_free_mb\":" << g_accel.vram_free_mb
+      << "},\"resolved\":{\"cuda_lane\":"
+      << (g_accel.cuda ? "true" : "false")
+      << ",\"cuda_opt_in\":" << (g_accel.cuda_opt ? "true" : "false")
+      << ",\"cuda_policy_denied\":"
+      << (g_accel.cuda_denied ? "true" : "false")
+      << ",\"dev_min_flops\":" << g_accel.dev_min_flops
+      << ",\"vram_reserve_mb\":" << g_accel.vram_reserve_mb
+      << ",\"force_serial\":" << (pol.force_serial ? "true" : "false")
+      << ",\"max_threads\":" << pol.max_threads
+      << "},\"counters\":{\"dev_calls\":" << g_accel.dev_calls
+      << ",\"denied_off\":" << g_accel.dev_denied_off
+      << ",\"denied_work\":" << g_accel.dev_denied_work
+      << ",\"denied_vram\":" << g_accel.dev_denied_vram
+      << "},\"policy\":{\"source\":\"" << jesc(pol.source) << "\""
+      << ",\"loaded\":" << (pol.loaded ? "true" : "false")
+      << ",\"error\":"
+      << (pol_err.empty() ? "null" : "\"" + jesc(pol_err) + "\"")
+      << "}}\n";
     std::printf("%s", o.str().c_str());
     return 0;
 }

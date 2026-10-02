@@ -4514,6 +4514,7 @@ static const ModeEntry kModeRegistry[] = {
     {"hw-caps",               "SCALE",     mode_hw_caps},
     {"kernel-registry",       "SCALE",     mode_kernel_registry},
     {"compute-plane",         "CUDA",      mode_compute_plane},
+    {"accel-plane",           "CUDA",      mode_accel_plane},
     // Checkpoint-format convergence onto the canonical writer
     // (byte-exact tensor table, zeroed MTP-stack block).
     {"ckpt-converge",         "MODEL",     mode_ckpt_converge},

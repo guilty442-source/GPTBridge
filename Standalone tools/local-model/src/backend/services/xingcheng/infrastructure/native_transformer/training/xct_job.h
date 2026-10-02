@@ -774,6 +774,30 @@ static JsonValue run_job(const JsonValue& job) {
         kp.object.emplace_back("deny_kernels", dk);
         put("kernel_policy", kp);
     }
+    {
+        // star-accel-plane echo: the resolved device lane and the live
+        // admission counters the run actually observed.
+        accel_refresh_mem();
+        JsonValue ap; ap.type = JsonValue::Type::Object;
+        ap.object.emplace_back("cuda_lane", bol(g_accel.cuda));
+        ap.object.emplace_back("dev_min_flops",
+                               num((double)g_accel.dev_min_flops));
+        ap.object.emplace_back("vram_reserve_mb",
+                               num((double)g_accel.vram_reserve_mb));
+        ap.object.emplace_back("vram_free_mb",
+                               num((double)g_accel.vram_free_mb));
+        ap.object.emplace_back("ram_free_mb",
+                               num((double)g_accel.ram_free_mb));
+        ap.object.emplace_back("dev_calls",
+                               num((double)g_accel.dev_calls));
+        ap.object.emplace_back("denied_off",
+                               num((double)g_accel.dev_denied_off));
+        ap.object.emplace_back("denied_work",
+                               num((double)g_accel.dev_denied_work));
+        ap.object.emplace_back("denied_vram",
+                               num((double)g_accel.dev_denied_vram));
+        put("accel", ap);
+    }
     put("steps", num(step));
     put("examples", num((double)data.size()));
     put("deadline_hit", bol(deadline_hit));
