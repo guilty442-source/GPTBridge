@@ -1,4 +1,4 @@
-﻿//! kernels.rs ??star-kernel-registry for the xcorpus data lane.
+//! kernels.rs — star-kernel-registry for the xcorpus data lane.
 //!
 //! Same contract as the xstore/trainer registries: governed inventory
 //! of every compute kernel in this lane (the corpus pipeline stages),
@@ -34,7 +34,7 @@ static KERNELS: &[K] = &[
         dispatch: "engine_tokenizer.h port; encode on ingest" },
 ];
 
-/// Pipeline element names the `corpus` command dispatches to ??a deny
+/// Pipeline element names the `corpus` command dispatches to — a deny
 /// on any element refuses the whole run (fail-closed).
 pub fn corpus_kernels() -> &'static [&'static str] {
     static KS: &[&str] = &[

@@ -1,4 +1,4 @@
-﻿// xct_job.h ??B94 fragment of xingcheng_trainer.cpp (job/load_data/run_job/smoke).
+// xct_job.h ??B94 fragment of xingcheng_trainer.cpp (job/load_data/run_job/smoke).
 // Included once by xingcheng_trainer.cpp inside namespace xct.
 #pragma once
 
@@ -13,7 +13,7 @@ struct Example {
 };
 
 // Binary token-batch ingest (XCB1): same Example semantics as the
-// legacy JSONL path ??kind drives interpretation, fmt is verified
+// legacy JSONL path — kind drives interpretation, fmt is verified
 // fail-closed against the record kind so a mismatched job spec can
 // never silently reinterpret a batch.
 static void load_data_xcb(const std::string& path, const std::string& fmt,
@@ -80,7 +80,7 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
     std::string path = j_str(d, "path", "");
     // Binary-hot-data rule: XCB1 is the governed token-batch container;
     // a file without the magic falls back to legacy JSONL so registered
-    // datasets stay readable ??malformed XCB1 throws, never silently
+    // datasets stay readable — malformed XCB1 throws, never silently
     // reinterpreted.
     if (xcb::is_xcb_file(path)) {
         load_data_xcb(path, fmt, max_rows, max_len, out);
@@ -212,12 +212,12 @@ static double now_s() {
 // first/second moments. Depends on activities (via g), the supervised
 // target (via ce_loss dlogits -> g) and the current weights (wd term).
 
-// NativeCudaTrainingPlane 禮26: when XINGCHENG_TRAINER_CUDA_OPT is set
+// NativeCudaTrainingPlane §26: when XINGCHENG_TRAINER_CUDA_OPT is set
 // and the CUDA lane probes live, each tensor's update runs as one fused
 // device kernel with w/m/v resident ??the host only ships the gradient
 // and reads back w (host forward still needs it this phase). Any miss
 // falls through to the scalar path per tensor ??never a partial tensor.
-// 禮26 batch surface POD ??identical declaration in cuda_kernels.cpp
+// §26 batch surface POD — identical declaration in cuda_kernels.cpp
 // (same pattern as the extern "C" entries below).
 struct XcudaAdamwItem {
     const float* g_host;   // host gradient, length = bound tensor n
@@ -261,10 +261,10 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         cuda_opt && !kernel_policy_cuda_denied() &&
         xcuda_adamw_probe() != 0;
     if (cuda_ok) {
-        // 禮26 batch path: one call pipelines every bound tensor's
+        // §26 batch path: one call pipelines every bound tensor's
         // H2D/kernel/D2H across the manager's dedicated lanes. The
         // skip guards are identical to the serial loop; a failed item
-        // falls back to scalar for that tensor only ??never a partial
+        // falls back to scalar for that tensor only — never a partial
         // tensor.
         std::vector<XcudaAdamwItem> items;
         std::vector<const std::string*> names;
@@ -272,13 +272,13 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         names.reserve(p.order.size());
         for (auto& n : p.order) {
             // lb_bias: routing-time buffer updated by the sign rule,
-            // never by the optimizer ??decay would pull it to zero.
+            // never by the optimizer — decay would pull it to zero.
             if (n.size() >= 7 &&
                 n.compare(n.size() - 7, 7, "lb_bias") == 0)
                 continue;
-            // 禮41 frozen params own no Adam moments, never updated.
+            // §41 frozen params own no Adam moments, never updated.
             if (p.frozen.count(n)) continue;
-            // 禮44 routed-expert sparsity: untouched experts get no
+            // §44 routed-expert sparsity: untouched experts get no
             // gradient update AND no optimizer update.
             if (n.find(".experts.") != std::string::npos &&
                 !p.touched.count(n))
@@ -288,7 +288,7 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             Tensor& v = p.v[n];
             if (xcuda_adamw_bind(w.d.data(), m.d.data(), v.d.data(),
                                  static_cast<int64_t>(w.d.size())) != 0) {
-                // never bound ??no device state to pull back.
+                // never bound — no device state to pull back.
                 Tensor& g = p.g[n];
                 tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
                           (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
@@ -311,7 +311,7 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
             const int irc = batch_rc == 0 ? items[i].rc : 3;
             if (irc == 0 || irc == 6) {
                 if (irc == 6)
-                    // kernel ran but the staged read-back did not land ??
+                    // kernel ran but the staged read-back did not land —
                     // pull the authoritative device state; do NOT
                     // recompute, the update was already applied.
                     xcuda_adamw_sync(w.d.data(), w.d.data(),
@@ -321,7 +321,7 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
                 std::fill(g.d.begin(), g.d.end(), 0.0f);
                 continue;
             }
-            // Device holds the newest m/v ??pull them back so the
+            // Device holds the newest m/v — pull them back so the
             // scalar fallback resumes from the last good optimizer
             // state rather than stale host copies.
             xcuda_adamw_sync(w.d.data(), w.d.data(), m.d.data(),
@@ -339,11 +339,11 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         // this guard decoupled weight decay would pull it to zero.
         if (n.size() >= 7 && n.compare(n.size() - 7, 7, "lb_bias") == 0)
             continue;
-        // 禮41 ParameterFreezeMap: frozen params own no Adam moments
+        // §41 ParameterFreezeMap: frozen params own no Adam moments
         // (sparse optimizer) and are never updated.
         if (p.frozen.count(n)) continue;
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
-        // 禮44 gradient sparsity, scoped to routed experts: an expert no
+        // §44 gradient sparsity, scoped to routed experts: an expert no
         // token selected this step (backward never marked it touched)
         // gets no gradient update AND no optimizer update ??decoupled
         // weight decay would otherwise silently shrink dormant experts.
@@ -444,7 +444,7 @@ static JsonValue run_job(const JsonValue& job) {
     if (const char* e = std::getenv("XCT_TPU_TILE4"))
         g_tpu.tile4 = !(e[0] == '0' && e[1] == '\0');
     // star-kernel-policy: governed kernel pins land after every other
-    // lane override ??force_serial/max_threads bound the pool,
+    // lane override — force_serial/max_threads bound the pool,
     // deny_variants pin impls off, deny_kernels refuse the job when the
     // model/task activates the denied kernel's family. Any referenced
     // but unreadable/malformed policy fails closed.
@@ -453,9 +453,9 @@ static JsonValue run_job(const JsonValue& job) {
     int max_len = j_int(dj, "max_len", c.max_pos);
 
     Params p;
-    // 禮41 ParameterFreezeMap: train.freeze = ["layers.*.experts.",
+    // §41 ParameterFreezeMap: train.freeze = ["layers.*.experts.",
     // "embed", ...] ??resolved at alloc_adam inside init_params, so
-    // frozen params never allocate Adam moments (禮43 sparse optimizer).
+    // frozen params never allocate Adam moments (§43 sparse optimizer).
     if (const JsonValue* fj = tj ? tj->get("freeze") : nullptr)
         if (fj->type == JsonValue::Type::Array)
             for (const auto& v : fj->array)
@@ -512,7 +512,7 @@ static JsonValue run_job(const JsonValue& job) {
             }
             // Gradients self-clear: adamw_step zeroes each buffer as it
             // consumes it (fused zero_grad) ??params skipped by the
-            // 禮44/禮41 guards always hold zero already.
+            // §44/§41 guards always hold zero already.
             float loss = 0.0f;
             if (task == "dpo") {
                 // policy chosen
@@ -533,10 +533,10 @@ static JsonValue run_job(const JsonValue& job) {
                 // dL/dlp_rejected = +beta*(1-sig). soft_grad emits
                 // scale*(p - 1[y]) = scale*d(-lp)/dz, so scale = beta*(1-sig).
                 float s = tc.beta * (1.0f - sig);
-                // Workspace buffers: keep capacity across examples ??
+                // Workspace buffers: keep capacity across examples —
                 // two [T,V] gradient rows per example is ~32 MB of
                 // realloc+first-touch churn per pair. Kept in ONE struct
-                // TLS ??grouped function-scope static thread_local
+                // TLS — grouped function-scope static thread_local
                 // vectors crash in this TU (mtp_stack_fwd incident).
                 static thread_local struct DpoWs {
                     std::vector<float> dl_c, dl_r;
@@ -792,7 +792,7 @@ static JsonValue run_job(const JsonValue& job) {
         put("loss_tail", tail);
     }
     // Router-health observation (B139): last forward's accumulated
-    // load-balancing aux ???嚙練oe_aux_w?layers at perfect balance.
+    // load-balancing aux ???�moe_aux_w?layers at perfect balance.
     if (c.moe_experts > 0) {
         put("moe_aux_last", num(fw.moe_aux));
         put("moe_zlast", num(fw.moe_zloss));
@@ -805,7 +805,7 @@ static JsonValue run_job(const JsonValue& job) {
     if (c.mtp_num_layers > 0) put("mtp_loss_last", num(mtp_last));
     // v29 MTP stack observability: weighted aux CE of the last example.
     if (c.mtp_depth > 0) put("mtp_stack_loss_last", num(mtp_stack_last));
-    // 禮45 parameter-efficiency metrics: trainable vs frozen counts and
+    // §45 parameter-efficiency metrics: trainable vs frozen counts and
     // gain-per-million ??the capability loop's comparison currency.
     {
         const int64_t trainable = p.trainable_params();
@@ -2170,10 +2170,10 @@ static int dsvcheck() {
 
 // ---------------------------------------------------------- freezecheck --
 //
-// ParameterFreezeMap probe (300M 禮41-禮44): patterns resolve at
+// ParameterFreezeMap probe (300M §41-§44): patterns resolve at
 // alloc_adam, frozen params get no Adam moments, adamw_step leaves them
 // byte-identical while trainable params move, dormant routed experts
-// (zero grad) are skipped, and the run_job report exposes the 禮45
+// (zero grad) are skipped, and the run_job report exposes the §45
 // parameter-efficiency fields.
 static int freezecheck() {
     int failures = 0;
@@ -2249,7 +2249,7 @@ static int freezecheck() {
         if (!moved) fail("trainable weight did not move");
     }
 
-    // ---- 3. 禮44 dormant routed expert skipped (dense wd still applies) --
+    // ---- 3. §44 dormant routed expert skipped (dense wd still applies) --
     {
         Params p3;
         init_params(p3, c, 37);
@@ -2268,7 +2268,7 @@ static int freezecheck() {
         if (!dec) fail("dense decoupled wd lost");
     }
 
-    // ---- 4. job plumbing + 禮45 report fields ------------------------------
+    // ---- 4. job plumbing + §45 report fields ------------------------------
     std::string tmp = "_xct_freeze_data.jsonl";
     {
         std::ofstream f(tmp, std::ios::trunc);

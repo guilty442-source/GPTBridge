@@ -1,6 +1,7 @@
-﻿# xcorpus ??Rust corpus pipeline (star-pretrain-corpus/v1 port)
+# xcorpus — Rust corpus pipeline (star-pretrain-corpus/v1 port)
 
-> Language architecture: AGENTS.md??瞉?Language Architecture??> Rust owns the data layer. This crate ports `xcm_corpus.h`
+> Language architecture: AGENTS.md「星澄 Language Architecture」—
+> Rust owns the data layer. This crate ports `xcm_corpus.h`
 > (`xc_modeltool corpus`) into the Rust lane: untrusted text + file
 > trees in, governed packed datasets out.
 
@@ -30,16 +31,16 @@ malformed referenced policy fails closed before any scan.
 Given the same registry/root/tokenizer the emitted artifacts are
 byte-identical to the C++ lane:
 
-- `train-ids.jsonl` / `valid-ids.jsonl` ??EOS-separated packing,
+- `train-ids.jsonl` / `valid-ids.jsonl` — EOS-separated packing,
   one shared pack cursor across docs/splits (matching the C++ emit
   order, including the cross-split flush behaviour).
-- `documents.jsonl` ??field order fixed; `dataset_version` =
+- `documents.jsonl` — field order fixed; `dataset_version` =
   sha256 of this file, so parity is provable by the digest.
-- `train-records.jsonl` / `valid-records.jsonl` ??overlap-gate records
+- `train-records.jsonl` / `valid-records.jsonl` — overlap-gate records
   (`norm_text_sha` = sha256(py_strip(nfc(text)))).
-- `corpus-cache.jsonl` ??`star-corpus-file-cache/v1`; unchanged files
+- `corpus-cache.jsonl` — `star-corpus-file-cache/v1`; unchanged files
   (size + FILETIME-tick mtime match) reuse derived records.
-- `manifest.json` ??identical schema/counters; `created_at`, `root`,
+- `manifest.json` — identical schema/counters; `created_at`, `root`,
   `registry` are the only run-specific fields.
 
 Pipeline elements (C108): registry gate (enabled + license +
@@ -57,14 +58,14 @@ manifest with per-file sha256.
 | `tokenizer.rs` | `ByteLevelBPETokenizer` (byte-level BPE, merges by lowest rank, specials, bos=1/eos=2) |
 | `textutil.rs` | `nfc` (unicode-normalization), `py_strip` (C++ unicode_space table), `sha256_text`, `json_escape` |
 | `scan.rs` | deny list, text/code extension sets, `corpus_lang`, FNV + splitmix64 mix, 64-lane MinHash, 16 band keys |
-| `corpus.rs` | registry gate ??scan ??cache gate ??parallel parse ??dedup merge ??emit ??manifest |
+| `corpus.rs` | registry gate → scan → cache gate → parallel parse → dedup merge → emit → manifest |
 
 ## Known deltas vs C++ (safe, documented)
 
 - NFC: C++ uses Windows `NormalizeString`; Rust uses
-  `unicode-normalization` ??same Unicode NFC mapping; invalid UTF-8 is
+  `unicode-normalization` — same Unicode NFC mapping; invalid UTF-8 is
   lossy-decoded in both lanes (U+FFFD).
 - `mtime` stored as Windows FILETIME ticks (100ns since 1601) to keep
   `corpus-cache.jsonl` interoperable with C++-written caches.
-- Worker pool is `std::thread::scope` ??tokenizer tables are read-only
+- Worker pool is `std::thread::scope` — tokenizer tables are read-only
   after load; result slots are per-candidate `Mutex`s.

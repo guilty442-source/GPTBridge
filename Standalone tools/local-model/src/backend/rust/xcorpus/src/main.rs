@@ -1,11 +1,11 @@
-﻿//! xcorpus ??governed corpus pipeline CLI (star-pretrain-corpus/v1 port).
+//! xcorpus — governed corpus pipeline CLI (star-pretrain-corpus/v1 port).
 //!
 //!   xcorpus corpus --registry <json> --root <dir> --tokenizer <p|dir>
 //!                  --out <dir> [--max-len N] [--val-ratio PCT]
 //!                  [--max-docs N] [--max-doc-chars N] [--max-tokens N]
 //!                  [--jobs N]
 //!
-//! One JSON object on stdout; errors to stderr with exit 2 ??the same
+//! One JSON object on stdout; errors to stderr with exit 2 — the same
 //! governed-subprocess contract as xc_modeltool.
 
 use xcorpus::corpus;

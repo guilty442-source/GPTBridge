@@ -1,9 +1,9 @@
-﻿//! kernels.rs ??star-kernel-registry for the xstore data/safety lane.
+//! kernels.rs — star-kernel-registry for the xstore data/safety lane.
 //!
 //! The registry is the governed inventory of every compute kernel this
 //! lane owns (same contract the C++ trainer emits for its TPU lanes).
-//! Every entry here has exactly one implementation ??the audited Rust
-//! path ??so `variants` documents capability, not dispatch. Phase 1
+//! Every entry here has exactly one implementation — the audited Rust
+//! path — so `variants` documents capability, not dispatch. Phase 1
 //! scope: inventory + star-kernel-policy deny enforcement; the
 //! dispatch-authority phase is separate.
 
@@ -61,7 +61,7 @@ pub fn kernel_for(cmd: &str) -> Option<&'static str> {
 
 /// star-kernel-policy (minimal surface): format tag + enabled +
 /// deny_kernels. A referenced but unreadable/malformed policy is a hard
-/// failure ??callers propagate the Err verbatim.
+/// failure — callers propagate the Err verbatim.
 pub struct Policy {
     pub loaded: bool,
     pub enabled: bool,
@@ -129,7 +129,7 @@ pub fn policy_path(arg: Option<&String>) -> String {
 }
 
 /// Fail-closed deny check for a command's kernel. Returns Err with the
-/// KERNEL_POLICY_DENIED code ??callers surface it as XSTORE_FAILED.
+/// KERNEL_POLICY_DENIED code — callers surface it as XSTORE_FAILED.
 pub fn policy_gate(pol: &Policy, cmd: &str) -> Result<(), String> {
     if !pol.loaded {
         return Ok(());

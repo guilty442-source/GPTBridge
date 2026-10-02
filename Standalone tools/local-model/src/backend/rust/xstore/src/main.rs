@@ -1,4 +1,4 @@
-﻿//! xstore ??governed data/safety lane CLI (xstore/v1).
+//! xstore — governed data/safety lane CLI (xstore/v1).
 //!
 //!   xstore ckpt-info   <file>              header + tensor table (JSON)
 //!   xstore ckpt-verify <file> [--hash-payloads]
@@ -10,7 +10,7 @@
 //!   xstore verify-store --store <dir>      re-hash all + index chain
 //!
 //! All output is a single JSON object on stdout; errors go to stderr and
-//! exit 2 ??fail-closed, matching the governed-subprocess contract used
+//! exit 2 — fail-closed, matching the governed-subprocess contract used
 //! by xc_modeltool/xingcheng_trainer.
 
 #![recursion_limit = "512"]
@@ -40,7 +40,7 @@ fn map_file(path: &str) -> Result<memmap2::Mmap, String> {
     let f = std::fs::File::open(path)
         .map_err(|e| format!("open {path}: {e}"))?;
     // SAFETY: read-only map of a file we do not write; mutation by
-    // another process is a documented mmap caveat ??the parser only
+    // another process is a documented mmap caveat — the parser only
     // reads through the slice and a torn read yields a ParseError, not
     // UB, because no unsafe pointer arithmetic escapes bounds checks.
     unsafe { memmap2::Mmap::map(&f) }.map_err(|e| format!("mmap {path}: {e}"))
