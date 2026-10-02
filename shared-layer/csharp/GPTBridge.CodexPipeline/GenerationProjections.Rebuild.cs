@@ -418,8 +418,7 @@ internal static partial class GenerationProjections
     /// lag the generation that seals it (FORBID:diagram-lag|
     /// mixed-version-generation).  The single
     /// ``ARCHITECTURE_DIAGRAM_SYNC_CURRENT`` evidence row is rebuilt
-    /// from the measured file state; drift counts record what the
-    /// rebuild repaired.</summary>
+    /// from the measured post-rebuild state, never pre-repair counts.</summary>
     private static void RebuildDiagramSync(StageConnection connection,
         string version)
     {
@@ -445,7 +444,6 @@ internal static partial class GenerationProjections
                 .Replace('/', Path.DirectorySeparatorChar);
             var file = Path.GetFullPath(Path.Combine(Repo.Root(),
                 relative));
-            if ((row[3]?.ToString() ?? "") != version) stale++;
             if (!File.Exists(file))
             {
                 missing++;
@@ -454,7 +452,6 @@ internal static partial class GenerationProjections
             present++;
             if (new FileInfo(file).IsReadOnly) readOnly++;
             var hash = SuccessorBuilder.FileSha256(file);
-            if (hash == (row[2]?.ToString() ?? "")) hashMatch++;
             rebind.Add(new object?[] { version, hash, version, code });
         }
         connection.Executemany(
@@ -463,6 +460,19 @@ internal static partial class GenerationProjections
             + "validated_at_utc=?, sync_status='SYNCED_CURRENT' "
             + "WHERE diagram_code=? AND status='active'",
             rebind.Select(r => (IReadOnlyList<object?>)r).ToList());
+        // Validate the rows actually persisted, rather than assuming that
+        // the old registry hashes or successful writes prove current parity.
+        foreach (var row in connection.Execute(
+            "SELECT artifact_path, content_hash, source_codex_version, sync_status "
+            + "FROM architecture_diagram_artifact_registry WHERE status='active'").Rows)
+        {
+            var file = Path.GetFullPath(Path.Combine(Repo.Root(),
+                (row[0]?.ToString() ?? "").Replace('/', Path.DirectorySeparatorChar)));
+            if ((row[2]?.ToString() ?? "") != version
+                || (row[3]?.ToString() ?? "") != "SYNCED_CURRENT") stale++;
+            if (File.Exists(file)
+                && SuccessorBuilder.FileSha256(file) == (row[1]?.ToString() ?? "")) hashMatch++;
+        }
         if (!HasTable(connection, "architecture_diagram_sync_evidence"))
             return;
         connection.Execute(
@@ -479,8 +489,65 @@ internal static partial class GenerationProjections
                 version, (long)rows.Count, (long)rows.Count,
                 (long)present, (long)hashMatch, (long)readOnly,
                 (long)stale, (long)missing,
-                missing == 0 ? "PASS" : "FAIL", version,
+                missing == 0 && present == rows.Count && hashMatch == rows.Count
+                    && stale == 0 && readOnly == rows.Count ? "PASS" : "FAIL", version,
             });
+    }
+
+    private static void RebuildProjectDirectoryProjection(StageConnection connection, string version)
+    {
+        if (!HasTable(connection, "project_architecture_directory")
+            || !HasTable(connection, "a233_normalized_directory_entry")) return;
+        var columns = Columns(connection, "project_architecture_directory");
+        foreach (var row in Rows(connection, "project_architecture_directory"))
+        {
+            var payload = columns.Select((name, index) => (name, value: row[index]))
+                .ToDictionary(p => p.name, p => p.value);
+            var code = payload["architecture_code"]?.ToString() ?? "";
+            var count = connection.Execute(
+                "SELECT COUNT(*) FROM a233_normalized_directory_entry "
+                + "WHERE source_table='project_architecture_directory' AND source_key=?",
+                new object?[] { code }).Rows[0][0];
+            if (Convert.ToInt64(count) != 1)
+                throw new InvalidOperationException($"A233_PROJECT_PROJECTION_COVERAGE:{code}");
+            connection.Execute(
+                "UPDATE a233_normalized_directory_entry SET domain_payload=?,content_hash=?,revision=? "
+                + "WHERE source_table='project_architecture_directory' AND source_key=?",
+                new object?[] { AmendmentContract.CanonicalJson(payload),
+                    AmendmentContract.ContentHash(payload), version, code });
+        }
+        var extra = connection.Execute(
+            "SELECT COUNT(*) FROM a233_normalized_directory_entry n "
+            + "WHERE n.source_table='project_architecture_directory' AND NOT EXISTS "
+            + "(SELECT 1 FROM project_architecture_directory d WHERE d.architecture_code=n.source_key)").Rows[0][0];
+        if (Convert.ToInt64(extra) != 0)
+            throw new InvalidOperationException("A233_PROJECT_PROJECTION_EXTRA_ROWS");
+    }
+
+    private static void RebuildStaleReferenceEvidence(StageConnection connection, string version)
+    {
+        if (!HasTable(connection, "architecture_stale_reference_evidence")) return;
+        var current = 0L;
+        var historical = 0L;
+        // Restrictive mentions do not grant a role. Explicitly historical
+        // clauses are counted separately; every other active mention fails closed.
+        foreach (var row in connection.Execute(
+            "SELECT a.rule FROM articles a JOIN provision_lifecycle_status l "
+            + "ON l.provision_id=a.provision_id AND l.provision_type='article' "
+            + "WHERE l.lifecycle_state='active'").Rows)
+            foreach (var clause in (row[0]?.ToString() ?? "").Split(';'))
+            {
+                if (!clause.Contains("sub-sovereign", StringComparison.OrdinalIgnoreCase)) continue;
+                if (System.Text.RegularExpressions.Regex.IsMatch(clause,
+                    "historical|abolished|retired|lineage|superseded|REMOVED|no sub-sovereign|not a sovereign|without restoring|never a sovereign",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase)) historical++;
+                else current++;
+            }
+        connection.Execute(
+            "UPDATE architecture_stale_reference_evidence SET current_reference_count=?, "
+            + "historical_reference_count=?,result=?,version_identity=?,status='current' "
+            + "WHERE evidence_id='CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT'",
+            new object?[] { current, historical, current == 0 ? "PASS" : "FAIL", version });
     }
 
     /// <summary>Rebind every derived projection of the staged
@@ -508,6 +575,8 @@ internal static partial class GenerationProjections
                 docCount);
             RebuildVersionAuthorityRegistry(connection, version);
             SyncNormativeSurface(connection, version);
+            RebuildProjectDirectoryProjection(connection, version);
+            RebuildStaleReferenceEvidence(connection, version);
             RebuildDiagramSync(connection, version);
             var historyHead = AppendRevision(connection, version,
                 epoch,
