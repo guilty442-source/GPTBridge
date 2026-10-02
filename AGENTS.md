@@ -1082,7 +1082,13 @@ Adaptive CPU/memory governor that watches every process owned by the current
 user and lowers resource pressure automatically: sustained CPU hogs get
 `BELOW_NORMAL` priority, extreme hogs get their CPU affinity capped to half of
 the logical CPUs, and large idle processes have their working set trimmed
-(`EmptyWorkingSet`).  Actions revert after ~5 calm minutes.  Protected:
+(`EmptyWorkingSet`).  Actions revert after ~5 calm minutes.  Per-process
+dynamic升降 (`defaults`): with `limiter_dynamic` a capped worker's Job rate
+steps tighter each cycle while it stays extreme (floor `limiter_min_percent`)
+and relaxes back toward `limiter_percent` when demand drops below half the
+cap; with `priority_escalate` a process still extreme past
+`sustain + extreme_sustain` escalates `below_normal` → `idle` and steps back
+when it drops under extreme (rule-held/pb/bg/foreground exempt).  Protected:
 Windows system processes, security software (including the user's antivirus)
 and the governor itself.
 
