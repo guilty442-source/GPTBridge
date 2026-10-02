@@ -96,7 +96,7 @@
     "$kw": {}
   },
   "STAR_CHAT_PACKAGE_ROOT": [
-    "Standalone tools/model-dialogue/src/backend/services/star_chat"
+    "Standalone tools/model-dialogue/star-chat"
   ],
   "STAR_CHAT_REQUIRED_LAYERS": {
     "$call": "frozenset",
@@ -266,7 +266,7 @@
     "investment_mobile": "Standalone tools/investment-mobile",
     "xingcheng": "Standalone tools/local-model",
     "vaultly": "Standalone tools/vaultly",
-    "star_chat": "Standalone tools/local-model"
+    "star_chat": "Standalone tools/model-dialogue"
   },
   "__all__": [
     "AI_COLLABORATION_PACKAGE_ROOT",
