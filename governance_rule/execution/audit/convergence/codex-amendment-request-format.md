@@ -12,8 +12,14 @@ rewritten. v2 applies to new submissions only.
 ## 1. Transport rules
 
 - **Filename**: `codex-amendment-request-<slug>-<yyyymmdd>[-r<n>].json`.
-  Lifecycle suffixes (`.withdrawn`, `.staged.json`) are applied by the
-  ledger/pipeline, never by the author.
+  Lifecycle suffixes are applied by the ledger/pipeline, never by the
+  author: a request whose ledger record reaches a terminal state is
+  automatically retired by renaming `….json` → `….json.<state>`
+  (`.executed` / `.rejected` / `.withdrawn`) — the intake glob stops
+  rescanning it while the evidence stays on disk, and the record gains
+  `retired_request_path` provenance. A live request's `supersedes`
+  (or legacy `resubmission_of`) also auto-withdraws the named
+  non-terminal request in the same pass.
 - **Drop locations** (intake dirs, scanned by `Driver.IntakeDirs`):
   - `main-system/runtime/state/`
   - `governance_rule/execution/audit/convergence/`
