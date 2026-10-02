@@ -693,6 +693,118 @@ internal static class SelfLearning
         return result;
     }
 
+    /// <summary>Resident self-learning scheduler — the cadence mechanism
+    /// lives inside the tool body: a single-instance lock under
+    /// xingcheng/runtime/state plus a loop that drives RunCycle
+    /// in-process every interval. All gates (kill switch, quiet hours,
+    /// thresholds, inference exclusion, serial lane) stay authoritative
+    /// inside RunCycle; the loop only paces and heartbeats. Never
+    /// returns on its own — 1 means another schedule instance holds the
+    /// lock; external supervisors liveness-check the heartbeat file.</summary>
+    public static int RunSchedule(string toolRoot, double intervalS = 900)
+    {
+        string tool = Path.GetFullPath(toolRoot);
+        string stateDir = Path.Combine(
+            tool, "xingcheng", "runtime", "state");
+        Directory.CreateDirectory(stateDir);
+        string lockPath = Path.Combine(
+            stateDir, "self-learning-schedule.lock");
+        string heartbeatPath = Path.Combine(
+            stateDir, "self-learning-schedule.json");
+        FileStream instanceLock;
+        try
+        {
+            instanceLock = new FileStream(lockPath, FileMode.Create,
+                FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (Exception exc) when (exc is IOException
+            or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine(
+                "[xc-learning] --schedule already running (lock held)");
+            return 1;
+        }
+        var interval = TimeSpan.FromSeconds(
+            intervalS > 0 ? intervalS : 900);
+        var repository = new TransformerTrainingRepository(tool);
+        var executor = new TrainingJobExecutor(repository, tool);
+        using (instanceLock)
+        {
+            while (true)
+            {
+                Dictionary<string, object?> result;
+                try
+                {
+                    // Drain before cycle: a queued job takes precedence and
+                    // would otherwise defer self-learning forever. The
+                    // serial lane admits one claimant, so a race with an
+                    // external drain is fail-closed (EXECUTOR_TRAINING_*
+                    // surfaces as a fault heartbeat, retried next tick).
+                    if (repository.ActiveJobs(1).Count > 0)
+                    {
+                        result = new Dictionary<string, object?>
+                        {
+                            ["action"] = "deferred",
+                            ["reason"] = "job in flight",
+                        };
+                    }
+                    else if (repository.QueuedJobs(1) is { Count: > 0 } q)
+                    {
+                        string jid = (string)q[0]["job_id"]!;
+                        var rep = executor.RunJob(jid);
+                        result = new Dictionary<string, object?>
+                        {
+                            ["action"] = "drained",
+                            ["job_id"] = jid,
+                            ["ok"] = rep.GetValueOrDefault("ok"),
+                            ["error_code"] =
+                                rep.GetValueOrDefault("error_code"),
+                        };
+                    }
+                    else
+                    {
+                        result = RunCycle(tool);
+                    }
+                }
+                catch (Exception exc)
+                {
+                    result = new Dictionary<string, object?>
+                    {
+                        ["action"] = "fault",
+                        ["error"] =
+                            $"{exc.GetType().Name}:{exc.Message}",
+                    };
+                }
+                try
+                {
+                    ModelLifecycle.AtomicWrite(heartbeatPath,
+                        CanonicalJson.PrettyDict(
+                            new Dictionary<string, object?>
+                            {
+                                ["format"] =
+                                    "star-self-learning-schedule/v1",
+                                ["pid"] =
+                                    System.Diagnostics.Process
+                                        .GetCurrentProcess().Id,
+                                ["at"] = IsoNow(),
+                                ["interval_s"] = interval.TotalSeconds,
+                                ["last_action"] =
+                                    result.GetValueOrDefault("action"),
+                                ["reason"] =
+                                    result.GetValueOrDefault("reason"),
+                                ["error"] =
+                                    result.GetValueOrDefault("error"),
+                                ["ok"] = TransformerTrainingRepository
+                                    .Truthy(result
+                                        .GetValueOrDefault("ok")),
+                            }) + "\n");
+                }
+                catch { /* heartbeat is evidence, never a gate */ }
+                Thread.Sleep(interval);
+            }
+        }
+    }
+
     public static Dictionary<string, object?> RunCycleImpl(
         string toolRoot, SelfLearningPolicy? policy = null, bool force = false)
     {
@@ -752,6 +864,25 @@ internal static class SelfLearning
                     ["policy"] = policyDict, ["checked_at"] = IsoNow(),
                 };
             }
+        }
+
+        // Serial-lane occupancy is itself a gate: while a governed job is
+        // in flight or queued, another cycle would only pile up duplicate
+        // queued rows and burn a daily-cycle slot. Defer instead — the
+        // holder's own completion drains the lane.
+        {
+            var laneRepo = new TransformerTrainingRepository(tool);
+            var laneActive = laneRepo.ActiveJobs(1);
+            var laneQueued = laneRepo.QueuedJobs(1);
+            if (laneActive.Count > 0 || laneQueued.Count > 0)
+                return new Dictionary<string, object?>
+                {
+                    ["ok"] = true, ["action"] = "deferred",
+                    ["reason"] = laneActive.Count > 0
+                        ? $"job in flight: {laneActive[0]["job_id"]}"
+                        : $"queued job pending: {laneQueued[0]["job_id"]}",
+                    ["policy"] = policyDict, ["checked_at"] = IsoNow(),
+                };
         }
 
         // DPO branch: sufficient new paired preference rows route the cycle

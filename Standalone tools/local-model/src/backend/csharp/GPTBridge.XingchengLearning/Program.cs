@@ -5,6 +5,9 @@
 //   --preflight           resource gate preview (inference + governor
 //                         quota -> trainer threads), read-only
 //   --run-once [--force]  one governed self-learning cycle
+//   --schedule [--interval-s N]
+//                         resident scheduler: single-instance lock +
+//                         loop driving RunCycle every N s (default 900)
 //   --enable / --disable  policy kill switch (fail-closed when off)
 //   --retention           dry-run sweep (default) | --apply | --status
 //   --run-jobs [N]        drain queued governed training jobs
@@ -56,6 +59,10 @@ internal static class Program
             if (flags.Contains("run-once"))
                 return Emit(SelfLearning.RunCycle(
                     toolRoot, force: flags.Contains("force")));
+            if (flags.Contains("schedule"))
+                return SelfLearning.RunSchedule(toolRoot,
+                    opts.TryGetValue("interval-s", out string? ivs) &&
+                    double.TryParse(ivs, out double iv) ? iv : 900);
             if (flags.Contains("enable") || flags.Contains("disable"))
                 return Emit(SetEnabled(toolRoot, flags.Contains("enable")));
             if (flags.Contains("retention"))
@@ -69,6 +76,10 @@ internal static class Program
                     int.TryParse(n, out int limit) ? limit : 16));
             if (opts.TryGetValue("job", out string? jobId))
                 return Emit(RunJob(toolRoot, jobId));
+            if (opts.TryGetValue("cancel-job", out string? cancelId))
+                return Emit(CancelJob(toolRoot, cancelId,
+                    opts.TryGetValue("reason", out string? cr)
+                        ? cr : ""));
             if (flags.Contains("reap-stale"))
                 return Emit(ReapStale(toolRoot,
                     opts.TryGetValue("older-than-s", out string? ots) &&
@@ -1634,9 +1645,11 @@ internal static class Program
     {
         Console.Error.WriteLine(
             "GPTBridge.XingchengLearning [--tool-root <dir>] " +
-            "(--status | --preflight | --run-once [--force] | --enable | --disable | " +
+            "(--status | --preflight | --run-once [--force] | " +
+            "--schedule [--interval-s N] | --enable | --disable | " +
             "--retention [--apply|--status] | --run-jobs [n] | " +
-            "--job <id> | --reap-stale [--older-than-s N] [--apply] | " +
+            "--job <id> | --cancel-job <id> [--reason <text>] | " +
+            "--reap-stale [--older-than-s N] [--apply] | " +
             "--self-test | --converge-check | " +
             "--maturation-status | --maturation-freeze --capability " +
             "<id> --evidence <ref> | --maturation-reopen --capability " +
@@ -1913,6 +1926,28 @@ internal static class Program
     {
         var repo = new TransformerTrainingRepository(toolRoot);
         return new TrainingJobExecutor(repo, toolRoot).RunJob(jobId);
+    }
+
+    /// <summary>Governed cancel of a queued job. Goes through
+    /// TransitionTrainingJob so the transition is rejected for
+    /// non-cancellable states and the audit event lands in the same
+    /// transaction — stray queued rows otherwise block the self-learning
+    /// lane's queued-pending deferral forever.</summary>
+    private static Dictionary<string, object?> CancelJob(
+        string toolRoot, string jobId, string reason)
+    {
+        var repo = new TransformerTrainingRepository(toolRoot);
+        var row = repo.TransitionTrainingJob(jobId, "cancelled",
+            errorCode: "OPERATOR_CANCELLED",
+            errorMessage: string.IsNullOrWhiteSpace(reason)
+                ? "operator cancel" : reason);
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = true,
+            ["action"] = "cancelled",
+            ["job_id"] = jobId,
+            ["job"] = row,
+        };
     }
 
     /// <summary>Reap orphaned live-state jobs (dry-run by default;
