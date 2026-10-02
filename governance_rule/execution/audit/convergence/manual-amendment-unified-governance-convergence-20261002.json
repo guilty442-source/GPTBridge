@@ -1,0 +1,56 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "unified-governance-convergence-20261002",
+  "title": "Converge governance planes under C50",
+  "summary": "Bind Git,SQL and cross-store governance to one C50 orchestration contract with current-generation publication parity and preserved five-core duties.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: 統一治理; Codex-only amendment",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T05:44:44Z",
+    "version_identity": "E2:2026-10-02T05:44:44Z",
+    "version_epoch": 2,
+    "history_head": "b38c98252de6ca2a391da020153ea9e194ba9e9da50be26699e2903f06feab44",
+    "revision_sequence": 213
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C50"
+      },
+      "field": "rule",
+      "proposed": "OWNER:automation-core. GOVERNANCE-ENGINE:one registered governance engine is the sole system-wide orchestration boundary for authorized governance workflows,including Git coordination and SQL governance;Git and SQL are domain planes of that engine and never independent schedulers,coordinators or governance authorities. RESPONSIBILITY:the engine receives current decision and permission artifacts,orders dependencies,applies generation fences,coordinates bounded domain executors,joins receipts,isolates conflicts and publishes one convergence result. AUTHORITY-SEPARATION:Git remains authority only for source and immutable repository history;PostgreSQL remains authority only for official mutable structured data and Codex state;the governance engine owns neither domain truth and cannot translate availability in one domain into authority over the other. ATOMICITY:a cross-domain change declares one correlation identity,one intended generation and one ordered transaction plan;Git commit publication,SQL migration or data mutation,verification and activation either converge to the same accepted generation or the affected change remains incomplete and fail-closed;no distributed transaction fiction or silent partial success is permitted. EXECUTION:registered Git and SQL modules perform bounded owner-language work and return typed receipts;runtime-core owns execution mechanics. FAILURE:a failure in one plane blocks only the dependent convergence path,preserves the last accepted state and evidence,and cannot corrupt or promote the other plane. SUCCESS:required Git,SQL,Codex,permission,runtime and audit identities,versions,hashes and receipts agree and independent verification passes. GOVERNANCE-UNITY:C50 controls the one governance orchestration engine for all registered system-wide workflows,including Git,SQL,Codex publication,permission-registry synchronization,release,maintenance,recovery and audit delivery. Every plane uses the same current Codex generation,task identity,correlation chain,permission proof,dependency ordering,cancellation and convergence contract. Decision-core retains decisions and acceptance;permission-core retains identity,scope and permission;runtime-core retains governed execution;automation-core retains orchestration;xingcheng-assistant retains independent read-side review. Domain executors cannot establish another control plane. A domain-specific operating loop remains bounded by its registered owner and cannot become a system-wide governance scheduler. Publication requires current authority-pointer,search,lifecycle,seal and mirror parity;stale or mixed generation blocks the affected activation."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C37"
+      },
+      "field": "rule",
+      "proposed": "SCOPE:Git source/history/index/worktrees/commits/merges/hooks/audit/rollback; OWNER:automation-core owns Git automation while permission-core owns registered path scope; ENTRY:GitRepository.run only; TRACKED-ALLOWLIST:authored source+Codex/contracts+SQL migrations+required configuration+non-rebuildable tests/audit evidence+human-authored documentation; EXCLUDED:runtime-state+logs+cache+temp+build/dist+packages+virtual-environments+models+database-instances+coverage+generated-indexes+rebuildable artifacts+secrets; VALIDATION:path ownership+ignore policy+staging scope+immutable commit+audit+fast-forward; FAILURE:stop only affected item,retain work and continue independent queue entries\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。 GOVERNANCE-UNITY:all orchestration under this provision resolves exclusively through the single C50 governance engine and its current-generation,permission,execution,receipt and convergence contract;this provision creates no separate scheduler,coordinator or governance authority."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C61"
+      },
+      "field": "rule",
+      "proposed": "AUTOMATIC-DATA-MAINTENANCE:PostgreSQL+Rust-Vector-Engine self-observe,self-diagnose and self-maintain through one registered event-driven maintenance flow; EVENTS:schema/migration+query-plan+capacity+WAL+transport-backlog+source-revision+index-generation+permission+restore; ACTIONS:bounded analyze/vacuum/reindex/rebuild/reconcile/retention/connection-generation-fence and safe additive index maintenance; SAFETY:canonical migration/schema/permission contracts control every action; reversible deterministic actions execute automatically; destructive,authority-changing or unknown-effect actions fail closed and quarantine; CAPACITY:30/90/180-day forecast+warning/critical/fail-closed; EVIDENCE:before/after plan+counts+hashes+generation+latency+resource+result; SCHEDULER:existing sole automation scheduler only GOVERNANCE-UNITY:all orchestration under this provision resolves exclusively through the single C50 governance engine and its current-generation,permission,execution,receipt and convergence contract;this provision creates no separate scheduler,coordinator or governance authority."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C80"
+      },
+      "field": "rule",
+      "proposed": "DATA-CONTROL-SYSTEM:central and module data operations are governed by the machine-readable data_governance_control_registry. LINEAGE-AUTHORITY-WRITE:every resource binds full cross-store lineage,authority_class,write provenance and contemporaneous permission/RLS proof. SCHEMA-DDL:one schema owner;runtime DDL forbidden;migration-executor-only DDL with independent append-only audit. CONNECTION:contract-version handshake and generation fencing precede writes. AUTOMATIC-MAINTENANCE:the existing automation core is the sole scheduler and registered database maintenance executors are the sole actors;no second scheduler,migration executor or authority source is permitted. OBSERVATION:transaction age,idle-in-transaction,locks,dead tuples,vacuum lag,table/index bloat,WAL,disk,pool pressure,transport backlog,backup state and reconciliation backlog are continuously observed. ADMISSION:each automatic action declares object scope,trigger threshold,maintenance workload class,deadline,concurrency and resource ceiling,idempotency key,stop policy and audit identity;interactive and authority work preempt maintenance. ACTIONS:registered bounded VACUUM,ANALYZE,REINDEX,partition and retention maintenance,connection recycling,long-transaction handling,orphan scanning,reconciliation,backup verification and restore rehearsal may run automatically. STRUCTURE:maintenance never invents or runs unregistered DDL,never auto-applies migration and never legalizes live drift;schema change remains ordered migration-executor work. LIFECYCLE:destructive cleanup follows tombstone,retention,reference check,purge and cross-store synchronization;unresolved references preserve data. RESILIENCE:versioned SLO,RPO/RTO classes,capacity watermarks,domain-scoped read-only emergency mode and database startup certification are mandatory. FAILURE:timeout,missing evidence,drift,unsafe lock impact or indeterminate outcome stops the action and may isolate only the affected domain read-only;no global silent alternate embedded database substitution. RECEIPT:every action records trigger,threshold,actor,executor,object,before/after state,duration,resources,result and correlation identity. AUTHORITY:degraded-copy,cache and derived data never become central-official by fallback or availability. GOVERNANCE-UNITY:all orchestration under this provision resolves exclusively through the single C50 governance engine and its current-generation,permission,execution,receipt and convergence contract;this provision creates no separate scheduler,coordinator or governance authority."
+    }
+  ]
+}
