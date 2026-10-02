@@ -345,6 +345,100 @@ internal static class CapabilityMaturityService
                 p is true)
             .Select(kv => kv.Key).OrderBy(x => x).ToArray();
 
+    // --------------------------------- §78-§80 transformation recheck --
+
+    /// <summary>§78-§80: after distillation, compression or
+    /// quantization every protected capability floor must be
+    /// revalidated. ``post`` maps capability id → post-transformation
+    /// score; each protected capability must be present (a missing
+    /// score means the floor was not re-tested — the transformation
+    /// cannot promote) and hold at least the stricter of its certified
+    /// baseline and its formal floor (§15). Every breach immediately
+    /// records REGRESSED (§10). Phase is one of distill | compress |
+    /// quantize and selects the report code.</summary>
+    public static Dictionary<string, object?> ProtectedFloorRecheck(
+        string toolRoot, string phase,
+        IReadOnlyDictionary<string, double> post)
+    {
+        string code = phase switch
+        {
+            "distill" => "POST_DISTILLATION_REGRESSION",
+            "compress" => "POST_COMPRESSION_REGRESSION",
+            "quantize" => "POST_QUANTIZATION_REGRESSION",
+            _ => "POST_TRANSFORMATION_REGRESSION",
+        };
+        var store = Load(toolRoot);
+        var checks = new List<object?>();
+        var regressions = new List<string>();
+        foreach (var cap in Protected(toolRoot))
+        {
+            store.TryGetValue(cap, out var row);
+            var d = CapabilityResolver.Descriptor(cap);
+            double required = d.Floor.MinimumQuality;
+            // §15: the stricter of the certified baseline and the
+            // formal floor. Decode() returns long/double for numbers.
+            if (row != null &&
+                row.TryGetValue("baseline", out var b) &&
+                b is Dictionary<string, object?> bd &&
+                bd.TryGetValue("baseline_score", out var bs))
+                required = Math.Max(required, bs switch
+                {
+                    double dn => dn,
+                    long ln => ln,
+                    int ni => ni,
+                    _ => 0.0,
+                });
+
+            bool measured = post.TryGetValue(cap, out double score);
+            bool pass = measured && score + 1e-9 >= required;
+            var check = new Dictionary<string, object?>
+            {
+                ["capability_id"] = cap,
+                ["required"] = required,
+                ["post_score"] = measured ? score : null,
+                ["verdict"] = pass ? "PASS"
+                    : measured ? "FLOOR_BREACH" : "NOT_RETESTED",
+            };
+            checks.Add(check);
+            if (!pass)
+            {
+                regressions.Add(cap);
+                // §10: a protected capability below its floor after
+                // transformation auto-regresses — evidence history is
+                // preserved, never deleted (§11).
+                try
+                {
+                    Transition(toolRoot, cap, "REGRESSED",
+                        $"{phase} recheck: " +
+                        (measured
+                            ? $"post {score:F3} < required {required:F3}"
+                            : "floor not re-tested"));
+                    check["state"] = "REGRESSED";
+                }
+                catch (ExecutorError)
+                {
+                    check["state"] = "REGRESSED";
+                }
+            }
+        }
+        return new Dictionary<string, object?>
+        {
+            ["ok"] = regressions.Count == 0,
+            ["format"] = "star-protected-floor-recheck/v1",
+            ["phase"] = phase,
+            ["protected_count"] = checks.Count,
+            ["checks"] = checks,
+            ["regressions"] = regressions.Cast<object?>().ToList(),
+            ["verdict"] = regressions.Count == 0
+                ? "PROTECTED_FLOORS_HELD" : code,
+            ["rule"] = "§78-§80: every protected floor re-validated " +
+                       "after transformation; stricter of certified " +
+                       "baseline and formal floor (§15); a missing " +
+                       "post score blocks promotion — re-testing is " +
+                       "not optional",
+        };
+    }
+
     // ---------------------------------------------------- report ----
 
     /// <summary>§100/§101 machine-readable maturity dashboard.</summary>

@@ -449,6 +449,42 @@ interface documentation only — never execution.
 > core set; §28 runtime axes scored separately, §29). Verbs:
 > `--capability-maturity` (§100-§101 report), `--capability-floor`,
 > `--capability-transition`, `--capability-matrix`.
+>
+> Phase-3/4 landings: out-of-order maturation now uniformly throws
+> `CAPABILITY_SEQUENCE_VIOLATION` (§20); `AcquireTrainingLane` routes
+> through `CapabilityProgressionPolicy.GuardAdmission` so aliases
+> canonicalize before ordering; `MarkUnsupported` requires a recorded
+> `star-architecture-limitation-evidence/v1` row (§22); failure-pool
+> dedup keys on (content hash, semantic class, capability_id, source
+> identity) (§39); `DatasetPurityGate.cs`
+> (`star-dataset-purity-gate/v1`) checks the four §105 axes —
+> train/eval overlap, regression leakage, golden leakage, holdout
+> leakage — deriving protected eval sets from the same suite builders
+> the recovery lane emits. Verb: `--dataset-purity --file`.
+>
+> Phase-5/6 landings: `MultiLaneMaturation.cs` —
+> `star-multilane-plan/v1` (§48 shared invariants + §49 divergent-key
+> whitelist, ≤3 lanes) and `star-multilane-verdict/v1` (§53 winner on
+> floor+regression+gain+efficiency, never steps; §108
+> PERFORMANCE_BLOCKED excluded, floor-miss = capability failure);
+> `CapabilityMaturityService.ProtectedFloorRecheck`
+> (`star-protected-floor-recheck/v1`) revalidates every protected
+> floor after distill/compress/quantize at the stricter of certified
+> baseline and formal floor (§78-§80, §15) — breaches auto-REGRESS
+> (§10), a missing post score blocks as NOT_RETESTED. Verbs:
+> `--multilane-plan`, `--multilane-winner`,
+> `--protected-floor-recheck`.
+>
+> Phase-7/8 landings: `MaturityStandard` XC-1B capability dimensions
+> and seed floors derive from `CapabilityRegistry.Canonical` directly
+> (§82/§122 — no second capability list; `rag_grounding`/`system1`/
+> `thinking` free strings removed); `GenerationMigration.Certify`
+> records a `capability_certification_snapshot` (per-capability state
+> + protected flags + evidence count) on the manifest and blocks on
+> any REGRESSED protected capability (§91/§123); `Promote` refreshes
+> `capability-registry.promoted.json` only after post-promote
+> verification passes (§17 — a blocked/rolled-back promotion never
+> re-baselines a regression).
 
 Capabilities are **first-class descriptors**, never their own runtime /
 model / store / scheduler. All capabilities ride the single xc-fused-1

@@ -50,14 +50,15 @@ internal static class MaturityStandard
         "XC-1B-QUANTIZED", "XC-1B-CERTIFIED", "XC-1B-STANDARD",
     };
 
-    /// <summary>§5 capability dimensions of XC1B_MATURITY_BASELINE.</summary>
+    /// <summary>§5 capability dimensions of XC1B_MATURITY_BASELINE —
+    /// maturation-closure §82/§122: the standard references the
+    /// CapabilityRegistry directly; it never maintains a second
+    /// capability list. Non-capability axes (system1 runtime,
+    /// thinking-mode gating) are evaluated through their own
+    /// contracts, not listed as capabilities here.</summary>
     public static readonly string[] Capabilities =
-    {
-        "instruction_following", "context_tracking", "multi_turn",
-        "structured_output", "tool_calling", "reading",
-        "rag_grounding", "math", "coding", "vision", "system1",
-        "thinking",
-    };
+        CapabilityRegistry.Canonical
+            .Select(d => d.CapabilityId).ToArray();
 
     /// <summary>§8 evaluation layers — the BASE_MODEL floor is the
     /// maturity claim; augmentation may only add.</summary>
@@ -144,12 +145,14 @@ internal static class MaturityStandard
             "xingcheng/runtime/maturity-baselines"
                 .Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(dir);
-        var floors = Capabilities.Select(cap =>
+        var floors = CapabilityRegistry.Canonical.Select(d =>
             (object?)BaselineEntry(
-                cap, "pass_rate", -1.0,   // PENDING until suite runs
+                d.CapabilityId, "pass_rate", -1.0,
                 "PENDING", "PENDING",
-                cap is "rag_grounding" or "tool_calling"
-                    ? "RUNTIME_AUGMENTED" : "BASE_MODEL",
+                d.CapabilityClass == "RUNTIME_AUGMENTED"
+                    ? "RUNTIME_AUGMENTED"
+                    : d.CapabilityClass == "SERVICE_AUGMENTED"
+                        ? "SERVICE" : "BASE_MODEL",
                 "production_mixed", "reference_gpu"))
             .ToList();
         var rec = new Dictionary<string, object?>

@@ -689,6 +689,46 @@ internal static class GenerationMigration
                 "not_evaluated (no --suite)"));
         }
 
+        // maturation-closure §91/§123: certification binds the
+        // capability snapshot — protected capabilities must not be
+        // REGRESSED when the generation certifies, and the snapshot
+        // (per-capability state + protection flags + evidence count)
+        // is recorded on the manifest so promotion can prove which
+        // capability ledger it was certified against.
+        var matStore = CapabilityMaturityService.Load(toolRoot);
+        var protectedCaps =
+            CapabilityMaturityService.Protected(toolRoot);
+        var regressedProtected = protectedCaps
+            .Where(c => matStore.TryGetValue(c, out var row) &&
+                row.TryGetValue("state", out var st) &&
+                st?.ToString() == "REGRESSED")
+            .ToList();
+        checks.Add(Check("protected_capabilities_held",
+            regressedProtected.Count == 0,
+            regressedProtected.Count == 0
+                ? $"{protectedCaps.Length} protected, none regressed"
+                : "regressed: " +
+                  string.Join(",", regressedProtected)));
+        var capSnapshot = new Dictionary<string, object?>
+        {
+            ["protected"] =
+                protectedCaps.Cast<object?>().ToList(),
+            ["states"] = matStore.ToDictionary(
+                kv => kv.Key,
+                kv => (object?)new Dictionary<string, object?>
+                {
+                    ["state"] = kv.Value.TryGetValue("state",
+                        out var s) ? s?.ToString() : "UNKNOWN",
+                    ["protected"] =
+                        kv.Value.TryGetValue("protected",
+                            out var p) && p is true,
+                }),
+            ["evidence_rows"] =
+                CapabilityEvidence.Load(toolRoot).Count,
+            ["snapshot_at"] = XcPaths.IsoNow(),
+        };
+        m["capability_certification_snapshot"] = capSnapshot;
+
         // §33 runtime-contract gates: every new runtime contract joins
         // the certification evidence — a generation can never promote
         // without them (bundle targets only; .xcn candidates have no
@@ -990,6 +1030,31 @@ internal static class GenerationMigration
                 string.Join(",", verify));
         }
         Event(m, "post_promote_verify", ("pinned", pinned));
+
+        // maturation-closure §17/§123: refresh the promoted registry
+        // baseline only now — after post-promote verification passed.
+        // A blocked or rolled-back promotion must never re-baseline a
+        // regression into the promoted snapshot.
+        try
+        {
+            var reg = CapabilityRegistry.Emit(toolRoot);
+            string promotedPath = Path.Combine(toolRoot,
+                CapabilityRegistry.BaselineRel.Replace('/',
+                    Path.DirectorySeparatorChar));
+            ModelLifecycle.AtomicWrite(promotedPath,
+                File.ReadAllText(Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar))));
+            Event(m, "capability_baseline_refreshed",
+                  ("registry", CapabilityRegistry.BaselineRel));
+            m["capability_registry_baseline"] =
+                CapabilityRegistry.BaselineRel;
+        }
+        catch (Exception ex)
+        {
+            Event(m, "capability_baseline_refresh_failed",
+                  ("error", ex.Message));
+        }
 
         m["status"] = "PROMOTED";
         m["activation_status"] = "promoted";

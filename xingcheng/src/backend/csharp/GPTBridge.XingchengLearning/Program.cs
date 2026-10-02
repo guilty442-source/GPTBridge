@@ -562,6 +562,58 @@ internal static class Program
                         cmx, toolRoot));
                 return Emit(CapabilityRegressionMatrix.Emit(toolRoot));
             }
+            // ---- maturation-closure §105: four-axis dataset purity
+            //      gate (eval overlap / regression / golden / holdout
+            //      leakage) checked before any formal maturity eval
+            //      result may stand as evidence.
+            if (flags.Contains("dataset-purity"))
+                return Emit(DatasetPurityGate.Check(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? dp)
+                            ? dp : "", "DATASET_PURITY_VIOLATION"),
+                    toolRoot));
+            // ---- maturation-closure §47-§53/§108: multi-lane
+            //      candidate competition — plan validation (shared
+            //      invariants, §49 divergent keys) + winner selection
+            //      on capability evidence (never throughput).
+            if (flags.Contains("multilane-plan"))
+                return Emit(MultiLaneMaturation.ValidatePlan(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mlp)
+                            ? mlp : "", "MULTILANE_PLAN_DENIED")));
+            if (flags.Contains("multilane-winner"))
+                return Emit(MultiLaneMaturation.SelectWinner(
+                    ToolContracts.ReadJson(
+                        opts.TryGetValue("file", out string? mlw)
+                            ? mlw : "", "NO_WINNER")));
+            // ---- maturation-closure §78-§80: post distill/compress/
+            //      quantize protected-floor recheck — every protected
+            //      capability must be re-tested at the stricter of
+            //      certified baseline and formal floor; breaches
+            //      auto-REGRESS (§10).
+            if (flags.Contains("protected-floor-recheck"))
+            {
+                var pf = ToolContracts.ReadJson(
+                    opts.TryGetValue("file", out string? pff)
+                        ? pff : "", "POST_TRANSFORMATION_REGRESSION");
+                var post = new Dictionary<string, double>();
+                if (pf.TryGetProperty("post", out var ps) &&
+                    ps.ValueKind == JsonValueKind.Object)
+                    foreach (var kv in ps.EnumerateObject())
+                    {
+                        string? id = CapabilityRegistry.Resolve(
+                            kv.Name);
+                        if (id == null)
+                            throw new ExecutorError("CAPABILITY_UNKNOWN",
+                                kv.Name);
+                        post[id] = kv.Value.GetDouble();
+                    }
+                return Emit(CapabilityMaturityService
+                    .ProtectedFloorRecheck(toolRoot,
+                        pf.TryGetProperty("phase", out var phv)
+                            ? phv.GetString() ?? "compress" : "compress",
+                        post));
+            }
             // ---- production-closure §1-§5/§118-§123/§131-§146:
             //      certification matrix (star-production-certification/
             //      v1), production state machine, freeze marker,
@@ -2095,6 +2147,10 @@ internal static class Program
             "--capability-transition --capability <id> --state <s> " +
             "[--note <t>] | " +
             "--capability-matrix [--capability <id>] | " +
+            "--dataset-purity --file <f.json> | " +
+            "--multilane-plan --file <f.json> | " +
+            "--multilane-winner --file <f.json> | " +
+            "--protected-floor-recheck --file <f.json> | " +
             "--production-certification | --production-prereqs | " +
             "--production-candidate [--generation <g>] [--note <t>] | " +
             "--production-certify --axis <a> --state <s> " +
