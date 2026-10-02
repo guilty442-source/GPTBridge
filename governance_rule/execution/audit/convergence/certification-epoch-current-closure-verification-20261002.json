@@ -1,0 +1,756 @@
+{
+  "artifact": "formal-state-convergence-verification",
+  "authority": "non-authoritative-audit-evidence",
+  "generation": "2026-10-02T10:28:54Z",
+  "revision": 225,
+  "result": "PASS",
+  "checks": [
+    "single-active-current-epoch",
+    "governance-seal-dimension-parity",
+    "external-certification-not-fabricated",
+    "external-threshold-gate-retained",
+    "all-convergence-closure-rows-current",
+    "formal-findings-recomputed-not-status-only-pass",
+    "schema-dependent-closure-fail-closed",
+    "single-current-metrics-dynamic-schema-denominator",
+    "current-metrics-match-all-surface-measurements",
+    "obligation-lifecycle-count:complete",
+    "obligation-lifecycle-count:evidence-submitted",
+    "obligation-lifecycle-count:mandated",
+    "obligation-lifecycle-count:pending",
+    "obligation-lifecycle-count:superseded",
+    "current-verified-release-denied",
+    "all-open-obligations-in-release-union",
+    "narrative-and-executable-representations-separated"
+  ],
+  "formal_registry": 89,
+  "formal_participating": 80,
+  "formal_open": 80,
+  "schema_open": 77,
+  "obligations": {
+    "complete": 2,
+    "evidence-submitted": 1,
+    "mandated": 58,
+    "pending": 1,
+    "superseded": 1
+  },
+  "release": "VERIFIED_RELEASE_DENIED",
+  "convergence": "INCOMPLETE_EVIDENCE",
+  "state_dimensions": {
+    "epoch_identity": "active",
+    "governance_seal": "sealed-governed-authorization",
+    "external_signature_evidence": "external-signatures-required",
+    "external_signature_gate": "externally-blocked",
+    "cryptographic_certification": "not-proven"
+  },
+  "verification_scope": "PASS applies only to state consistency and measured closure bookkeeping;not schema/evaluator implementation parity,legal release certification or runtime completion.",
+  "mirror_check": {
+    "errors": [],
+    "ok": true,
+    "root": "E:\\GPTBridge\\governance_rule\\codex"
+  },
+  "sql_parity": {
+    "mismatches": [],
+    "result": "PASS",
+    "row_count": 23623,
+    "table_count": 218
+  },
+  "nonactive_default_search_flags_cleared": 9,
+  "application_runtime_changed": false,
+  "formal_findings": [
+    {
+      "rule_code": "FR-BACKEND-LIFECYCLE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-CONNECTION-RECOVERY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-CONNECTION-STATE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-CONVERGENCE-PLAN",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-DEV-RUNTIME-SEPARATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-DIALOGUE-TRAINING",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-EVAL-SUITE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-EXECUTION-LEASE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-GPU-ACCEL-TRACK",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-IMPL-PRECEDENCE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-INFER-CONSISTENCY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-INTEGRATION-SEQUENCE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-KV-CACHE-TESTS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-LANG-LAYERING",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MAINT-UPDATE-INTEGRATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MODEL-MATURITY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MODEL-MOE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MODEL-SCALING",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MODEL-TRAINING-TIERS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MODULE-HASH-CHAIN",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MOE-QC",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MULTI-CONFIG-GPT",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-MULTI-CORE-PARALLEL",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES",
+      "reasons": [
+        "CONTROLLING_PROVISION_NOT_ACTIVE",
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-OLLAMA-ON-DEMAND",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-ONDEMAND-MODULES",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-PRETRAIN-DATA-PIPELINE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-RELEASE-MANIFEST",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-REQUEST-LIFECYCLE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-REQUEST-REGISTRY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-SINGLE-PURPOSE-MODULE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-SMALL-MODEL-BASELINE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE",
+      "reasons": [
+        "CONTROLLING_PROVISION_NOT_ACTIVE",
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-TASK-LIFECYCLE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-TOOL-CALLING-COMPETENCE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-TRAIN-NTP-CORRECTNESS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-WEIGHT-EVOLUTION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE",
+      "reasons": [
+        "CONTROLLING_PROVISION_NOT_ACTIVE",
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_BACKEND_HANDOFF",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_CALL_BOUNDARY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_CAPABILITY_DISPATCH",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_CODEX_CONVERGENCE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_CONNECTION_ROUTE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_DELEGATED_A498",
+      "reasons": [
+        "CONTROLLING_PROVISION_NOT_ACTIVE",
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_DELEGATION_VALIDATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_EXECUTION_PIPELINE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_EXECUTION_VERIFICATION_SEPARATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_FILE_OPERATION_RELIABILITY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_FINAL_ARCHITECTURE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_GIT_WORKTREE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_GO_RUST_RUNTIME",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_HEALTH_CONTRACT",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_IDENTITY_CONVERSION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_INFRA_VERSIONS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_JS_NATIVE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_LANGUAGE_REALLOCATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_LANGUAGE_TABLE_OFFICIAL",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_LANGUAGE_VERSIONS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_MACHINE_SCHEMA",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_MAIN_SYSTEM_CSHARP14",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_MATURE_CAPABILITY_PRESERVATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_MODEL_DIALOGUE_MODE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_NATIVE_COMPUTE_C23",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_NATIVE_PROMOTION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_PRECEDENCE_RESOLUTION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_RAG_PROVENANCE",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_RELEASE_VERIFICATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_RETIRED_DEPENDENCIES",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_ROLE_SEPARATION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_RUNTIME_AUTHORITY_RESOLUTION",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_RUST_TESTS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_SQL_GOVERNANCE_CLOSURE",
+      "reasons": [
+        "CONTROLLING_PROVISION_NOT_ACTIVE",
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_SQL_MIGRATION_AUTHORITY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_TEST_AUDIT_RESPONSIBILITY",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_TEST_SUITE_CARDINALITY",
+      "reasons": [
+        "CONTROLLING_PROVISION_NOT_ACTIVE",
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_TEST_TOOLS",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_TOOL_RUNTIME",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    },
+    {
+      "rule_code": "RULE_VECTOR_ENGINE_RUST",
+      "reasons": [
+        "CURRENT_GENERATION_EVIDENCE_MISSING",
+        "MISSING_HASH:semantic_hash",
+        "MISSING_HASH:evaluator_hash",
+        "MISSING_HASH:test_contract_hash",
+        "MISSING_HASH:controlling_provision_hash"
+      ]
+    }
+  ],
+  "formal_findings_source_generation": "2026-10-02T09:02:09Z"
+}
