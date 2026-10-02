@@ -6,7 +6,7 @@
 // output. Missing or invalid artifacts observe false — never throw,
 // never guess.
 //
-//   decision-core    -> shared-layer/csharp/GPTBridge.CodexPipeline
+//   governance-core  -> shared-layer/csharp/GPTBridge.CodexPipeline
 //   permission-core  -> shared-layer/csharp/GPTBridge.Permission
 //   runtime-core     -> this gate (runtime-core executing the check)
 //   automation-core  -> automation-flows.json + GPTBridge.GitAutomation
@@ -40,7 +40,7 @@ public sealed class CoreActivationChecks
     }
 
     /// <summary>
-    /// decision-core: the codex sovereign surface is published.
+    /// governance-core: the codex sovereign surface is published.
     /// </summary>
     public bool DecisionActive() =>
         File.Exists(Rel("shared-layer", "csharp",

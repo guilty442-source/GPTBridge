@@ -47,7 +47,7 @@
       "component": "core_sovereigns",
       "current": "csharp",
       "target": "C/C++/C#",
-      "artifact": "GPTBridge.MainSystem (runtime-core) + GPTBridge.Permission (permission-core) + GPTBridge.CodexPipeline (decision-core) + GPTBridge.GitAutomation (automation-core) - B162 five-core native hosts",
+      "artifact": "GPTBridge.MainSystem (runtime-core) + GPTBridge.Permission (permission-core) + GPTBridge.CodexPipeline (governance-core) + GPTBridge.GitAutomation (automation-core) - B162 five-core native hosts",
       "mode": "governor-gated",
       "owner": "裁決核心"
     },
