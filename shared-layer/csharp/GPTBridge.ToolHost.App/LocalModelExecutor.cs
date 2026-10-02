@@ -59,11 +59,23 @@ internal sealed class LocalModelExecutor
     private readonly CancellationTokenSource _cts = new();
     private HttpListener? _listener;
     private Task? _acceptLoop;
+    private Task? _watchdog;
     private Process? _child;
     private int _port;
     private string _token = "";
     private volatile bool _engineLoaded;
     private volatile string? _lastError;
+    private volatile string? _lastRelease;
+
+    // AutoRelease (successor of the retired auto_release.py
+    // AutoReleaseManager): the loaded engine is evicted when idle past
+    // native-engine.json:auto_release_idle_seconds (default 300) or
+    // under governed memory pressure (resource-governor model class
+    // paused / critical memory). In-flight inference holds the child
+    // lock and is never evicted mid-request.
+    private readonly int _idleReleaseSeconds;
+    private int _inflight;
+    private long _lastActivityTicks = DateTime.UtcNow.Ticks;
 
     public LocalModelExecutor(GovernedEnvironment env, string ownerId)
     {
@@ -74,8 +86,8 @@ internal sealed class LocalModelExecutor
             env.ToolRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
-        (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda) =
-            ResolveBundle(env.ToolRoot);
+        (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda,
+            _idleReleaseSeconds) = ResolveBundle(env.ToolRoot);
     }
 
     /// <summary>
@@ -91,7 +103,7 @@ internal sealed class LocalModelExecutor
     /// probe; denial is CPU fail-soft, never a load failure.
     /// </summary>
     private static (string Bundle, JsonObject Defaults, int CpuThreads,
-        bool CppCuda)
+        bool CppCuda, int IdleReleaseSeconds)
         ResolveBundle(string toolRoot)
     {
         var settingsPath = Path.Combine(

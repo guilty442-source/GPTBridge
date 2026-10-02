@@ -172,10 +172,8 @@ int mode_compute_plane(const Args& a) {
 
     SYSTEM_INFO si;
     GetSystemInfo(&si);
-    MEMORYSTATUSEX ms{};
-    ms.dwLength = sizeof(ms);
     long long ram_mb = 0;
-    if (GlobalMemoryStatusEx(&ms)) ram_mb = (long long)(ms.ullTotalPhys >> 20);
+    xcm_host_mem_mb(&ram_mb, nullptr);
     const int simd_level = gptbridge_native_simd_effective_level();
 
     char cc_buf[16] = "null", gpu_buf[24] = "null";
