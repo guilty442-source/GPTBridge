@@ -315,6 +315,31 @@ interface documentation only — never execution.
 
 ## 星澄 Capability Architecture（capability unification directive §0-§106）
 
+> Successor phase in force: **Authority Convergence directive
+> §0-§103** (2026-10-02) — Capability × Resource × Native Runtime ×
+> Data × Release. No new capability names, governance verbs, parallel
+> runtimes, stores or governors (§1/§101); `xc-fused-1` stays the only
+> production canonical architecture (§2). Canonical pipeline:
+> Architecture → Capability → Learning → ResourceGrant → Acceleration
+> → Training → Evaluation → Evidence → Lifecycle → Promotion (§102).
+>
+> Batch-1 landings (§100 第一批):
+> `CapabilityResolver.cs` is the single canonical resolver (§80) —
+> `Require` (alias→canonical id, `CAPABILITY_UNKNOWN` on unregistered
+> names, §16), `Descriptor`, `Dependencies` (graph REQUIRES closure),
+> `RegressionSuite` (§18 auto-derived), `EvalSurfaces`,
+> `RuntimeProfile`, `PoolClass`, `Inspect`. Governance entries that
+> take a capability name route through it — maturation verbs,
+> `--failure-record`, `--failure-pool-status`, `--recovery-*`,
+> `--capability-regression-suite`, `--capability-binding-check` and
+> the job request path never carry a free string (§15/§63).
+> `ResourceErrors.AuthorityMainSystemOnly`
+> (`RESOURCE_AUTHORITY_MAIN_SYSTEM_ONLY`, §6) plus
+> `ResourceGovernorClient.AssertClientWriteScope` enforce that
+> xingcheng writes only into `resource-requests`/`resource-reports`/
+> `resource-receipts` (and the client audit file) — governor state
+> and grant files stay governor-owned.
+
 Capabilities are **first-class descriptors**, never their own runtime /
 model / store / scheduler. All capabilities ride the single xc-fused-1
 HybridCausalDecoder core, the single NativeTrainer, the single

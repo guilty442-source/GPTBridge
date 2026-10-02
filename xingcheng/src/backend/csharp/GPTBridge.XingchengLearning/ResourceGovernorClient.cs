@@ -379,6 +379,8 @@ public sealed class ResourceGovernorClient
         try
         {
             string auditDir = Path.Combine(dir, "resource-grants");
+            AssertClientWriteScope(dir, Path.Combine(auditDir,
+                "grant-client-audit.jsonl"));
             Directory.CreateDirectory(auditDir);
             File.AppendAllText(Path.Combine(auditDir,
                 "grant-client-audit.jsonl"),
