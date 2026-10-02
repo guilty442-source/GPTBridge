@@ -2,31 +2,50 @@
 
 ```mermaid
 flowchart TB
-  ENTRY[Governed Model Request] --> RUST[Rust Lifecycle and Resource Control]
-  RUST --> CPP[C++23 Native Inference]
-  CPP --> MODEL[Registered Local Model]
-  MODEL --> DATA[(Local Model Tool Data Scope)]
-  XCSVC[星澄 Independent Service] --> CONTRACT[Typed Service Contract]
-  CONTRACT --> ENTRY
+  ENTRY[Governed Model Request] --> HOST["C# ToolHost.App<br/>(dist/GPTBridge.ToolHost.App.exe)"]
+  HOST --> EXEC["LocalModelExecutor<br/>authenticated loopback /v1"]
+  EXEC --> DESC["model-service.json<br/>star-model-service-descriptor/v1"]
+  EXEC -->|first /v1/infer| SERVE["xc_modeltool.exe serve --bundle<br/>(pinned by native-engine.json)"]
+  SERVE --> ENGINE["xingcheng_engine.dll<br/>xc_engine_* C ABI"]
+  SERVE --> TOK["xcorpus.dll xtok ABI<br/>(byte-level BPE)"]
+  SERVE --> CUDALANE["cuda_bridge (opt-in)"]
+
+  LEARN["xc-learning.exe (C#)<br/>self-learning / lifecycle / maturation"] --> JEXEC["JobExecutor + NativeTools<br/>supervised subprocess"]
+  JEXEC --> MODELTOOL["xc_modeltool (tokenize/eval/capability/…)"]
+  JEXEC --> TRAINER["xingcheng_trainer.exe<br/>star-native-train-job/v1"]
+  JEXEC -.alt.-> XQ["xct-executor.exe<br/>file-queue executor"]
+  XQ --> TRAINER
+
+  LEARN --> EVALF["xc-eval.exe (F#)<br/>star-fsharp-eval-verdict/v1 判決擁有者"]
+  LEARN --> XSTORE["xstore.exe (Rust)<br/>content-addressed store / XCN verify"]
+  XCORP["xcorpus.exe (Rust)<br/>corpus pipeline → XCB1"]
+  XCORP --> TRAINER
+  TRAINER --> CKPT["star-native-ckpt/v1 (XCN10)"]
+  CKPT --> BUNDLE["export-bundle →<br/>star-native-inference-bundle"]
+
+  LEARN --> PG[(PostgreSQL gptbridge_xingcheng*)]
+  XSTORE --> OBJ[(objects/ + store-index + audit chains)]
+  MODELTOOL --> RETRIEVE["ragd-rs / vectord-rs (external retrieval tools)"]
+
+  KREG["star-kernel-registry<br/>trainer/engine/xstore/xcorpus"] --> KPOL["star-kernel-policy<br/>deny/pin/serial — fail-closed"]
+
   RETIRED[Python / NumPy / JAX] --> DENY[Retired: no execution, dependency, artifact or fallback]
-  RETRIEVE[Rust DAG CAG RAG] --> PG[(PostgreSQL Canonical Knowledge)]
-  RETRIEVE --> VD[vectord-rs Derived Index]
-  RETRIEVE --> CPP
 ```
 
-`local-model` 是獨立工具，預設不啟動，只能由使用者明確開關或有效單項許可啟動。它承載自身登錄的本地模型能力，不擁有、承載或控制星澄。Rust 負責工具生命週期、設定、資源協調、CLI 與 IPC；C++23 承載其登錄的模型推論、模型載入、KV Cache、sampling 與 kernels。Python、NumPy 與 JAX／XLA 已全面退役並立即生效：不得執行、相依、產生產物、控制正式模型能力或作任何回退。
+`local-model` 是獨立工具，預設不啟動，只能由使用者明確開關或有效單項許可啟動。它承載自身登錄的本地模型能力，不擁有、承載或控制星澄。工具宿主與治理層為 **C#**（`GPTBridge.ToolHost.App` + `xc-learning.exe`）；C++23 承載模型推論、訓練、KV Cache、sampling 與 kernels（`xc_modeltool`、`xingcheng_trainer`、`engine*.dll`）；Rust 承載不受信任輸入邊界與資料面（`xc-format` XCN 標頭、`xc-runtime-host` 單一宿主租約、`xstore` 內容定址儲存、`xcorpus` 語料管線 + `xtok` tokenizer ABI）；F# `xc-eval.exe` 是評估判決的唯一擁有者（引擎 `passed` 僅為證據，缺 `xc-eval` fail-closed `EVAL_OWNER_UNAVAILABLE`）。Python、NumPy 與 JAX 已全面退役並立即生效。
 
-星澄是與 `local-model` 分離的獨立本地原生模型服務，但不是獨立工具且不建立工具卡片。自我學習、自動編程、自動修復及自我升級是星澄服務內部能力。修復方案必須具證據、範圍、風險、回復與審計；無法確定安全時停止，不得硬修復、直接覆蓋或重置。星澄的身分、人格、記憶、對話、訓練、權重、修復知識與 runtime 記錄只能存在星澄專屬資料域；其他元件只能取得最小型別化結果或不透明參照。
+星澄是與 `local-model` 分離的獨立本地原生模型服務（`independent-privileged-institution` 子 manifest，無工具卡片）。自我學習、自動編程、自動修復及自我升級是星澄服務內部能力。修復方案必須具證據、範圍、風險、回復與審計；無法確定安全時停止，不得硬修復、直接覆蓋或重置。星澄的身分、人格、記憶、對話、訓練、權重、修復知識與 runtime 記錄只能存在星澄專屬資料域；其他元件只能取得最小型別化結果或不透明參照。
 
-星澄融合 Transformer Decoder 架構：與同時期採用 Encoder 的 BERT 不同，GPT 系列完全基於 Transformer 的解碼器（Decoder-only）堆疊而成，星澄自訓權重循同一路線——單向因果注意力（causal mask）逐 token 自回歸生成，無 encoder、無 encoder-decoder cross-attention。「融合」指混合式 Decoder 堆疊：gated linear attention（deltanet）與週期性全注意力層交錯（`full_attention_interval`），搭配 RoPE（partial rotary）、QK-norm、注意力輸出閘控、SwiGLU FFN 與含共享專家的 MoE（softmax router top-K 選取、權重歸一、共享專家常駐、load-balance aux；訓練器 `--mixcheck` 提供拓撲/路由/重算/隔離的可執行證據）；checkpoint 契約為 XCN4（XCN3 加 vision early-fusion 區塊）。全注意力層為多頭注意力（MHA/GQA）：`num_attention_heads` 個 q-head 各自只讀自己的 q slice 與所屬 kv group（`h / (heads / kv_heads)`）的 k/v——各 head 是互不干擾的獨立視角，kv-head 在 group 內共享；訓練器探針 `--headcheck` 以逐 head 權重微擾提供可執行證據（head 隔離、kv-group 共享映射、causal softmax 歸一、head 非退化），`--maskcheck` 覆蓋因果邊界。全域注意力層另支援 DeepSeek-V4.1-Flash 的 CSA2 壓縮稀疏注意力（`csa_*` 欄位）：raw KV 覆蓋限於滑窗（`csa_window_size`/`sliding_window_size`），遠距上下文經每 `csa_compress_ratio` token 一顆的壓縮 latent KV（`wck`/`wcv` 壓縮器，獨立 RoPE 基頻 `csa_compress_rope_theta`）以 top-K 選取（`csa_topk`），輕量 indexer（`wiq`/`wik`）以 CE 蒸餾對齊主注意力分佈；`csa_share_group` 分組實現 CSA2 跨層共享——組首 Full 產生共享壓縮流與索引鍵，跟隨者 Reuse（沿用 top-K）或 Reindex（自備 indexer Q 重打分）；CSA 與 MLA（`kv_lora_rank`）互斥 fail-closed，預設全關，探針 `--csacheck` 提供稀疏邊界、因果封閉、壓縮抵達、跨層共享與 indexer 梯度的可執行證據。
+星澄融合 Transformer Decoder 架構：Decoder-only 單向因果注意力逐 token 自回歸生成。「融合」指混合式 Decoder 堆疊：gated linear attention（DeltaNet）與週期性全注意力層交錯（`full_attention_interval`），搭配 RoPE（partial rotary + YaRN 擴展）、QK-norm、注意力輸出閘控、SwiGLU FFN、含共享專家的 MoE（sigmoid router top-K、aux-free balance 可選）、MLA 低秩潛在 KV、CSA2 壓縮稀疏注意力、MTP stack 多 token 預測、Gemma4 hybrid 與 vision early-fusion——由 `generation: xc-fused-1` 契約釘選並以 `--canoncheck`/`--canonical-materialize` 提供可執行證據。checkpoint 契約為 XCN1 `star-native-ckpt/v1`，現行寫出 **XCN10**（v5 Gemma-A4B、v6 sigmoid router、v7 MLA+aux-free+MTP、v8 YaRN、v9 gemma4 marker、v10 MTP stack）。資料面為 XCB1 `star-token-batch/v1` 二進位 token batch（JSONL 僅作已註冊資料集的可讀回退）。訓練器自我探針共 17 項（smoke…canoncheck…freezecheck）。Kernel Registry（`star-kernel-registry`）在 trainer/engine/xstore/xcorpus 四 lane 各有清單，`star-kernel-policy` 提供 fail-closed 的 deny/釘選/序列化閘門。
 
-星澄原生多模態採「早期融合」（early fusion）：`use_vision` 啟用時，影像 patch 經線性投影 `vision.patch_proj`（hidden × patch_dim）送入與文字同一條 Decoder 主流，patch 列作為因果序列前綴、與 token embedding 共用位置與注意力；prefix cache 不承接 vision span，文本專用路徑位元不變。推論探針 `forward_vision_logits` 與 `xc_modeltool vision-smoke` 提供端到端驗證；訓練端 `vision_patches` 資料列以 -100 標籤遮蔽 patch 前綴，DPO 拒絕 vision 輸入，全部 fail-closed。
+星澄原生多模態採「早期融合」：`use_vision` 啟用時影像 patch 經線性投影 `vision.patch_proj` 進入同一條 Decoder 主流；prefix cache 不承接 vision span，DPO 拒絕 vision 輸入，全部 fail-closed。
 
-長文本推理的記憶與快取採原生實作：paged KV pool（邏輯區塊表→實體區塊按需配置，`reset_cache` 全數歸還、`kv_memory_bytes` 可稽核）、prefix cache（跨 `generate` 呼叫還原最長相符前綴，快照值與重算位元一致）、KV-INT8 每 token/head 對稱量化（opt-in 受管 env `XINGCHENG_CPP_KV_INT8`，KV 足跡約 8x 縮減，唯讀端以 dequantize 還原；CUDA 裝置端 KV 為另一 opt-in 路徑）。`xc_modeltool cache-smoke` 以前綴命中、重放位元一致與 INT8 漂移上限提供可執行證據。
+長文本推理的記憶與快取採原生實作：paged KV pool、prefix cache（跨 `generate` 最長相符前綴，快照值位元一致）、KV-INT8 每 token/head 對稱量化（opt-in env `XINGCHENG_CPP_KV_INT8`）、`star-delta-state/v1` 狀態快照與 `star-prefill-artifact/v1` P/D 交接。`xc_modeltool cache-smoke`/`state-snapshot`/`mtp-draft-probe` 提供可執行證據。
 
-世代繼任契約（能力／架構升級後刪除前代）：新代權重 `activate` 時 `ModelLifecycle` 自動把前代完整記錄——version、sha256、path 與全份 metadata（dataset_id／job／eval 資料血統）——攜入新代 `metadata["succeeded_from"]` 並記 `weights_succession` 事件；實體刪除前代 bundle 必須先完成繼任記錄且 lifecycle 已持久化（`PruneSupersededGeneration`，缺繼任記錄 fail-closed 保留），刪除成功後前代條目由 versions 移入 retired 並標記 `succeeded_by`/`data_carried_to`/`deleted_at`，活版本表不留死路徑、retired 保留完整資料。在役世代經 `RetireWeightVersion` 永不退休（fail-closed）。
+世代繼任契約（能力／架構升級後刪除前代）：`ModelLifecycle` 在 `activate` 時把前代完整記錄攜入新代 `metadata["succeeded_from"]` 並記 `weights_succession`；實體刪除前代 bundle 必須先完成繼任記錄且 lifecycle 已持久化（`PruneSupersededGeneration` 缺繼任 fail-closed 保留），刪除後前代移入 retired 並標 `succeeded_by`/`data_carried_to`。在役世代永不退休。
 
-Ollama 只作登錄的本地教師或專家，不取代星澄。視窗關閉須在 5 秒內停止 `local-model` 自身後端及其擁有的模型程序，但不得停止獨立的星澄服務。
+Ollama 只作登錄的本地教師或專家（teacher-distillation 受管 loopback），不取代星澄。視窗關閉須在 5 秒內停止 `local-model` 自身後端及其擁有的模型程序，但不得停止獨立的星澄服務。
+
 ## 星澄模型規模邊界
 
 星澄所有可發布模型組態的總參數量不設下限，僅設 20B（含）總量上限；任何規模均可依實際能力、效能與資源條件自適化。完整能力基線同樣不設參數量下限。參數量只界定上限與資源邊界，不得取代能力測試、品質證據或發布條件。

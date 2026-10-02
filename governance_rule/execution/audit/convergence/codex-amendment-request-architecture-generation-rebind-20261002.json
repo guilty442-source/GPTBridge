@@ -1,0 +1,141 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "architecture-generation-rebind-20261002",
+  "title": "Rebind the nine active architecture artifacts and the stable sync evidence to codex 2026-10-02T03:36:33Z",
+  "summary": "All nine active architecture artifacts under governance_rule/codex carry byte-identical content to their registered rows — SHA-256 recomputed 2026-10-02 matches content_hash 9/9 — but every row still binds source_codex_version=2026-10-01T14:58:58Z and the stable evidence row ARCHITECTURE_DIAGRAM_SYNC_CURRENT likewise records codex_version=2026-10-01T14:58:58Z. The registry therefore certifies an obsolete generation while the bytes are current. This request rebinds source_codex_version/validated_at_utc on the nine active rows and codex_version/verified_at_utc on the stable evidence row to the live codex version; content_hash values are unchanged and retired rows are untouched.",
+  "requested_by": "decision-sovereign",
+  "origin": "operator sync check 2026-10-02: 9/9 active artifact SHA-256 verified identical to registry content_hash; source_codex_version and ARCHITECTURE_DIAGRAM_SYNC_CURRENT still bound to 2026-10-01T14:58:58Z instead of live codex 2026-10-02T03:36:33Z",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T03:36:33Z",
+    "version_identity": "E2:2026-10-02T03:36:33Z",
+    "version_epoch": 2,
+    "history_head": "114e68617b274296b8c4e21a07cd8f039fa7ef07273fd65d2af1008aa386d9ff",
+    "revision_sequence": 203
+  },
+  "problem": {
+    "summary": "9/9 active artifact bytes verified identical to registered content_hash, yet every active row and the stable sync-evidence row are bound to superseded generation 2026-10-01T14:58:58Z — the registry's SYNCED_CURRENT does not evidence sync with the live codex generation.",
+    "verified": "sha256(file bytes) == registered content_hash for all 9 active artifacts; source_codex_version=2026-10-01T14:58:58Z on all 9; evidence row ARCHITECTURE_DIAGRAM_SYNC_CURRENT codex_version=2026-10-01T14:58:58Z (recomputed 2026-10-02T04:06Z)"
+  },
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-languages.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-project.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-ai-assistant.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-ai-collaboration.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-file-sorter.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-investment-mobile.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-local-model.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-model-dialogue.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {"artifact_path": "governance_rule/codex/architecture-tool-vaultly.md"},
+      "set": {
+        "source_codex_version": "2026-10-02T03:36:33Z",
+        "validated_at_utc": "2026-10-02T04:06:45Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    },
+    {
+      "registry": "architecture_diagram_sync_evidence",
+      "action": "update",
+      "key": {"evidence_id": "ARCHITECTURE_DIAGRAM_SYNC_CURRENT"},
+      "set": {
+        "codex_version": "2026-10-02T03:36:33Z",
+        "required_count": 9,
+        "registered_count": 9,
+        "present_count": 9,
+        "hash_match_count": 9,
+        "read_only_count": 9,
+        "stale_count": 0,
+        "missing_count": 0,
+        "result": "PASS",
+        "verified_at_utc": "2026-10-02T04:06:45Z",
+        "verifier": "deterministic-file-registry-validator",
+        "status": "current"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-10-02T04:06:45Z",
+    "expected_audit_result": "9 active registry rows carry source_codex_version=2026-10-02T03:36:33Z with unchanged content_hash matching live bytes; ARCHITECTURE_DIAGRAM_SYNC_CURRENT records codex_version=2026-10-02T03:36:33Z, result=PASS, all counts 9/0; retired rows unchanged. Note: pending request xingcheng-readonly-mirror-artifacts-20261002-r2 inserts 4 ARCH_XINGCHENG_* mirror rows — if it lands first, the evidence row's registered/present counts should be 13 and that amendment's own sync bookkeeping applies; counts here reflect the 9 active artifacts verified at request time."
+  }
+}

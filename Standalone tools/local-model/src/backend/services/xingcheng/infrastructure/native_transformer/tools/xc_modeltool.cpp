@@ -2569,6 +2569,9 @@ CapabilityResult capability_run_on_engine(
         }
     }
     std::unordered_set<std::string> rejected_ids;
+    const JsonValue* items = suite.get("items");
+    if (!items || items->type != JsonValue::Type::Array)
+        throw std::runtime_error("CAPABILITY_SUITE_ITEMS_MISSING");
     for (const auto& item : items->array) {
         for (const char* field : {"prompt", "eval_text", "expected"}) {
             const JsonValue* v = item.get(field);
@@ -3004,12 +3007,6 @@ int mode_capability(const Args& a) {
             fail("CAPABILITY_BAD_THINK_STEPS");
         if (think_branches < 1 || think_branches > 8)
             fail("CAPABILITY_BAD_THINK_BRANCHES");
-    }
-    NativeInferenceEngine engine;
-    try {
-        engine.load(bundle);
-    } catch (const std::exception& e) {
-        fail(std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + e.what());
     }
     NativeInferenceEngine engine;
     try {

@@ -92,6 +92,56 @@ flowchart TB
 | `xcorpus.exe` / `.dll` | Rust | 子行程 / engine LoadLibrary |
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
+<!-- autogen:xingcheng-binaries -->
+*autogen-scanner/v1 · generated 2026-10-02T04:15:13Z · 2106 files · main+devin+git+local-model+rag+ui*
+| Binary | 語言 | 來源 |
+|---|---|---|
+| `%~dp0xingcheng_trainer.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `:gemm_bench.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
+| `:gemm_bench.exe` | C++ | git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
+| `:gemm_bench.exe` | C++ | local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
+| `:gemm_bench.exe` | C++ | main:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
+| `:gemm_bench.exe` | C++ | rag:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
+| `:gemm_bench.exe` | C++ | ui:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/runbench.bat |
+| `InvestmentMobileShadow.exe` | C# | devin:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
+| `InvestmentMobileShadow.exe` | C# | git:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
+| `InvestmentMobileShadow.exe` | C# | local-model:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
+| `InvestmentMobileShadow.exe` | C# | main:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
+| `InvestmentMobileShadow.exe` | C# | rag:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
+| `InvestmentMobileShadow.exe` | C# | ui:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
+| `TestSuiteOrchestrator.exe` | C# | devin:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `TestSuiteOrchestrator.exe` | C# | git:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `TestSuiteOrchestrator.exe` | C# | local-model:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `TestSuiteOrchestrator.exe` | C# | main:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `TestSuiteOrchestrator.exe` | C# | rag:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `TestSuiteOrchestrator.exe` | C# | ui:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
+| `xc-format.exe` | Rust | devin:Standalone tools/local-model/src/backend/rust/xc-format/Cargo.toml |
+| `xc-format.exe` | Rust | main:Standalone tools/local-model/src/backend/rust/xc-format/Cargo.toml |
+| `xc-learning.exe` | C# | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | main:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | rag:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-learning.exe` | C# | ui:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-runtime-host.exe` | Rust | devin:Standalone tools/local-model/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xc-runtime-host.exe` | Rust | main:Standalone tools/local-model/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xcorpus.dll` | Rust | devin:Standalone tools/local-model/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | devin:Standalone tools/local-model/src/backend/rust/xcorpus/Cargo.toml |
+| `xct-executor.exe` | C# | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | main:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | rag:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xct-executor.exe` | C# | ui:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xingcheng_trainer.exe` | C++ | devin:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | git:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | local-model:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | main:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | rag:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xingcheng_trainer.exe` | C++ | ui:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xstore.exe` | Rust | devin:Standalone tools/local-model/src/backend/rust/xstore/Cargo.toml |
+<!-- /autogen:xingcheng-binaries -->
+
 ## 治理邊界
 
 - 星澄 deny：`governance-rule`、`direct-database-write`、`main-program`、`other-tools`；manifest `direct_instruction: PERMISSION_DENIED`。
