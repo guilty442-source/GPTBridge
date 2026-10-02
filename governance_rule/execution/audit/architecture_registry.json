@@ -530,8 +530,9 @@
       "runtime_form": "external-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "gptbridge-ollama",
-      "physical_path": "shared-layer/sql",
-      "lifecycle": "resident",
+      "physical_path": "",
+      "external_locator": "git-history:native/ollama_service (retired — B154 executed rev 235 forbids Ollama activation/routing; sibling provisions and module_capability_registry converged retired at rev 238; teacher signal served by the native self-distillation lane)",
+      "lifecycle": "retired",
       "canonical": false,
       "dependencies": [],
       "information_channels": [],
@@ -550,7 +551,6 @@
       "canonical": true,
       "dependencies": [
         "shared-layer",
-        "ollama",
         "vectord",
         "boot-core"
       ],
@@ -1350,7 +1350,6 @@
         "local-model",
         "local-vector",
         "model-dialogue",
-        "ollama",
         "vectord",
         "xingcheng",
         "xingcheng-assistant",
