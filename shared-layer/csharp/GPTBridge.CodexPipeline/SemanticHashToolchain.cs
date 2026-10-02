@@ -396,21 +396,35 @@ public static class SemanticHashToolchain
             return;
         }
         var text = value.ToString("R", CultureInfo.InvariantCulture);
-        if (text.Contains('E'))
+        var negative = text.StartsWith('-');
+        if (negative) text = text[1..];
+        var parts = text.Split('E');
+        var shift = parts.Length == 2
+            ? int.Parse(parts[1], CultureInfo.InvariantCulture) : 0;
+        var dot = parts[0].IndexOf('.');
+        var decimalPoint = (dot < 0 ? parts[0].Length : dot) + shift;
+        var digits = parts[0].Replace(".", "");
+        var leading = digits.Length - digits.TrimStart('0').Length;
+        decimalPoint -= leading;
+        digits = digits.TrimStart('0').TrimEnd('0');
+        if (negative) sb.Append('-');
+        if (digits.Length == 0) { sb.Append("0.0"); return; }
+        var exponent = decimalPoint - 1;
+        // CPython repr switches notation at 1e-4 and 1e16; .NET R
+        // has different thresholds even when the significant digits agree.
+        if (exponent < -4 || exponent >= 16)
         {
-            // .NET "1E+20" / "1E-05" → Python "1e+20" / "1e-05"
-            var parts = text.Split('E');
-            var exp = int.Parse(parts[1], CultureInfo.InvariantCulture);
-            sb.Append(parts[0])
-                .Append('e')
-                .Append(exp < 0 ? "-" : "+")
-                .Append(Math.Abs(exp).ToString("D2",
-                    CultureInfo.InvariantCulture));
-            return;
+            sb.Append(digits[0]);
+            if (digits.Length > 1) sb.Append('.').Append(digits[1..]);
+            sb.Append('e').Append(exponent < 0 ? "-" : "+")
+                .Append(Math.Abs(exponent).ToString("D2", CultureInfo.InvariantCulture));
         }
-        if (!text.Contains('.'))
-            text += ".0";
-        sb.Append(text);
+        else if (decimalPoint <= 0)
+            sb.Append("0.").Append('0', -decimalPoint).Append(digits);
+        else if (decimalPoint >= digits.Length)
+            sb.Append(digits).Append('0', decimalPoint - digits.Length).Append(".0");
+        else
+            sb.Append(digits[..decimalPoint]).Append('.').Append(digits[decimalPoint..]);
     }
 
     /// <summary>Python ``str`` comparison ordering for ``sort_keys`` —
