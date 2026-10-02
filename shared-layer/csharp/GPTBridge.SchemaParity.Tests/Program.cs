@@ -20,6 +20,8 @@ void Equal(object expected, object? actual, string name)
     passed++;
 }
 Equal("PASS", Evaluate(row)["current_evidence_status"], "complete-current-receipt");
+Equal("CANONICAL_MISMATCH", SemanticHashToolchain.EvaluateRow(row, new string('0', 64), hash)["persistence_layer"], "content-hash-cannot-mask-canonical-mismatch");
+Equal("MATCH", SemanticHashToolchain.EvaluateRow(row, null, hash)["persistence_layer"], "legacy-content-hash-fallback");
 foreach (var field in new[] { "parity_status", "evidence_status", "evidence_generation", "canonical_semantic_hash", "evidence_producer_hash", "evidence_validator_hash", "evidence_persistence_hash" })
 {
     foreach (var invalid in new object?[] { null, "historical-or-mismatched" })
