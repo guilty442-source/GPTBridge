@@ -1,8 +1,13 @@
 //! xstore — governed data/safety lane CLI (xstore/v1).
 //!
-//!   xstore ckpt-info   <file>            header + tensor table as JSON
-//!   xstore ckpt-verify <file> [--hash]   structural verify (+payload sha256)
-//!   xstore hash        <file>            sha256 of the file
+//!   xstore ckpt-info   <file>              header + tensor table (JSON)
+//!   xstore ckpt-verify <file> [--hash-payloads]
+//!                                          structural verify + sha256
+//!   xstore ckpt-diff   <base> <cand>       delta-candidate parity report
+//!   xstore hash        <file>              sha256 of the file
+//!   xstore put  --store <dir> --file <f> [--kind xcn1|blob]
+//!   xstore get  --store <dir> --sha256 <hex> --out <path>
+//!   xstore verify-store --store <dir>      re-hash all + index chain
 //!
 //! All output is a single JSON object on stdout; errors go to stderr and
 //! exit 2 — fail-closed, matching the governed-subprocess contract used
@@ -10,8 +15,13 @@
 
 #![recursion_limit = "512"]
 
+mod diff;
 mod hash;
+mod store;
 mod xcn1;
+
+use std::collections::HashMap;
+use std::path::Path;
 
 use std::process::ExitCode;
 
@@ -170,24 +180,93 @@ fn cmd_hash(path: &str) -> Result<serde_json::Value, String> {
     }))
 }
 
+fn kv_args(args: &[String]) -> HashMap<String, String> {
+    let mut m = HashMap::new();
+    let mut i = 0;
+    while i < args.len() {
+        if let Some(k) = args[i].strip_prefix("--") {
+            if i + 1 < args.len() && !args[i + 1].starts_with("--") {
+                m.insert(k.to_string(), args[i + 1].clone());
+                i += 2;
+                continue;
+            }
+            m.insert(k.to_string(), "1".into());
+        }
+        i += 1;
+    }
+    m
+}
+
+fn cmd_ckpt_diff(base: &str, cand: &str) -> Result<serde_json::Value, String> {
+    let bm = map_file(base)?;
+    let cm = map_file(cand)?;
+    diff::ckpt_diff(&bm, &cm)
+}
+
+fn cmd_put(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let store = m.get("store").ok_or("STORE_ARG_MISSING: --store")?;
+    let file = m.get("file").ok_or("STORE_ARG_MISSING: --file")?;
+    let kind = m.get("kind").map(|s| s.as_str()).unwrap_or("blob");
+    let rec = store::put(
+        Path::new(store), Path::new(file), kind)?;
+    Ok(serde_json::json!({
+        "format": "xstore-put/v1",
+        "ok": true,
+        "sha256": rec.sha256,
+        "kind": rec.kind,
+        "size": rec.size,
+        "object": rec.object.to_string_lossy(),
+        "prev": rec.prev,
+    }))
+}
+
+fn cmd_get(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let store = m.get("store").ok_or("STORE_ARG_MISSING: --store")?;
+    let sha = m.get("sha256").ok_or("STORE_ARG_MISSING: --sha256")?;
+    let out = m.get("out").ok_or("STORE_ARG_MISSING: --out")?;
+    let n = store::get(Path::new(store), sha, Path::new(out))?;
+    Ok(serde_json::json!({
+        "format": "xstore-get/v1",
+        "ok": true,
+        "sha256": sha,
+        "bytes": n,
+        "out": out,
+    }))
+}
+
+fn cmd_verify_store(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let store = m.get("store").ok_or("STORE_ARG_MISSING: --store")?;
+    store::verify_store(Path::new(store))
+}
+
 fn usage() -> ExitCode {
     eprintln!(
-        "usage: xstore <ckpt-info|ckpt-verify|hash> <file> [--hash-payloads]"
+        "usage: xstore <ckpt-info|ckpt-verify|hash> <file> [--hash-payloads]\n\
+         \x20      xstore ckpt-diff <base> <cand>\n\
+         \x20      xstore put --store <dir> --file <f> [--kind xcn1|blob]\n\
+         \x20      xstore get --store <dir> --sha256 <hex> --out <path>\n\
+         \x20      xstore verify-store --store <dir>"
     );
     ExitCode::from(2)
 }
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() < 2 {
+    if args.is_empty() {
         return usage();
     }
-    let (cmd, path) = (args[0].as_str(), args[1].as_str());
+    let cmd = args[0].as_str();
     let hash_payloads = args.iter().any(|a| a == "--hash-payloads");
     let out = match cmd {
-        "ckpt-info" => cmd_ckpt_info(path),
-        "ckpt-verify" => cmd_ckpt_verify(path, hash_payloads),
-        "hash" => cmd_hash(path),
+        "ckpt-info" if args.len() >= 2 => cmd_ckpt_info(&args[1]),
+        "ckpt-verify" if args.len() >= 2 => {
+            cmd_ckpt_verify(&args[1], hash_payloads)
+        }
+        "hash" if args.len() >= 2 => cmd_hash(&args[1]),
+        "ckpt-diff" if args.len() >= 3 => cmd_ckpt_diff(&args[1], &args[2]),
+        "put" => cmd_put(&kv_args(&args[1..])),
+        "get" => cmd_get(&kv_args(&args[1..])),
+        "verify-store" => cmd_verify_store(&kv_args(&args[1..])),
         _ => return usage(),
     };
     match out {
