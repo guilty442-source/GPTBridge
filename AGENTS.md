@@ -85,6 +85,7 @@ Hooks are installed in `.git/hooks/` and shared across all worktrees.
 | Worktree | Path | Branch |
 | --- | --- | --- |
 | Main | `E:\GPTBridge` | `main` |
+| Devin | `E:\GPTBridge\.worktrees\devin` | `devin` |
 | Git | `E:\GPTBridge\.worktrees\git` | `git` |
 | Local Model | `E:\GPTBridge\.worktrees\local-model` | `local-model` |
 | RAG | `E:\GPTBridge\.worktrees\rag` | `rag` |
