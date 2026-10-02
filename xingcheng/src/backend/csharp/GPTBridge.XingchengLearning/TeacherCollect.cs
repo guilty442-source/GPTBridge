@@ -343,7 +343,7 @@ internal static class TeacherCollect
                 ["intent"] = intent,
                 ["input_text"] = prompt,
                 ["target_text"] = target,
-                ["source_type"] = SourceTypePrefix + model,
+                ["source_type"] = SourceTypePrefix + spec,
                 ["quality_score"] = policy.QualityScore,
                 ["validation_json"] =
                     CanonicalJson.CanonicalDict(validation),
@@ -356,7 +356,7 @@ internal static class TeacherCollect
                 {
                     errors.Add(new Dictionary<string, object?>
                     {
-                        ["scope"] = scope, ["model"] = model,
+                        ["scope"] = scope, ["teacher"] = spec,
                         ["reason"] =
                             $"insert:{exc.GetType().Name}:{exc.Message}",
                     });
@@ -365,13 +365,14 @@ internal static class TeacherCollect
             }
             inserted.Add(new Dictionary<string, object?>
             {
-                ["scope"] = scope, ["model"] = model,
+                ["scope"] = scope, ["teacher"] = spec,
                 ["example_id"] = exampleId,
                 ["target_chars"] = target.Length,
             });
             budget--;
         }
 
+        foreach (var s in sessions.Values) s?.Dispose();
         var result = new Dictionary<string, object?>
         {
             ["ok"] = errors.Count == 0,
@@ -385,7 +386,7 @@ internal static class TeacherCollect
                 ["skipped"] = skipped,
                 ["errors"] = errors,
             },
-            ["ensure"] = ensure,
+            ["teacher_sessions"] = sessions.Count(s => s.Value != null),
             ["policy"] = policy.ToDict(),
             ["checked_at"] = XcPaths.IsoNow(),
         };
@@ -393,92 +394,42 @@ internal static class TeacherCollect
         return result;
     }
 
-    // ------------------------------------------------------- internals --
-
-    /// <summary>ollama-service.exe ensure — resolves the exe inside the
-    /// repo (walk-up for main-system), never PATH. Audited by the
-    /// service itself into ollama-demand.jsonl.</summary>
-    private static Dictionary<string, object?> EnsureOllama(
-        string toolRoot, int timeoutS)
+    /// <summary>Resolve a scope's teacher spec to an absolute bundle
+    /// directory. "self" (or empty) means the pinned native-engine
+    /// checkpoint — self-distillation on the governed active weights.
+    /// Any other value must be a tool-root-relative bundle artifact
+    /// (dir or manifest.json) inside the XingCheng data boundary;
+    /// URLs, service tags and out-of-boundary paths fail closed.</summary>
+    private static string ResolveTeacherBundle(string toolRoot, string spec)
     {
-        var dir = new DirectoryInfo(toolRoot);
-        string? repoRoot = null;
-        while (dir != null)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, "main-system")))
-            {
-                repoRoot = dir.FullName;
-                break;
-            }
-            dir = dir.Parent;
-        }
-        string exe = repoRoot is null ? "" : Path.Combine(
-            repoRoot, "native", "ollama_service", "bin",
-            "ollama-service.exe");
-        if (exe.Length == 0 || !File.Exists(exe))
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["error"] = "ollama-service.exe unavailable",
-            };
-        try
-        {
-            var run = NativeTools.Run(exe,
-                new[] { "ensure", "--root", repoRoot! },
-                toolRoot,
-                Path.Combine(toolRoot, XcPaths.LogsRel,
-                    "teacher-ensure-stderr.log"),
-                timeoutS: Math.Max(5, timeoutS));
-            string tail = run.StdoutTail.Trim();
-            int last = tail.LastIndexOf('{');
-            if (last >= 0)
-            {
-                using var doc = JsonDocument.Parse(tail[last..]);
-                var ok = doc.RootElement.TryGetProperty("ok", out var o)
-                    && o.ValueKind == JsonValueKind.True;
-                return new Dictionary<string, object?>
-                {
-                    ["ok"] = ok,
-                    ["exit_code"] = run.ExitCode,
-                    ["elapsed_s"] = Math.Round(run.ElapsedS, 2),
-                    ["service"] = tail[last..],
-                };
-            }
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["error"] = "ensure-output-unparseable",
-                ["exit_code"] = run.ExitCode,
-            };
-        }
-        catch (Exception exc)
-        {
-            return new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["error"] = $"{exc.GetType().Name}:{exc.Message}",
-            };
-        }
+        string rel = spec == "self"
+            ? EngineSettings.PinnedCheckpoint(toolRoot) ?? ""
+            : spec;
+        if (rel.Length == 0)
+            throw new ExecutorError("TEACHER_BUNDLE_UNRESOLVED",
+                "no pinned checkpoint for self-distillation teacher");
+        string abs = Path.IsPathRooted(rel)
+            ? rel
+            : Path.GetFullPath(Path.Combine(toolRoot, rel));
+        DataBoundary.AssertInside(toolRoot, abs);
+        return Evaluation.BundleDirOf(abs);
     }
 
-    /// <summary>Ollama /api/chat on loopback only — the governed teacher
-    /// endpoint. stream:false returns one JSON object.</summary>
+    // ------------------------------------------------------- internals --
+
+    /// <summary>Native teacher generation — one `infer` request on the
+    /// resident serve session for the scope's bundle. Chat template is
+    /// applied inside xc_modeltool; the response carries `text`.</summary>
     private static Dictionary<string, object?> Generate(
-        string model, string prompt, int maxNewTokens,
+        ModelToolSession session, string prompt, int maxNewTokens,
         double temperature, int timeoutS)
     {
         try
         {
-            using var client = new HttpClient
-            {
-                BaseAddress = new Uri("http://127.0.0.1:11434"),
-                Timeout = TimeSpan.FromSeconds(Math.Max(5, timeoutS)),
-            };
-            var body = CanonicalJson.CanonicalDict(
+            var (json, exitCode) = session.Request(
                 new Dictionary<string, object?>
                 {
-                    ["model"] = model,
-                    ["stream"] = false,
+                    ["op"] = "infer",
                     ["messages"] = new List<object?>
                     {
                         new Dictionary<string, object?>
@@ -487,41 +438,27 @@ internal static class TeacherCollect
                             ["content"] = prompt,
                         },
                     },
-                    ["options"] = new Dictionary<string, object?>
-                    {
-                        ["num_predict"] = maxNewTokens,
-                        ["temperature"] = temperature,
-                    },
-                });
-            var http = client.PostAsync("/api/chat",
-                new StringContent(body,
-                    System.Text.Encoding.UTF8, "application/json"))
-                .GetAwaiter().GetResult();
-            string text = http.Content.ReadAsStringAsync()
-                .GetAwaiter().GetResult();
-            if (!http.IsSuccessStatusCode)
+                    ["do_sample"] = true,
+                    ["temperature"] = temperature,
+                    ["max_new_tokens"] = maxNewTokens,
+                },
+                timeoutS: Math.Max(5, timeoutS));
+            if (exitCode != 0 || !TransformerTrainingRepository.Truthy(
+                    json.GetValueOrDefault("ok")))
                 return new Dictionary<string, object?>
                 {
                     ["ok"] = false,
-                    ["error"] = $"http:{(int)http.StatusCode}:" +
-                        (text.Length > 200 ? text[..200] : text),
+                    ["error"] = $"serve-infer:{exitCode}:" +
+                        (json.GetValueOrDefault("error")?.ToString()
+                         ?? "no-response"),
                 };
-            using var doc = JsonDocument.Parse(text);
-            string? response = null;
-            if (doc.RootElement.TryGetProperty("message", out var msg)
-                && msg.TryGetProperty("content", out var content))
-                response = content.GetString();
-            else if (doc.RootElement.TryGetProperty("error", out var err))
-                return new Dictionary<string, object?>
-                {
-                    ["ok"] = false,
-                    ["error"] = $"ollama:{err.GetString()}",
-                };
+            string? text = json.GetValueOrDefault("text")?.ToString();
             return new Dictionary<string, object?>
             {
-                ["ok"] = response is not null,
-                ["response"] = response ?? "",
-                ["error"] = response is null ? "empty-response" : "",
+                ["ok"] = text is not null && text.Length > 0,
+                ["response"] = text ?? "",
+                ["error"] = text is null || text.Length == 0
+                    ? "empty-response" : "",
             };
         }
         catch (Exception exc)

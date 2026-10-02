@@ -1956,7 +1956,8 @@ internal sealed class TrainingJobExecutor
         }
         try
         {
-            Maturation300M.GuardSequence(_toolRoot, capability);
+            CapabilityProgressionPolicy.GuardAdmission(
+                _toolRoot, capability);
             var decision = PreflightResourceGate(jobId, configuration);
             _repo.TransitionTrainingJob(jobId, "training",
                 errorMessage: $"staged lane held for '{capability}'");

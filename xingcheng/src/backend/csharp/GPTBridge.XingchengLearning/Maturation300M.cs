@@ -453,6 +453,20 @@ internal static class Maturation300M
         if (string.IsNullOrWhiteSpace(reason))
             throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
                 "unsupported requires a reason");
+        // Maturation-closure §22: a capability may only be declared
+        // UNSUPPORTED after a recorded star-architecture-limitation-
+        // evidence/v1 row exists for it (attempt history, data
+        // readiness, plateau, regression, resource/runtime exclusion).
+        // The sequence id resolves to the canonical registry id the
+        // evidence ledger indexes on.
+        string? canonical = CapabilityRegistry.Resolve(capability);
+        if (canonical == null ||
+            !ArchitectureLimitationEvidence.HasFor(toolRoot, canonical))
+            throw new ExecutorError("MATURATION_EVIDENCE_MISSING",
+                $"unsupported requires recorded " +
+                $"ArchitectureLimitationEvidence for '{capability}' " +
+                "(§22) — declare it via --architecture-limitation " +
+                "before marking the sequence slot unsupported");
         var caps = (Dictionary<string, object?>)state["capabilities"]!;
         caps[capability] = new Dictionary<string, object?>
         {
