@@ -150,4 +150,5 @@ main-system/data/automatic-repair/
 *.obj
 TestResults/
 
-.fake
+.fake/aa-token.txt
+/im-token.txt
