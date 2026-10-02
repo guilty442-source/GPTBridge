@@ -67,6 +67,9 @@ internal static class CodexSessions
         double ttlSeconds = CodexEntryState.DefaultSessionTtl,
         string? dualKeyGrant = null)
     {
+        // Reject invalid lifetime before consuming a single-use grant.
+        if (!double.IsFinite(ttlSeconds))
+            throw new CodexReadDenied("CODEX_SESSION_TTL_INVALID");
         actor = (actor ?? "").Trim();
         purpose = (purpose ?? "").Trim();
         HashSet<string> parsedScope;

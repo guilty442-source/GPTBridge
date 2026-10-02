@@ -47,6 +47,12 @@ foreach (var field in new[] { "codex_version", "source_sha256" })
     catch (TargetInvocationException error) when (error.InnerException?.Message == "BLOCKED_GENERATION_DRIFT") { passed++; }
 }
 var projection = typeof(SemanticHashToolchain).Assembly.GetType("GPTBridge.CodexPipeline.GenerationProjections", true)!;
+foreach (var invalidHash in new object?[] { null, "", "invalid", new string('g', 64), new string('A', 64), new string('a', 63), new string('a', 65) })
+{
+    var invalid = new Dictionary<string, object?>(identity) { ["source_sha256"] = invalidHash };
+    try { fence.Invoke(null, new object[] { invalid, invalid }); throw new Exception("INVALID_GENERATION_HASH_ACCEPTED"); }
+    catch (TargetInvocationException error) when (error.InnerException?.Message == "BLOCKED_GENERATION_DRIFT") { passed++; }
+}
 var matches = projection.GetMethod("SchemaReceiptMatches", BindingFlags.Static | BindingFlags.NonPublic)!;
 var receipt = new Dictionary<string, object?> { ["status"] = "PASS", ["validated_against_version"] = generation };
 foreach (var field in new[] { "producer_semantic_hash", "validator_semantic_hash", "persistence_semantic_hash", "canonical_semantic_hash" }) receipt[field] = hash;

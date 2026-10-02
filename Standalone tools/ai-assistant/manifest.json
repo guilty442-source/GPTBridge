@@ -24,7 +24,7 @@
     ]
   },
   "entry": "Standalone tools/ai-assistant/src/main",
-  "runtime": {    "type": "csharp", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/main.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry → C# ToolHost, whose executor table has no ai-assistant entry — it falls to DeferredExecutor and commands fail closed (TOOL_EXECUTOR_PENDING_NATIVE_PORT) until the business executor is ported.",    "workingDirectory": "."  },
+  "runtime": {    "type": "csharp", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/main.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry → C# ToolHost with a registered AiAssistantExecutor declaring the investment_*/investment_watch_* command surface; every command currently fails closed (INVESTMENT_DATA_PLANE_PENDING) because the PostgreSQL gptbridge_trading outbox and the investment-mobile → xingcheng relay need the transport-store successor — the surface is live, the data plane is the remaining seam.",    "workingDirectory": "."  },
   "request_channel": {
     "model": "governance-authenticated-shared-layer",
     "runtime_entry": "shared-layer/csharp/GPTBridge.ChannelHost/publish/GPTBridge.ChannelHost.exe",

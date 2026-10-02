@@ -2020,6 +2020,7 @@ internal sealed class TransformerTrainingRepository
             ["automatic_weight_replacement"] = false,
             ["role_database_ownership_preserved"] = true,
             ["metadata_shadow"] = ShadowStatus(),
+            ["metadata_parity"] = ParityProbe(),
         };
     }
 

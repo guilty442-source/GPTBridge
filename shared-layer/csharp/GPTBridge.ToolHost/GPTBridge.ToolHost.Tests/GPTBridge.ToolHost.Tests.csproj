@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GPTBridge.ToolHost\GPTBridge.ToolHost.csproj" />
+    <ProjectReference Include="..\..\GPTBridge.ToolHost.App\GPTBridge.ToolHost.App.csproj" />
   </ItemGroup>
 
 </Project>

@@ -11,6 +11,20 @@ internal static class CodexDualKey
 {
     public const double DefaultGrantTtl = 120.0;
 
+    private static bool GrantExpiryValid(object? value, long now)
+    {
+        if (value is null) return false;
+        try
+        {
+            var expiry = Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+            return double.IsFinite(expiry) && expiry > now;
+        }
+        catch (Exception error) when (error is FormatException or InvalidCastException or OverflowException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Whether opening this entry requires a dual-key
     /// grant.</summary>
     public static bool RequiresDualKey(string accessClass,
@@ -70,6 +84,8 @@ internal static class CodexDualKey
         string accessClass = CodexSessions.AccessReview,
         double ttlSeconds = DefaultGrantTtl)
     {
+        if (!double.IsFinite(ttlSeconds))
+            throw new CodexReadDenied("CODEX_GRANT_TTL_INVALID");
         var primary = (primaryActor ?? "").Trim();
         var secondary = (secondaryActor ?? "").Trim();
         operation = (operation ?? "").Trim();
@@ -177,9 +193,8 @@ internal static class CodexDualKey
                     record.GetValueOrDefault("generation"))
                 != Convert.ToInt64(state["revocation_generation"]))
                 denial = "CODEX_GRANT_REVOKED";
-            else if (Convert.ToDouble(
-                    record.GetValueOrDefault("expires_at"))
-                < DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+            else if (!GrantExpiryValid(record.GetValueOrDefault("expires_at"),
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
                 denial = "CODEX_GRANT_EXPIRED";
             else
             {
