@@ -7,7 +7,7 @@
     "audit_ledger": "runtime/logs/automation-flows.jsonl"
   },
   "core_assignment": {
-    "comment": "五核心分工（B162 集合：governance（原 decision，2026-10-02 更名修正案已執行）/ permission / system-runtime / automation / xingcheng-assistant；星澄本體為獨立機制不列核心）。每個 flow 恰屬一核心：automation＝已授權工作流排程/同步/更新/維護（唯一治理引擎所在）；system-runtime＝啟動/程序生命週期/受治理執行與監督面；permission＝身分/範圍/權限/目錄與安全執法；xingcheng-assistant＝全域稽查/通知/使用者單項許可介面（本檔無其 flow，職責在對話面）；xingcheng-internal＝星澄本體內部機制（僅星澄內部，與主系統切割）；tool-internal＝獨立工具行程內部迴圈（各工具自管）。retired 條目按其 native port 指定核心歸屬標示，不另設權威。",
+    "comment": "五核心分工（B162 集合：governance（原 decision，2026-10-02 更名修正案已執行）/ permission / system-runtime / automation / xingcheng-assistant；星澄本體為獨立機制不列核心）。每個 flow 恰屬一核心：governance＝決策與治理管理（零執行權，僅作為 resident-governance 指定歸屬標示，不驅動 flow）；automation＝已授權工作流排程/同步/更新/維護（唯一治理引擎所在）；system-runtime＝啟動/程序生命週期/受治理執行與監督面；permission＝身分/範圍/權限/目錄與安全執法；xingcheng-assistant＝全域稽查/通知/使用者單項許可介面（本檔無其 flow，職責在對話面）；xingcheng-internal＝星澄本體內部機制（僅星澄內部，與主系統切割）；tool-internal＝獨立工具行程內部迴圈（各工具自管）。retired 條目按其 native port 指定核心歸屬標示，不另設權威。",
     "flows": {
       "git-automation": "automation",
       "daily-global-cleaner": "automation",
@@ -32,7 +32,7 @@
       "update-manager-auto": "automation",
       "hot-update-idle": "system-runtime",
       "hot-reload-watcher": "system-runtime",
-      "authority-reanchor": "system-runtime",
+      "authority-reanchor": "governance",
       "main-system-self-maintenance": "automation",
       "idle-memory-maintenance": "system-runtime",
       "runtime-status-push": "system-runtime",
