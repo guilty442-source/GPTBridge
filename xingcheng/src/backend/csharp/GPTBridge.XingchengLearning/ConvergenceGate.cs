@@ -333,6 +333,20 @@ $"gate-stderr-{Environment.ProcessId}.log";
             // receipt whose grant_id resolves back to a governor-issued
             // grant record — a receipt without a matching grant means
             // execution ran outside the contract.
+            new("native-metadata-authority", true, () =>
+            {
+                try
+                {
+                    var metadata = new NativeMetadataClient(toolRoot, "xingcheng-release-gate");
+                    var report = NativeMetadataProductionGate.Evaluate(
+                        MetadataAuthority.LatestTransition(metadata), metadata.Verify(),
+                        typeof(TransformerTrainingRepository).Assembly.GetReferencedAssemblies()
+                            .Any(reference => reference.Name == "Npgsql"));
+                    return (bool)report["ok"]! ? Pass(MetadataAuthority.GateId)
+                        : Fail(MetadataAuthority.GateId, JsonSerializer.Serialize(report["failures"]));
+                }
+                catch (Exception error) { return Fail(MetadataAuthority.GateId, error.Message); }
+            }),
             new("resource-contract", true, () =>
             {
                 var client = new ResourceGovernorClient(toolRoot);
@@ -1342,9 +1356,12 @@ $"gate-stderr-{Environment.ProcessId}.log";
                                 $"retention planned {hit}");
             }
 
-            // Unreadable registry -> preserve: with a dead DSN the
-            // fallback must protect every snapshot file in the
-            // snapshot dir (fail closed, never delete blind).
+            // Unreadable registry -> preserve: a scratch root with no
+            // native metadata plane (no xstore.exe) makes the
+            // repository constructor fail closed — Retention must
+            // protect every snapshot file in the dir, never delete
+            // blind. (Pre-flip this lane poisoned the PG DSN; the
+            // post-flip equivalent is an absent native plane.)
             string scratchRoot = Path.Combine(scratchDir, "fake-tool");
             string snapDir = Path.Combine(scratchRoot,
                 XcPaths.SelfLearningSnapshotRel.Replace('/',
@@ -1352,37 +1369,24 @@ $"gate-stderr-{Environment.ProcessId}.log";
             Directory.CreateDirectory(snapDir);
             string orphan = Path.Combine(snapDir, "orphan.jsonl");
             File.WriteAllText(orphan, "{}\n");
-            string? savedDsn = Environment.GetEnvironmentVariable(
-                "GPTBRIDGE_POSTGRES_DSN");
-            try
+            var blind = Retention.ApplyRetention(scratchRoot,
+                new RetentionPolicy { Enabled = true,
+                                      KeepSnapshots = 0 },
+                dryRun: true);
+            if (blind.TryGetValue("deleted", out var bObj) &&
+                bObj is List<Dictionary<string, object?>> bDel)
             {
-                Environment.SetEnvironmentVariable(
-                    "GPTBRIDGE_POSTGRES_DSN",
-                    "host=127.0.0.1;port=1;connect_timeout=1");
-                var blind = Retention.ApplyRetention(scratchRoot,
-                    new RetentionPolicy { Enabled = true,
-                                          KeepSnapshots = 0 },
-                    dryRun: true);
-                if (blind.TryGetValue("deleted", out var bObj) &&
-                    bObj is List<Dictionary<string, object?>> bDel)
-                {
-                    string absO = Path.GetFullPath(orphan);
-                    bool plannedDelete = bDel.Any(d =>
-                        string.Equals(
-                            d.GetValueOrDefault("path")?.ToString()
-                                is string dp
-                                ? Path.GetFullPath(dp) : "",
-                            absO, StringComparison.OrdinalIgnoreCase));
-                    if (plannedDelete)
-                        return Fail("UNREADABLE_REGISTRY_PRUNED",
-                                    "retention planned deletion with "
-                                    + "unreadable registry");
-                }
-            }
-            finally
-            {
-                Environment.SetEnvironmentVariable(
-                    "GPTBRIDGE_POSTGRES_DSN", savedDsn);
+                string absO = Path.GetFullPath(orphan);
+                bool plannedDelete = bDel.Any(d =>
+                    string.Equals(
+                        d.GetValueOrDefault("path")?.ToString()
+                            is string dp
+                            ? Path.GetFullPath(dp) : "",
+                        absO, StringComparison.OrdinalIgnoreCase));
+                if (plannedDelete)
+                    return Fail("UNREADABLE_REGISTRY_PRUNED",
+                                "retention planned deletion with "
+                                + "unreadable registry");
             }
             return Pass($"dedup={id1 == id2} newrow={id3 != id1} "
                         + "protected=true blind_preserve=true");

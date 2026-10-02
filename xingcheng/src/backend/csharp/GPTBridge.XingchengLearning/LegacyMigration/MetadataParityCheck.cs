@@ -1,3 +1,4 @@
+// LEGACY_MIGRATION_ONLY: historical comparison source; excluded from production build.
 // MetadataParityCheck.cs — Phase A parity scanner (§38-§41).
 //
 // Compares PostgreSQL authoritative state against the xstore metadata

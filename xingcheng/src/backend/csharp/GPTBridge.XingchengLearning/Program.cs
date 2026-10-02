@@ -72,6 +72,8 @@ internal static class Program
 
         try
         {
+            foreach (var mutation in new[] { "gen-begin", "arch-migrate", "arch-activate", "maturation-reopen" })
+                if (flags.Contains(mutation)) ProductionClosure.FreezeGuard(toolRoot, mutation);
             if (flags.Contains("model-maturity"))
                 return Emit(flags.Contains("status")
                     ? ModelMaturity.Status(toolRoot)

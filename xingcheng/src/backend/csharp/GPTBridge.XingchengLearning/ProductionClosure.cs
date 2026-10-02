@@ -49,6 +49,7 @@ internal static class ProductionClosure
         "architecture", "capability", "runtime", "data", "storage",
         "resource", "cuda", "recovery", "lifecycle", "security",
         "performance", "durability",
+        "native-metadata", "regression", "native-only", "provenance", "soak",
     };
 
     /// <summary>§5: SKIPPED is deliberately absent — a skipped gate can
@@ -71,7 +72,7 @@ internal static class ProductionClosure
     {
         "architecture", "capability-consistency", "capability-floors",
         "regression", "native-only", "resource-contract",
-        "native-cuda", "provenance",
+        "native-cuda", "provenance", "native-metadata-authority",
     };
 
     // ---------------------------------------------------------- io --
@@ -83,7 +84,7 @@ internal static class ProductionClosure
     public static Dictionary<string, object?> Load(string toolRoot)
     {
         string p = Path_(toolRoot);
-        if (!File.Exists(p))
+        if (!NativeStateProjection.Exists(p))
             return new Dictionary<string, object?>
             {
                 ["format"] = Format,
@@ -95,7 +96,7 @@ internal static class ProductionClosure
         try
         {
             return ModelLifecycle.Decode(JsonDocument.Parse(
-                File.ReadAllText(p)).RootElement)
+                NativeStateProjection.ReadAllText(p)).RootElement)
                 as Dictionary<string, object?>
                 ?? throw new JsonException("root not object");
         }
@@ -142,6 +143,13 @@ internal static class ProductionClosure
     public static Dictionary<string, object?> FreezeSet(
         string toolRoot, bool active, string note)
     {
+        if (active)
+        {
+            var metadata = new NativeMetadataClient(toolRoot);
+            var gate = NativeMetadataProductionGate.Evaluate(MetadataAuthority.LatestTransition(metadata), metadata.Verify(),
+                typeof(ProductionClosure).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "Npgsql"));
+            if (!(bool)gate["ok"]!) throw new ExecutorError("PRODUCTION_CLOSURE_FREEZE_DENIED", "Native metadata authority is not certified.");
+        }
         var doc = Load(toolRoot);
         doc["freeze"] = new Dictionary<string, object?>
         {
@@ -418,6 +426,22 @@ internal static class ProductionClosure
                     "a declared pass is not evidence");
             sha = Convert.ToHexString(SHA256.HashData(
                 File.ReadAllBytes(evidencePath))).ToLowerInvariant();
+            using var evidence = JsonDocument.Parse(File.ReadAllText(evidencePath));
+            var proof = evidence.RootElement;
+            if (proof.ValueKind != JsonValueKind.Object || !proof.TryGetProperty("ok", out var ok)
+                || ok.ValueKind != JsonValueKind.True)
+                throw new ExecutorError("PRODUCTION_CERT_INVALID", "Evidence does not contain an executed passing verdict.");
+            if (axis == "native-metadata")
+            {
+                var live = NativeMetadataProductionGate.Evaluate(
+                    MetadataAuthority.LatestTransition(new NativeMetadataClient(toolRoot)),
+                    new NativeMetadataClient(toolRoot).Verify(),
+                    typeof(ProductionClosure).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "Npgsql"));
+                if (!(bool)live["ok"]!) throw new ExecutorError("PRODUCTION_CERT_INVALID", "Native metadata authority gate has unresolved evidence.");
+            }
+            if (axis == "soak" && (!proof.TryGetProperty("duration_s", out var duration)
+                || !duration.TryGetDouble(out var seconds) || seconds < 72 * 3600))
+                throw new ExecutorError("PRODUCTION_CERT_INVALID", "Final soak certification requires executed 72h evidence.");
         }
         if (state == "NOT_RUN" && note.Length == 0)
             throw new ExecutorError("PRODUCTION_CERT_INVALID",
@@ -449,6 +473,22 @@ internal static class ProductionClosure
 
     // -------------------------------------------------- state machine --
 
+    private static bool EvidenceCurrent(object? record)
+    {
+        if (record is not Dictionary<string, object?> row || row.GetValueOrDefault("state") as string != "PASS"
+            || row.GetValueOrDefault("evidence") is not string path
+            || row.GetValueOrDefault("evidence_sha256") is not string expected) return false;
+        try
+        {
+            var bytes = File.ReadAllBytes(path);
+            if (Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant() != expected) return false;
+            using var proof = JsonDocument.Parse(bytes);
+            return proof.RootElement.ValueKind == JsonValueKind.Object
+                && proof.RootElement.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) { return false; }
+    }
+
     /// <summary>§119-§121 production state transition, fail-closed:
     /// CANDIDATE requires a pinned candidate; CERTIFYING requires the
     /// §1 freeze; PRODUCTION_READY is derived from an all-PASS matrix;
@@ -464,10 +504,7 @@ internal static class ProductionClosure
         string current = doc.TryGetValue("state", out var sv)
             ? sv?.ToString() ?? "DEVELOPMENT" : "DEVELOPMENT";
         var axes = AxesMap(doc);
-        bool allPass = ReleaseGateAxes.All(a =>
-            axes.TryGetValue(a, out var r) &&
-            r is Dictionary<string, object?> d &&
-            d["state"]?.ToString() == "PASS");
+        bool allPass = ReleaseGateAxes.All(a => axes.TryGetValue(a, out var r) && EvidenceCurrent(r));
 
         switch (target)
         {
@@ -542,15 +579,13 @@ internal static class ProductionClosure
                 ["at"] = d?["at"],
             };
         }
-        bool P(string a) => axes.TryGetValue(a, out var r) &&
-            r is Dictionary<string, object?> d &&
-            d["state"]?.ToString() == "PASS";
+        bool P(string a) => axes.TryGetValue(a, out var r) && EvidenceCurrent(r);
 
         // §131-§145: each completion condition binds to axes + required
         // sub-evidence; satisfied only when every bound axis is PASS.
         var conds = new Dictionary<string, object?>
         {
-            ["A_soak_72h"] = Gate("runtime", "soak-8h/24h/72h evidence"),
+            ["A_soak_72h"] = Gate("soak", "soak-8h/24h/72h evidence"),
             ["B_pressure_revoke_resume"] =
                 Gate("resource", "pressure tiers + revoke + resume"),
             ["C_cuda_fault_fallback"] =
@@ -637,10 +672,7 @@ internal static class ProductionClosure
                 File.ReadAllBytes(Path_(toolRoot)))).ToLowerInvariant()
             : null;
         string health = doc["state"]?.ToString() ?? "DEVELOPMENT";
-        if (health == "ACTIVE" && !ReleaseGateAxes.All(a =>
-                axes.TryGetValue(a, out var r) &&
-                r is Dictionary<string, object?> d &&
-                d["state"]?.ToString() == "PASS"))
+        if (health == "ACTIVE" && !ReleaseGateAxes.All(a => axes.TryGetValue(a, out var r) && EvidenceCurrent(r)))
             health = "DEGRADED"; // §120: never pretend full health
 
         return new Dictionary<string, object?>

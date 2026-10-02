@@ -159,13 +159,13 @@ internal static class CapabilityRegistry
     /// alias sanity.</summary>
     public static Dictionary<string, object?> Validate(string file)
     {
-        if (string.IsNullOrEmpty(file) || !File.Exists(file))
+        if (string.IsNullOrEmpty(file) || !NativeStateProjection.Exists(file))
             throw new ExecutorError(
                 "CAPABILITY_REGISTRY_INVALID", "registry file missing");
         JsonElement root;
         try
         {
-            root = JsonDocument.Parse(File.ReadAllText(file))
+            root = JsonDocument.Parse(NativeStateProjection.ReadAllText(file))
                                .RootElement;
         }
         catch (JsonException)

@@ -148,9 +148,11 @@ internal static class MetadataAuthority
             report["dual_write"] = false;
             report["audit_root_valid"] = auditRoot;
             report["metadata_integrity"] = integrity ? "PASS" : "FAIL";
-            report["ok"] = authority == "xstore" &&
-                           auditRoot && integrity;
-            report["status"] = (bool)report["ok"]! ? "PASS" : "FAIL";
+            var strict = NativeMetadataProductionGate.Evaluate(marker, verify,
+                typeof(MetadataAuthority).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "Npgsql"));
+            report["ok"] = strict["ok"];
+            report["status"] = strict["status"];
+            report["failures"] = strict["failures"];
         }
         catch (Exception e)
         {
@@ -169,6 +171,12 @@ internal static class MetadataAuthority
     public static Dictionary<string, object?> Flip(
         TransformerTrainingRepository repo, NativeMetadataClient meta)
     {
+        if (LatestTransition(meta) is not null)
+        {
+            var existing = Gate(meta);
+            existing["transition"] = "already-recorded";
+            return existing; // Never manufacture a second authority history.
+        }
         string now = TransformerTrainingRepository.Now();
         var gates = PreFlipGates(repo, meta);
         if (!(bool)gates["ok"]!)

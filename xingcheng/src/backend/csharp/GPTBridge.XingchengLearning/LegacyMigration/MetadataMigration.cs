@@ -1,3 +1,4 @@
+// LEGACY_MIGRATION_ONLY: historical comparison source; excluded from production build.
 // MetadataMigration.cs — Phase A backfill: replay the PostgreSQL
 // authoritative state into the xstore metadata plane (§87 export/
 // import for migration audit — the xstore side is still SHADOW, not
