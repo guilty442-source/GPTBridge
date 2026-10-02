@@ -21,11 +21,11 @@ flowchart TB
         MODELTOOL["xc_modeltool.exe<br/>91 modes + serve(JSONL stdio worker)"]
         ENGINE["xingcheng_engine.dll<br/>xc_engine_* C ABI / engine*.h"]
         TRAINER["xingcheng_trainer.exe<br/>star-native-train-job/v1"]
-        CUDA["cuda_bridge.cpp / cuda_kernels.cpp<br/>cublas+自寫 kernel (opt-in)"]
+        CUDA["cuda_bridge.cpp / cuda_kernels.cpp<br/>Driver API (nvcuda.dll) + in-tree PTX kernels<br/>cuda_ptx_* · cuModuleLoadData JIT (opt-in)"]
     end
 
     subgraph RUST["Rust 資料面"]
-        XSTORE["xstore.exe<br/>content-addressed store + XCN verify"]
+        XSTORE["xstore.exe<br/>content-addressed store + XCN verify<br/>→ Native Metadata Authority（接管中）"]
         XCORPUS["xcorpus.exe / xcorpus.dll<br/>corpus pipeline + xtok tokenizer ABI"]
     end
 
@@ -42,9 +42,9 @@ flowchart TB
     end
 
     subgraph EXT["外部依賴"]
-        PG[("PostgreSQL<br/>gptbridge_xingcheng* schemas")]
+        PG[("PostgreSQL<br/>gptbridge_xingcheng* schemas<br/>（過渡期正式路徑 → xstore metadata 接管中）")]
         CONSUMERS["model-dialogue ToolHost / NativeModelClient<br/>(C# orchestrator-only consumers)"]
-        OLLAMA["ollama-service.exe<br/>teacher distillation (loopback 11434)"]
+        OLLAMA["ollama-service.exe<br/>teacher distillation (loopback 11434)<br/>（B154 註冊；native-only dependency 消除中）"]
     end
 
     BE -->|CreateProcess + injected env| TOOL
@@ -157,4 +157,6 @@ flowchart TB
 - 星澄 deny：`governance-rule`、`direct-database-write`、`main-program`、`other-tools`；manifest `direct_instruction: PERMISSION_DENIED`。
 - 部署釘選：`xingcheng/runtime/settings/native-engine.json::checkpoint` → `serve --bundle`；未釘選 fail-closed（`XC_BUNDLE_CHECKPOINT_UNPINNED`）。
 - 消費者政策：`csharp-orchestrator-client-only`；`/v1/infer` 需 session token；`request_channel` 走 ChannelHost。
-- 全 lane fail-closed typed error codes（`EXECUTOR_*`、`KERNEL_POLICY_DENIED`、`MODE_NOT_REGISTERED`、`XC_*`）。
+- 資源邊界：`native/resource_governor` 為主系統唯一全機資源權威（B3/B16/B159/A610）；星澄僅持 `ResourceGovernorClient`（Request/Renew/Release/Report 檔案契約）＋ `XingchengLocalResourceAllocator`（grant 內部分配，非 governor）；governor 不可用 → autonomous training fail-closed。
+- Native-only 閘門：`--native-only-check`（star-native-only-gate/v1 → release gate `NATIVE_ONLY_GATE`）＋ `--cuda-native-check`（star-cuda-native-check/v1：`driver_api_only`、禁止 cudart/cublas/cudnn/nvrtc 靜動態連結、in-tree PTX kernel 計數）。
+- 全 lane fail-closed typed error codes（`EXECUTOR_*`、`KERNEL_POLICY_DENIED`、`MODE_NOT_REGISTERED`、`XC_*`、`RESOURCE_*`）。
