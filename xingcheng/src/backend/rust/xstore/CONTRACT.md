@@ -41,6 +41,15 @@ xstore fail-mark  --pool-dir <d> --class <c> --fingerprint <fp>
 xstore fail-status --pool-dir <d>
 xstore kernel-registry [--policy <json>]
                                       star-kernel-registry inventory
+xstore metadata-put --store <d> --op <op> [--params <json|@file>]
+                                      governed metadata mutation (see below)
+xstore metadata-transition --store <d> --type <t> --id <id> --to <s>
+   [--expected-revision <n>]
+xstore metadata-get --store <d> --type <t> --id <id>
+xstore metadata-query --store <d> --type <t> [--where <json>] [--limit <n>]
+xstore metadata-snapshot --store <d>
+xstore metadata-verify --store <d>
+xstore metadata-rebuild-index --store <d>
 ```
 
 Every command also accepts `--policy <json>` (or env
@@ -118,6 +127,77 @@ severity upgrades stick. Pools bounded at 4096 (newest kept).
 REGRESSED). Records serialize as canonical sorted-key JSON so Rust-
 and C#-written lines are interchangeable in one pool dir.
 
+## Metadata plane (meta_*.rs)
+
+xstore carries a native structured-metadata lane — an append-only,
+hash-chained event log with derived, rebuildable projections. There is
+no embedded SQL and no second store; the canonical truth lives in
+`metadata/events/events.jsonl` and everything else under `metadata/`
+is a cache of it.
+
+```
+<store>/metadata/events/events.jsonl    canonical hash-chained log
+                                        (star-xstore-metadata-event/v1)
+<store>/metadata/audit/receipts.jsonl   mutation receipts, chained
+                                        (star-xstore-metadata-receipt/v1)
+<store>/metadata/index/head.json        commit checkpoint
+<store>/metadata/index/records.json     materialized records (derived)
+<store>/metadata/index/operations.json  idempotency map (derived)
+<store>/metadata/snapshots/<sha>.json   restart-acceleration manifests
+                                        (star-xstore-metadata-snapshot/v1)
+<store>/metadata/leases/writer.lock     single-writer lease
+<store>/metadata/leases/epoch.json      monotonic writer epoch (ABA)
+<store>/metadata/schema.json            schema identity pin
+```
+
+- **Canonical serialization**: `serde_json::Value` maps are
+  BTreeMap-ordered, so `to_string` yields sorted-key compact bytes —
+  that is the only canonical encoding. C# callers never rebuild hash
+  bytes; they ship payloads and Rust re-canonicalizes before hashing.
+- **Event identity**: each event carries `seq`, `transaction_id`,
+  `operation_id`, `record_type`, `record_id`, `revision`,
+  `previous_hash` (raw-line chain), `previous_revision_hash`
+  (per-record chain), `payload_hash`, `writer_epoch`, `event_hash`.
+- **Torn tail**: a line is committed iff it parses, hash-verifies,
+  chains and seq-increments. An unparseable trailing line is ignored
+  on read and trimmed before the next append; mid-file corruption is
+  `XSTORE_RECOVERY_REQUIRED` — never auto-repaired.
+- **Crash order**: validate → append events + fsync (commit point) →
+  append receipt + fsync → refresh derived index → release lease. A
+  crash after commit but before the index refresh is detected on the
+  next open (`head.last_event_hash` != log tail hash) and rebuilt.
+- **Writer model**: single writer + multi reader. `writer.lock` is an
+  O_EXCL lease with expiry; stale locks are taken over and the epoch
+  is bumped — a superseded writer committing with an old epoch fails
+  `XSTORE_STALE_WRITER`. Contention on a live lock fails
+  `XSTORE_WRITER_BUSY` after a bounded wait.
+- **Optimistic concurrency**: mutations may pass `expected_revision`;
+  a mismatch fails `XSTORE_REVISION_CONFLICT` before any byte is
+  written. `operation_id` makes retried mutations idempotent — a
+  replay returns `result:"duplicate"` with the original receipt data.
+- **Domain ops** replicate the PostgreSQL repository semantics
+  verbatim (datasets are `UNIQUE(content_sha256,snapshot_sha256)` +
+  immutable; job FSM `queued→preflight→training→validating→completed`
+  with `failed`/`cancelled` sides fail-closed; `claim_job` is the
+  serial-lane advisory-lock port; candidates carry unique
+  `artifact_sha256` with at most one `active`; `activate`/`rollback`/
+  `retire` move the runtime singleton in the same atomic bundle;
+  `automatic_weight_replacement` is pinned `false` and re-checked at
+  every materialize). Release actions are exactly
+  `stage|activate|rollback|retire`; evaluations are
+  `UNIQUE(adapter_id,suite_sha256)`.
+- **Startup**: `load_state` = verify schema → scan canonical log →
+  use in-step index fast path, else snapshot-accelerated replay
+  (`metadata-snapshot` bodies are content-addressed objects; a
+  manifest is honored only when its `last_event_hash` is a real chain
+  position). Cross-record invariants are re-enforced on every fold:
+  revision chains, append-only types, single active candidate, one
+  runtime-state singleton, legal statuses — violations are
+  `XSTORE_RECOVERY_REQUIRED`, never guessed-at repair.
+- **Snapshots** accelerate restart only; `metadata-verify` reports
+  event/record counts, receipts-chain head, index freshness, snapshot
+  inventory and the writer epoch.
+
 ## Guarantees (xcn1.rs)
 
 - All reads bounds-checked; every declared extent (`count * 4`, name
@@ -147,6 +227,14 @@ and C#-written lines are interchangeable in one pool dir.
 6. Tokenizer — landed in `xcorpus` (port of `engine_tokenizer.h`);
    a C ABI shim for the inference engine is still open.
 7. Binary-format registry: one parser per governed artifact kind.
+8. **Metadata plane** — landed (`meta_*.rs`): append-only hash-chained
+   event log, writer lease/epoch, derived index + snapshot restart,
+   `star-xstore-metadata-receipt/v1` per mutation, and the full
+   PostgreSQL-repository semantic port (datasets, examples, job FSM,
+   serial claim, candidates, evaluations, release actions, runtime
+   singleton). This is the substrate for the PostgreSQL → xstore
+   metadata-authority migration; the authority flip itself is a
+   governed transition outside this crate.
 
 C++ keeps the model core (forward/backward/kernels); C# keeps
 governance, lifecycle and scheduling. This lane must not grow a model
