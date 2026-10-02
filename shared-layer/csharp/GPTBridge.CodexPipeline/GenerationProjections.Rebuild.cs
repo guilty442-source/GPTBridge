@@ -420,7 +420,7 @@ internal static partial class GenerationProjections
     /// ``ARCHITECTURE_DIAGRAM_SYNC_CURRENT`` evidence row is rebuilt
     /// from the measured post-rebuild state, never pre-repair counts.</summary>
     private static void RebuildDiagramSync(StageConnection connection,
-        string version)
+        string version, bool failClosed = true)
     {
         if (!HasTable(connection,
                 "architecture_diagram_artifact_registry"))
@@ -477,6 +477,7 @@ internal static partial class GenerationProjections
         }
         if (!HasTable(connection, "architecture_diagram_sync_evidence"))
             return;
+        var passed = DiagramSyncPassed(rows.Count, present, hashMatch, stale, missing, readOnlyViolations);
         connection.Execute(
             "UPDATE architecture_diagram_sync_evidence SET "
             + "codex_version=?, required_count=?, registered_count=?, "
@@ -491,10 +492,21 @@ internal static partial class GenerationProjections
                 version, (long)rows.Count, (long)rows.Count,
                 (long)present, (long)hashMatch, (long)readOnly,
                 (long)stale, (long)missing,
-                missing == 0 && present == rows.Count && hashMatch == rows.Count
-                    && stale == 0 && readOnlyViolations == 0 ? "PASS" : "FAIL", version,
+                passed ? "PASS" : "FAIL", version,
             });
+        if (!passed && failClosed)
+            throw new InvalidOperationException("ARCHITECTURE_DIAGRAM_SYNC_INCOMPLETE");
     }
+
+    private static bool DiagramSyncPassed(int required, int present, int hashMatch,
+        int stale, int missing, int readOnlyViolations) =>
+        required > 0 && present == required && hashMatch == required
+            && stale == 0 && missing == 0 && readOnlyViolations == 0;
+
+    private static bool HistoricalSubSovereignClause(string clause) =>
+        System.Text.RegularExpressions.Regex.IsMatch(clause,
+            "historical|abolished|abolition|retired|lineage|supersede|removed|no sub-sovereign|not a sovereign|without restoring|never a sovereign|not revive|revival|forbid|prohibit|non-active|no active|must not|shall not|do not|does not|cannot|banned|sub\\s*=\\s*none",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     private static void RebuildProjectDirectoryProjection(StageConnection connection, string version)
     {
@@ -533,23 +545,62 @@ internal static partial class GenerationProjections
         var historical = 0L;
         // Restrictive mentions do not grant a role. Explicitly historical
         // clauses are counted separately; every other active mention fails closed.
+        // Clauses are split at sentence boundaries (';' and '.') so a sentence
+        // carrying active sub-sovereign semantics is never shielded by a
+        // historical marker elsewhere in the same clause (e.g. B112).  All
+        // three normative fields are scanned — exception text can grant
+        // current scope just as rule text can.
         foreach (var row in connection.Execute(
-            "SELECT a.rule FROM articles a JOIN provision_lifecycle_status l "
+            "SELECT a.rule, a.prohibition, a.exception FROM articles a JOIN provision_lifecycle_status l "
             + "ON l.provision_id=a.provision_id AND l.provision_type='article' "
             + "WHERE l.lifecycle_state='active'").Rows)
-            foreach (var clause in (row[0]?.ToString() ?? "").Split(';'))
-            {
-                if (!clause.Contains("sub-sovereign", StringComparison.OrdinalIgnoreCase)) continue;
-                if (System.Text.RegularExpressions.Regex.IsMatch(clause,
-                    "historical|abolished|retired|lineage|superseded|REMOVED|no sub-sovereign|not a sovereign|without restoring|never a sovereign|not revive a sub-sovereign",
-                    System.Text.RegularExpressions.RegexOptions.IgnoreCase)) historical++;
-                else current++;
-            }
+            for (var field = 0; field < 3; field++)
+                foreach (var clause in (row[field]?.ToString() ?? "")
+                    .Split(';', '.'))
+                {
+                    if (!clause.Contains("sub-sovereign", StringComparison.OrdinalIgnoreCase)
+                        && !clause.Contains("sub_sovereign", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (HistoricalSubSovereignClause(clause)) historical++;
+                    else current++;
+                }
         connection.Execute(
             "UPDATE architecture_stale_reference_evidence SET current_reference_count=?, "
             + "historical_reference_count=?,result=?,version_identity=?,status='current' "
             + "WHERE evidence_id='CURRENT_ARCHITECTURE_STALE_REFERENCE_SCAN_CURRENT'",
             new object?[] { current, historical, current == 0 ? "PASS" : "FAIL", version });
+    }
+
+    /// <summary>Synchronise ``machine_schema_registry.parity_status`` from
+    /// the parity evidence rows.  A schema is VERIFIED only when its
+    /// evidence row carries four equal, non-null semantic hashes with
+    /// status PASS — the status can never be asserted without matching
+    /// producer/validator/persistence/canonical evidence.  Rows whose
+    /// evidence is missing, PENDING, or internally inconsistent fall back
+    /// to PENDING (fail-closed).</summary>
+    private static int RebuildSchemaParityStatus(
+        StageConnection connection)
+    {
+        if (!HasTable(connection, "machine_schema_registry")
+            || !HasTable(connection, "machine_schema_parity_evidence"))
+            return 0;
+        const string evidenceOk =
+            "EXISTS (SELECT 1 FROM machine_schema_parity_evidence e "
+            + "WHERE e.schema_code=r.schema_code AND e.status='PASS' "
+            + "AND e.producer_semantic_hash IS NOT NULL "
+            + "AND e.validator_semantic_hash IS NOT NULL "
+            + "AND e.persistence_semantic_hash IS NOT NULL "
+            + "AND e.canonical_semantic_hash IS NOT NULL "
+            + "AND e.producer_semantic_hash=e.validator_semantic_hash "
+            + "AND e.validator_semantic_hash=e.persistence_semantic_hash "
+            + "AND e.persistence_semantic_hash=e.canonical_semantic_hash)";
+        var cursor = connection.Execute(
+            "UPDATE machine_schema_registry r SET parity_status='VERIFIED' "
+            + $"WHERE {evidenceOk} AND r.parity_status<>'VERIFIED'");
+        var verified = cursor.RowCount;
+        cursor = connection.Execute(
+            "UPDATE machine_schema_registry r SET parity_status='PENDING' "
+            + $"WHERE NOT ({evidenceOk}) AND r.parity_status='VERIFIED'");
+        return verified + cursor.RowCount;
     }
 
     /// <summary>Rebind every derived projection of the staged
@@ -579,6 +630,7 @@ internal static partial class GenerationProjections
             SyncNormativeSurface(connection, version);
             RebuildProjectDirectoryProjection(connection, version);
             RebuildStaleReferenceEvidence(connection, version);
+            RebuildSchemaParityStatus(connection);
             RebuildDiagramSync(connection, version);
             var historyHead = AppendRevision(connection, version,
                 epoch,
@@ -628,22 +680,13 @@ internal static partial class GenerationProjections
                 docCount);
             var authorityRows = RebuildVersionAuthorityRegistry(
                 connection, version);
+            RebuildProjectDirectoryProjection(connection, version);
+            RebuildStaleReferenceEvidence(connection, version);
+            var parityUpdates = RebuildSchemaParityStatus(connection);
+            RebuildDiagramSync(connection, version, failClosed: false);
             connection.Commit();
             return new Dictionary<string, object?>(
                 StringComparer.Ordinal)
             {
                 ["ok"] = true,
                 ["schema"] = PgDsn.CodexSchema,
-                ["authority_registry_rows"] = authorityRows,
-                ["version"] = version,
-                ["documents"] = (long)docCount,
-                ["fts_rows"] = (long)ftsCount,
-            };
-        }
-        catch
-        {
-            connection.Rollback();
-            throw;
-        }
-    }
-}

@@ -1,0 +1,40 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "current-evidence-invariants-finalize-20261002",
+  "title": "Enforce measured current evidence and independently proven schema parity",
+  "summary": "Bind current sync PASS to persisted post-rebuild parity and applicable file requirements;deny descriptor-only schema closure.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor evidence-convergence instruction;no application runtime implementation",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T08:57:38Z",
+    "version_identity": "E2:2026-10-02T08:57:38Z",
+    "version_epoch": 2,
+    "history_head": "e720f26faa2024b2886f7dafe4a017948a8d4e4dd1aa1a070caed40372ced397",
+    "revision_sequence": 222
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C102"
+      },
+      "field": "rule",
+      "proposed": "C102 補充 D75、D118、B118 與 B124。任何自動法典更新必須以單一受治理 successor transaction 同時產生並驗證：正式法典、五份有序中文法典鏡像、machine architecture registry，以及架構圖 artifact registry（architecture_diagram_artifact_registry）中 status=active 的全部架構圖——同步義務所及的 artifact 集合以權威登錄表之 active 集合為準，法典不釘固定數目或分類計數。提交前必須完成版本一致性、內容一致性、五分卷鏈結、架構來源條文、登錄資料與治理稽核檢查。全部目標成功後才能原子發布；任何一項缺失、失敗、過期或版本不同，必須回復整批候選並拒絕發布。 EVIDENCE-INVARIANT:current file-registry evidence measures the persisted post-rebuild state of the authoritative active artifact set;PASS requires required=registered=present=hash-match,stale=missing=0,and every applicable read-only requirement satisfied.Pre-repair drift counts are separate historical diagnostics and never current PASS measurements.File-hash parity does not certify unresolved runtime or semantic implementation completion.Current active-law stale-role scanning is lifecycle-joined and historical-only references are separated from operative delegation."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "D115"
+      },
+      "field": "rule",
+      "proposed": "Every machine schema row declares required fields,optional fields,field_types,nullability,schema_version,compatibility,unknown-field policy,content hash,persistence,redaction,status and successor. machine_schema_registry is the sole canonical machine-schema representation;specialized schema tables are derived views only and MUST NOT independently define semantics. Canonical producer schemas,consumer validators,derived specialized views and persistence tables must match one registered semantic hash before parity_status may be PASS. identity-conversion contract is mandatory alongside receipt,token,audit,health,test-suite,final-decision,Codex-read-session and Chinese-mirror-part schemas. Drift,missing type/nullability evidence or absent producer-validator-table parity evidence is P0 INCOMPLETE_EVIDENCE. EVIDENCE-PROVENANCE:producer,validator,persistence and canonical semantic hashes require independently attributable executed evidence for the current registered schema and binding generation;copying one descriptor digest into four fields or merely restamping a version proves no implementation parity. COMPLETION:the machine-schema parity obligation is complete only when every current registered schema has current evidenced parity;PENDING,missing,stale or contradictory rows reopen the obligation and deny affected activation or verified release.Historical measurements remain explicitly historical and are not silently promoted."
+    }
+  ]
+}

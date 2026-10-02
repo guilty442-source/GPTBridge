@@ -13,7 +13,14 @@ const active = new Set(rows('provision_lifecycle_status').filter(r => r.lifecycl
 const schemas = rows('machine_schema_registry');
 const evidence = rows('machine_schema_parity_evidence');
 const laws = rows('articles');
-if (process.argv.includes('--request')) {
+if (process.argv.includes('--finalize')) {
+  const head=rows('revision_history').at(-1);
+  const clauses={
+    C102:' EVIDENCE-INVARIANT:current file-registry evidence measures the persisted post-rebuild state of the authoritative active artifact set;PASS requires required=registered=present=hash-match,stale=missing=0,and every applicable read-only requirement satisfied.Pre-repair drift counts are separate historical diagnostics and never current PASS measurements.File-hash parity does not certify unresolved runtime or semantic implementation completion.Current active-law stale-role scanning is lifecycle-joined and historical-only references are separated from operative delegation.',
+    D115:' EVIDENCE-PROVENANCE:producer,validator,persistence and canonical semantic hashes require independently attributable executed evidence for the current registered schema and binding generation;copying one descriptor digest into four fields or merely restamping a version proves no implementation parity. COMPLETION:the machine-schema parity obligation is complete only when every current registered schema has current evidenced parity;PENDING,missing,stale or contradictory rows reopen the obligation and deny affected activation or verified release.Historical measurements remain explicitly historical and are not silently promoted.'
+  };
+  console.log(JSON.stringify({artifact:'codex-amendment-request',authority:'request-only',schema:'codex-amendment-request/v1',request_id:'current-evidence-invariants-finalize-20261002',title:'Enforce measured current evidence and independently proven schema parity',summary:'Bind current sync PASS to persisted post-rebuild parity and applicable file requirements;deny descriptor-only schema closure.',requested_by:'decision-sovereign',origin:'direct human-governor evidence-convergence instruction;no application runtime implementation',change_class:'architecture-authority',required_review:'five-sovereign-audit-unanimous-pass',flow:'A382/A488-non-disruptive-amendment-flow',not_executed:true,auto_execute:true,predecessor:{codex_version:head.version,version_identity:`E${head.version_epoch}:${head.version}`,version_epoch:head.version_epoch,history_head:head.entry_hash,revision_sequence:head.sequence},changes:Object.entries(clauses).map(([id,clause])=>({table:'articles',key:{provision_id:id},field:'rule',proposed:laws.find(r=>r.provision_id===id).rule+clause}))},null,2));
+} else if (process.argv.includes('--request')) {
   const changes = [];
   const update = (table,key,field,proposed) => changes.push({table,key,field,proposed});
   const replacements = {
