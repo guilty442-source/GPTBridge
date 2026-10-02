@@ -306,6 +306,93 @@ $"gate-stderr-{Environment.ProcessId}.log";
                     $"{((IEnumerable<object?>)d["newly_certified"]!)
                         .Count()})");
             }),
+            // AC §73/§76: native dependency audit — PostgreSQL/Ollama/
+            // cuBLAS/cuDNN/CUTLASS/NVRTC/external AI runtime findings
+            // with Blocking=true fail promotion; the CUDA plane must
+            // additionally pass the driver-only contract.
+            new("native-dependency", true, () =>
+            {
+                var noc = NativeDependencyGate.NativeOnlyCheck(
+                    toolRoot, -1);
+                if (!TransformerTrainingRepository.Truthy(noc["ok"]))
+                    return Fail("NATIVE_DEPENDENCY_BLOCKED",
+                        $"native-only check failed — " +
+                        $"classes={JsonSerializer.Serialize(
+                            noc.GetValueOrDefault("dependency_classes"))
+                            [..Math.Min(240,
+                                JsonSerializer.Serialize(
+                                    noc.GetValueOrDefault(
+                                        "dependency_classes"))
+                                        .Length)]}");
+                var cnc = NativeDependencyGate.CudaNativeCheck(
+                    toolRoot);
+                return TruthyField(cnc, "ok", "cuda-native");
+            }),
+            // AC §75: every governed execution must leave a usage
+            // receipt whose grant_id resolves back to a governor-issued
+            // grant record — a receipt without a matching grant means
+            // execution ran outside the contract.
+            new("resource-contract", true, () =>
+            {
+                var client = new ResourceGovernorClient(toolRoot);
+                string? dir = client.StateDir();
+                if (dir == null)
+                    return Pass("resource governor state absent — " +
+                                "no receipts to audit");
+                string rcDir = Path.Combine(dir, "resource-receipts");
+                if (!Directory.Exists(rcDir))
+                    return Pass("no usage receipts recorded yet");
+                var bad = new List<string>();
+                int receipts = 0;
+                foreach (string f in Directory.EnumerateFiles(
+                             rcDir, "*.jsonl"))
+                {
+                    foreach (string line in File.ReadLines(f))
+                    {
+                        if (line.Trim().Length == 0) continue;
+                        ++receipts;
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(line);
+                            string gid = doc.RootElement
+                                .TryGetProperty("grant_id",
+                                    out var g) &&
+                                g.ValueKind == JsonValueKind.String
+                                    ? g.GetString() ?? "" : "";
+                            if (gid.Length == 0 ||
+                                gid == "static-local-dev")
+                            {
+                                bad.Add($"{Path.GetFileName(f)}:" +
+                                        $"grant_id='{gid}'");
+                                continue;
+                            }
+                            bool found = Directory.EnumerateFiles(
+                                Path.Combine(dir, "resource-grants"),
+                                "*.json").Any(fp =>
+                                {
+                                    try
+                                    {
+                                        return File.ReadAllText(fp)
+                                            .Contains(gid);
+                                    }
+                                    catch { return false; }
+                                });
+                            if (!found)
+                                bad.Add($"{Path.GetFileName(f)}:" +
+                                        $"no grant record for {gid}");
+                        }
+                        catch (JsonException)
+                        {
+                            bad.Add($"{Path.GetFileName(f)}:" +
+                                    "unparseable receipt line");
+                        }
+                    }
+                }
+                return bad.Count == 0
+                    ? Pass($"{receipts} receipt(s) grant-bound")
+                    : Fail("RESOURCE_CONTRACT_VIOLATION",
+                           string.Join("; ", bad.Take(4)));
+            }),
             // ---------- bundle-bound runtime steps ----------
             new("architecture-drift", true, () => NeedBundle(() =>
                 ArchitectureDrift(bundle!))),
