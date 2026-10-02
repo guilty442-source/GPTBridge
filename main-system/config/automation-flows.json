@@ -322,12 +322,12 @@
       "description": "retired (B167/B38): _internal_maintenance_loop removed with the Python training/maintenance lane"
     },
     "self-learning": {
-      "owner": "GPTBridge.XingchengLearning xc-learning.exe --run-once（local-model 受管 lane；native port B167/B38 已交付）",
+      "owner": "GPTBridge.Automation.exe --watch self-learning plane → xc-learning.exe --run-once（local-model 受管 lane；native port B167/B38 已交付）",
       "kind": "periodic",
       "interval_s": 900,
       "pausable": true,
-      "enabled": false,
-      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載；kill switch 仍以 runtime/settings/self-learning.json enabled 為準。enabled=false pending resident tool-host registration of the system-channel dispatch（原 SelfLearningDriver 職責：tool 冷卻喚醒、inference exclusion 預檢、900s 節奏）。"
+      "enabled": true,
+      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載。排程：GPTBridge.Automation 的 self-learning 平面以 self-learning-automation.lock 單例仲裁、每 900s 產生受管子行程 --run-once；所有政策閘門（kill switch、quiet hours、min_new_examples、inference exclusion 經服務描述符 pid 探測、governor quota、單一訓練車道）由 xc-learning 權威執行。kill switch 仍以 runtime/settings/self-learning.json enabled 為準。"
     },
     "retention": {
       "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（local-model 受管 lane；native port B167/B38 已交付）",

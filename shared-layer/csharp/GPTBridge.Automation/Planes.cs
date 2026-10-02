@@ -120,9 +120,10 @@ internal static class Planes
         {
             var manifest = JsonNode.Parse(File.ReadAllText(
                 Path.Combine(root, FlowsRelative)));
-            var flows = manifest?["flows"] as JsonArray;
-            return flows?.FirstOrDefault(
-                flow => flow?["name"]?.GetValue<string>() == name);
+            // flows is an object keyed by flow name (same lookup the
+            // codex/permission planes' Flow() use) — an array-shaped
+            // read silently returned null and defeated kill switches.
+            return manifest?["flows"]?[name];
         }
         catch (Exception error) when (error is IOException
             or JsonException or UnauthorizedAccessException)
