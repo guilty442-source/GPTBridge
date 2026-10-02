@@ -17,7 +17,7 @@
     "streak_down": 3,
     "streak_up": 2
   },
-  "auto_mode": false,
+  "auto_mode": true,
   "defaults": {
     "benchmark_quota": 0,
     "concurrency_act_training": 0.5,

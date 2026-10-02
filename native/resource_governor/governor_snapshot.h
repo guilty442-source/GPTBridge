@@ -45,8 +45,10 @@ struct ProcessRecord {
     std::optional<int> rule_priority;
     bool rule_aff_set = false;
     bool job_member = false;
+    std::string job_mode;
     Pool pool = Pool::None;
     bool pool_member = false;
+    std::string pool_mode;
     int pool_join_fails = 0;
     bool pool_join_blocked = false;
 };

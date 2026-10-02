@@ -94,12 +94,16 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2965 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 3072 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
 | `GPTBridge.MetadataAuthority.Tests.exe` | C# | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
 | `GPTBridge.MetadataAuthority.Tests.exe` | C# | devin:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
+| `GPTBridge.MetadataAuthority.Tests.exe` | C# | git:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
+| `GPTBridge.MetadataAuthority.Tests.exe` | C# | local-model:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
 | `GPTBridge.MetadataAuthority.Tests.exe` | C# | main:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
+| `GPTBridge.MetadataAuthority.Tests.exe` | C# | rag:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
+| `GPTBridge.MetadataAuthority.Tests.exe` | C# | ui:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
 | `xc-format.exe` | Rust | codex-metadata-closure:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | git:xingcheng/src/backend/rust/xc-format/Cargo.toml |

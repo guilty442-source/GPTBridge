@@ -92,7 +92,8 @@ ProcKey pool_job_key(Pool pool) {
  * 套用一次性靜態屬性（priority/background/ecoqos，受 features 閘門）。 */
 void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                    ProcessRecord& record) {
-    if (pool == Pool::None || record.pool_member) return;
+    if (pool == Pool::None ||
+        (record.pool_member && record.pool_mode == env.effective_mode)) return;
     /* Windows：進程一旦入任一 Job Object 便無法移出。已被 worker 共享 Job
      * 捕獲、或 join 連續失敗（已在其他 Job）的進程永遠無法遷入池 Job ——
      * 記錄一次後停止每輪無效重試。 */
@@ -111,8 +112,8 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
         }
         return;
     }
-    auto it = env.rules.pools.find(pool);
-    if (it == env.rules.pools.end() || !it->second.enabled) return;
+    auto it = env.effective_pools.find(pool);
+    if (it == env.effective_pools.end() || !it->second.enabled) return;
     const PoolPolicy& policy = it->second;
     long long mem_bytes = policy.memory_mb * 1024LL * 1024LL;
     if (mem_bytes <= 0 && policy.memory_percent > 0 &&
@@ -130,7 +131,12 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                                      ? policy.cpu_limit_percent
                                      : 100.0,
                                  mem_bytes, policy.process_limit);
-        if (ok || env.dry_run) record.pool_member = true;
+        if (ok || env.dry_run) {
+            record.pool_member = true;
+            record.pool_mode = env.effective_mode;
+            env.regulation.pool_cpu_applied[static_cast<int>(pool)] =
+                policy.cpu_limit_percent;
+        }
         else record.pool_join_fails++;
         env.actions.push_back(
             jobj({{"action", jstr("pool-joined")},
@@ -141,6 +147,7 @@ void pool_envelope(CycleEnv& env, const ProcSample& sample, Pool pool,
                   {"ok", jbool(ok)}}));
     } else {
         record.pool_member = true;
+        record.pool_mode = env.effective_mode;
         env.actions.push_back(jobj({{"action", jstr("pool-joined")},
                                     {"pid", jint(sample.pid)},
                                     {"name", jstr(sample.name)},
@@ -180,13 +187,17 @@ void job_cap_and_pb(CycleEnv& env, const ProcSample& sample, Plane plane,
      * 一旦捕獲便永久喪失遷入池的資格。 */
     if (env.features.worker_job_cap && is_worker_plane(plane) &&
         record.pool == Pool::None &&
-        !record.job_member && !record.pool_member) {
+        (!record.job_member || record.job_mode != env.effective_mode) &&
+        !record.pool_member) {
         static const ProcKey kWorkerJob{-1, 0};
         const bool ok = env.dry_run || env.engine.cpu_limit(kWorkerJob, sample.pid,
                                                           env.features.worker_job_percent,
                                                           env.features.worker_job_memory_bytes,
                                                           env.features.worker_job_process_limit);
-        if (ok || env.dry_run) record.job_member = true;
+        if (ok || env.dry_run) {
+            record.job_member = true;
+            record.job_mode = env.effective_mode;
+        }
         env.actions.push_back(jobj({{"action", jstr("worker-job-capped")},
                                     {"pid", jint(sample.pid)},
                                     {"name", jstr(sample.name)},
@@ -516,11 +527,21 @@ void process_sample(CycleEnv& env, ProcSample sample) {
     record.busy = busy_now ? record.busy + 1 : 0;
     record.calm = calm_now ? record.calm + 1 : 0;
 
-    busy_tiers(env, sample, record, busy_now, extreme_now, sustain_need);
+    const bool high_calm = env.effective_mode == "high" &&
+        !env.strained && !env.regulation.active &&
+        env.sys.cpu_load_machine < env.features.pool_relief_cpu_pct;
+    if (high_calm) {
+        release_lasso(env, sample, key, record);
+        release_static(env, sample, record);
+    } else {
+        busy_tiers(env, sample, record, busy_now, extreme_now, sustain_need);
+    }
     const bool limit_newly_set = !record.limit_set;
-    tier_lasso(env, sample, plane, key, record, extreme_now);
-    dynamic_limiter(env, sample, plane, key, record, extreme_now,
-                    limit_newly_set);
+    if (!high_calm) {
+        tier_lasso(env, sample, plane, key, record, extreme_now);
+        dynamic_limiter(env, sample, plane, key, record, extreme_now,
+                        limit_newly_set);
+    }
     maybe_trim(env, sample, record, calm_now);
     release_pb(env, sample, record, calm_now);
     if (calm_now && record.calm >= env.config.calm_samples) {
@@ -576,7 +597,7 @@ void pool_rebalance(CycleEnv& env) {
     const bool pressure =
         env.strained || env.regulation.active ||
         env.sys.cpu_load_machine >= env.features.pool_relief_cpu_pct;
-    for (const auto& [pool, policy] : env.rules.pools) {
+    for (const auto& [pool, policy] : env.effective_pools) {
         if (!policy.enabled || policy.cpu_limit_percent <= 0.0 ||
             pool == Pool::Interactive)
             continue;
@@ -591,6 +612,9 @@ void pool_rebalance(CycleEnv& env) {
         if (pressure) {
             desired = std::max(env.features.pool_floor_percent,
                                applied - env.features.pool_step_percent);
+        } else if (env.effective_mode == "high" ||
+                   applied > policy.cpu_limit_percent) {
+            desired = policy.cpu_limit_percent;
         } else if (applied < policy.cpu_limit_percent - 0.05) {
             const double demand =
                 env.pool_cpu_sum[pool] / std::max(1, env.logical);

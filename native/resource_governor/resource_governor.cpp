@@ -56,6 +56,25 @@ void cycle_prepare(CycleEnv& env) {
     env.features = resolve_features(env.config, env.eff_defaults,
                                     env.sys.total_ram_bytes);
     env.thr = resolve_thresholds(env.config, env.eff_defaults);
+    if (!env.effective_mode.empty()) {
+        env.snap.res_cpu_pct = env.thr.worker_cpu_budget;
+        env.snap.res_ram_pct = env.thr.worker_ram_budget;
+    }
+    env.effective_pools = env.rules.pools;
+    if (env.effective_mode == "high") {
+        for (auto& [pool, policy] : env.effective_pools) {
+            if (!policy.enabled || pool == Pool::Interactive) continue;
+            if (policy.cpu_limit_percent > 0)
+                policy.cpu_limit_percent = std::max(policy.cpu_limit_percent,
+                                                     env.thr.worker_cpu_budget);
+            if (policy.memory_percent > 0)
+                policy.memory_percent = std::max(policy.memory_percent,
+                                                 env.thr.worker_ram_budget);
+            if (policy.process_limit > 0)
+                policy.process_limit = std::max(policy.process_limit,
+                                                 env.features.worker_job_process_limit);
+        }
+    }
     env.snap.features = env.features;
     env.snap.thresholds = env.thr;
 
@@ -66,7 +85,7 @@ void cycle_prepare(CycleEnv& env) {
 
     const int cap_count = std::max(
         kAffinityMinCpus,
-        static_cast<int>(std::floor((env.logical * kGlobalCpuLimitPct + 99.0) / 100.0)));
+        static_cast<int>(std::ceil(env.logical * env.snap.res_cpu_pct / 100.0)));
     for (int i = 0; i < std::min(cap_count, env.logical); ++i)
         env.cap_affinity.push_back(i);
     const int worker_cap = std::max(
@@ -165,8 +184,8 @@ void fill_snapshot_core(CycleEnv& env, const RegUpdate& update) {
     env.snap.cpu_load_pct = std::max(0.0, env.sys.cpu_load_machine);
     env.snap.mem_used_pct = env.sys.mem_used_pct;
     env.snap.mem_avail_mb = round1(env.sys.mem_avail_mb);
-    env.snap.res_cpu_over = env.snap.cpu_load_pct > kGlobalCpuLimitPct;
-    env.snap.res_ram_over = env.sys.mem_used_pct > kGlobalRamLimitPct;
+    env.snap.res_cpu_over = env.snap.cpu_load_pct > env.snap.res_cpu_pct;
+    env.snap.res_ram_over = env.sys.mem_used_pct > env.snap.res_ram_pct;
     env.snap.budget_cpu_pct = env.thr.worker_cpu_budget;
     env.snap.budget_ram_pct = env.thr.worker_ram_budget;
     env.snap.over_budget = update.over_budget;
@@ -181,8 +200,8 @@ void fill_snapshot_core(CycleEnv& env, const RegUpdate& update) {
                              ? round2(env.pool_rss_mb[pool] / env.sys.total_ram_mb *
                                       100.0)
                              : 0.0;
-        auto it = env.rules.pools.find(pool);
-        if (it != env.rules.pools.end()) {
+        auto it = env.effective_pools.find(pool);
+        if (it != env.effective_pools.end()) {
             const PoolPolicy& policy = it->second;
             ledger.cpu_budget_pct = policy.cpu_limit_percent;
             ledger.ram_budget_pct = policy.memory_percent > 0
@@ -241,8 +260,8 @@ void fill_concurrency_budget(CycleEnv& env) {
     const BudgetPolicy policy = resolve_budget_policy(env.eff_defaults);
     if (!policy.enabled) return;
     const bool machine_hot =
-        env.sys.cpu_load_machine > kGlobalCpuLimitPct ||
-        env.sys.mem_used_pct > kGlobalRamLimitPct;
+        env.sys.cpu_load_machine > env.snap.res_cpu_pct ||
+        env.sys.mem_used_pct > env.snap.res_ram_pct;
     PressureTier tier = PressureTier::None;
     if (env.regulation.active || env.strained) {
         tier = PressureTier::Active;

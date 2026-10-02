@@ -47,6 +47,7 @@ struct CycleEnv {
     /* 有效模式（advisor 接管時 ≠ rules.mode）與其合成 defaults。 */
     std::string effective_mode;
     std::map<std::string, jsonlite::JsonValue> eff_defaults;
+    std::map<Pool, PoolPolicy> effective_pools;
     int logical = 1;
     int foreground = -1;
     bool dry_run = false;
