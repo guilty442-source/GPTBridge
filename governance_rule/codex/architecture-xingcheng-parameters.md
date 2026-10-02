@@ -12,7 +12,7 @@ flowchart TD
     POLICY --> SETTINGS[xingcheng/runtime/settings 政策檔]
     POLICY --> ENV[環境變數覆寫]
     POLICY --> SERVECFG[serve 推論參數]
-    POLICY --> GOV[resource governor 配額]
+    POLICY --> GOV["主系統 resource governor<br/>唯一全機資源權威 → grant"]
     MODELCFG --> CANON[xc-fused-1 釘選契約]
     SETTINGS --> KPOL[star-kernel-policy]
 ```
@@ -114,9 +114,13 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 
 `infer`: prompt\|messages, sampling_profile(6 presets), temperature/top_k/top_p/repetition_penalty/seed, max_new_tokens(192, ≤2048), persona/narrative/factuality, prefix_scope。`think`: think_steps(≤32), branches(≤8)。engine limits: `set_kv_memory_limit`, `set_prefix_cache_limit`(8 entries/256MiB), CUDA memplane tiers + 8-step pressure ladder。
 
-## Governor 配額（native/resource_governor）
+## Governor 邊界（主系統 `native/resource_governor`）
 
-8 工作類別；shed 序 training-first，fill 序 model-first；pressure none/pre/active；`total_quota ≤ logical_cores`；preflight 讀 `resource-governor.json` → `threads=clamp(quota,1,16)`，`quota==0 ⇔ paused`。
+Resource Governor 為主系統常駐服務、唯一全機資源權威（registry `RESOURCE_GOVERNOR`，permission-sovereign，C++23；B3/B16/B159/A610 FORBID:second-resource-governor）。星澄不得有自有 quota／pressure／shed 表，只保留客戶端與本機分配器：
+
+- `ResourceGovernorClient`（GPTBridge.XingchengLearning）：檔案契約 Request/Renew/Release/Report，落在 `main-system/runtime/state/`（`resource-requests|resource-grants|resource-reports|resource-receipts`）；契約 `star-resource-request|grant|usage-receipt|audit/v1`。governor 不存在或心跳過期 → autonomous training fail-closed（`RESOURCE_GOVERNOR_UNAVAILABLE`）；`XC_DEV_STATIC_GRANT=1` 的 StaticLocalGrant 僅 dev/test，非 production fallback。
+- `XingchengLocalResourceAllocator`：只把已獲授權的 `ResourceGrant` 切成 per-lane allocation（CPU/RAM/VRAM 總和 ≤ grant，GPU 單一 lease 給最高優先 lane）；非全機 governor。
+- 回覆集 Denied/Deferred/Partial/Granted/Revoked；pressure `NORMAL/PRE_PRESSURE/ACTIVE_PRESSURE/EMERGENCY` 由 governor 信號驅動，`PressureActionPlan` 只對映動作（縮並行、縮 microbatch、safe-point checkpoint+釋放、paused_by_resource_governor）。
 
 ## 引擎 ModelConfig（xingcheng_inference.hpp — bundle-facing）
 
