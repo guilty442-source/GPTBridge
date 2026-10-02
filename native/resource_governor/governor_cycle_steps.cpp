@@ -527,7 +527,8 @@ void process_sample(CycleEnv& env, ProcSample sample) {
     record.busy = busy_now ? record.busy + 1 : 0;
     record.calm = calm_now ? record.calm + 1 : 0;
 
-    const bool high_calm = env.effective_mode == "high" &&
+    const bool high_calm =
+        mode_rank(env.effective_mode) >= mode_rank("high") &&
         !env.strained && !env.regulation.active &&
         env.sys.cpu_load_machine < env.features.pool_relief_cpu_pct;
     if (high_calm) {
@@ -612,7 +613,7 @@ void pool_rebalance(CycleEnv& env) {
         if (pressure) {
             desired = std::max(env.features.pool_floor_percent,
                                applied - env.features.pool_step_percent);
-        } else if (env.effective_mode == "high" ||
+        } else if (mode_rank(env.effective_mode) >= mode_rank("high") ||
                    applied > policy.cpu_limit_percent) {
             desired = policy.cpu_limit_percent;
         } else if (applied < policy.cpu_limit_percent - 0.05) {

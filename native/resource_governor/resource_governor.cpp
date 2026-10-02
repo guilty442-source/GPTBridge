@@ -61,7 +61,7 @@ void cycle_prepare(CycleEnv& env) {
         env.snap.res_ram_pct = env.thr.worker_ram_budget;
     }
     env.effective_pools = env.rules.pools;
-    if (env.effective_mode == "high") {
+    if (mode_rank(env.effective_mode) >= mode_rank("high")) {
         for (auto& [pool, policy] : env.effective_pools) {
             if (!policy.enabled || pool == Pool::Interactive) continue;
             if (policy.cpu_limit_percent > 0)
