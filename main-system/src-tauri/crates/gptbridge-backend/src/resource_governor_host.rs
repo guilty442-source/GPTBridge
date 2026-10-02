@@ -24,7 +24,10 @@ use std::time::Duration;
 use crate::resident::{self, ServiceSpec};
 use crate::tools::workspace_root;
 
-const SERVICE_NAME: &str = "resource-governor";
+// 服務名取 `resource-governor-host` 而非 `resource-governor`——
+// 監督層狀態檔是 `runtime/state/<name>.json`，同名會與
+// governor 自身快照檔 `resource-governor.json` 互相覆寫。
+const SERVICE_NAME: &str = "resource-governor-host";
 const SERVICE_LABEL: &str = "resource-governor";
 const ENTRY_RELATIVE: &str =
     "native/resource_governor/bin/resource-governor.exe";

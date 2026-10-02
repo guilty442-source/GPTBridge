@@ -1172,6 +1172,26 @@ in the summary reports `cuda-adamw` vs `cpu-native` (evidence =
 admission+env-flag until the trainer report echoes the lane it ran).
 `xc-learning --preflight` previews the whole gate read-only.
 
+**Supervision / sole entry**: the only supported launch path for the
+whole main system is the desktop `專案程式庫.exe` (hardlink →
+`%LOCALAPPDATA%\GPTBridgeLauncher\bin\專案程式庫.exe` →
+`GPTBridge.Bootstrap.exe` → `gptbridge-shell.exe` →
+`gptbridge-backend.exe`).  The governor therefore runs as a supervised
+resident service, not via `--install-logon`/`--install-task` or a
+second entry: `gptbridge-backend` registers `resource-governor-host`
+(`resource_governor_host.rs`) which spawns
+`native/resource_governor/bin/resource-governor.exe --watch --root <ws>`
+with the same restart contract as `automation-host`/`channel-host`
+(auto_restart, 5 attempts, 1s backoff).  Single-instance arbitration is
+two-layered: the governor holds `runtime/state/resource-governor.lock`
+with an exclusive (share=0) handle; the supervisor's preflight probes
+that lock write-only (never `create` — a fresh empty lock would be
+misread as live by the governor's mtime fallback) and defers one tick
+when an external holder owns it.  The missing-executable path fails
+closed to an audited `unavailable` state.  Supervisor state lands in
+`runtime/state/resource-governor-host.json` — deliberately **not**
+`resource-governor.json`, which is the governor's own cycle snapshot.
+
 **Training concurrency = 1**: at most one governed training job is in
 flight at a time — `RunJob` claims the lane in a single advisory-locked
 transaction (queued check + sibling check + preflight transition +
