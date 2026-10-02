@@ -361,6 +361,8 @@ export function mountAiCollaborationWindowApp(root) {
 			op_id: opId,
 			...(res && typeof res === "object" ? res : { ok: false })
 		});
+		// window.electron is the governed preload's compat alias
+		// (Tauri/Wails WebView2 — no Electron runtime exists).
 		const api = window.electron;
 		if (!api || typeof api.invoke !== "function") {
 			reply({ ok: false, error_code: "BROWSER_BRIDGE_UNAVAILABLE",
