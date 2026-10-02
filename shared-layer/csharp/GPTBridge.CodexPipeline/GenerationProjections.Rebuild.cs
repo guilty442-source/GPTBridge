@@ -229,6 +229,11 @@ internal static partial class GenerationProjections
         connection.Execute(
             "UPDATE current_normative_surface SET version_identity=?",
             new object?[] { version });
+        // Retiring a provision must also remove it from default search.
+        // Preserve active visibility choices; retirement never grants one.
+        connection.Execute(
+            "UPDATE current_normative_surface SET default_search_visible=0 "
+            + "WHERE lifecycle_state<>'active'");
         var toAdd = lifecycle
             .Where(pair => pair.Value == "active"
                 && !existing.Contains(pair.Key))
@@ -673,6 +678,7 @@ internal static partial class GenerationProjections
         try
         {
             var version = ReadVersion(connection);
+            SyncNormativeSurface(connection, version);
             var docCount = RebuildSearchDocuments(connection, version);
             var ftsCount = RebuildFts(connection);
             RebuildModuleManifest(connection, version);
