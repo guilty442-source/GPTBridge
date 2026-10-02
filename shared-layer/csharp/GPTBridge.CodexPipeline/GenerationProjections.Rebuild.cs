@@ -690,3 +690,17 @@ internal static partial class GenerationProjections
             {
                 ["ok"] = true,
                 ["schema"] = PgDsn.CodexSchema,
+                ["authority_registry_rows"] = authorityRows,
+                ["version"] = version,
+                ["documents"] = (long)docCount,
+                ["fts_rows"] = (long)ftsCount,
+                ["schema_parity_updates"] = parityUpdates,
+            };
+        }
+        catch
+        {
+            connection.Rollback();
+            throw;
+        }
+    }
+}

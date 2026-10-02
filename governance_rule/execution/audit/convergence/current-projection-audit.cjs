@@ -68,6 +68,16 @@ if (process.argv.includes('--finalize')) {
 } else {
   const canonical=rows('project_architecture_directory');
   const normalized=rows('a233_normalized_directory_entry').filter(r=>r.source_table==='project_architecture_directory');
+  const artifacts=rows('architecture_diagram_artifact_registry').filter(r=>r.status==='active');
+  const head=rows('revision_history').at(-1);
+  for (const r of artifacts) {
+    if (crypto.createHash('sha256').update(fs.readFileSync(r.artifact_path)).digest('hex')!==r.content_hash)
+      throw Error(`INDEPENDENT_FILE_HASH_MISMATCH:${r.diagram_code}`);
+    if (r.source_codex_version!==head.version) throw Error(`ARTIFACT_GENERATION_DRIFT:${r.diagram_code}`);
+  }
+  const sync=rows('architecture_diagram_sync_evidence').find(r=>r.status==='current');
+  if (sync.result!=='PASS'||sync.required_count!==artifacts.length||sync.hash_match_count!==artifacts.length||sync.stale_count!==0||sync.missing_count!==0)
+    throw Error('CURRENT_SYNC_INVARIANT_FAILED');
   const sorted=r=>JSON.stringify(Object.fromEntries(Object.entries(r).sort(([a],[b])=>a.localeCompare(b))));
   console.log(JSON.stringify({head:rows('revision_history').at(-1),laws:laws.filter(r => active.has(r.provision_id) && /sub-sovereign/i.test(r.rule)).map(r=>({id:r.provision_id,clauses:r.rule.split(';').filter(c=>/sub-sovereign/i.test(c))})),schemaCount:schemas.length,schemaParity:schemas.reduce((a,r)=>(a[r.parity_status]=(a[r.parity_status]||0)+1,a),{}),evidenceCount:evidence.length,evidenceStatuses:evidence.reduce((a,r)=>(a[r.status]=(a[r.status]||0)+1,a),{}),obligation:rows('implementation_obligations').find(r=>r.obligation_code==='OBL_MACHINE_SCHEMA_PARITY'),directory:{canonical:canonical.length,normalized:normalized.length,mismatches:canonical.filter(r=>{const n=normalized.find(n=>n.source_key===r.architecture_code);return !n||sorted(r)!==sorted(JSON.parse(n.domain_payload))}).map(r=>r.architecture_code)},sync:rows('architecture_diagram_sync_evidence').filter(r=>r.status==='current'),staleScan:rows('architecture_stale_reference_evidence').filter(r=>r.status==='current')},null,2));
 }
