@@ -48,6 +48,7 @@ type session struct {
 	owner    string
 	hwnd     uintptr
 	chromium *edge.Chromium
+	ctrlH    *ctrlCompletedHandler // keeps the COM handler alive
 	bounds   bounds
 	url      string
 	loading  bool
@@ -269,8 +270,16 @@ func setChromiumHwnd(cr *edge.Chromium, hwnd uintptr) {
 // `err` (last-error) after every COM call, so a stale win32 error from
 // an earlier call kills the process via errorCallback → os.Exit even
 // though controller creation succeeded (verified live: hr==S_OK).
+//
+// The handler passed here is our own ctrlCompletedHandler, NOT
+// Chromium.controllerCompleted: the stock implementation routes
+// async failures (e.g. E_ABORT) through errorCallback which ends in
+// os.Exit(1), killing the whole tool window before the retry path
+// can run.  Ours reports the failure on a channel instead and
+// delegates only the success path back to the Chromium method.
 func attachController(cr *edge.Chromium,
-	env *edge.ICoreWebView2Environment, hwnd uintptr) error {
+	env *edge.ICoreWebView2Environment, hwnd uintptr,
+	handler *ctrlCompletedHandler) error {
 	type envVtbl struct {
 		qi               uintptr
 		addRef           uintptr
@@ -285,16 +294,85 @@ func attachController(cr *edge.Chromium,
 	// outlives this Chromium.
 	_, _, _ = syscall.Syscall(obj.vtbl.addRef, 1,
 		uintptr(unsafe.Pointer(env)), 0, 0)
-	// Chromium.controllerCompleted is unexported — fetch the ready-made
-	// COM handler via the struct field (stable layout, v1.0.16).
-	hv := reflect.ValueOf(cr).Elem().FieldByName("controllerCompleted")
-	handler := *(*unsafe.Pointer)(unsafe.Pointer(hv.UnsafeAddr()))
 	hr, _, _ := syscall.SyscallN(obj.vtbl.createController,
-		uintptr(unsafe.Pointer(env)), hwnd, uintptr(handler))
+		uintptr(unsafe.Pointer(env)), hwnd, uintptr(unsafe.Pointer(handler)))
 	if int32(hr) < 0 {
 		return fmt.Errorf("WEBVIEW2_CONTROLLER_FAILED %08x", uint32(hr))
 	}
 	return nil
+}
+
+// ---------------- safe controller-completed COM handler ----------------
+//
+// COM layout identical to go-webview2's
+// iCoreWebView2CreateCoreWebView2ControllerCompletedHandler:
+// {vtbl, impl} where vtbl is [QI, AddRef, Release, Invoke].
+// CreateCoreWebView2Controller stores the handler pointer and calls
+// Invoke asynchronously on the creating thread's message pump.
+
+type ctrlCompletedImpl struct {
+	cr    *edge.Chromium
+	errCh chan error
+}
+
+func (i *ctrlCompletedImpl) queryInterface(_, _ uintptr) uintptr { return 0 }
+func (i *ctrlCompletedImpl) addRef() uintptr                     { return 1 }
+func (i *ctrlCompletedImpl) release() uintptr                    { return 1 }
+
+// invoke matches ICoreWebView2CreateCoreWebView2ControllerCompletedHandler.
+// Failure: report on errCh and return S_OK — the caller retries with a
+// fresh environment.  Success: delegate to the Chromium method which does
+// the full controller/webview/event-handler wiring itself.
+func (i *ctrlCompletedImpl) invoke(res uintptr,
+	c *edge.ICoreWebView2Controller) uintptr {
+	if int32(res) < 0 || c == nil {
+		select {
+		case i.errCh <- fmt.Errorf(
+			"WEBVIEW2_CONTROLLER_FAILED %08x", uint32(res)):
+		default:
+		}
+		return 0
+	}
+	return i.cr.CreateCoreWebView2ControllerCompleted(res, c)
+}
+
+type iunknownVtbl struct{ qi, addRef, release uintptr }
+
+type ctrlCompletedVtbl struct {
+	iunknownVtbl
+	invoke uintptr
+}
+
+type ctrlCompletedHandler struct {
+	vtbl *ctrlCompletedVtbl
+	impl *ctrlCompletedImpl
+}
+
+func newCtrlCompletedHandler(cr *edge.Chromium) (*ctrlCompletedHandler, chan error) {
+	errCh := make(chan error, 1)
+	h := &ctrlCompletedHandler{impl: &ctrlCompletedImpl{cr: cr, errCh: errCh}}
+	h.vtbl = &ctrlCompletedVtbl{
+		iunknownVtbl: iunknownVtbl{
+			qi: syscall.NewCallback(
+				func(this *ctrlCompletedHandler, refiid, object uintptr) uintptr {
+					return this.impl.queryInterface(refiid, object)
+				}),
+			addRef: syscall.NewCallback(
+				func(this *ctrlCompletedHandler) uintptr {
+					return this.impl.addRef()
+				}),
+			release: syscall.NewCallback(
+				func(this *ctrlCompletedHandler) uintptr {
+					return this.impl.release()
+				}),
+		},
+		invoke: syscall.NewCallback(
+			func(this *ctrlCompletedHandler, res uintptr,
+				c *edge.ICoreWebView2Controller) uintptr {
+				return this.impl.invoke(res, c)
+			}),
+	}
+	return h, errCh
 }
 
 // ensureSession creates the session webview on the pump thread when

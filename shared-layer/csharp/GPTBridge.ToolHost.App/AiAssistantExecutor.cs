@@ -294,7 +294,7 @@ internal sealed class AiAssistantExecutor
             ["accounts"] = accounts,
             ["cash_balances"] = cash,
             ["positions"] = new JsonArray(),
-            ["rows"] = accounts,
+            ["rows"] = (JsonArray)accounts.DeepClone(),
             ["data_state"] = accounts.Count > 0
                 ? "partial-no-positions" : "empty",
         });
