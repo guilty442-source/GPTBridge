@@ -28,6 +28,8 @@ mod meta_log;
 mod meta_release;
 mod meta_snap;
 mod meta_state;
+#[cfg(test)]
+mod meta_tests;
 mod meta_tx;
 mod meta_types;
 mod snapshot;

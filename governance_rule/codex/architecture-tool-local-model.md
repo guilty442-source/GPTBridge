@@ -50,7 +50,7 @@ flowchart TB
 
 世代繼任契約（能力／架構升級後刪除前代）：`ModelLifecycle` 在 `activate` 時把前代完整記錄攜入新代 `metadata["succeeded_from"]` 並記 `weights_succession`；實體刪除前代 bundle 必須先完成繼任記錄且 lifecycle 已持久化（`PruneSupersededGeneration` 缺繼任 fail-closed 保留），刪除後前代移入 retired 並標 `succeeded_by`/`data_carried_to`。在役世代永不退休。
 
-Ollama 只作登錄的本地教師或專家（teacher-distillation 受管 loopback），不取代星澄。視窗關閉須在 5 秒內停止 `local-model` 自身後端及其擁有的模型程序，但不得停止獨立的星澄服務。
+Ollama 已退役（B154 退役修正案 rev 235；同族條文收斂 rev 238）：不得啟動、探測、懶啟動、路由或依賴任何 Ollama 實例；教師訊號改由原生自我蒸餾 lane 在受管正式權重上產生。視窗關閉須在 5 秒內停止 `local-model` 自身後端及其擁有的模型程序，但不得停止獨立的星澄服務。
 
 ## 星澄模型規模邊界
 

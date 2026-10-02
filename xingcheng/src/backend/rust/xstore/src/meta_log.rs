@@ -27,6 +27,7 @@ pub fn receipts_path(store: &Path) -> PathBuf {
 }
 
 /// One committed event, parsed and hash-verified.
+#[derive(Debug)]
 pub struct LogEvent {
     pub seq: u64,
     pub line_hash: String,
@@ -34,6 +35,7 @@ pub struct LogEvent {
 }
 
 /// Result of a full canonical scan.
+#[derive(Debug)]
 pub struct Scan {
     pub events: Vec<LogEvent>,
     /// sha256 of the last committed raw line (GENESIS when empty).

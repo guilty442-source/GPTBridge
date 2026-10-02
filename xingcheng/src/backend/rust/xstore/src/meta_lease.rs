@@ -17,6 +17,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[derive(Debug)]
 pub struct Lease {
     pub owner_id: String,
     pub lease_id: String,

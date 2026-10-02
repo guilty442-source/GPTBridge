@@ -1,0 +1,38 @@
+﻿{
+    "artifact":  "codex-native-diagnostic-deployment",
+    "authority":  "non-authoritative-audit-evidence",
+    "verified_at_utc":  "2026-10-02T12:55:17.4096594Z",
+    "implementation_commit":  "ce4d0abfc",
+    "codex_version":  "2026-10-02T12:51:36Z",
+    "codex_source_sha256":  "5afa2923187a67cce6cb419beb4da7066abb7b4ea7334fe3f5e1b5131ac90718",
+    "target":  "Standalone tools/model-dialogue/dist/GPTBridge.ToolHost.App.dll",
+    "target_sha256":  "43cdf131f29b03b6d2b7dfcf4e4d51378ce263c57f9d1ed9a79f879da8d0dd59",
+    "source_sha256":  "43cdf131f29b03b6d2b7dfcf4e4d51378ce263c57f9d1ed9a79f879da8d0dd59",
+    "backup":  "Standalone tools/model-dialogue/dist/GPTBridge.ToolHost.App.dll.before-codex-diagnostics-20261002",
+    "deployment":  "ATOMIC_REPLACEMENT_HASH_MATCH",
+    "verification":  {
+                         "surfaces":  [
+                                          "deployed-assembly-workspace-binding",
+                                          "deployed-write-verb-denial",
+                                          "deployed-live-mirror-entry",
+                                          "deployed-live-architecture-entry",
+                                          "stderr-saturation",
+                                          "timeout-reaping",
+                                          "caller-cancellation-reaping",
+                                          "incomplete-evidence-denial"
+                                      ],
+                         "arguments":  [
+                                           "--deployed",
+                                           "--live"
+                                       ],
+                         "project":  "shared-layer/csharp/GPTBridge.CodexDiagnostics.Tests",
+                         "failed":  0,
+                         "passed":  36
+                     },
+    "native_audit":  {
+                         "passed":  3583,
+                         "failed":  0
+                     },
+    "release_acceptance":  "PENDING",
+    "note":  "Local diagnostic assembly deployed and executed; no independent conformance certification or verified release is inferred."
+}
