@@ -99,7 +99,7 @@ gov::Snapshot snap_with_budget(int training_quota, bool paused) {
 
 gov::RulesDoc rules_gpu_on() {
     auto parsed = gov::parse_rules(
-        "{\"defaults\":{},"
+        "{\"mode\":\"high\",\"defaults\":{},"
         "\"modes\":{\"high\":{\"gpu_enabled\":true,"
         "\"vram_budget_percent\":50}}}");
     gov::RulesDoc rules = parsed.value_or(gov::RulesDoc{});

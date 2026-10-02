@@ -1,0 +1,707 @@
+{
+  "authority": "non-authoritative-read-only-catalog-observation",
+  "observed_at": "2026-10-02T11:16:42Z",
+  "database": "gptbridge",
+  "observer": "gptbridge_runtime",
+  "roles": [
+    {
+      "role_identity": "gptbridge_index_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_index_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_migration_owner",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_ai_assistant_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_ai_assistant_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_ai_collaboration_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_ai_collaboration_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_file_sorter_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_file_sorter_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_global_cleaner_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_global_cleaner_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_investment_mobile_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_investment_mobile_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_local_ai_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_local_ai_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_shared_layer_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_shared_layer_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_system_rescue_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_system_rescue_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_vaultly_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_vaultly_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_xingcheng",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_xingcheng_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_module_xingcheng_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_owner",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_reader",
+      "login_allowed": true,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_runtime",
+      "login_allowed": true,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_transport_executor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_xingcheng_internal",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "gptbridge_xingcheng_reader",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_checkpoint",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_create_subscription",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_database_owner",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": [
+        "public"
+      ]
+    },
+    {
+      "role_identity": "pg_execute_server_program",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_maintain",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_monitor",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_read_all_data",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_read_all_settings",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_read_all_stats",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_read_server_files",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_signal_autovacuum_worker",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_signal_backend",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_stat_scan_tables",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_use_reserved_connections",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_write_all_data",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "pg_write_server_files",
+      "login_allowed": false,
+      "superuser": false,
+      "createdb": false,
+      "createrole": false,
+      "replication": false,
+      "bypass_rls": false,
+      "observed_owned_schemas": []
+    },
+    {
+      "role_identity": "postgres",
+      "login_allowed": true,
+      "superuser": true,
+      "createdb": true,
+      "createrole": true,
+      "replication": true,
+      "bypass_rls": true,
+      "observed_owned_schemas": [
+        "cognition",
+        "gptbridge_ai_nexus",
+        "gptbridge_audit",
+        "gptbridge_codex",
+        "gptbridge_codex_codex_stage_27fdc35c27e02692_5a5bc4ab",
+        "gptbridge_codex_codex_stage_383509abba2e50b7_3e798a33",
+        "gptbridge_codex_codex_stage_3de77e66c3db8efb_85923e34",
+        "gptbridge_codex_codex_stage_55ac7fc5da59cce2_2c449fb9",
+        "gptbridge_codex_codex_stage_56c83a6e17f98386_89704401",
+        "gptbridge_codex_codex_stage_56c83a6e17f98386_c6ef337d",
+        "gptbridge_codex_codex_stage_56c83a6e17f98386_cbe15729",
+        "gptbridge_codex_codex_stage_56c83a6e17f98386_ced7e8f3",
+        "gptbridge_codex_codex_stage_5c2d819fbec95456_1a97022b",
+        "gptbridge_codex_codex_stage_96a83ed60874743d_d320618a",
+        "gptbridge_codex_codex_stage_ef5c022e9791971e_b9e4675d",
+        "gptbridge_collab",
+        "gptbridge_file_sorter",
+        "gptbridge_identity",
+        "gptbridge_index",
+        "gptbridge_investment_mobile",
+        "gptbridge_legacy",
+        "gptbridge_maintenance",
+        "gptbridge_migration",
+        "gptbridge_perf",
+        "gptbridge_permission",
+        "gptbridge_rag",
+        "gptbridge_repair",
+        "gptbridge_security",
+        "gptbridge_trading",
+        "gptbridge_transport",
+        "gptbridge_vaultly",
+        "gptbridge_workflow",
+        "gptbridge_xingcheng",
+        "gptbridge_xingcheng_coding",
+        "gptbridge_xingcheng_investment",
+        "gptbridge_xingcheng_main",
+        "gptbridge_xingcheng_mathematical",
+        "identity",
+        "im_test_2b2add747cb5",
+        "im_test_944e805f2a59",
+        "im_test_a865a47da9a1",
+        "im_test_b1b1bb70d82f",
+        "information_schema",
+        "module_audit",
+        "module_data",
+        "module_state",
+        "outbox_test_7042bc8ff43e",
+        "outbox_test_7a7036e31b9d",
+        "outbox_test_a958695efe5b",
+        "outbox_test_c4bd408402e2",
+        "outbox_test_e96c330861f2",
+        "pg_catalog",
+        "pg_temp_42",
+        "pg_temp_67",
+        "pg_toast",
+        "pg_toast_temp_42",
+        "pg_toast_temp_67",
+        "registry",
+        "rrq_test_05187491b1fc",
+        "rrq_test_063fcd958d24",
+        "rrq_test_0af67b5e5a0c",
+        "rrq_test_116f3885a267",
+        "rrq_test_13c50fe5e340",
+        "rrq_test_18b63923612b",
+        "rrq_test_4b05a86f563a",
+        "rrq_test_588d90468f18",
+        "rrq_test_6909837ee1b7",
+        "rrq_test_75e801b96105",
+        "rrq_test_792be1cc5f5e",
+        "rrq_test_a477c81e40b5",
+        "rrq_test_b396bd8cf3c1",
+        "rrq_test_be05809f2c1a",
+        "rrq_test_d2f326661cca",
+        "rrq_test_d5eb04ff1b84",
+        "rrq_test_dc45435b9c1b",
+        "rrq_test_f2e3149db684",
+        "vect_test_3bb0f1660ad9",
+        "vect_test_3cd821a6f62e",
+        "vect_test_6a5a8a3c5463",
+        "vect_test_6dc59f238404",
+        "vect_test_a0a178146f04",
+        "vect_test_be4030556239",
+        "vect_test_cd12b32d9528",
+        "vect_test_ce8e7fba1bd9",
+        "vect_test_d2c7a65ab478",
+        "vect_test_f15b1a74b4cf",
+        "vect_test_f900195c30f6",
+        "vect_test_fd736ab5e73d",
+        "vect_test_fe9c9fbcb7c9",
+        "vs_test_0609ab2ec381",
+        "xc_test_coding_a00bfb5da5",
+        "xc_test_investment_0ca26cc701",
+        "xc_test_investment_a00bfb5da5",
+        "xc_test_main_a00bfb5da5",
+        "xc_test_mathematical_a00bfb5da5",
+        "xc_test_shared_a00bfb5da5"
+      ]
+    }
+  ],
+  "memberships": [
+    {
+      "member": "gptbridge_module_ai_assistant_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_ai_assistant_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_ai_collaboration_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_ai_collaboration_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_file_sorter_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_file_sorter_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_global_cleaner_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_global_cleaner_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_investment_mobile_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_investment_mobile_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_local_ai_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_local_ai_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_shared_layer_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_shared_layer_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_system_rescue_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_system_rescue_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_vaultly_executor",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_module_vaultly_reader",
+      "granted_role": "gptbridge_index_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_reader",
+      "granted_role": "gptbridge_xingcheng_reader",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_runtime",
+      "granted_role": "gptbridge_transport_executor",
+      "admin_option": false
+    },
+    {
+      "member": "gptbridge_xingcheng_reader",
+      "granted_role": "gptbridge_index_executor",
+      "admin_option": true
+    },
+    {
+      "member": "pg_monitor",
+      "granted_role": "pg_read_all_settings",
+      "admin_option": false
+    },
+    {
+      "member": "pg_monitor",
+      "granted_role": "pg_read_all_stats",
+      "admin_option": false
+    },
+    {
+      "member": "pg_monitor",
+      "granted_role": "pg_stat_scan_tables",
+      "admin_option": false
+    }
+  ],
+  "method": "read-only transaction on pg_roles,pg_namespace,pg_auth_members;explicit non-secret attributes only;timestamp is post-query UTC observation time",
+  "inventory_observed": true,
+  "authorization_compliance": "INCOMPLETE_EVIDENCE",
+  "limitations": [
+    "Role existence and catalog privileges do not certify purpose,governed identity,least privilege,RLS behavior or lifecycle conformance.",
+    "No roles,grants,credentials or database permissions were changed.",
+    "Privileged built-in roles and roles named after retired modules require owner review;no legitimacy inferred from name."
+  ]
+}
