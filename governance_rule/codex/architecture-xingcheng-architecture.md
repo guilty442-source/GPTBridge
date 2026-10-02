@@ -93,12 +93,9 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2108 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2106 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
-| `InvestmentMobileShadow.exe` | C# | local-model:native/test_suites/csharp_investment/InvestmentMobileShadow.csproj |
-| `TestSuiteOrchestrator.exe` | C# | local-model:native/test_suites/csharp/TestSuiteOrchestrator.csproj |
-| `_xcb_check.exe` | — | devin:Standalone tools/local-model/contracts/xnc/vectors/_b.bat |
 | `xc-format.exe` | Rust | devin:Standalone tools/local-model/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | main:Standalone tools/local-model/src/backend/rust/xc-format/Cargo.toml |
 | `xc-learning.exe` | C# | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |

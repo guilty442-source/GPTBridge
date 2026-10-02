@@ -31,6 +31,9 @@ using GPTBridge.CodexPipeline;
 /// Maintenance:
 ///   --repair-projections       rebuild live gptbridge_codex derived
 ///                              search/index/manifest projections
+///   --arch-projections         refresh autogen blocks inside the
+///                              governance_rule/codex/architecture-*.md
+///                              view documents (autogen-scanner/v1)
 ///   --mirror-zh                re-render the five zh-TW mirror parts
 ///                              from the live authority into the
 ///                              canonical codex root (read-only output)

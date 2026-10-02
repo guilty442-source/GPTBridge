@@ -307,7 +307,8 @@ internal static class ArchitectureProjection
             var sb = new StringBuilder(Stamp(f));
             sb.AppendLine("| var | 讀取處 |");
             sb.AppendLine("|---|---|");
-            foreach (var kv in f.Env)
+            foreach (var kv in f.Env.Where(kv => kv.Value.Any(
+                         s => s.Contains("local-model"))))
                 sb.AppendLine(
                     $"| `{kv.Key}` | {SrcList(kv.Value)} |");
             return sb.ToString();
