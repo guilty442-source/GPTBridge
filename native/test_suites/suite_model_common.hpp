@@ -49,13 +49,12 @@ inline jl::JsonValue jobj(std::initializer_list<
 
 /* ---- 路徑發現 ---- */
 
-/* 自 cwd 向上找含 "Standalone tools/local-model/xingcheng" 的 repo 根；
+/* 自 cwd 向上找含 "xingcheng/xingcheng" 機構根的 repo 根；
    找不到回傳空 path（呼叫端 fail-closed）。 */
 inline fs::path find_repo_root() {
     for (fs::path p = fs::current_path(); !p.empty(); p = p.parent_path()) {
         std::error_code ec;
-        const fs::path marker =
-            p / "Standalone tools" / "local-model" / "xingcheng";
+        const fs::path marker = p / "xingcheng" / "xingcheng";
         if (fs::is_directory(marker, ec)) return p;
         if (p == p.root_path()) break;
     }
@@ -66,7 +65,7 @@ inline fs::path find_repo_root() {
    xingcheng/runtime/settings/native-engine.json 的 checkpoint 釘定（正式
    推論 bundle，self-learning 換代會更新此 pin，測試永遠對齊
    生產工件）；最後掃
-   <repo>/Standalone tools/local-model/xingcheng/runtime/models/
+   <repo>/xingcheng/xingcheng/runtime/models/
    cpp-bundles/*，取第一個含 manifest.json+weights.bin+tokenizer.json
    者（名稱排序，決定性）。 */
 inline std::string read_text_file(const fs::path& p);
@@ -79,12 +78,12 @@ inline bool looks_like_bundle(const fs::path& d) {
 }
 
 inline fs::path find_pinned_bundle(const fs::path& root) {
-    const fs::path toolRoot = root / "Standalone tools" / "local-model";
+    const fs::path toolRoot = root / "xingcheng";
     fs::path settings = toolRoot / "xingcheng" / "runtime" /
                         "settings" / "native-engine.json";
     std::error_code ec;
     // canonical Xingcheng-owned path first; pre-migration legacy copy
-    // under local-model/runtime is read-only fallback.
+    // under <xcRoot>/runtime is read-only fallback.
     if (!fs::exists(settings, ec))
         settings = toolRoot / "runtime" / "settings" /
                    "native-engine.json";
@@ -113,9 +112,8 @@ inline fs::path find_bundle_dir(const fs::path& root) {
     }
     if (const fs::path pinned = find_pinned_bundle(root); !pinned.empty())
         return pinned;
-    const fs::path base = root / "Standalone tools" / "local-model" /
-                          "xingcheng" / "runtime" / "models" /
-                          "cpp-bundles";
+    const fs::path base = root / "xingcheng" / "xingcheng" /
+                          "runtime" / "models" / "cpp-bundles";
     std::error_code ec;
     std::vector<fs::path> dirs;
     for (const auto& e : fs::directory_iterator(base, ec)) {

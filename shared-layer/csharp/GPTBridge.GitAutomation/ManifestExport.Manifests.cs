@@ -6,7 +6,7 @@ namespace GPTBridge.GitAutomation;
 internal static partial class ManifestExport
 {
     private static readonly HashSet<string> ManifestArtifactRoots =
-        new(StringComparer.Ordinal) { "worktrees", "backups" };
+        new(StringComparer.Ordinal) { "worktrees", "backups", "xingcheng" };
 
     private static bool ManifestScanned(string root, string manifestPath)
     {
@@ -233,6 +233,13 @@ internal static partial class ManifestExport
                 }
             }
         }
+        // The xingcheng enclave keeps its bound manifest at
+        // xingcheng/xingcheng/manifest.json; the generic scans skip the
+        // enclave (internal corpus/vector manifests are not tools).
+        var enclaveManifest = Rel(root, "xingcheng/xingcheng/manifest.json");
+        if (File.Exists(enclaveManifest))
+            EmitManifest(enclaveManifest, topLevel: false,
+                expectedOwner: "xingcheng", selfHealth: true);
         // root.glob("*/*/*/*/manifest.json") — depth-4 anywhere
         // (4 directory segments + filename = 5 path parts)
         foreach (var path in Directory

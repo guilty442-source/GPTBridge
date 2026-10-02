@@ -6,7 +6,7 @@
   "defect_fixed": "StarBusinessHost 將自身 GPTBRIDGE_TOOL_ROOT 傳給 LifecycleOrchestrator/ModelServiceLocator，但 model-service descriptor/settings/engine image 皆屬 local-model 工具根——discovery 恆報 descriptor absent，activation leg 必逾時。修正為由 projectRoot 推導 modelToolRoot（commit 6ddf268a）。",
   "rehearsal": {
     "command": "StarBusinessHost.exe rehearse-lifecycle --activate --infer",
-    "report": "local-model/xingcheng/runtime/logs/lifecycle-rehearsal-20260923T104555Z.json",
+    "report": "xingcheng/xingcheng/runtime/logs/lifecycle-rehearsal-20260923T104555Z.json",
     "legs": {
       "governed-channel-list": "PASS — 受管 IPC 認證 + toolbox_list_tools（11 tools）",
       "model-service-probe": "PASS — descriptor + port 活性探測",

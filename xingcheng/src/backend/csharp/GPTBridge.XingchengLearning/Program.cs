@@ -1881,13 +1881,13 @@ internal static class Program
 
     private static string InferToolRoot()
     {
-        // Walk ancestors looking for the local-model marker
-        // (xingcheng/runtime/settings/self-learning.json or xingcheng/).
+        // Walk ancestors looking for the xingcheng enclave marker
+        // (a xingcheng/ institution dir that itself holds runtime/).
         var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
         while (dir != null)
         {
-            if (Directory.Exists(Path.Combine(dir.FullName, "xingcheng")) &&
-                Directory.Exists(Path.Combine(dir.FullName, "runtime")))
+            if (Directory.Exists(Path.Combine(
+                    dir.FullName, "xingcheng", "runtime")))
                 return dir.FullName;
             dir = dir.Parent;
         }

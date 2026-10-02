@@ -18,7 +18,7 @@
   乾淨編譯通過（`/fp:fast` 刻意排除 — 保護數值 parity 證據）。
 - 後續：僅在量測指出真實瓶頸時才追加優化（如 benchmark-driven）。
 
-### 2. C++ Inference（`local-model/src/backend/cpp/`）
+### 2. C++ Inference（`xingcheng/src/backend/cpp/`）
 
 正式模型推論層。本期完成 decode 熱路徑配置削減：
 

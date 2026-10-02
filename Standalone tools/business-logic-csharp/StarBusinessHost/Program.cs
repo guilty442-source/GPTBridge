@@ -13,12 +13,11 @@ if (string.IsNullOrWhiteSpace(toolRoot))
     return 2;
 }
 
-// 模型服務的 descriptor／settings／engine image 屬於 local-model 的工具根
+// 模型服務的 descriptor／settings／engine image 屬於 xingcheng enclave 根
 // （ModelServiceLocator/LifecycleOrchestrator 的 toolRoot 參數即此義），
 // 而非本 host 自身的 toolRoot。
 var sharedProjectRoot = GovernedIpcDiscovery.ResolveProjectRoot(null, toolRoot);
-var modelToolRoot = Path.Combine(
-    sharedProjectRoot, "Standalone tools", "local-model");
+var modelToolRoot = Path.Combine(sharedProjectRoot, "xingcheng");
 
 // P13 migration rehearsal: `rehearse-lifecycle` runs the lifecycle decision
 // drill without requiring the model service to be up (discovery is part of

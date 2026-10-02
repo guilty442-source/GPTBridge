@@ -19,43 +19,43 @@
     "source_class": {
       "semantics": "corpus vs replay source classes",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#corpus_path"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#corpus_path"
       ]
     },
     "traceability": {
       "semantics": "every emitted record traceable to corpus line",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#build_replay_records"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#build_replay_records"
       ]
     },
     "verifiability": {
       "semantics": "output schema star-chat-foundation/v1 checked by consumers",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
       ]
     },
     "reproducibility": {
       "semantics": "deterministic seeded generation",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#seed"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#seed"
       ]
     },
     "confidential_exclusion": {
       "semantics": "probe values (spark tests/QZ-88) excluded from corpus",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
       ]
     },
     "artifact_hash": {
       "semantics": "sha256 sidecar (<out>.sha256) emitted per dataset artifact",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#sha256"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py#sha256"
       ]
     }
   },
   "implementation": {
     "enforcing_modules": [
-      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+      "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
     ]
   },
   "evidence_paths": [

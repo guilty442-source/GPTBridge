@@ -66,7 +66,7 @@ deriving governance parentage from the physical path).
 `xingcheng` is an **independent privileged institution** — a separate
 local native-model service, not a tool, not a companion of any tool:
 
-- `local-model/xingcheng/manifest.json` declares
+- `xingcheng/xingcheng/manifest.json` declares
   `service_kind: "independent-privileged-institution"`,
   `independent_tool: false`, `main_system_independent_tool: false`,
   `runtime_owner_tool_id: "xingcheng"`, and no `host_tool_id` /
@@ -77,7 +77,7 @@ local native-model service, not a tool, not a companion of any tool:
   the xingcheng service.
 - All xingcheng-owned data (identity, memory, weights, corpus,
   checkpoints, repair knowledge, runtime records) stays inside the
-  registered domain roots `local-model/xingcheng/` (institution root)
+  registered domain roots `xingcheng/xingcheng/` (institution root)
   and `model-dialogue/xingcheng/` (star directory);
   backups resolve in-domain (`xingcheng/runtime/backups`) per the
   `backup-outside-owner-boundary` prohibition.

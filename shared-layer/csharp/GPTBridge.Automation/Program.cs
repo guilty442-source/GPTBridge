@@ -99,10 +99,14 @@ internal static class Program
 
     /// Resident mode: hold the host lock, then run the selected plane
     /// entrypoints concurrently under ``Planes.Run`` supervision.
-    /// ``--planes <csv>`` restricts the host to a subset (e.g.
-    /// ``--planes self-learning`` hosts only the xingcheng cadence,
-    /// leaving codex/permission/git planes untouched — their own
-    /// semantics, including codex amendment auto-execution, stay off).
+    /// ``--planes <csv>`` restricts the host to a subset of the three
+    /// host planes (``git`` / ``codex`` / ``permission`` — e.g.
+    /// ``--planes git`` runs only the git plane, leaving the codex
+    /// and permission planes untouched — their own semantics,
+    /// including codex amendment auto-execution, stay off). The
+    /// xingcheng cadence (self-learning / retention) runs only inside
+    /// the xingcheng tool body and is never a host plane, so no
+    /// ``--planes`` value can select it.
     /// The host process exits only when every selected plane has parked.
     private static async Task<int> Watch(string root, string? planesArg)
     {
@@ -142,10 +146,9 @@ internal static class Program
             if (selected is null || selected.Contains("permission"))
                 planes.Add(Task.Run(() => Planes.Run(root, "permission",
                     () => PermissionAutomation.RunWatch(null))));
-            if (selected is null || selected.Contains("self-learning"))
-                planes.Add(Task.Run(() => Planes.Run(root,
-                    "self-learning",
-                    () => SelfLearningPlane.RunWatch(root))));
+            // No self-learning plane: the xingcheng cadence is tool-body
+            // only (Xingcheng-internal cut) — the host must never spawn
+            // xc-learning or act as a second scheduler.
             if (selected is null || selected.Contains("git"))
                 planes.Add(Task.Run(() => Planes.Run(root, "git",
                     () => GitProgram.WatchService(root))));
@@ -221,7 +224,7 @@ internal static class Program
                 && HostLockHeld(root),
         };
         foreach (var plane in new[]
-                 { "git", "codex", "permission", "self-learning" })
+                 { "git", "codex", "permission" })
         {
             var state = Path.Combine(root, StateDir,
                 $"{plane}-automation.json");

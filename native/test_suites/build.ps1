@@ -1,4 +1,4 @@
-﻿# Build + run the native test suites (MSVC, no Python).
+# Build + run the native test suites (MSVC, no Python).
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File native/test_suites/build.ps1
 #        [-MaxParallel N]   bounded-parallel suite execution (default 4, cap 8)
 param([int]$MaxParallel = 4)
@@ -21,10 +21,10 @@ $suites = @(
         src = "suite_kv_engine.cpp"; exe = "kv_engine_suite.exe"
         # G95：engine 級 KV 覆蓋——真實 gptbridge_kv_pool＋NativeInferenceEngine
         inc = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
         extra = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\src\engine.cpp"),
             (Join-Path $coreDir "transformer.c"),
             (Join-Path $coreDir "kv_pool.c")
         )
@@ -140,10 +140,10 @@ $suites = @(
         src = "suite_baseline.cpp"; exe = "baseline_suite.exe"
         # §10.60 baseline：真實 cpp bundle 載入＋確定性＋反退化（已解鎖）
         inc = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
         extra = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\src\engine.cpp"),
             (Join-Path $coreDir "transformer.c"),
             (Join-Path $coreDir "kv_pool.c")
         )
@@ -152,10 +152,10 @@ $suites = @(
         src = "suite_eval.cpp"; exe = "eval_suite.exe"
         # §10.60 eval：star-native-eval-v1 ppl＋sanity＋tps 閘門
         inc = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
         extra = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\src\engine.cpp"),
             (Join-Path $coreDir "transformer.c"),
             (Join-Path $coreDir "kv_pool.c")
         )
@@ -164,10 +164,10 @@ $suites = @(
         src = "suite_dialogue.cpp"; exe = "dialogue_suite.exe"
         # §10.60 dialogue：star-native-eval-dialogue-v1 同構閘門
         inc = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\include")
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\include")
         )
         extra = @(
-            (Join-Path $nativeRoot "..\Standalone tools\local-model\src\backend\cpp\src\engine.cpp"),
+            (Join-Path $nativeRoot "..\xingcheng\src\backend\cpp\src\engine.cpp"),
             (Join-Path $coreDir "transformer.c"),
             (Join-Path $coreDir "kv_pool.c")
         )

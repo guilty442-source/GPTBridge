@@ -6,6 +6,57 @@
     "state_file": "runtime/state/automation-flows-state.json",
     "audit_ledger": "runtime/logs/automation-flows.jsonl"
   },
+  "core_assignment": {
+    "comment": "五核心分工（B162 集合：decision / permission / system-runtime / automation / xingcheng-assistant；星澄本體為獨立機制不列核心）。每個 flow 恰屬一核心：automation＝已授權工作流排程/同步/更新/維護（唯一治理引擎所在）；system-runtime＝啟動/程序生命週期/受治理執行與監督面；permission＝身分/範圍/權限/目錄與安全執法；xingcheng-assistant＝全域稽查/通知/使用者單項許可介面（本檔無其 flow，職責在對話面）；xingcheng-internal＝星澄本體內部機制（僅星澄內部，與主系統切割）；tool-internal＝獨立工具行程內部迴圈（各工具自管）。retired 條目按其 native port 指定核心歸屬標示，不另設權威。",
+    "flows": {
+      "git-automation": "automation",
+      "daily-global-cleaner": "automation",
+      "system-automation-coordinator": "automation",
+      "maintenance-controller": "automation",
+      "sleep-policy": "system-runtime",
+      "rag-maintenance": "automation",
+      "permission-automation-lifecycle": "permission",
+      "permission-automation-directory": "permission",
+      "permission-automation-compliance": "permission",
+      "permission-automation-healing": "permission",
+      "permission-automation-audit": "permission",
+      "permission-automation-identity": "permission",
+      "investment-autotrade-cycle": "tool-internal",
+      "connection-watchdog": "system-runtime",
+      "state-outbox": "system-runtime",
+      "model-service-activation": "system-runtime",
+      "channel-host-supervision": "system-runtime",
+      "automation-host-supervision": "system-runtime",
+      "resource-governor": "system-runtime",
+      "update-manager": "automation",
+      "update-manager-auto": "automation",
+      "hot-update-idle": "system-runtime",
+      "hot-reload-watcher": "system-runtime",
+      "authority-reanchor": "system-runtime",
+      "main-system-self-maintenance": "automation",
+      "idle-memory-maintenance": "system-runtime",
+      "runtime-status-push": "system-runtime",
+      "tool-isolation-health": "system-runtime",
+      "maintenance-capability-monitor": "automation",
+      "maintenance-repair-chain": "automation",
+      "backup-scheduler": "automation",
+      "perf-baseline": "automation",
+      "rag-schema-migration": "automation",
+      "toolbox-registry-reconcile": "system-runtime",
+      "cag-context-refresh": "automation",
+      "resource-mode-advisor": "system-runtime",
+      "file-sorter-automation": "tool-internal",
+      "xingcheng-internal-maintenance": "xingcheng-internal",
+      "self-learning": "xingcheng-internal",
+      "retention": "xingcheng-internal",
+      "vaultly-auto-scan": "tool-internal",
+      "package-version-sync": "automation",
+      "architecture-artifact-sync": "automation",
+      "codex-pin-sync": "automation",
+      "codex-maintenance": "automation",
+      "codex-amendment-intake": "automation"
+    }
+  },
   "flows": {
     "git-automation": {
       "owner": "GPTBridge.Automation.exe --watch (unified C# resident host; git plane in-process; Python tasks/git_automation.py retired)",
@@ -143,7 +194,7 @@
       "interval_s": null,
       "pausable": false,
       "enabled": false,
-      "description": "retired (B167/B38): Python activation broker removed with the Python lane; ai→xingcheng on-demand activation duty (A540) recorded for a native port. 原職責：偵測佇列 ai→xingcheng 請求並按需啟動 local-model。"
+      "description": "retired (B167/B38): Python activation broker removed with the Python lane; ai→xingcheng on-demand activation duty (A540) recorded for a native port, owner-designate system-runtime core（工具生命週期/按需啟動屬 Runtime Core；Automation Core 永不直接啟動工具）。原職責：偵測佇列 ai→xingcheng 請求並按需啟動 local-model。"
     },
     "channel-host-supervision": {
       "owner": "gptbridge-backend channel_host（main-system/src-tauri/crates/gptbridge-backend/src/channel_host.rs）",
@@ -327,15 +378,15 @@
       "interval_s": 900,
       "pausable": true,
       "enabled": false,
-      "description": "native port delivered (B167/B38): C# governed lane at Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載。排程已內化本體：xc-learning.exe --schedule 以 xingcheng/runtime/state/self-learning-schedule.lock 單例仲裁、常駐迴圈驅動同一 RunCycle（drain 佇列→cycle），心跳寫入 self-learning-schedule.json；所有政策閘門（kill switch、quiet hours、min_new_examples、inference exclusion、governor quota、單一訓練車道、lane-busy deferral）由本體權威執行。本 flow 保留為登記/文件用途並維持 enabled=false —— 外部 GPTBridge.Automation self-learning 平面不得再產生排程器（避免第二調度者）。kill switch 仍以 xingcheng/runtime/settings/self-learning.json enabled 為準。"
+      "description": "native port delivered (B167/B38): C# governed lane at xingcheng/src/backend/csharp/GPTBridge.XingchengLearning — collect→sanitize→snapshot→register→queued job→native trainer subprocess→eval gates→stage/activate→lifecycle+runtime pin→retention，全部由 xc-learning.exe 承載。排程已內化本體：xc-learning.exe --schedule 以 xingcheng/runtime/state/self-learning-schedule.lock 單例仲裁、常駐迴圈驅動同一 RunCycle（drain 佇列→cycle），心跳寫入 self-learning-schedule.json；所有政策閘門（kill switch、quiet hours、min_new_examples、inference exclusion、governor quota、單一訓練車道、lane-busy deferral）由本體權威執行。本 flow 保留為登記/文件用途並維持 enabled=false —— 外部 GPTBridge.Automation self-learning 平面（SelfLearningPlane.cs）已經切除，主系統側不存在第二調度者，唯一排程器是星澄本體內部迴圈。kill switch 仍以 xingcheng/runtime/settings/self-learning.json enabled 為準。"
     },
     "retention": {
-      "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（local-model 受管 lane；native port B167/B38 已交付）",
+      "owner": "GPTBridge.XingchengLearning xc-learning.exe --retention（xingcheng enclave 受管 lane；native port B167/B38 已交付）",
       "kind": "periodic",
       "interval_s": 3600,
       "pausable": true,
       "enabled": false,
-      "description": "native port delivered (B167/B38): star-retention-policy/v1 由 xc-learning.exe --retention [--apply] 承載；opportunistic（tool 冷卻時不叫醒），self-learning 每循環結尾亦跑一次；kill switch 以 runtime/settings/retention.json enabled 為準。enabled=false pending governed system-channel dispatch。"
+      "description": "native port delivered (B167/B38): star-retention-policy/v1 由 xc-learning.exe --retention [--apply] 承載，僅在星澄內部執行：self-learning 每循環結尾跑一次，或手動 --retention [--apply]；主系統側不設外部喚醒（星澄切割：外部 system-channel 派發已按設計退役，tool 冷卻時永不叫醒）。kill switch 以 runtime/settings/retention.json enabled 為準。self-learning 停用期間 retention 覆蓋下降為手動觸發，由維運以 --retention 補齊。"
     },
     "vaultly-auto-scan": {
       "owner": "VaultlyScanMixin._auto_scan_loop（vaultly 工具行程內）",
@@ -366,7 +417,7 @@
       "kind": "periodic",
       "interval_s": 60,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "Release contract 法典釘定收斂：每 tick 讀 PostgreSQL 權威 authority_state，與 shared-layer/release-dependencies.json 的 governance_references codex_version/codex_sha256 比對，漂移時外科式改寫該兩欄位（實作面檔案，非權威寫入；落盤由 self-commit 收檔）。kill switch：本 flow enabled=false"
     },
     "codex-maintenance": {
@@ -374,7 +425,7 @@
       "kind": "periodic",
       "interval_s": 600,
       "pausable": true,
-      "enabled": false,
+      "enabled": true,
       "description": "Codex 產物/投影維護（SQL 全自動化）：每 tick 檢查 governance_codex.sql 產物存在性 → verify-parity（隔離 stage schema 比對 218 表）→ codex_search_document 污染探針（??）→ zh-TW 鏡像一致性。drift 時先 repair-projections 重建 live 衍生表再複驗；權威本身已合法漂移才重新 export 產物並重算鏡像（AtomicReplace 唯讀復原）。本 pass 永不寫入權威表。kill switch：本 flow enabled=false"
     },
     "codex-amendment-intake": {

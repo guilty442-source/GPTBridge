@@ -250,7 +250,7 @@ dequantize_model(model)           # 還原為 FP32
 ## 執行測試
 
 ```powershell
-cd E:\GPTBridge\local-model\src\backend\services\xingcheng\infrastructure
+cd E:\GPTBridge\xingcheng\src\backend\services\xingcheng\infrastructure
 python native_transformer\tests\test_model.py -v
 ```
 

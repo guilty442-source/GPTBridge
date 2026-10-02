@@ -4,10 +4,10 @@ $vsvars = 'E:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Bu
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repo = (Resolve-Path (Join-Path $root '..\..\..\..\..\..\..\..\..')).Path
 $incNat = Join-Path $repo 'native\include'
-$incCpp = Join-Path $repo 'Standalone tools\local-model\src\backend\cpp\include'
+$incCpp = Join-Path $repo 'xingcheng\src\backend\cpp\include'
 $train = Join-Path $root '..\training'
-$engine = Join-Path $repo 'Standalone tools\local-model\src\backend\cpp\src\engine.cpp'
-$cppSrc = Join-Path $repo 'Standalone tools\local-model\src\backend\cpp\src'
+$engine = Join-Path $repo 'xingcheng\src\backend\cpp\src\engine.cpp'
+$cppSrc = Join-Path $repo 'xingcheng\src\backend\cpp\src'
 $nat = Join-Path $repo 'native\core'
 $exe = Join-Path $root 'xc_modeltool.exe'
 # CUDA lane: capability compiled in (XINGCHENG_CUDA{_KERNELS}) with zero

@@ -48,6 +48,7 @@ internal sealed class LocalModelExecutor
 
     private readonly GovernedEnvironment _env;
     private readonly string _ownerId;
+    private readonly string _xcRoot;
     private readonly string _ipcDir;
     private readonly string _modeltoolExe;
     private readonly string _bundleDir;
@@ -81,27 +82,14 @@ internal sealed class LocalModelExecutor
     {
         _env = env;
         _ownerId = ownerId;
-        _ipcDir = Path.Combine(env.ToolRoot, "xingcheng", "runtime", "ipc");
+        _xcRoot = Path.Combine(env.ProjectRoot, "xingcheng");
+        _ipcDir = Path.Combine(_xcRoot, "xingcheng", "runtime", "ipc");
         _modeltoolExe = Path.Combine(
-            env.ToolRoot, "src", "backend", "services", "xingcheng",
+            _xcRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
         (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda,
-            _idleReleaseSeconds) = ResolveBundle(env.ToolRoot);
-    }
-
-    /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
-    /// copy under the legacy local-model settings dir is accepted
-    /// read-only. Writes always target the canonical path.</summary>
-    internal static string EngineSettingsPath(string toolRoot)
-    {
-        var canonical = Path.Combine(
-            toolRoot, "xingcheng", "runtime", "settings",
-            "native-engine.json");
-        if (File.Exists(canonical)) return canonical;
-        var legacy = Path.Combine(
-            toolRoot, "runtime", "settings", "native-engine.json");
-        return File.Exists(legacy) ? legacy : canonical;
+            _idleReleaseSeconds) = ResolveBundle(_xcRoot);
     }
 
     /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
@@ -170,8 +158,6 @@ internal sealed class LocalModelExecutor
         var inBoundary = new[]
         {
             Path.Combine(toolRoot, "xingcheng"),
-            Path.GetFullPath(Path.Combine(
-                toolRoot, "..", "model-dialogue", "xingcheng")),
         }.Any(r =>
         {
             var boundary = Path.GetFullPath(r);
@@ -636,7 +622,7 @@ internal sealed class LocalModelExecutor
         var psi = new ProcessStartInfo
         {
             FileName = _modeltoolExe,
-            WorkingDirectory = _env.ToolRoot,
+            WorkingDirectory = _xcRoot,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardInput = true,
@@ -755,7 +741,7 @@ internal sealed class LocalModelExecutor
         try
         {
             var logs = Path.Combine(
-                _env.ToolRoot, "xingcheng", "runtime", "logs");
+                _xcRoot, "xingcheng", "runtime", "logs");
             Directory.CreateDirectory(logs);
             var entry = new JsonObject
             {

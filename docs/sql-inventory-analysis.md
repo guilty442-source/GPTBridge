@@ -60,7 +60,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 - `provision_postgresql_architecture.py` 依 module_id 建立 RLS policy（按 `module_id` 欄位隔離）
 - 部署時需以 MODULE_ROLE / MODULE_ID 取代模板佔位
 
-#### C. 星澄認知庫（`local-model/xingcheng/databases/cognition.sql` — 85 行）
+#### C. 星澄認知庫（`xingcheng/xingcheng/databases/cognition.sql` — 85 行）
 
 | Schema | 資料表 | 用途 |
 | -------- | -------- | ------ |
@@ -73,7 +73,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 - 有 `UNIQUE (resource_id)`、`resource_label UNIQUE`、`version > 0` 約束
 - 有 `content_hash` 欄位但**未設唯一/不可變約束**（對照 SQLite 快照的 `SNAPSHOT_IMMUTABLE`）
 
-#### D. 星澄身份庫（`local-model/xingcheng/databases/identity/*.sql` — 4 個模組）
+#### D. 星澄身份庫（`xingcheng/xingcheng/databases/identity/*.sql` — 4 個模組）
 
 | 模組 | Schema | 資料表 | 用途 |
 | ------ | -------- | -------- | ------ |
@@ -104,11 +104,11 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 | 存取層 | 檔案 | 使用的庫 | 覆蓋範圍 |
 | -------- | ------ | ---------- | ---------- |
 | `SharedLayerStore` | `shared-layer/src/shared_layer/store.py` | psycopg + psycopg_pool（**連線池**） | `gptbridge_transport.tool_request` |
-| `LocalSqliteRagRepository`（取代已退役的 `PostgresRagRepository`） | `local-model/src/backend/services/xingcheng/infrastructure/local_sqlite_rag_repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/local-rag-keywords.sqlite3` |
+| `LocalSqliteRagRepository`（取代已退役的 `PostgresRagRepository`） | `xingcheng/src/backend/services/xingcheng/infrastructure/local_sqlite_rag_repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/local-rag-keywords.sqlite3` |
 | 本地 SQLite `repository.py` | `local-model/.../infrastructure/repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/models/*.sqlite3` |
 | 本地 SQLite `local_command_parser.py` | `local-model/.../infrastructure/local_command_parser.py` | 內建 sqlite3 | 常用命令歷史 |
 | 本地 SQLite `ollama_model_repository.py` | `local-model/.../infrastructure/ollama_model_repository.py` | 內建 sqlite3 | 推論記錄、能力投票、訓練貢獻 |
-| 本地 SQLite 語義索引快取（B 方案） | `local-model/src/backend/services/xingcheng/infrastructure/vector_store.py` | 內建 sqlite3 | 工具私有快取 `xingcheng/runtime/state/local-rag-vectors.sqlite3` |
+| 本地 SQLite 語義索引快取（B 方案） | `xingcheng/src/backend/services/xingcheng/infrastructure/vector_store.py` | 內建 sqlite3 | 工具私有快取 `xingcheng/runtime/state/local-rag-vectors.sqlite3` |
 
 ---
 

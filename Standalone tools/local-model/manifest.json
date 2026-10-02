@@ -56,7 +56,7 @@
     "background": "governed-source-channel"
   },
   "automation": {
-    "retired_entry": "src/backend/services/xingcheng/application/local_ai_lifecycle.py",
+    "retired_entry": "xingcheng/src/backend/services/xingcheng/application/local_ai_lifecycle.py",
     "class": "LocalAiLifecycleMixin",
     "method": "_internal_maintenance_loop",
     "enabled": false,

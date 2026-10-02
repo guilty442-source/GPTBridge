@@ -252,7 +252,7 @@
       "identity_code": "X00001",
       "language_name": "xingcheng",
       "codename": "NEBULA",
-      "root_template": "Standalone tools/local-model/xingcheng",
+      "root_template": "xingcheng/xingcheng",
       "code_scope": "project-source-excluding-governance-rule",
       "database_scope": [
         "opaque-central-index-read-and-xingcheng-internal-read-write"
@@ -633,7 +633,7 @@
         "identity_code": "X00001",
         "language_name": "xingcheng",
         "codename": "NEBULA",
-        "root_template": "Standalone tools/local-model/xingcheng",
+        "root_template": "xingcheng/xingcheng",
         "code_scope": "project-source-excluding-governance-rule",
         "database_scope": [
           "opaque-central-index-read-and-xingcheng-internal-read-write"
@@ -1008,7 +1008,7 @@
             "identity_code": "X00001",
             "language_name": "xingcheng",
             "codename": "NEBULA",
-            "root_template": "Standalone tools/local-model/xingcheng",
+            "root_template": "xingcheng/xingcheng",
             "code_scope": "project-source-excluding-governance-rule",
             "database_scope": [
               "opaque-central-index-read-and-xingcheng-internal-read-write"
@@ -1394,7 +1394,7 @@
                 "identity_code": "X00001",
                 "language_name": "xingcheng",
                 "codename": "NEBULA",
-                "root_template": "Standalone tools/local-model/xingcheng",
+                "root_template": "xingcheng/xingcheng",
                 "code_scope": "project-source-excluding-governance-rule",
                 "database_scope": [
                   "opaque-central-index-read-and-xingcheng-internal-read-write"

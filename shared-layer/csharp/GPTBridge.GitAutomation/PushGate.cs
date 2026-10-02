@@ -28,7 +28,7 @@ internal static partial class PushGate
     {
         "native/test_suites", "native/core", "native/include",
         "native/tool_runtime", "native/audit",
-        "Standalone tools/local-model/src/backend/cpp",
+        "xingcheng/src/backend/cpp",
     };
 
     private static readonly HashSet<string> CodeSuffixes =

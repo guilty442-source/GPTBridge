@@ -18,38 +18,38 @@
     "configuration_id": {
       "semantics": "model configuration identity",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/config.py#XingChengConfig"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/config.py#XingChengConfig"
       ]
     },
     "tokenizer": {
       "semantics": "tokenizer artifact kind in lifecycle",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#tokenizer"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#tokenizer"
       ]
     },
     "eval_suite": {
       "semantics": "evaluation report artifact kind",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#evaluation_report"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#evaluation_report"
       ]
     },
     "lifecycle": {
       "semantics": "versioned lifecycle registry of artifacts",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#register_artifact"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#register_artifact"
       ]
     },
     "artifacts": {
       "semantics": "kind->versions artifact map",
       "bound_to": [
-        "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#artifacts"
+        "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py#artifacts"
       ]
     }
   },
   "implementation": {
     "enforcing_modules": [
-      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",
-      "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/config.py"
+      "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",
+      "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/config.py"
     ]
   },
   "evidence_paths": [

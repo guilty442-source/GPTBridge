@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace GPTBridge.CodexPipeline;
@@ -26,8 +27,9 @@ internal static class ArchitectureProjection
     private static readonly string[] SourceDirs =
     {
         "Standalone tools/local-model/src",
-        "Standalone tools/local-model/contracts",
-        "Standalone tools/local-model/xingcheng/runtime/settings",
+        "xingcheng/src",
+        "xingcheng/contracts",
+        "xingcheng/xingcheng/runtime/settings",
         "native",
         "main-system/config",
     };
@@ -107,8 +109,20 @@ internal static class ArchitectureProjection
             Binaries = new();
         public readonly List<(string File, string Format, string Src)>
             Settings = new();
+        public readonly SortedDictionary<string, ToolRow> Tools =
+            new(StringComparer.Ordinal);
         public int FilesScanned;
         public readonly List<string> Trees = new();
+    }
+
+    public sealed class ToolRow
+    {
+        public string Version = "";
+        public string Runtime = "";
+        public string Entry = "";
+        public bool Independent;
+        public readonly SortedSet<string> Trees =
+            new(StringComparer.Ordinal);
     }
 
     private static void Add(
@@ -252,6 +266,54 @@ internal static class ArchitectureProjection
         }
     }
 
+    /// <summary>Standalone tool manifests live outside
+    /// ``SourceDirs``; parse them per tree so the project-wide
+    /// ``project-tools`` block can project the governed tool
+    /// inventory (id / version / runtime / native entry).</summary>
+    private static void ScanToolManifests(Facts f, string label,
+        string tree)
+    {
+        var toolsRoot = Path.Combine(tree, "Standalone tools");
+        if (!Directory.Exists(toolsRoot)) return;
+        foreach (var dir in Directory.EnumerateDirectories(toolsRoot)
+                     .OrderBy(d => d, StringComparer.Ordinal))
+        {
+            var manifest = Path.Combine(dir, "manifest.json");
+            if (!File.Exists(manifest)) continue;
+            try
+            {
+                var node = JsonNode.Parse(File.ReadAllText(manifest));
+                var id = node?["id"]?.GetValue<string>();
+                if (id is null || id.Length == 0)
+                    id = Path.GetFileName(dir);
+                if (!f.Tools.TryGetValue(id, out var row))
+                    f.Tools[id] = row = new ToolRow();
+                row.Trees.Add(label);
+                var version =
+                    node?["display_version"]?.GetValue<string>()
+                    ?? node?["version"]?.GetValue<string>() ?? "";
+                var runtime =
+                    node?["runtime"]?["type"]?.GetValue<string>() ?? "";
+                var entry = node?["runtime"]?["native_entry"]
+                    ?.GetValue<string>() ?? "";
+                var independent = node?["independent_tool"]
+                    ?.GetValue<bool>() ?? false;
+                // The main tree's manifest is the displayed truth;
+                // worker trees only contribute presence.
+                if (label == "main" || row.Version.Length == 0)
+                {
+                    row.Version = version;
+                    row.Runtime = runtime;
+                    row.Entry = entry;
+                    row.Independent = independent;
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (System.Text.Json.JsonException) { }
+        }
+    }
+
     // --------------------------------------------------------- renders --
 
     // Deterministic stamp: no wall-clock — identical inputs must yield
@@ -308,7 +370,7 @@ internal static class ArchitectureProjection
             sb.AppendLine("| var | 讀取處 |");
             sb.AppendLine("|---|---|");
             foreach (var kv in f.Env.Where(kv => kv.Value.Any(
-                         s => s.Contains("local-model"))))
+                         s => s.Contains("xingcheng"))))
                 sb.AppendLine(
                     $"| `{kv.Key}` | {SrcList(kv.Value)} |");
             return sb.ToString();
@@ -330,8 +392,7 @@ internal static class ArchitectureProjection
             sb.AppendLine("| Binary | 語言 | 來源 |");
             sb.AppendLine("|---|---|---|");
             foreach (var b in f.Binaries
-                         .Where(x => x.Src.Contains(
-                             "Standalone tools/local-model"))
+                         .Where(x => x.Src.Contains("xingcheng"))
                          .OrderBy(x => x.Binary, StringComparer.Ordinal)
                          .ThenBy(x => x.Src, StringComparer.Ordinal)
                          .Distinct())
@@ -377,6 +438,20 @@ internal static class ArchitectureProjection
                          .OrderBy(x => x.Lane, StringComparer.Ordinal))
                 sb.AppendLine(
                     $"| {k.Lane} | {k.Count} | {k.Src} |");
+            return sb.ToString();
+        },
+        ["project-tools"] = f =>
+        {
+            var sb = new StringBuilder(Stamp(f));
+            sb.AppendLine(
+                "| 工具 | manifest version | runtime | native entry | 樹 |");
+            sb.AppendLine("|---|---|---|---|---|");
+            foreach (var kv in f.Tools)
+                sb.AppendLine(
+                    $"| `{kv.Key}` | {kv.Value.Version} | "
+                    + $"{kv.Value.Runtime} | `{kv.Value.Entry}` | "
+                    + string.Join("+", kv.Value.Trees) + " |");
+            sb.AppendLine($"\n（count={f.Tools.Count}）");
             return sb.ToString();
         },
     };
@@ -426,6 +501,7 @@ internal static class ArchitectureProjection
                         ScanFile(facts, label, relToRoot, file);
                     }
                 }
+                ScanToolManifests(facts, label, tree);
                 if (any) facts.Trees.Add(label);
             }
 

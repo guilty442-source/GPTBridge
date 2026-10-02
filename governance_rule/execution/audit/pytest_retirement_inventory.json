@@ -2392,7 +2392,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_batch_generate.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_batch_generate.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2401,7 +2401,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_bf16_matmul.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_bf16_matmul.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2410,7 +2410,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_fp8_matmul.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_fp8_matmul.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2419,7 +2419,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_kv_device.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_kv_device.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2428,7 +2428,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_longrun.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_cpp_longrun.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2437,7 +2437,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_dialogue_roles.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_dialogue_roles.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2446,7 +2446,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_kv_cache_matrix.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_kv_cache_matrix.py",
    "inventory_class": "module",
    "replacement_runner": "NativeCppTestRunner",
    "replacement_test": "native/test_suites/suite_kv_engine.cpp (links real engine.cpp + transformer.c + kv_pool.c)",
@@ -2461,7 +2461,7 @@
    "status": "VERIFIED"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_model.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_model.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2470,7 +2470,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_ntp_correctness.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_ntp_correctness.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2479,7 +2479,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_prefix_cache.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_prefix_cache.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2488,7 +2488,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_weight_evolution.py",
+   "source_test": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tests/test_weight_evolution.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",
@@ -2992,7 +2992,7 @@
    "status": "PENDING"
   },
   {
-   "source_test": "Standalone tools/local-model/xingcheng/tests/test_star_chat_reexport.py",
+   "source_test": "xingcheng/xingcheng/tests/test_star_chat_reexport.py",
    "inventory_class": "module",
    "replacement_runner": "DotNetTestRunner",
    "replacement_test": "",

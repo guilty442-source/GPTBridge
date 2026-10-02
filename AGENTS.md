@@ -188,13 +188,13 @@ worktrees — run when the tree is in a state you want committed):
 > Normative authority: Codex D131。
 > Native lane landed (B167/B38 successor): `GPTBridge.XingchengLearning`
 > (`xc-learning.exe`, C#) at
-> `Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning`
+> `xingcheng/src/backend/csharp/GPTBridge.XingchengLearning`
 > — orchestration, governed interfaces and dataset/eval gates in C#; model
 > execution stays in the native C++ lane (`xingcheng_trainer.exe` +
 > `xc_modeltool.exe`), reached only through audited subprocesses.
 > Production scheduling is unchanged — cycles run inside the
 > xingcheng tool process via the governed system channel.
-> Tunables single source: `Standalone tools/local-model/xingcheng/runtime/settings/self-learning.json`。
+> Tunables single source: `xingcheng/xingcheng/runtime/settings/self-learning.json`。
 
 The native model learns from its own verified data and can upgrade itself
 through the same governed pipeline used for manual training:
@@ -215,7 +215,7 @@ through the same governed pipeline used for manual training:
    as baseline,
 5. only if every gate passes: register the adapter, `stage`, and — when
    `auto_activate` is set — `activate`, register the weights in the model
-   lifecycle, pin `xingcheng/runtime/settings/native-engine.json` to the new artifact
+   lifecycle, pin `xingcheng/xingcheng/runtime/settings/native-engine.json` to the new artifact
    and prune the previous generation (only the latest generation is kept).
 
 Any failure is fail-closed: the active weights, the runtime checkpoint and
@@ -239,9 +239,9 @@ in the self-learning state. `curriculum_intent_map` scopes each cycle's
 dataset by intent per course (`sft-refresh` currently prioritizes the
 weakest measured capabilities — instruction/tool_call_format/math/
 code/reading — plus forward-looking multi_turn/context_tracking intents,
-excluding saturated `conversation` traffic). Policy: `xingcheng/runtime/settings/self-learning.json`
-(`enabled=false` is the kill switch); state: `xingcheng/runtime/state/self-learning.json`;
-reports: `xingcheng/runtime/logs/self-learning-*.json`.
+excluding saturated `conversation` traffic). Policy: `xingcheng/xingcheng/runtime/settings/self-learning.json`
+(`enabled=false` is the kill switch); state: `xingcheng/xingcheng/runtime/state/self-learning.json`;
+reports: `xingcheng/xingcheng/runtime/logs/self-learning-*.json`.
 
 ### Scheduled operation (production path)
 
@@ -249,10 +249,10 @@ The scheduling mechanism lives **inside the tool body**:
 `xc-learning.exe --schedule [--interval-s N]` (default 900 s) starts a
 resident loop that paces the same governed `RunCycle` used by
 `--run-once`. Single-instance arbitration is a lock file at
-`xingcheng/runtime/state/self-learning-schedule.lock` — a second
+`xingcheng/xingcheng/runtime/state/self-learning-schedule.lock` — a second
 `--schedule` exits 1 with `lock held`, so duplicate schedulers are
 impossible. Each tick writes a `star-self-learning-schedule/v1`
-heartbeat to `xingcheng/runtime/state/self-learning-schedule.json`
+heartbeat to `xingcheng/xingcheng/runtime/state/self-learning-schedule.json`
 (pid, phase `draining`/`cycling`/`sleeping`, last action, error).
 
 Tick order is **drain before cycle**: a `queued` job takes precedence
@@ -266,25 +266,27 @@ inference exclusion, governor quota, single training lane) stay
 authoritative inside `RunCycle`; the loop only paces.
 
 The `self-learning` flow in `main-system/config/automation-flows.json`
-remains as a registry/document entry with `enabled=false`. The
-external `GPTBridge.Automation` self-learning plane additionally
-defers whenever the native scheduler's heartbeat pid is alive — it
-must never become a second scheduler.
+remains as a registry/document entry with `enabled=false` (core
+`xingcheng-internal`). The former external `GPTBridge.Automation`
+self-learning plane (`SelfLearningPlane.cs`) has been excised — the
+unified host carries only the git/codex/permission planes; the sole
+scheduler is `xc-learning.exe --schedule` inside the tool body, so a
+second scheduler cannot exist.
 
 ```powershell
 # resident scheduler (single instance; kill switch still applies)
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --schedule
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --schedule
 ```
 
 ```powershell
 # status / one-shot / force (ignore the new-example threshold) / kill switch
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --status
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --run-once
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --run-once --force
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --disable
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --status
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --run-once
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --run-once --force
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --disable
 
 # governed end-to-end smoke (scratch model; never touches the pinned bundle):
-& "...\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --self-test
+& "...\publish\xc-learning.exe" --tool-root "xingcheng" --self-test
 ```
 
 Implementation: `GPTBridge.XingchengLearning` (C#) —
@@ -336,17 +338,17 @@ certification.
 
 ```powershell
 # full ladder against a trained checkpoint
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --checkpoint <final.pt> --tool-root "Standalone tools\local-model" --device cpu --save
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --checkpoint <final.pt> --tool-root "xingcheng" --device cpu --save
 
 # architecture-only ladder (L0-L2; L3+ reports skipped)
 & main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --preset small
 
 # latest certified level
-& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --status --tool-root "Standalone tools\local-model"
+& main-system\.venv\Scripts\python.exe -m xingcheng.infrastructure.native_transformer.maturity --status --tool-root "xingcheng"
 ```
 
-Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
-`xingcheng/runtime/state/model-maturity.json`. Implementation:
+Reports: `xingcheng/xingcheng/runtime/logs/maturity-*.json`; latest state:
+`xingcheng/xingcheng/runtime/state/model-maturity.json`. Implementation:
 `native_transformer/maturity.py` (`certify`, `current_maturity`,
 `persist_report`).
 
@@ -356,30 +358,29 @@ Reports: `xingcheng/runtime/logs/maturity-*.json`; latest state:
 > Native lane landed (B167/B38 successor): `Retention.cs` inside
 > `GPTBridge.XingchengLearning` (`xc-learning.exe`, C#) — same policy,
 > same fail-closed boundary rules as the retired Python lane.
-> Tunables single source: `Standalone tools/local-model/xingcheng/runtime/settings/retention.json`。
+> Tunables single source: `xingcheng/xingcheng/runtime/settings/retention.json`。
 
-Bounds local-model runtime growth: old governed job dirs, logs, maturity /
+Bounds Xingcheng runtime growth: old governed job dirs, logs, maturity /
 self-learning reports and SFT snapshots are pruned by count and age.
 **Never deletes** paths referenced by any `lifecycle.json` artifact version
-or the checkpoint pinned in `xingcheng/runtime/settings/native-engine.json`
+or the checkpoint pinned in `xingcheng/xingcheng/runtime/settings/native-engine.json`
 (unresolvable paths are fail-closed kept). Deletions append to
-`xingcheng/runtime/logs/retention.jsonl`. Policy:
-`xingcheng/runtime/settings/retention.json` (`enabled=false` disables everything).
-Scheduled operation: the `retention` flow (`kind=periodic`, `interval_s=3600`)
-is registered by `SelfLearningDriver` (`main-system/src-core/tasks/self_learning_driver.py`)
-through `AutomationCore`. Each tick submits `xingcheng_retention_sweep` via the
-governed system channel **only when the xingcheng tool is already running** —
-opportunistic execution; a cold tool is never woken just to prune files
-(deferred, not lost). It also still runs at the end of every self-learning
-cycle, so this periodic flow exists to prevent retention starvation when
-self-learning is disabled. Kill switches: manifest `enabled=false` stops the
+`xingcheng/xingcheng/runtime/logs/retention.jsonl`. Policy:
+`xingcheng/xingcheng/runtime/settings/retention.json` (`enabled=false` disables everything).
+Scheduled operation (Xingcheng-internal cut): no external scheduler
+exists by design — the retired `SelfLearningDriver` registration path
+is gone with the Python lane and no system-channel dispatch will be
+built. Retention executes only inside the tool: at the end of every
+self-learning cycle, or manually via `xc-learning.exe --retention
+[--apply]`. When self-learning is disabled, coverage drops to manual
+triggers — top up with `--retention` as needed. Kill switches: manifest `enabled=false` stops the
 schedule; `retention.json` `enabled=false` stops deletion. Manual:
 
 ```powershell
 # dry-run (default) / apply / status
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention --apply
-& "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "Standalone tools\local-model" --retention --status
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --retention
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --retention --apply
+& "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe" --tool-root "xingcheng" --retention --status
 ```
 
 Implementation: `GPTBridge.XingchengLearning/Retention.cs`
@@ -395,7 +396,7 @@ Implementation: `GPTBridge.XingchengLearning/Retention.cs`
 Single-active-generation upgrade flow in `xc-learning.exe`:
 
 1. `--gen-begin` creates the sole CANDIDATE manifest
-   (`xingcheng/runtime/state/generation/migration-*.json`) recording
+   (`xingcheng/xingcheng/runtime/state/generation/migration-*.json`) recording
    source/target generation, checkpoint+tokenizer hashes, schema
    range and `weight_migration_method` (`direct` / `partial` /
    `distill`; `partial` requires `--expert-lineage <json>` —
@@ -417,7 +418,7 @@ Single-active-generation upgrade flow in `xc-learning.exe`:
    Any gate failure → manifest `FAILED`, nothing activated.
 4. `--gen-promote` (requires certified): registers+activates the
    target weights in the model lifecycle, pins
-   `xingcheng/runtime/settings/native-engine.json`, flips
+   `xingcheng/xingcheng/runtime/settings/native-engine.json`, flips
    `state/generation/state.json` ACTIVE_GENERATION.
 5. `--gen-purge` (dry-run unless `--apply`): deletes predecessor
    executable artifacts — unreferenced bundles and retired weight
@@ -427,13 +428,13 @@ Single-active-generation upgrade flow in `xc-learning.exe`:
    deletion.
 
 ```powershell
-$X = "Standalone tools\local-model\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe"
-& $X --tool-root "Standalone tools\local-model" --gen-begin --target v28 --weights <bundle|ckpt> --weight-method direct
-& $X --tool-root "Standalone tools\local-model" --gen-record --manifest <id> --domain personality --status migrated --migrated 8
-& $X --tool-root "Standalone tools\local-model" --gen-certify --manifest <id> [--suite <suite.json>]
-& $X --tool-root "Standalone tools\local-model" --gen-promote --manifest <id>
-& $X --tool-root "Standalone tools\local-model" --gen-purge --manifest <id> [--apply]
-& $X --tool-root "Standalone tools\local-model" --gen-status [--manifest <id>]
+$X = "xingcheng\src\backend\csharp\GPTBridge.XingchengLearning\publish\xc-learning.exe"
+& $X --tool-root "xingcheng" --gen-begin --target v28 --weights <bundle|ckpt> --weight-method direct
+& $X --tool-root "xingcheng" --gen-record --manifest <id> --domain personality --status migrated --migrated 8
+& $X --tool-root "xingcheng" --gen-certify --manifest <id> [--suite <suite.json>]
+& $X --tool-root "xingcheng" --gen-promote --manifest <id>
+& $X --tool-root "xingcheng" --gen-purge --manifest <id> [--apply]
+& $X --tool-root "xingcheng" --gen-status [--manifest <id>]
 ```
 
 Implementation: `GPTBridge.XingchengLearning/GenerationMigration.cs`;
@@ -454,20 +455,20 @@ survives the deleted runtime.
 > governed training only through the existing quality, permission,
 > resource, evaluation, rollback and activation gates.
 
-- Level 2 request trace (`xingcheng/runtime/logs/capability-trace.jsonl`):
+- Level 2 request trace (`xingcheng/xingcheng/runtime/logs/capability-trace.jsonl`):
   `request_id`, `intent`, `service_expert`, `model_generation`,
   `architecture_generation`, `router_layers[]`
   (`layer_id`/`router_type`/`selected_neural_experts`/`shared_expert_used`),
   `tool_used`, `rag_used`, `final_result`, `capability_eval`.
 - Level 1 expert result
-  (`xingcheng/runtime/logs/capability-results.jsonl`):
+  (`xingcheng/xingcheng/runtime/logs/capability-results.jsonl`):
   `capability`, `status` (pass/fail/degraded/skipped), `evidence`,
   `confidence`, `source`, `failure`, `fallback`, `trace_id`.
 
 ```powershell
-& $X --tool-root "Standalone tools\local-model" --trace-record --trace <file.json>
-& $X --tool-root "Standalone tools\local-model" --cap-record --result <file.json>
-& $X --tool-root "Standalone tools\local-model" --trace-status
+& $X --tool-root "xingcheng" --trace-record --trace <file.json>
+& $X --tool-root "xingcheng" --cap-record --result <file.json>
+& $X --tool-root "xingcheng" --trace-status
 ```
 
 Implementation: `GPTBridge.XingchengLearning/CapabilityTrace.cs`
@@ -508,22 +509,22 @@ Version 維度分開：`architecture_generation` / `weight_version` /
 `ARCHITECTURE_CONTRACT_DRIFT` fail-closed。
 
 ```powershell
-& $X --tool-root "Standalone tools\local-model" --taxonomy          # 軸表
-& $X --tool-root "Standalone tools\local-model" --core-contract    # star-model-core/v1
-& $X --tool-root "Standalone tools\local-model" --axis-checks      # §42 電池
-& $X --tool-root "Standalone tools\local-model" --version-dimensions
+& $X --tool-root "xingcheng" --taxonomy          # 軸表
+& $X --tool-root "xingcheng" --core-contract    # star-model-core/v1
+& $X --tool-root "xingcheng" --axis-checks      # §42 電池
+& $X --tool-root "xingcheng" --version-dimensions
 ```
 
 Implementation: `GPTBridge.XingchengLearning/ArchitectureTaxonomy.cs`、
 `AxisChecks.cs`；feature registry 的 `primary_axis` 由
 `FeatureCatalog.FeatureDict` 經 taxonomy `Classify` 派生。
 
-## 星澄 Language Architecture（local-model 收斂目標）
+## 星澄 Language Architecture（xingcheng enclave 收斂目標）
 
 > Normative authority: Codex B81 `LANGUAGE-OWNERSHIP`（rev 196，語言-
 > 職責指派入專法）。實作層（檔案、API、kernel 劃分）仍為 owner-local
 > （B81 `ARCHITECTURE-EXCLUSION`）。此表為專法條文的操作手冊投影；
-> 在 `Standalone tools/local-model` 樹內覆寫上方 Execution Plane
+> 在 `xingcheng` enclave 樹內覆寫上方 Execution Plane
 > Ownership 的 repo 全域預設。
 
 | 語言 | 角色 | 比重 | 判斷 |
@@ -562,10 +563,10 @@ reader/writer，共守同一份 owner-local byte-level spec——法典只綁
 不寫入法典。成員識別以名稱經權威 contract registry 解析（rev 199
 version-neutrality），法典內不釘版本後綴。
 
-Owner-local byte-level spec：`Standalone tools/local-model/contracts/xnc-spec.md`
+Owner-local byte-level spec：`xingcheng/contracts/xnc-spec.md`
 （`xnc-spec/v1`——magic/端序/envelope/成員 registry/XCN1+XCB1 逐位元版面/
 manifest 規則/三語言 conformance）。Canonical 測試向量：
-`Standalone tools/local-model/contracts/xnc/vectors/`。
+`xingcheng/contracts/xnc/vectors/`。
 
 ## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
 
@@ -586,7 +587,7 @@ manifest 規則/三語言 conformance）。Canonical 測試向量：
   綁定 model_hash + generation + hidden_size；不相容 → fallback，
   主模型永遠能啟動。本階段**不**升 XCN11。
 - **Decision trace**：每次 fast decision 寫
-  `xingcheng/runtime/logs/decision-trace.jsonl`（probabilities /
+  `xingcheng/xingcheng/runtime/logs/decision-trace.jsonl`（probabilities /
   confidence / latency / model hash / generation）。
 - **MiMo router stability**：`RouterStabilityPolicy` —
   PRETRAIN=TRAINABLE、SFT/BASELINE_RECOVERY=GOVERNED、
@@ -608,12 +609,12 @@ manifest 規則/三語言 conformance）。Canonical 測試向量：
   SFT → DPO → bounded GRPO。目前只到 schema/evaluator。
 
 ```powershell
-& $X --tool-root "Standalone tools\local-model" --system1-checks     # §44 電池
-& $X --tool-root "Standalone tools\local-model" --typed-decision-validate --file <f.json>
-& $X --tool-root "Standalone tools\local-model" --cognition-route --file <f.json>
-& $X --tool-root "Standalone tools\local-model" --router-stability --file <f.json>
-& $X --tool-root "Standalone tools\local-model" --trajectory-validate --file <f.json>
-& $X --tool-root "Standalone tools\local-model" --reward-gate --file <f.json>
+& $X --tool-root "xingcheng" --system1-checks     # §44 電池
+& $X --tool-root "xingcheng" --typed-decision-validate --file <f.json>
+& $X --tool-root "xingcheng" --cognition-route --file <f.json>
+& $X --tool-root "xingcheng" --router-stability --file <f.json>
+& $X --tool-root "xingcheng" --trajectory-validate --file <f.json>
+& $X --tool-root "xingcheng" --reward-gate --file <f.json>
 ```
 
 Implementation: `GPTBridge.XingchengLearning/SystemOne.cs`
@@ -661,8 +662,8 @@ microstep）**永不** cudaMalloc/cudaFree。
 & xc_modeltool.exe memplane-probe --budget 2147483648 --pinned 33554432
 & xc_modeltool.exe memplane-telemetry
 # 合約層電池（原生 probe + 政策檢查）
-& xc-learning.exe --tool-root "Standalone tools\local-model" --cuda-plane-checks
-& xc-learning.exe --tool-root "Standalone tools\local-model" --precision-policy
+& xc-learning.exe --tool-root "xingcheng" --cuda-plane-checks
+& xc-learning.exe --tool-root "xingcheng" --precision-policy
 ```
 
 Implementation：`tools/xcm_memplane.h`（manager/pool/arena/
@@ -684,7 +685,7 @@ All xingcheng-owned data — weights, cpp-bundles, corpora, checkpoints,
 lifecycle snapshots, self-learning pools/reports, ledgers, eval output,
 and any recovery or scratch artifacts — resolves inside the registered
 xingcheng domain roots only (`XINGCHENG_INSTITUTION_ROOT` =
-`Standalone tools/local-model/xingcheng/`, `STAR_DIRECTORY` =
+`xingcheng/xingcheng/`, `STAR_DIRECTORY` =
 `Standalone tools/model-dialogue/xingcheng/`; codex
 `data_authority: residency XINGCHENG_DOMAIN_ONLY, no external
 persistence`). Copies under `main-system/runtime/`, other tools, other
@@ -706,7 +707,7 @@ successor must preserve it:
   touching a foreign path.
 
 Operational test/fixture bundles and probe scripts live under
-`xingcheng/runtime/devin/` so scratch work also stays in-boundary.
+`xingcheng/xingcheng/runtime/devin/` so scratch work also stays in-boundary.
 
 ## 星澄 Training GPU Gate & Auto-Release
 
@@ -715,7 +716,7 @@ Operational test/fixture bundles and probe scripts live under
 > below (`TrainingJobExecutor`, `gpu_coordinator`, `auto_release.py`,
 > `NativeTransformerEngine`, `chat_foundation_dataset.py`) are removed;
 > the policy contracts remain binding on their native successors.
-> Tunables single source: `Standalone tools/local-model/xingcheng/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
+> Tunables single source: `xingcheng/xingcheng/runtime/settings/native-engine.json`＋bounded config keys（`gpu_required_mb`／`gpu_acquire_timeout_s`／`auto_release_idle_seconds`）。
 
 - `TrainingJobExecutor.run_job` gates CUDA training through
   `shared_layer.adaptive.gpu_coordinator` before starting: jobs wait for
@@ -779,7 +780,7 @@ Governance boundary is unchanged: the only entry point is the governed
 `xingcheng_web_search` command (former `local_ai_lifecycle._run_web_search`,
 retired with the Python lane — B166),
 which audits into `web_search_log` and returns bounded metadata.
-Provider chain is driven by `xingcheng/runtime/settings/web-search.json`
+Provider chain is driven by `xingcheng/xingcheng/runtime/settings/web-search.json`
 (`provider`: `auto`/`searchd`/`searxng`; env `XINGCHENG_SEARCH_PROVIDER`
 /`XINGCHENG_SEARCHD_URL`/`XINGCHENG_SEARXNG_URL` override; `auto_start`
 lazily spawns `searchd-go/bin/searchd.exe`). `auto` = searchd first,

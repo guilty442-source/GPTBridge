@@ -296,7 +296,7 @@
       "runtime_form": "internal-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-sovereign",
-      "physical_path": "Standalone tools/local-model/src/backend/cpp",
+      "physical_path": "xingcheng/src/backend/cpp",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -567,7 +567,7 @@
       "runtime_form": "build-tooling",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xc-format",
-      "physical_path": "Standalone tools/local-model/src/backend/rust/xc-format",
+      "physical_path": "xingcheng/src/backend/rust/xc-format",
       "lifecycle": "on-demand",
       "canonical": false,
       "dependencies": [],
@@ -584,7 +584,7 @@
       "runtime_form": "standalone-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xc-runtime-host",
-      "physical_path": "Standalone tools/local-model/src/backend/rust/xc-runtime-host",
+      "physical_path": "xingcheng/src/backend/rust/xc-runtime-host",
       "lifecycle": "on-demand",
       "canonical": false,
       "dependencies": [],
@@ -601,7 +601,7 @@
       "runtime_form": "standalone-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-native-model",
-      "physical_path": "Standalone tools/local-model/xingcheng",
+      "physical_path": "xingcheng/xingcheng",
       "lifecycle": "on-demand",
       "canonical": true,
       "dependencies": [
@@ -644,7 +644,7 @@
       "runtime_form": "database",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-assistant-identity-database",
-      "physical_path": "Standalone tools/local-model/xingcheng/databases/identity",
+      "physical_path": "xingcheng/xingcheng/databases/identity",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [],
@@ -661,7 +661,7 @@
       "runtime_form": "database",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "xingcheng-identity-database",
-      "physical_path": "Standalone tools/local-model/xingcheng/databases",
+      "physical_path": "xingcheng/xingcheng/databases",
       "lifecycle": "resident",
       "canonical": true,
       "dependencies": [
@@ -1147,7 +1147,7 @@
       "unit": "UNIT_ENGINE",
       "block": "BLOCK_MODEL",
       "python_residency": "retire",
-      "external_locator": "git-history:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training (retired 2026-09-29 - Python/JAX training domain retired by B73/B167/D140; zero active consumers)"
+      "external_locator": "git-history:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training (retired 2026-09-29 - Python/JAX training domain retired by B73/B167/D140; zero active consumers)"
     },
     {
       "component_id": "model-training-native",
@@ -1155,7 +1155,7 @@
       "runtime_form": "standalone-service",
       "owner_sovereign": "xingcheng-domain",
       "execution_identity": "model-training",
-      "physical_path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training",
+      "physical_path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training",
       "lifecycle": "on-demand",
       "canonical": true,
       "dependencies": [

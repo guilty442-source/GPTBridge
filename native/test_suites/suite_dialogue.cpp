@@ -8,7 +8,7 @@ namespace {
 
 const char* SUITE = "STAR_DIALOGUE_SUITE";
 const char* SPEC_REL =
-    "Standalone tools/local-model/xingcheng/eval/"
+    "xingcheng/xingcheng/eval/"
     "star-native-eval-dialogue-20260921-125054.json";
 /* 截斷上限由規格 eval_token_cap 提供（預設 128；§3.1 ~30s 預算） */
 

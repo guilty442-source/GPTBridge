@@ -15,18 +15,18 @@
     ],
     "$kw": {}
   },
-  "XINGCHENG_PACKAGE_ROOT": "Standalone tools/local-model/src/backend/services/xingcheng",
+  "XINGCHENG_PACKAGE_ROOT": "xingcheng/src/backend/services/xingcheng",
   "XINGCHENG_OWNED_LANES": [
-    "Standalone tools/local-model/src/backend/services/xingcheng",
-    "Standalone tools/local-model/src/backend/cpp",
-    "Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning",
-    "Standalone tools/local-model/src/backend/fsharp/GPTBridge.XingchengEval",
-    "Standalone tools/local-model/src/backend/rust/xc-format",
-    "Standalone tools/local-model/src/backend/rust/xc-runtime-host",
-    "Standalone tools/local-model/src/backend/rust/xstore",
-    "Standalone tools/local-model/src/backend/rust/xcorpus",
-    "Standalone tools/local-model/contracts",
-    "Standalone tools/local-model/xingcheng"
+    "xingcheng/src/backend/services/xingcheng",
+    "xingcheng/src/backend/cpp",
+    "xingcheng/src/backend/csharp/GPTBridge.XingchengLearning",
+    "xingcheng/src/backend/fsharp/GPTBridge.XingchengEval",
+    "xingcheng/src/backend/rust/xc-format",
+    "xingcheng/src/backend/rust/xc-runtime-host",
+    "xingcheng/src/backend/rust/xstore",
+    "xingcheng/src/backend/rust/xcorpus",
+    "xingcheng/contracts",
+    "xingcheng/xingcheng"
   ],
   "XINGCHENG_REQUIRED_LAYERS": {
     "$call": "frozenset",
@@ -264,7 +264,7 @@
     "ai_nexus": "Standalone tools/ai-assistant",
     "file_sorter": "Standalone tools/file-sorter",
     "investment_mobile": "Standalone tools/investment-mobile",
-    "xingcheng": "Standalone tools/local-model",
+    "xingcheng": "xingcheng",
     "vaultly": "Standalone tools/vaultly",
     "star_chat": "Standalone tools/model-dialogue"
   },

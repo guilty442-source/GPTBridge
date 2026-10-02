@@ -39,7 +39,7 @@ internal sealed class ModelDialogueExecutor
 
     private readonly GovernedEnvironment _env;
     private readonly HttpClient _http = new();
-    private readonly string _localModelRoot;
+    private readonly string _xingchengRoot;
     private readonly string _ipcDir;
     private readonly string _workspaceInstanceId;
 
@@ -80,10 +80,9 @@ internal sealed class ModelDialogueExecutor
     public ModelDialogueExecutor(GovernedEnvironment env)
     {
         _env = env;
-        _localModelRoot = Path.Combine(
-            env.ProjectRoot, "Standalone tools", "local-model");
+        _xingchengRoot = Path.Combine(env.ProjectRoot, "xingcheng");
         _ipcDir = Path.Combine(
-            _localModelRoot, "xingcheng", "runtime", "ipc");
+            _xingchengRoot, "xingcheng", "runtime", "ipc");
         _workspaceInstanceId = env.WorkspaceInstanceId();
     }
 
@@ -144,24 +143,20 @@ internal sealed class ModelDialogueExecutor
         try
         {
             var settings =
-                LocalModelExecutor.EngineSettingsPath(_localModelRoot);
+                LocalModelExecutor.EngineSettingsPath(_xingchengRoot);
             using var doc = JsonDocument.Parse(File.ReadAllText(settings));
             var checkpoint = doc.RootElement
                 .TryGetProperty("checkpoint", out var c)
                 ? c.GetString() : null;
             if (string.IsNullOrWhiteSpace(checkpoint)) return false;
             var path = Path.GetFullPath(Path.IsPathRooted(checkpoint)
-                ? checkpoint : Path.Combine(_localModelRoot, checkpoint));
+                ? checkpoint : Path.Combine(_xingchengRoot, checkpoint));
             // Data residency: an out-of-boundary pin refuses to serve —
-            // the bundle must resolve inside a registered xingcheng
-            // domain root (institution root or the model-dialogue star
-            // directory).
+            // the bundle must resolve inside the registered xingcheng
+            // domain root (the institution custody root).
             var roots = new[]
             {
-                Path.Combine(_localModelRoot, "xingcheng"),
-                Path.GetFullPath(Path.Combine(
-                    _localModelRoot, "..", "model-dialogue",
-                    "xingcheng")),
+                Path.Combine(_xingchengRoot, "xingcheng"),
             };
             var inBoundary = roots.Any(r =>
             {
@@ -1188,7 +1183,7 @@ internal sealed class ModelDialogueExecutor
         var descriptor = Path.Combine(_ipcDir, "model-service.json");
         Check("模型服務描述元", File.Exists(descriptor), descriptor);
         var engineSettings =
-            LocalModelExecutor.EngineSettingsPath(_localModelRoot);
+            LocalModelExecutor.EngineSettingsPath(_xingchengRoot);
         Check("原生引擎設定", File.Exists(engineSettings)
             && BundlePinned(), engineSettings);
 

@@ -1,0 +1,37 @@
+{
+  "projected_at": "2026-09-18T05:05:34.699995+00:00",
+  "channel": "information-layer",
+  "redacted": true,
+  "items": [
+    {
+      "component": "system-overall",
+      "state": "degraded",
+      "detail": null
+    },
+    {
+      "component": "decision-sovereign",
+      "state": "started",
+      "detail": null
+    },
+    {
+      "component": "permission-sovereign",
+      "state": "started",
+      "detail": null
+    },
+    {
+      "component": "system-runtime-sovereign",
+      "state": "degraded",
+      "detail": null
+    },
+    {
+      "component": "automation-sovereign",
+      "state": "started",
+      "detail": null
+    },
+    {
+      "component": "星澄",
+      "state": "started",
+      "detail": null
+    }
+  ]
+}

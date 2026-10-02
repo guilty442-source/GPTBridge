@@ -16,7 +16,7 @@ const CHANNEL_PARTICIPANT_IDS: [&str; 4] =
 /// participants.  (bound_tool_id, manifest path relative to workspace root)
 const BOUND_IDENTITY_MANIFESTS: [(&str, &str); 4] = [
     ("ai-assistant", "Standalone tools/ai-assistant/manifest.json"),
-    ("xingcheng", "Standalone tools/local-model/xingcheng/manifest.json"),
+    ("xingcheng", "xingcheng/xingcheng/manifest.json"),
     (
         "ai-collaboration",
         "Standalone tools/ai-collaboration/manifest.json",
@@ -83,6 +83,30 @@ pub(super) fn governed_runtime_tool_id(
             .unwrap_or(tool_root)
             .strip_prefix(tool_root)
         else {
+            // A bound manifest outside the tools tree (the xingcheng
+            // enclave at the workspace root) still binds to the tool
+            // its manifest declares as lifecycle owner
+            // ("<tool_id>/<lane>").
+            if bound_manifest.is_file()
+                && std::fs::read_to_string(&bound_manifest)
+                    .ok()
+                    .and_then(|raw| {
+                        serde_json::from_str::<Value>(&raw).ok()
+                    })
+                    .and_then(|m| {
+                        m["runtime"]["lifecycle_owner"]
+                            .as_str()
+                            .map(|s| s.to_string())
+                    })
+                    .map(|owner| {
+                        owner == tool_id
+                            || owner
+                                .starts_with(&format!("{tool_id}/"))
+                    })
+                    .unwrap_or(false)
+            {
+                candidates.push(bound_id);
+            }
             continue;
         };
         let parts: Vec<_> = relative.components().collect();

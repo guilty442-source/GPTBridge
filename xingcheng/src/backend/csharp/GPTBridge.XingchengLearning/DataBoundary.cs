@@ -7,7 +7,9 @@
 // must resolve inside one of the two registered domain roots:
 //
 //   XINGCHENG_INSTITUTION_ROOT = <toolRoot>/xingcheng/
-//   STAR_DIRECTORY             = <repo>/Standalone tools/model-dialogue/xingcheng/
+//   (the retired STAR_DIRECTORY under model-dialogue was removed
+//    with the enclave move; the institution root is the single
+//    custody root.)
 //
 // Enforcement is fail-closed: an unresolvable path is treated as
 // outside, and Junction/symlink components are resolved before the
@@ -36,17 +38,10 @@ internal static class DataBoundary
     public static string InstitutionRoot(string toolRoot) =>
         Path.GetFullPath(Path.Combine(toolRoot, "xingcheng"));
 
-    /// <summary>STAR_DIRECTORY — the second registered xingcheng
-    /// domain root under ``model-dialogue``.</summary>
-    public static string StarDirectoryRoot(string toolRoot) =>
-        Path.GetFullPath(Path.Combine(
-            toolRoot, "..", "model-dialogue", "xingcheng"));
-
     /// <summary>All registered domain roots (canonicalized).</summary>
     public static string[] Roots(string toolRoot) => new[]
     {
         InstitutionRoot(toolRoot),
-        StarDirectoryRoot(toolRoot),
     };
 
     /// <summary>Canonicalize: GetFullPath plus junction/symlink

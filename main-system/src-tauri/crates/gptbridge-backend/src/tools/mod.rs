@@ -101,6 +101,10 @@ fn scan_manifests(dir: &std::path::Path, depth: u8, out: &mut Vec<(PathBuf, Valu
 fn discover_manifests() -> Vec<(PathBuf, Value)> {
     let mut found = Vec::new();
     scan_manifests(&tools_root(), 0, &mut found);
+    // The xingcheng enclave lives at the workspace root since its
+    // separation from local-model; its institution manifest must stay
+    // discoverable for identity and tool_dir resolution.
+    scan_manifests(&workspace_root().join("xingcheng"), 0, &mut found);
     found.sort_by(|a, b| a.0.cmp(&b.0));
     found
 }

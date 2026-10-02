@@ -72,6 +72,23 @@ flowchart TB
 
 只有上述七項是獨立工具。星澄已從 `local-model` 分離為具獨立程序、生命週期、服務身分、擁有根與 PostgreSQL 資料範圍的本地原生模型服務，但不建立獨立工具卡片，也不計入七工具名單。星澄助理、搜尋服務、資源管制器、資料服務及修復／學習能力均不是獨立工具；已退役工具不得重新進入現行拓撲。
 
+### 獨立工具清單（autogen）
+
+<!-- autogen:project-tools -->
+*autogen-scanner/v1 · 2127 files · main+devin+git+local-model+rag+ui*
+| 工具 | manifest version | runtime | native entry | 樹 |
+|---|---|---|---|---|
+| `ai-assistant` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `ai-collaboration` | 1.0 | go | `dist/ai-collab-host.exe` | devin+git+local-model+main+rag+ui |
+| `file-sorter` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `investment-mobile` | 1.0 | native | `dist/InvestmentMobile.ToolHost.exe` | devin+git+local-model+main+rag+ui |
+| `local-model` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `model-dialogue` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `vaultly` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+
+（count=7）
+<!-- /autogen:project-tools -->
+
 ## 四、資料與 SQL
 
 ```mermaid

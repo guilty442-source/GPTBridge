@@ -1,0 +1,49 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "xingcheng-physical-root-migration-20261002-r1",
+  "title": "Rebind Xingcheng canonical registrations to the independent top-level xingcheng root",
+  "summary": "The Xingcheng package, contracts and institution data root were physically relocated from 'Standalone tools/local-model' to the independent top-level 'xingcheng' root (xingcheng/src, xingcheng/contracts, xingcheng/xingcheng). Codex live registrations still carry the retired nested paths: project_architecture_directory.physical_root for XINGCHENG_INSTITUTION_ROOT, MODEL_TRAINING and MODEL_TRAINING_NATIVE. This amendment rebinds those three live registration fields; superseded article text retaining the nested path is immutable history and is intentionally not rewritten.",
+  "requested_by": "permission-sovereign",
+  "origin": "governor-directed Xingcheng migration executed in the repository (source_ownership registry already rebound to xingcheng/*); audit manifest emits activation:target:XINGCHENG_INSTITUTION_ROOT dir-exists check resolving through project_architecture_directory.physical_root, which still registers the retired nested root and blocks every governed commit",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T06:22:55Z",
+    "version_identity": "E2:2026-10-02T06:22:55Z",
+    "version_epoch": 2,
+    "history_head": "b0be149280e99d2fd75d1685c68459acb38153132fc16d1cd7d80db8f98d3c18",
+    "revision_sequence": 216
+  },
+  "changes": [
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "XINGCHENG_INSTITUTION_ROOT" },
+      "field": "physical_root",
+      "proposed": "E:\\GPTBridge\\xingcheng\\xingcheng"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING" },
+      "field": "physical_root",
+      "proposed": "E:\\GPTBridge\\xingcheng\\src\\backend\\services\\xingcheng\\infrastructure\\native_transformer\\training"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "physical_root",
+      "proposed": "E:\\GPTBridge\\xingcheng\\src\\backend\\services\\xingcheng\\infrastructure\\native_transformer\\training"
+    }
+  ],
+  "evidence": {
+    "physical_relocation": "xingcheng/ exists with contracts, src and xingcheng subdirectories (258 renames staged from Standalone tools/local-model/{contracts,src/backend/...,xingcheng}); Standalone tools/local-model/xingcheng and Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning no longer exist",
+    "permission_registry": "governance_rule/permission_directory/registries/permissions/source_ownership.json already declares XINGCHENG_PACKAGE_ROOT=xingcheng/src/backend/services/xingcheng and XINGCHENG_OWNED_LANES under xingcheng/*",
+    "audit_projection": "audit_checks_manifest.json regenerates activation:target:XINGCHENG_INSTITUTION_ROOT (dir-exists) from project_architecture_directory.physical_root; the pre-commit audit currently fails with 'missing dir: Standalone tools/local-model/xingcheng'",
+    "derived_projection": "a233_normalized_directory_entry.domain_payload mirrors physical_root and is rebuilt by the governed repair-projections step after the canonical rows change",
+    "unchanged_scope": "STAR_DIRECTORY (Standalone tools/model-dialogue/xingcheng), LOCAL_MODEL, BLOCK_XINGCHENG and UNIT_ASSISTANT registrations are not touched; classification, owner, authority and runtime boundary of the three rows are unchanged",
+    "historical_text_kept": "superseded articles embedding the nested path remain untouched per the AMENDMENT clause"
+  }
+}

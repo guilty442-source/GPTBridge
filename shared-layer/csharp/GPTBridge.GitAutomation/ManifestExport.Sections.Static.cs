@@ -138,7 +138,7 @@ internal static partial class ManifestExport
                  { "market_data.json",
                    "xingcheng_tools/search/searchd.json" })
         {
-            var path = "Standalone tools/local-model/src/backend/services/" +
+            var path = "xingcheng/src/backend/services/" +
                        $"xingcheng/infrastructure/{name}";
             e.Contains($"architecture:network-allowlist:{name}", path,
                 new[] { "NETWORK_DESTINATION_ALLOWLIST" });

@@ -50,6 +50,13 @@ internal static partial class ManifestExport
                          .Split(Path.DirectorySeparatorChar).Length == 5)
                      .Where(f => ManifestScanned(root, f)))
             tmPaths.Add(p);
+        // The xingcheng enclave's bound manifest lives at
+        // xingcheng/xingcheng/manifest.json — outside every generic
+        // scan above — so it is registered explicitly.
+        var enclaveManifest = Path.Combine(
+            root, "xingcheng", "xingcheng", "manifest.json");
+        if (File.Exists(enclaveManifest))
+            tmPaths.Add(enclaveManifest);
         tmPaths.Sort(StringComparer.Ordinal);
 
         foreach (var mpath in tmPaths)

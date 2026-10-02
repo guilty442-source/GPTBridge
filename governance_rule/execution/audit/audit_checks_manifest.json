@@ -2144,7 +2144,7 @@
       "markers": [
         "NETWORK_DESTINATION_ALLOWLIST"
       ],
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.json"
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data.json"
     },
     {
       "id": "architecture:network-allowlist:xingcheng_tools/search/searchd.json",
@@ -2152,7 +2152,7 @@
       "markers": [
         "NETWORK_DESTINATION_ALLOWLIST"
       ],
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.json"
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.json"
     },
     {
       "id": "reconcile:state-store",
@@ -4830,7 +4830,7 @@
     {
       "id": "activation:target:XINGCHENG_INSTITUTION_ROOT",
       "kind": "dir-exists",
-      "path": "Standalone tools/local-model/xingcheng"
+      "path": "xingcheng/xingcheng"
     },
     {
       "id": "activation:owner:MODEL_TRAINING",
@@ -9948,71 +9948,6 @@
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
     },
     {
-      "id": "tool-manifest:parse:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "json-parses",
-      "path": "Standalone tools/local-model/xingcheng/manifest.json"
-    },
-    {
-      "id": "tool-manifest:values:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "json-key-value",
-      "markers": [
-        "name_key=tool.name",
-        "window.title_key=tool.window_title",
-        "physical_owner_root=local-model"
-      ],
-      "path": "Standalone tools/local-model/xingcheng/manifest.json"
-    },
-    {
-      "id": "tool-manifest:absent:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "json-key-absent",
-      "markers": [
-        "name",
-        "window.title"
-      ],
-      "path": "Standalone tools/local-model/xingcheng/manifest.json"
-    },
-    {
-      "id": "tool-manifest:dicts:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "json-has-keys",
-      "markers": [
-        "permissions",
-        "capabilities"
-      ],
-      "path": "Standalone tools/local-model/xingcheng/manifest.json"
-    },
-    {
-      "id": "tool-locale:exists:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "file-exists",
-      "path": "Standalone tools/local-model/xingcheng/locales/zh-TW.json"
-    },
-    {
-      "id": "tool-locale:parse:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "json-parses",
-      "path": "Standalone tools/local-model/xingcheng/locales/zh-TW.json"
-    },
-    {
-      "id": "tool-locale:keys:Standalone tools/local-model/xingcheng/manifest.json",
-      "kind": "json-has-keys",
-      "markers": [
-        "errors.permission_denied",
-        "tool.description",
-        "tool.name",
-        "tool.window_title"
-      ],
-      "path": "Standalone tools/local-model/xingcheng/locales/zh-TW.json"
-    },
-    {
-      "id": "self-health:test-target:xingcheng:0:pending-native",
-      "items": "rows",
-      "kind": "json-array-min-count",
-      "markers": [
-        "status=PENDING",
-        "source_test^=Standalone tools/local-model/xingcheng/"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
-    },
-    {
       "id": "tool-manifest:parse:Standalone tools/model-dialogue/star-chat/manifest.json",
       "kind": "json-parses",
       "path": "Standalone tools/model-dialogue/star-chat/manifest.json"
@@ -10071,6 +10006,71 @@
       "markers": [
         "status=PENDING",
         "source_test^=Standalone tools/model-dialogue/star-chat/"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
+    },
+    {
+      "id": "tool-manifest:parse:xingcheng/xingcheng/manifest.json",
+      "kind": "json-parses",
+      "path": "xingcheng/xingcheng/manifest.json"
+    },
+    {
+      "id": "tool-manifest:values:xingcheng/xingcheng/manifest.json",
+      "kind": "json-key-value",
+      "markers": [
+        "name_key=tool.name",
+        "window.title_key=tool.window_title",
+        "physical_owner_root=xingcheng"
+      ],
+      "path": "xingcheng/xingcheng/manifest.json"
+    },
+    {
+      "id": "tool-manifest:absent:xingcheng/xingcheng/manifest.json",
+      "kind": "json-key-absent",
+      "markers": [
+        "name",
+        "window.title"
+      ],
+      "path": "xingcheng/xingcheng/manifest.json"
+    },
+    {
+      "id": "tool-manifest:dicts:xingcheng/xingcheng/manifest.json",
+      "kind": "json-has-keys",
+      "markers": [
+        "permissions",
+        "capabilities"
+      ],
+      "path": "xingcheng/xingcheng/manifest.json"
+    },
+    {
+      "id": "tool-locale:exists:xingcheng/xingcheng/manifest.json",
+      "kind": "file-exists",
+      "path": "xingcheng/xingcheng/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:parse:xingcheng/xingcheng/manifest.json",
+      "kind": "json-parses",
+      "path": "xingcheng/xingcheng/locales/zh-TW.json"
+    },
+    {
+      "id": "tool-locale:keys:xingcheng/xingcheng/manifest.json",
+      "kind": "json-has-keys",
+      "markers": [
+        "errors.permission_denied",
+        "tool.description",
+        "tool.name",
+        "tool.window_title"
+      ],
+      "path": "xingcheng/xingcheng/locales/zh-TW.json"
+    },
+    {
+      "id": "self-health:test-target:xingcheng:0:pending-native",
+      "items": "rows",
+      "kind": "json-array-min-count",
+      "markers": [
+        "status=PENDING",
+        "source_test^=xingcheng/xingcheng/"
       ],
       "min_count": 1,
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -18544,22 +18544,6 @@
       "path": "Standalone tools/local-model/manifest.json"
     },
     {
-      "id": "tm:xingcheng:id",
-      "kind": "json-key-value",
-      "markers": [
-        "id=xingcheng"
-      ],
-      "path": "Standalone tools/local-model/xingcheng/manifest.json"
-    },
-    {
-      "id": "tm:xingcheng:cap:ai-connections",
-      "kind": "file-contains",
-      "markers": [
-        "\"ai-connections\""
-      ],
-      "path": "Standalone tools/local-model/xingcheng/manifest.json"
-    },
-    {
       "id": "tm:model-dialogue:id",
       "kind": "json-key-value",
       "markers": [
@@ -18638,6 +18622,22 @@
         "\"authenticated-ipc\""
       ],
       "path": "shared-layer/manifest.json"
+    },
+    {
+      "id": "tm:xingcheng:id",
+      "kind": "json-key-value",
+      "markers": [
+        "id=xingcheng"
+      ],
+      "path": "xingcheng/xingcheng/manifest.json"
+    },
+    {
+      "id": "tm:xingcheng:cap:ai-connections",
+      "kind": "file-contains",
+      "markers": [
+        "\"ai-connections\""
+      ],
+      "path": "xingcheng/xingcheng/manifest.json"
     },
     {
       "id": "owned-source:governance_rule/permission_directory/registries/permissions/source_ownership.json",
@@ -20330,951 +20330,6 @@
       "path": "Standalone tools/local-model/src/__init__.py"
     },
     {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/cpp/build_cpp.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/cpp/build_cpp.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/capability_evaluation.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/capability_evaluation.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/codex_diagnostics.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/codex_diagnostics.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_analysis.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_analysis.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_constants.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_constants.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_generation.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_generation.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_process.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_process.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_spec.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/coding_expert_spec.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/command_channels.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/command_channels.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/command_parser.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/command_parser.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/infer_envelopes.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/infer_envelopes.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/infer_finalize.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/infer_finalize.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/infer_handle.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/infer_handle.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/infer_planning.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/infer_planning.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/infer_specialists.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/infer_specialists.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/infer_transformer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/infer_transformer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/inference_channel.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/inference_channel.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/investment_accounting.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/investment_accounting.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/investment_analysis.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/investment_analysis.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/investment_channel.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/investment_channel.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_capability.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_capability.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_command.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_command.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_embedding.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_embedding.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_health.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_health.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_lifecycle.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_lifecycle.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_maintenance.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_maintenance.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_market.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_market.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_teaching.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_teaching.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_training.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_training.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_utility.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_ai_utility.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_knowledge.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_knowledge.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_answer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_answer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_constants.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_constants.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_documents.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_documents.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_index.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_index.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_retrieval.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/local_rag_retrieval.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/mathematical_expert.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/mathematical_expert.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/native_tool_orchestrator.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/native_tool_orchestrator.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/persona_conversation.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/persona_conversation.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/reading_expert.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/reading_expert.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/reading_expert_docs.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/reading_expert_docs.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/reading_expert_rank.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/reading_expert_rank.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/service.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/service.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/training_gate.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/training_gate.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/upgrade_evaluation.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/upgrade_evaluation.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands_data.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands_data.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands_domain.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands_domain.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands_ops.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_commands_ops.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_shell.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/xingcheng_shell.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/domain/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/domain/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/domain/capability_composer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/domain/capability_composer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/domain/model_registry.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/domain/model_registry.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/domain/module_registry.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/domain/module_registry.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_analysis.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_analysis.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_context.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_context.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_engine.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_engine.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_extract.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_extract.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_lexicon.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/chinese_semantic_lexicon.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fast_inference.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fast_inference.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_aux.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_aux.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_data.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_data.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_evidence.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_evidence.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_localize.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/fault_diagnostics_localize.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/generative_language_model.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/generative_language_model.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/git_repository.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/git_repository.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_cognition_repository.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_cognition_repository.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_command_parser.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_command_parser.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_identity_repository.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_identity_repository.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_rag_canonical.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/local_rag_canonical.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_cache.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_cache.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_fund.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_fund.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_helpers.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_helpers.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_search.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_search.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_tw_official.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_tw_official.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_yahoo.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_data_yahoo.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_sources.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/market_sources.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/model_engines.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/model_engines.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/model_service_http.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/model_service_http.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_comprehension.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_comprehension.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_constants.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_constants.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_engine.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_engine.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_eval_suite.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_eval_suite.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_grounding.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_grounding.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_inference.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_inference.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_intent.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_intent.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_model.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_model.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_normalization.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_normalization.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_plan.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_plan.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_runtime.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_runtime.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_safety.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_safety.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/benchmark.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/benchmark.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/bpe.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/bpe.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/capability_eval.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/capability_eval.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/chat_format.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/chat_format.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/checkpoint.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/checkpoint.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/config.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/config.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_export.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_export.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_runtime.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_runtime.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/auto_release.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/auto_release.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/backend.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/backend.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/dispatch.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/dispatch.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/memory.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/execution/memory.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/chat_session.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/chat_session.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/generate.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/generate.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/kv_cache.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/kv_cache.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/prefix_cache.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/prefix_cache.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/sampler.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/inference/sampler.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/quant.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/quant.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rmsnorm.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rmsnorm.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rope.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rope.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/swiglu.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/swiglu.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/tensor_ops.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/tensor_ops.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/attention.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/attention.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/embedding.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/embedding.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/mlp.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/mlp.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/model.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/model.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/moe.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/moe.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/norm.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/norm.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/transformer_block.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/modules/transformer_block.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/quantizer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/quantizer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/retention.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/retention.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tokenizer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/tokenizer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/corpus.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/corpus.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/data.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/data.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/optimizer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/optimizer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/precision.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/precision.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/trainer.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/trainer.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/upcycle_moe.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/native_transformer/training/upcycle_moe.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/preference_dataset_bridge.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/preference_dataset_bridge.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/qwen_reranker.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/qwen_reranker.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/rag/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/rag/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/rag/hybrid.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/rag/hybrid.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_capability.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_capability.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_investment.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_investment.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_language.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_language.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_market.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_market.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_mathematical.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_mathematical.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_memory.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_memory.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_migration.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_migration.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_status.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repo_status.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repository.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/repository.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/sft_dataset.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/sft_dataset.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/tool_call_format.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/tool_call_format.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_executor.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_executor.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_worker.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_job_worker.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_repo_schema.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/training_repo_schema.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_adapter_registry.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_adapter_registry.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_audit.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_audit.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_datasets.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_datasets.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_jobs.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/transformer_training_repository_jobs.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/safety.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/safety.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/provider.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/provider.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/types.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/types.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/integration/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/integration/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/integration/channel_client.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/integration/channel_client.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/integration/external_research.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/integration/external_research.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/src/backend/services/xingcheng/integration/memory_broker.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/integration/memory_broker.py"
-    },
-    {
       "id": "forbidden-source:Standalone tools/local-model/src/channel_runtime.py",
       "kind": "file-not-exists",
       "path": "Standalone tools/local-model/src/channel_runtime.py"
@@ -21313,21 +20368,6 @@
       "id": "forbidden-source:Standalone tools/local-model/src/rag/vectord_backend.py",
       "kind": "file-not-exists",
       "path": "Standalone tools/local-model/src/rag/vectord_backend.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/xingcheng/cognition/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/xingcheng/cognition/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/xingcheng/identity/__init__.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/xingcheng/identity/__init__.py"
-    },
-    {
-      "id": "forbidden-source:Standalone tools/local-model/xingcheng/src/channel_runtime.py",
-      "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/xingcheng/src/channel_runtime.py"
     },
     {
       "id": "forbidden-source:Standalone tools/vaultly/src/__init__.py",
@@ -26615,6 +25655,966 @@
       "path": "shared-layer/src/shared_layer/workflow/visualization.py"
     },
     {
+      "id": "forbidden-source:xingcheng/src/backend/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/cpp/build_cpp.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/cpp/build_cpp.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/capability_evaluation.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/capability_evaluation.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/codex_diagnostics.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/codex_diagnostics.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/coding_expert.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/coding_expert.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/coding_expert_analysis.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/coding_expert_analysis.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/coding_expert_constants.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/coding_expert_constants.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/coding_expert_generation.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/coding_expert_generation.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/coding_expert_process.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/coding_expert_process.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/coding_expert_spec.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/coding_expert_spec.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/command_channels.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/command_channels.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/command_parser.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/command_parser.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/infer_envelopes.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/infer_envelopes.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/infer_finalize.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/infer_finalize.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/infer_handle.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/infer_handle.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/infer_planning.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/infer_planning.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/infer_specialists.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/infer_specialists.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/infer_transformer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/infer_transformer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/inference_channel.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/inference_channel.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/investment_accounting.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/investment_accounting.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/investment_analysis.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/investment_analysis.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/investment_channel.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/investment_channel.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_capability.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_capability.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_command.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_command.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_embedding.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_embedding.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_health.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_health.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_lifecycle.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_lifecycle.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_maintenance.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_maintenance.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_market.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_market.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_teaching.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_teaching.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_training.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_training.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_ai_utility.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_ai_utility.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_knowledge.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_knowledge.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_rag.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_rag.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_rag_answer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_rag_answer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_rag_constants.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_rag_constants.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_rag_documents.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_rag_documents.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_rag_index.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_rag_index.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/local_rag_retrieval.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/local_rag_retrieval.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/mathematical_expert.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/mathematical_expert.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/native_tool_orchestrator.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/native_tool_orchestrator.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/persona_conversation.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/persona_conversation.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/reading_expert.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/reading_expert.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/reading_expert_docs.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/reading_expert_docs.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/reading_expert_rank.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/reading_expert_rank.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/service.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/service.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/training_gate.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/training_gate.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/upgrade_evaluation.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/upgrade_evaluation.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/xingcheng_commands.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/xingcheng_commands.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/xingcheng_commands_data.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/xingcheng_commands_data.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/xingcheng_commands_domain.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/xingcheng_commands_domain.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/xingcheng_commands_ops.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/xingcheng_commands_ops.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/application/xingcheng_shell.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/application/xingcheng_shell.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/domain/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/domain/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/domain/capability_composer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/domain/capability_composer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/domain/model_registry.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/domain/model_registry.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/domain/module_registry.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/domain/module_registry.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/chat_foundation_dataset.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_analysis.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_analysis.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_context.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_context.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_engine.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_engine.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_extract.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_extract.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_lexicon.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/chinese_semantic_lexicon.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/fast_inference.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/fast_inference.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_aux.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_aux.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_data.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_data.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_evidence.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_evidence.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_localize.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/fault_diagnostics_localize.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/generative_language_model.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/generative_language_model.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/git_repository.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/git_repository.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/local_cognition_repository.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/local_cognition_repository.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/local_command_parser.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/local_command_parser.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/local_identity_repository.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/local_identity_repository.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/local_rag_canonical.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/local_rag_canonical.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data_cache.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data_cache.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data_fund.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data_fund.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data_helpers.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data_helpers.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data_search.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data_search.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data_tw_official.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data_tw_official.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_data_yahoo.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_data_yahoo.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/market_sources.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/market_sources.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/model_engines.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/model_engines.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/model_service_http.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/model_service_http.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_comprehension.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_comprehension.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_constants.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_constants.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_engine.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_engine.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_eval_suite.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_eval_suite.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_grounding.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_grounding.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_inference.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_inference.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_intent.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_intent.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_model.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_model.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_normalization.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_normalization.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_plan.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_plan.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_runtime.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_runtime.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_safety.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_safety.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/benchmark.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/benchmark.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/bpe.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/bpe.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/capability_eval.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/capability_eval.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/chat_format.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/chat_format.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/checkpoint.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/checkpoint.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/config.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/config.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_export.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_export.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_runtime.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/cpp_runtime.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/auto_release.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/auto_release.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/backend.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/backend.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/dispatch.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/dispatch.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/memory.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/execution/memory.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/chat_session.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/chat_session.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/generate.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/generate.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/kv_cache.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/kv_cache.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/prefix_cache.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/prefix_cache.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/sampler.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/inference/sampler.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/jax_backend"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/quant.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/quant.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rmsnorm.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rmsnorm.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rope.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/rope.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/swiglu.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/swiglu.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/tensor_ops.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/kernels/tensor_ops.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/lifecycle.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/maturity.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/attention.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/attention.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/embedding.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/embedding.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/mlp.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/mlp.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/model.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/model.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/moe.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/moe.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/norm.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/norm.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/transformer_block.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/modules/transformer_block.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/quantizer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/quantization/quantizer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/retention.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/retention.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/self_learning_support.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tokenizer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tokenizer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/budget.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/corpus.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/corpus.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/data.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/data.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/dpo.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/optimizer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/optimizer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/precision.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/precision.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/pretrain.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/sft.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/trainer.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/trainer.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/upcycle_moe.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/upcycle_moe.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/preference_dataset_bridge.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/preference_dataset_bridge.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/qwen_reranker.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/qwen_reranker.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/rag/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/rag/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/rag/hybrid.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/rag/hybrid.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_capability.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_capability.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_investment.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_investment.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_language.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_language.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_market.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_market.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_mathematical.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_mathematical.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_memory.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_memory.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_migration.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_migration.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repo_status.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repo_status.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/repository.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/repository.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/sft_dataset.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/sft_dataset.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/tool_call_format.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/tool_call_format.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/training_job_executor.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/training_job_executor.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/training_job_worker.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/training_job_worker.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/training_repo_schema.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/training_repo_schema.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/transformer_adapter_registry.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/transformer_adapter_registry.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository_audit.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository_audit.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository_datasets.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository_datasets.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository_jobs.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/transformer_training_repository_jobs.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/safety.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/fetch/safety.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/provider.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/provider.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/searchd.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/types.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/xingcheng_tools/search/types.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/integration/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/integration/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/integration/channel_client.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/integration/channel_client.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/integration/external_research.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/integration/external_research.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/services/xingcheng/integration/memory_broker.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/services/xingcheng/integration/memory_broker.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/xingcheng/cognition/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/xingcheng/cognition/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/xingcheng/identity/__init__.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/xingcheng/identity/__init__.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/xingcheng/src/channel_runtime.py",
+      "kind": "file-not-exists",
+      "path": "xingcheng/xingcheng/src/channel_runtime.py"
+    },
+    {
       "id": "owned-source:visual-smoke",
       "kind": "file-not-exists",
       "path": "Standalone tools/ai-assistant/scripts/visual_smoke.py"
@@ -26650,24 +26650,24 @@
       "path": "Standalone tools/ai-assistant/src/backend/services/ai_nexus/integration/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:application",
+      "id": "pkg-layer:xingcheng/src/backend/services/xingcheng:application",
       "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/application/__init__.py"
+      "path": "xingcheng/src/backend/services/xingcheng/application/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:domain",
+      "id": "pkg-layer:xingcheng/src/backend/services/xingcheng:domain",
       "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/domain/__init__.py"
+      "path": "xingcheng/src/backend/services/xingcheng/domain/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:infrastructure",
+      "id": "pkg-layer:xingcheng/src/backend/services/xingcheng:infrastructure",
       "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/infrastructure/__init__.py"
+      "path": "xingcheng/src/backend/services/xingcheng/infrastructure/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/local-model/src/backend/services/xingcheng:integration",
+      "id": "pkg-layer:xingcheng/src/backend/services/xingcheng:integration",
       "kind": "file-not-exists",
-      "path": "Standalone tools/local-model/src/backend/services/xingcheng/integration/__init__.py"
+      "path": "xingcheng/src/backend/services/xingcheng/integration/__init__.py"
     },
     {
       "id": "pkg-layer:Standalone tools/ai-collaboration/src/backend/services/ai_collaboration:application",
@@ -26851,6 +26851,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:ai_collaboration:xingcheng/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_collaboration",
+        "from ai_collaboration"
+      ],
+      "optional": true,
+      "path": "xingcheng/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:ai_nexus:Standalone tools/ai-collaboration/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -26958,6 +26969,17 @@
       ],
       "optional": true,
       "path": "shared-layer/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:ai_nexus:xingcheng/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import ai_nexus",
+        "from ai_nexus"
+      ],
+      "optional": true,
+      "path": "xingcheng/src"
     },
     {
       "glob": "*.py",
@@ -27071,6 +27093,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:file_sorter:xingcheng/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import file_sorter",
+        "from file_sorter"
+      ],
+      "optional": true,
+      "path": "xingcheng/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:investment_mobile:Standalone tools/ai-assistant/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27181,6 +27214,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:investment_mobile:xingcheng/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import investment_mobile",
+        "from investment_mobile"
+      ],
+      "optional": true,
+      "path": "xingcheng/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:xingcheng:Standalone tools/ai-assistant/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27233,6 +27277,17 @@
       ],
       "optional": true,
       "path": "Standalone tools/julia-compute/src"
+    },
+    {
+      "glob": "*.py",
+      "id": "cross-import:xingcheng:Standalone tools/local-model/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import xingcheng",
+        "from xingcheng"
+      ],
+      "optional": true,
+      "path": "Standalone tools/local-model/src"
     },
     {
       "glob": "*.py",
@@ -27401,6 +27456,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:vaultly:xingcheng/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import vaultly",
+        "from vaultly"
+      ],
+      "optional": true,
+      "path": "xingcheng/src"
+    },
+    {
+      "glob": "*.py",
       "id": "cross-import:star_chat:Standalone tools/ai-assistant/src",
       "kind": "tree-not-contains",
       "markers": [
@@ -27511,6 +27577,17 @@
     },
     {
       "glob": "*.py",
+      "id": "cross-import:star_chat:xingcheng/src",
+      "kind": "tree-not-contains",
+      "markers": [
+        "import star_chat",
+        "from star_chat"
+      ],
+      "optional": true,
+      "path": "xingcheng/src"
+    },
+    {
+      "glob": "*.py",
       "id": "shared-layer:forbidden-terms",
       "ignore_case": true,
       "kind": "tree-not-contains",
@@ -27575,7 +27652,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3575,
+    "native_checks": 3582,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27598,7 +27675,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T06:27:32Z",
+  "generated_at": "2026-10-02T07:04:35Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

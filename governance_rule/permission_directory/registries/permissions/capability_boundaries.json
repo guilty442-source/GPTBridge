@@ -727,10 +727,10 @@
                 "$kw": {
                   "path_match": "within",
                   "path_roots": [
-                    "Standalone tools/local-model/xingcheng"
+                    "xingcheng/xingcheng"
                   ],
                   "excluded_path_roots": [
-                    "Standalone tools/local-model/xingcheng/permissions"
+                    "xingcheng/xingcheng/permissions"
                   ]
                 }
               },
@@ -744,10 +744,10 @@
                 "$kw": {
                   "path_match": "within",
                   "path_roots": [
-                    "Standalone tools/local-model/xingcheng"
+                    "xingcheng/xingcheng"
                   ],
                   "excluded_path_roots": [
-                    "Standalone tools/local-model/xingcheng/permissions"
+                    "xingcheng/xingcheng/permissions"
                   ]
                 }
               },
@@ -761,10 +761,10 @@
                 "$kw": {
                   "path_match": "within",
                   "path_roots": [
-                    "Standalone tools/local-model/xingcheng"
+                    "xingcheng/xingcheng"
                   ],
                   "excluded_path_roots": [
-                    "Standalone tools/local-model/xingcheng/permissions"
+                    "xingcheng/xingcheng/permissions"
                   ]
                 }
               },
@@ -778,10 +778,10 @@
                 "$kw": {
                   "path_match": "within",
                   "path_roots": [
-                    "Standalone tools/local-model/xingcheng"
+                    "xingcheng/xingcheng"
                   ],
                   "excluded_path_roots": [
-                    "Standalone tools/local-model/xingcheng/permissions"
+                    "xingcheng/xingcheng/permissions"
                   ]
                 }
               },
@@ -795,10 +795,10 @@
                 "$kw": {
                   "path_match": "within",
                   "path_roots": [
-                    "Standalone tools/local-model/xingcheng"
+                    "xingcheng/xingcheng"
                   ],
                   "excluded_path_roots": [
-                    "Standalone tools/local-model/xingcheng/permissions"
+                    "xingcheng/xingcheng/permissions"
                   ]
                 }
               },
@@ -812,10 +812,10 @@
                 "$kw": {
                   "path_match": "within",
                   "path_roots": [
-                    "Standalone tools/local-model/xingcheng"
+                    "xingcheng/xingcheng"
                   ],
                   "excluded_path_roots": [
-                    "Standalone tools/local-model/xingcheng/permissions"
+                    "xingcheng/xingcheng/permissions"
                   ]
                 }
               }
@@ -2007,10 +2007,10 @@
                     "$kw": {
                       "path_match": "within",
                       "path_roots": [
-                        "Standalone tools/local-model/xingcheng"
+                        "xingcheng/xingcheng"
                       ],
                       "excluded_path_roots": [
-                        "Standalone tools/local-model/xingcheng/permissions"
+                        "xingcheng/xingcheng/permissions"
                       ]
                     }
                   },
@@ -2024,10 +2024,10 @@
                     "$kw": {
                       "path_match": "within",
                       "path_roots": [
-                        "Standalone tools/local-model/xingcheng"
+                        "xingcheng/xingcheng"
                       ],
                       "excluded_path_roots": [
-                        "Standalone tools/local-model/xingcheng/permissions"
+                        "xingcheng/xingcheng/permissions"
                       ]
                     }
                   },
@@ -2041,10 +2041,10 @@
                     "$kw": {
                       "path_match": "within",
                       "path_roots": [
-                        "Standalone tools/local-model/xingcheng"
+                        "xingcheng/xingcheng"
                       ],
                       "excluded_path_roots": [
-                        "Standalone tools/local-model/xingcheng/permissions"
+                        "xingcheng/xingcheng/permissions"
                       ]
                     }
                   },
@@ -2058,10 +2058,10 @@
                     "$kw": {
                       "path_match": "within",
                       "path_roots": [
-                        "Standalone tools/local-model/xingcheng"
+                        "xingcheng/xingcheng"
                       ],
                       "excluded_path_roots": [
-                        "Standalone tools/local-model/xingcheng/permissions"
+                        "xingcheng/xingcheng/permissions"
                       ]
                     }
                   },
@@ -2075,10 +2075,10 @@
                     "$kw": {
                       "path_match": "within",
                       "path_roots": [
-                        "Standalone tools/local-model/xingcheng"
+                        "xingcheng/xingcheng"
                       ],
                       "excluded_path_roots": [
-                        "Standalone tools/local-model/xingcheng/permissions"
+                        "xingcheng/xingcheng/permissions"
                       ]
                     }
                   },
@@ -2092,10 +2092,10 @@
                     "$kw": {
                       "path_match": "within",
                       "path_roots": [
-                        "Standalone tools/local-model/xingcheng"
+                        "xingcheng/xingcheng"
                       ],
                       "excluded_path_roots": [
-                        "Standalone tools/local-model/xingcheng/permissions"
+                        "xingcheng/xingcheng/permissions"
                       ]
                     }
                   }

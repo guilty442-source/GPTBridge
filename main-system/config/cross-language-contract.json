@@ -119,8 +119,8 @@
       "owner": "local-model",
       "status": "retired",
       "retired_by": "B162/B167/B38: Python inference retired; successor is cs-native-inference + native engine process",
-      "contract_ref": "Standalone tools/local-model/src/backend/cpp/include/xingcheng_inference.hpp",
-      "files": ["Standalone tools/local-model/src/backend/cpp/src/binding.cpp"]
+      "contract_ref": "xingcheng/src/backend/cpp/include/xingcheng_inference.hpp",
+      "files": ["xingcheng/src/backend/cpp/src/binding.cpp"]
     },
     {
       "id": "cs-native-inference",
@@ -129,8 +129,8 @@
       "mechanism_class": "NATIVE_ABI",
       "mechanism": "flat C ABI via NativeLibrary (no Python in path)",
       "owner": "business-logic-csharp",
-      "contract_ref": "Standalone tools/local-model/src/backend/cpp/include/xingcheng_engine_c.h",
-      "files": ["Standalone tools/local-model/src/backend/cpp/src/engine_c_abi.cpp", "Standalone tools/business-logic-csharp/StarBusinessLogic/Application/NativeModelClient.cs"]
+      "contract_ref": "xingcheng/src/backend/cpp/include/xingcheng_engine_c.h",
+      "files": ["xingcheng/src/backend/cpp/src/engine_c_abi.cpp", "Standalone tools/business-logic-csharp/StarBusinessLogic/Application/NativeModelClient.cs"]
     },
     {
       "id": "py-strategy-risk-ctypes",
