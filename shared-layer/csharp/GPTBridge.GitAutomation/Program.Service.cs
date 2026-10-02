@@ -27,6 +27,7 @@ internal static partial class Program
             new(StringComparer.OrdinalIgnoreCase);
         private double _lastEventWake;
         private readonly object _gate = new();
+        private bool _push;
 
         public Service(string root, Options options)
         {
@@ -89,6 +90,7 @@ internal static partial class Program
             };
             // Push flag: manifest flow entry wins; --push is the fallback.
             var push = FlowsConfig.PushEnabled(_root) || _options.Push;
+            _push = push;
             Console.WriteLine(
                 $"[git-automation] started " +
                 $"(sweep={_options.SweepInterval:0}s " +
@@ -102,6 +104,7 @@ internal static partial class Program
             try { File.Delete(stopFile); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
+            Task? cycle = null;
             while (_running)
             {
                 // Kill-switch re-check every cycle (manifest enabled=false
@@ -116,36 +119,51 @@ internal static partial class Program
                 }
                 try
                 {
-                    // Drain the event scope before the cycle: an
-                    // unscoped wake (overflow, unresolvable path) falls
-                    // back to a full sweep.
-                    HashSet<string>? scope = null;
-                    lock (_gate)
-                    {
-                        if (!_wakeAll && _wakeWorktrees.Count > 0)
-                            scope = new HashSet<string>(
-                                _wakeWorktrees,
-                                StringComparer.OrdinalIgnoreCase);
-                        _wakeWorktrees.Clear();
-                    }
-                    var wakeAll = _wakeAll;
-                    _wakeAll = false;
-                    if (wakeAll)
-                    {
-                        // A stale watcher set must not skip the
-                        // reconciliation sweep.
-                        try { RefreshWatchers(); }
-                        catch (Exception) { }
-                    }
-                    var tick = CycleTick(push, scope);
-                    if (await Task.WhenAny(
-                            tick, Task.Delay(tickDeadline)) != tick)
+                    // Surface a fault left behind by a timed-out tick
+                    // before deciding whether the lane is free.
+                    if (cycle is { IsFaulted: true })
                         Console.Error.WriteLine(
-                            $"[git-automation] cycle exceeded " +
-                            $"{tickDeadline.TotalSeconds:0}s deadline");
-                    else
-                        await tick; // observe faults — WhenAny alone
-                                    // swallows a failed cycle silently
+                            "[git-automation] cycle error: " +
+                            cycle.Exception?.GetBaseException().Message);
+                    // A tick that outlives its deadline keeps running to
+                    // completion in the background — never stack a second
+                    // CycleTick on top of it.  The dirty-state map and the
+                    // sweep/sync counters are single-writer state; two
+                    // live ticks corrupt the shared Dictionary.
+                    if (cycle is null || cycle.IsCompleted)
+                    {
+                        // Drain the event scope before the cycle: an
+                        // unscoped wake (overflow, unresolvable path)
+                        // falls back to a full sweep.
+                        HashSet<string>? scope = null;
+                        lock (_gate)
+                        {
+                            if (!_wakeAll && _wakeWorktrees.Count > 0)
+                                scope = new HashSet<string>(
+                                    _wakeWorktrees,
+                                    StringComparer.OrdinalIgnoreCase);
+                            _wakeWorktrees.Clear();
+                        }
+                        var wakeAll = _wakeAll;
+                        _wakeAll = false;
+                        if (wakeAll)
+                        {
+                            // A stale watcher set must not skip the
+                            // reconciliation sweep.
+                            try { RefreshWatchers(); }
+                            catch (Exception) { }
+                        }
+                        cycle = CycleTick(push, scope);
+                        if (await Task.WhenAny(
+                                cycle, Task.Delay(tickDeadline)) != cycle)
+                            Console.Error.WriteLine(
+                                $"[git-automation] cycle exceeded " +
+                                $"{tickDeadline.TotalSeconds:0}s " +
+                                "deadline — draining in background");
+                        else
+                            await cycle; // observe faults — WhenAny
+                                         // alone swallows them silently
+                    }
                 }
                 catch (Exception error)
                 {
@@ -366,11 +384,12 @@ internal static partial class Program
                     ["sweep_interval"] = _options.SweepInterval,
                     ["sync_interval"] = _options.SyncInterval,
                     ["debounce_seconds"] = _options.Debounce,
-                    ["push"] = _options.Push,
+                    ["push"] = _push,
                     ["sweeps"] = _sweeps,
                     ["syncs"] = _syncs,
                     ["pending_debounce"] = new JsonArray(
-                        _dirtySince.Keys.Order(StringComparer.Ordinal)
+                        _dirtySince.Keys.ToArray()
+                            .Order(StringComparer.Ordinal)
                             .Select(k => (JsonNode?)JsonValue.Create(k))
                             .ToArray()),
                     ["dirwatch_worktrees"] = _watchers.Count,
