@@ -108,6 +108,7 @@ internal static partial class Program
             var status = Sync.Synchronize(root,
                 commitDirty: options.CommitDirty, push: effectivePush,
                 withSql: options.SqlSync, sqlOutcome: out var sql);
+            ConvergenceReceipt.Record(root, status, sql);
             return (status, sql);
         }
         catch (LockBusyException)
