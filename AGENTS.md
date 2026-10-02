@@ -1801,3 +1801,29 @@ Worker rules for codex work:
     ï¿½ï¿½40-ï¿½ï¿½50, ï¿½ï¿½85-ï¿½ï¿½91, generation succession ï¿½ï¿½92-ï¿½ï¿½105, release bundle
     ï¿½ï¿½126-ï¿½ï¿½127 ï¿½X all gated on a pinned candidate, which is gated on ï¿½ï¿½3
     prerequisites reaching PASS.
+
+    First live gate evidence (release-gate `gate-20261002-120127.json`):
+    prereqs derive 4 PASS (capability-consistency, capability-delta
+    regression, resource-contract, cuda-probe), 1 FAIL (native-only ¡X
+    production-scope blocking findings: onnxruntime refs in
+    `xcm_silicon.h` ¡Ñ2, `LoadLibraryA("nvml.dll")` in
+    `cuda_kernels.cpp`, Npgsql+System.Management nuget in the
+    XingchengLearning csproj, Npgsql source-ref in `Pg.cs`, and 8
+    third-party cargo crates in xstore/xcorpus manifests) and 3
+    NOT_EVALUATED (architecture-drift SKIPPED ¡X bundle-bound step;
+    capability-floors ¡X no capability evidence yet; provenance ¡X no
+    live surface). SKIP is mapped to NOT_EVALUATED, never PASS and
+    never FAIL. Note the gate run itself had environmental FAILs to
+    re-run cleanly: build-modeltool LNK1104 (worker holds the exe),
+    build-xc-learning file lock (concurrent run), self-test +
+    dataset-retention TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED.
+    Phase-2 landed: `ProductionSoak.cs` ¡X `star-runtime-soak-sample/v1`
+    sampler (¡±8: rss/commit/paged bytes, threads, handles, /v1/status
+    probe latency+VRAM/KV columns when the service reports them) and
+    `star-production-soak-analysis/v1` (¡±9/¡±10 head-vs-tail slope
+    verdict: BOUNDED_WARMUP / FLAT / UNBOUNDED_GROWTH / TARGET_EXITED /
+    INSUFFICIENT_SAMPLES; RSS alone never convicts). Verbs:
+    `--production-soak --pid N [--seconds] [--interval-ms] [--port]
+    [--token-file]`, `--production-soak-analyze --file <jsonl>`.
+    Verified live against the toolhost worker (probe 200 via
+    `X-GPTBridge-Session-Token`).
