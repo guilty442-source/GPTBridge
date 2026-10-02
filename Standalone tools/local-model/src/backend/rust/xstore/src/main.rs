@@ -15,6 +15,7 @@
 
 #![recursion_limit = "512"]
 
+mod audit;
 mod diff;
 mod hash;
 mod store;
@@ -239,13 +240,28 @@ fn cmd_verify_store(m: &HashMap<String, String>) -> Result<serde_json::Value, St
     store::verify_store(Path::new(store))
 }
 
+fn cmd_audit_append(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let log = m.get("log").ok_or("AUDIT_ARG_MISSING: --log")?;
+    let data = m.get("data").ok_or("AUDIT_ARG_MISSING: --data")?;
+    let v: serde_json::Value = serde_json::from_str(data)
+        .map_err(|e| format!("AUDIT_DATA_INVALID: {e}"))?;
+    audit::append(Path::new(log), v)
+}
+
+fn cmd_audit_verify(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let log = m.get("log").ok_or("AUDIT_ARG_MISSING: --log")?;
+    audit::verify(Path::new(log))
+}
+
 fn usage() -> ExitCode {
     eprintln!(
         "usage: xstore <ckpt-info|ckpt-verify|hash> <file> [--hash-payloads]\n\
          \x20      xstore ckpt-diff <base> <cand>\n\
          \x20      xstore put --store <dir> --file <f> [--kind xcn1|blob]\n\
          \x20      xstore get --store <dir> --sha256 <hex> --out <path>\n\
-         \x20      xstore verify-store --store <dir>"
+         \x20      xstore verify-store --store <dir>\n\
+         \x20      xstore audit-append --log <f> --data <json>\n\
+         \x20      xstore audit-verify --log <f>"
     );
     ExitCode::from(2)
 }
@@ -267,6 +283,8 @@ fn main() -> ExitCode {
         "put" => cmd_put(&kv_args(&args[1..])),
         "get" => cmd_get(&kv_args(&args[1..])),
         "verify-store" => cmd_verify_store(&kv_args(&args[1..])),
+        "audit-append" => cmd_audit_append(&kv_args(&args[1..])),
+        "audit-verify" => cmd_audit_verify(&kv_args(&args[1..])),
         _ => return usage(),
     };
     match out {

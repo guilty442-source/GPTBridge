@@ -25,6 +25,9 @@ xstore hash        <file>             sha256 of a file
 xstore put  --store <dir> --file <f> [--kind xcn1|blob]
 xstore get  --store <dir> --sha256 <hex> --out <path>
 xstore verify-store --store <dir>     re-hash all objects + index chain
+xstore audit-append --log <f> --data <json>
+                                      hash-chained JSONL entry
+xstore audit-verify --log <f>         verify the whole chain
 ```
 
 Output contract: one JSON object on stdout (`format` tagged,
@@ -56,6 +59,16 @@ byte-exact payload compare with lane-level stats (lanes_changed,
 max_abs_diff, NaN counts) for differing tensors. `compatible:false`
 is fail-closed — callers deny promotion on structural divergence.
 
+## Immutable audit log (audit.rs)
+
+`star-audit-log/v1` — append-only JSONL where each entry's `prev` is
+sha256 of the previous line's **raw bytes** (genesis = 64 zeros):
+tampering with any byte of entry k breaks the link stored in k+1;
+reordering, forged appends and seq jumps all fail verify. Append is
+O(1) via backward tail-seek; `f.sync_all` before receipt. Inherent
+limit: lone logs cannot detect tail truncation — callers anchor `head`
+externally (store index, DB row) to close it.
+
 ## Guarantees (xcn1.rs)
 
 - All reads bounds-checked; every declared extent (`count * 4`, name
@@ -78,8 +91,10 @@ is fail-closed — callers deny promotion on structural divergence.
    hash-chained receipt index, structural parity gate.
 4. Dataset reader/writer + sequence packing + MinHash/dedup — landed in
    `xcorpus` (port of `xcm_corpus.h`'s C108 pipeline, byte-parity).
-5. Immutable audit-log append/verify — receipt chain landed in
-   `store.rs`; standalone `xstore audit-*` surface is the next step.
+5. Immutable audit-log append/verify — landed (`audit.rs`:
+   `star-audit-log/v1` hash-chained JSONL, O(1) append, full-chain
+   verify). C# `AuditEvent` JSONL and failure-pool records can adopt
+   this format as their persisted form.
 6. Tokenizer — landed in `xcorpus` (port of `engine_tokenizer.h`);
    a C ABI shim for the inference engine is still open.
 7. Binary-format registry: one parser per governed artifact kind.
