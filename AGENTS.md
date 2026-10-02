@@ -1433,3 +1433,26 @@ Worker rules for codex work:
    Related: `cuda_rtlane.h` was retired in `1a05cc74a` (orphan
    cudart_static/toolkit surface); the production lane is Driver API
    + in-tree PTX only.
+9. **`Standalone tools/julia-compute/` folder pending removal.** Codex
+   `JULIA_COMPUTE` is `retired` (entity_kind
+   `retired-former-scientific-compute-service`, retired_version
+   2026-10-02) but the folder still exists; codex-amendment candidates
+   (`julia-compute-a233-payload-sync-20261002`) are still in flight.
+   Remove the folder once the retirement convergence lands (E14 /
+   global-cleaner precedent); do not delete mid-amendment.
+10. **Codex data-dir residue needs a governor decision.**
+    `governance_rule/codex/data/` holds a 0-byte `governance_codex.db`
+    plus a 12.6 MB `governance_codex.sql` dump, while the project
+    architecture doc forbids retaining SQL dumps/DB mirrors. Codex is
+    read-only for workers — a human governor must decide; do not touch.
+11. **Codex open evidence gaps block verified release.**
+    `directory_activation_state` shows `DIR_DATA_SCHEMA_AUTHORITY` =
+    `INCOMPLETE_EVIDENCE` / `verified-release-denied` / `open`, and
+    `postgresql_role_registry` holds only the `ROLE_INVENTORY_REQUIRED`
+    placeholder (`INCOMPLETE_EVIDENCE`). These require real evidence
+    production via the governed pipeline — never hand-edit the rows.
+12. **No system Python on this host.** `Python313` lacks `python.exe`
+    and the `py` launcher finds no install, so the retired
+    `python -m governance_rule.execution.audit` entry cannot run.
+    Expected (Python lane retired, B166); audit evidence must come from
+    the governed C#/native pipeline and the pre-commit hooks.
