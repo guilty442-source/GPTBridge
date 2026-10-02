@@ -1,0 +1,62 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "module-capability-retired-residue-20261002-r3",
+  "title": "Converge retired-module residue in module_capability_registry after executed topology/authority retirements",
+  "summary": "Four module_capability_registry rows still read registered-current/active/active even though the corresponding architecture authorities were retired by earlier executed amendments: sub-sovereign-orchestration (sub-sovereign layer abolished; SUB_SOVEREIGN_LAYER activation state retired; architecture_registry component lifecycle=retired), model-training (MODEL_TRAINING activation retired by codex-amendment-request-model-training-topology-retirement-20260929; component lifecycle=retired; training authority re-parented to xingcheng lanes), module-sqlite (component lifecycle=retired; PostgreSQL is sole structured-data authority), and system-rescue (project_architecture_directory SYSTEM_RESCUE retired-former-tool 2026-09-27T14:50:00Z; SYSTEM_RESCUE activation retired; tool inventory retired). The system-rescue row additionally carries live-looking grants (grant:central-automatic-repair|grant:managed-backup|grant:system-health-check) on a retired tool. This request stamps all four rows status=retired, runtime_state=retired, availability=retired, matching the executed ollama-sibling-residue-20261002-r2 precedent (rev 238). Rows already converged (tokenizer, global-cleaner, ollama) are untouched; local-vector (registered degraded-only internal-service) and qdrant (active pending retirement-after-cutover per its component note) are intentionally excluded because their active capability rows match their registered state.",
+  "requested_by": "decision-sovereign",
+  "origin": "codex-vs-implementation convergence pass: cross-registry comparison of module_capability_registry against architecture_activation_states, project_architecture_directory and architecture_registry.json",
+  "problem": {
+    "summary": "module_capability_registry rows for sub-sovereign-orchestration, model-training, module-sqlite and system-rescue still advertise runtime_state=active and availability=active although every other authority surface records them retired. Consumers reading the capability registry see retired modules as activatable; system-rescue still advertises repair/backup/health-check grants.",
+    "affected": ["module_capability_registry"],
+    "scope": "registry convergence only; no file, binary or implementation change"
+  },
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T12:54:50Z",
+    "version_identity": "E2:2026-10-02T12:54:50Z",
+    "version_epoch": 2,
+    "history_head": "06abf801e2e4d0464f0a42df0f4cc5b6de56a92a39a905d9af395bbd2ff6f222",
+    "revision_sequence": 240
+  },
+  "changes": [
+    { "table": "module_capability_registry", "key": { "module_identity": "sub-sovereign-orchestration" }, "field": "runtime_state", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "sub-sovereign-orchestration" }, "field": "availability", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "sub-sovereign-orchestration" }, "field": "status", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "model-training" }, "field": "runtime_state", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "model-training" }, "field": "availability", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "model-training" }, "field": "status", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "module-sqlite" }, "field": "runtime_state", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "module-sqlite" }, "field": "availability", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "module-sqlite" }, "field": "status", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "system-rescue" }, "field": "runtime_state", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "system-rescue" }, "field": "availability", "proposed": "retired" },
+    { "table": "module_capability_registry", "key": { "module_identity": "system-rescue" }, "field": "status", "proposed": "retired" }
+  ],
+  "acceptance": {
+    "expected_state": "module_capability_registry rows sub-sovereign-orchestration, model-training, module-sqlite and system-rescue read status=retired, runtime_state=retired, availability=retired; no retired module advertises active capability or grants; projections rebuild to the successor version",
+    "criteria": [
+      "module_capability_registry rows for the four identities read runtime_state=retired, availability=retired, status=retired",
+      "local-vector, qdrant, tokenizer, global-cleaner and all other module_capability_registry rows unchanged",
+      "PostgreSQL/artifact parity PASS",
+      "zh-TW mirror parity PASS"
+    ],
+    "evidence": [
+      "executed amendment codex-amendment-request-model-training-topology-retirement-20260929.json.executed retired MODEL_TRAINING activation/directory rows",
+      "architecture_activation_states rows SUB_SOVEREIGN_LAYER, SYSTEM_RESCUE, MODEL_TRAINING read retired/retired",
+      "project_architecture_directory SYSTEM_RESCUE entity_kind=retired-former-tool retired_version=2026-09-27T14:50:00Z",
+      "architecture_registry.json components sub-sovereign-orchestration, module-sqlite, model-training, global-cleaner lifecycle=retired",
+      "executed precedent codex-amendment-request-ollama-sibling-residue-20261002-r2.json.executed (rev 238) stamped all three fields retired"
+    ],
+    "out_of_scope": [
+      "capability_codes grant tokens inside the retired rows remain as historical record and carry no active authority once the row is retired",
+      "maintenance-manual-directory entries owned by learning-evidence-sync-sub-sovereign identities - historical directory vocabulary, separate convergence decision",
+      "local-vector capability row - registered degraded-only internal-service, active state matches its registered lifecycle",
+      "qdrant capability row - component note is retire-after-cutover; A8 semantic-index authority remains until migration evidence lands"
+    ]
+  }
+}
