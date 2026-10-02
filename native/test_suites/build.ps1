@@ -352,8 +352,10 @@ $aeObj = Add-Tu $auditSrc @($includeDir) "c++latest" @("/DGPTBRIDGE_AUDIT_ENGINE
 $linkJobs += @{ name = "audit-engine"; exe = $auditExe; objs = @($aeObj) }
 # A608 資�?管制?�主程�?（C++23）�???��?�常駐�?程�???Python ?��??�?��?�?
 $govRoot = Join-Path $nativeRoot "resource_governor"
-$govExe = Join-Path $govRoot "bin\resource-governor.exe"
-New-Item -ItemType Directory -Force -Path (Split-Path $govExe -Parent) | Out-Null
+# Test builds stage their governor beside the suite binaries. The resident
+# governor owns resource_governor/bin; rebuilding tests must not deploy over
+# its running executable or require stopping the resource authority.
+$govExe = Join-Path $out "resource-governor.exe"
 $govSrcFiles = Get-ChildItem -Path $govRoot -Filter "*.cpp" -File | Sort-Object Name
 $govObjs = @($govSrcFiles | ForEach-Object { Add-Tu $_.FullName @($includeDir) "c++latest" @() })
 $linkJobs += @{ name = "resource-governor"; exe = $govExe; objs = $govObjs }
