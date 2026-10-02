@@ -1,0 +1,60 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "native-compute-core-python-semantics-20261002",
+  "title": "Repair NATIVE_COMPUTE_CORE canonical directory row stale Python semantics",
+  "summary": "Human-governor finding 2026-10-02: the canonical project_architecture_directory row for NATIVE_COMPUTE_CORE still carries pre-retirement semantics — failure_boundary 'native dispatch falls back to the Python path (B38/E184)' and runtime_boundary 'borrowed pointers only; Python owns all memory (B40/E186)'. This contradicts the current codex itself: B73 abolishes every Python role and residency, B38/E184 define the native-unavailable contract as last-verified owner-language path or fail-closed with PYTHON-FALLBACK:none, B40/E186 define only the C ABI and physical layout (no memory owner is stated), and B166/B74 allocate ownership to registered owner languages. Corrected text: failure_boundary cites the owner-language-or-fail-closed contract with no Python fallback; runtime_boundary assigns memory ownership to the loading process/owning engine (per OBL_NATIVE_COMPUTE_CORE_CLASS acceptance 'runtime-owner=loading-process-or-owning-engine'). The a233_normalized_directory_entry projection of the same row is updated in the same revision so canonical and projection never diverge. Codex-only change: no implementation is modified.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor finding 2026-10-02: 現在不是 A233 stale，而是 canonical directory 本身有舊語意 — NATIVE_COMPUTE_CORE current row 還寫 'native dispatch falls back to Python' 與 'Python owns all memory'，與 B38/B74 Python zero-role/zero-fallback 衝突。",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T03:59:48Z",
+    "version_identity": "E2:2026-10-02T03:59:48Z",
+    "version_epoch": 2,
+    "history_head": "6cecad8f1e9e79dfd8e660907da9788e2ed917b603d35b8c77574c61f4140af7",
+    "revision_sequence": 204
+  },
+  "problem": {
+    "summary": "Canonical project_architecture_directory NATIVE_COMPUTE_CORE row retains retired-Python semantics in failure_boundary and runtime_boundary; the A233 normalized projection faithfully mirrors the same stale text, so the defect is in the canonical row, not the projection."
+  },
+  "changes": [
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "NATIVE_COMPUTE_CORE"
+      },
+      "field": "failure_boundary",
+      "proposed": "native dispatch falls back only to a last-verified owner-language path or fails closed; Python fallback none (B38/E184/B73)"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "NATIVE_COMPUTE_CORE"
+      },
+      "field": "runtime_boundary",
+      "proposed": "borrowed pointers only; memory owned by the loading process or owning engine (B40/B166)"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "NATIVE_COMPUTE_CORE",
+        "source_table": "project_architecture_directory"
+      },
+      "field": "domain_payload",
+      "proposed": "{\"architecture_code\":\"NATIVE_COMPUTE_CORE\",\"canonical_name\":\"native-compute-core\",\"command_codes\":\"\",\"data_authority\":\"none\",\"dependencies\":\"governance codex|shared layer\",\"entity_kind\":\"native-compute-library\",\"failure_boundary\":\"native dispatch falls back only to a last-verified owner-language path or fails closed; Python fallback none (B38/E184/B73)\",\"fault_codes\":\"\",\"interfaces\":\"gptbridge_native.h C ABI (B40/E186)\",\"introduced_version\":\"2026-09-20T17:19:04Z\",\"logical_boundary\":\"canonical pure-C compute core (tensor / SIMD / memory / CPU kernel) and stable C ABI boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_RUNTIME\",\"permission_scope\":\"main-system-internal-service\",\"physical_root\":\"E:\\\\GPTBridge\\\\native\\\\core\",\"responsibilities\":\"tensor-basic-ops|simd|memory-management|cpu-kernels|stable-c-abi\",\"retired_version\":null,\"runtime_boundary\":\"borrowed pointers only; memory owned by the loading process or owning engine (B40/B166)\",\"test_flow_codes\":\"\"}",
+      "also": {
+        "content_hash": "d0d4b7b41d4a2407a3bb79dea581690b3f56deeb4843a693ff381ac09cb97c57",
+        "revision": "<successor-version>"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-10-02T04:15:00Z",
+    "expected_audit_result": "project_architecture_directory.NATIVE_COMPUTE_CORE failure_boundary/runtime_boundary reference the owner-language-or-fail-closed contract and loading-process memory ownership with no Python fallback or Python memory ownership; a233_normalized_directory_entry carries the identical domain_payload and matching content_hash"
+  }
+}
