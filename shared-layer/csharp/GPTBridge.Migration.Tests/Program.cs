@@ -36,4 +36,5 @@ try
     Equal("", Read(Hash(Array.Empty<byte>())));
 }
 finally { File.Delete(file); }
+if (args.Contains("--integration")) passed += Integration.Run();
 Console.WriteLine(JsonSerializer.Serialize(new { artifact = "migration-source-binding-regression", passed, failed = 0 }));
