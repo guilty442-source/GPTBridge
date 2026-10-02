@@ -67,6 +67,14 @@ internal static class PgDsn
             }
             return builder.ConnectionString;
         }
+        // Npgsql emits semicolon-delimited strings when an executor
+        // selects a scratch database. Accept that canonical form as well
+        // as libpq inputs; never reinterpret its quoted password fields.
+        if (value.Contains(';'))
+        {
+            try { return new NpgsqlConnectionStringBuilder(value).ConnectionString; }
+            catch (ArgumentException) { /* may be a libpq quoted value */ }
+        }
         // libpq keyword form: "dbname=x user=y password=z host=h port=p"
         var mapped = new NpgsqlConnectionStringBuilder();
         foreach (var pair in SplitPairs(value))

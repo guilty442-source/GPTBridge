@@ -212,6 +212,27 @@ struct Features {
     bool background_mode = false;
     bool ecoqos = false;
     double limiter_percent = kDefaultLimiterPercent;
+    /* 動態升降：limiter_dynamic 啟用時每週期按需求重算 Job 比率
+     * （pressed→收緊 limiter_step 至 limiter_min；slack→放寬回
+     * limiter_percent）；priority_escalate 啟用時 busy 持續超過
+     * sustain+extreme_sustain 且當下仍 extreme 的行程由
+     * below_normal 再降 idle，跌回 extreme 以下先回 below_normal。 */
+    bool limiter_dynamic = false;
+    double limiter_min_percent = kLimiterMinDynamicPct;
+    double limiter_step_percent = kLimiterStepPct;
+    bool priority_escalate = false;
+    /* 回收機制（reclaim）：mem_used ≥ reclaim_mem_pct 時每週期按 RSS
+     * 降序批次修整工作集（前景/排除/治理平面豁免），自動釋放 RAM。 */
+    bool reclaim_enabled = false;
+    double reclaim_mem_pct = kReclaimMemPct;
+    int reclaim_batch = kReclaimBatch;
+    double reclaim_min_mb = kReclaimMinMb;
+    /* 池動態信封（pool_dynamic）：非互動池 CPU Job 率隨機器壓力升降
+     * （受壓→收緊至 floor；平靜且頂帽→放回預設）。互動層不壓。 */
+    bool pool_dynamic = false;
+    double pool_relief_cpu_pct = kPoolReliefCpuPct;
+    double pool_floor_percent = kPoolFloorPercent;
+    double pool_step_percent = kPoolStepPercent;
     bool worker_job_cap = false;
     double worker_job_percent = kWorkerCpuBudgetPct;
     long long worker_job_memory_bytes = 0;

@@ -115,8 +115,12 @@ internal static class CapabilityEvidence
         string toolRoot, Dictionary<string, object?> doc)
     {
         var rec = Normalize(doc);
+        var metadata = new NativeMetadataClient(toolRoot, "xingcheng-capability-evidence");
+        var identity = (string)rec["evidence_hash"]!;
+        metadata.PutRecord(NativeMetadataClient.Types.CapabilityEvidence,
+            new Dictionary<string, object?> { ["record_id"] = identity, ["document"] = rec },
+            operationId: "capability-evidence:" + identity);
         var existing = Load(toolRoot);
-        existing.Add(rec);
         if (existing.Count > MaxRecords)
             existing = existing.Skip(existing.Count - MaxRecords)
                                .ToList();
@@ -140,14 +144,12 @@ internal static class CapabilityEvidence
     public static List<Dictionary<string, object?>> Load(string toolRoot)
     {
         var list = new List<Dictionary<string, object?>>();
-        string path = Path_(toolRoot);
-        if (!File.Exists(path)) return list;
-        foreach (var line in File.ReadAllLines(path))
+        var metadata = new NativeMetadataClient(toolRoot, "xingcheng-capability-evidence");
+        foreach (var row in metadata.Query(NativeMetadataClient.Types.CapabilityEvidence, null, 1000000))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            using var doc = JsonDocument.Parse(line);
-            if (ModelLifecycle.Decode(doc.RootElement)
-                    is Dictionary<string, object?> rec)
+            if (row.GetValueOrDefault("document") is not Dictionary<string, object?>)
+                throw new ExecutorError("CAPABILITY_EVIDENCE_CORRUPT", "Canonical evidence document missing.");
+            if (row.GetValueOrDefault("document") is Dictionary<string, object?> rec)
             {
                 if (rec.TryGetValue("evidence_hash", out object? h) &&
                     h?.ToString() != HashRecord(rec))
@@ -156,7 +158,8 @@ internal static class CapabilityEvidence
                 list.Add(rec);
             }
         }
-        return list;
+        return list.OrderBy(record => record.GetValueOrDefault("timestamp")?.ToString(), StringComparer.Ordinal)
+            .ThenBy(record => record.GetValueOrDefault("evidence_hash")?.ToString(), StringComparer.Ordinal).ToList();
     }
 
     /// <summary>Latest evidence summary, optionally filtered to one

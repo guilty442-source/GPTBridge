@@ -3,10 +3,11 @@
 // This is the manifest runtime.native_entry for investment-mobile: the
 // retired src/channel_runtime.py lane (B167/B38) is replaced by this
 // governed C# host. The shared ToolHostProgram validates the injected
-// governed environment (identity, sealed manifest, IPC token/port,
-// transport sidecar) — any failure exits 13 PERMISSION_DENIED, so the
-// main-system backend reports SOURCE_RUNTIME_EXITED rather than
-// running ungoverned.
+// governed environment (identity, sealed manifest, IPC token/port) —
+// any failure exits 13 PERMISSION_DENIED, so the main-system backend
+// reports SOURCE_RUNTIME_EXITED rather than running ungoverned. The
+// transport sidecar is optional (Go-lane convention): absent →
+// deferred store-less claim lane, WS surface stays the request path.
 //
 // Channel binding: the ai channel is submit-bound to
 // governance/tool/investment-mobile (capability ai-channel-request-
@@ -28,13 +29,36 @@ using InvestmentMobile.Service;
 namespace InvestmentMobile.ToolHost;
 
 /// <summary>Executor binding the sealed command contract to the
-/// service; PERMISSION_DENIED propagates as the host's denied exit.</summary>
-internal sealed class InvestmentMobileExecutor : IGovernedCommandExecutor
+/// service; PERMISSION_DENIED propagates as the host's denied exit.
+/// The WS command surface (design §10) exposes the same owned command
+/// set — the authenticated socket acts with the tool's own actor
+/// (governance/tool/investment-mobile), which the service gate already
+/// authorizes.</summary>
+internal sealed class InvestmentMobileExecutor
+    : IGovernedCommandExecutor, IWsCommandSurface
 {
     private readonly InvestmentMobileService _service;
 
     public InvestmentMobileExecutor(InvestmentMobileService service)
         => _service = service;
+
+    public bool OwnsCommand(string command) => _service.Owns(command);
+
+    public async Task<(string Event, JsonObject Result)> ExecuteWsAsync(
+        string command, JsonObject payload, string requestId,
+        Func<JsonObject, Task>? emitProgress,
+        CancellationToken cancellationToken)
+    {
+        if (_service.ExecuteGate(XingchengRoute.SelfActor, command)
+                != "ALLOW")
+            throw new PermissionDeniedException();
+        var result = await _service.HandleAsync(
+            command, payload, XingchengRoute.SelfActor,
+            cancellationToken);
+        if (result.Event == "PERMISSION_DENIED")
+            throw new PermissionDeniedException();
+        return result;
+    }
 
     public async Task<(string Event, JsonObject Result)> ExecuteAsync(
         string command, JsonObject payload, string requestId,
@@ -149,5 +173,10 @@ internal static class Program
             {
                 ["ai"] = new(
                     "governance/tool/investment-mobile"),
-            });
+            },
+            // No transport-proxy sidecar ships in this phase (the Go
+            // lane's optional-sidecar convention): run the deferred
+            // store-less claim lane so the governed host + WS surface
+            // stay up; submit-side ops resolve NotConnected honestly.
+            allowDeferredTransport: true);
 }

@@ -86,6 +86,15 @@ AdvisorPolicy parse_advisor_policy(const jsonlite::JsonValue* auto_obj,
             std::clamp(num_or(auto_obj, "strain_cpu_pct", 85.0), 1.0, 100.0);
         policy.strain_mem_pct =
             std::clamp(num_or(auto_obj, "strain_mem_pct", 90.0), 1.0, 100.0);
+        policy.signal_alpha =
+            std::clamp(num_or(auto_obj, "signal_alpha", 0.5), 0.05, 1.0);
+        policy.strain_instant_margin = std::clamp(
+            num_or(auto_obj, "strain_instant_margin", 10.0), 0.0, 50.0);
+        {
+            const double busy = num_or(auto_obj, "eval_interval_busy_s", 20.0);
+            policy.eval_interval_busy_s =
+                busy <= 0.0 ? 0.0 : std::clamp(busy, 5.0, 3600.0);
+        }
         policy.headroom_cpu_pct =
             std::clamp(num_or(auto_obj, "headroom_cpu_pct", 60.0), 1.0, 100.0);
         policy.headroom_mem_pct =
@@ -156,6 +165,8 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         state.applied_mode.clear();
         state.streak = 0;
         state.last_target.clear();
+        state.cpu_ema = -1.0;
+        state.mem_ema = -1.0;
         out.evaluated = true; /* 記錄 enabled=false（同 Python 每 tick 落盤） */
         out.reason = "auto-disabled";
         return out;
@@ -165,15 +176,39 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         out.reason = "rules-error";
         return out;
     }
+    /* 熱態節拍：緊張/超載持續（瞬時或 EMA 越線）或檔位轉換 streak
+     * 進行中時，評估間隔縮短為 eval_interval_busy_s——緊急反應與
+     * 平靜後復原都更快；≤0 停用。 */
+    const bool hot = policy.eval_interval_busy_s > 0.0 &&
+        (sig.strained || state.streak > 0 ||
+         sig.cpu_load_pct >= policy.strain_cpu_pct ||
+         sig.mem_used_pct >= policy.strain_mem_pct ||
+         (state.cpu_ema >= 0.0 && state.cpu_ema >= policy.strain_cpu_pct) ||
+         (state.mem_ema >= 0.0 && state.mem_ema >= policy.strain_mem_pct));
+    const double eval_ivl =
+        hot ? std::min(policy.eval_interval_s, policy.eval_interval_busy_s)
+            : policy.eval_interval_s;
     /* 評估節拍：預設 60s（與退役 Python 一致）；未到期不動狀態。 */
     if (state.last_eval_mono >= 0.0 &&
-        sig.now_mono - state.last_eval_mono < policy.eval_interval_s) {
+        sig.now_mono - state.last_eval_mono < eval_ivl) {
         out.target = out.current;
         out.reason = "cadence";
         return out;
     }
     state.last_eval_mono = sig.now_mono;
     out.evaluated = true;
+    out.busy_cadence = hot;
+    /* 訊號平滑：EMA 跨評估更新；<0（未播種）以當下取樣播種，冷啟動
+     * 時保持既有即時判定。 */
+    const double alpha = std::clamp(policy.signal_alpha, 0.05, 1.0);
+    state.cpu_ema = state.cpu_ema < 0.0
+        ? sig.cpu_load_pct
+        : state.cpu_ema + alpha * (sig.cpu_load_pct - state.cpu_ema);
+    state.mem_ema = state.mem_ema < 0.0
+        ? sig.mem_used_pct
+        : state.mem_ema + alpha * (sig.mem_used_pct - state.mem_ema);
+    out.cpu_load_ema = state.cpu_ema;
+    out.mem_used_ema = state.mem_ema;
 
     out.demand =
         sig.admission_hold || sig.reg_pre || sig.reg_active ||
@@ -181,8 +216,9 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
          sig.worker_cpu_pct >= sig.budget_cpu_pct * policy.demand_factor) ||
         (sig.budget_ram_pct > 0 &&
          sig.worker_ram_pct >= sig.budget_ram_pct * policy.demand_factor);
-    out.headroom = sig.cpu_load_pct < policy.headroom_cpu_pct &&
-                   sig.mem_used_pct < policy.headroom_mem_pct;
+    /* 升檔餘裕閘用 EMA：重載中一個安靜取樣窗口不應放行升檔。 */
+    out.headroom = state.cpu_ema < policy.headroom_cpu_pct &&
+                   state.mem_ema < policy.headroom_mem_pct;
     out.schedule_active =
         policy.schedule_enabled &&
         in_schedule_window(sig.local_minutes, policy.schedule_start_min,
@@ -194,8 +230,16 @@ AdvisorDecision evaluate_advisor(const AdvisorPolicy& policy,
         out.urgent = true;
         reason = "night-power-saving (" + policy.schedule_start + "-" +
                  policy.schedule_end + ")";
-    } else if (sig.strained || sig.cpu_load_pct >= policy.strain_cpu_pct ||
-               sig.mem_used_pct >= policy.strain_mem_pct) {
+    /* 整機超載：回應探針緊張（自帶滯回）／EMA 持續越線／單次取樣
+     * 達 strain+instant_margin 極端尖峰，任一即 urgent 降 low；
+     * 低於極端門檻的單次尖峰只進 EMA，不立即降檔。 */
+    } else if (sig.strained ||
+               sig.cpu_load_pct >=
+                   policy.strain_cpu_pct + policy.strain_instant_margin ||
+               sig.mem_used_pct >=
+                   policy.strain_mem_pct + policy.strain_instant_margin ||
+               state.cpu_ema >= policy.strain_cpu_pct ||
+               state.mem_ema >= policy.strain_mem_pct) {
         out.target = "low";
         out.urgent = true;
         reason = sig.strained ? "strained" : "machine-overload";

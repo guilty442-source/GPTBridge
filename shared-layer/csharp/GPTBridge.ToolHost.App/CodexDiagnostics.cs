@@ -42,6 +42,8 @@ internal static class CodexDiagnostics
     public static async Task<JsonObject> RunAsync(
         GovernedEnvironment env, string verb, CancellationToken ct)
     {
+        if (verb is not ("--arch-docs" or "--mirror-check"))
+            return Error("CODEX_DIAGNOSTIC_VERB_DENIED");
         var exe = ResolvePipelineExe(env.ProjectRoot);
         if (!File.Exists(exe))
             return new JsonObject
@@ -50,37 +52,60 @@ internal static class CodexDiagnostics
                 ["error_code"] = "CODEX_PIPELINE_UNAVAILABLE",
                 ["message"] = exe,
             };
-        var start = new ProcessStartInfo(exe, verb)
+        var start = new ProcessStartInfo(exe)
         {
+            WorkingDirectory = env.ProjectRoot,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        start.ArgumentList.Add(verb);
+        start.ArgumentList.Add("--root");
+        start.ArgumentList.Add(env.ProjectRoot);
+        return await RunProcessAsync(start, DiagnosticTimeout, ct)
+            .ConfigureAwait(false);
+    }
+
+    private static JsonObject Error(string code) => new()
+    {
+        ["ok"] = false, ["error_code"] = code,
+    };
+
+    internal static async Task<JsonObject> RunProcessAsync(
+        ProcessStartInfo start, TimeSpan budget, CancellationToken ct)
+    {
+        Process? process = null;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(budget);
         try
         {
-            using var process = Process.Start(start)
+            timeout.Token.ThrowIfCancellationRequested();
+            process = Process.Start(start)
                 ?? throw new InvalidOperationException("spawn failed");
-            using var timeout = CancellationTokenSource
-                .CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(DiagnosticTimeout);
-            var stdout = await process.StandardOutput
-                .ReadToEndAsync(timeout.Token).ConfigureAwait(false);
-            await process.WaitForExitAsync(timeout.Token)
+            // Drain both pipes concurrently: a full stderr pipe can block
+            // the native entry before it writes or closes stdout.
+            var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+            await Task.WhenAll(stdout, stderr, process.WaitForExitAsync(timeout.Token))
                 .ConfigureAwait(false);
-            var parsed = JsonNode.Parse(stdout) as JsonObject;
+            JsonObject? parsed;
+            try { parsed = JsonNode.Parse(await stdout.ConfigureAwait(false)) as JsonObject; }
+            catch (JsonException) { parsed = null; }
             if (parsed is null)
-                return new JsonObject
-                {
-                    ["ok"] = false,
-                    ["error_code"] = "CODEX_PIPELINE_BAD_OUTPUT",
-                };
+                return Error(process.ExitCode == 0
+                    ? "CODEX_PIPELINE_BAD_OUTPUT" : "CODEX_PIPELINE_FAILED");
             if (process.ExitCode != 0)
             {
                 parsed["ok"] = false;
                 parsed["error_code"] ??= "CODEX_PIPELINE_FAILED";
             }
             return parsed;
+        }
+        catch (OperationCanceledException)
+        {
+            return Error(ct.IsCancellationRequested
+                ? "CODEX_PIPELINE_CANCELLED" : "CODEX_PIPELINE_TIMEOUT");
         }
         catch (Exception ex)
         {
@@ -91,6 +116,23 @@ internal static class CodexDiagnostics
                 ["message"] = ex.Message.Length > 200
                     ? ex.Message[..200] : ex.Message,
             };
+        }
+        finally
+        {
+            if (process is not null)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                        using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                        await process.WaitForExitAsync(cleanup.Token).ConfigureAwait(false);
+                    }
+                }
+                catch (InvalidOperationException) { /* process already exited */ }
+                finally { process.Dispose(); }
+            }
         }
     }
 
@@ -111,11 +153,11 @@ internal static class CodexDiagnostics
                 $"{(ok ? "PASS" : "FAIL")} {name}：{detail}");
         }
 
-        if (result["ok"]?.GetValue<bool>() != true
-            && result["error_code"] is not null)
+        if (result["ok"] is not JsonValue status
+            || !status.TryGetValue<bool>(out var success) || !success)
         {
             Check(prefix, false,
-                result["error_code"]?.GetValue<string>()
+                result["error_code"]?.ToString()
                     ?? "CODEX_PIPELINE_FAILED");
             return;
         }
@@ -125,8 +167,13 @@ internal static class CodexDiagnostics
         var rows = 0;
         void ErrorsRow(string name, JsonNode? node)
         {
-            if (node is not JsonArray errors) return;
+            if (node is null) return;
             ++rows;
+            if (node is not JsonArray errors)
+            {
+                Check(name, false, "CODEX_PIPELINE_BAD_OUTPUT");
+                return;
+            }
             Check(name, errors.Count == 0,
                 errors.Count == 0
                     ? "0"
@@ -147,9 +194,6 @@ internal static class CodexDiagnostics
                 $"{stale} across {docs.Count} documents");
         }
         if (rows == 0)
-            Check(prefix,
-                result["ok"]?.GetValue<bool>() == true,
-                result["ok"]?.GetValue<bool>() == true
-                    ? "ok" : "check failed");
+            Check(prefix, false, "CODEX_DIAGNOSTIC_EVIDENCE_MISSING");
     }
 }

@@ -1,0 +1,196 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v1",
+    "request_id":  "closure-generation-refresh-20261002-r5",
+    "title":  "Restamp current convergence closure rows onto the successor generation via in-pipeline rebuild",
+    "summary":  "Resubmission r5: r4 raced a transient intake run and was rejected CANDIDATE_OUTPUT_EXISTS before evaluation. Minimal change set - version_identity/verified_at restamps of the 8 current closure rows, CONVERGENCE_CURRENT metrics row and the 4 measured governance_closure_state components - executed under RebuildClosureBookkeeping so the published generation recomputes closure bookkeeping inside the staged candidate before sealing (D119/D122).",
+    "requested_by":  "decision-sovereign",
+    "origin":  "worker devin-desktop-2 full-auto convergence task: post-rev244 stale closure rows; durable fix GenerationProjections.ClosureBookkeeping.cs",
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "resubmission_of":  "closure-generation-refresh-20261002-r4",
+    "auto_execute":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T13:21:35Z",
+                        "version_identity":  "E2:2026-10-02T13:21:35Z",
+                        "version_epoch":  2,
+                        "history_head":  "4689837ca19e01fbf900943b149d10da3111e7f705baf3e5ca91b1e51c315101",
+                        "revision_sequence":  244
+                    },
+    "changes":  [
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "FORMAL_RULE_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "FORMAL_RULE_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "MACHINE_SCHEMA_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "MACHINE_SCHEMA_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "NORMATIVE_SURFACE_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "NORMATIVE_SURFACE_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "DIRECTORY_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "DIRECTORY_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "DUPLICATION_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "DUPLICATION_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "SEARCH_CURRENTNESS_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "SEARCH_CURRENTNESS_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "PROJECTION_PARITY_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "PROJECTION_PARITY_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "CODEX_CONVERGENCE_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_closure",
+                        "key":  {
+                                    "closure_id":  "CODEX_CONVERGENCE_CLOSURE"
+                                },
+                        "field":  "verified_at",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "codex_convergence_metrics",
+                        "key":  {
+                                    "report_id":  "CONVERGENCE_CURRENT"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "governance_closure_state",
+                        "key":  {
+                                    "component_code":  "CODEX_CONVERGENCE_CLOSURE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "governance_closure_state",
+                        "key":  {
+                                    "component_code":  "FORMAL_EVALUATOR_PARITY"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "governance_closure_state",
+                        "key":  {
+                                    "component_code":  "IMPLEMENTATION_OBLIGATIONS"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    },
+                    {
+                        "table":  "governance_closure_state",
+                        "key":  {
+                                    "component_code":  "VERIFIED_RELEASE"
+                                },
+                        "field":  "version_identity",
+                        "proposed":  "\u003csuccessor-version\u003e"
+                    }
+                ],
+    "proposed_successors":  [
+
+                            ]
+}

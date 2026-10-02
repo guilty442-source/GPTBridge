@@ -390,5 +390,138 @@ int main() {
     }
     NT_END_TEST(SUITE, "govern_once_respects_ceiling_during_day");
 
+    NT_TEST(SUITE, "ema_smoothing_policy_parse") {
+        const std::string text =
+            R"({"auto_mode": true,)"
+            R"("auto": {"signal_alpha": 0.3, "strain_instant_margin": 12.5,)"
+            R"( "eval_interval_busy_s": 15},)"
+            R"("power_saving_schedule": {"enabled": false},)"
+            R"("modes": {"low": {}, "medium": {}, "high": {}}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "parse ok");
+        NT_CHECK(std::abs(parsed->advisor.signal_alpha - 0.3) < 1e-9,
+                 "signal_alpha parsed");
+        NT_CHECK(std::abs(parsed->advisor.strain_instant_margin - 12.5) < 1e-9,
+                 "strain_instant_margin parsed");
+        NT_CHECK(std::abs(parsed->advisor.eval_interval_busy_s - 15.0) < 1e-9,
+                 "busy cadence parsed");
+        /* busy ≤0 停用 → 恆用基礎節拍。 */
+        const std::string off =
+            R"({"auto_mode": true, "auto": {"eval_interval_busy_s": 0},)"
+            R"("power_saving_schedule": {"enabled": false},)"
+            R"("modes": {"low": {}, "medium": {}, "high": {}}})";
+        auto parsed_off = gov::parse_rules(off);
+        NT_CHECK(parsed_off.has_value() &&
+                     parsed_off->advisor.eval_interval_busy_s == 0.0,
+                 "busy cadence 0 = disabled");
+    }
+    NT_END_TEST(SUITE, "ema_smoothing_policy_parse");
+
+    NT_TEST(SUITE, "ema_absorbs_single_busy_spike") {
+        /* 單一繁忙取樣窗口（如 20s 編譯尖峰）不再 urgent 降檔——
+         * 只有 EMA 持續越線或達極端門檻才降。 */
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.signal_alpha = 0.5;         /* ema = 0.5*ema + 0.5*now */
+        policy.strain_instant_margin = 10.0; /* instant ≥95 才即時降 */
+        policy.eval_interval_busy_s = 0.0; /* 本測試固定節拍 */
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals(); /* cpu 20 / mem 40 */
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.changed, "calm baseline holds");
+        NT_CHECK(std::abs(state.cpu_ema - 20.0) < 0.01, "ema seeded");
+
+        sig.cpu_load_pct = 90.0; /* ≥strain 85 但 <極端 95 */
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.changed && !d.urgent, "single 90% spike absorbed");
+        NT_CHECK(std::abs(d.cpu_load_ema - 55.0) < 0.01, "ema=55");
+
+        /* 持續超載：ema 72.5→81.25→85.625，第五次取樣才降 low。 */
+        for (int i = 0; i < 2; ++i) {
+            sig.now_mono += 60.0;
+            d = gov::evaluate_advisor(policy, sig, state);
+            NT_CHECK(!d.changed, "sustained ramp still absorbing");
+        }
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && d.urgent && d.target == "low",
+                 "sustained overload demotes via ema");
+        NT_CHECK(state.applied_mode == "low", "low applied");
+    }
+    NT_END_TEST(SUITE, "ema_absorbs_single_busy_spike");
+
+    NT_TEST(SUITE, "extreme_instant_spike_stays_urgent") {
+        /* 極端尖峰（≥strain+margin）不受平滑影響，立即降檔保回應。 */
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.signal_alpha = 0.5;
+        policy.strain_instant_margin = 10.0;
+        policy.eval_interval_busy_s = 0.0;
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals();
+        gov::evaluate_advisor(policy, sig, state); /* 播種 ema=20 */
+
+        sig.cpu_load_pct = 97.0; /* ≥85+10 極端 */
+        sig.now_mono += 60.0;
+        const gov::AdvisorDecision d =
+            gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && d.urgent && d.target == "low",
+                 "extreme spike urgent despite ema 58.5");
+    }
+    NT_END_TEST(SUITE, "extreme_instant_spike_stays_urgent");
+
+    NT_TEST(SUITE, "headroom_gate_uses_smoothed_signal") {
+        /* 重載中一個安靜窗口不能放行升檔：headroom 看 EMA。 */
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.signal_alpha = 0.5;
+        policy.eval_interval_busy_s = 0.0;
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals();
+        sig.cpu_load_pct = 80.0; /* 重載（≥headroom 60） */
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.headroom, "loaded machine has no headroom");
+
+        sig.cpu_load_pct = 40.0; /* 瞬時安靜（<60），ema=60 仍未達 */
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.headroom, "one quiet window not enough (ema=60)");
+
+        sig.now_mono += 60.0;
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.headroom, "sustained calm opens headroom (ema=50)");
+    }
+    NT_END_TEST(SUITE, "headroom_gate_uses_smoothed_signal");
+
+    NT_TEST(SUITE, "busy_cadence_evaluates_sooner_when_hot") {
+        /* 熱態（超載持續/轉換進行中）→ busy 節拍；平靜後回基礎節拍。 */
+        gov::AdvisorPolicy policy = enabled_policy();
+        policy.signal_alpha = 0.5;
+        policy.eval_interval_s = 60.0;
+        policy.eval_interval_busy_s = 20.0;
+        gov::AdvisorState state;
+        gov::AdvisorSignals sig = calm_signals();
+        sig.cpu_load_pct = 96.0; /* 極端：urgent 降 low，ema=96 */
+        gov::AdvisorDecision d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.changed && d.target == "low", "overload demote");
+
+        sig.cpu_load_pct = 20.0; /* 機器轉靜，但 ema 仍 58 → 仍熱 */
+        sig.now_mono += 25.0;    /* ≥20 忙碌節拍、<60 基礎節拍 */
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(d.evaluated && d.busy_cadence,
+                 "hot state evaluates at busy cadence");
+
+        /* 連續平靜直到 ema 落回、streak 歸零 → 回復 60s 節拍。 */
+        for (int i = 0; i < 8; ++i) {
+            sig.now_mono += 30.0; /* ≥busy：若仍熱會被評估 */
+            d = gov::evaluate_advisor(policy, sig, state);
+        }
+        NT_CHECK(state.streak == 0 && state.cpu_ema < policy.strain_cpu_pct,
+                 "settled state reached");
+        sig.now_mono += 30.0; /* <60 基礎節拍 */
+        d = gov::evaluate_advisor(policy, sig, state);
+        NT_CHECK(!d.evaluated && !d.busy_cadence,
+                 "calm returns to base cadence");
+    }
+    NT_END_TEST(SUITE, "busy_cadence_evaluates_sooner_when_hot");
+
     return native_tests::report("resource_governor_advisor_suite.json");
 }

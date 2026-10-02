@@ -40,9 +40,18 @@ struct AdvisorPolicy {
     int streak_up = 2;              /* 升檔所需連續需求評估數 */
     int streak_down = 3;            /* 降檔所需連續評估數 */
     double cooldown_s = 600.0;      /* 降檔最小間隔（升檔豁免） */
-    double strain_cpu_pct = 85.0;   /* 整機負載立即降 low 的門檻 */
+    double strain_cpu_pct = 85.0;   /* 整機負載（EMA）降 low 的門檻 */
     double strain_mem_pct = 90.0;
-    double headroom_cpu_pct = 60.0; /* 允許升檔所需的整機餘裕 */
+    /* 信號平滑（EMA）：strain/headroom 判定用跨評估指數平均，吸收
+     * 單一繁忙取樣窗口（如 20s 編譯尖峰）；signal_alpha=1.0 還原
+     * 舊瞬時行為。instant ≥ strain+strain_instant_margin 的極端
+     * 尖峰仍即時 urgent，不等待 EMA 收斂。 */
+    double signal_alpha = 0.5;
+    double strain_instant_margin = 10.0;
+    /* 忙碌節拍：緊張/超載/升檔連續評估進行中時用較短評估間隔，
+     * 讓緊急反應與平靜復原都更快（≤0 停用＝恆用 eval_interval_s）。 */
+    double eval_interval_busy_s = 20.0;
+    double headroom_cpu_pct = 60.0; /* 允許升檔所需的整機餘裕（EMA） */
     double headroom_mem_pct = 75.0;
     double demand_factor = 0.8;     /* worker 帳本 ≥ budget*factor 視為需求 */
     /* 閒置全速：無使用者輸入 ≥ idle_after_s 時上限放寬至 idle_ceiling。 */
@@ -66,6 +75,10 @@ struct AdvisorState {
     std::string applied_mode; /* 空 = 尚未接管（有效模式＝rules.mode） */
     double last_switch_unix = 0.0;
     double last_eval_mono = -1.0; /* <0：從未評估（首週期立即評估） */
+    /* 信號 EMA（僅行程內，不落 advisor.json；<0 = 未播種，首次評估
+     * 以當下取樣播種——冷啟動時保持既有即時判定）。 */
+    double cpu_ema = -1.0;
+    double mem_ema = -1.0;
 };
 
 /* 單次評估輸入（全部來自本週期已量測的信號）。 */
@@ -97,6 +110,9 @@ struct AdvisorDecision {
     bool demand = false;
     bool headroom = false;
     bool idle_active = false;      /* 閒置全速生效中（idle_ceiling 接管上限） */
+    bool busy_cadence = false;     /* 本次採用 eval_interval_busy_s（熱態節拍） */
+    double cpu_load_ema = -1.0;    /* 本次評估後的整機訊號 EMA（觀測輸出） */
+    double mem_used_ema = -1.0;
     std::string eff_ceiling;       /* 本次評估實際使用的上限檔位 */
     std::string target;
     std::string current;

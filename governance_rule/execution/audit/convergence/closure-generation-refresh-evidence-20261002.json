@@ -1,0 +1,82 @@
+{
+  "artifact": "closure-generation-refresh-evidence",
+  "authority": "non-authoritative-audit-evidence",
+  "worker": "devin-desktop-2",
+  "verified_at_utc": "2026-10-02T12:56:00Z",
+  "task": "收斂法典與實作差異 — restamp convergence bookkeeping rows to current generation",
+  "evaluator": "governance_rule/execution/audit/convergence/formal-state-closure-evaluator.ps1 -Verify",
+  "before": {
+    "generation": "2026-10-02T12:40:26Z",
+    "revision": 238,
+    "result": "FAIL",
+    "failures": [
+      "all-convergence-closure-rows-current",
+      "single-current-metrics-dynamic-schema-denominator",
+      "current-metrics-match-all-surface-measurements",
+      "current-verified-release-denied"
+    ]
+  },
+  "amendments": [
+    {
+      "request_id": "closure-generation-refresh-20261002",
+      "outcome": "rejected",
+      "reason": "CANDIDATE_OUTPUT_EXISTS — raced the resident codex-amendment-intake watcher building the same request id"
+    },
+    {
+      "request_id": "closure-generation-refresh-20261002-r2",
+      "outcome": "executed",
+      "successor_version": "2026-10-02T12:51:36Z",
+      "revision": 239,
+      "note": "restamped all current closure/metrics/closure_state rows; superseded_default_search_count written 1 but publish-time surface rebuild cleared the flag — one invariant still failed"
+    },
+    {
+      "request_id": "closure-generation-refresh-20261002-r3",
+      "outcome": "executed",
+      "successor_version": "2026-10-02T12:54:50Z",
+      "revision": 240,
+      "note": "superseded_default_search_count=0 + full restamp; post-r2 input digests refreshed (surface/directory/search projections rebuild each generation)"
+    }
+  ],
+  "after": {
+    "generation": "2026-10-02T12:54:50Z",
+    "revision": 240,
+    "result": "PASS",
+    "checks": 20,
+    "failures": []
+  },
+  "measured_at_rev239": {
+    "formal_registry": 89,
+    "formal_participating": 79,
+    "formal_open": 79,
+    "machine_schema_registered": 77,
+    "machine_schema_open": 77,
+    "surface_active": 989,
+    "surface_unknown": 184,
+    "directory_catalog_open": 40,
+    "search_total": 906,
+    "search_stale": 0,
+    "duplicate_exact_groups": 0,
+    "obligations": {
+      "complete": 2,
+      "evidence-submitted": 1,
+      "mandated": 58,
+      "pending": 1,
+      "superseded": 1
+    }
+  },
+  "remaining_open_divergence": {
+    "note": "structural gaps, truthfully recorded as INCOMPLETE_EVIDENCE — not bookkeeping drift; owned by parallel worker claims",
+    "formal_rule_parity_open": 79,
+    "machine_schema_parity_open": 77,
+    "implementation_obligations_open": 60,
+    "unknown_surface_articles": 184,
+    "directory_catalog_open": 40,
+    "semantic_duplication_review": "PENDING_CURRENT_SEMANTIC_REVIEW",
+    "external_signature": "externally-blocked",
+    "release": "VERIFIED_RELEASE_DENIED"
+  },
+  "residue": {
+    "orphan_candidate_manifest": "main-system/runtime/state/codex-amendments/candidates/closure-generation-refresh-20261002.candidate-manifest.json",
+    "note": "left in place — candidates dir is pipeline-managed runtime state; keyed by the retired r1 id, harmless to the r3 id"
+  }
+}

@@ -29,7 +29,7 @@ import (
 
 const (
 	opReplyTimeout = 30 * time.Second
-	embedTimeout   = 15 * time.Second
+	embedTimeout   = 90 * time.Second
 )
 
 type bounds struct {
@@ -48,6 +48,7 @@ type session struct {
 	owner    string
 	hwnd     uintptr
 	chromium *edge.Chromium
+	ctrlH    *ctrlCompletedHandler // keeps the COM handler alive
 	bounds   bounds
 	url      string
 	loading  bool
@@ -74,6 +75,11 @@ type BrowserManager struct {
 	jobs  chan func()
 	tid   uintptr
 	ready chan struct{}
+
+	// ensureMu serialises session creation: a timed-out backend op leaves
+	// ensureSession running (attach retry path), and a second create for
+	// the same id must not race it.
+	ensureMu sync.Mutex
 
 	envMu      sync.Mutex
 	envStarted bool
@@ -264,8 +270,16 @@ func setChromiumHwnd(cr *edge.Chromium, hwnd uintptr) {
 // `err` (last-error) after every COM call, so a stale win32 error from
 // an earlier call kills the process via errorCallback → os.Exit even
 // though controller creation succeeded (verified live: hr==S_OK).
+//
+// The handler passed here is our own ctrlCompletedHandler, NOT
+// Chromium.controllerCompleted: the stock implementation routes
+// async failures (e.g. E_ABORT) through errorCallback which ends in
+// os.Exit(1), killing the whole tool window before the retry path
+// can run.  Ours reports the failure on a channel instead and
+// delegates only the success path back to the Chromium method.
 func attachController(cr *edge.Chromium,
-	env *edge.ICoreWebView2Environment, hwnd uintptr) error {
+	env *edge.ICoreWebView2Environment, hwnd uintptr,
+	handler *ctrlCompletedHandler) error {
 	type envVtbl struct {
 		qi               uintptr
 		addRef           uintptr
@@ -280,22 +294,100 @@ func attachController(cr *edge.Chromium,
 	// outlives this Chromium.
 	_, _, _ = syscall.Syscall(obj.vtbl.addRef, 1,
 		uintptr(unsafe.Pointer(env)), 0, 0)
-	// Chromium.controllerCompleted is unexported — fetch the ready-made
-	// COM handler via the struct field (stable layout, v1.0.16).
-	hv := reflect.ValueOf(cr).Elem().FieldByName("controllerCompleted")
-	handler := *(*unsafe.Pointer)(unsafe.Pointer(hv.UnsafeAddr()))
 	hr, _, _ := syscall.SyscallN(obj.vtbl.createController,
-		uintptr(unsafe.Pointer(env)), hwnd, uintptr(handler))
+		uintptr(unsafe.Pointer(env)), hwnd, uintptr(unsafe.Pointer(handler)))
 	if int32(hr) < 0 {
 		return fmt.Errorf("WEBVIEW2_CONTROLLER_FAILED %08x", uint32(hr))
 	}
 	return nil
 }
 
+// ---------------- safe controller-completed COM handler ----------------
+//
+// COM layout identical to go-webview2's
+// iCoreWebView2CreateCoreWebView2ControllerCompletedHandler:
+// {vtbl, impl} where vtbl is [QI, AddRef, Release, Invoke].
+// CreateCoreWebView2Controller stores the handler pointer and calls
+// Invoke asynchronously on the creating thread's message pump.
+
+type ctrlCompletedImpl struct {
+	cr    *edge.Chromium
+	errCh chan error
+}
+
+func (i *ctrlCompletedImpl) queryInterface(_, _ uintptr) uintptr { return 0 }
+func (i *ctrlCompletedImpl) addRef() uintptr                     { return 1 }
+func (i *ctrlCompletedImpl) release() uintptr                    { return 1 }
+
+// invoke matches ICoreWebView2CreateCoreWebView2ControllerCompletedHandler.
+// Failure: report on errCh and return S_OK — the caller retries with a
+// fresh environment.  Success: delegate to the Chromium method which does
+// the full controller/webview/event-handler wiring itself.
+func (i *ctrlCompletedImpl) invoke(res uintptr,
+	c *edge.ICoreWebView2Controller) uintptr {
+	if int32(res) < 0 || c == nil {
+		select {
+		case i.errCh <- fmt.Errorf(
+			"WEBVIEW2_CONTROLLER_FAILED %08x", uint32(res)):
+		default:
+		}
+		return 0
+	}
+	return i.cr.CreateCoreWebView2ControllerCompleted(res, c)
+}
+
+type iunknownVtbl struct{ qi, addRef, release uintptr }
+
+type ctrlCompletedVtbl struct {
+	iunknownVtbl
+	invoke uintptr
+}
+
+type ctrlCompletedHandler struct {
+	vtbl *ctrlCompletedVtbl
+	impl *ctrlCompletedImpl
+}
+
+func newCtrlCompletedHandler(cr *edge.Chromium) (*ctrlCompletedHandler, chan error) {
+	errCh := make(chan error, 1)
+	h := &ctrlCompletedHandler{impl: &ctrlCompletedImpl{cr: cr, errCh: errCh}}
+	h.vtbl = &ctrlCompletedVtbl{
+		iunknownVtbl: iunknownVtbl{
+			qi: syscall.NewCallback(
+				func(this *ctrlCompletedHandler, refiid, object uintptr) uintptr {
+					return this.impl.queryInterface(refiid, object)
+				}),
+			addRef: syscall.NewCallback(
+				func(this *ctrlCompletedHandler) uintptr {
+					return this.impl.addRef()
+				}),
+			release: syscall.NewCallback(
+				func(this *ctrlCompletedHandler) uintptr {
+					return this.impl.release()
+				}),
+		},
+		invoke: syscall.NewCallback(
+			func(this *ctrlCompletedHandler, res uintptr,
+				c *edge.ICoreWebView2Controller) uintptr {
+				return this.impl.invoke(res, c)
+			}),
+	}
+	return h, errCh
+}
+
 // ensureSession creates the session webview on the pump thread when
 // absent, waits for the controller, and navigates to url when given.
 func (m *BrowserManager) ensureSession(id, owner, url string,
 	b bounds) (*session, error) {
+	if s := m.lookup(id); s != nil {
+		if url != "" {
+			m.post(func() { m.navigateNow(s, url) })
+		}
+		return s, nil
+	}
+	m.ensureMu.Lock()
+	defer m.ensureMu.Unlock()
+	// Re-check after taking the lock — a racing creator may have finished.
 	if s := m.lookup(id); s != nil {
 		if url != "" {
 			m.post(func() { m.navigateNow(s, url) })
@@ -440,6 +532,11 @@ func (m *BrowserManager) applyBounds(s *session, b bounds) {
 			moveWindow(s.hwnd, scaleCoord(m.parent, b.X),
 				scaleCoord(m.parent, b.Y), scaleCoord(m.parent, b.W),
 				scaleCoord(m.parent, b.H))
+			// MoveWindow only resizes the host HWND — the WebView2
+			// controller keeps its own bounds, so it must be pushed
+			// explicitly or the webview keeps rendering at the old
+			// (possibly 0x0) size.
+			s.chromium.Resize()
 		})
 	}
 }
@@ -787,6 +884,17 @@ func (m *BrowserManager) execScript(s *session, script string,
 	}
 	select {
 	case res := <-ch:
+		// TEMP-DEBUG: dump every exec result for live diagnosis.
+		ident := script
+		if len(ident) > 48 {
+			ident = ident[:48]
+		}
+		rj, _ := json.Marshal(res.result)
+		if len(rj) > 1600 {
+			rj = rj[:1600]
+		}
+		fmt.Fprintf(os.Stderr, "exec-debug ok=%v err=%q script=%.48q result=%s\n",
+			res.ok, res.err, ident, string(rj))
 		if !res.ok {
 			return failOp("EXEC_FAILED", res.err)
 		}

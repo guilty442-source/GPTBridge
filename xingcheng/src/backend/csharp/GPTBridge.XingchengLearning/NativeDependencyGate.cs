@@ -243,6 +243,14 @@ internal static class NativeDependencyGate
         }
         bool ok = findings.All(f => !f.Blocking ||
                                     f.Scope != "production");
+
+        // §99-§100 NATIVE_METADATA_AUTHORITY_GATE: authority marker +
+        // audit root + metadata integrity, verified over the native
+        // plane's own contract — never by reading store files in C#.
+        var authorityGate = MetadataAuthorityGate(toolRoot);
+        if (!(bool)authorityGate["ok"]!)
+            ok = false;
+
         var classes = findings
             .GroupBy(f => f.DepClass)
             .ToDictionary(g => (object?)g.Key,
@@ -250,6 +258,7 @@ internal static class NativeDependencyGate
         return new Dictionary<string, object?>
         {
             ["ok"] = ok,
+            ["native_metadata_authority"] = authorityGate,
             ["format"] = GateFormat,
             ["release_gate"] = "NATIVE_ONLY_GATE",
             ["promotion_allowed"] = ok,
@@ -263,6 +272,40 @@ internal static class NativeDependencyGate
                 .Where(b => b.Forbidden.Count > 0)
                 .Select(b => (object?)b.Path).ToList(),
         };
+    }
+
+    /// <summary>§99-§100: NATIVE_METADATA_AUTHORITY_GATE — verifies
+    /// metadata_authority == xstore, postgres_required == false,
+    /// shadow_mode == false, dual_write == false, audit_root_valid and
+    /// metadata_integrity through the xstore contract. An absent marker
+    /// (pre-flip tree) reports postgresql + FAIL so the gate can never
+    /// pass before the governed flip.</summary>
+    private static Dictionary<string, object?> MetadataAuthorityGate(
+        string toolRoot)
+    {
+        try
+        {
+            var meta = new NativeMetadataClient(
+                toolRoot, actor: "native-metadata-authority-gate");
+            return MetadataAuthority.Gate(meta);
+        }
+        catch (Exception e)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["format"] = MetadataAuthority.GateReportFormat,
+                ["gate"] = MetadataAuthority.GateId,
+                ["ok"] = false,
+                ["status"] = "ERROR",
+                ["metadata_authority"] = "postgresql",
+                ["postgres_required"] = true,
+                ["shadow_mode"] = true,
+                ["dual_write"] = false,
+                ["audit_root_valid"] = false,
+                ["metadata_integrity"] = "FAIL",
+                ["error"] = e.Message,
+            };
+        }
     }
 
     // ---- §118 cuda-native-check -----------------------------------------

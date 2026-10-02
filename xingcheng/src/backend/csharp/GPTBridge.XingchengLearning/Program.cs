@@ -72,6 +72,8 @@ internal static class Program
 
         try
         {
+            foreach (var mutation in new[] { "gen-begin", "arch-migrate", "arch-activate", "maturation-reopen" })
+                if (flags.Contains(mutation)) ProductionClosure.FreezeGuard(toolRoot, mutation);
             if (flags.Contains("model-maturity"))
                 return Emit(flags.Contains("status")
                     ? ModelMaturity.Status(toolRoot)
@@ -213,12 +215,33 @@ internal static class Program
                 return Emit(new TransformerTrainingRepository(toolRoot)
                     .DatabaseStatus());
             if (flags.Contains("migrate"))
-                return Emit(new Dictionary<string, object?>
+            {
+                // xstore is the metadata authority — --migrate is the
+                // native maintenance tick (index rebuild + verify).
+                var repo = new TransformerTrainingRepository(toolRoot);
+                var outMap = new Dictionary<string, object?>
                 {
                     ["ok"] = true,
-                    ["migrated"] =
-                        new TransformerTrainingRepository(toolRoot).Maintain(),
-                });
+                    ["migrated"] = repo.Maintain(),
+                };
+                if (flags.Contains("xstore-backfill"))
+                    outMap["xstore_backfill"] = MetadataMigration.Backfill(repo);
+                if (flags.Contains("authority-flip"))
+                {
+                    // §45-§46: idempotent authority receipt — returns
+                    // the committed transition, or commits a genesis
+                    // marker on a markerless native store after the
+                    // certification probes pass (fail-closed).
+                    var meta = new NativeMetadataClient(
+                        toolRoot, actor: "xingcheng-authority-flip");
+                    outMap["authority_flip"] =
+                        MetadataAuthority.Flip(repo, meta);
+                    outMap["ok"] = (bool)outMap["ok"]! &&
+                        (bool)(((Dictionary<string, object?>)
+                            outMap["authority_flip"]!)["ok"] ?? false);
+                }
+                return Emit(outMap);
+            }
             // B154 retired (executed 2026-10-02, rev 235): the external
             // model-service teacher lane is decommissioned and the flag
             // stays only as a fail-closed stub — the lane can never be

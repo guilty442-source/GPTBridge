@@ -242,11 +242,7 @@ internal static partial class ManifestExport
                 expectedOwner: "xingcheng", selfHealth: true);
         // root.glob("*/*/*/*/manifest.json") — depth-4 anywhere
         // (4 directory segments + filename = 5 path parts)
-        foreach (var path in Directory
-                     .EnumerateFiles(root, "manifest.json",
-                         SearchOption.AllDirectories)
-                     .Where(p => Path.GetRelativePath(root, p)
-                         .Split(Path.DirectorySeparatorChar).Length == 5)
+        foreach (var path in DepthFourManifests(root)
                      .OrderBy(p => p, StringComparer.Ordinal))
             if (ManifestScanned(root, path))
                 EmitManifest(path, topLevel: false,

@@ -20,6 +20,18 @@ mod diff;
 mod failpool;
 mod hash;
 mod kernels;
+mod meta_api;
+mod meta_domain;
+mod meta_index;
+mod meta_lease;
+mod meta_log;
+mod meta_release;
+mod meta_snap;
+mod meta_state;
+#[cfg(test)]
+mod meta_tests;
+mod meta_tx;
+mod meta_types;
 mod snapshot;
 mod store;
 mod xcn1;
@@ -319,6 +331,26 @@ fn cmd_fail_status(m: &HashMap<String, String>) -> Result<serde_json::Value, Str
     failpool::status(Path::new(pool))
 }
 
+fn require_store(kv: &HashMap<String, String>) -> Result<&String, String> {
+    kv.get("store").ok_or_else(|| "META_ARG_MISSING: --store".to_string())
+}
+
+fn cmd_meta(
+    kv: &HashMap<String, String>,
+    f: impl Fn(&Path, &HashMap<String, String>) -> Result<serde_json::Value, String>,
+) -> Result<serde_json::Value, String> {
+    let store = require_store(kv)?;
+    f(Path::new(store), kv)
+}
+
+fn cmd_meta0(
+    kv: &HashMap<String, String>,
+    f: impl Fn(&Path) -> Result<serde_json::Value, String>,
+) -> Result<serde_json::Value, String> {
+    let store = require_store(kv)?;
+    f(Path::new(store))
+}
+
 fn usage() -> ExitCode {
     eprintln!(
         "usage: xstore <ckpt-info|ckpt-verify|hash> <file> [--hash-payloads]\n\
@@ -337,7 +369,16 @@ fn usage() -> ExitCode {
          \x20      xstore fail-mark  --pool-dir <d> --class <c>\n\
          \x20      \x20 --fingerprint <fp> --state <OPEN|TRAINED|RESOLVED|REGRESSED>\n\
          \x20      xstore fail-status --pool-dir <d>\n\
-         \x20      xstore kernel-registry [--policy <json>]"
+         \x20      xstore kernel-registry [--policy <json>]\n\
+         \x20      xstore metadata-put --store <d> --op <op> [--params <json|@f>]\n\
+         \x20      xstore metadata-transition --store <d> --type <t> --id <id>\n\
+         \x20      \x20 --to <state> [--expected-revision <n>]\n\
+         \x20      xstore metadata-get --store <d> --type <t> --id <id>\n\
+         \x20      xstore metadata-query --store <d> --type <t>\n\
+         \x20      \x20 [--where <json>] [--limit <n>]\n\
+         \x20      xstore metadata-snapshot --store <d>\n\
+         \x20      xstore metadata-verify --store <d>\n\
+         \x20      xstore metadata-rebuild-index --store <d>"
     );
     ExitCode::from(2)
 }
@@ -381,6 +422,19 @@ fn main() -> ExitCode {
         "fail-status" => cmd_fail_status(&kv),
         "kernel-registry" => Ok(kernels::registry_emit(
             kv.get("policy"))),
+        "metadata-put" => cmd_meta(&kv, |s, m| meta_api::cmd_put(s, m)),
+        "metadata-transition" => {
+            cmd_meta(&kv, |s, m| meta_api::cmd_transition(s, m))
+        }
+        "metadata-get" => cmd_meta(&kv, |s, m| meta_api::cmd_get(s, m)),
+        "metadata-query" => cmd_meta(&kv, |s, m| meta_api::cmd_query(s, m)),
+        "metadata-snapshot" => {
+            cmd_meta0(&kv, meta_api::cmd_snapshot)
+        }
+        "metadata-verify" => cmd_meta0(&kv, meta_api::cmd_verify),
+        "metadata-rebuild-index" => {
+            cmd_meta0(&kv, meta_api::cmd_rebuild_index)
+        }
         _ => return usage(),
     };
     match out {

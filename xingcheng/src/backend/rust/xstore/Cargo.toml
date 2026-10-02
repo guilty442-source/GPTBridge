@@ -6,7 +6,10 @@ description = "GPTBridge local-model Rust data/safety lane (xstore/v1): untruste
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-serde_json = "1.0"
+# float_roundtrip: correctly-rounded f64 parse — the metadata plane
+# replays C#-canonical JSON payloads; without it serde_json's fast path
+# drifts boundary-case floats by 1 ulp and breaks audit parity.
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 sha2 = "0.10"
 memmap2 = "0.9"
 unicode_categories = "0.1"

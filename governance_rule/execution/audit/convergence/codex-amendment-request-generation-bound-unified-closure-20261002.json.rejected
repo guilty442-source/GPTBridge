@@ -1,0 +1,4782 @@
+{
+ "artifact": "codex-amendment-request",
+ "authority": "request-only",
+ "schema": "codex-amendment-request/v2",
+ "request_id": "generation-bound-unified-closure-20261002",
+ "title": "Unified generation-bound restamp + formal-rule hash binding (single window)",
+ "summary": "Single-window unified convergence amendment. (1) formal_rule_registry: restamps version_identity of all 79 participating rules to the successor generation and populates the four evidence hash fields under one declared binding spec (sha256-canonical-json-utf8-v1 over declared artifact views): semantic_hash = canonical descriptor {rule_code, controlling_provision_id, required_inputs, predicate, pass_decision, fail_decision, severity, evidence_schema, low_cost_path, precedence_scope}; evaluator_hash = {rule_code, evaluator_entry, registered, registry:evaluators.json}; test_contract_hash = {rule_code, evidence_schema, low_cost_path, severity, precedence_scope, manifest_checks, manifest:audit_checks_manifest.json}; controlling_provision_hash = {provision_id, provision_type, subject, rule, prohibition, exception} of the controlling article. evaluator_hash/test_contract_hash were empty for all 79 rules and the prior hash scheme is not reproducible post-Python-retirement, so all four fields are restamped under the uniform spec (supersedes legacy values, declared transparently). (2) machine_schema_parity_evidence: rebinds validated_against_version to successor for all 77 rows (content hashes unchanged, verified 77/77 at predecessor). (3) codex_convergence_closure: restamps all 8 rows to successor with recomputed metrics — FORMAL_RULE_CLOSURE open 79->0 PASS, MACHINE_SCHEMA_CLOSURE open 77->0 PASS, aggregate open 442->286; input digests computed over post-change candidate row sets (version_identity placeholder-resolvable). Does not touch normative-surface classification, directory acceptance evidence, obligations, duplication review, or external signatures.",
+ "requested_by": "permission-sovereign",
+ "origin": "worker devin-desktop full-auto codex-implementation convergence; unified window per governor instruction; divergence report codex-divergence-report-20261002.json; audit gate PASS 3583/3583",
+ "problem": {
+  "summary": "Generation-bound convergence fields lag the head after each amendment (strict == head binding) and formal_rule_registry hash fields were never populated under a defined binding, keeping FORMAL_RULE_CLOSURE and MACHINE_SCHEMA_CLOSURE open despite verified substrate.",
+  "affected": [
+   "formal_rule_registry",
+   "machine_schema_parity_evidence",
+   "codex_convergence_closure"
+  ],
+  "scope": "generation rebind + uniform hash binding spec declared in this request; no rule semantics, provision text, or schema content modified"
+ },
+ "change_class": "architecture-authority",
+ "required_review": "five-sovereign-audit-unanimous-pass",
+ "flow": "A382/A488-non-disruptive-amendment-flow",
+ "not_executed": true,
+ "predecessor": {
+  "codex_version": "2026-10-02T13:32:25Z",
+  "version_identity": "E2:2026-10-02T13:32:25Z",
+  "version_epoch": 2,
+  "history_head": "2ca502b4a69802e9e0deb9e5e487c1bab79a06b68b6aae1ec6dcdcd4b442b32c",
+  "revision_sequence": 245
+ },
+ "scope": [
+  "table:formal_rule_registry",
+  "field:formal_rule_registry.version_identity",
+  "field:formal_rule_registry.semantic_hash",
+  "field:formal_rule_registry.evaluator_hash",
+  "field:formal_rule_registry.test_contract_hash",
+  "field:formal_rule_registry.controlling_provision_hash",
+  "table:machine_schema_parity_evidence",
+  "field:machine_schema_parity_evidence.validated_against_version",
+  "field:machine_schema_parity_evidence.reason",
+  "table:codex_convergence_closure",
+  "field:codex_convergence_closure.version_identity",
+  "field:codex_convergence_closure.verified_at",
+  "field:codex_convergence_closure.open_finding_count",
+  "field:codex_convergence_closure.result",
+  "field:codex_convergence_closure.evidence_roots"
+ ],
+ "changes": [
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-BACKEND-LIFECYCLE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-BACKEND-LIFECYCLE"
+   },
+   "field": "semantic_hash",
+   "proposed": "e1c1b0bae985669b9c495add7399c08a129cbbc8b744f0e429f3291ddae5c908"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-BACKEND-LIFECYCLE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "3384bfa53916dc6bb9eed1f84fd7746ab17a6ee47d76264e0928ee4a3dff58a5"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-BACKEND-LIFECYCLE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "296ac4972c3cf6a48cff0e3dc5f5e197f2364840f5ac021e3b6366843ba88e68"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-BACKEND-LIFECYCLE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "06a2fdcdd0c2f8727ab4a4def9a002212af72045d83eb7b75f1d4e3b5242aeef"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-RECOVERY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-RECOVERY"
+   },
+   "field": "semantic_hash",
+   "proposed": "8e60b9ed6c4e068e63ddf30cb6c8f8ca50b3c7b3d456714aae3aa8fae3ffb9ae"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-RECOVERY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "53972fc6a213f91051f36fe1f661ecffc15b506eee1fef83376bd862e0fcf12c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-RECOVERY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "657c6e97bc72afd814e9a2669417ffc00ae0cc8920abee67488095956f235f7f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-RECOVERY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "aea9348d568e086fa262d3416ab995c1b78336dca709453e1964dc65f4942314"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-STATE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-STATE"
+   },
+   "field": "semantic_hash",
+   "proposed": "fd772593e53880bba5180b304e3feb74e619c56fc3bc71a5429eed7144bb3d83"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-STATE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "9120912b3daf0c4b387bd088fc670f90337b9371efefcad540cfd26a502b55b5"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-STATE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "9391bdff40dc762c50d8a151d4f0840034559966babfe4425355fe42d4158ebf"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONNECTION-STATE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "4adf5714d1f4e761d8f99cb40800e3f0be89995b8f74bb5ebabd8301ae67a420"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONVERGENCE-PLAN"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONVERGENCE-PLAN"
+   },
+   "field": "semantic_hash",
+   "proposed": "c08251c9c6e665ae2fa5ea2e39ff80ca86515649df9cac6c40bf79b4d4920201"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONVERGENCE-PLAN"
+   },
+   "field": "evaluator_hash",
+   "proposed": "442541fcfa60c68ca3e898f3db9ff89cc74739d142e1aa9105ca05ced2ab549c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONVERGENCE-PLAN"
+   },
+   "field": "test_contract_hash",
+   "proposed": "3c3a9aa123f8f3b663c3ca72c02204e9cc64f9bf83c2934fd28ddac61b094911"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-CONVERGENCE-PLAN"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "168fdc481662ff9ab86f16aead17a7e1d076aac6eea318dfcbfa190f47479fbb"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DEV-RUNTIME-SEPARATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DEV-RUNTIME-SEPARATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "b5072350692f5ef3ee02cdeca55cab42cb8b50746d0532c07db244f683fdf265"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DEV-RUNTIME-SEPARATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "0cb84dee32f609408f2f0ca96df8c31b881ddbd564172052c592162cbc5d59d8"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DEV-RUNTIME-SEPARATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "7d120bc7c6ba1b6ff92cbd4526ee89b492c84d08b4b3981faea4001bd13fd73a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DEV-RUNTIME-SEPARATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "afd84965a8b056622c69d6b65c4b616ad54822f2514348da840ba1c80b9f352f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DIALOGUE-TRAINING"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DIALOGUE-TRAINING"
+   },
+   "field": "semantic_hash",
+   "proposed": "aaa026fda5da1f1073b7e66514f44115b155340b7db3cf4ed64497e52157b9c0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DIALOGUE-TRAINING"
+   },
+   "field": "evaluator_hash",
+   "proposed": "2a99bad7a2ef7b1fea7d5b2b9aac26e76eb966b9762dba2f9f779c87bc8bfebb"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DIALOGUE-TRAINING"
+   },
+   "field": "test_contract_hash",
+   "proposed": "4c17bffa1dd80366c1008c709bdcb6126eae74d70d7f495dc5948ad6d7896d59"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-DIALOGUE-TRAINING"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "dc8ca5992796f2d8841e1cc59006c389ae5ffeaaed4b87cc0ef10fa4a02716cb"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EVAL-SUITE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EVAL-SUITE"
+   },
+   "field": "semantic_hash",
+   "proposed": "59028f12758109aa6491da74a578ab67a3bb2dadf310319f0c4c45159f9e3226"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EVAL-SUITE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "3f60203c079df158310ce50e38866621492c1f7330c6d63bda6b636b745a1d66"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EVAL-SUITE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "4d9c420d263ef9d6815660a3731ebdb319a7c51781e331add46e910072148482"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EVAL-SUITE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "c97d1b07fa3fc61306ce3e25701a2a5f394732a614fcadbb2876c681e88523b1"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EXECUTION-LEASE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EXECUTION-LEASE"
+   },
+   "field": "semantic_hash",
+   "proposed": "4596bc404a0409a03581bfced6361caa8094c25669e45fa5a9bf07f1b8ec4828"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EXECUTION-LEASE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "3b0963b91744eb5854236c9becb1c3aa51e6f6cf0eb55b851cc3825a792489e8"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EXECUTION-LEASE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "a67f5a5e3e6d5af1b3bd80cf4be69200f3cab2f211cbaf0c7da400386682b823"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-EXECUTION-LEASE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "dcd029b4a8c0fc78e3358b59f1f17063a91ba3d3617e2f8dab5ae0c3f0487aa7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION"
+   },
+   "field": "semantic_hash",
+   "proposed": "5d038e37786e6f9d92e2a5bafb25cb56f60c4e403fd49a81a056eb6e77b3cf78"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "bf901aff9208d16ee617124ba8f72cb36572453c331bd24981778fa03a2f90eb"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "dc4b8a16ac90ed8d66f2a8afe2ab4ad7c0a418d2e5d87c47b3cd208257da549d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GIT-SQL-RAG-CAG-DAG-DIVISION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "4c7693b19395d205ece81b481dc45627ed7ffa0604cc6b4dd2b59f268ace4226"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GPU-ACCEL-TRACK"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GPU-ACCEL-TRACK"
+   },
+   "field": "semantic_hash",
+   "proposed": "21ac1745c5e3b65f39257c5157b6481b0b8fe436dcae45f475f5e57c436de1ff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GPU-ACCEL-TRACK"
+   },
+   "field": "evaluator_hash",
+   "proposed": "27d9f1fa8e52a27bd88ae19530084e4516e803d0b70646ce4f1827ec4deaae8c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GPU-ACCEL-TRACK"
+   },
+   "field": "test_contract_hash",
+   "proposed": "98c2eb397ebf5e6ca4ef5900c45b7e572f2bf3ca63005e5561aee78f53749c9c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-GPU-ACCEL-TRACK"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "a2f1f4095214009ce1389e241baa14f6f719e3424d0b474fff2b7e55e396f5ab"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-IMPL-PRECEDENCE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-IMPL-PRECEDENCE"
+   },
+   "field": "semantic_hash",
+   "proposed": "d1a95a05dd12baa3fd911fde5a6abff0148b5c073863aa3fe58824077843fb28"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-IMPL-PRECEDENCE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "62e0e4803f32107078785a33ceead490419c13085e599f9536b4d8db0b8e4fe5"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-IMPL-PRECEDENCE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "75f282a7606fcf8a037f157a0c30cb071b422500b56a412b7caca81416ac2875"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-IMPL-PRECEDENCE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "3613061d3457dddfad5b94e5730471e6b4adf9e817abcef24b28440f0a944cec"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INFER-CONSISTENCY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INFER-CONSISTENCY"
+   },
+   "field": "semantic_hash",
+   "proposed": "8292b5fa14489fd0ebaab3e813b305c3aa232c56d92b36f6d1979a33a5200268"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INFER-CONSISTENCY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "e0fc58f6604862dd986d9deed3caa01fcd65e252a748520280937fc5ec8f35e7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INFER-CONSISTENCY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "cba1468b443d7e61385e51090874f3f8cb99533cad94571c97fa3a5bdc6715f4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INFER-CONSISTENCY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "75c12a1ede15430cdfb550625138f6e6ce4f5567204a8dcf5c1581a6314132d2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INTEGRATION-SEQUENCE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INTEGRATION-SEQUENCE"
+   },
+   "field": "semantic_hash",
+   "proposed": "6d0728cd453b85742d3fa1415444b80327ae7270888e768c6a2319fec1fbaf82"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INTEGRATION-SEQUENCE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "ece8cc5cd50f7e7f27e641020633f3f090030521cf7244762f2a58b536525a04"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INTEGRATION-SEQUENCE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "2b692f5394b7945708abfa3d9ed7456597b551cd78606bb9384d6da0628cc76d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-INTEGRATION-SEQUENCE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "d9cfbdb5e52829bfac9b0d9d2317a71e709550868d4b8ea5fb1809d58c066f59"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-KV-CACHE-TESTS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-KV-CACHE-TESTS"
+   },
+   "field": "semantic_hash",
+   "proposed": "44f9b36e242a142e8a1ccca727c70d6434cb9134133063112bd426f8881818c6"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-KV-CACHE-TESTS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "9aa726a1f8e435de6163c62af1b4597821ad24853a01760ca2e07ab822100faf"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-KV-CACHE-TESTS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "42c80697777beec21ecf6b4c838301b120b73f73da671f628bbf0684b2335901"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-KV-CACHE-TESTS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "4226963970866f49d3a1351d7de108a960c0c255b0c4dd4c7bc65b1b449e7f0e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-LANG-LAYERING"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-LANG-LAYERING"
+   },
+   "field": "semantic_hash",
+   "proposed": "ec27f7bb7c71db2c017b7ed9a2786c6fbff27f325fcc4d3639879a3ef8da344c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-LANG-LAYERING"
+   },
+   "field": "evaluator_hash",
+   "proposed": "aef4dcfa136c786f5c92e4728ee2834dc12e92e23a829ed7ad07c176d8937ae6"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-LANG-LAYERING"
+   },
+   "field": "test_contract_hash",
+   "proposed": "8c8948895bc6a5ef48c5f04db6b53ae001bbbcff56db81c72f71f7b62dd96198"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-LANG-LAYERING"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "e7d477ae610b167b030ef9a5bb217a35cbf909dcac1520a8cf30705731034708"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MAINT-UPDATE-INTEGRATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MAINT-UPDATE-INTEGRATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "8de6b3e6f8f6bbd7495261d04a5a43a70c595063df77ec9dfda35bb33a754f51"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MAINT-UPDATE-INTEGRATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "f1e8e041d305bf753c138514c25d3fe2959a2a03c5e24cba0bc34e404b77db82"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MAINT-UPDATE-INTEGRATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "c75fd9457fe069e422b8b92d55e380c27b5fbd36749742af3f35bdc5d2622e85"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MAINT-UPDATE-INTEGRATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7a14b8e0b376bd94ababacbe87ee72dde2bc5241451c861ed50d06a4294e9cbb"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MATURITY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MATURITY"
+   },
+   "field": "semantic_hash",
+   "proposed": "557da57ef332bfe0bd29a73c0a3232903e35e19a614ac3e79a15e7516431c718"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MATURITY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "e33a02d19f98992ea2b82d99c7b6d818bb87b006ed1fbd8172d3a50cb76d4870"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MATURITY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "762655074bb6036d4b4a3ff800a01e3f96f256a30820ac57d2158ff455f36140"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MATURITY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "f3b204c4e9830dad8695887d2057a84432fd76b45f9b5a747f1eaf2f47bd6a7b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MOE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MOE"
+   },
+   "field": "semantic_hash",
+   "proposed": "feb1e4b30ff54b9c780bcffdd87479f675c4ac8648609d3e9871f77a52aabd93"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MOE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "370a7759a9fc21934f71eb364ac8b017fc9d807b28b0c63555272bdddf92125b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MOE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "d8990748ceb31a050c6b39932743184723d3b03fdef4750de8cd1613cf8525b7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-MOE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "ccb1f1f4a32a40d9e3b867e1bf9939fbefae0409c65d10b664a8b65b89d9f668"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-SCALING"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-SCALING"
+   },
+   "field": "semantic_hash",
+   "proposed": "248bcdcecb3f4f3d18f20e4c5ec061d72cee2d0390761f4702c4a3e999141221"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-SCALING"
+   },
+   "field": "evaluator_hash",
+   "proposed": "b2a8b781844f6e44869a209c7c9ad05dc6907c2b57ecdef4d527b713b2d432f0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-SCALING"
+   },
+   "field": "test_contract_hash",
+   "proposed": "556a65298486ee9d52c47d9103cb4e2ec32855bb76c684205483df00306b7a5b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-SCALING"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "aad940eadb55c1df29bf70bd18af24e5c6d10645f050054c53a39ff290ca3c41"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-TRAINING-TIERS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-TRAINING-TIERS"
+   },
+   "field": "semantic_hash",
+   "proposed": "fb5f146128db1a375d2bdea4c04c30e93bafac271b7a02a5016375b0ed7894a9"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-TRAINING-TIERS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "6f12fcbe13ad5bdad9250f726c01eda14598fdd599cd61755c6541bc130c5aab"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-TRAINING-TIERS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "1879c31cc4b4651abfa659e158cc0949d0c58b1e4744ad73c51d41dd8536d365"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODEL-TRAINING-TIERS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "f81a0f989caa346823f3b6c50f2cbd5516c43692f710771ae5205b7371b72cfc"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODULE-HASH-CHAIN"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODULE-HASH-CHAIN"
+   },
+   "field": "semantic_hash",
+   "proposed": "a207905cf80bd658c303d878d5b9be83b17a57b970e90021059306fc296369aa"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODULE-HASH-CHAIN"
+   },
+   "field": "evaluator_hash",
+   "proposed": "0c99b2f626cac0405d94be4af440a953d465942d7d8a2d7b1934096fc53a7690"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODULE-HASH-CHAIN"
+   },
+   "field": "test_contract_hash",
+   "proposed": "bcb4bab3899331a21fc52c41ab5deb132d26d4d9092fd8cb80fd32226280f042"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MODULE-HASH-CHAIN"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7057b3e127162dc3118db80588f5ffb37f3d2e5fb529fd831214bbc3a0daa4ae"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MOE-QC"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MOE-QC"
+   },
+   "field": "semantic_hash",
+   "proposed": "ce6f78c0055918af71012b2d76cb9c4b5257229ca7f60d8ad431f304b747df87"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MOE-QC"
+   },
+   "field": "evaluator_hash",
+   "proposed": "43a966534d490abe298ec3185b96ee58dc1d3bd4e8747f6ffcbcc94fd2c78964"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MOE-QC"
+   },
+   "field": "test_contract_hash",
+   "proposed": "37f46cfe1259340868beb81146f8ce9ba8b3c1716f73ac7e8efce5a0316c4c0d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MOE-QC"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "183e04849b1308f80292b096fcc6cc8f11162f11c6f97aa25c22730abd0c9c66"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CONFIG-GPT"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CONFIG-GPT"
+   },
+   "field": "semantic_hash",
+   "proposed": "62536f83d5144b3837fb81f75d51b6e33d2f6ac696b4c525741dc60449b488e7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CONFIG-GPT"
+   },
+   "field": "evaluator_hash",
+   "proposed": "1fb986f61f1f8b82b674a1e04c0aae7bc4ac9a0916c14d6a5e7465da891bb975"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CONFIG-GPT"
+   },
+   "field": "test_contract_hash",
+   "proposed": "ac454c445c25ab941f0efd99b451ae93eba74b51f9e1d9cfa0a091bcf126a6aa"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CONFIG-GPT"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "74cbfcb586f89df615cf7c37442fb9492192ab1ac59b8626fddd72927db3d7a1"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CORE-PARALLEL"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CORE-PARALLEL"
+   },
+   "field": "semantic_hash",
+   "proposed": "8d75cc4b011bfde92838ea59a0f12a342af011a80a5cf3d9512dd2afcfbfc161"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CORE-PARALLEL"
+   },
+   "field": "evaluator_hash",
+   "proposed": "a1e5efa85a02301d7badaed8c2f557a86be8e31e3db43a4f347be37800955352"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CORE-PARALLEL"
+   },
+   "field": "test_contract_hash",
+   "proposed": "f51a5a1d3b87673dfaa812488bd20b4a62389cf89d52bac41124c91b6e621792"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-MULTI-CORE-PARALLEL"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "b0d2b46b91c39fdb683571b99c1252b4799a411b17ce0f363d7ea3bf8579fdf9"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+   },
+   "field": "semantic_hash",
+   "proposed": "2fea73337345ec2c4d300a1587c2f08938f464928e0501e1962a6400ca03ce10"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+   },
+   "field": "evaluator_hash",
+   "proposed": "9634eecefaf9b66583fb7631bc236d52275ac3ea59b00e573ffaf544d9a1b76a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+   },
+   "field": "test_contract_hash",
+   "proposed": "6cc2219af7f1a2827e1e67ba45fe7fdbce9988a96e3846dddc2baa4ac008ac40"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "23bad9bae8cafff50f14a379d9640cd2923355c50cca5130fac23451230db89d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-ONDEMAND-MODULES"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-ONDEMAND-MODULES"
+   },
+   "field": "semantic_hash",
+   "proposed": "ba927447cefa6de8f129407a3ef5dfa04b7079b3ae110fa216071c516772d637"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-ONDEMAND-MODULES"
+   },
+   "field": "evaluator_hash",
+   "proposed": "1b9306f508e974da651338cf53fa32bed7f5055a3c815e69870ed9decfafa317"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-ONDEMAND-MODULES"
+   },
+   "field": "test_contract_hash",
+   "proposed": "c81ee33047bcb1ede6e624ea973d1756815201a8a4168814b567961fb5782e33"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-ONDEMAND-MODULES"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "66956a96852fec3e5c75876d0b640d89e36d66e579ea46aa95c9bb75fe86f62a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-PRETRAIN-DATA-PIPELINE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-PRETRAIN-DATA-PIPELINE"
+   },
+   "field": "semantic_hash",
+   "proposed": "983a42d9742068c3b69b5279512f1a33c9d89e6086bfa10ba119b75c559b11f4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-PRETRAIN-DATA-PIPELINE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "3395fd0abe3cfe3370c783d720b4326b5a62c6fdbea8955efb9423a9010f191f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-PRETRAIN-DATA-PIPELINE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "f57cd8ab0b0bd7d55a244f21846028f9d806eb49d7b718f3aabdd8a4fb3ceb6b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-PRETRAIN-DATA-PIPELINE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "92eebd0dfa98de554d6d40038d4618614c702adac6efeb595e63083a05e7dfbf"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-RELEASE-MANIFEST"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-RELEASE-MANIFEST"
+   },
+   "field": "semantic_hash",
+   "proposed": "fe6130385d429c096d23619df29b247d407e5a3beaad21a6c6153a85a03a7c70"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-RELEASE-MANIFEST"
+   },
+   "field": "evaluator_hash",
+   "proposed": "3b77f4ed98c8ce680a506f89c3094340975d29b8922490df5eac98c4a626be5d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-RELEASE-MANIFEST"
+   },
+   "field": "test_contract_hash",
+   "proposed": "48f0304b1aeafe6eafa40e1f7b68c5f6032963cd41d0373b55d98ab782c38493"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-RELEASE-MANIFEST"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "c9f95b95b3a7f003590028b52ebb5e9a5257734b8211e7d4b8d64ae912b12b8e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-LIFECYCLE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-LIFECYCLE"
+   },
+   "field": "semantic_hash",
+   "proposed": "b7ef13f390fbe278a149c3403caab96fb4fa5f7c5bbf60c3b8686c129787c75f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-LIFECYCLE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "18590352ad8f19b7b7f8958fccd0587f65c25333b04f10870d099292363be9b4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-LIFECYCLE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "ab6f91b664e3ca1d3d89729ea06503581b7cfccf311313e1999e08ac67c17344"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-LIFECYCLE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "5a804026a4b762c84124ea925d42bb60cb1f936d8e916187c65dcdddb2f30db4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-REGISTRY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-REGISTRY"
+   },
+   "field": "semantic_hash",
+   "proposed": "57de0a1ccb6de28c0dfa380469dc71c9aca5d58760b4a1a86f66c6ef4e89d92b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-REGISTRY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "0411e7fda9204f993353a899742cd0549254544bbff7e880b4bc4dd5da731e9d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-REGISTRY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "6548ed2ca090b03eca05adaed66efc6b9c15fbde54e30799b149438ccec77b9b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-REQUEST-REGISTRY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "4ef4d95c219a5b82e5041f0cef7094157a65f6ed130e99bd1a40d5adef8872c6"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SINGLE-PURPOSE-MODULE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SINGLE-PURPOSE-MODULE"
+   },
+   "field": "semantic_hash",
+   "proposed": "8e12e3772f727b2248838dfa64b2e021386daa4f296746df8e95d9def976dfd6"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SINGLE-PURPOSE-MODULE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "4c14cd47ee8d7c6c39dd3a81518c7527eb0528928592c627f8253da65133be58"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SINGLE-PURPOSE-MODULE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "99363eee9f4c70f9bf25c6a987f1c245848cb930a4a8ab37f79bfa17d6475ca7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SINGLE-PURPOSE-MODULE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7cbaa2d81b44718cee59d58e98cca9a099a9880c2004b7763d8e763a212327b5"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SMALL-MODEL-BASELINE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SMALL-MODEL-BASELINE"
+   },
+   "field": "semantic_hash",
+   "proposed": "0103ae71158ae43b011abe76650cef8e8701d3b569384f4ca8bf7b99aaa9f5fe"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SMALL-MODEL-BASELINE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "6dc447cc54ed080effb86d72f8a19a5293995b361220599a38802d19adbc99b3"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SMALL-MODEL-BASELINE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "d4e4d80a0b0c4fd542d436e061366947e368a4b0aed6e246fe6cbdd727da31d0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SMALL-MODEL-BASELINE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "e270af24848dc1dd2fa7bc45f4f3046994913afddba015410cf6856209a9d8c7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE"
+   },
+   "field": "semantic_hash",
+   "proposed": "a5b5ffbc1af9e61f0b118ed268ace936cfd9592b05472a7e843b684d63e3c41b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "9d1ece406e1d28ee725da467281e9ee90f0f5bbaebc4b01012861d8082fe5722"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "1364e4d8ef56d057a677e86e64353ad08332f4d010ecc60f54556257e9e72035"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-SOVEREIGN-TO-CORE-ENGINE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "35a508bae254405218e2fb4771da0fa7fc72414304692b04040ef39245350448"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TASK-LIFECYCLE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TASK-LIFECYCLE"
+   },
+   "field": "semantic_hash",
+   "proposed": "a4ff1ddb24270809bf29070bacf85e75704b19849005498234572b56b4fae513"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TASK-LIFECYCLE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "6f41cc505632cace2b8338afdd73b4447020795883869722a5eecc933eeec244"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TASK-LIFECYCLE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "5a48cafa2aec9b18e6853c8f365801279b3b3a7619d5cd8fb2da89b7e7792a72"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TASK-LIFECYCLE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "b21a89f1718b198bee6fe6d362964898cffd9f5a004bc2e4ce7792ca5e9adcb4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TOOL-CALLING-COMPETENCE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TOOL-CALLING-COMPETENCE"
+   },
+   "field": "semantic_hash",
+   "proposed": "7eaa08a72d09c0ceba75959f6ffd1a4493b14c5478af4576c31bd3f472b272a1"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TOOL-CALLING-COMPETENCE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "067f932b7884ca60c3abe9b149a4515280c336cc4d7884dfb67470ea17d8395b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TOOL-CALLING-COMPETENCE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "bc99a4727a8d88d25b9965d2b8c1dfc39f1b1f538ca6cdba6ea2930b19502056"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TOOL-CALLING-COMPETENCE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "12467874f0c18a32727353319c5c2470129c149757b33919315b27f23bdbcda8"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TRAIN-NTP-CORRECTNESS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TRAIN-NTP-CORRECTNESS"
+   },
+   "field": "semantic_hash",
+   "proposed": "7b2da8fb0aee58cdec409867a917254c6d1a7b8330545142451347216d5e91f8"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TRAIN-NTP-CORRECTNESS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "f327de7e86139ce8c9c5aae11ef3d578183ff576095061d7c98e3727c513e766"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TRAIN-NTP-CORRECTNESS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "7818eae9cda2c622dc8dbdaf2fcea43eab3f88e6c2ba954b7c86808c03a7192a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-TRAIN-NTP-CORRECTNESS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "3ed0dc09777298ede4be8e6ae8f42c9d03bc25855c7a1a892643e3a4b92db669"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-WEIGHT-EVOLUTION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-WEIGHT-EVOLUTION"
+   },
+   "field": "semantic_hash",
+   "proposed": "7eb95625364144ef77d99d9933f9e1db63d228c519a6c86ba0eefb73a2916988"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-WEIGHT-EVOLUTION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "a1cb745b81466bae37ed8b6b067fd72d4da4a6a8c6acb6a6dfb97d1e7c77e9a7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-WEIGHT-EVOLUTION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "bacc6efadaec4a9fa33e4de75769640b60134ac2816141d2fd84b257aadcbdb0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-WEIGHT-EVOLUTION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "752294e3eeab1b22855d2748a2cca25c9e57a9c63c3dec373683de5f0c905203"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+   },
+   "field": "semantic_hash",
+   "proposed": "f6a694f739ad9cedfe80f782880c641a88045e4de1eef2b050c8db76fb024771"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "ab2787fec398e884d69dfc1ec1c999705a2478078479f1840733a27cf20b3961"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "5eef8e9713e8eebcc968f84a706b9bf4d49b0a69f642527de68c397024d1ca2e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "16cb80d62feffbd839706f3cc8934f16d051d2da7b4c78faf4c1d1b1e9fbb5b9"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_BACKEND_HANDOFF"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_BACKEND_HANDOFF"
+   },
+   "field": "semantic_hash",
+   "proposed": "8a1673226d8eac167ade1afa5ae46500306c2c7c7ad7f2db5d3852a951c7503f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_BACKEND_HANDOFF"
+   },
+   "field": "evaluator_hash",
+   "proposed": "ec9d4688ea313d82489252559c9e0d26068854be8306556852600335ff8abd5a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_BACKEND_HANDOFF"
+   },
+   "field": "test_contract_hash",
+   "proposed": "2f0e2ece01630b2a09c5f50e3ddc86b69574c0310d3f607dd50f4f566e177f5d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_BACKEND_HANDOFF"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CALL_BOUNDARY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CALL_BOUNDARY"
+   },
+   "field": "semantic_hash",
+   "proposed": "3296f4affc636c105b0944fed80df350170c7a56448b0634b1bdf1e8a0cb3f14"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CALL_BOUNDARY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "662842b41a79180f2e23ea17c06aeb0695404bc3254edcbb9178d2dd9524f1de"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CALL_BOUNDARY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "d875fe0c3941cab814ab7919364e2deb866e442d54894d70c774a0ec5cf08696"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CALL_BOUNDARY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7411ddb4316f23a925e5f4e985adbe1fbfc6e51c971e8c19ee7550ab681d6b17"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CAPABILITY_DISPATCH"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CAPABILITY_DISPATCH"
+   },
+   "field": "semantic_hash",
+   "proposed": "727687eb4b8bc6215154b6c001fa7a9089a53fac3ed8adb04ec4ff0a16938f38"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CAPABILITY_DISPATCH"
+   },
+   "field": "evaluator_hash",
+   "proposed": "b36d80f687f0373c6c9aea309becbaf16e5febabed65a33cf18f7468335f2faf"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CAPABILITY_DISPATCH"
+   },
+   "field": "test_contract_hash",
+   "proposed": "bb8672b25972fbb2289850e01171dcd50053203c15498d08f7293b2448e8d146"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CAPABILITY_DISPATCH"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "400ce09d57d6bce6ee9797ee5b47287b08fd55209dcbcf617af1ead4aab866c7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CODEX_CONVERGENCE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CODEX_CONVERGENCE"
+   },
+   "field": "semantic_hash",
+   "proposed": "5eb5a667469553faf91f6c28e4cc403b79a515463720cfa5cb8c979a67adf08c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CODEX_CONVERGENCE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "ccd0747747940873df8f7bb2a2f7f4bbe116049e4717be69ab0978c9eded60da"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CODEX_CONVERGENCE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "0ecbab86af46cc2a869a40a3ff4f0a8e56496adea26a8215f5a261738d1c350d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CODEX_CONVERGENCE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "2dc891c86c414c45fbad158223fee71f0201642e39c6276ee39e0d80c6c8c62a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CONNECTION_ROUTE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CONNECTION_ROUTE"
+   },
+   "field": "semantic_hash",
+   "proposed": "8d9c60c297e54b4781dd19bffc1e38a9c5478e367873bdecca03f7a102cb4740"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CONNECTION_ROUTE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "648e047a6ba9dc543c6f3d0ab7e64b960119b96a2135b5a30a06fab8f8f057dc"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CONNECTION_ROUTE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "6d5faecfd7085a3f3ef77d0ae47e724eec7e41a56b6ba4c4d04627723b2378ef"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_CONNECTION_ROUTE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "afdee68799f658930b1032dd37c66ccf507e18b4c49eec8ef9d3544912acfc4d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATED_A498"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATED_A498"
+   },
+   "field": "semantic_hash",
+   "proposed": "0a1bcb8fb1af8cd39d3ba9822a88cd614a2d4e386fbdfae1872fbc05f1294e67"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATED_A498"
+   },
+   "field": "evaluator_hash",
+   "proposed": "0bb325f1a5ef9c3d8cad6c5be5755e7798731c6f0c4fe41ac1d4ab9e81556d35"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATED_A498"
+   },
+   "field": "test_contract_hash",
+   "proposed": "4a6f0a99b5573056a9a1c8f6c27b4ca9f31ffdd892d9b6a066ebfbf6617dcb7c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATED_A498"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "db760391357337fe78e658affe6fd8ff4775cf4cec46ad1b5d128040574d22dd"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATION_VALIDATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATION_VALIDATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "9702e798a2982d9542ef75424f5600ccf0e74c0e20e6e26259a69545060147b3"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATION_VALIDATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "58fe7ef9caf3b71d60f5115824234c72ca25dc6b48084321855df8411cbdf57d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATION_VALIDATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "3fb2bdb4216a90c1759d3d51d97e1ea60ecd619507a5fc527bfba977b2ae63f4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_DELEGATION_VALIDATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_PIPELINE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_PIPELINE"
+   },
+   "field": "semantic_hash",
+   "proposed": "355650ad87933125e0b6b1a9693070ee7091e207e799acea876e13c684551027"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_PIPELINE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "a3d0d49e8f4a47f487eed64f51e3e392ceebe8b0153ba7f78b0f1f7ea21c8425"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_PIPELINE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "3f65d987c74c403a25e6fcf34b04e14173b660a134c79692b1cb9fbd580f8c91"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_PIPELINE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7f62695965186affe2218ae55cb0af520885c72d6f39b0d10da204c4b6cc7ac2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_VERIFICATION_SEPARATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_VERIFICATION_SEPARATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "446b70bfd7a6fdcd09d343cede5e5cc853af42b4e7bb3a21e0913b12d80db88a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_VERIFICATION_SEPARATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "f935626c1581e26265990ab681dfd304dc69e32ec9e116e47d02a4fd2a754d73"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_VERIFICATION_SEPARATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "018ca22ac0b56c17c2783ba20556a057deecbfce092b80f7338f8a96972c81cd"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_EXECUTION_VERIFICATION_SEPARATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7f62695965186affe2218ae55cb0af520885c72d6f39b0d10da204c4b6cc7ac2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FILE_OPERATION_RELIABILITY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FILE_OPERATION_RELIABILITY"
+   },
+   "field": "semantic_hash",
+   "proposed": "3b1b8774c92a11220bd1aad0b7b83b9f387e419015f73b342df830b7778a09be"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FILE_OPERATION_RELIABILITY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "fd255843477cf9657accd6dfc927288c628b66b10a1838719d1fefe51a7fc475"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FILE_OPERATION_RELIABILITY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "e43e11fcd04c8844c14e1f4f1c9cb55277afe88a56920afd69bb1e3e032ca40e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FILE_OPERATION_RELIABILITY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7f62695965186affe2218ae55cb0af520885c72d6f39b0d10da204c4b6cc7ac2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FINAL_ARCHITECTURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FINAL_ARCHITECTURE"
+   },
+   "field": "semantic_hash",
+   "proposed": "ab5bba25a4fb30fa9f4dbb45ab440ccc6c6483895bb1b9068b7093d6b34f26e8"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FINAL_ARCHITECTURE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "af9cff91dcf61c35173b5689f89e1abf4d2f95481805cf0339a3409c91978f7b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FINAL_ARCHITECTURE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "3d7189dba84e8f1db32088e40a8068a27d4f3d598482e79ea58ee6d9dca1c2fd"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_FINAL_ARCHITECTURE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "bdc34776bc5f48adc796dfb8a5440e39b908cee72153796f0b2285ebc6197726"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GIT_WORKTREE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GIT_WORKTREE"
+   },
+   "field": "semantic_hash",
+   "proposed": "7bac24bf271f0443282c1e19daf96483b870884c32e91253fc7220b9d57e9cf5"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GIT_WORKTREE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "39e368e23ecab5a8f6b95a9e15204888183449e86989a01371258f7af7caa082"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GIT_WORKTREE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "6e085081a5c500e13e8d8526846f9a9a458e92cc12bc91256230f3113180f652"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GIT_WORKTREE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GO_RUST_RUNTIME"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GO_RUST_RUNTIME"
+   },
+   "field": "semantic_hash",
+   "proposed": "cd9bcbbccf044694df45d291452f8a48eb88c00ae4405891627f2589a77b66c4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GO_RUST_RUNTIME"
+   },
+   "field": "evaluator_hash",
+   "proposed": "24737148d15179ee04ea47579cba2e528b81c389f9bebbc8fe08bafe7800d03f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GO_RUST_RUNTIME"
+   },
+   "field": "test_contract_hash",
+   "proposed": "e610171ddf8b13cee06143831f971d7052b1d6a06f7e29184523a1a006d2be83"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_GO_RUST_RUNTIME"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "328be3de659d5c3eb8fe57afcf9805c54099fb287035c7ad0a7235017aabc536"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_HEALTH_CONTRACT"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_HEALTH_CONTRACT"
+   },
+   "field": "semantic_hash",
+   "proposed": "acacd5a4df44329ac552b080226db95c951e8f0c0a9af8b12fc429d019b5d213"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_HEALTH_CONTRACT"
+   },
+   "field": "evaluator_hash",
+   "proposed": "b94e0f64c4788828e637299dec0d4255a242c97698ebf1cb2e36f2a989df1be9"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_HEALTH_CONTRACT"
+   },
+   "field": "test_contract_hash",
+   "proposed": "7b4973c8ad458d810f666850ad3442e0717e2f6abb9208dc91f9bf069274e24e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_HEALTH_CONTRACT"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "fdba8dba54d7b5e063c2876820f79a0d49f7086fbf452c4289b439c3881c8b13"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_IDENTITY_CONVERSION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_IDENTITY_CONVERSION"
+   },
+   "field": "semantic_hash",
+   "proposed": "8a9da1a803f6f8ecad847436337bbb9399e2cac366b1a12b547e45f9ad49d4d0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_IDENTITY_CONVERSION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "255368553da8689771d0aa2a9e21ae1249aa66a9fb4c082ae9d1cfa70da0de70"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_IDENTITY_CONVERSION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "c6868a401f0013b141e0a449f6337719480fd9ba427028076dd4fd0cf38a7622"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_IDENTITY_CONVERSION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "25eacba8245755bed1426c338bf8aac88eab8c98f8aabeb5950f0a08e2a1b022"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_INFRA_VERSIONS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_INFRA_VERSIONS"
+   },
+   "field": "semantic_hash",
+   "proposed": "bbaf9db424d8547bdbd47209979a86544b0e1bbd703f2c7508b28b9fc8a64daa"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_INFRA_VERSIONS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "bb3e4b5e6330ad612c9ddfffbccfac3d5f45d6e0b5f126589797dc8d2b8d8958"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_INFRA_VERSIONS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "045a9870157559d42ed709505d4dd116f25ac2bfc381a76851f56746c934bf56"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_INFRA_VERSIONS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "37c09c8517aa2d034ee6789cfbc559ce71d0fe4ca99b56a5f6a661c27c7fccb7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_JS_NATIVE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_JS_NATIVE"
+   },
+   "field": "semantic_hash",
+   "proposed": "6c1c6f55133850373d5ccb71118dc2696f923eacb3e1527928d9378286bf5302"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_JS_NATIVE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "19c5d8699d8d4257d7e6a6adb9a597023d5131c362a12a9027b019cb3295bda4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_JS_NATIVE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "7b24bfb724cbe611bf4720f07050da2d0c0acb03c070ed9ea0734b78c51074a9"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_JS_NATIVE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "22514b2acee495f1d59c8509deb11e8b1461d207316b758760346e41f24b945e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_REALLOCATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_REALLOCATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "153d5df25dd0599c97a4bc793b3c90f9dc8a4c5f5e3780deac08f93235a21da1"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_REALLOCATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "2174129868be032c10398e2f2e163ff7cf8114b7bf443120e82d13b40db91ce7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_REALLOCATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "cb39644d2679d8e4edb9cd47789e90f8108b89ccab1ca1976a5dcdc459906b16"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_REALLOCATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "bdd97756740af01ac21d335d1e1f2a5baffc1755e181a94ec05f5a02df606441"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_TABLE_OFFICIAL"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_TABLE_OFFICIAL"
+   },
+   "field": "semantic_hash",
+   "proposed": "c1bdd0ce42b11c80f6d8d2472baba1f657f32a943414fae0b27cfae896cfa6a7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_TABLE_OFFICIAL"
+   },
+   "field": "evaluator_hash",
+   "proposed": "97eaea9731c13b1bf706c2dfa5f3c6b89bfddd1185d108f559f731111ec0c8a7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_TABLE_OFFICIAL"
+   },
+   "field": "test_contract_hash",
+   "proposed": "66727653c4a4fff9275c810d67d8762d84e4f1460463717e025ef4b6054a7633"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_TABLE_OFFICIAL"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "b0f7e8fd527ab41b54984be28b686cf1fa21ba41876b57ff999703a5cb1907a9"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_VERSIONS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_VERSIONS"
+   },
+   "field": "semantic_hash",
+   "proposed": "a287aa88e0e7bdd95857e88f6521295c6f7c2cc9b86140a8a4c05c663a566542"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_VERSIONS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "d6c43cdadf9a0b776110c390ac0ce6bc33ec1ef783ca4bc2a0b1d60cf9c2944a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_VERSIONS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "824a61a9bfbb8fc45ed29d62856b1bf3a2160c626b02d708a0ef59aef7c66eed"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_LANGUAGE_VERSIONS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "142dc67e78f7aba8b53de755adaa38a74b6cc863d20b4450141f5bad21349bbc"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MACHINE_SCHEMA"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MACHINE_SCHEMA"
+   },
+   "field": "semantic_hash",
+   "proposed": "df7ee1546d925cf14fa895443f7de1b4f11d8558e06d9d57708235cde2e4cf95"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MACHINE_SCHEMA"
+   },
+   "field": "evaluator_hash",
+   "proposed": "8e270221621f5d54663e7da035637344a404ecbbc852b8f974cb5676fbdf36a2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MACHINE_SCHEMA"
+   },
+   "field": "test_contract_hash",
+   "proposed": "382c3a3b1d74ad41437d7079f7c6663487f5ae07253c0ea08e8a2da19de503ab"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MACHINE_SCHEMA"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "38471c6e21e0b31d6063b58f9b226cd6a50004974104bfc83d6f39706d50c06e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MAIN_SYSTEM_CSHARP14"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MAIN_SYSTEM_CSHARP14"
+   },
+   "field": "semantic_hash",
+   "proposed": "9ae06ff942fd36a0aa00669129fe964c1d823818a502c3e305a8997a9ba12877"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MAIN_SYSTEM_CSHARP14"
+   },
+   "field": "evaluator_hash",
+   "proposed": "62baf9571190f61ee7ae1188871ca47b9ea444f477c3dc65ea15ebfc21855b08"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MAIN_SYSTEM_CSHARP14"
+   },
+   "field": "test_contract_hash",
+   "proposed": "9f6289952751b08d7e686f3a0573ba462d386d219c382d011ff7eb558311b88e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MAIN_SYSTEM_CSHARP14"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "2afd4b040075320fa3a12125be21b9ec1f3e7fec0e65130974fd9c3c1b1537fa"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MATURE_CAPABILITY_PRESERVATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MATURE_CAPABILITY_PRESERVATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "974fafe6affcd027c16375d9e4180768702fd6091d0e799bc1bbb156a1ee5e6c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MATURE_CAPABILITY_PRESERVATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "7c2fc558322324a7f659769331370c5d9d49c30f95e0383fec0d80d03dc0c37c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MATURE_CAPABILITY_PRESERVATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "c7c17b5efdaab70f61e5aa36e785e357d76d11312a2456db08b3809ee8686911"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MATURE_CAPABILITY_PRESERVATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "2dc891c86c414c45fbad158223fee71f0201642e39c6276ee39e0d80c6c8c62a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MODEL_DIALOGUE_MODE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MODEL_DIALOGUE_MODE"
+   },
+   "field": "semantic_hash",
+   "proposed": "f284c87b67e5bb46f049f87f36dc0deebdb2a98312807d8f842b8b1620222294"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MODEL_DIALOGUE_MODE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "afe2d17e4aaadbbee1955ba164f7753a4a9a30b5531039771e11f19fef3930b3"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MODEL_DIALOGUE_MODE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "fd87891e914c90f5a906e9a854a990530a13a24ebc9d5f05844f86c91c7514d4"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_MODEL_DIALOGUE_MODE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_COMPUTE_C23"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_COMPUTE_C23"
+   },
+   "field": "semantic_hash",
+   "proposed": "7b7504ea76a4b99543fda711578a81584293b7356a2a92c52210a8f6d4072fb8"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_COMPUTE_C23"
+   },
+   "field": "evaluator_hash",
+   "proposed": "056b2fda271568f3ba5f73b652e8aa62e84c84e00495c2dfcbde927f8d5214a0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_COMPUTE_C23"
+   },
+   "field": "test_contract_hash",
+   "proposed": "34c5c4fca79efae1d1df4a9000534de3af279f35aefb48f0f158cba334b35570"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_COMPUTE_C23"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "31b487510300a6540159a97c94008197ecad208d3bf6b7410f6b697e8d280c71"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_PROMOTION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_PROMOTION"
+   },
+   "field": "semantic_hash",
+   "proposed": "782ed03d0062c3005d8dda0527b640cbc129d55674178030eabd7deddaaed177"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_PROMOTION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "399a183ccfb718142ff2c283653ab47cae15d583528d4ba13db35ea8ae1d3958"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_PROMOTION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "27f844f1c57cd724fb684268b9689fb98ccc4dabb56e11fa6844fed811e47730"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_NATIVE_PROMOTION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_PRECEDENCE_RESOLUTION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_PRECEDENCE_RESOLUTION"
+   },
+   "field": "semantic_hash",
+   "proposed": "1270ef3417b6d7b1162168920a611bd0bc4159929858a5b24db802428ac9e7fb"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_PRECEDENCE_RESOLUTION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "2d90985e236d20a7a499c799447c307dbfa3ebb005703c05ddebdb21200fd6b5"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_PRECEDENCE_RESOLUTION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "8163e57722e752187d4459a8d7844bbdecae1781b6735f9a82488a3a8585a566"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_PRECEDENCE_RESOLUTION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "9b82646408f9725f2bef9103b98b26a6055d928151a4a4fe31f9db263bd1079e"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RAG_PROVENANCE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RAG_PROVENANCE"
+   },
+   "field": "semantic_hash",
+   "proposed": "07c20455380ec1d18001c86e2e8d102ea5999a6c354dd206964a7f3984451ee0"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RAG_PROVENANCE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "db7458ff94fb19aa9c5a2074c850b832d9b10dccb5b4907b12d08b9b539482f2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RAG_PROVENANCE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "e673407f0ec6d2838530731a22746e58f3c400132097077a23e9e1f96912e6c7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RAG_PROVENANCE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RELEASE_VERIFICATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RELEASE_VERIFICATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "34b3f2f6e33f4682880635cc1f9bf6d905e0bc81ae93b90db2f1633b593980fc"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RELEASE_VERIFICATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "5061893ccc03eb69fc2f2deebdeb71e2f133f67f0da7a7d55319fe3e531484b3"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RELEASE_VERIFICATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "e86b2a02fb7e2dd507133906218a9486bbf922cc6285dcfca06bb49678d37a74"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RELEASE_VERIFICATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "92bbe6c0b7a63bfa0001c3d00247ac6a25e3a75c568380b673f6f7bc83093d5c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23"
+   },
+   "field": "semantic_hash",
+   "proposed": "ff07a6969482102dd6c730f68974f35ce3c50a0bf3edbf08df2fbf69670b47e2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23"
+   },
+   "field": "evaluator_hash",
+   "proposed": "3165f1d70470c0101f4df288d2f564a7b7511a24177b7f6d560ff92274f6f891"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23"
+   },
+   "field": "test_contract_hash",
+   "proposed": "a6a629af241f5608f978fa3d34dc8fe7e65be0ddefe56c625e11c72fd65e5469"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RESOURCE_GOVERNOR_CPP23"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "335a8eb44c3864ec2f085256615c7a0200ae14eed12df76a5602fec02c34d0ac"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RETIRED_DEPENDENCIES"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RETIRED_DEPENDENCIES"
+   },
+   "field": "semantic_hash",
+   "proposed": "a05279a80e19cc7f66a82cb39322ba726b515ae0b8ab7a96617ffaade45e6524"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RETIRED_DEPENDENCIES"
+   },
+   "field": "evaluator_hash",
+   "proposed": "fc762d157b836b0788b6e653a8ba7ca76c21ceb2da92554c5b3e42903706469b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RETIRED_DEPENDENCIES"
+   },
+   "field": "test_contract_hash",
+   "proposed": "3710ccac954535616f8b850623a197e56e2560dcba43d4dd7841aecdf8ba0e7d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RETIRED_DEPENDENCIES"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "09d12c0a630b3fffb978c031ada02b485af85deeb539f5db4568921f1d5f9a6f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_ROLE_SEPARATION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_ROLE_SEPARATION"
+   },
+   "field": "semantic_hash",
+   "proposed": "3e792a932bfee40453c9b695f42ee54fba700d80c473905d34bbbfca58f7a400"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_ROLE_SEPARATION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "b539ae10c905ef3703d2cd3ccca08be91b5e0a26c5c6754813f32eee3a0cce34"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_ROLE_SEPARATION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "5d2f473e37b191b80f6c68802e22a5a563904761a18b1980bb7f9755cbbc06e1"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_ROLE_SEPARATION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "95915cc21f94b49a8b3a54ae488708bb06d7601f40310aca7f3442d5697cdb6d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUNTIME_AUTHORITY_RESOLUTION"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUNTIME_AUTHORITY_RESOLUTION"
+   },
+   "field": "semantic_hash",
+   "proposed": "73efde09e2c08706dc0a45dfa1bf206192f1a5fea46b9219c2db6ae834231b51"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUNTIME_AUTHORITY_RESOLUTION"
+   },
+   "field": "evaluator_hash",
+   "proposed": "4c88941d76732a463003477eb84347fc21cc58300318dfc3e2ed61c02e368619"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUNTIME_AUTHORITY_RESOLUTION"
+   },
+   "field": "test_contract_hash",
+   "proposed": "468a7f3095c823fd554db83161debf6009ba9902e6ce5ffc07e00118a84e3d71"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUNTIME_AUTHORITY_RESOLUTION"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUST_TESTS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUST_TESTS"
+   },
+   "field": "semantic_hash",
+   "proposed": "c0585dd2600768d65b612f6fbb70ce0818c88f7af57eaf9ec2ba5429221dc371"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUST_TESTS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "41e0db54d3b14803c9448f9cb62052e12630b8efccad88bf5f8031d37e312282"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUST_TESTS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "5639650253347d557f171b70cdefc982f85dee81c0151f2a7f5d08cd636b4b2a"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_RUST_TESTS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "251b673b4ef8bb7829235e2f04df6ad73e301819e8e83db33de344c938363209"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "semantic_hash",
+   "proposed": "0ddb4d024512d21e8d968ac751a80b801b911882d277617114e73f0a19167e3b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "evaluator_hash",
+   "proposed": "6d48e1eb29d572b13c9ff9bb1ffc91b7977b358f9f7dbaec6e5090d8b95af13c"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "test_contract_hash",
+   "proposed": "1559da43f174f1797455cf1edbdfde946fff7be700c80932cdec8d88ea86d16f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "589789b9414e74a87e6693bf8ffd2155698c6d1b86f6e902217ba5e5cf8374ad"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_MIGRATION_AUTHORITY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_MIGRATION_AUTHORITY"
+   },
+   "field": "semantic_hash",
+   "proposed": "5f20c1033ba6b93741825de418491fc46336ec76e42f2d96049acc2fef30b7d7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_MIGRATION_AUTHORITY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "18a8f8ec11fd0ed9559966b4b6b0897dcd247b0767a0fd02dd0aad4652906372"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_MIGRATION_AUTHORITY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "eb52e8dac83708f795d324f3687714caf1ea43bb372d0af7a185b9f752bd26dc"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_SQL_MIGRATION_AUTHORITY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "dc0970063d002a9aa5b9c6c28e381d272e471fc25fb4c39a68ebe5f2e1bb8755"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_AUDIT_RESPONSIBILITY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_AUDIT_RESPONSIBILITY"
+   },
+   "field": "semantic_hash",
+   "proposed": "d5bfd21330b989bc7b90f73376257404025b9b836c689fc2aa0d60bd6e977456"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_AUDIT_RESPONSIBILITY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "6da8f006f3729544650186d17c6d84f2dfdbdade8502e82a45245357975bdbbd"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_AUDIT_RESPONSIBILITY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "81e69c8db1d83780cc48d76585eb1954b20b39bb35de59f8557b10cc576d45a1"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_AUDIT_RESPONSIBILITY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "8e7cc07b7c6b12210872d0415a92eac1ff51cdadb79bdfd82802024b9d085d85"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_SUITE_CARDINALITY"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_SUITE_CARDINALITY"
+   },
+   "field": "semantic_hash",
+   "proposed": "24f907a91e9b93d0b650151cdfe6b469ffd45c54517b86cbd9f5ea7b9156bef2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_SUITE_CARDINALITY"
+   },
+   "field": "evaluator_hash",
+   "proposed": "30dea106de7f96ff48adc761cfb0c581209396549447ac62975fdecb0f921e1b"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_SUITE_CARDINALITY"
+   },
+   "field": "test_contract_hash",
+   "proposed": "6c89e62aebc09301aa3d615d0d889b418ca405e6e7104d10220c6ff60afb97da"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_SUITE_CARDINALITY"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "ea7e9db26e107957923ffe7168088c8801ff40b6619b917d3ae2fa239b678715"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_TOOLS"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_TOOLS"
+   },
+   "field": "semantic_hash",
+   "proposed": "be172c8a95600c8be90adcf1f180e9fc4eb57b4f18655586b98ddbfc99d5c83f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_TOOLS"
+   },
+   "field": "evaluator_hash",
+   "proposed": "03c5edc1eb91f7134d255506be43b81ce82ebaa055885bd3f588e360577a9fbe"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_TOOLS"
+   },
+   "field": "test_contract_hash",
+   "proposed": "986317005e14667f30caa8c3e47e019a7bf49a19ed126050503d36fc8140da2d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TEST_TOOLS"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "c88870bc12c43ca0eb9f03feac07b58382f0e0fb1b0c2c7d7dc2575b1fcc3d00"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TOOL_RUNTIME"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TOOL_RUNTIME"
+   },
+   "field": "semantic_hash",
+   "proposed": "d8e1a681d5af6dec7c62eb4c0712fe04db6ab085c3879ce0bf40491d2f120af7"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TOOL_RUNTIME"
+   },
+   "field": "evaluator_hash",
+   "proposed": "ada4c590c632c90da8086e616c37f513e626ac0452650e9e92392b544ad309ad"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TOOL_RUNTIME"
+   },
+   "field": "test_contract_hash",
+   "proposed": "4374f91f4fd9c8135ff2c0874d92331bd54d78efdeeabe86eacf0652795a3b2f"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_TOOL_RUNTIME"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "7db5df9141ec4f38a0b3b6ec0042d2f21659a9833ce533b3d7d0315f1af8bbff"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_VECTOR_ENGINE_RUST"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_VECTOR_ENGINE_RUST"
+   },
+   "field": "semantic_hash",
+   "proposed": "969ac7df6b7331880dce20adf3bd484f0a3e9facd951bf17214c6db39907336d"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_VECTOR_ENGINE_RUST"
+   },
+   "field": "evaluator_hash",
+   "proposed": "209ac6445c1be25fb92c9680c9352525d26f8e6bc0b051cb95594de108dfebfa"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_VECTOR_ENGINE_RUST"
+   },
+   "field": "test_contract_hash",
+   "proposed": "2eb8731203a3d527414463aeb5ad68f6f473639817a4b3a63187919ce16525f2"
+  },
+  {
+   "table": "formal_rule_registry",
+   "key": {
+    "rule_code": "RULE_VECTOR_ENGINE_RUST"
+   },
+   "field": "controlling_provision_hash",
+   "proposed": "5bddf25414387070d4e6d939267831d24ed4a49b9a2c03c0f6a04c9291d4c98b"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ARCHITECTURE_DIAGRAM_PROVISION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ARCHITECTURE_DIAGRAM_PROVISION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ARCHITECTURE_DIAGRAM_SYNC"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ARCHITECTURE_DIAGRAM_SYNC"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_CHECKPOINT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_CHECKPOINT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_EVENT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_EVENT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_RESULT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "AUDIT_RESULT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "BACKEND_GENERATION_HANDOFF_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "BACKEND_GENERATION_HANDOFF_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "BOUNDARY_CLASSIFICATION_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "BOUNDARY_CLASSIFICATION_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_ENTRY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_ENTRY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_GATE_DECISION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_GATE_DECISION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_INVALIDATION_EVENT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CAG_INVALIDATION_EVENT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CANCELLATION_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CANCELLATION_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CHINESE_MIRROR_PART"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CHINESE_MIRROR_PART"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CODEX_NORMATIVE_CLASSIFICATION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CODEX_NORMATIVE_CLASSIFICATION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CODEX_READ_SESSION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "CODEX_READ_SESSION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "DELEGATION_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "DELEGATION_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "EXECUTION_PIPELINE_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "EXECUTION_PIPELINE_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "EXECUTION_RECEIPT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "EXECUTION_RECEIPT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "FINAL_DECISION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "FINAL_DECISION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "GATE_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "GATE_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "HEALTH_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "HEALTH_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "HEALTH_CONTRACT_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "HEALTH_CONTRACT_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_AUTHENTICATION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_AUTHENTICATION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_CONVERSION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_CONVERSION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_RESOLUTION_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "IDENTITY_RESOLUTION_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "INFORMATION_SQL_CLOSURE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "INFORMATION_SQL_CLOSURE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "LANGUAGE_SEMANTIC_NORMALIZATION_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "LANGUAGE_SEMANTIC_NORMALIZATION_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "MODEL_DIALOGUE_MODE_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "MODEL_DIALOGUE_MODE_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "MODULE_RULE_INDEX"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "MODULE_RULE_INDEX"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PIPELINE_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PIPELINE_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "POSTGRESQL_OBJECT_INVENTORY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "POSTGRESQL_OBJECT_INVENTORY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "POSTGRESQL_ROLE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "POSTGRESQL_ROLE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PRECEDENCE_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PRECEDENCE_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PROJECT_ARCHITECTURE_CLOSURE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "PROJECT_ARCHITECTURE_CLOSURE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EDGE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EDGE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EXECUTION_CONTEXT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EXECUTION_CONTEXT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EXECUTION_RESULT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_EXECUTION_RESULT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_NODE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_NODE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_PLAN"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_DAG_PLAN"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_HYBRID_BENCHMARK"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_HYBRID_BENCHMARK"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_OBSERVABILITY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_OBSERVABILITY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_POLICY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RAG_POLICY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RECEIPT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RECEIPT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RECONCILIATION_RECEIPT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RECONCILIATION_RECEIPT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RELEASE_CERTIFICATION_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RELEASE_CERTIFICATION_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ROLE_BOUNDARY_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ROLE_BOUNDARY_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ROUTE_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "ROUTE_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RUNTIME_HEALTH"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RUNTIME_HEALTH"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RUNTIME_RULE_INDEX"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "RUNTIME_RULE_INDEX"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SCHEMA_VALIDATION_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SCHEMA_VALIDATION_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SEARCH_TOOL_RESULT_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SEARCH_TOOL_RESULT_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_DDL_CANONICALIZATION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_DDL_CANONICALIZATION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_GOVERNANCE_CLOSURE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_GOVERNANCE_TEST"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_GOVERNANCE_TEST"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_HEALTH_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_HEALTH_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION_RECEIPT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_MIGRATION_RECEIPT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_OBJECT_COVERAGE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_OBJECT_COVERAGE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_RECONCILIATION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_RECONCILIATION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_RECOVERY_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_RECOVERY_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_RUNTIME_SCHEMA_COMPATIBILITY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_RUNTIME_SCHEMA_COMPATIBILITY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SCHEMA_OBJECT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SCHEMA_OBJECT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SECURITY_PARITY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SECURITY_PARITY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SECURITY_PROJECTION"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SECURITY_PROJECTION"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SESSION_CONTEXT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_SESSION_CONTEXT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_TRANSACTION_CONCURRENCY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_TRANSACTION_CONCURRENCY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_TRANSACTION_POLICY"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQL_TRANSACTION_POLICY"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQLITE_STATE_SCOPE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "SQLITE_STATE_SCOPE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_RESULT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_RESULT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_SUITE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_SUITE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_SUITE_EVIDENCE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TEST_SUITE_EVIDENCE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOKEN"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOKEN"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOOL_RELIABILITY_PROFILE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOOL_RELIABILITY_PROFILE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOOL_RUNTIME_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TOOL_RUNTIME_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TRANSPORT_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TRANSPORT_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TRANSPORT_ENVELOPE"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "TRANSPORT_ENVELOPE"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "VECTOR_CONTRACT"
+   },
+   "field": "validated_against_version",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "machine_schema_parity_evidence",
+   "key": {
+    "schema_code": "VECTOR_CONTRACT"
+   },
+   "field": "reason",
+   "proposed": "Unified generation-bound restamp: content unchanged; producer/validator/persistence/canonical hashes verified at predecessor; evidence re-bound to successor generation (single-window unified flow)."
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 286
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "INCOMPLETE_EVIDENCE"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "CODEX_CONVERGENCE_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;formal=0;schema=0;surface=184;directory=40;semantic-review=1;open-obligations=60;obligation-counts={\"complete\":2,\"evidence-submitted\":1,\"mandated\":58,\"pending\":1,\"superseded\":1};obligation-input-sha256=317e13d2973f602fa72c81c02fcee9a4b64c0efe5e8000d2d1460dde51b108d5;external-signature=1;counts=gate-instances-not-unique-incidents"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DIRECTORY_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DIRECTORY_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DIRECTORY_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 40
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DIRECTORY_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "INCOMPLETE_EVIDENCE"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DIRECTORY_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;project=54/54;semantic-mismatches=0;catalog=81;catalog-open=40;input-sha256=0e2b18fe2b4691ad3cdb24e93bfc4f99b80c7affb4cdcf6dc208d12ffe3d3fbf"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DUPLICATION_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DUPLICATION_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DUPLICATION_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 1
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DUPLICATION_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "INCOMPLETE_EVIDENCE"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "DUPLICATION_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;exact-duplicate-groups=0;semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "FORMAL_RULE_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "FORMAL_RULE_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "FORMAL_RULE_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 0
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "FORMAL_RULE_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "PASS"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "FORMAL_RULE_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;registry=89;participating=79;open=0;input-sha256=0305674e2cbb569c9796a31534ed3e4fdc304a65efa657be971deaba26414723;binding-spec=sha256-canonical-json-utf8-v1-unified-declared-in-request;NO_RUNTIME_PARITY_INFERRED"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "MACHINE_SCHEMA_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "MACHINE_SCHEMA_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "MACHINE_SCHEMA_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 0
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "MACHINE_SCHEMA_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "PASS"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "MACHINE_SCHEMA_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;registered=77;open=0;input-sha256=2b85f7adb23162ec7f78c352df3a1d6e8f03e5f5e3c4635370bbd5f917f66f03;activation-and-verified-release=DENIED"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 184
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "INCOMPLETE_EVIDENCE"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "NORMATIVE_SURFACE_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;active=988;unknown=184;input-sha256=1d775615f9d001aa5fc18eef761246054f0aa89d8024b242a9aa36ecaf2cc5a7"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "PROJECTION_PARITY_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "PROJECTION_PARITY_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "PROJECTION_PARITY_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 0
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "PROJECTION_PARITY_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "PASS"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "PROJECTION_PARITY_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;diagram-evidence=current:PASS;source-result=PASS;independent-mirror-and-SQL-publication-gate=REQUIRED"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+   },
+   "field": "version_identity",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+   },
+   "field": "verified_at",
+   "proposed": "<successor-version>"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+   },
+   "field": "open_finding_count",
+   "proposed": 0
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+   },
+   "field": "result",
+   "proposed": "PASS"
+  },
+  {
+   "table": "codex_convergence_closure",
+   "key": {
+    "closure_id": "SEARCH_CURRENTNESS_CLOSURE"
+   },
+   "field": "evidence_roots",
+   "proposed": "source=2026-10-02T13:32:25Z;candidate-generation=bound-by-version_identity-field;checked=906;source-stale=0;input-sha256=41fc820aea882cd92a6a406a9b6073fd6f4d4517882be27c5d7dd0baebad4311;candidate-publication-requires-search-rebuild"
+  }
+ ],
+ "acceptance": {
+  "expected_state": "post-publish closure evaluation: formal_rule findings=0 (all four hashes 64-hex + version_identity==head + parity VERIFIED), machine-schema open=0, aggregate open=286 (184 surface + 40 directory + 1 dup-review + 60 obligations + 1 external-signature); audit remains 0 FAIL",
+  "criteria": [
+   "all 79 participating rules have version_identity=<published version> and all four hash fields matching ^[0-9a-f]{64}$",
+   "machine_schema_parity_evidence.validated_against_version=<published version> for all 77 rows",
+   "codex_convergence_closure rows restamped with recomputed metrics",
+   "no predicate/provision/schema content modified",
+   "audit engine remains 0 FAIL"
+  ],
+  "evidence": [
+   "governance_rule/execution/audit/convergence/machine-schema-parity-probe-20261002.json",
+   "governance_rule/execution/audit/convergence/machine-schema-parity-evidence-20261002.json",
+   "governance_rule/execution/audit/convergence/machine-schema-parity-evidence-20261002.json",
+   "governance_rule/execution/audit/convergence/codex-divergence-report-20261002.json"
+  ],
+  "out_of_scope": [
+   "normative-surface classification (184) and directory acceptance evidence (40) - governed programs",
+   "semantic duplication review (1) - requires independent review verdict",
+   "implementation obligations (60) and external Ed25519 signatures - governor scope"
+  ]
+ }
+}

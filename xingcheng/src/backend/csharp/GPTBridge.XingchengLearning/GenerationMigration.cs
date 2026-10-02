@@ -80,9 +80,9 @@ internal static class GenerationMigration
         string toolRoot, string id)
     {
         string path = ManifestPath(toolRoot, id);
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             throw new ExecutorError("GEN_MANIFEST_MISSING", id);
-        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
         if (!doc.RootElement.TryGetProperty("format", out var f) ||
             f.GetString() != ManifestFormat)
             throw new ExecutorError("GEN_MANIFEST_FORMAT", id);
@@ -103,13 +103,13 @@ internal static class GenerationMigration
     private static List<string> OpenManifestIds(string toolRoot)
     {
         var ids = new List<string>();
-        if (!Directory.Exists(StateDir(toolRoot))) return ids;
-        foreach (string f in Directory.GetFiles(
+        if (!NativeStateProjection.DirectoryExists(StateDir(toolRoot))) return ids;
+        foreach (string f in NativeStateProjection.EnumerateFiles(
                        StateDir(toolRoot), "migration-*.json"))
         {
             try
             {
-                using var doc = JsonDocument.Parse(File.ReadAllText(f));
+                using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(f));
                 string status = doc.RootElement
                     .TryGetProperty("status", out var s)
                     ? s.GetString() ?? "" : "";
@@ -118,25 +118,25 @@ internal static class GenerationMigration
                     ids.Add(Path.GetFileNameWithoutExtension(f)
                             ["migration-".Length..]);
             }
-            catch { /* unreadable manifests are not open candidates */ }
+            catch (Exception error) { throw new ExecutorError("GENERATION_STATE_INVALID", error.Message); }
         }
         return ids;
     }
 
     private static Dictionary<string, object?> LoadState(string toolRoot)
     {
-        if (File.Exists(StatePath(toolRoot)))
+        if (NativeStateProjection.Exists(StatePath(toolRoot)))
         {
             try
             {
                 using var doc = JsonDocument.Parse(
-                    File.ReadAllText(StatePath(toolRoot)));
+                    NativeStateProjection.ReadAllText(StatePath(toolRoot)));
                 var map = new Dictionary<string, object?>();
                 foreach (var p in doc.RootElement.EnumerateObject())
                     map[p.Name] = ModelLifecycle.Decode(p.Value);
                 return map;
             }
-            catch { /* fall through to defaults */ }
+            catch (Exception error) { throw new ExecutorError("GENERATION_STATE_INVALID", error.Message); }
         }
         return new Dictionary<string, object?>
         {
@@ -188,12 +188,12 @@ internal static class GenerationMigration
             XcPaths.EngineSettingsRel.Replace(
                 '/', Path.DirectorySeparatorChar));
         var settings = new Dictionary<string, object?>();
-        if (File.Exists(settingsPath))
+        if (NativeStateProjection.Exists(settingsPath))
         {
             try
             {
                 using var doc = JsonDocument.Parse(
-                    File.ReadAllText(settingsPath));
+                    NativeStateProjection.ReadAllText(settingsPath));
                 foreach (var p in doc.RootElement.EnumerateObject())
                     settings[p.Name] = ModelLifecycle.Decode(p.Value);
             }
@@ -233,16 +233,16 @@ internal static class GenerationMigration
 
     private static string HashOf(string path)
     {
-        if (File.Exists(path))
+        if (NativeStateProjection.Exists(path))
             return "sha256:" + TransformerTrainingRepository.Sha256File(path);
         if (Directory.Exists(path))
         {
             string weights = Path.Combine(path, "weights.bin");
-            if (File.Exists(weights))
+            if (NativeStateProjection.Exists(weights))
                 return "sha256:" +
                        TransformerTrainingRepository.Sha256File(weights);
             string manifest = Path.Combine(path, "manifest.json");
-            if (File.Exists(manifest))
+            if (NativeStateProjection.Exists(manifest))
                 return "sha256:" +
                        TransformerTrainingRepository.Sha256File(manifest);
         }
@@ -251,12 +251,12 @@ internal static class GenerationMigration
 
     private static string VersionOf(string path)
     {
-        if (File.Exists(path))
+        if (NativeStateProjection.Exists(path))
             return Path.GetFileName(path);
         if (Directory.Exists(path))
         {
             string manifest = Path.Combine(path, "manifest.json");
-            if (File.Exists(manifest))
+            if (NativeStateProjection.Exists(manifest))
                 return Path.GetFileName(path) + "@" +
                        TransformerTrainingRepository
                            .Sha256File(manifest)[..12];
@@ -267,16 +267,16 @@ internal static class GenerationMigration
 
     private static string TokenizerHash(string bundleOrPath)
     {
-        string p = File.Exists(bundleOrPath)
+        string p = NativeStateProjection.Exists(bundleOrPath)
             ? bundleOrPath
             : Path.Combine(bundleOrPath, "tokenizer.json");
-        return File.Exists(p)
+        return NativeStateProjection.Exists(p)
             ? "sha256:" + TransformerTrainingRepository.Sha256File(p) : "";
     }
 
     private static bool IsBundleDir(string path)
         => Directory.Exists(path) &&
-           File.Exists(Path.Combine(path, "manifest.json"));
+           NativeStateProjection.Exists(Path.Combine(path, "manifest.json"));
 
     // ---------------------------------------------------------- begin --
 
@@ -301,7 +301,7 @@ internal static class GenerationMigration
         // registered, staged or pinned.
         string weights = DataBoundary.AssertInside(
             toolRoot, weightsPath);
-        if (!File.Exists(weights) && !Directory.Exists(weights))
+        if (!NativeStateProjection.Exists(weights) && !Directory.Exists(weights))
             throw new ExecutorError("GEN_WEIGHTS_MISSING", weights);
         if (!IsBundleDir(weights) &&
             !Path.GetExtension(weights).Equals(".xcn",
@@ -381,7 +381,7 @@ internal static class GenerationMigration
         if (expertLineage.Length > 0)
         {
             using var doc = JsonDocument.Parse(
-                File.ReadAllText(expertLineage));
+                NativeStateProjection.ReadAllText(expertLineage));
             manifest["expert_lineage"] =
                 ModelLifecycle.Decode(doc.RootElement);
         }
@@ -509,7 +509,7 @@ internal static class GenerationMigration
                 '/', Path.DirectorySeparatorChar));
 
         // gate: candidate artifact present and hash-stable since begin.
-        bool present = File.Exists(target) || Directory.Exists(target);
+        bool present = NativeStateProjection.Exists(target) || Directory.Exists(target);
         string hashNow = present ? HashOf(target) : "";
         checks.Add(Check("candidate_weights_readable",
             present && hashNow == (string)m["target_checkpoint_hash"]!,
@@ -522,17 +522,17 @@ internal static class GenerationMigration
             open.Count.ToString()));
 
         // gate: tokenizer resolves and parses (target or inherited).
-        string tokPath = File.Exists(target)
+        string tokPath = NativeStateProjection.Exists(target)
             ? target
             : Path.Combine(target, "tokenizer.json");
         bool tokOk = false;
         string tokDetail = "missing";
-        if (File.Exists(tokPath))
+        if (NativeStateProjection.Exists(tokPath))
         {
             try
             {
                 using var doc = JsonDocument.Parse(
-                    File.ReadAllText(tokPath));
+                    NativeStateProjection.ReadAllText(tokPath));
                 tokOk = doc.RootElement.ValueKind == JsonValueKind.Object;
                 tokDetail = "json";
             }
@@ -549,13 +549,13 @@ internal static class GenerationMigration
         {
             try
             {
-                using var doc = JsonDocument.Parse(File.ReadAllText(
+                using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(
                     Path.Combine(target, "manifest.json")));
                 cfgOk = doc.RootElement.ValueKind == JsonValueKind.Object;
             }
             catch { }
         }
-        else if (File.Exists(target))
+        else if (NativeStateProjection.Exists(target))
         {
             var hdr = new byte[8];
             using var fs = File.OpenRead(target);
@@ -800,7 +800,7 @@ internal static class GenerationMigration
             FeatureCatalog.Rel.Replace('/', Path.DirectorySeparatorChar));
         bool catalogOk = false;
         string catalogDetail = "missing";
-        if (File.Exists(catalogPath))
+        if (NativeStateProjection.Exists(catalogPath))
         {
             try
             {
@@ -821,7 +821,7 @@ internal static class GenerationMigration
             try
             {
                 using var provDoc = JsonDocument.Parse(
-                    File.ReadAllText(
+                    NativeStateProjection.ReadAllText(
                         Path.Combine(target, "manifest.json")));
                 var provRoot = provDoc.RootElement;
                 provOk = provRoot.TryGetProperty("provenance",
@@ -1010,7 +1010,7 @@ internal static class GenerationMigration
         var verify = new List<string>();
         string pinnedAbs = Path.Combine(
             toolRoot, pinned.Replace('/', Path.DirectorySeparatorChar));
-        if (!File.Exists(pinnedAbs) ||
+        if (!NativeStateProjection.Exists(pinnedAbs) ||
             HashOf(pinnedAbs) != (string)m["target_checkpoint_hash"]!)
             verify.Add("PINNED_CHECKPOINT_MISMATCH");
         var activeCheck = lifecycle.ActiveWeights();
@@ -1135,7 +1135,7 @@ internal static class GenerationMigration
         }
         CollectPaths(lifecycle.Artifacts);
         CollectPaths(lifecycle.History);
-        foreach (string sib in Directory.GetFiles(
+        foreach (string sib in NativeStateProjection.EnumerateFiles(
                      StateDir(toolRoot), "migration-*.json"))
         {
             if (sib == ManifestPath(toolRoot, id)) continue;
@@ -1170,7 +1170,7 @@ internal static class GenerationMigration
         {
             string srcAbs = Path.Combine(
                 toolRoot, srcRel.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(srcAbs) || Directory.Exists(srcAbs))
+            if (NativeStateProjection.Exists(srcAbs) || Directory.Exists(srcAbs))
                 candidates.Add(srcAbs);
         }
 
@@ -1193,7 +1193,7 @@ internal static class GenerationMigration
             {
                 try
                 {
-                    if (File.Exists(abs)) File.Delete(abs);
+                    if (NativeStateProjection.Exists(abs)) File.Delete(abs);
                     else if (Directory.Exists(abs))
                         Directory.Delete(abs, recursive: true);
                     deleted.Add(rel);
@@ -1296,7 +1296,7 @@ internal static class GenerationMigration
             };
         }
         var manifests = new List<object?>();
-        if (Directory.Exists(StateDir(toolRoot)))
+        if (NativeStateProjection.DirectoryExists(StateDir(toolRoot)))
         {
             foreach (string f in Directory.GetFiles(
                          StateDir(toolRoot), "migration-*.json")
@@ -1305,7 +1305,7 @@ internal static class GenerationMigration
                 try
                 {
                     using var doc = JsonDocument.Parse(
-                        File.ReadAllText(f));
+                        NativeStateProjection.ReadAllText(f));
                     manifests.Add(new Dictionary<string, object?>
                     {
                         ["migration_id"] = doc.RootElement

@@ -204,5 +204,88 @@ int main() {
     }
     NT_END_TEST(SUITE, "pool_background_demotion_and_priority");
 
+    NT_TEST(SUITE, "pool_dynamic_resizes_shared_envelope") {
+        /* 池動態信封：機器 CPU ≥ pool_relief_cpu_pct 時非互動池共享
+         * Job 率逐步收緊至下限；平靜且池需求頂住帽緣時逐步放回
+         * 預設；互動層永不擠壓。 */
+        const std::string text =
+            R"({"defaults": {"pool_dynamic": true,)"
+            R"( "pool_relief_cpu_pct": 75, "pool_floor_percent": 5,)"
+            R"( "pool_step_percent": 4},)"
+            R"( "pools": {"compute": {"cpu_limit_percent": 30.0,)"
+            R"( "members": ["trainsvc"]},)"
+            R"( "interactive": {"cpu_limit_percent": 40.0,)"
+            R"( "members": ["uisvc"]}}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "parse ok");
+        gov::RulesDoc rules = *parsed;
+        FakeEngine engine;
+        engine.sys = sys8();
+        gov::GovernorConfig config = base_config();
+        config.dry_run = false;
+        gov::CycleContext ctx = base_ctx();
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+        gov::ProcSample svc;
+        svc.pid = 970;
+        svc.name = "trainsvc.exe";
+        svc.exe = "c:\\apps\\trainsvc.exe";
+        svc.cmdline = "trainsvc --serve";
+        svc.username = "u";
+        svc.cpu_percore = 10.0;
+        svc.rss_mb = 100.0;
+        svc.create_ms = 5000970;
+        gov::ProcSample ui = svc;
+        ui.pid = 971;
+        ui.name = "uisvc.exe";
+        ui.exe = "c:\\apps\\uisvc.exe";
+        ui.cmdline = "uisvc";
+        ui.create_ms = 5000971;
+        engine.procs = {svc, ui};
+        gov::govern_once(config, rules, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "job:-11:970:30"), "compute joined");
+        NT_CHECK(has_call(engine.calls, "job:-10:971:40"), "ui joined");
+
+        /* 機器壓力（cpu 80 ≥ 75）→ compute 逐步收緊；互動層不動。 */
+        engine.sys.cpu_load_machine = 80.0;
+        engine.calls.clear();
+        gov::govern_once(config, rules, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "job:-11:970:26"),
+                 "compute tightened 30→26");
+        NT_CHECK(count_calls(engine.calls, "job:-10:") == 0,
+                 "interactive never squeezed");
+        gov::govern_once(config, rules, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "job:-11:970:22"), "26→22 next cycle");
+
+        /* 平靜＋需求頂帽（200/8=25 ≥ 22×0.9=19.8）→ 逐步放回預設。 */
+        engine.sys.cpu_load_machine = 10.0;
+        engine.calls.clear();
+        svc.cpu_percore = 200.0;
+        engine.procs = {svc, ui};
+        gov::govern_once(config, rules, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "job:-11:970:26"), "relaxed 22→26");
+        gov::govern_once(config, rules, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "job:-11:970:30"), "back at preset");
+        const int at_preset = count_calls(engine.calls, "job:-11:");
+        gov::govern_once(config, rules, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(count_calls(engine.calls, "job:-11:") == at_preset,
+                 "never exceeds preset");
+
+        /* 冷卻下行至下限封底：重進壓力多次後停在 floor。 */
+        engine.sys.cpu_load_machine = 80.0;
+        for (int i = 0; i < 8; ++i)
+            gov::govern_once(config, rules, engine, records, regulation, ctx,
+                             logs);
+        NT_CHECK(has_call(engine.calls, "job:-11:970:5"), "floor reached");
+    }
+    NT_END_TEST(SUITE, "pool_dynamic_resizes_shared_envelope");
+
     return native_tests::report("resource_governor_pools_suite.json");
 }

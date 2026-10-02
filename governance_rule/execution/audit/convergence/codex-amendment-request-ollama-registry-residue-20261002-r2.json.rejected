@@ -1,0 +1,237 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "ollama-registry-residue-20261002-r2",
+  "title": "Retire remaining Ollama provider, semantic-model, fault-vocabulary and directory residue after B154 retirement and sibling-provision convergence",
+  "summary": "Amendments b154-ollama-retirement-20261002 (rev 235) and ollama-sibling-residue-20261002-r2 (rev 238) are executed: B154 is retired, sibling provisions no longer grant Ollama authority, and the ollama module/formal-rule/metadata rows read retired. Residue remains outside the scope of both: local_model_provider_registry still registers provider OLLAMA_LOCAL as status=active although B154 states the retired service holds no active authority; semantic_model_registry keeps three OLLAMA_LOCAL embedding/reranker bindings at status=observed; current_normative_surface still lists formal-rule:FR-OLLAMA-ON-DEMAND as lifecycle_state=active while the rule itself is retired; final_implementation_inventory row INV_LOCAL_MODEL remains status=current; ten OLLAMA_* fault codes in fault_code_directory are still un-retired active vocabulary for a runtime that no longer exists, and the active-authoritative-inventory enumerations in test_flow_directory.TF_GLOBAL_FAULT_DIRECTORY_COVERAGE.fixtures and maintenance_manual_directory.GLOBAL_FAULT_CONTAINMENT_AND_ROUTING.applicable_fault_codes still list them; fault code MODEL_RUNTIME_NOT_READY still names Ollama in its trigger; project_architecture_directory.PROJECT_GPTBRIDGE.dependencies still lists registered-Ollama-C-drive-paths; article C27 still enumerates Ollama as a connection type. The executed r2 amendment explicitly deferred the inventory-state convergence and the fault-code traceability decision; this request performs the provider/vocabulary/traceability side of that convergence while the governor-held observation reconciliation governs the local_model_registry/model_residency_registry observation rows. Codex-law and registry convergence only; no implementation change.",
+  "requested_by": "decision-sovereign",
+  "origin": "convergence pass after executed b154-ollama-retirement-20261002 and ollama-sibling-residue-20261002-r2; r2 acceptance out_of_scope recorded OLLAMA_* fault vocabulary retirement as a separate traceability decision and model-registry restamp as a separate inventory-state convergence; r1 intake artifact was closed by a spurious REQUEST_UNREADABLE at submission - r2 is byte-identical except request_id",
+  "problem": {
+    "summary": "Post-retirement residue: provider OLLAMA_LOCAL still active; 3 semantic model bindings still observed for the retired provider; formal-rule surface entry still active after rule retirement; inventory row INV_LOCAL_MODEL still current; 10 OLLAMA_* fault codes un-retired and still enumerated in the global fault-coverage flow and maintenance manual; MODEL_RUNTIME_NOT_READY trigger still names Ollama; PROJECT_GPTBRIDGE dependencies still list Ollama C-drive paths; C27 still enumerates Ollama as a connection type.",
+    "affected": [
+      "local_model_provider_registry",
+      "semantic_model_registry",
+      "fault_code_directory",
+      "current_normative_surface",
+      "final_implementation_inventory",
+      "project_architecture_directory",
+      "articles",
+      "test_flow_directory",
+      "maintenance_manual_directory"
+    ],
+    "scope": "codex-text and registry convergence only; no file, binary or implementation change"
+  },
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T13:00:35Z",
+    "version_identity": "E2:2026-10-02T13:00:35Z",
+    "version_epoch": 2,
+    "history_head": "499647e26d32e06861946cebdf260294e1fdceaae2d1012ed3556aafcc7406a0",
+    "revision_sequence": 241
+  },
+  "changes": [
+    {
+      "table": "local_model_provider_registry",
+      "key": {
+        "provider_identity": "OLLAMA_LOCAL"
+      },
+      "field": "status",
+      "proposed": "retired"
+    },
+    {
+      "table": "semantic_model_registry",
+      "key": {
+        "model_identity": "nomic-embed-text-v2-moe:latest"
+      },
+      "field": "status",
+      "proposed": "retired"
+    },
+    {
+      "table": "semantic_model_registry",
+      "key": {
+        "model_identity": "pdurugyan/qwen3-reranker-0.6b-q8_0:latest"
+      },
+      "field": "status",
+      "proposed": "retired"
+    },
+    {
+      "table": "semantic_model_registry",
+      "key": {
+        "model_identity": "qwen3-embedding:4b"
+      },
+      "field": "status",
+      "proposed": "retired"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "INTERNAL_OLLAMA_TRAINING_FAILED"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_NOT_READY"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_READY"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_RUN_FAILED"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_TRAINING_INTENT_NOT_ALLOWED"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_TRAINING_MODELS_NOT_READY"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_TRAINING_STAGE_FAILED"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_TRAINING_TOPIC_REQUIRED"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_UNAVAILABLE"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "OLLAMA_UNREACHABLE"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "fault_code_directory",
+      "key": {
+        "fault_code": "MODEL_RUNTIME_NOT_READY"
+      },
+      "field": "trigger",
+      "proposed": "native/transformer model runtime unavailable"
+    },
+    {
+      "table": "current_normative_surface",
+      "key": {
+        "surface_entry_id": "formal-rule:FR-OLLAMA-ON-DEMAND"
+      },
+      "field": "lifecycle_state",
+      "proposed": "retired"
+    },
+    {
+      "table": "final_implementation_inventory",
+      "key": {
+        "inventory_code": "INV_LOCAL_MODEL"
+      },
+      "field": "status",
+      "proposed": "retired"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "PROJECT_GPTBRIDGE"
+      },
+      "field": "dependencies",
+      "proposed": "Windows11|E:\\AI"
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C27"
+      },
+      "field": "rule",
+      "proposed": "CONNECTION-DEFINITION:any-cross-process+cross-thread-message-channel+cross-layer+cross-module+cross-owner+frontend-backend+sovereign-module+module-executor+network+loopback+LAN+internet+WebSocket+HTTP/HTTPS+TCP/UDP+IPC+pipe+queue+event-bus+callback-bus+database+PostgreSQL+SQLite-cross-owner+Rust-Vector-Engine+RAG+model-runtime+filesystem-cross-owner+repository+broker+tool+service+child-process-control+health-probe+administration+provisioning+startup+repair+test-or-script communication/session/request/read/write/control/status/event/data-transfer; SOLE-OWNER:information-layer; REQUIRED-ROUTE:authenticated-requester>registered-information-layer-entry>authorization+type+contract+scope+rate+observability+audit-gates>information-layer-owned-transport-adapter>authorized-destination>typed-result-via-information-layer; PHYSICAL-CONNECTION:may-be-opened-only-by-information-layer-owned-adapter-on-behalf-of-approved-request+adapter-has-no-domain-decision; CREDENTIALS+TOKENS+PORTS+CONNECTION-POOLS+SESSIONS+RETRY+TIMEOUT+HEARTBEAT+BACKPRESSURE+RECONNECT:information-layer-custody; CALLER:request-only+no-transport-handle; DESTINATION:reply-only-through-originating-information-route; FAILURE:fail-closed+typed-error+audit+health-signal; COVERAGE:runtime+development+maintenance+migration+packaging+diagnostics+tests+one-off-scripts; INTERNAL-NON-CONNECTION:pure-in-process-function-call-inside-one-owner-and-one-layer-without-I/O/message/session/transport-handle remains-owner-internal; CURRENT-NORMALIZATION:C116 controls;SQLite is retired with zero active consumers;every affirmative SQLite use,fallback,reconciliation,authority or runtime clause in this provision is void and historical-only"
+    },
+    {
+      "table": "test_flow_directory",
+      "key": {
+        "test_flow_code": "TF_GLOBAL_FAULT_DIRECTORY_COVERAGE"
+      },
+      "field": "fixtures",
+      "proposed": "FAULT_CODES:AI_CHANNEL_NOT_CONNECTED|APPROVAL_REQUIRED|ARGUMENTS_TOO_LARGE|AUTHORITY_INTEGRITY_GUARD_VERIFY|AUTO_REPAIR_CODE_MUTATION_BLOCKED|AUTO_REPAIR_DESTRUCTIVE_METHOD_BLOCKED|AUTO_UPDATE_FAILED|BACKEND_CONNECTION_FAILED|BACKEND_EXITED_BEFORE_HEALTH_READY|BACKEND_SHUTDOWN_FAILED|BACKUP_CREATE_FAILED|BACKUP_INTEGRITY_FAILED|BACKUP_NOT_FOUND|BROWSER_ERROR|BROWSER_LOGIN_OR_INPUT_REQUIRED|BROWSER_VERIFICATION_REQUIRED|BROWSER_WAIT_EXHAUSTED_AFTER_THREE_ATTEMPTS|CAPABILITY_BOUNDARY_DENIED|CAPABILITY_FROZEN_GOVERNANCE_BOUNDARY|CAPABILITY_KIND_NOT_ALLOWED|CAPABILITY_MAJORITY_VOTE_REQUIRED|CAPABILITY_SOURCE_SCOPE_DENIED|CAPABILITY_SOURCE_TARGET_INVALID|CAPABILITY_SOURCE_VALIDATION_FAILED|CAPABILITY_SPEC_REQUIRED|CENTRAL_AUTO_REPAIR_FAILED|CHANNEL_BACKPRESSURE_OVERFLOW|CHANNEL_EVENT_LOOP_STARVED|CHANNEL_HEARTBEAT_TIMEOUT|CHANNEL_OUTBOX_STALLED|CHANNEL_SEQUENCE_GAP|CHANNEL_SESSION_REJECTED|CHANNEL_SUPERVISOR_UNAVAILABLE|CHATGPT_COORDINATION_FAILED|CHATGPT_RECOMMENDATION_FAILED|CHATGPT_RECOMMENDATION_UNAVAILABLE|CLEANER_BUSY|COMMAND_EXECUTION_FAILED|COMMAND_UNDERSTANDING_OUTPUT_INVALID|CONFIRMATION_REQUIRED|CONNECTION_CONNECTED|CONNECTION_DEGRADED|CONNECTION_DISCONNECTED|CONNECTION_STARTING|DIRECTORY_ALIAS_CYCLE|DIRECTORY_ALIAS_TYPE_MISMATCH|DIRECTORY_ALIAS_UNKNOWN|DIRECT_DELETE_CONFIRMATION_REQUIRED|DIRECT_DELETE_RISK_DENIED|DIRECT_MODEL_ACCESS_DENIED|DUPLICATE_REQUEST_ID|ENVIRONMENT_FAULT|ENVIRONMENT_OK|ENVIRONMENT_PHYSICAL_VALUE_FORBIDDEN|EXECUTABLE_MISSING|EXTERNAL_AI_DISABLED|EXTERNAL_AI_FAILED|EXTERNAL_REFERENCE_SHARING_NOT_AUTHORIZED|FIXED_OWNER_BROWSER_RESULT_REQUIRED|FORCE_CLOSE_FAILED|FOREGROUND_BROWSER_INTERACTION_REQUIRED|FRONTEND_BACKEND_DISCONNECTED|GLOBAL_CLEANER_START_EXCEPTION|GLOBAL_CLEANER_TIMEOUT|GLOBAL_CLEANER_UNEXPECTED_FAILURE|GOVERNANCE_AUDIT_FAULT|GOVERNANCE_AUDIT_PASS|GOVERNED_REQUEST_CANCELLED|GOVERNED_REQUEST_TIMEOUT|GOVERNED_RUNTIME_UNAVAILABLE|GOVERNED_SOURCE_RUNTIME_REQUIRED|GOV_UNREGISTERED_FAULT_CODE|GPT_TRAINING_FAILED|GPT_TRAINING_INTENT_NOT_ALLOWED|GPT_TRAINING_RESPONSE_UNAVAILABLE|GPT_TRAINING_TOPIC_REQUIRED|GPT_TRAINING_UNAVAILABLE|HOT_RELOAD_FAILED|HOT_RELOAD_RUNTIME_DISRUPTION|INCOMPATIBLE_TOOL_RUNTIME|INDENTATION_ERROR|INVALID_ACCOUNTING_SNAPSHOT|INVALID_ANALYSIS_SNAPSHOT|INVALID_ARGS|INVALID_ARGUMENTS|INVALID_EXECUTABLE_PATH|INVALID_MODULES|INVALID_REQUEST_ID|INVALID_SOURCE_RUNTIME|INVALID_TOOL_ID|INVALID_TOOL_PATH|INVALID_TOOL_RESPONSE|KNOWLEDGE_QUERY_REQUIRED|LIFECYCLE_LOCKED|LOCAL_MODEL_RUNTIME_REQUIRED|LOCAL_SQLITE_READY|LOCAL_SQLITE_UNAVAILABLE|MAIN_SYSTEM_CRASH_REPAIR|MAIN_SYSTEM_SOURCE_SYNTAX_FAILED|MEMORY_REVIEW_REJECTED|MESSAGE_REQUIRED|MISSING_REQUEST_ID|MISSING_TOOL_ID|MODEL_CAPABILITY_BOUNDARY|MODEL_NOT_INSTALLED|MODEL_RESOURCE_ALLOCATION_FAILED|MODEL_RUNTIME_NOT_READY|MODULE_CLEANUP_EXCEPTION|MODULE_CLEANUP_TIMEOUT|MODULE_UNAVAILABLE|NATIVE_INTERNAL_OPERATION_REQUIRED|NETWORK_ACCESS_DISABLED|NOT_IMPLEMENTED|ON_DEMAND_START_FAILED|PACKAGE_CORRUPT|PACKAGE_FAILED|PACKAGE_LOCK_FAILED|PACKAGE_METADATA_INVALID|PACKAGE_METADATA_MISSING|PACKAGE_MISSING|PACKAGE_NOT_FOUND|PACKAGE_OPERATION_ACTIVE|PACKAGE_REBUILDER_UNAVAILABLE|PACKAGE_REBUILD_FAILED|PACKAGE_REPAIR_START_FAILED|PACKAGE_REPAIR_TIMEOUT|PACKAGE_SEMANTICS_INVALID|PACKAGE_UNVERIFIED|PARAMETER_RECOMMENDATION_UNAVAILABLE|PERMISSION_DENIED|PERMISSION_ERROR|POSTGRESQL_READY|POSTGRESQL_UNAVAILABLE|POSTGRESQL_UNREACHABLE|PROBE_FAILED|PROCESS_START_FAILED|PROGRAMMING_FOLDER_INVALID|PROGRAMMING_FOLDER_NOT_FOUND|PROGRAMMING_FOLDER_REQUIRED|PROGRAMMING_SOVEREIGN_NOT_READY|PROMOTION_FAILED_RECOVERY_RETAINED|PROMOTION_ROLLBACK_INCOMPLETE|PROMPT_REQUIRED|QDRANT_READY|QDRANT_UNAVAILABLE|QDRANT_UNREACHABLE|QUEUE_FAILED|RAG_DOCUMENTS_REQUIRED|RAG_EMBEDDING_UNAVAILABLE|RAG_GENERATION_FAILED|RAG_GENERATION_MODEL_NOT_INSTALLED|RAG_QUESTION_REQUIRED|RAG_VECTOR_STORE_UNAVAILABLE|READING_CONTENT_REQUIRED|REQUEST_NOT_FOUND|RESPONSE_POLL_FAILED|RUNTIME_MODEL_NOT_INSTALLED|RUNTIME_MODEL_SELECTION_DENIED|RUNTIME_OWNER_NOT_READY|RUNTIME_SOVEREIGN_UNAVAILABLE|SAFE_CONFIRMATION_REQUIRED|SELF_MAINTENANCE_FAILED|SELF_MAINTENANCE_UNAVAILABLE|SELF_REPAIR_FROZEN_GOVERNANCE_BOUNDARY|SETTINGS_REQUIRED|SHA256_MISMATCH|SOURCE_CODE_REQUIRED|SOURCE_NOT_FOUND|SOURCE_RUNTIME_EXITED|SOURCE_RUNTIME_NOT_READY|SOURCE_UI_UNAVAILABLE|SQL_GOVERNANCE_APPROVAL_REQUIRED|STALE_PACKAGE|STALE_TOOL_PACKAGE|STARTUP_CRASH|STARTUP_DEPENDENCY_EXCEPTION|STARTUP_MAINTENANCE_IN_PROGRESS|STARTUP_MAINTENANCE_PENDING|STARTUP_TOTAL_DEADLINE_EXCEEDED|START_FAILED|STAR_AI_CHANNEL_NOT_CONNECTED|STAR_NATIVE_TASK_PARTICIPATION_DENIED|STREAM_CHANNEL_FAILED|SYNTAX_ERROR|TAB_ERROR|TEACHING_EXAMPLE_REQUIRED|TEACHING_INTENT_NOT_ALLOWED|THIRD_PARTY_SOVEREIGN_UNAVAILABLE|TOOLBOX_UNAVAILABLE|TOOL_BUSY|TOOL_EXECUTION_REQUEST_REQUIRED|TOOL_NOT_FOUND|TOOL_OUTSIDE_STANDALONE_SCOPE|TOOL_RUN_CANCELLED|TOOL_RUN_COMPLETED|TOOL_RUN_FAILED|TOOL_RUN_TIMEOUT|TOOL_START_FAILED|TOOL_VERSION_MISMATCH|TOO_MANY_ARGUMENTS|TRANSFORMER_FACT_VALIDATION_FAILED|TRANSFORMER_INFERENCE_FAILED|TRANSFORMER_MEMORY_PRESSURE|TRANSFORMER_MODEL_NOT_INSTALLED|TRANSFORMER_MODEL_SELECTION_INVALID|TRANSFORMER_PIPELINE_NOT_READY|TRANSFORMER_PIPELINE_STAGE_FAILED|TRANSFORMER_REQUEST_CANCELLED|TRANSFORMER_RUNTIME_UNAVAILABLE|UNKNOWN|UNSUPPORTED_BROWSER_PROVIDER|UNSUPPORTED_CODE_LANGUAGE|UNSUPPORTED_PYTHON_ARTIFACT|UNSUPPORTED_SCRIPT_ARTIFACT|UPDATE_CHECK_FAILED|UPDATE_EXECUTION_FAILED|UPGRADE_POST_VERIFY_FAILED|VISUAL_INPUT_REQUIRED|VISUAL_SPECIALIST_NOT_INSTALLED|VISUAL_SPECIALIST_SCOPE_DENIED|VISUAL_SPECIALIST_UNAVAILABLE|WARM_MODEL_PRELOADING|WARM_MODEL_READY|WARM_MODEL_UNAVAILABLE;MANUAL_CODES:AUTOMATIC_REPAIR_DESTRUCTIVE_METHOD|BACKEND_EXIT_BEFORE_HEALTH|CHANNEL_CONTINUITY_RECOVERY|CHANNEL_RECONNECT_NO_CODE_MUTATION|DIRECTORY_ALIAS_RESOLUTION|FRONTEND_BACKEND_DISCONNECTED|GOVERNANCE_CODEX_TAMPER|GOV_REGISTER_UNKNOWN_FAULT|HOT_RELOAD_CONTINUITY|MAIN_SYSTEM_PYTHON_SOURCE_SYNTAX|STARTUP_TEN_SECOND_DEADLINE|TOOL_PACKAGE_REBUILD|GLOBAL_FAULT_CONTAINMENT_AND_ROUTING"
+    },
+    {
+      "table": "maintenance_manual_directory",
+      "key": {
+        "manual_code": "GLOBAL_FAULT_CONTAINMENT_AND_ROUTING"
+      },
+      "field": "applicable_fault_codes",
+      "proposed": "AI_CHANNEL_NOT_CONNECTED|APPROVAL_REQUIRED|ARGUMENTS_TOO_LARGE|AUTO_UPDATE_FAILED|BACKEND_SHUTDOWN_FAILED|BACKUP_CREATE_FAILED|BACKUP_INTEGRITY_FAILED|BACKUP_NOT_FOUND|BROWSER_ERROR|BROWSER_LOGIN_OR_INPUT_REQUIRED|BROWSER_VERIFICATION_REQUIRED|BROWSER_WAIT_EXHAUSTED_AFTER_THREE_ATTEMPTS|CAPABILITY_BOUNDARY_DENIED|CAPABILITY_FROZEN_GOVERNANCE_BOUNDARY|CAPABILITY_KIND_NOT_ALLOWED|CAPABILITY_MAJORITY_VOTE_REQUIRED|CAPABILITY_SOURCE_SCOPE_DENIED|CAPABILITY_SOURCE_TARGET_INVALID|CAPABILITY_SOURCE_VALIDATION_FAILED|CAPABILITY_SPEC_REQUIRED|CENTRAL_AUTO_REPAIR_FAILED|CHATGPT_COORDINATION_FAILED|CHATGPT_RECOMMENDATION_FAILED|CHATGPT_RECOMMENDATION_UNAVAILABLE|CLEANER_BUSY|COMMAND_UNDERSTANDING_OUTPUT_INVALID|CONFIRMATION_REQUIRED|CONNECTION_CONNECTED|CONNECTION_DEGRADED|CONNECTION_DISCONNECTED|CONNECTION_STARTING|DIRECT_DELETE_CONFIRMATION_REQUIRED|DIRECT_DELETE_RISK_DENIED|DIRECT_MODEL_ACCESS_DENIED|DUPLICATE_REQUEST_ID|ENVIRONMENT_FAULT|ENVIRONMENT_OK|EXTERNAL_AI_DISABLED|EXTERNAL_AI_FAILED|EXTERNAL_REFERENCE_SHARING_NOT_AUTHORIZED|FIXED_OWNER_BROWSER_RESULT_REQUIRED|FORCE_CLOSE_FAILED|FOREGROUND_BROWSER_INTERACTION_REQUIRED|GLOBAL_CLEANER_START_EXCEPTION|GLOBAL_CLEANER_TIMEOUT|GLOBAL_CLEANER_UNEXPECTED_FAILURE|GOVERNANCE_AUDIT_FAULT|GOVERNANCE_AUDIT_PASS|GOVERNED_REQUEST_CANCELLED|GOVERNED_REQUEST_TIMEOUT|GOVERNED_RUNTIME_UNAVAILABLE|GOVERNED_SOURCE_RUNTIME_REQUIRED|GPT_TRAINING_FAILED|GPT_TRAINING_INTENT_NOT_ALLOWED|GPT_TRAINING_RESPONSE_UNAVAILABLE|GPT_TRAINING_TOPIC_REQUIRED|GPT_TRAINING_UNAVAILABLE|HOT_RELOAD_FAILED|INVALID_ACCOUNTING_SNAPSHOT|INVALID_ANALYSIS_SNAPSHOT|INVALID_ARGS|INVALID_ARGUMENTS|INVALID_EXECUTABLE_PATH|INVALID_MODULES|INVALID_REQUEST_ID|INVALID_SOURCE_RUNTIME|INVALID_TOOL_ID|INVALID_TOOL_PATH|INVALID_TOOL_RESPONSE|KNOWLEDGE_QUERY_REQUIRED|LIFECYCLE_LOCKED|LOCAL_MODEL_RUNTIME_REQUIRED|LOCAL_SQLITE_READY|LOCAL_SQLITE_UNAVAILABLE|MAIN_SYSTEM_CRASH_REPAIR|MEMORY_REVIEW_REJECTED|MESSAGE_REQUIRED|MISSING_REQUEST_ID|MISSING_TOOL_ID|MODEL_CAPABILITY_BOUNDARY|MODEL_NOT_INSTALLED|MODEL_RESOURCE_ALLOCATION_FAILED|MODULE_CLEANUP_EXCEPTION|MODULE_CLEANUP_TIMEOUT|MODULE_UNAVAILABLE|NATIVE_INTERNAL_OPERATION_REQUIRED|NETWORK_ACCESS_DISABLED|NOT_IMPLEMENTED|ON_DEMAND_START_FAILED|PACKAGE_CORRUPT|PACKAGE_FAILED|PACKAGE_LOCK_FAILED|PACKAGE_METADATA_INVALID|PACKAGE_METADATA_MISSING|PACKAGE_MISSING|PACKAGE_NOT_FOUND|PACKAGE_OPERATION_ACTIVE|PACKAGE_REBUILDER_UNAVAILABLE|PACKAGE_REBUILD_FAILED|PACKAGE_REPAIR_START_FAILED|PACKAGE_REPAIR_TIMEOUT|PACKAGE_SEMANTICS_INVALID|PARAMETER_RECOMMENDATION_UNAVAILABLE|PERMISSION_DENIED|POSTGRESQL_READY|POSTGRESQL_UNAVAILABLE|POSTGRESQL_UNREACHABLE|PROBE_FAILED|PROGRAMMING_FOLDER_INVALID|PROGRAMMING_FOLDER_NOT_FOUND|PROGRAMMING_FOLDER_REQUIRED|PROGRAMMING_SOVEREIGN_NOT_READY|PROMOTION_FAILED_RECOVERY_RETAINED|PROMOTION_ROLLBACK_INCOMPLETE|PROMPT_REQUIRED|QDRANT_READY|QDRANT_UNAVAILABLE|QDRANT_UNREACHABLE|QUEUE_FAILED|RAG_DOCUMENTS_REQUIRED|RAG_EMBEDDING_UNAVAILABLE|RAG_GENERATION_FAILED|RAG_GENERATION_MODEL_NOT_INSTALLED|RAG_QUESTION_REQUIRED|RAG_VECTOR_STORE_UNAVAILABLE|READING_CONTENT_REQUIRED|REQUEST_NOT_FOUND|RESPONSE_POLL_FAILED|RUNTIME_MODEL_NOT_INSTALLED|RUNTIME_MODEL_SELECTION_DENIED|RUNTIME_OWNER_NOT_READY|RUNTIME_SOVEREIGN_UNAVAILABLE|SAFE_CONFIRMATION_REQUIRED|SELF_MAINTENANCE_FAILED|SELF_MAINTENANCE_UNAVAILABLE|SELF_REPAIR_FROZEN_GOVERNANCE_BOUNDARY|SETTINGS_REQUIRED|SHA256_MISMATCH|SOURCE_CODE_REQUIRED|SOURCE_NOT_FOUND|SOURCE_RUNTIME_EXITED|SQL_GOVERNANCE_APPROVAL_REQUIRED|STALE_PACKAGE|STARTUP_CRASH|STARTUP_DEPENDENCY_EXCEPTION|STARTUP_MAINTENANCE_IN_PROGRESS|STARTUP_MAINTENANCE_PENDING|START_FAILED|STAR_AI_CHANNEL_NOT_CONNECTED|STAR_NATIVE_TASK_PARTICIPATION_DENIED|TEACHING_EXAMPLE_REQUIRED|TEACHING_INTENT_NOT_ALLOWED|THIRD_PARTY_SOVEREIGN_UNAVAILABLE|TOOLBOX_UNAVAILABLE|TOOL_BUSY|TOOL_EXECUTION_REQUEST_REQUIRED|TOOL_NOT_FOUND|TOOL_OUTSIDE_STANDALONE_SCOPE|TOOL_RUN_CANCELLED|TOOL_RUN_COMPLETED|TOOL_RUN_FAILED|TOOL_RUN_TIMEOUT|TOOL_START_FAILED|TOO_MANY_ARGUMENTS|TRANSFORMER_FACT_VALIDATION_FAILED|TRANSFORMER_INFERENCE_FAILED|TRANSFORMER_MEMORY_PRESSURE|TRANSFORMER_MODEL_NOT_INSTALLED|TRANSFORMER_MODEL_SELECTION_INVALID|TRANSFORMER_PIPELINE_NOT_READY|TRANSFORMER_PIPELINE_STAGE_FAILED|TRANSFORMER_REQUEST_CANCELLED|TRANSFORMER_RUNTIME_UNAVAILABLE|UNKNOWN|UNSUPPORTED_BROWSER_PROVIDER|UNSUPPORTED_CODE_LANGUAGE|UNSUPPORTED_PYTHON_ARTIFACT|UNSUPPORTED_SCRIPT_ARTIFACT|UPDATE_CHECK_FAILED|UPDATE_EXECUTION_FAILED|UPGRADE_POST_VERIFY_FAILED|VISUAL_INPUT_REQUIRED|VISUAL_SPECIALIST_NOT_INSTALLED|VISUAL_SPECIALIST_SCOPE_DENIED|VISUAL_SPECIALIST_UNAVAILABLE|WARM_MODEL_PRELOADING|WARM_MODEL_READY|WARM_MODEL_UNAVAILABLE"
+    }
+  ],
+  "acceptance": {
+    "expected_state": "No active registry row or live provision clause registers the retired Ollama service as an authority: provider OLLAMA_LOCAL reads retired; OLLAMA_LOCAL semantic bindings read retired; FR-OLLAMA-ON-DEMAND surface lifecycle reads retired like retired articles; INV_LOCAL_MODEL is no longer a current inventory item; the ten OLLAMA_* fault codes carry retired_version and no longer appear in the active fault-coverage flow or maintenance manual enumerations; MODEL_RUNTIME_NOT_READY no longer names Ollama; PROJECT_GPTBRIDGE dependencies no longer list Ollama paths; C27 no longer enumerates Ollama; projections rebuild to the successor version",
+    "criteria": [
+      "local_model_provider_registry.OLLAMA_LOCAL status=retired; no provider row grants the retired service active authority",
+      "semantic_model_registry rows for provider OLLAMA_LOCAL read status=retired",
+      "current_normative_surface formal-rule:FR-OLLAMA-ON-DEMAND lifecycle_state=retired (status stays current, matching article:B154 convention)",
+      "final_implementation_inventory INV_LOCAL_MODEL status=retired",
+      "fault_code_directory: INTERNAL_OLLAMA_TRAINING_FAILED and the nine OLLAMA_* codes carry retired_version=<successor-version>; MODEL_RUNTIME_NOT_READY trigger contains no Ollama reference",
+      "test_flow_directory TF_GLOBAL_FAULT_DIRECTORY_COVERAGE fixtures and maintenance_manual_directory GLOBAL_FAULT_CONTAINMENT_AND_ROUTING applicable_fault_codes contain no OLLAMA_* code",
+      "project_architecture_directory PROJECT_GPTBRIDGE dependencies = Windows11|E:\\AI",
+      "articles C27 rule enumerates no Ollama connection type",
+      "PostgreSQL/artifact parity PASS",
+      "zh-TW mirror parity PASS"
+    ],
+    "evidence": [
+      "executed amendment codex-amendment-request-b154-ollama-retirement-20261002.json.executed (rev 235): Ollama retired as a registered external service, holds no active authority; historical registrations remain read-only history",
+      "executed amendment codex-amendment-request-ollama-sibling-residue-20261002-r2.json.executed (rev 238): sibling provisions, FR-OLLAMA-ON-DEMAND, module_capability_registry 'ollama' and metadata demand/location keys retired; out_of_scope explicitly deferred OLLAMA_* fault-code retirement as a separate traceability decision",
+      "current rows: local_model_provider_registry.OLLAMA_LOCAL status=active; current_normative_surface formal-rule:FR-OLLAMA-ON-DEMAND lifecycle_state=active while formal_rule_registry.FR-OLLAMA-ON-DEMAND status=retired; fault_code_directory has 10 un-retired OLLAMA_* codes; MODEL_RUNTIME_NOT_READY trigger names the retired runtime; PROJECT_GPTBRIDGE dependencies include registered-Ollama-C-drive-paths"
+    ],
+    "out_of_scope": [
+      "local_model_registry (24 rows) and model_residency_registry (24 rows) observation state - governed by the governor-held draft manual-amendment-codex-registry-observation-reconciliation-20261002 which restamps them as observed-not-resident/INCOMPLETE_EVIDENCE; this request does not touch those rows and does not preclude a later retirement disposition",
+      "test_flow_fault_links rows for OLLAMA_* codes - historical derived-exact-match linkage pinned to version 2026-09-16T02:36:18Z; the table has no retired vocabulary and the links remain read-only history",
+      "edicts E166 and E176 - immutability=immutable-sealed; E176 EXCEPTION-2 still grants Ollama-runtime/download/model-store C-drive paths which contradicts retired C32/P113 wording and requires governor adjudication outside routine amendment",
+      "a233_normalized_directory_entry rows whose domain_payload still embeds Ollama tokens (DIR_FAULT_CODE x11, DIR_TEST_FLOW, DIR_MAINTENANCE_MANUAL, DIR_PROJECT_ARCHITECTURE) - normalized projection refresh with content_hash regeneration belongs to the a233 normalization pipeline / governor-held reconciliation",
+      "provision_lineage, provision_revisions, revision_history and other historical records - immutable read-only history",
+      "codex_search_* projection tables - rebuilt automatically at publish",
+      "metadata key non_ollama_model_root - descriptive name of the non-Ollama model root under the managed dependency root; grants no Ollama authority",
+      "governance_closure_state pending_codes (FR-OLLAMA-ON-DEMAND, LOCAL_MODEL) - evaluator-regenerated evidence snapshots, not amended by hand",
+      "Standalone tools/ai-assistant manifest owner fields naming the retired ollama lane - implementation-layer residue (r2 out_of_scope), converged in the implementation lane"
+    ]
+  }
+}

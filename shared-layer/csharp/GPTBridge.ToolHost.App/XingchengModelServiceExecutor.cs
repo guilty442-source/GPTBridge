@@ -45,6 +45,16 @@ internal sealed class XingchengModelServiceExecutor
     {
         "xingcheng_codex_alignment",
         "xingcheng_codex_mirror_check",
+        // Model-service verbs surfaced as governed commands
+        // (tool_routes.json: ai-assistant/star-chat -> xingcheng).
+        "xingcheng_status",
+        "xingcheng_infer",
+        // investment-mobile -> xingcheng mobile relay endpoints
+        // (tool_routes.json MOBILE_ROUTE_COMMAND). They arrive through
+        // the submit lane; without a transport sidecar they answer
+        // honestly instead of failing PERMISSION_DENIED at the gate.
+        "xingcheng_mobile_get_investment_snapshot",
+        "xingcheng_mobile_submit_investment_instruction",
     };
 
     private readonly GovernedEnvironment _env;
@@ -785,16 +795,94 @@ internal sealed class XingchengModelServiceExecutor
         Func<JsonObject, Task>? emitProgress,
         CancellationToken cancellationToken)
     {
-        var result = command switch
+        JsonObject result;
+        switch (command)
         {
-            "xingcheng_codex_alignment" => await CodexDiagnostics
-                .RunAsync(_env, "--arch-docs", cancellationToken)
-                .ConfigureAwait(false),
-            "xingcheng_codex_mirror_check" => await CodexDiagnostics
-                .RunAsync(_env, "--mirror-check", cancellationToken)
-                .ConfigureAwait(false),
-            _ => throw new PermissionDeniedException(),
-        };
+            case "xingcheng_codex_alignment":
+                result = await CodexDiagnostics
+                    .RunAsync(_env, "--arch-docs", cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+            case "xingcheng_codex_mirror_check":
+                result = await CodexDiagnostics
+                    .RunAsync(_env, "--mirror-check", cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+            case "xingcheng_status":
+            {
+                // Same op as the loopback /v1/status handler — status
+                // never spawns the inference worker.
+                result = await ServeOpAsync(
+                        new JsonObject { ["op"] = "status" },
+                        spawnIfAbsent: false, cancellationToken)
+                    .ConfigureAwait(false)
+                    ?? new JsonObject
+                    {
+                        ["ok"] = true,
+                        ["service"] = "xc-model-service",
+                        ["decoder"] = "native-cpp",
+                        ["cpp_runtime"] = true,
+                        ["loaded"] = false,
+                        ["worker"] = "not-started",
+                    };
+                result["service_port"] = _port;
+                break;
+            }
+            case "xingcheng_infer":
+            {
+                var op = new JsonObject { ["op"] = "infer" };
+                foreach (var key in new[]
+                         {
+                             "prompt", "messages", "max_new_tokens",
+                             "temperature", "top_k", "top_p",
+                             "repetition_penalty", "do_sample", "seed",
+                         })
+                {
+                    if (payload[key] is { } v) op[key] = v.DeepClone();
+                }
+                foreach (var (key, value) in _samplingDefaults)
+                    if (op[key] is null && value is not null)
+                        op[key] = value.DeepClone();
+                Interlocked.Increment(ref _inflight);
+                Interlocked.Exchange(ref _lastActivityTicks,
+                    DateTime.UtcNow.Ticks);
+                try
+                {
+                    result = await ServeOpAsync(
+                            op, spawnIfAbsent: true, cancellationToken)
+                        .ConfigureAwait(false)
+                        ?? new JsonObject
+                        {
+                            ["ok"] = false,
+                            ["error_code"] = "MODEL_WORKER_BAD_REPLY",
+                        };
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _lastActivityTicks,
+                        DateTime.UtcNow.Ticks);
+                    Interlocked.Decrement(ref _inflight);
+                }
+                break;
+            }
+            case "xingcheng_mobile_get_investment_snapshot":
+            case "xingcheng_mobile_submit_investment_instruction":
+                // Relay target is ai-assistant's sealed
+                // investment_mobile_* pair — the hop needs the governed
+                // transport submit lane, which is deferred until the
+                // native sidecar ships. Answer honestly; never fabricate
+                // a snapshot or pretend the instruction was queued.
+                result = new JsonObject
+                {
+                    ["ok"] = false,
+                    ["error_code"] = "TRANSPORT_SUBMIT_LANE_PENDING",
+                    ["message"] = "the xingcheng -> ai-assistant relay "
+                        + "requires the transport store submit lane",
+                };
+                break;
+            default:
+                throw new PermissionDeniedException();
+        }
         result["tool_id"] = _ownerId;
         result["command"] = command;
         return ($"{command}_result", result);

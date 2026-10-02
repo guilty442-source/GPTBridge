@@ -1118,9 +1118,34 @@ Adaptive CPU/memory governor that watches every process owned by the current
 user and lowers resource pressure automatically: sustained CPU hogs get
 `BELOW_NORMAL` priority, extreme hogs get their CPU affinity capped to half of
 the logical CPUs, and large idle processes have their working set trimmed
-(`EmptyWorkingSet`).  Actions revert after ~5 calm minutes.  Protected:
+(`EmptyWorkingSet`).  Actions revert after ~5 calm minutes.  Per-process
+dynamic升降 (`defaults`): with `limiter_dynamic` a capped worker's Job rate
+steps tighter each cycle while it stays extreme (floor `limiter_min_percent`)
+and relaxes back toward `limiter_percent` when demand drops below half the
+cap; with `priority_escalate` a process still extreme past
+`sustain + extreme_sustain` escalates `below_normal` → `idle` and steps back
+when it drops under extreme (rule-held/pb/bg/foreground exempt).  Protected:
 Windows system processes, security software (including the user's antivirus)
 and the governor itself.
+
+Per-backend-service dynamic control (`defaults`, all off unless declared):
+with `pool_dynamic` each non-interactive pool's shared Job CPU envelope is
+re-resolved every cycle — while the machine is pressured
+(`cpu_load ≥ pool_relief_cpu_pct` or responsiveness strain / active
+regulation) the envelope tightens by `pool_step_percent` toward
+`pool_floor_percent`; when calm and the pool's demand rides its cap
+(≥ 90% of the applied rate) it relaxes back toward the preset.  The
+interactive lane is never squeezed, and the applied rate is reported as
+`pools.<name>.cpu_applied_pct` in the snapshot.
+RAM reclamation (`reclaim_enabled`): when machine `mem_used_pct` reaches
+`reclaim_mem_pct` the governor trims the largest working sets ≥
+`reclaim_min_mb` in batches of `reclaim_batch` per cycle (RSS-descending,
+trim cooldown respected; foreground/excluded/governance exempt) so RAM is
+auto-released before paging pressure builds.  GPU/RAM grant reclaim runs
+through the grant lane: at `ACTIVE_PRESSURE`, `make_context` scales
+`vram_budget_percent` by `grant_pressure_vram_scale` and the RAM share for
+new grants by `grant_pressure_ram_scale`, so existing grants resize smaller
+and cooperating services release VRAM/RAM on their next poll.
 
 ```powershell
 # build
@@ -1152,11 +1177,17 @@ is active**, so foreground / user work always keeps machine headroom; when the
 user is idle ≥ `idle_after_s` (300 s, via `GetLastInputInfo`) the effective
 ceiling relaxes to `idle_ceiling` (`high` — 閒置全速), and returning activity
 urgently demotes anything above `ceiling` (streak/cooldown exempt).
-`power_saving_schedule` (22:00–07:00) forces `sleep` at night.  Control law:
+`power_saving_schedule` (00:00–07:00 Taipei) forces `sleep` at night.  Control law:
 responsiveness strain or machine overload → `low` immediately (urgent,
 cooldown-exempt); worker demand + machine headroom → upgrade after
 `streak_up` evaluations, clamped to the effective ceiling; downgrades need
-`streak_down` evaluations plus `cooldown_s`.
+`streak_down` evaluations plus `cooldown_s`.  Signals are EMA-smoothed
+(`signal_alpha`, default 0.5): machine overload and headroom judge the
+smoothed value so a single busy/quiet sampling window cannot flip the mode,
+while `strain_instant_margin` (default 10) keeps truly extreme spikes urgent;
+`eval_interval_busy_s` (default 20, ≤0 disables) shortens the eval interval
+to a busy cadence while strained, overloaded, or mid-transition so both
+urgent response and calm recovery land sooner.
 Manual mode selection via `app:set-resource-mode` sets `auto_mode=false`
 (user intent wins).  Advisor state persists in
 `main-system/runtime/state/resource-mode-advisor.json`; mode switches append
@@ -1176,6 +1207,26 @@ job summary `cuda` block plus the resource-action ledger; `optimizer_lane`
 in the summary reports `cuda-adamw` vs `cpu-native` (evidence =
 admission+env-flag until the trainer report echoes the lane it ran).
 `xc-learning --preflight` previews the whole gate read-only.
+
+**Supervision / sole entry**: the only supported launch path for the
+whole main system is the desktop `專案程式庫.exe` (hardlink →
+`%LOCALAPPDATA%\GPTBridgeLauncher\bin\專案程式庫.exe` →
+`GPTBridge.Bootstrap.exe` → `gptbridge-shell.exe` →
+`gptbridge-backend.exe`).  The governor therefore runs as a supervised
+resident service, not via `--install-logon`/`--install-task` or a
+second entry: `gptbridge-backend` registers `resource-governor-host`
+(`resource_governor_host.rs`) which spawns
+`native/resource_governor/bin/resource-governor.exe --watch --root <ws>`
+with the same restart contract as `automation-host`/`channel-host`
+(auto_restart, 5 attempts, 1s backoff).  Single-instance arbitration is
+two-layered: the governor holds `runtime/state/resource-governor.lock`
+with an exclusive (share=0) handle; the supervisor's preflight probes
+that lock write-only (never `create` — a fresh empty lock would be
+misread as live by the governor's mtime fallback) and defers one tick
+when an external holder owns it.  The missing-executable path fails
+closed to an audited `unavailable` state.  Supervisor state lands in
+`runtime/state/resource-governor-host.json` — deliberately **not**
+`resource-governor.json`, which is the governor's own cycle snapshot.
 
 **Training concurrency = 1**: at most one governed training job is in
 flight at a time — `RunJob` claims the lane in a single advisory-locked
@@ -1722,9 +1773,19 @@ Worker rules for codex work:
    `startup_manifest.json`/`resident-core.json`/
    `data-architecture-contract.json`/`release-dependencies.json`/
    `DependencyProbes.cs` carry no Ollama probe or activation path.
-   Sibling articles B155/A130/B25/C32 still mention Ollama —
-   residue convergence amendment requested separately
-   (`codex-amendment-request-ollama-sibling-residue-20261002`).
+   Sibling articles B155/A130/B25/C32 — residue convergence
+   EXECUTED (rev 238, 2026-10-02T12:40Z): original request rejected
+   on stale predecessor, resubmitted as
+   `codex-amendment-request-ollama-sibling-residue-20261002-r2` —
+   B155/B25/A130/C32(rule+exception)/P113 de-Ollama'd,
+   FR-OLLAMA-ON-DEMAND and module_capability_registry 'ollama'
+   retired, ollama metadata keys carry retired markers.
+   Follow-up EXECUTED (rev 242, 2026-10-02T13:04Z):
+   `codex-amendment-request-module-capability-retired-residue-20261002-r4`
+   — module_capability_registry rows sub-sovereign-orchestration,
+   model-training, module-sqlite and system-rescue stamped
+   status/runtime_state/availability=retired (r1-r3 rejected on stale
+   predecessor / intake read race).
 8. **Codex open evidence gaps block verified release.**
     `postgresql_role_registry` is now populated (48 rows observed live
     2026-10-02, live↔registry delta = 0, evidence
@@ -1802,13 +1863,18 @@ Worker rules for codex work:
     GPTBridge.SemanticHash.Tests -c Release` (19 assertions passed).
     The fresh build's live probe covers 77/77 rows, producer=validator
     77/77, canonical match 77/77 after the parallel governed restamp.
-    The canonical publish DLL remains
-    locked by the active CodexPipeline watcher; the new build is tested
-    from `bin/Release/net10.0`, not yet loaded by that resident process.
+    Publish unblocked (2026-10-02, worker:devin-desktop): the locking
+    watcher exited with the orphaned host; the 20:30 Release build was
+    deployed to `publish/` and verified live — `--authority-state`
+    reports rev 238 (12:40:26Z), `--schema-parity` 77/77
+    producer=validator / 77/77 canonical match, and
+    `--repair-projections` rebuilt derived projections onto the
+    current head (236 authority rows, 906 documents, 742 fts).
     The live registry now reports 77 VERIFIED rows and hash matches,
     but persisted validation evidence still anchors the predecessor
     2026-10-02T11:49:37Z. Current-generation evidence closure remains
-    pending; neither hash parity nor registry labels certify release.
+    pending (claimed: codex/schema-evidence-generation); neither hash
+    parity nor registry labels certify release.
 
 13. **Production Closure directive ��0�V��148 in force; phase-1
     foundations landed (2026-10-02, worker:devin-cli).** New phase:
@@ -1840,23 +1906,23 @@ Worker rules for codex work:
 
     First live gate evidence (release-gate `gate-20261002-120127.json`):
     prereqs derive 4 PASS (capability-consistency, capability-delta
-    regression, resource-contract, cuda-probe), 1 FAIL (native-only �X
+    regression, resource-contract, cuda-probe), 1 FAIL (native-only �X
     production-scope blocking findings: onnxruntime refs in
-    `xcm_silicon.h` ��2, `LoadLibraryA("nvml.dll")` in
+    `xcm_silicon.h` ��2, `LoadLibraryA("nvml.dll")` in
     `cuda_kernels.cpp`, Npgsql+System.Management nuget in the
     XingchengLearning csproj, Npgsql source-ref in `Pg.cs`, and 8
     third-party cargo crates in xstore/xcorpus manifests) and 3
-    NOT_EVALUATED (architecture-drift SKIPPED �X bundle-bound step;
-    capability-floors �X no capability evidence yet; provenance �X no
+    NOT_EVALUATED (architecture-drift SKIPPED �X bundle-bound step;
+    capability-floors �X no capability evidence yet; provenance �X no
     live surface). SKIP is mapped to NOT_EVALUATED, never PASS and
     never FAIL. Note the gate run itself had environmental FAILs to
     re-run cleanly: build-modeltool LNK1104 (worker holds the exe),
     build-xc-learning file lock (concurrent run), self-test +
     dataset-retention TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED.
-    Phase-2 landed: `ProductionSoak.cs` �X `star-runtime-soak-sample/v1`
-    sampler (��8: rss/commit/paged bytes, threads, handles, /v1/status
+    Phase-2 landed: `ProductionSoak.cs` �X `star-runtime-soak-sample/v1`
+    sampler (��8: rss/commit/paged bytes, threads, handles, /v1/status
     probe latency+VRAM/KV columns when the service reports them) and
-    `star-production-soak-analysis/v1` (��9/��10 head-vs-tail slope
+    `star-production-soak-analysis/v1` (��9/��10 head-vs-tail slope
     verdict: BOUNDED_WARMUP / FLAT / UNBOUNDED_GROWTH / TARGET_EXITED /
     INSUFFICIENT_SAMPLES; RSS alone never convicts). Verbs:
     `--production-soak --pid N [--seconds] [--interval-ms] [--port]

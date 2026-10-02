@@ -53,6 +53,23 @@ inline constexpr int kProbBalanceMaxDemotions = 5;
 inline constexpr double kDefaultLimiterPercent = 10.0;
 inline constexpr double kLimiterMinPercent = 1.0;
 inline constexpr double kLimiterMaxPercent = 100.0;
+/* 動態升降（個別程序）：limiter 下限與每週期步進；持續 extreme
+ * 逐步收緊至下限、需求回落逐步放寬回預設上限。 */
+inline constexpr double kLimiterMinDynamicPct = 5.0;
+inline constexpr double kLimiterStepPct = 2.0;
+
+/* 回收機制（reclaim）：機器 RAM ≥ reclaim_mem_pct 時按 RSS 降序批次
+ * 修整工作集，自動釋放實體記憶體；每週期最多 reclaim_batch 個行程。 */
+inline constexpr double kReclaimMemPct = 80.0;
+inline constexpr int kReclaimBatch = 4;
+inline constexpr double kReclaimMinMb = 500.0;
+
+/* 池動態信封（pool_dynamic）：機器 CPU ≥ pool_relief_cpu_pct 時非互動
+ * 池共享 Job 率每週期收緊 pool_step_percent 至 pool_floor_percent；
+ * 平靜且池需求頂住帽緣時逐步放回預設。 */
+inline constexpr double kPoolReliefCpuPct = 75.0;
+inline constexpr double kPoolFloorPercent = 5.0;
+inline constexpr double kPoolStepPercent = 4.0;
 
 /* Win32 priority class 數值（跨平台標頭內僅作代碼傳遞，實際呼叫在 .cpp）。 */
 inline constexpr int kPriorityNormal = 0x20;

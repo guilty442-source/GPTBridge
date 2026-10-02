@@ -184,11 +184,11 @@ internal sealed class SelfLearningPolicy
         string path = XcPaths.SettingsReadPath(
             toolRoot, XcPaths.SelfLearningPolicyRel);
         var policy = new SelfLearningPolicy();
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             return policy;
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             var root = doc.RootElement;
             policy.Enabled = Get(root, "enabled", policy.Enabled);
             policy.MinNewExamples = Get(root, "min_new_examples", policy.MinNewExamples);
@@ -378,7 +378,7 @@ internal static class SelfLearningState
     public static Dictionary<string, object?> Load(string toolRoot)
     {
         string path = Path.Combine(toolRoot, XcPaths.SelfLearningStateRel);
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             return new Dictionary<string, object?>
             {
                 ["format"] = Format,
@@ -386,7 +386,7 @@ internal static class SelfLearningState
             };
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             if (doc.RootElement.ValueKind != JsonValueKind.Object)
                 return new Dictionary<string, object?> { ["format"] = Format };
             var state = new Dictionary<string, object?>();
@@ -446,11 +446,11 @@ internal sealed class RetentionPolicy
         string path = XcPaths.SettingsReadPath(
             toolRoot, XcPaths.RetentionPolicyRel);
         var policy = new RetentionPolicy();
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             return policy;
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             var root = doc.RootElement;
             if (root.TryGetProperty("enabled", out var e) &&
                 e.ValueKind is JsonValueKind.True or JsonValueKind.False)
@@ -492,11 +492,11 @@ internal static class EngineSettings
     {
         string path = XcPaths.SettingsReadPath(
             toolRoot, XcPaths.EngineSettingsRel);
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             return null;
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             return doc.RootElement.TryGetProperty("checkpoint", out var c)
                 ? c.GetString() : null;
         }

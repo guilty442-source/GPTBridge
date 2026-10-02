@@ -25,6 +25,8 @@ internal sealed class CodexReadSession : IDisposable
     public CodexReadSession(string actor, string purpose,
         HashSet<string> scope, string accessClass, double ttlSeconds)
     {
+        if (!double.IsFinite(ttlSeconds))
+            throw new CodexReadDenied("CODEX_SESSION_TTL_INVALID");
         _actor = actor;
         _purpose = purpose;
         _scope = scope;
@@ -59,7 +61,7 @@ internal sealed class CodexReadSession : IDisposable
     public long Version => _codexVersion;
     public string VersionText =>
         CodexRepository.FormatCodexVersion(_codexVersion);
-    public bool Expired => Monotonic() >= _expires;
+    public bool Expired => !double.IsFinite(_expires) || Monotonic() >= _expires;
 
     public void Close()
     {

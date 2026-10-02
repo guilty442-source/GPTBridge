@@ -1,3 +1,4 @@
+// LEGACY_MIGRATION_ONLY: historical comparison source; excluded from production build.
 // Pg.cs — governed PostgreSQL access for the xingcheng training repository.
 //
 // Port of ``shared_layer.local.pg_adapter.connect`` semantics:

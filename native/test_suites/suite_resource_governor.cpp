@@ -478,5 +478,193 @@ int main() {
     }
     NT_END_TEST(SUITE, "worker_job_cap_assigns_shared_job_once");
 
+    NT_TEST(SUITE, "dynamic_limiter_tightens_and_relaxes") {
+        /* 動態升降：極端持續 → Job 比率逐週期收緊至下限；需求回落 →
+         * 逐步放寬回預設上限；首輪套用當週期不即時再調。 */
+        const std::string text =
+            R"({"defaults": {"cpu_limiter": true, "limiter_dynamic": true,)"
+            R"( "limiter_percent": 10, "limiter_min_percent": 5,)"
+            R"( "limiter_step_percent": 2}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
+        FakeEngine engine;
+        engine.sys = sys8();
+        gov::GovernorConfig config = base_config();
+        config.dry_run = false;
+        gov::CycleContext ctx = base_ctx();
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+        engine.procs = {worker_proc(910, 95.0)};
+        for (int i = 0; i < 6; ++i)
+            gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                             logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:10"), "initial cap 10");
+        NT_CHECK(!has_call(engine.calls, "limit:910:8"),
+                 "no same-cycle tighten");
+
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:8"), "tighten step 10→8");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:6"), "tighten 8→6");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:5"), "floor 5 reached");
+        const int at_floor = count_calls(engine.calls, "limit:910:");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(count_calls(engine.calls, "limit:910:") == at_floor,
+                 "holds at floor while extreme");
+
+        /* 需求回落：量測低於帽緣一半（cap 5%×8核=40 → ≤20）→ 放寬。 */
+        engine.procs = {worker_proc(910, 15.0)};
+        engine.calls.clear();
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:7"), "relax step 5→7");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:9"), "relax 7→9");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "limit:910:10"), "back at base cap");
+        const int at_base = count_calls(engine.calls, "limit:910:");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(count_calls(engine.calls, "limit:910:") == at_base,
+                 "never exceeds base preset");
+    }
+    NT_END_TEST(SUITE, "dynamic_limiter_tightens_and_relaxes");
+
+    NT_TEST(SUITE, "dynamic_limiter_off_keeps_fixed_rate") {
+        FakeEngine engine;
+        engine.sys = sys8();
+        gov::GovernorConfig config = base_config();
+        config.dry_run = false;
+        config.cpu_limiter = true;
+        config.limiter_percent = 10.0;
+        gov::CycleContext ctx = base_ctx();
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+        engine.procs = {worker_proc(920, 95.0)};
+        for (int i = 0; i < 10; ++i)
+            gov::govern_once(config, empty_rules(), engine, records, regulation,
+                             ctx, logs);
+        NT_CHECK(count_calls(engine.calls, "limit:920:") == 1,
+                 "legacy fixed rate: one shot only");
+    }
+    NT_END_TEST(SUITE, "dynamic_limiter_off_keeps_fixed_rate");
+
+    NT_TEST(SUITE, "priority_escalates_to_idle_and_steps_back") {
+        /* 個別程序動態優先序：extreme 持續超過 sustain+extreme_sustain
+         * → below_normal 再降 idle；跌回 extreme 以下 → 先回
+         * below_normal；完整 calm 釋放還是回 normal。 */
+        const std::string text =
+            R"({"defaults": {"priority_escalate": true}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
+        FakeEngine engine;
+        engine.sys = sys8();
+        gov::GovernorConfig config = base_config();
+        config.dry_run = false;
+        gov::CycleContext ctx = base_ctx();
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+        gov::ProcSample hog;
+        hog.pid = 930;
+        hog.name = "hog.exe";
+        hog.exe = "c:\\apps\\hog.exe"; /* 非 worker 平面也適用 */
+        hog.username = "u";
+        hog.cpu_percore = 95.0;
+        hog.create_ms = 3000000;
+        engine.procs = {hog};
+        for (int i = 0; i < 8; ++i)
+            gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                             logs);
+        NT_CHECK(has_call(engine.calls, "nice:930:16384"), "below_normal set");
+        NT_CHECK(!has_call(engine.calls, "nice:930:64"), "not idle yet");
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(has_call(engine.calls, "nice:930:64"),
+                 "escalated to idle at sample 9");
+
+        hog.cpu_percore = 60.0; /* 仍 busy 但 <extreme 90 */
+        engine.procs = {hog};
+        gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                         logs);
+        NT_CHECK(count_calls(engine.calls, "nice:930:16384") == 2,
+                 "stepped back to below_normal");
+
+        hog.cpu_percore = 1.0;
+        engine.procs = {hog};
+        for (int i = 0; i < gov::kCalmSamples + 1; ++i)
+            gov::govern_once(config, *parsed, engine, records, regulation, ctx,
+                             logs);
+        NT_CHECK(has_call(engine.calls, "nice:930:32"), "calm fully restores");
+    }
+    NT_END_TEST(SUITE, "priority_escalates_to_idle_and_steps_back");
+
+    NT_TEST(SUITE, "reclaim_pass_trims_largest_under_mem_pressure") {
+        /* 回收機制：mem_used ≥ reclaim_mem_pct 時按 RSS 降序批次修整
+         * 工作集（每週期 reclaim_batch 個）；前景行程與小行程豁免，
+         * 低於閾值完全不動作；跨週期受 trim_cooldown 節制補齊。 */
+        const std::string text =
+            R"({"defaults": {"reclaim_enabled": true, "reclaim_mem_pct": 80,)"
+            R"( "reclaim_batch": 2, "reclaim_min_mb": 500}})";
+        auto parsed = gov::parse_rules(text);
+        NT_CHECK(parsed.has_value() && parsed->error.empty(), "rules parse");
+        FakeEngine engine;
+        engine.sys = sys8();
+        engine.sys.mem_used_pct = 85.0;
+        engine.foreground = 960;
+        gov::GovernorConfig config = base_config();
+        config.dry_run = false;
+        /* 高於測試 RSS：把冷靜修整路徑（maybe_trim）與 reclaim 分離。 */
+        config.mem_trim_mb = 10000.0;
+        gov::CycleContext ctx = base_ctx();
+        gov::RecordMap records;
+        gov::RegState regulation;
+        std::vector<gptbridge::jsonlite::JsonValue> logs;
+        auto big = [](int pid, double rss) {
+            gov::ProcSample s = worker_proc(pid, 1.0);
+            s.rss_mb = rss;
+            s.create_ms = 4000000 + pid;
+            return s;
+        };
+        engine.procs = {big(951, 3000.0), big(952, 2000.0), big(953, 1000.0),
+                        big(954, 100.0), big(960, 4000.0)};
+        gov::Snapshot snap = gov::govern_once(config, *parsed, engine, records,
+                                              regulation, ctx, logs);
+        NT_CHECK(snap.reclaim_active && snap.reclaim_trimmed == 2,
+                 "reclaim active, batch bound");
+        NT_CHECK(has_call(engine.calls, "trim:951"), "largest trimmed first");
+        NT_CHECK(has_call(engine.calls, "trim:952"), "second trimmed");
+        NT_CHECK(!has_call(engine.calls, "trim:953"), "batch bound holds");
+        NT_CHECK(!has_call(engine.calls, "trim:954"), "below min_mb skipped");
+        NT_CHECK(!has_call(engine.calls, "trim:960"), "foreground exempt");
+
+        /* 下一週期仍在 cooldown（+200 < 300）：已修整的 951/952 跳過，
+         * 批次補齊第三個候選。 */
+        ctx.now_mono += 200.0;
+        engine.calls.clear();
+        snap = gov::govern_once(config, *parsed, engine, records, regulation,
+                                ctx, logs);
+        NT_CHECK(has_call(engine.calls, "trim:953"), "next cycle trims rest");
+        NT_CHECK(count_calls(engine.calls, "trim:") == 1, "cooldown respected");
+
+        ctx.now_mono += 400.0;
+        engine.sys.mem_used_pct = 50.0;
+        engine.calls.clear();
+        snap = gov::govern_once(config, *parsed, engine, records, regulation,
+                                ctx, logs);
+        NT_CHECK(!snap.reclaim_active, "inactive below threshold");
+        NT_CHECK(!has_call(engine.calls, "trim:"), "no trim when calm");
+    }
+    NT_END_TEST(SUITE, "reclaim_pass_trims_largest_under_mem_pressure");
+
     return native_tests::report("resource_governor_suite.json");
 }

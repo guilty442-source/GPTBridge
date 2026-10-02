@@ -61,7 +61,7 @@ $schemaEvidence=@(Get-CodexRows 'machine_schema_parity_evidence')
 $schemaOpen=@(foreach ($schema in $schemas) {
     $evidence=$schemaEvidence | Where-Object schema_code -eq $schema.schema_code | Select-Object -Last 1
     $hashes=@($evidence.producer_semantic_hash,$evidence.validator_semantic_hash,$evidence.persistence_semantic_hash,$evidence.canonical_semantic_hash)
-    if ($schema.parity_status -ne 'PASS' -or $null -eq $evidence -or $evidence.status -ne 'PASS' -or $evidence.validated_against_version -ne $head.version -or @($hashes | Where-Object { $_ -notmatch '^[0-9a-f]{64}$' }).Count -gt 0 -or @($hashes | Select-Object -Unique).Count -ne 1) { $schema.schema_code }
+    if ($schema.parity_status -notin @('PASS','VERIFIED') -or $null -eq $evidence -or $evidence.status -ne 'PASS' -or $evidence.validated_against_version -ne $head.version -or @($hashes | Where-Object { $_ -notmatch '^[0-9a-f]{64}$' }).Count -gt 0 -or @($hashes | Select-Object -Unique).Count -ne 1) { $schema.schema_code }
 })
 $obligations=@(Get-CodexRows 'implementation_obligations')
 $obligationCounts=[ordered]@{}

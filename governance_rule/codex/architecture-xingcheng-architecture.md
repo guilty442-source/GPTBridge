@@ -63,7 +63,7 @@ flowchart TB
     TRAINER -->|XCB1 input| XCORPUS
     SL -->|snapshot pin| XSTORE
     EV -->|eval/capability modes| MODELTOOL
-    SL -->|teacher-collect serve/infer<br/>native self-distillation| MODELTOOL
+    SL -->|native self-distillation<br/>serve/infer| MODELTOOL
 
     AUTO -.->|self-learning flow| SL
     CH -.->|request_channel| TOOL
@@ -74,6 +74,7 @@ flowchart TB
 | Lane | 位置 | 權責 |
 |---|---|---|
 | C# 治理 | `src/backend/csharp/GPTBridge.XingchengLearning` → `xc-learning.exe` | 編排、政策閘門、DB、生命週期、稽核 |
+| F# 評估 | `src/backend/fsharp/GPTBridge.XingchengEval` → `xc-eval.exe` | 評判定決與驗證、高正確性分析（B167）；已凍結維護，verdict 所有權遷移至 C# `EvalVerdict.cs`（parity-tracked） |
 | C++ native | `src/backend/cpp/` + `native_transformer/` | 模型核心、推論引擎、訓練器、模型工具 |
 | Rust 資料面 | `src/backend/rust/xstore`、`xcorpus` | 不受信任輸入邊界：剖析、儲存、語料、tokenizer |
 | C ABI | `xingcheng_engine_c.h`、`xtok_abi.h`、`xcuda_*` | 跨語言邊界，僅 ABI 不承載治理 |
@@ -89,48 +90,58 @@ flowchart TB
 | `xc-learning.exe` | C# | CLI / AutomationCore flow |
 | `xstore.exe` | Rust | 子行程（JSON-on-stdout） |
 | `xcorpus.exe` / `.dll` | Rust | 子行程 / engine LoadLibrary |
+| `xc-eval.exe` | F# | 評估閘定決（`gate --input <json>` → `star-fsharp-eval-verdict/v1`）；凍結維護中，遷移至 `EvalVerdict.cs` |
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2926 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
+| `GPTBridge.MetadataAuthority.Tests.exe` | C# | main:xingcheng/src/backend/csharp/GPTBridge.MetadataAuthority.Tests/GPTBridge.MetadataAuthority.Tests.csproj |
+| `xc-format.exe` | Rust | codex-metadata-closure:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | git:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | local-model:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | main:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | rag:xingcheng/src/backend/rust/xc-format/Cargo.toml |
 | `xc-format.exe` | Rust | ui:xingcheng/src/backend/rust/xc-format/Cargo.toml |
+| `xc-learning.exe` | C# | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
 | `xc-learning.exe` | C# | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
 | `xc-learning.exe` | C# | git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
 | `xc-learning.exe` | C# | local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
 | `xc-learning.exe` | C# | main:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
 | `xc-learning.exe` | C# | rag:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
 | `xc-learning.exe` | C# | ui:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/GPTBridge.XingchengLearning.csproj |
+| `xc-runtime-host.exe` | Rust | codex-metadata-closure:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
 | `xc-runtime-host.exe` | Rust | devin:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
 | `xc-runtime-host.exe` | Rust | git:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
 | `xc-runtime-host.exe` | Rust | local-model:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
 | `xc-runtime-host.exe` | Rust | main:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
 | `xc-runtime-host.exe` | Rust | rag:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
 | `xc-runtime-host.exe` | Rust | ui:xingcheng/src/backend/rust/xc-runtime-host/Cargo.toml |
+| `xcorpus.dll` | Rust | codex-metadata-closure:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.dll` | Rust | devin:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.dll` | Rust | git:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.dll` | Rust | local-model:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.dll` | Rust | main:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.dll` | Rust | rag:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.dll` | Rust | ui:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xcorpus.exe` | Rust | codex-metadata-closure:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.exe` | Rust | devin:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.exe` | Rust | git:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.exe` | Rust | local-model:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.exe` | Rust | main:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.exe` | Rust | rag:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
 | `xcorpus.exe` | Rust | ui:xingcheng/src/backend/rust/xcorpus/Cargo.toml |
+| `xct-executor.exe` | C# | codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | main:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | rag:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
 | `xct-executor.exe` | C# | ui:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/executor/XingchengTrainExecutor.csproj |
+| `xingcheng_trainer.exe` | C++ | codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
+| `xingcheng_trainer.exe` | C++ | codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
 | `xingcheng_trainer.exe` | C++ | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
 | `xingcheng_trainer.exe` | C++ | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
 | `xingcheng_trainer.exe` | C++ | git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
@@ -143,6 +154,7 @@ flowchart TB
 | `xingcheng_trainer.exe` | C++ | rag:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
 | `xingcheng_trainer.exe` | C++ | ui:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_devin.bat |
 | `xingcheng_trainer.exe` | C++ | ui:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/_nfguard/build_test.bat |
+| `xstore.exe` | Rust | codex-metadata-closure:xingcheng/src/backend/rust/xstore/Cargo.toml |
 | `xstore.exe` | Rust | devin:xingcheng/src/backend/rust/xstore/Cargo.toml |
 | `xstore.exe` | Rust | git:xingcheng/src/backend/rust/xstore/Cargo.toml |
 | `xstore.exe` | Rust | local-model:xingcheng/src/backend/rust/xstore/Cargo.toml |

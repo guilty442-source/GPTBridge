@@ -1,11 +1,11 @@
 // Collectors.cs — role-database source collectors.
 //
 // Ports of self_learning.collect_verified_examples /
-// collect_preference_pairs: one read-only query per scope schema
-// (gptbridge_xingcheng_{main,investment,mathematical,coding}); scope
-// failures skip the scope rather than aborting the collection.
-
-using Npgsql;
+// collect_preference_pairs — now served from the native metadata plane
+// (§54-§55: the per-scope role corpora are `role_training_example` /
+// `role_preference_pair` records in xstore; PostgreSQL is no longer a
+// runtime dependency). Scope failures skip the scope rather than
+// aborting the collection.
 
 namespace GPTBridge.XingchengLearning;
 
@@ -17,18 +17,25 @@ internal static class Collectors
     {
         var byScope = new Dictionary<string, List<Dictionary<string, object?>>>(
             StringComparer.Ordinal);
+        NativeMetadataClient meta;
+        try { meta = new NativeMetadataClient(toolRoot); }
+        catch (MetadataError) { return byScope; } // plane down -> skip all
         foreach (string scope in XcPaths.Scopes.OrderBy(s => s, StringComparer.Ordinal))
         {
             List<Dictionary<string, object?>> rows;
             try
             {
-                using var db = Pg.Connect($"gptbridge_xingcheng_{scope}");
-                rows = db.Query(
-                    "SELECT revision, example_id, intent, input_text, " +
-                    "target_text, source_type, quality_score " +
-                    "FROM language_training_example " +
-                    "WHERE active = 1 AND quality_score >= $1 ORDER BY revision",
-                    minQuality);
+                rows = meta.Query(
+                    NativeMetadataClient.Types.RoleExample,
+                    new Dictionary<string, object?> { ["scope"] = scope },
+                    500000)
+                    .Where(r => TransformerTrainingRepository
+                                    .Truthy(r["active"]) &&
+                                TransformerTrainingRepository
+                                    .Num(r, "quality_score") >= minQuality)
+                    .OrderBy(r => TransformerTrainingRepository
+                                      .Int64(r, "revision"))
+                    .ToList();
             }
             catch (Exception)
             {
@@ -62,16 +69,23 @@ internal static class Collectors
     public static List<Dictionary<string, object?>> CollectPreferencePairs(string toolRoot)
     {
         var pairs = new List<Dictionary<string, object?>>();
+        NativeMetadataClient meta;
+        try { meta = new NativeMetadataClient(toolRoot); }
+        catch (MetadataError) { return pairs; }
         foreach (string scope in XcPaths.Scopes.OrderBy(s => s, StringComparer.Ordinal))
         {
             List<Dictionary<string, object?>> rows;
             try
             {
-                using var db = Pg.Connect($"gptbridge_xingcheng_{scope}");
-                rows = db.Query(
-                    "SELECT revision, pair_id, intent, prompt_text, chosen_text," +
-                    " rejected_text FROM language_preference_pair" +
-                    " WHERE paired = 1 ORDER BY revision");
+                rows = meta.Query(
+                    NativeMetadataClient.Types.RolePair,
+                    new Dictionary<string, object?> { ["scope"] = scope },
+                    500000)
+                    .Where(r => TransformerTrainingRepository
+                                    .Truthy(r["paired"]))
+                    .OrderBy(r => TransformerTrainingRepository
+                                      .Int64(r, "revision"))
+                    .ToList();
             }
             catch (Exception)
             {

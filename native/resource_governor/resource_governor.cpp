@@ -199,6 +199,10 @@ void fill_snapshot_core(CycleEnv& env, const RegUpdate& update) {
                 (ledger.ram_budget_pct > 0 &&
                  ledger.ram_pct > ledger.ram_budget_pct);
         }
+        const auto applied = env.regulation.pool_cpu_applied.find(
+            static_cast<int>(pool));
+        if (applied != env.regulation.pool_cpu_applied.end())
+            ledger.cpu_applied_pct = round1(applied->second);
         env.snap.pools[pool_name(pool)] = ledger;
     }
     env.snap.top_cpu.assign(by_cpu.begin(),
@@ -323,6 +327,15 @@ void advisor_step(CycleEnv& env) {
          jobj({{"strained", jbool(sig.strained)},
                {"cpu_load_pct", jnum(round1(sig.cpu_load_pct))},
                {"mem_used_pct", jnum(round1(sig.mem_used_pct))},
+               {"cpu_load_ema",
+                decision.cpu_load_ema < 0.0
+                    ? jnull()
+                    : jnum(round1(decision.cpu_load_ema))},
+               {"mem_used_ema",
+                decision.mem_used_ema < 0.0
+                    ? jnull()
+                    : jnum(round1(decision.mem_used_ema))},
+               {"busy_cadence", jbool(decision.busy_cadence)},
                {"worker_demand", jbool(decision.demand)},
                {"headroom", jbool(decision.headroom)},
                {"worker_cpu_pct", jnum(round1(sig.worker_cpu_pct))},
@@ -384,6 +397,8 @@ Snapshot govern_once(const GovernorConfig& config, const RulesDoc& rules,
         process_sample(env, std::move(sample));
     sweep_dead_records(env);
     probalance_pass(env);
+    reclaim_pass(env);
+    pool_rebalance(env);
     const RegUpdate update = finalize_ledger(env);
     fill_concurrency_budget(env);
     fill_snapshot_core(env, update);

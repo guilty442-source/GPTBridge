@@ -83,7 +83,7 @@ internal sealed class ModelLifecycle
         if (!ArtifactKinds.Contains(kind))
             throw new ArgumentException($"ARTIFACT_KIND_UNKNOWN:{kind}");
         bool isDir = Directory.Exists(path);
-        if (!File.Exists(path) && !isDir)
+        if (!NativeStateProjection.Exists(path) && !isDir)
             throw new FileNotFoundException($"ARTIFACT_MISSING:{path}");
         string sha256 = isDir ? ArtifactHashDir(path)
                               : TransformerTrainingRepository.Sha256File(path);
@@ -229,7 +229,7 @@ internal sealed class ModelLifecycle
             if (excluded.Contains(version))
                 continue;
             string path = (string?)entry["path"] ?? "";
-            if (path.Length == 0 || !File.Exists(path))
+            if (path.Length == 0 || !NativeStateProjection.Exists(path))
                 continue;
             var metadata = entry.TryGetValue("metadata", out object? m)
                 ? m as Dictionary<string, object?> : null;
@@ -464,14 +464,14 @@ internal sealed class ModelLifecycle
     public static ModelLifecycle Load(string directory)
     {
         string path = Path.Combine(directory, "lifecycle.json");
-        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
         return FromElement(doc.RootElement);
     }
 
     public static ModelLifecycle LoadOrCreate(string directory, string modelId)
     {
         string path = Path.Combine(directory, "lifecycle.json");
-        return File.Exists(path) ? Load(directory) : new ModelLifecycle(modelId);
+        return NativeStateProjection.Exists(path) ? Load(directory) : new ModelLifecycle(modelId);
     }
 
     private static ModelLifecycle FromElement(JsonElement root)
@@ -540,6 +540,7 @@ internal sealed class ModelLifecycle
 
     internal static void AtomicWrite(string path, string payload)
     {
+        NativeStateProjection.TrySave(path, payload);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         string temp = Path.Combine(
             Path.GetDirectoryName(path)!,
