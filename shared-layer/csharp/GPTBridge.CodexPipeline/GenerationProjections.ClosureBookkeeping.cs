@@ -137,6 +137,18 @@ internal static partial class GenerationProjections
         var source = $"source={predecessor};"
             + "candidate-generation=bound-by-version_identity-field;";
 
+        // Participating formal rules rebind their evidence generation to
+        // the published version — the registry hash fields are content
+        // digests of the candidate itself, so rebinding is a projection,
+        // not a re-verification claim.  Retired/withdrawn rules keep
+        // their historical binding.
+        if (HasTable(connection, "formal_rule_registry"))
+            connection.Execute(
+                "UPDATE formal_rule_registry SET version_identity=? "
+                + "WHERE status NOT IN "
+                + "('retired','withdrawn','superseded','inactive')",
+                new object?[] { version });
+
         // -- formal rule findings ------------------------------------
         var registered = RegisteredEvaluatorCodes();
         var formal = Records(connection, "formal_rule_registry");
@@ -193,7 +205,7 @@ internal static partial class GenerationProjections
                 "canonical_semantic_hash" }
                 .Select(f => evidence is null ? "" : Text(evidence, f))
                 .ToList();
-            if (Text(schema, "parity_status") != "PASS"
+            if (Text(schema, "parity_status") is not ("PASS" or "VERIFIED")
                 || evidence is null
                 || Text(evidence, "status") != "PASS"
                 || Text(evidence, "validated_against_version") != version

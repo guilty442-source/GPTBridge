@@ -1,0 +1,232 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v1",
+    "request_id":  "formal-rule-controlling-provision-repoint-20261002",
+    "title":  "Repoint six formal rules off superseded controlling articles",
+    "summary":  "Six formal_rule_registry rows fail CONTROLLING_PROVISION_NOT_ACTIVE because their controlling_provision_id binds superseded articles. Repoint to the active declared successor articles: FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE D131-\u003eA134 (declared successor), FR-NO-SUB-SOVEREIGN-ALL-MODULES B158-\u003eB162 (SUB-SOVEREIGNS:abolished clause), FR-SOVEREIGN-TO-CORE-ENGINE A132-\u003eB162 (current five-core responsibility boundary), RULE_SQL_GOVERNANCE_CLOSURE C93-\u003eC82 (sql-migration authority + DIR_DATA_SCHEMA_AUTHORITY contract), RULE_DELEGATED_A498 D125-\u003eD115 (machine_schema_registry sole-canonical clause carried verbatim in predicate), RULE_TEST_SUITE_CARDINALITY B103-\u003eB110 (declared cardinality-clause successor). controlling_provision_hash and semantic_hash recomputed under the binding spec declared by generation-bound-unified-closure-20261002-r2 (sha256-canonical-json-utf8-v1 over the declared artifact views); required_inputs/predicate/precedence_scope retargeted where they embed the superseded id. No rule text, scope or evidence semantics changed.",
+    "requested_by":  "decision-sovereign",
+    "origin":  "worker devin-desktop-2 full-auto convergence task: formal_open=6 residual after unified-closure restamp, all six CONTROLLING_PROVISION_NOT_ACTIVE on superseded articles",
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "auto_execute":  true,
+    "predecessor":  {
+                        "codex_version":  "2026-10-02T13:44:01Z",
+                        "version_identity":  "E2:2026-10-02T13:44:01Z",
+                        "version_epoch":  2,
+                        "history_head":  "fd5a6aa0553c6ae59be26cbc5f0ada4a7a936619f834d5175a6e53748c13cfbd",
+                        "revision_sequence":  246
+                    },
+    "changes":  [
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+                                },
+                        "field":  "controlling_provision_id",
+                        "proposed":  "A134"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+                                },
+                        "field":  "controlling_provision_hash",
+                        "proposed":  "75e19cd2a09bf39d70514c92f756995a5d4287e109e5baa8344015c4f1ccc662"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+                                },
+                        "field":  "required_inputs",
+                        "proposed":  "provision:A134|evidence|owner|version_identity"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+                                },
+                        "field":  "predicate",
+                        "proposed":  "declared provision A134 (xingcheng-autonomous-training-and-upgrade) holds; violations are fail-closed"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-XINGCHENG-AUTONOMOUS-TRAINING-UPGRADE"
+                                },
+                        "field":  "semantic_hash",
+                        "proposed":  "32d2743b541b455322ee8ca2a529ffc13293a03064f280824072bfccaceff18b"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+                                },
+                        "field":  "controlling_provision_id",
+                        "proposed":  "B162"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+                                },
+                        "field":  "controlling_provision_hash",
+                        "proposed":  "400ce09d57d6bce6ee9797ee5b47287b08fd55209dcbcf617af1ead4aab866c7"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+                                },
+                        "field":  "required_inputs",
+                        "proposed":  "provision:B162|evidence|owner|version_identity"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+                                },
+                        "field":  "predicate",
+                        "proposed":  "declared provision B162 (sub-sovereign-elimination-full-modularization) holds; violations are fail-closed"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-NO-SUB-SOVEREIGN-ALL-MODULES"
+                                },
+                        "field":  "semantic_hash",
+                        "proposed":  "d46cc23be4c5bfa18930ba9ff30f6158735f1ae14e64f823e5106c9833c8d9c0"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-SOVEREIGN-TO-CORE-ENGINE"
+                                },
+                        "field":  "controlling_provision_id",
+                        "proposed":  "B162"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-SOVEREIGN-TO-CORE-ENGINE"
+                                },
+                        "field":  "controlling_provision_hash",
+                        "proposed":  "400ce09d57d6bce6ee9797ee5b47287b08fd55209dcbcf617af1ead4aab866c7"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-SOVEREIGN-TO-CORE-ENGINE"
+                                },
+                        "field":  "required_inputs",
+                        "proposed":  "provision:B162|evidence|owner|version_identity"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-SOVEREIGN-TO-CORE-ENGINE"
+                                },
+                        "field":  "predicate",
+                        "proposed":  "declared provision B162 (sovereigns-become-core-engines) holds; violations are fail-closed"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "FR-SOVEREIGN-TO-CORE-ENGINE"
+                                },
+                        "field":  "semantic_hash",
+                        "proposed":  "1da8a223a90fa469d9758b904bc0b5b0197988f94ca7df6188d8eb576a47fdb2"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_SQL_GOVERNANCE_CLOSURE"
+                                },
+                        "field":  "controlling_provision_id",
+                        "proposed":  "C82"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_SQL_GOVERNANCE_CLOSURE"
+                                },
+                        "field":  "controlling_provision_hash",
+                        "proposed":  "dc0970063d002a9aa5b9c6c28e381d272e471fc25fb4c39a68ebe5f2e1bb8755"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_SQL_GOVERNANCE_CLOSURE"
+                                },
+                        "field":  "semantic_hash",
+                        "proposed":  "fde3d667841fab25ee67200e65e837ef5e1964817096b5239d9a1225b2f01ec7"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_DELEGATED_A498"
+                                },
+                        "field":  "controlling_provision_id",
+                        "proposed":  "D115"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_DELEGATED_A498"
+                                },
+                        "field":  "controlling_provision_hash",
+                        "proposed":  "9fe6b760bfe0573ff83dd9ea4b037fdf78492ed64ffbf66763274f796f34f199"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_DELEGATED_A498"
+                                },
+                        "field":  "required_inputs",
+                        "proposed":  "declared-inputs-for-D115"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_DELEGATED_A498"
+                                },
+                        "field":  "precedence_scope",
+                        "proposed":  "delegated-D115"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_DELEGATED_A498"
+                                },
+                        "field":  "semantic_hash",
+                        "proposed":  "5bdb4d0d3713ce244de1098ceaad48bc12fc42a685a570decf3ca438fdab28e1"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_TEST_SUITE_CARDINALITY"
+                                },
+                        "field":  "controlling_provision_id",
+                        "proposed":  "B110"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_TEST_SUITE_CARDINALITY"
+                                },
+                        "field":  "controlling_provision_hash",
+                        "proposed":  "be4ee9bc7499c82d31b91f2c572940dfd13faa6ac849f65e3bb84239a98ed8a0"
+                    },
+                    {
+                        "table":  "formal_rule_registry",
+                        "key":  {
+                                    "rule_code":  "RULE_TEST_SUITE_CARDINALITY"
+                                },
+                        "field":  "semantic_hash",
+                        "proposed":  "443a2e5b6eae79ef16e5e99751f53fc68943ec8ba028b340e0b1ccfa4d510a0e"
+                    }
+                ]
+}

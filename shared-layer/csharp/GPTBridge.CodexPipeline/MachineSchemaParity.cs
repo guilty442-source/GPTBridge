@@ -48,6 +48,7 @@ internal static partial class MachineSchemaParity
     public static Dictionary<string, object?> Describe(string code)
     {
         var authority = PgExport.AuthorityState();
+        AssertGeneration(authority, authority);
         using var connection = PgDsn.Readonly();
         using var command = new NpgsqlCommand(
             $"SELECT r.*, {EvidenceColumns} "
@@ -61,10 +62,15 @@ internal static partial class MachineSchemaParity
         using (var reader = command.ExecuteReader())
         {
             if (!reader.Read())
+            {
+                AssertGeneration(authority, PgExport.AuthorityState());
                 return new Dictionary<string, object?>
                 {
                     ["error"] = "SCHEMA_CODE_UNKNOWN", ["code"] = code,
+                    ["generation"] = authority["codex_version"],
+                    ["source_sha256"] = authority["source_sha256"],
                 };
+            }
             for (var i = 0; i < reader.FieldCount; i++)
                 row[reader.GetName(i)] =
                     reader.IsDBNull(i) ? null : reader.GetValue(i);
@@ -81,6 +87,7 @@ internal static partial class MachineSchemaParity
     public static Dictionary<string, object?> Probe()
     {
         var authority = PgExport.AuthorityState();
+        AssertGeneration(authority, authority);
         using var connection = PgDsn.Readonly();
         using var command = new NpgsqlCommand(
             $"SELECT r.*, {EvidenceColumns} "

@@ -29,7 +29,7 @@ import (
 
 const (
 	opReplyTimeout = 30 * time.Second
-	embedTimeout   = 15 * time.Second
+	embedTimeout   = 90 * time.Second
 )
 
 type bounds struct {
@@ -74,6 +74,11 @@ type BrowserManager struct {
 	jobs  chan func()
 	tid   uintptr
 	ready chan struct{}
+
+	// ensureMu serialises session creation: a timed-out backend op leaves
+	// ensureSession running (attach retry path), and a second create for
+	// the same id must not race it.
+	ensureMu sync.Mutex
 
 	envMu      sync.Mutex
 	envStarted bool
@@ -302,6 +307,15 @@ func (m *BrowserManager) ensureSession(id, owner, url string,
 		}
 		return s, nil
 	}
+	m.ensureMu.Lock()
+	defer m.ensureMu.Unlock()
+	// Re-check after taking the lock — a racing creator may have finished.
+	if s := m.lookup(id); s != nil {
+		if url != "" {
+			m.post(func() { m.navigateNow(s, url) })
+		}
+		return s, nil
+	}
 	var err error
 	var s *session
 	var hw uintptr
@@ -440,6 +454,11 @@ func (m *BrowserManager) applyBounds(s *session, b bounds) {
 			moveWindow(s.hwnd, scaleCoord(m.parent, b.X),
 				scaleCoord(m.parent, b.Y), scaleCoord(m.parent, b.W),
 				scaleCoord(m.parent, b.H))
+			// MoveWindow only resizes the host HWND — the WebView2
+			// controller keeps its own bounds, so it must be pushed
+			// explicitly or the webview keeps rendering at the old
+			// (possibly 0x0) size.
+			s.chromium.Resize()
 		})
 	}
 }
@@ -787,6 +806,17 @@ func (m *BrowserManager) execScript(s *session, script string,
 	}
 	select {
 	case res := <-ch:
+		// TEMP-DEBUG: dump every exec result for live diagnosis.
+		ident := script
+		if len(ident) > 48 {
+			ident = ident[:48]
+		}
+		rj, _ := json.Marshal(res.result)
+		if len(rj) > 1600 {
+			rj = rj[:1600]
+		}
+		fmt.Fprintf(os.Stderr, "exec-debug ok=%v err=%q script=%.48q result=%s\n",
+			res.ok, res.err, ident, string(rj))
 		if !res.ok {
 			return failOp("EXEC_FAILED", res.err)
 		}

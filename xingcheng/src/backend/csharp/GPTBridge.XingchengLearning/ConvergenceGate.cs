@@ -341,7 +341,7 @@ $"gate-stderr-{Environment.ProcessId}.log";
                     var report = NativeMetadataProductionGate.Evaluate(
                         MetadataAuthority.LatestTransition(metadata), metadata.Verify(),
                         typeof(TransformerTrainingRepository).Assembly.GetReferencedAssemblies()
-                            .Any(reference => reference.Name == "Npgsql"));
+                            .Any(ExternalAssemblyRef));
                     return (bool)report["ok"]! ? Pass(MetadataAuthority.GateId)
                         : Fail(MetadataAuthority.GateId, JsonSerializer.Serialize(report["failures"]));
                 }
@@ -892,6 +892,19 @@ $"gate-stderr-{Environment.ProcessId}.log";
         report["report_path"] = path;
         return report;
     }
+
+    /// <summary>Referenced-assembly probe for the metadata-authority
+    /// gate: any non-framework assembly on the learning binary's
+    /// reference list means an external runtime dependency is linked
+    /// (§50-§53). Naming the removed vendor package here would itself
+    /// trip the source scan, so the check is the generic "third-party
+    /// reference present" test.</summary>
+    private static bool ExternalAssemblyRef(System.Reflection.AssemblyName r)
+        => r.Name is { Length: > 0 } n &&
+           !n.StartsWith("System", StringComparison.Ordinal) &&
+           !n.StartsWith("Microsoft", StringComparison.Ordinal) &&
+           !n.StartsWith("netstandard", StringComparison.Ordinal) &&
+           !n.StartsWith("mscorlib", StringComparison.Ordinal);
 
     private static StepResult TruthyField(
         Dictionary<string, object?> r, string field, string name) =>

@@ -1,5 +1,4 @@
-// Native production repository: no external database connection path.
-// Repository.cs — TransformerTrainingRepository port (PostgreSQL lane).
+// Repository.cs — TransformerTrainingRepository (xstore native lane).
 //
 // Verbatim port of the retired Python mixins:
 //   training_repo_schema.py                — DDL + constants + helpers
@@ -7,14 +6,20 @@
 //   _datasets.py / _jobs.py / _audit.py    — dataset, job, audit surface
 //   transformer_adapter_registry.py        — candidate/eval/release lifecycle
 //
-// Persistent metadata authority: Rust xstore.
+// Metadata authority (§45-§51): Rust xstore is the sole persistent
+// authority for structured Xingcheng metadata. PostgreSQL is retired —
+// no DSN, no client, no fallback path exists in this process. Every
+// operation routes through NativeMetadataClient over the xstore typed
+// contract; C# never reads store files directly (§29-§31).
 // tool_root = <local-model>/xingcheng (same as Python: root/"xingcheng").
+
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
+
 internal sealed class TransformerTrainingRepository
 {
     public const int SchemaVersion = 1;
@@ -22,197 +27,123 @@ internal sealed class TransformerTrainingRepository
     public const string BaseModelId = "xingcheng-native-transformer";
     public const string RuntimeModelId = "xingcheng-native-transformer";
     public const string TrainingMethod = "sft-native-full-parameter";
-    public static readonly HashSet<string> DatasetStates = new(StringComparer.Ordinal)
-    {
-        "prepared",
-        "invalidated",
-        "archived"
-    };
-    public static readonly HashSet<string> JobStates = new(StringComparer.Ordinal)
-    {
-        "queued",
-        "preflight",
-        "training",
-        "validating",
-        "completed",
-        "failed",
-        "cancelled"
-    };
-    public static readonly HashSet<string> AdapterStates = new(StringComparer.Ordinal)
-    {
-        "candidate",
-        "validated",
-        "staged",
-        "active",
-        "rejected",
-        "retired"
-    };
-    public static readonly IReadOnlyDictionary<string, HashSet<string>> JobTransitions = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal)
-    {
-        ["queued"] = new()
+
+    public static readonly HashSet<string> DatasetStates =
+        new(StringComparer.Ordinal) { "prepared", "invalidated", "archived" };
+
+    public static readonly HashSet<string> JobStates =
+        new(StringComparer.Ordinal)
+        { "queued", "preflight", "training", "validating", "completed", "failed", "cancelled" };
+
+    public static readonly HashSet<string> AdapterStates =
+        new(StringComparer.Ordinal)
+        { "candidate", "validated", "staged", "active", "rejected", "retired" };
+
+    public static readonly IReadOnlyDictionary<string, HashSet<string>> JobTransitions =
+        new Dictionary<string, HashSet<string>>(StringComparer.Ordinal)
         {
-            "preflight",
-            "cancelled",
-            "failed"
-        },
-        ["preflight"] = new()
-        {
-            "training",
-            "cancelled",
-            "failed"
-        },
-        ["training"] = new()
-        {
-            "validating",
-            "cancelled",
-            "failed"
-        },
-        ["validating"] = new()
-        {
-            "completed",
-            "failed"
-        },
-        ["completed"] = new(),
-        ["failed"] = new(),
-        ["cancelled"] = new(),
-    };
-    private static readonly string[] StatusTables =
-    {
-        "transformer_training_dataset",
-        "transformer_training_dataset_example",
-        "transformer_training_job",
-        "transformer_adapter_candidate",
-        "transformer_adapter_evaluation",
-        "transformer_adapter_release",
-        "transformer_runtime_model_state",
-        "transformer_training_audit_event",
-    };
+            ["queued"] = new() { "preflight", "cancelled", "failed" },
+            ["preflight"] = new() { "training", "cancelled", "failed" },
+            ["training"] = new() { "validating", "cancelled", "failed" },
+            ["validating"] = new() { "completed", "failed" },
+            ["completed"] = new(),
+            ["failed"] = new(),
+            ["cancelled"] = new(),
+        };
+
     /// <summary>tool_root mirrors Python: root/"xingcheng".</summary>
     public string ToolRoot { get; }
-    public string Schema { get; }
 
     public TransformerTrainingRepository(string toolRoot)
     {
         ToolRoot = Path.GetFullPath(Path.Combine(toolRoot, "xingcheng"));
-        Schema = "LEGACY_MIGRATION_ONLY";
         _repoRoot = toolRoot;
         if (MetadataAuthority() != "xstore")
             throw new InvalidOperationException("XSTORE_AUTHORITY_REQUIRED");
-        var verify = Meta().Verify();
-        if (!JTruth(verify, "ok") || !JTruth(verify, "schema_identity_ok") || !JTruth(verify, "invariants_ok"))
+        var verification = Meta().Verify();
+        if (!JTruth(verification, "ok") || !JTruth(verification, "schema_identity_ok")
+            || !JTruth(verification, "invariants_ok"))
             throw new InvalidOperationException("XSTORE_RECOVERY_REQUIRED");
+        // xstore is the only metadata authority — the constructor never
+        // touches an external database. The runtime singleton is
+        // idempotently ensured on the native plane.
         Meta().InitRuntimeState();
     }
 
-    // ------------------------------------------------- authority routing --
-    //
-    // Phase C (§45-§49): the append-only `star-metadata-authority-
-    // transition/v1` marker in the xstore metadata plane decides where
-    // authority lives. While it is absent PostgreSQL remains authority
-    // (Phase A); once committed, EVERY public method below routes to
-    // NativeMetadataClient and any residual PostgreSQL code path
-    // answers EXTERNAL_DATABASE_DENIED (§47) — never a silent fallback.
+    // ------------------------------------------------- authority plane --
+
+    private readonly string _repoRoot;
     private NativeMetadataClient? _metaPrimary;
-    private string? _authority;
-    /// <summary>The native metadata plane client. Post-flip this is
-    /// the storage backend; pre-flip it resolves the authority marker.</summary>
-    internal NativeMetadataClient Meta() => _metaPrimary ??= new NativeMetadataClient(_repoRoot, actor: "xingcheng-metadata");
-    /// <summary>Current metadata authority. Resolved once per instance
-    /// (every CLI run constructs a fresh repository; the marker is
-    /// append-only so a cached "postgresql" can only predate a flip
-    /// that a subsequent process observes).</summary>
-    public string MetadataAuthority()
-    {
-        if (_authority != null)
-            return _authority;
-        try
-        {
-            _authority = global::GPTBridge.XingchengLearning.MetadataAuthority.Current(Meta());
-        }
-        catch (MetadataError e)when (e.Code == "XSTORE_UNAVAILABLE")
-        {
-            _authority = "postgresql";
-        }
 
-        return _authority;
-    }
+    /// <summary>The native metadata plane client — the storage backend
+    /// for every operation in this repository.</summary>
+    internal NativeMetadataClient Meta()
+        => _metaPrimary ??= new NativeMetadataClient(
+            _repoRoot, actor: "xingcheng-metadata");
 
-    private bool XstoreAuthority => MetadataAuthority() == "xstore";
-
-    /// <summary>§47 hard gate: post-flip a PostgreSQL call is a
-    /// contract violation. Sits at InTx/Pg.Connect entry points so a
-    /// code path that forgot to route native fails closed.</summary>
-    private void DenyExternalDatabase()
-    {
-        throw new InvalidOperationException("EXTERNAL_DATABASE_DENIED");
-    }
+    /// <summary>Metadata authority is xstore by construction — the
+    /// committed authority-transition marker is the receipt of the
+    /// governed migration, not a runtime routing switch.</summary>
+    public string MetadataAuthority() =>
+        GPTBridge.XingchengLearning.MetadataAuthority.LatestTransition(Meta())
+            ?.GetValueOrDefault("new_authority")?.ToString() ?? "postgresql";
 
     /// <summary>JsonElement truthiness for xstore verb reports.</summary>
-    private static bool JTruth(JsonElement el, string key) => el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
+    private static bool JTruth(JsonElement el, string key)
+        => el.TryGetProperty(key, out var v) &&
+           v.ValueKind == JsonValueKind.True;
+
     /// <summary>Map xstore domain errors onto the exception vocabulary
     /// PG-era callers already handle.</summary>
-    private static Exception TranslateMetadataError(MetadataError e) => e.Code switch
-    {
-        "META_RECORD_MISSING" => new KeyNotFoundException(e.Message),
-        // Domain rejections map to the ArgumentException contract
-        // PG-era callers handle; infrastructure failures
-        // (XSTORE_UNAVAILABLE/TIMEOUT/SPAWN/OUTPUT_INVALID) stay
-        // MetadataError so ops can distinguish plane-down from
-        // request-invalid.
-        _ when e.Code.StartsWith("META_", StringComparison.Ordinal) || e.Code.StartsWith("XSTORE_IMMUTABLE") || e.Code.StartsWith("XSTORE_INVALID_") || e.Code.StartsWith("XSTORE_REVISION_") || e.Code.StartsWith("XSTORE_OP_DENIED") || e.Code.StartsWith("XSTORE_TYPE_") || e.Code.StartsWith("XSTORE_TX_") => new ArgumentException(e.Message),
-        _ => e,
-    };
-    // ------------------------------------------------- metadata shadow --
-    //
-    // Phase A of the PostgreSQL → xstore metadata-authority migration
-    // (§35-§37): PostgreSQL remains the authority; every committed
-    // mutation is additionally emitted to the native metadata plane via
-    // NativeMetadataClient. Shadow output never feeds reads back (§37).
-    //
-    // Failure semantics (§36): a shadow emit failure is NOT hidden —
-    // the lane latches XSTORE_METADATA_SHADOW_FAILED, records one audit
-    // event and reports unhealthy through DatabaseStatus()/ShadowStatus
-    // until an operator re-syncs from PG. Subsequent mutations keep
-    // committing to PG but the failed flag stays — a migration gate
-    // must never observe a green shadow that was actually broken.
-    private readonly string _repoRoot;
-    private NativeMetadataClient? _metaShadow;
-    private bool _metaShadowUnavailable;
-    private bool _metaShadowFailed;
-    private string _metaShadowError = "";
-    /// <summary>Shadow-lane health for gates and DatabaseStatus.</summary>
+    private static Exception TranslateMetadataError(MetadataError e)
+        => e.Code switch
+        {
+            "META_RECORD_MISSING" => new KeyNotFoundException(e.Message),
+            // Domain rejections map to the ArgumentException contract
+            // PG-era callers handle; infrastructure failures
+            // (XSTORE_UNAVAILABLE/TIMEOUT/SPAWN/OUTPUT_INVALID) stay
+            // MetadataError so ops can distinguish plane-down from
+            // request-invalid.
+            _ when e.Code.StartsWith("META_", StringComparison.Ordinal) ||
+                   e.Code.StartsWith("XSTORE_IMMUTABLE") ||
+                   e.Code.StartsWith("XSTORE_INVALID_") ||
+                   e.Code.StartsWith("XSTORE_REVISION_") ||
+                   e.Code.StartsWith("XSTORE_OP_DENIED") ||
+                   e.Code.StartsWith("XSTORE_TYPE_") ||
+                   e.Code.StartsWith("XSTORE_TX_")
+                => new ArgumentException(e.Message),
+            _ => e,
+        };
+
+    /// <summary>Migration-lane health for gates and DatabaseStatus:
+    /// the shadow/dual-write era is over — xstore IS the authority.</summary>
     public Dictionary<string, object?> ShadowStatus()
-    {
-        bool flipped = XstoreAuthority;
-        var status = new Dictionary<string, object?>
+        => new()
         {
             ["format"] = "star-metadata-shadow-status/v1",
-            ["phase"] = flipped ? "C-authority" : "A-shadow",
-            ["authority"] = flipped ? "xstore" : "postgresql",
-            ["shadow_mode"] = !flipped,
-            ["dual_write"] = false, // shadow emits AFTER PG commit; PG alone is atomic authority
-            ["read_source"] = flipped ? "xstore" : "postgresql",
-            ["healthy"] = flipped || (!_metaShadowFailed && !_metaShadowUnavailable),
+            ["phase"] = "D-native",
+            ["authority"] = "xstore",
+            ["shadow_mode"] = false,
+            ["dual_write"] = false,
+            ["read_source"] = "xstore",
+            ["healthy"] = true,
+            ["status"] = "authority",
         };
-        if (flipped)
-            status["status"] = "authority";
-        else if (_metaShadowUnavailable)
-            status["status"] = "unavailable";
-        else if (_metaShadowFailed)
-            status["status"] = "XSTORE_METADATA_SHADOW_FAILED";
-        else
-            status["status"] = _metaShadow != null ? "active" : "pending";
-        if (_metaShadowError.Length > 0)
-            status["last_error"] = _metaShadowError;
-        return status;
-    }
 
     // ------------------------------------------------------------ helpers --
-    internal static string Now() => DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff+00:00", CultureInfo.InvariantCulture);
-    internal static string Sha256Text(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    internal static string Now()
+        => DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff+00:00",
+                                    CultureInfo.InvariantCulture);
+
+    internal static string Sha256Text(string value)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)))
+            .ToLowerInvariant();
+
     internal static string Sha256File(string path)
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                                          FileShare.Read, 1024 * 1024);
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
@@ -225,22 +156,27 @@ internal sealed class TransformerTrainingRepository
     }
 
     // ------------------------------------------------------------ datasets --
-    private const string DatasetColumns = "dataset_id, content_sha256, format_version, base_model_id, " + "runtime_model_id, example_count, training_example_count, " + "validation_example_count, minimum_quality_score, source_manifest_json, " + "snapshot_path, snapshot_sha256, state, created_by, created_at";
+
     private string ResolveSnapshotFile(string snapshotPath)
     {
         string normalized = (snapshotPath ?? "").Trim();
         if (normalized.Length == 0)
             throw new ArgumentException("snapshot_path is required");
-        string candidate = Path.IsPathRooted(normalized) ? normalized : Path.Combine(ToolRoot, normalized);
+        string candidate = Path.IsPathRooted(normalized)
+            ? normalized
+            : Path.Combine(ToolRoot, normalized);
         candidate = Path.GetFullPath(candidate);
-        if (!candidate.StartsWith(ToolRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) && !string.Equals(candidate, ToolRoot, StringComparison.Ordinal))
+        if (!candidate.StartsWith(ToolRoot + Path.DirectorySeparatorChar,
+                                  StringComparison.Ordinal) &&
+            !string.Equals(candidate, ToolRoot, StringComparison.Ordinal))
             throw new UnauthorizedAccessException("TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
         if (!File.Exists(candidate))
             throw new FileNotFoundException("transformer training snapshot does not exist");
         return candidate;
     }
 
-    internal static List<Dictionary<string, object?>> NormalizeDatasetExamples(IEnumerable<IReadOnlyDictionary<string, object?>> examples)
+    internal static List<Dictionary<string, object?>> NormalizeDatasetExamples(
+        IEnumerable<IReadOnlyDictionary<string, object?>> examples)
     {
         var normalized = new List<Dictionary<string, object?>>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -250,7 +186,8 @@ internal sealed class TransformerTrainingRepository
             ordinal += 1;
             string split = (Str(example, "split") ?? "").Trim().ToLowerInvariant();
             string scope = (Str(example, "database_scope") ?? "").Trim().ToLowerInvariant();
-            string itemHash = RequireSha256(Str(example, "content_sha256"), "example.content_sha256");
+            string itemHash = RequireSha256(Str(example, "content_sha256"),
+                                            "example.content_sha256");
             if (split is not ("train" or "validation"))
                 throw new ArgumentException("example.split must be train or validation");
             if (scope is not ("main" or "investment" or "mathematical" or "coding"))
@@ -263,24 +200,46 @@ internal sealed class TransformerTrainingRepository
             int sourceRevision = Int(example, "source_revision");
             if (sourceRevision < 1)
                 throw new ArgumentException("example source_revision must be positive");
-            normalized.Add(new Dictionary<string, object?> { ["ordinal"] = ordinal, ["split"] = split, ["owner_model_id"] = (Str(example, "owner_model_id") ?? "").Trim(), ["database_scope"] = scope, ["source_example_id"] = (Str(example, "source_example_id") ?? "").Trim(), ["source_revision"] = sourceRevision, ["content_sha256"] = itemHash, ["source_type"] = (Str(example, "source_type") ?? "").Trim(), ["quality_score"] = quality, });
+            normalized.Add(new Dictionary<string, object?>
+            {
+                ["ordinal"] = ordinal,
+                ["split"] = split,
+                ["owner_model_id"] = (Str(example, "owner_model_id") ?? "").Trim(),
+                ["database_scope"] = scope,
+                ["source_example_id"] = (Str(example, "source_example_id") ?? "").Trim(),
+                ["source_revision"] = sourceRevision,
+                ["content_sha256"] = itemHash,
+                ["source_type"] = (Str(example, "source_type") ?? "").Trim(),
+                ["quality_score"] = quality,
+            });
         }
-
         return normalized;
     }
 
-    private static (int train, int validation) DatasetExampleCounts(List<Dictionary<string, object?>> normalized)
+    private static (int train, int validation) DatasetExampleCounts(
+        List<Dictionary<string, object?>> normalized)
     {
-        int train = normalized.Count(e => (string? )e["split"] == "train");
-        int validation = normalized.Count(e => (string? )e["split"] == "validation");
+        int train = normalized.Count(e => (string?)e["split"] == "train");
+        int validation = normalized.Count(e => (string?)e["split"] == "validation");
         if (normalized.Count == 0 || train < 1 || validation < 1)
             throw new ArgumentException("dataset requires train and validation examples");
-        if (normalized.Any(e => string.IsNullOrEmpty((string? )e["owner_model_id"]) || string.IsNullOrEmpty((string? )e["source_example_id"]) || string.IsNullOrEmpty((string? )e["source_type"])))
-            throw new ArgumentException("dataset example ownership and provenance are required");
+        if (normalized.Any(e =>
+                string.IsNullOrEmpty((string?)e["owner_model_id"]) ||
+                string.IsNullOrEmpty((string?)e["source_example_id"]) ||
+                string.IsNullOrEmpty((string?)e["source_type"])))
+            throw new ArgumentException(
+                "dataset example ownership and provenance are required");
         return (train, validation);
     }
 
-    public Dictionary<string, object?> CreateDataset(string contentSha256, string snapshotPath, string snapshotSha256, IReadOnlyList<IReadOnlyDictionary<string, object?>> examples, IReadOnlyDictionary<string, object?> sourceManifest, string createdBy = "star-main-native-model", string formatVersion = "star-transformer-sft/v1")
+    public Dictionary<string, object?> CreateDataset(
+        string contentSha256,
+        string snapshotPath,
+        string snapshotSha256,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> examples,
+        IReadOnlyDictionary<string, object?> sourceManifest,
+        string createdBy = "star-main-native-model",
+        string formatVersion = "star-transformer-sft/v1")
     {
         string contentDigest = RequireSha256(contentSha256, "content_sha256");
         string snapshotDigest = RequireSha256(snapshotSha256, "snapshot_sha256");
@@ -289,52 +248,69 @@ internal sealed class TransformerTrainingRepository
         if (actualDigest != snapshotDigest)
             throw new ArgumentException("transformer training snapshot SHA-256 mismatch");
         var normalized = NormalizeDatasetExamples(examples);
-        var(trainCount, validationCount) = DatasetExampleCounts(normalized);
+        DatasetExampleCounts(normalized);
         // Dataset identity is (content_sha256, snapshot_sha256): identical
         // content re-exported with different bytes (e.g. after a snapshot
         // serialization change) registers a new row instead of colliding
         // with an unrecoverable stale one.
-        string datasetId = $"star-transformer-dataset-" + Sha256Text(contentDigest + ":" + snapshotDigest)[..24];
+        string datasetId = $"star-transformer-dataset-" +
+            Sha256Text(contentDigest + ":" + snapshotDigest)[..24];
         string manifestJson = CanonicalJson.CanonicalDict(sourceManifest);
-        string createdAt = Now();
-        return CreateDatasetNative(datasetId, contentDigest, snapshotFile, snapshotDigest, normalized, manifestJson, createdBy, formatVersion);
-    }
 
-    /// <summary>Post-flip CreateDataset (§48): identical identity and
-    /// validation, committed on the native plane. The snapshot-restore
-    /// contract is preserved — a re-registered dataset whose stored
-    /// snapshot file was pruned still restores identical bytes.</summary>
-    private Dictionary<string, object?> CreateDatasetNative(string datasetId, string contentDigest, string snapshotFile, string snapshotDigest, List<Dictionary<string, object?>> normalized, string manifestJson, string createdBy, string formatVersion)
-    {
+        // Identical identity and validation, committed on the native
+        // plane. The snapshot-restore contract is preserved — a
+        // re-registered dataset whose stored snapshot file was pruned
+        // still restores identical bytes.
         try
         {
-            var existing = Meta().Get(NativeMetadataClient.Types.Dataset, datasetId);
+            var existing = Meta().Get(NativeMetadataClient.Types.Dataset,
+                                      datasetId);
             if (existing != null)
             {
-                string storedPath = (string? )existing["snapshot_path"] ?? "";
-                string storedSha = (string? )existing["snapshot_sha256"] ?? "";
-                bool usable = storedPath.Length > 0 && File.Exists(storedPath) && Sha256File(storedPath) == storedSha;
+                string storedPath = (string?)existing["snapshot_path"] ?? "";
+                string storedSha = (string?)existing["snapshot_sha256"] ?? "";
+                bool usable = storedPath.Length > 0 &&
+                              File.Exists(storedPath) &&
+                              Sha256File(storedPath) == storedSha;
                 if (!usable)
                 {
-                    string restored = Path.IsPathRooted(storedPath) ? storedPath : Path.Combine(ToolRoot, storedPath);
+                    string restored = Path.IsPathRooted(storedPath)
+                        ? storedPath
+                        : Path.Combine(ToolRoot, storedPath);
                     restored = Path.GetFullPath(restored);
-                    if (!restored.StartsWith(ToolRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-                        throw new UnauthorizedAccessException("TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
+                    if (!restored.StartsWith(
+                            ToolRoot + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal))
+                        throw new UnauthorizedAccessException(
+                            "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
                     string? parentDir = Path.GetDirectoryName(restored);
                     if (parentDir != null && !Directory.Exists(parentDir))
                         Directory.CreateDirectory(parentDir);
                     File.Copy(snapshotFile, restored, overwrite: true);
                     if (Sha256File(restored) != storedSha)
-                        throw new InvalidOperationException("transformer training snapshot restore failed");
-                    Meta().AuditEvent("dataset-snapshot-restored", "training-dataset", datasetId, new Dictionary<string, object?> { ["content_sha256"] = contentDigest, ["snapshot_sha256"] = storedSha, ["snapshot_path"] = restored, });
+                        throw new InvalidOperationException(
+                            "transformer training snapshot restore failed");
+                    Meta().AuditEvent(
+                        "dataset-snapshot-restored", "training-dataset",
+                        datasetId, new Dictionary<string, object?>
+                        {
+                            ["content_sha256"] = contentDigest,
+                            ["snapshot_sha256"] = storedSha,
+                            ["snapshot_path"] = restored,
+                        });
                 }
-
                 existing["inserted"] = false;
                 return existing;
             }
-
-            Meta().CreateDataset(contentDigest, snapshotFile, snapshotDigest, normalized, manifestJson, string.IsNullOrEmpty(createdBy) ? "star-main-native-model" : createdBy, formatVersion, datasetId: datasetId);
-            var row = Meta().Get(NativeMetadataClient.Types.Dataset, datasetId) ?? throw new InvalidOperationException("transformer training dataset was not created");
+            Meta().CreateDataset(
+                contentDigest, snapshotFile, snapshotDigest, normalized,
+                manifestJson,
+                string.IsNullOrEmpty(createdBy)
+                    ? "star-main-native-model" : createdBy,
+                formatVersion, datasetId: datasetId);
+            var row = Meta().Get(NativeMetadataClient.Types.Dataset, datasetId)
+                ?? throw new InvalidOperationException(
+                    "transformer training dataset was not created");
             row["inserted"] = true;
             return row;
         }
@@ -347,54 +323,62 @@ internal sealed class TransformerTrainingRepository
     /// <summary>Every registered dataset's snapshot_path — the rows are
     /// immutable, so retention must never prune a referenced file.</summary>
     public List<string> DatasetSnapshotPaths()
-    {
-        return Meta().Query(NativeMetadataClient.Types.Dataset, null, 4096).Select(r => (string)r["snapshot_path"]!).ToList();
-    }
+        => Meta().Query(NativeMetadataClient.Types.Dataset, null, 4096)
+            .Select(r => (string)r["snapshot_path"]!).ToList();
 
     public Dictionary<string, object?>? DatasetById(string datasetId)
-    {
-        return Meta().Get(NativeMetadataClient.Types.Dataset, datasetId);
-    }
+        => Meta().Get(NativeMetadataClient.Types.Dataset, datasetId);
 
     /// <summary>dataset row + {content_sha256: split} map (executor port).</summary>
-    public (Dictionary<string, object?>, Dictionary<string, string>) DatasetAndSplits(string datasetId)
+    public (Dictionary<string, object?>, Dictionary<string, string>) DatasetAndSplits(
+        string datasetId)
     {
         var ds = Meta().Get(NativeMetadataClient.Types.Dataset, datasetId);
         if (ds == null)
-            return (new Dictionary<string, object?>(), new Dictionary<string, string>());
-        var splitMap = Meta().Query(NativeMetadataClient.Types.DatasetExample, new Dictionary<string, object?> { ["dataset_id"] = datasetId }, 500000).ToDictionary(r => (string)r["content_sha256"]!, r => (string)r["split"]!, StringComparer.Ordinal);
+            return (new Dictionary<string, object?>(),
+                    new Dictionary<string, string>());
+        var splitMap = Meta().Query(
+            NativeMetadataClient.Types.DatasetExample,
+            new Dictionary<string, object?> { ["dataset_id"] = datasetId },
+            500000)
+            .ToDictionary(r => (string)r["content_sha256"]!,
+                          r => (string)r["split"]!,
+                          StringComparer.Ordinal);
         return (ds, splitMap);
     }
 
     // ---------------------------------------------------------------- jobs --
-    private const string JobColumns = "job_id, dataset_id, base_model_id, training_method, configuration_json, " + "configuration_sha256, status, output_path, error_code, error_message, " + "requested_by, retry_of_job_id, created_at, started_at, completed_at";
-    public Dictionary<string, object?> CreateTrainingJob(string datasetId, IReadOnlyDictionary<string, object?> configuration, string requestedBy = "star-main-native-model", string? retryOfJobId = null)
+
+    public Dictionary<string, object?> CreateTrainingJob(
+        string datasetId,
+        IReadOnlyDictionary<string, object?> configuration,
+        string requestedBy = "star-main-native-model",
+        string? retryOfJobId = null)
     {
         string normalizedDatasetId = (datasetId ?? "").Trim();
         string configurationJson = CanonicalJson.CanonicalDict(configuration);
-        string configurationSha256 = Sha256Text(configurationJson);
         string jobId = $"star-transformer-job-{Guid.NewGuid().ToString("N")[..24]}";
-        string createdAt = Now();
         try
         {
-            Meta().CreateTrainingJob(normalizedDatasetId, configurationJson, string.IsNullOrEmpty(requestedBy) ? "star-main-native-model" : requestedBy, string.IsNullOrWhiteSpace(retryOfJobId) ? null : retryOfJobId.Trim(), jobId: jobId);
-            return Meta().GetTrainingJob(jobId) ?? throw new InvalidOperationException("transformer training job was not created");
+            Meta().CreateTrainingJob(normalizedDatasetId,
+                configurationJson,
+                string.IsNullOrEmpty(requestedBy)
+                    ? "star-main-native-model" : requestedBy,
+                string.IsNullOrWhiteSpace(retryOfJobId)
+                    ? null : retryOfJobId.Trim(),
+                jobId: jobId);
+            return Meta().GetTrainingJob(jobId)
+                ?? throw new InvalidOperationException(
+                    "transformer training job was not created");
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
     public Dictionary<string, object?>? JobRow(string jobId)
-    {
-        return Meta().GetTrainingJob(jobId);
-    }
+        => Meta().GetTrainingJob(jobId);
 
     public List<Dictionary<string, object?>> QueuedJobs(int limit = 16)
-    {
-        return Meta().ListQueuedJobs(limit);
-    }
+        => Meta().ListQueuedJobs(limit);
 
     /// <summary>Jobs holding a live-state status
     /// (preflight/training/validating). A crashed run never leaves these
@@ -402,52 +386,45 @@ internal sealed class TransformerTrainingRepository
     /// (TrainingJobExecutor.ReapStaleJobs) is the only way out besides
     /// forward progress.</summary>
     public List<Dictionary<string, object?>> ActiveJobs(int limit = 64)
-    {
-        return Meta().ListActiveJobs(limit);
-    }
+        => Meta().ListActiveJobs(limit);
 
-    public Dictionary<string, object?> TransitionTrainingJob(string jobId, string status, string outputPath = "", string errorCode = "", string errorMessage = "")
+    public Dictionary<string, object?> TransitionTrainingJob(
+        string jobId, string status,
+        string outputPath = "", string errorCode = "", string errorMessage = "")
     {
         string requested = (status ?? "").Trim().ToLowerInvariant();
         if (!JobStates.Contains(requested))
             throw new ArgumentException("unsupported transformer training job status");
         try
         {
-            Meta().TransitionTrainingJob(jobId, requested, outputPath: string.IsNullOrEmpty(outputPath) ? null : outputPath, errorCode: errorCode.Length > 96 ? errorCode[..96] : errorCode, errorMessage: errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage);
-            return Meta().GetTrainingJob(jobId) ?? throw new InvalidOperationException("transformer training job transition was not stored");
+            Meta().TransitionTrainingJob(jobId, requested,
+                outputPath: string.IsNullOrEmpty(outputPath) ? null : outputPath,
+                errorCode: errorCode.Length > 96 ? errorCode[..96] : errorCode,
+                errorMessage: errorMessage.Length > 1000
+                    ? errorMessage[..1000] : errorMessage);
+            return Meta().GetTrainingJob(jobId)
+                ?? throw new InvalidOperationException(
+                    "transformer training job transition was not stored");
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
-    public enum JobClaimResult
-    {
-        Claimed,
-        Missing,
-        NotQueued,
-        Busy
-    }
+    public enum JobClaimResult { Claimed, Missing, NotQueued, Busy }
 
-    /// <summary>Atomic serial-training claim (同時訓練上限 = 1): inside
-    /// one transaction, takes a training-lane advisory lock (serializing
-    /// every concurrent claimant), verifies the job is still queued and
-    /// no sibling is in flight (preflight/training/validating), then
-    /// transitions the job to preflight with the governed audit event.
-    /// A plain ActiveJobs-then-transition pair would let two concurrent
-    /// executors both pass the check — the advisory lock closes that
-    /// race.</summary>
-    public (JobClaimResult Result, Dictionary<string, object?>? Row) TryClaimTrainingJob(string jobId)
+    /// <summary>Atomic serial-training claim (同時訓練上限 = 1): the
+    /// Rust claim op IS the serial-lane atomic commit (§75) — the writer
+    /// lease + FSM give the same single-claimant guarantee the PG
+    /// advisory lock provided, without SELECT FOR UPDATE.</summary>
+    public (JobClaimResult Result, Dictionary<string, object?>? Row)
+        TryClaimTrainingJob(string jobId)
     {
-        // The Rust claim op IS the serial-lane atomic commit (§75):
-        // advisory-lock port — the writer lease + FSM give the same
-        // single-claimant guarantee without SELECT FOR UPDATE.
         try
         {
             var r = Meta().ClaimTrainingJob(jobId);
             string verdict = "";
-            if (r.TryGetProperty("result", out JsonElement res) && res.ValueKind == JsonValueKind.Object && res.TryGetProperty("result", out JsonElement inner))
+            if (r.TryGetProperty("result", out JsonElement res) &&
+                res.ValueKind == JsonValueKind.Object &&
+                res.TryGetProperty("result", out JsonElement inner))
                 verdict = inner.GetString() ?? "";
             else if (res.ValueKind == JsonValueKind.String)
                 verdict = res.GetString() ?? "";
@@ -460,73 +437,94 @@ internal sealed class TransformerTrainingRepository
             };
             return (result, Meta().GetTrainingJob(jobId));
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
     // ------------------------------------------------------------ adapters --
-    private const string CandidateColumns = "adapter_id, job_id, dataset_id, base_model_id, adapter_format, " + "artifact_path, artifact_sha256, metrics_json, status, created_at, " + "updated_at";
-    private const string CandidateSelect = "SELECT " + CandidateColumns + " FROM transformer_adapter_candidate WHERE adapter_id = $1";
-    private static readonly HashSet<string> ReleaseActions = new(StringComparer.Ordinal)
-    {
-        "stage",
-        "activate",
-        "rollback",
-        "retire"
-    };
+
+    private static readonly HashSet<string> ReleaseActions =
+        new(StringComparer.Ordinal) { "stage", "activate", "rollback", "retire" };
+
     private string ResolveArtifact(string artifactPath)
     {
         string raw = (artifactPath ?? "").Trim();
-        string candidate = Path.IsPathRooted(raw) ? raw : Path.Combine(ToolRoot, raw);
+        string candidate = Path.IsPathRooted(raw)
+            ? raw
+            : Path.Combine(ToolRoot, raw);
         candidate = Path.GetFullPath(candidate);
-        if (!candidate.StartsWith(ToolRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) && !string.Equals(candidate, ToolRoot, StringComparison.Ordinal))
+        if (!candidate.StartsWith(ToolRoot + Path.DirectorySeparatorChar,
+                                  StringComparison.Ordinal) &&
+            !string.Equals(candidate, ToolRoot, StringComparison.Ordinal))
             throw new UnauthorizedAccessException("ADAPTER_ARTIFACT_SCOPE_DENIED");
         if (!File.Exists(candidate))
             throw new FileNotFoundException("adapter artifact does not exist");
         return candidate;
     }
 
-    public Dictionary<string, object?> RegisterAdapterCandidate(string jobId, string artifactPath, IReadOnlyDictionary<string, object?> metrics, string adapterFormat = "native-checkpoint")
+    public Dictionary<string, object?> RegisterAdapterCandidate(
+        string jobId,
+        string artifactPath,
+        IReadOnlyDictionary<string, object?> metrics,
+        string adapterFormat = "native-checkpoint")
     {
         string artifact = ResolveArtifact(artifactPath);
-        string artifactSha256 = Sha256File(artifact);
         string adapterId = $"star-transformer-adapter-{Guid.NewGuid().ToString("N")[..24]}";
-        string now = Now();
         try
         {
-            Meta().RegisterAdapterCandidate(jobId, artifact, CanonicalJson.CanonicalDict(metrics), string.IsNullOrEmpty(adapterFormat) ? "native-checkpoint" : adapterFormat, adapterId: adapterId);
-            return Meta().Get(NativeMetadataClient.Types.Candidate, adapterId) ?? throw new InvalidOperationException("adapter candidate was not registered");
+            Meta().RegisterAdapterCandidate(jobId, artifact,
+                CanonicalJson.CanonicalDict(metrics),
+                string.IsNullOrEmpty(adapterFormat)
+                    ? "native-checkpoint" : adapterFormat,
+                adapterId: adapterId);
+            return Meta().Get(NativeMetadataClient.Types.Candidate, adapterId)
+                ?? throw new InvalidOperationException(
+                    "adapter candidate was not registered");
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
     public Dictionary<string, object?> AdapterCandidate(string adapterId)
-    {
-        return Meta().Get(NativeMetadataClient.Types.Candidate, adapterId) ?? throw new KeyNotFoundException("transformer adapter candidate does not exist");
-    }
+        => Meta().Get(NativeMetadataClient.Types.Candidate, adapterId)
+            ?? throw new KeyNotFoundException(
+                "transformer adapter candidate does not exist");
 
-    public Dictionary<string, object?> RecordAdapterEvaluation(string adapterId, string suiteId, IReadOnlyDictionary<string, object?> baselineMetrics, IReadOnlyDictionary<string, object?> adapterMetrics, IReadOnlyDictionary<string, object?> comparison, IReadOnlyDictionary<string, object?> qualityGates, bool passed, string evaluatedBy = "star-main-native-model", string? suiteSha256 = null)
+    public Dictionary<string, object?> RecordAdapterEvaluation(
+        string adapterId,
+        string suiteId,
+        IReadOnlyDictionary<string, object?> baselineMetrics,
+        IReadOnlyDictionary<string, object?> adapterMetrics,
+        IReadOnlyDictionary<string, object?> comparison,
+        IReadOnlyDictionary<string, object?> qualityGates,
+        bool passed,
+        string evaluatedBy = "star-main-native-model",
+        string? suiteSha256 = null)
     {
-        string suiteDigest = !string.IsNullOrWhiteSpace(suiteSha256) ? suiteSha256.Trim() : Sha256Text(suiteId);
+        string suiteDigest = !string.IsNullOrWhiteSpace(suiteSha256)
+            ? suiteSha256.Trim()
+            : Sha256Text(suiteId);
         string evaluationId = $"star-transformer-eval-{Guid.NewGuid().ToString("N")[..24]}";
-        string now = Now();
         try
         {
-            Meta().RecordAdapterEvaluation(adapterId, suiteId, CanonicalJson.CanonicalDict(baselineMetrics), CanonicalJson.CanonicalDict(adapterMetrics), CanonicalJson.CanonicalDict(comparison), CanonicalJson.CanonicalDict(qualityGates), passed, suiteSha256: suiteDigest, evaluatedBy: string.IsNullOrEmpty(evaluatedBy) ? "star-main-native-model" : evaluatedBy, evaluationId: evaluationId);
-            return Meta().Get(NativeMetadataClient.Types.Evaluation, evaluationId) ?? throw new InvalidOperationException("evaluation was not stored");
+            Meta().RecordAdapterEvaluation(adapterId, suiteId,
+                CanonicalJson.CanonicalDict(baselineMetrics),
+                CanonicalJson.CanonicalDict(adapterMetrics),
+                CanonicalJson.CanonicalDict(comparison),
+                CanonicalJson.CanonicalDict(qualityGates),
+                passed, suiteSha256: suiteDigest,
+                evaluatedBy: string.IsNullOrEmpty(evaluatedBy)
+                    ? "star-main-native-model" : evaluatedBy,
+                evaluationId: evaluationId);
+            return Meta().Get(NativeMetadataClient.Types.Evaluation,
+                              evaluationId)
+                ?? throw new InvalidOperationException(
+                    "evaluation was not stored");
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
-    public Dictionary<string, object?> ReleaseAdapter(string adapterId, string action, string governedBy, string reason)
+    public Dictionary<string, object?> ReleaseAdapter(
+        string adapterId, string action,
+        string governedBy, string reason)
     {
         string normalized = (action ?? "").Trim().ToLowerInvariant();
         if (!ReleaseActions.Contains(normalized))
@@ -535,114 +533,107 @@ internal sealed class TransformerTrainingRepository
             throw new ArgumentException("governed_by is required");
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("release reason is required");
-        string releaseId = $"star-transformer-release-{Guid.NewGuid().ToString("N")[..24]}";
-        string now = Now();
         try
         {
-            Meta().ReleaseAdapter(adapterId, normalized, governedBy, reason);
-            var released = Meta().Get(NativeMetadataClient.Types.Candidate, adapterId) ?? throw new InvalidOperationException("adapter release was not stored");
+            Meta().ReleaseAdapter(adapterId, normalized, governedBy,
+                reason);
+            var released = Meta().Get(
+                NativeMetadataClient.Types.Candidate, adapterId)
+                ?? throw new InvalidOperationException(
+                    "adapter release was not stored");
             released["runtime_state"] = RuntimeModelState();
             return released;
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
-    public Dictionary<string, object?> RejectAdapter(string adapterId, string governedBy, string reason)
+    public Dictionary<string, object?> RejectAdapter(
+        string adapterId, string governedBy, string reason)
     {
         if (string.IsNullOrWhiteSpace(governedBy) || string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("governed_by and reason are required");
-        string now = Now();
         try
         {
             Meta().RejectAdapter(adapterId, governedBy, reason);
-            return Meta().Get(NativeMetadataClient.Types.Candidate, adapterId) ?? throw new InvalidOperationException("adapter rejection was not stored");
+            return Meta().Get(NativeMetadataClient.Types.Candidate,
+                              adapterId)
+                ?? throw new InvalidOperationException(
+                    "adapter rejection was not stored");
         }
-        catch (MetadataError e)
-        {
-            throw TranslateMetadataError(e);
-        }
+        catch (MetadataError e) { throw TranslateMetadataError(e); }
     }
 
     public Dictionary<string, object?> RuntimeModelState()
-    {
-        return Meta().GetRuntimeState() ?? new Dictionary<string, object?>();
-    }
+        => Meta().GetRuntimeState()
+            ?? new Dictionary<string, object?>();
 
     // ---------------------------------------------------------------- audit --
-    private string AuditEventBody(string eventId, string eventType, string entityType, string entityId, JsonElement payload, string previousSha256, string createdAt)
-    {
-        var body = new Dictionary<string, object?>
-        {
-            ["event_id"] = eventId,
-            ["event_type"] = eventType,
-            ["entity_type"] = entityType,
-            ["entity_id"] = entityId,
-            ["payload"] = payload,
-            ["previous_event_sha256"] = previousSha256,
-            ["created_at"] = createdAt,
-        };
-        return CanonicalJson.CanonicalDict(body);
-    }
 
-    /// <summary>Standalone audit event in its own transaction — used for
-    /// lane-level lifecycle marks (e.g. recovery-lane lease acquire /
-    /// release) that are not row transitions.</summary>
-    public void AuditEvent(string eventType, string entityType, string entityId, IReadOnlyDictionary<string, object?> payload)
-    {
-        // §17: the xstore audit_event record IS the canonical entry
-        // (event-hash chained); no second audit authority exists.
-        Meta().AuditEvent(eventType, entityType, entityId, payload);
-        return;
-    }
+    /// <summary>Standalone audit event — the xstore audit_event record
+    /// IS the canonical entry (event-hash chained); no second audit
+    /// authority exists (§17-§18).</summary>
+    public void AuditEvent(string eventType, string entityType,
+                           string entityId,
+                           IReadOnlyDictionary<string, object?> payload)
+        => Meta().AuditEvent(eventType, entityType, entityId, payload);
 
     public Dictionary<string, object?> VerifyAuditChain()
     {
-        // §17-§18: the canonical audit is the xstore audit_event
-        // hash chain + the mutation receipts chain — verified by
-        // Rust, reported in the PG-era shape callers consume.
+        // The canonical audit is the xstore audit_event hash chain +
+        // the mutation receipts chain — verified by Rust, reported in
+        // the shape callers already consume.
         var v = Meta().Verify();
-        bool receiptsOk = v.TryGetProperty("receipts", out var rc) && rc.TryGetProperty("ok", out var ro) && ro.GetBoolean();
-        long auditEvents = Meta().Query(NativeMetadataClient.Types.Audit, null, 1000000).Count;
+        bool receiptsOk = v.TryGetProperty("receipts", out var rc) &&
+                          rc.TryGetProperty("ok", out var ro) &&
+                          ro.GetBoolean();
+        long auditEvents = Meta().Query(
+            NativeMetadataClient.Types.Audit, null, 1000000).Count;
         return new Dictionary<string, object?>
         {
             ["ok"] = JTruth(v, "ok") && receiptsOk,
             ["engine"] = "xstore",
             ["event_count"] = auditEvents,
-            ["head_sha256"] = v.TryGetProperty("receipts", out var r2) && r2.TryGetProperty("head", out var h) ? (string? )h.GetString() ?? "" : "",
-            ["metadata_head_hash"] = v.TryGetProperty("head_hash", out var mh) ? (string? )mh.GetString() ?? "" : "",
+            ["head_sha256"] = v.TryGetProperty("receipts", out var r2) &&
+                              r2.TryGetProperty("head", out var h)
+                ? (string?)h.GetString() ?? "" : "",
+            ["metadata_head_hash"] =
+                v.TryGetProperty("head_hash", out var mh)
+                    ? (string?)mh.GetString() ?? "" : "",
         };
     }
 
     // --------------------------------------------------------------- status --
-    public Dictionary<string, object?> DatabaseStatus()
-    {
-        return NativeDatabaseStatus();
-    }
 
-    /// <summary>Post-flip DatabaseStatus (§48): the native metadata
-    /// plane reports engine/integrity/tables; PostgreSQL is never
-    /// touched — it is no longer a runtime dependency (§50-§51).</summary>
-    private Dictionary<string, object?> NativeDatabaseStatus()
+    /// <summary>DatabaseStatus: the native metadata plane reports
+    /// engine/integrity/tables; PostgreSQL is no longer a runtime
+    /// dependency (§50-§51).</summary>
+    public Dictionary<string, object?> DatabaseStatus()
     {
         var v = Meta().Verify();
         var tables = new Dictionary<string, object?>
         {
-            ["transformer_training_dataset"] = Meta().Query(NativeMetadataClient.Types.Dataset, null, 500000).Count,
-            ["transformer_training_dataset_example"] = Meta().Query(NativeMetadataClient.Types.DatasetExample, null, 500000).Count,
-            ["transformer_training_job"] = Meta().Query(NativeMetadataClient.Types.TrainingJob, null, 500000).Count,
-            ["transformer_adapter_candidate"] = Meta().Query(NativeMetadataClient.Types.Candidate, null, 500000).Count,
-            ["transformer_adapter_evaluation"] = Meta().Query(NativeMetadataClient.Types.Evaluation, null, 500000).Count,
-            ["transformer_adapter_release"] = Meta().Query(NativeMetadataClient.Types.Release, null, 500000).Count,
-            ["transformer_training_audit_event"] = Meta().Query(NativeMetadataClient.Types.Audit, null, 500000).Count,
+            ["transformer_training_dataset"] = Meta().Query(
+                NativeMetadataClient.Types.Dataset, null, 500000).Count,
+            ["transformer_training_dataset_example"] = Meta().Query(
+                NativeMetadataClient.Types.DatasetExample, null, 500000).Count,
+            ["transformer_training_job"] = Meta().Query(
+                NativeMetadataClient.Types.TrainingJob, null, 500000).Count,
+            ["transformer_adapter_candidate"] = Meta().Query(
+                NativeMetadataClient.Types.Candidate, null, 500000).Count,
+            ["transformer_adapter_evaluation"] = Meta().Query(
+                NativeMetadataClient.Types.Evaluation, null, 500000).Count,
+            ["transformer_adapter_release"] = Meta().Query(
+                NativeMetadataClient.Types.Release, null, 500000).Count,
+            ["transformer_training_audit_event"] = Meta().Query(
+                NativeMetadataClient.Types.Audit, null, 500000).Count,
         };
         var audit = VerifyAuditChain();
-        bool receiptsOk = v.TryGetProperty("receipts", out var rc) && rc.TryGetProperty("ok", out var ro) && ro.GetBoolean();
+        bool receiptsOk = v.TryGetProperty("receipts", out var rc) &&
+                          rc.TryGetProperty("ok", out var ro) && ro.GetBoolean();
         return new Dictionary<string, object?>
         {
-            ["ok"] = JTruth(v, "ok") && receiptsOk && (bool)audit["ok"]!,
+            ["ok"] = JTruth(v, "ok") && receiptsOk &&
+                     (bool)audit["ok"]!,
             ["engine"] = "xstore",
             ["canonical_central_engine"] = "xstore",
             ["canonical"] = true,
@@ -652,48 +643,57 @@ internal sealed class TransformerTrainingRepository
             ["schema"] = "xingcheng-metadata/v1",
             ["schema_version"] = SchemaVersion,
             ["path"] = $"xstore:{Meta().StoreDir}",
-            ["engine_integrity"] = JTruth(v, "schema_identity_ok") && JTruth(v, "invariants_ok") ? "ok" : "fail",
+            ["engine_integrity"] =
+                JTruth(v, "schema_identity_ok") &&
+                JTruth(v, "invariants_ok") ? "ok" : "fail",
             ["tables"] = tables,
             ["audit_chain"] = audit,
-            ["metadata_verify"] = JsonSerializer.Deserialize<Dictionary<string, object?>>(v.GetRawText()) ?? new Dictionary<string, object?>(),
+            ["metadata_verify"] = JsonSerializer
+                .Deserialize<Dictionary<string, object?>>(
+                    v.GetRawText()) ?? new Dictionary<string, object?>(),
             ["runtime_model_state"] = RuntimeModelState(),
             ["base_weights_immutable"] = true,
             ["automatic_weight_replacement"] = false,
             ["role_database_ownership_preserved"] = true,
             ["metadata_shadow"] = ShadowStatus(),
+            ["metadata_parity"] = ParityReport(),
         };
     }
 
-    /// <summary>Phase A parity probe for --db-status (§38-§41, §102):
-    /// compares PG vs xstore reconstructed state. A scan failure is
-    /// reported, never hidden — but it must not break db-status itself.</summary>
-    private Dictionary<string, object?> ParityProbe()
-    {
-        return new Dictionary<string, object?>
+    /// <summary>Parity report for --db-status: the PG comparison lane
+    /// is retired (§49-§50) — PostgreSQL is not a runtime dependency.</summary>
+    private static Dictionary<string, object?> ParityReport()
+        => new()
         {
-            ["format"] = MetadataParityCheck.ReportFormat,
+            ["format"] = "star-metadata-parity-report/v1",
             ["ok"] = true,
-            ["status"] = "retired", // §49: PG is a legacy reader now
+            ["status"] = "retired",
             ["reason"] = "authority=xstore; postgresql comparison lane retired",
         };
-    }
 
     public Dictionary<string, object?> Maintain()
     {
-        // Post-flip maintenance is index rebuild + verify — the
-        // native plane has no ANALYZE; audit the maintenance tick
-        // on the canonical chain.
+        // Maintenance is index rebuild + verify — the native plane has
+        // no ANALYZE; audit the maintenance tick on the canonical chain.
         Meta().RebuildIndex();
-        AuditEvent("database-maintained", "training-database", DatabaseName, new Dictionary<string, object?> { ["schema_version"] = SchemaVersion, ["engine"] = "xstore", });
+        AuditEvent("database-maintained", "training-database",
+                   DatabaseName,
+                   new Dictionary<string, object?>
+                   {
+                       ["schema_version"] = SchemaVersion,
+                       ["engine"] = "xstore",
+                   });
         return DatabaseStatus();
     }
 
     // ------------------------------------------------------ value helpers --
-    internal static string? Str(IReadOnlyDictionary<string, object?> map, string key) => map.TryGetValue(key, out object? v) ? v as string ?? v?.ToString() : null;
+
+    internal static string? Str(IReadOnlyDictionary<string, object?> map, string key)
+        => map.TryGetValue(key, out object? v) ? v as string ?? v?.ToString() : null;
+
     internal static double Num(IReadOnlyDictionary<string, object?> map, string key)
     {
-        if (!map.TryGetValue(key, out object? v) || v == null)
-            return 0.0;
+        if (!map.TryGetValue(key, out object? v) || v == null) return 0.0;
         return v switch
         {
             double d => d,
@@ -701,33 +701,34 @@ internal sealed class TransformerTrainingRepository
             int i => i,
             long l => l,
             decimal m => (double)m,
-            _ => double.TryParse(v.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? d : 0.0,
+            _ => double.TryParse(v.ToString(), NumberStyles.Float,
+                                 CultureInfo.InvariantCulture, out double d) ? d : 0.0,
         };
     }
 
     internal static int Int(IReadOnlyDictionary<string, object?> map, string key)
     {
-        if (!map.TryGetValue(key, out object? v) || v == null)
-            return 0;
+        if (!map.TryGetValue(key, out object? v) || v == null) return 0;
         return v switch
         {
             int i => i,
             long l => (int)l,
             double d => (int)d,
-            _ => int.TryParse(v.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int i) ? i : 0,
+            _ => int.TryParse(v.ToString(), NumberStyles.Integer,
+                              CultureInfo.InvariantCulture, out int i) ? i : 0,
         };
     }
 
     internal static long Int64(IReadOnlyDictionary<string, object?> map, string key)
     {
-        if (!map.TryGetValue(key, out object? v) || v == null)
-            return 0;
+        if (!map.TryGetValue(key, out object? v) || v == null) return 0;
         return v switch
         {
             long l => l,
             int i => i,
             double d => (long)d,
-            _ => long.TryParse(v.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long l) ? l : 0,
+            _ => long.TryParse(v.ToString(), NumberStyles.Integer,
+                               CultureInfo.InvariantCulture, out long l) ? l : 0,
         };
     }
 
@@ -737,7 +738,8 @@ internal sealed class TransformerTrainingRepository
         int i => i != 0,
         long l => l != 0,
         double d => d != 0.0,
-        string s => s.Length > 0 && s != "0" && !s.Equals("false", StringComparison.OrdinalIgnoreCase),
+        string s => s.Length > 0 &&
+                    s != "0" && !s.Equals("false", StringComparison.OrdinalIgnoreCase),
         _ => false,
     };
 }

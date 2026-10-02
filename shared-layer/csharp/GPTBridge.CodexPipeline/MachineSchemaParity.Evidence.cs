@@ -12,6 +12,10 @@ internal static partial class MachineSchemaParity
     private static void AssertGeneration(IReadOnlyDictionary<string, object?> before,
         IReadOnlyDictionary<string, object?> after)
     {
+        if (before.GetValueOrDefault("source_sha256") is not string hash
+            || hash.Length != 64
+            || hash.Any(character => character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f')))
+            throw new InvalidOperationException("BLOCKED_GENERATION_DRIFT");
         foreach (var field in new[] { "codex_version", "source_sha256" })
             if (before.GetValueOrDefault(field) is not string value
                 || string.IsNullOrWhiteSpace(value)

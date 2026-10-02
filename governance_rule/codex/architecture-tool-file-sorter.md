@@ -3,13 +3,13 @@
 ```mermaid
 flowchart LR
   UI["file-sorter-ui.exe (C++ Win32)<br/>fallback: gptbridge-egui"] --> REQ["toolbox_run_tool<br/>arg-typed commands"]
-  REQ --> HOST["GPTBridge.ToolHost.App.exe<br/>native_entry — executor 待移植<br/>(現行 fail-closed)"]
+  REQ --> HOST["GPTBridge.ToolHost.App.exe<br/>native_entry — FileSorterExecutor<br/>(已註冊，引擎原生實作)"]
   HOST -.契約.-> PIPE["scan → preview(plan_id) → apply-plan<br/>re-validate → journal → undo-last"]
   PIPE --> STATE[("FILE_SORTER_STATE_ROOT<br/>JSON state + journal")]
   REQ --> RECEIPT["FILE_SORTER_*_JSON= stdout frames<br/>typed receipts"]
 ```
 
-`file-sorter` 是獨立工具，負責檔案分類、歸檔與受治理搬移。**現況**：Python 實作已退役（B167/B38 forbidden-source），native executor 待移植 — 受管啟動目前 fail-closed。存活實作：C++ Win32 UI（`native/file_sorter_ui/`）+ Rust egui fallback；後端僅有命令契約與行為規範（README V2 contract）。
+`file-sorter` 是獨立工具，負責檔案分類、歸檔與受治理搬移。**現況**：Python 實作已退役（B167/B38 forbidden-source）；`FileSorterExecutor` 已註冊於通用 ToolHost（`FileSorterEngine.cs`），原生實作 list-folders／profiles／keyword CRUD／preview(plan_id)／apply-plan（重驗證 + journal + SHA-256 + 流水號）／history／undo-last／set-profile-enabled／set-duplicate-trash-enabled／select-scan-target，狀態層為 `%LOCALAPPDATA%\GPTBridge\file-sorter`（`FILE_SORTER_STATE_ROOT` 可覆寫）。`--cleanup-scan` 維持 fail-closed（`CLEANUP_ANALYZER_PENDING`）直到媒體／模型分析車道移植。存活實作：C++ Win32 UI（`native/file_sorter_ui/`）+ Rust egui fallback + C# executor。
 
 命令面（arg 型別）：`--select-scan-target`、`--profiles-json`、`--list-folders`、`--preview-json`（產 `plan_id`）、`--apply-plan <id>`（重驗證：預覽後來源變更→拒絕）、`--history-json`、`--undo-last`（回復最後完成交易，路徑被佔/檔案變更即停）、`--set-profile-enabled`、`--set-duplicate-trash-enabled`、keyword CRUD、`--cleanup-scan --json`（image/video/similar 分析旗標）。
 

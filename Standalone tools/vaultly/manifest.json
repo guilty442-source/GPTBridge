@@ -19,7 +19,7 @@
     ]
   },
   "entry": "Standalone tools/vaultly/src/main",
-  "runtime": {    "type": "csharp", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/main.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry → C# ToolHost, whose executor table has no vaultly entry — it falls to DeferredExecutor and commands fail closed (TOOL_EXECUTOR_PENDING_NATIVE_PORT) until the business executor is ported.",    "workingDirectory": "."  },
+  "runtime": {    "type": "csharp", "native_entry": "dist/GPTBridge.ToolHost.App.exe",    "retired_entry": "src/main.py",    "note": "Python lane retired (B167/B38); governed launch resolves runtime.native_entry → C# ToolHost with a registered VaultlyExecutor owning the 16-command vaultly_* surface: state/selection/filter-terms/accounts/destination-gate/report-export/job-lifecycle run natively on runtime/state/vaultly-state.json; the platform-adapter seam (open_platform/scan_following/scan_posts) fails closed (VAULTLY_PLATFORM_ADAPTER_PENDING) until the Edge-profile session driver is ported.",    "workingDirectory": "."  },
   "request_channel": {
     "model": "governance-authenticated-shared-layer",
     "runtime_entry": "shared-layer/csharp/GPTBridge.ChannelHost/publish/GPTBridge.ChannelHost.exe",

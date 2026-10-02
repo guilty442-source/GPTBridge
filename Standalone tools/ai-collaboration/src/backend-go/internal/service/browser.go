@@ -71,9 +71,14 @@ func (a *ProviderAdapter) matchesHost(rawURL string) bool {
 var providerAdapters = map[string]*ProviderAdapter{
 	"chatgpt": {
 		ProviderIdentity: "chatgpt", DisplayName: "ChatGPT",
-		InputSelectors:      []string{"#prompt-textarea", `[contenteditable="true"]`, "textarea"},
-		SendSelectors:       []string{`button[data-testid="send-button"]`, `button[data-testid*="send" i]`, `button[aria-label*="Send" i]`, `button[aria-label*="傳送" i]`},
-		ResponseSelectors:   []string{`[data-message-author-role="assistant"]`},
+		InputSelectors: []string{"#prompt-textarea", `[contenteditable="true"]`, "textarea"},
+		SendSelectors:  []string{`button[data-testid="send-button"]`, `button[data-testid*="send" i]`, `button[aria-label*="Send" i]`, `button[aria-label*="傳送" i]`},
+		ResponseSelectors: []string{
+			`[data-markdown-text-style="assistant-message"]`,
+			`[data-chatgpt-search-unit-key$=":assistant"]`,
+			`[data-content-search-unit-key$=":assistant"]`,
+			`[data-message-author-role="assistant"]`,
+		},
 		GeneratingSelectors: []string{`button[data-testid="stop-button"]`, `button[aria-label*="Stop" i]`, `button[aria-label*="停止" i]`},
 		ExpectedHosts:       []string{"chatgpt.com", "chat.openai.com"},
 	},
@@ -212,7 +217,36 @@ for (const sel of genSelectors) {
 const pageText = ((document.title || '') + ' ' + (document.body ? document.body.innerText : '')).toLowerCase();
 let verification = false, marker = '';
 for (const m of markers) { if (pageText.includes(m.toLowerCase())) { verification = true; marker = m; break; } }
-return {content, generating, verification, marker};
+// TEMP-DEBUG: page facts for live DOM diagnosis.
+const bodyText = (document.body ? document.body.innerText : '');
+let chain = [];
+try {
+	let target = null;
+	const all = document.querySelectorAll('main *');
+	for (const el of all) {
+		if ((el.innerText || '').trim() === 'PONG') target = el;
+	}
+	for (let n = target; n && chain.length < 8; n = n.parentElement) {
+		const attrs = [];
+		for (const a of (n.attributes || [])) {
+			if (a.name === 'class') continue;
+			attrs.push(a.name + '=' + String(a.value).slice(0, 40));
+		}
+		const cls = (n.getAttribute && n.getAttribute('class')) || '';
+		chain.push(n.tagName.toLowerCase() + (cls ? '.' + String(cls).split(/\s+/).slice(0, 3).join('.') : '') + '|' + attrs.join(','));
+	}
+} catch (e) { chain.push('ERR:' + e); }
+const diag = {
+	href: location.href, title: document.title,
+	respCount: document.querySelectorAll('[data-message-author-role="assistant"]').length,
+	turnCount: document.querySelectorAll('[data-testid^="conversation-turn"]').length,
+	userCount: document.querySelectorAll('[data-message-author-role="user"]').length,
+	articleCount: document.querySelectorAll('article').length,
+	textarea: !!document.querySelector('#prompt-textarea'),
+	bodyTail: bodyText.slice(-300),
+	chain
+};
+return {content, generating, verification, marker, diag};
 })()`, jsSelectorList(adapter.ResponseSelectors), jsSelectorList(adapter.GeneratingSelectors), string(markers))
 }
 
@@ -351,6 +385,18 @@ func (b *BrowserSession) PrepareSend(agent map[string]any) (string, *ProviderAda
 	}
 	// Provider page: navigate when the current URL is off-host.
 	urlRes, err := b.ops.GetURL(sessionID)
+	if err == nil && str(urlRes, "error_code") == "SESSION_NOT_FOUND" {
+		// The tool window was restarted (or the session crashed) after
+		// this backend recorded the session — evict the stale entry and
+		// recreate so the send path survives UI restarts.
+		b.mu.Lock()
+		delete(b.sessions, sessionID)
+		b.mu.Unlock()
+		if _, e := b.ensureSession(str(agent, "agent_id"), home, sessionID); e != nil {
+			return "", nil, failedResult(provider, "EMBEDDED_BROWSER_SESSION_FAILED", e.Error())
+		}
+		urlRes, err = b.ops.GetURL(sessionID)
+	}
 	if err == nil {
 		current := str(urlRes, "url")
 		if !adapter.matchesHost(current) {

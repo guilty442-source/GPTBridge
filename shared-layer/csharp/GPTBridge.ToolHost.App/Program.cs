@@ -22,52 +22,6 @@ using GPTBridge.ToolHost;
 namespace GPTBridge.ToolHost.App;
 
 /// <summary>
-/// Store-free IToolTransport: hello reports the deferred marker, every
-/// claim returns null (no queue exists yet), side ops answer false/null.
-/// When the real star-governed-transport-proxy/v1 sidecar ships, swap
-/// the factory to TransportProxyClient.Start and delete this class.
-/// </summary>
-internal sealed class DeferredStoreTransport : IToolTransport
-{
-#pragma warning disable CS0067 // never fires until a real transport lands
-    public event Action? Disconnected;
-#pragma warning restore CS0067
-    public Task<JsonObject> HelloAsync(
-        string toolId, string workspaceInstanceId,
-        IReadOnlyDictionary<string, string> channels,
-        IReadOnlyDictionary<string, SubmitBinding>? submitBindings =
-            null,
-        CancellationToken ct = default) => Task.FromResult(new JsonObject
-    {
-        ["ok"] = true,
-        ["deferred"] = true,
-        ["reason"] = "transport-store-native-successor-pending",
-    });
-
-    public Task<JsonObject?> ClaimAsync(
-        string channel, CancellationToken ct = default)
-        => Task.FromResult<JsonObject?>(null);
-
-    public Task<bool> RespondAsync(
-        string channel, string requestId, JsonNode? response,
-        CancellationToken ct = default) => Task.FromResult(false);
-
-    public Task<bool> RequestCancelledAsync(
-        string channel, string requestId, CancellationToken ct = default)
-        => Task.FromResult(false);
-
-    public Task<bool> ProgressAsync(
-        string channel, string requestId, JsonNode? payload,
-        CancellationToken ct = default) => Task.FromResult(false);
-
-    public Task<JsonNode?> NotificationStampAsync(
-        string channel, CancellationToken ct = default)
-        => Task.FromResult<JsonNode?>(null);
-
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-}
-
-/// <summary>
 /// Placeholder executor: unreachable today (no store claims), reports
 /// its deferred state honestly if ever invoked.
 /// </summary>
@@ -203,6 +157,9 @@ internal static class Program
         {
             "xingcheng" => new XingchengModelServiceExecutor(env, ownerId),
             "model-dialogue" => new ModelDialogueExecutor(env),
+            "ai-assistant" => new AiAssistantExecutor(env),
+            "file-sorter" => new FileSorterExecutor(env),
+            "vaultly" => new VaultlyExecutor(env),
             _ => new DeferredExecutor(env.ToolId),
         };
 

@@ -12,7 +12,9 @@ if (Path.GetFileName(Environment.ProcessPath) == "GPTBridge.Bootstrap.exe")
 var repo = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../.."));
 var root = Path.Combine(Path.GetTempPath(), "GPTBridge entry 空白 " + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
-var wrappers = new[] { "build_exe.bat", "run-interface.bat", "啟動主程式.bat", "自動化工具.bat", "start-hidden.vbs", "啟動主程式.vbs", "自動化工具.vbs" };
+// Sole official entry is the desktop 專案程式庫.exe; the only remaining
+// wrapper is build_exe.bat, which (re)installs that desktop entry.
+var wrappers = new[] { "build_exe.bat" };
 var passed = 0;
 void Require(bool ok, string name)
 {

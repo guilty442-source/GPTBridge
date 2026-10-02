@@ -3,8 +3,8 @@
 ```mermaid
 flowchart TB
   UI["gptbridge-shell --tool-window<br/>(Tauri/WebView2 + React-free JS ESM)"] --> SOCK["localBackendSocket<br/>loopback WS + 64-hex token"]
-  SOCK --> HOST["GPTBridge.ToolHost.App.exe (C#)<br/>現行 DeferredExecutor:<br/>TOOL_EXECUTOR_PENDING_NATIVE_PORT"]
-  HOST -.命令面待移植.-> INVCMD["investment_* ~30 commands"]
+  SOCK --> HOST["GPTBridge.ToolHost.App.exe (C#)<br/>AiAssistantExecutor<br/>INVESTMENT_DATA_PLANE_PENDING"]
+  HOST -.資料面待移植.-> INVCMD["investment_* / investment_watch_* commands<br/>(已註冊 surface，fail-closed typed)"]
 
   CLUSTER["investment-mobile 引擎叢集<br/>(business_layer_owner: ai-assistant)"] --> OMS["C# OMS<br/>mode gate ANALYSIS/SHADOW/PAPER/LIVE"]
   CLUSTER --> RISK["native C risk_core.dll<br/>risk_evaluate_order 10 checks"]
@@ -19,7 +19,7 @@ flowchart TB
   HOST --> AUDIT["Central Audit<br/>gptbridge_audit.event (hash-chained)"]
 ```
 
-`ai-assistant` 是獨立工具（投資管家），擁有自己的 UI、程序樹與失敗邊界。**現況**：商務 executor 待原生移植 — `runtime.native_entry` 指向通用 `GPTBridge.ToolHost.App.exe`，executor 選擇表中無 `ai-assistant`，落入 `DeferredExecutor`；tool root 內只有 manifest + React-free ESM renderer（`src/ui/workspace/*`，14 個 lazy pages），UI manifest 的 `react+shell.jsx` 欄位為過時描述。引擎叢集已移植在 `investment-mobile`（C# 服務層 + C `risk_core` + C++ `strategy_engine`），該工具宣告 `business_layer_owner: ai-assistant` 與 relay 鏈 `investment-mobile → xingcheng → ai-assistant`。
+`ai-assistant` 是獨立工具（投資管家），擁有自己的 UI、程序樹與失敗邊界。**現況**：`AiAssistantExecutor` 已註冊於通用 ToolHost（`runtime.native_entry` → `GPTBridge.ToolHost.App.exe`），宣告 `investment_*`／`investment_watch_*` 命令面為受管 allowlist；因正式資料權威 `gptbridge_trading` 的受管 outbox 與 investment-mobile → xingcheng 中繼需要 transport-store 後繼，所有命令目前 fail-closed `INVESTMENT_DATA_PLANE_PENDING`；tool root 內只有 manifest + React-free ESM renderer（`src/ui/workspace/*`，14 個 lazy pages），UI manifest 的 `react+shell.jsx` 欄位為過時描述。引擎叢集已移植在 `investment-mobile`（C# 服務層 + C `risk_core` + C++ `strategy_engine`），該工具宣告 `business_layer_owner: ai-assistant` 與 relay 鏈 `investment-mobile → xingcheng → ai-assistant`。
 
 模型輸出只作分析候選與顧問訊號：`AiSignalIntake` 是唯一 AI 入口，提案必經同一套風控+模式閘門；`AutoTradingEngine` 在 LIVE 下 `LIVE_PHASE_LOCKED`，halt 恢復僅 `governance/main-system`；broker adapter 無 governed `ApiVerified` → `BROKER_API_UNVERIFIED` fail-closed。星澄通道為密封路由（`tool_routes.json` AI_ROUTE_COMMANDS），外部 AI 只能經 `ai-collaboration` 通道，不回寫投資 DB。
 

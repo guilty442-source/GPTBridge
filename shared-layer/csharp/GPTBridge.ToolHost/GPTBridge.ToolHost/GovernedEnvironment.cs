@@ -34,9 +34,19 @@ public sealed class GovernedEnvironment
     /// transport_proxy module lane is retired (B162/B167/B38); the
     /// executable is injected via GPTBRIDGE_TOOLHOST_PROXY_ENTRY, mirroring
     /// the native tool_host config.proxy_command_line seam — absent or
-    /// invalid values fail closed with PERMISSION_DENIED in Load().
+    /// invalid values fail closed with PERMISSION_DENIED in Load() unless
+    /// the caller opted into the deferred-transport mode.
     /// </summary>
     public required string SidecarExecutable { get; init; }
+
+    /// <summary>True when Load() ran with <c>sidecarOptional</c> and no
+    /// proxy entry was injected: the host must run a
+    /// <see cref="DeferredStoreTransport"/> claim lane (the Go lane's
+    /// govenv.go optional-sidecar convention) instead of spawning a
+    /// sidecar. SidecarExecutable is then bound to the host exe itself
+    /// so the "sidecar is an exe inside the root" invariant still holds
+    /// for whatever reads the env record.</summary>
+    public bool SidecarDeferred { get; init; }
 
     public string WorkspaceInstanceId()
     {
@@ -52,7 +62,8 @@ public sealed class GovernedEnvironment
         Func<string, bool>? fileExists = null,
         Func<string, bool>? dirExists = null,
         Func<string, string>? readFile = null,
-        string? declaredToolId = null)
+        string? declaredToolId = null,
+        bool sidecarOptional = false)
     {
         getenv ??= Environment.GetEnvironmentVariable;
         fileExists ??= File.Exists;
@@ -109,21 +120,36 @@ public sealed class GovernedEnvironment
 
         // Native sidecar (star-governed-transport-proxy/v1 over stdio) is
         // injected via env — no implicit default exists now that the
-        // Python transport_proxy module is retired. The executable must
-        // be an .exe inside the project root; anything else fails closed.
+        // Python transport_proxy module is retired. When the caller marks
+        // the sidecar optional (the Go lane's deferred-claim convention)
+        // an absent entry yields a deferred environment whose transport
+        // is the store-less DeferredStoreTransport; a present-but-invalid
+        // entry still fails closed.
         var rawEntry = (getenv("GPTBRIDGE_TOOLHOST_PROXY_ENTRY") ?? "").Trim();
+        var sidecarDeferred = false;
+        string sidecar;
         if (rawEntry.Length == 0)
-            throw new PermissionDeniedException();
-        var sidecar = Path.GetFullPath(
-            Path.IsPathRooted(rawEntry)
-                ? rawEntry : Path.Combine(root, rawEntry));
-        var sidecarRel = Path.GetRelativePath(root, sidecar);
-        if (sidecarRel == ".." || sidecarRel.StartsWith(".." + Path.DirectorySeparatorChar)
-            || Path.IsPathRooted(sidecarRel)
-            || !string.Equals(Path.GetExtension(sidecar), ".exe",
-                StringComparison.OrdinalIgnoreCase)
-            || !fileExists(sidecar))
-            throw new PermissionDeniedException();
+        {
+            if (!sidecarOptional)
+                throw new PermissionDeniedException();
+            sidecarDeferred = true;
+            sidecar = Environment.ProcessPath ?? string.Empty;
+            if (sidecar.Length == 0)
+                throw new PermissionDeniedException();
+        }
+        else
+        {
+            sidecar = Path.GetFullPath(
+                Path.IsPathRooted(rawEntry)
+                    ? rawEntry : Path.Combine(root, rawEntry));
+            var sidecarRel = Path.GetRelativePath(root, sidecar);
+            if (sidecarRel == ".." || sidecarRel.StartsWith(".." + Path.DirectorySeparatorChar)
+                || Path.IsPathRooted(sidecarRel)
+                || !string.Equals(Path.GetExtension(sidecar), ".exe",
+                    StringComparison.OrdinalIgnoreCase)
+                || !fileExists(sidecar))
+                throw new PermissionDeniedException();
+        }
 
         return new GovernedEnvironment
         {
@@ -134,6 +160,7 @@ public sealed class GovernedEnvironment
             Port = port,
             ShutdownToken = shutdownToken,
             SidecarExecutable = sidecar,
+            SidecarDeferred = sidecarDeferred,
         };
     }
 }

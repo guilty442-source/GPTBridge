@@ -147,6 +147,27 @@ func registerBrowserClass() error {
 	return nil
 }
 
+const wsPopupToplevel = 0x80000000
+
+// createPopupHost creates a pump-thread-owned WS_POPUP window — same
+// ownership topology as the passing live tests (experiment for the
+// E_ABORT under a foreign-thread WS_CHILD parent).
+func createPopupHost() (uintptr, error) {
+	if err := registerBrowserClass(); err != nil {
+		return 0, err
+	}
+	name, _ := syscall.UTF16PtrFromString("AiCollabWebView2Host")
+	cap16, _ := syscall.UTF16PtrFromString("ai-collab-browser")
+	hinst, _, _ := procGetModuleHandleW.Call(0)
+	hwnd, _, err := procCreateWindowExW.Call(
+		0, uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(cap16)),
+		wsPopupToplevel|wsVisible, 100, 100, 800, 600, 0, 0, hinst, 0)
+	if hwnd == 0 {
+		return 0, err
+	}
+	return hwnd, nil
+}
+
 func createChildWindow(parent uintptr, x, y, w, h int32) (uintptr, error) {
 	if err := registerBrowserClass(); err != nil {
 		return 0, err
