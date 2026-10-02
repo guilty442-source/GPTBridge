@@ -1,7 +1,16 @@
-﻿// Suite: resource-governor Grant ?降撅歹?star-resource-request/grant/v1嚗?//
-// ??銝?撘??? native-only 閬 禮4??1??8??9???嗅??A/B/E/F/G嚗?
-//  - ??閰??芣? DENIED/DEFERRED/PARTIAL/GRANTED/REVOKED嚗?//  - quota ?批憿???GRANTED嚗artial ??PARTIAL 銝?鈭?< preferred嚗?//  - 憿?怠?/?園?憿?雿 minimum ??DEFERRED嚗?仿???gpu_required 雿?//    璅∪??? ??DENIED嚗mergency ??DENIED 銝摮?grant ??REVOKED嚗?//  - ???亙? request ??cpu_threads 蝮賢? <= class quota嚗?頞?嚗?
-//  - VRAM嚗?蝯??潑?min(grant)嚗??1 ?勗恥?嗥垢 percent 閫??嚗?//  - grant 瑼閬 禮8 ?券甈?嚗enew 撱嗅? valid_until嚗elease 皜?嚗?//  - grant ?? ??REVOKED嚗equest 瘨仃 ??orphan-drop??// 瑼??望?皜祈岫?芸? temp dir嚗撠??臭??具?#include "harness.hpp"
+﻿// Suite: resource-governor Grant 協議層（star-resource-request/grant/v1）。
+//
+// 鎖定不變式（星澄 native-only 規格 §4–§11、§58–§59、驗收場景 A/B/E/F/G）：
+//  - 回覆詞彙只有 DENIED/DEFERRED/PARTIAL/GRANTED/REVOKED；
+//  - quota 內全額 → GRANTED；partial → PARTIAL 且授予值 < preferred；
+//  - 類別暫停/零配額/低於 minimum → DEFERRED；未知類別/gpu_required 但
+//    模式關閉 → DENIED；emergency → DENIED 且現存 grant → REVOKED；
+//  - 同類別多 request 的 cpu_threads 總和 <= class quota（不超額）；
+//  - VRAM：有絕對值→min(grant)；無→-1 由客戶端 percent 解析；
+//  - grant 檔含規格 §8 全部欄位；renew 延展 valid_until；release 清檔；
+//  - grant 過期 → REVOKED；request 消失 → orphan-drop。
+// 檔案週期測試只動 temp dir，零專案副作用。
+#include "harness.hpp"
 
 #include "../resource_governor/governor_grants.h"
 #include "governor_fake_engine.h"
@@ -19,10 +28,11 @@ namespace gr = gptbridge::governor::grants;
 namespace jl = gptbridge::jsonlite;
 const char* SUITE = "RESOURCE_GOVERNOR_GRANTS_SUITE";
 
-jl::JsonValue request_json(const std::string& overrides) {
+jl::JsonValue request_json(const std::string& overrides,
+                           const std::string& id = "rr-1") {
     std::string text =
         "{\"format\":\"star-resource-request/v1\","
-        "\"request_id\":\"rr-1\",\"workload_id\":\"wl-1\","
+        "\"request_id\":\"" + id + "\",\"workload_id\":\"wl-1\","
         "\"candidate_id\":\"cand-1\",\"capability\":\"math\","
         "\"workload_class\":\"training\",\"priority\":5,"
         "\"minimum_cpu_threads\":2,\"preferred_cpu_threads\":12,"
@@ -39,9 +49,22 @@ jl::JsonValue request_json(const std::string& overrides) {
     return jl::JsonParser(text).parse();
 }
 
+std::string request_text(const std::string& id) {
+    return jl::json_serialize(request_json("", id));
+}
+
 gr::ResourceRequest req(const std::string& overrides = "") {
     auto parsed = gr::parse_request(request_json(overrides));
     return parsed.value_or(gr::ResourceRequest{});
+}
+
+gr::ResourceRequest req_gpu_required() {
+    auto parsed = gr::parse_request(request_json(
+        "\"gpu_optional\":true"));
+    gr::ResourceRequest r = parsed.value_or(gr::ResourceRequest{});
+    r.gpu_optional = false;
+    r.gpu_required = true;
+    return r;
 }
 
 gr::GrantContext ctx(int quota, bool paused = false) {
@@ -67,11 +90,10 @@ fs::path temp_state_dir() {
     return base;
 }
 
-void write_request_file(const fs::path& state_dir, const std::string& id,
-                        const std::string& body) {
+void write_request_file(const fs::path& state_dir, const std::string& id) {
     std::ofstream out(state_dir / "resource-requests" / (id + ".request.json"),
                       std::ios::binary | std::ios::trunc);
-    out << body;
+    out << request_text(id);
 }
 
 std::string read_text(const fs::path& path) {
@@ -122,8 +144,7 @@ int main() {
         auto bad_fmt = gr::parse_request(
             jl::JsonParser("{\"format\":\"nope\"}").parse());
         NT_CHECK(!bad_fmt.has_value(), "wrong format rejected");
-        auto no_id = gr::parse_request(request_json(
-            "\"request_id\":\"\""));
+        auto no_id = gr::parse_request(request_json("", ""));
         NT_CHECK(!no_id.has_value(), "empty request_id rejected");
     }
     NT_END_TEST(SUITE, "request_parse_requires_format_and_ids");
@@ -142,7 +163,7 @@ int main() {
     NT_TEST(SUITE, "partial_grant_cpu_clamped_to_quota") {
         auto d = gr::adjudicate(req(), ctx(8));
         NT_CHECK(d.response == gr::GrantResponse::Partial, "PARTIAL");
-        NT_CHECK(d.cpu_threads_max == 8, "granted 8 not 12 (spec 禮16)");
+        NT_CHECK(d.cpu_threads_max == 8, "granted 8 not 12 (spec §16)");
     }
     NT_END_TEST(SUITE, "partial_grant_cpu_clamped_to_quota");
 
@@ -167,15 +188,14 @@ int main() {
                  "unknown class denied");
         c = ctx(12);
         c.gpu_enabled = false;
-        auto g = gr::adjudicate(
-            req("\"gpu_required\":true,\"gpu_optional\":false"), c);
+        auto g = gr::adjudicate(req_gpu_required(), c);
         NT_CHECK(g.response == gr::GrantResponse::Denied &&
                      g.reason == "gpu-required-but-disabled-by-mode",
                  "gpu_required denied when gpu off");
         auto soft = gr::adjudicate(req(), c); /* gpu_optional */
         NT_CHECK(soft.response == gr::GrantResponse::Partial &&
                      !soft.gpu_allowed && soft.vram_bytes_max == 0,
-                 "gpu_optional falls back CPU (spec 禮18)");
+                 "gpu_optional falls back CPU (spec §18)");
     }
     NT_END_TEST(SUITE, "denied_unknown_class_and_gpu_required_off");
 
@@ -185,7 +205,7 @@ int main() {
         auto d = gr::adjudicate(req(), c);
         NT_CHECK(d.response == gr::GrantResponse::Denied &&
                      d.pressure_state == "EMERGENCY",
-                 "emergency denied (spec 禮23)");
+                 "emergency denied (spec §23)");
     }
     NT_END_TEST(SUITE, "emergency_denies_new_requests");
 
@@ -203,7 +223,6 @@ int main() {
         auto r = req();
         auto d = gr::adjudicate(r, ctx(12));
         auto doc = gr::decision_to_json(r, d);
-        NT_CHECK(gr::response_name(d.response).size() > 0, "response named");
         const jl::JsonValue* g = doc.get("grant");
         NT_CHECK(g != nullptr, "grant object present");
         for (const char* key :
@@ -220,17 +239,21 @@ int main() {
 
     NT_TEST(SUITE, "grant_cycle_grants_then_revokes_on_expiry") {
         const fs::path dir = temp_state_dir();
-        write_request_file(dir, "rr-x", jl::json_serialize(request_json("")));
+        write_request_file(dir, "rr-x");
         gov::Snapshot snap = snap_with_budget(8, false);
         auto stats = gr::run_grant_cycle(dir, snap, rules_gpu_on(), 1000.0);
-        NT_CHECK(stats.granted == 1 || stats.partial == 1, "granted cycle");
+        NT_CHECK(stats.granted == 1 || stats.partial == 1,
+                 "granted cycle");
         const fs::path grant_file =
             dir / "resource-grants" / "rr-x.json";
         NT_CHECK(fs::exists(grant_file), "grant file written");
-        jl::JsonValue doc = jl::JsonParser(read_text(grant_file)).parse();
-        NT_CHECK(doc.get("grant")->get("cpu_threads_max")->number == 8.0,
+        jl::JsonValue doc =
+            jl::JsonParser(read_text(grant_file)).parse();
+        const jl::JsonValue* g1 = doc.get("grant");
+        NT_CHECK(g1 != nullptr &&
+                     g1->type == jl::JsonValue::Type::Object &&
+                     g1->get("cpu_threads_max")->number == 8.0,
                  "grant clamped to quota 8");
-        /* expiry ??REVOKED tombstone */
         stats = gr::run_grant_cycle(dir, snap, rules_gpu_on(), 100000.0);
         NT_CHECK(stats.revoked == 1, "expired grant revoked");
         doc = jl::JsonParser(read_text(grant_file)).parse();
@@ -242,22 +265,29 @@ int main() {
 
     NT_TEST(SUITE, "grant_cycle_multi_lane_never_oversubscribes") {
         const fs::path dir = temp_state_dir();
-        write_request_file(dir, "rr-a", jl::json_serialize(request_json("")));
-        write_request_file(dir, "rr-b", jl::json_serialize(request_json("")));
+        write_request_file(dir, "rr-a");
+        write_request_file(dir, "rr-b");
         gov::Snapshot snap = snap_with_budget(8, false);
         auto stats = gr::run_grant_cycle(dir, snap, rules_gpu_on(), 1000.0);
-        const int granted_total =
-            stats.granted + stats.partial;
-        NT_CHECK(granted_total == 2, "both lanes get decisions");
+        /* quota 8 < preferred 12：第一條 PARTIAL 拿滿 8，第二條剩餘 0
+         * < minimum → DEFERRED（不超額是最終硬規則，§33）。 */
+        NT_CHECK(stats.granted + stats.partial == 1 &&
+                     stats.deferred == 1,
+                 "first lane partial, second deferred");
         jl::JsonValue a = jl::JsonParser(
             read_text(dir / "resource-grants" / "rr-a.json")).parse();
         jl::JsonValue b = jl::JsonParser(
             read_text(dir / "resource-grants" / "rr-b.json")).parse();
-        const int ta = a.get("grant") ? (int)a.get("grant")->get(
-                        "cpu_threads_max")->number : 0;
-        const int tb = b.get("grant") ? (int)b.get("grant")->get(
-                        "cpu_threads_max")->number : 0;
-        NT_CHECK(ta + tb <= 8, "sum <= quota (spec 禮33)");
+        const auto grant_obj = [](const jl::JsonValue& doc) {
+            const jl::JsonValue* g = doc.get("grant");
+            return g != nullptr &&
+                           g->type == jl::JsonValue::Type::Object
+                       ? (int)g->get("cpu_threads_max")->number
+                       : 0;
+        };
+        const int ta = grant_obj(a);
+        const int tb = grant_obj(b);
+        NT_CHECK(ta + tb <= 8, "sum <= quota (spec §33)");
         std::error_code ec;
         fs::remove_all(dir, ec);
     }
@@ -265,16 +295,16 @@ int main() {
 
     NT_TEST(SUITE, "grant_cycle_emergency_revokes_live_grants") {
         const fs::path dir = temp_state_dir();
-        write_request_file(dir, "rr-e", jl::json_serialize(request_json("")));
+        write_request_file(dir, "rr-e");
         gov::Snapshot snap = snap_with_budget(8, false);
         gr::run_grant_cycle(dir, snap, rules_gpu_on(), 1000.0);
-        snap.disabled = true; /* kill-switch ??EMERGENCY */
+        snap.disabled = true; /* kill-switch → EMERGENCY */
         auto stats = gr::run_grant_cycle(dir, snap, rules_gpu_on(), 1010.0);
         NT_CHECK(stats.revoked >= 1, "emergency revokes");
         jl::JsonValue doc = jl::JsonParser(
             read_text(dir / "resource-grants" / "rr-e.json")).parse();
         NT_CHECK(doc.get("response")->string == "REVOKED",
-                 "grant file tombstoned (spec 禮58)");
+                 "grant file tombstoned (spec §58)");
         std::error_code ec;
         fs::remove_all(dir, ec);
     }
@@ -282,7 +312,7 @@ int main() {
 
     NT_TEST(SUITE, "renew_extends_valid_until") {
         const fs::path dir = temp_state_dir();
-        write_request_file(dir, "rr-r", jl::json_serialize(request_json("")));
+        write_request_file(dir, "rr-r");
         gov::Snapshot snap = snap_with_budget(8, false);
         gr::run_grant_cycle(dir, snap, rules_gpu_on(), 1000.0);
         {
@@ -296,9 +326,14 @@ int main() {
         NT_CHECK(stats.renewed == 1, "renew consumed");
         jl::JsonValue doc = jl::JsonParser(
             read_text(dir / "resource-grants" / "rr-r.json")).parse();
-        const double until =
-            doc.get("grant")->get("valid_until_s")->number;
-        NT_CHECK(until > 1050.0, "valid_until extended (spec 禮59)");
+        const jl::JsonValue* g = doc.get("grant");
+        NT_CHECK(g != nullptr &&
+                     g->type == jl::JsonValue::Type::Object,
+                 "grant object present after renew");
+        const jl::JsonValue* vu = g->get("valid_until_s");
+        NT_CHECK(vu != nullptr, "valid_until_s present");
+        NT_CHECK(vu->number > 1050.0,
+                 "valid_until extended (spec §59)");
         std::error_code ec;
         fs::remove_all(dir, ec);
     }

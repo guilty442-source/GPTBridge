@@ -396,8 +396,11 @@ GrantContext make_context(const Snapshot& snap, const RulesDoc& rules,
 
 namespace {
 
-/* 過期/緊急撤銷（§58-§59）：valid_until 已過或 emergency → REVOKED。 */
-int expire_live_grants(const fs::path& state_dir, const fs::path& grant_dir,
+/* 過期/緊急撤銷（§58-§59）：valid_until 已過或 emergency → REVOKED
+ * tombstone；request 檔一併移除——grant 已死，客戶端必須重新申請
+ * （不能在 tombstone 上原地重授，否則 expiry 失去語義）。 */
+int expire_live_grants(const fs::path& state_dir, const fs::path& req_dir,
+                       const fs::path& grant_dir,
                        std::map<std::string, LiveGrant>& live,
                        const Snapshot& snap, bool emergency,
                        double now_unix) {
@@ -424,6 +427,9 @@ int expire_live_grants(const fs::path& state_dir, const fs::path& grant_dir,
                      now_unix);
         ++revoked;
         lg.valid_until_s = -1;
+        std::error_code ec2;
+        fs::remove(req_dir / (id + ".request.json"), ec2);
+        fs::remove(req_dir / (id + ".renew.json"), ec2);
     }
     return revoked;
 }
@@ -495,13 +501,30 @@ void adjudicate_request_file(const fs::path& state_dir,
         request.request_id = req_id;
     } else if (const auto parsed = parse_request(doc)) {
         request = *parsed;
-        decision = adjudicate(
-            request,
-            make_context(snap, rules, request.workload_class,
-                         outstanding[request.workload_class], now_unix));
-        if (decision.response == GrantResponse::Granted ||
-            decision.response == GrantResponse::Partial)
-            outstanding[request.workload_class] += decision.cpu_threads_max;
+        if (request.request_id != req_id) {
+            /* 檔名詞幹即 request_id；不符拒絕（稽核可追蹤性）。 */
+            decision.response = GrantResponse::Denied;
+            decision.reason = "request-id-mismatch";
+            decision.grant_id = "rg-" + req_id;
+            request.request_id = req_id;
+        } else {
+            /* 重新裁決時先扣掉自己已持有的 grant——否則每次 renew/resize
+             * 週期都把自己算進 outstanding 而自我餓死（§56 resize）。 */
+            int own_threads = 0;
+            if (auto it = live.find(req_id);
+                it != live.end() && it->second.valid_until_s > 0)
+                own_threads = it->second.cpu_threads_max;
+            decision = adjudicate(
+                request,
+                make_context(snap, rules, request.workload_class,
+                             outstanding[request.workload_class] -
+                                 own_threads,
+                             now_unix));
+            if (decision.response == GrantResponse::Granted ||
+                decision.response == GrantResponse::Partial)
+                outstanding[request.workload_class] +=
+                    decision.cpu_threads_max;
+        }
     } else {
         decision.response = GrantResponse::Denied;
         decision.reason = "malformed:" + parsed.error();
@@ -538,40 +561,46 @@ GrantCycleStats run_grant_cycle(const fs::path& state_dir,
                                 const Snapshot& snap, const RulesDoc& rules,
                                 double now_unix) {
     GrantCycleStats stats;
+    if (snap.dry_run) return stats; /* dry-run 只觀測，不改寫 grant */
     const fs::path req_dir = state_dir / "resource-requests";
     const fs::path grant_dir = state_dir / "resource-grants";
     std::error_code ec;
     fs::create_directories(grant_dir, ec);
     auto live = load_live_grants(grant_dir);
     const bool emergency = snap.disabled || snap.mode == "emergency";
-    stats.revoked = expire_live_grants(state_dir, grant_dir, live, snap,
-                                       emergency, now_unix);
+    stats.revoked = expire_live_grants(state_dir, req_dir, grant_dir, live,
+                                       snap, emergency, now_unix);
     if (!fs::exists(req_dir, ec)) return stats;
     /* 每類別 outstanding 由現存有效 grant 累計（跨 request 不超額）。 */
     std::map<std::string, int> outstanding;
     for (const auto& [id, lg] : live)
         if (lg.valid_until_s > 0)
             outstanding[lg.workload_class] += lg.cpu_threads_max;
-    for (const auto& entry : fs::directory_iterator(req_dir, ec)) {
-        if (!entry.is_regular_file()) continue;
-        const std::string fname = entry.path().filename().string();
+    /* release/renew 會刪除 req_dir 內檔案——先快照檔名再處理，避免
+     * 邊迭代邊刪除造成 iterator 失效（Windows 下 segfault）。 */
+    std::vector<std::string> names;
+    for (const auto& entry : fs::directory_iterator(req_dir, ec))
+        if (entry.is_regular_file())
+            names.push_back(entry.path().filename().string());
+    for (const std::string& fname : names) {
         auto ends = [&](std::string_view suffix) {
             return fname.size() > suffix.size() &&
                    fname.compare(fname.size() - suffix.size(),
                                  suffix.size(), suffix) == 0;
         };
+        const fs::path fpath = req_dir / fname;
         if (ends(".release.json")) {
             if (handle_release(state_dir, req_dir, grant_dir,
                                fname.substr(0, fname.size() - 13),
-                               entry.path(), live, now_unix))
+                               fpath, live, now_unix))
                 ++stats.released;
         } else if (ends(".renew.json")) {
             if (handle_renew(state_dir, grant_dir,
                              fname.substr(0, fname.size() - 11),
-                             entry.path(), live, rules, now_unix))
+                             fpath, live, rules, now_unix))
                 ++stats.renewed;
         } else if (ends(".request.json")) {
-            adjudicate_request_file(state_dir, grant_dir, entry.path(), snap,
+            adjudicate_request_file(state_dir, grant_dir, fpath, snap,
                                     rules, live, outstanding, now_unix,
                                     stats);
         }
