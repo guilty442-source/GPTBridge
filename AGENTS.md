@@ -1455,14 +1455,24 @@ Worker rules for codex work:
    and `XingchengLearning/ResourceGovernance*` land via separate
    workers; do not sweep them into unrelated commits (path-scoped
    commits only).
-6. **xstore Native Metadata Authority takeover not done.** The
-   decided architecture makes `xstore` the native metadata authority
-   for xingcheng, but `XingchengLearning/Repository.cs` still writes
-   the `gptbridge_xingcheng` PG tables (dataset/job/candidate/
+6. **xstore Native Metadata Authority takeover not done — no xstore-
+   side metadata contract exists yet.** The decided architecture makes
+   `xstore` the native metadata authority for xingcheng, but
+   `XingchengLearning/Repository.cs` still writes the
+   `gptbridge_xingcheng` PG tables (dataset/job/candidate/
    evaluation/audit) and SelfLearning still connects to PG directly.
-   The `architecture-xingcheng-{architecture,data,capabilities}.md`
-   views carry `（過渡期正式路徑 → xstore metadata 接管中）` marks;
-   the migration itself is open implementation work.
+   Assessed 2026-10-02: the `xstore` crate
+   (`xingcheng/src/backend/rust/xstore`) currently implements
+   checkpoints, snapshots, failure pools, audit JSONL and the kernel
+   registry — it has **no metadata/table authority surface** (no
+   registry schema for dataset/job/candidate/evaluation rows).
+   The takeover therefore needs a governed metadata contract in
+   xstore first; implementing one unilaterally would be
+   self-authorizing architecture (deny-by-default). The
+   `architecture-xingcheng-{architecture,data,capabilities}.md` views
+   carry `（過渡期正式路徑 → xstore metadata 接管中）` marks; the
+   migration itself remains open implementation work pending that
+   contract.
 7. **Ollama dependency elimination not done.** `ollama-service.exe`
    and the teacher-distillation lane (`TeacherCollect.cs`,
    `--teacher-collect`, `teacher-distillation.json`) still exist;
@@ -1477,11 +1487,14 @@ Worker rules for codex work:
     architecture doc forbids retaining SQL dumps/DB mirrors. Codex is
     read-only for workers — a human governor must decide; do not touch.
 9. **Codex open evidence gaps block verified release.**
-    `directory_activation_state` shows `DIR_DATA_SCHEMA_AUTHORITY` =
-    `INCOMPLETE_EVIDENCE` / `verified-release-denied` / `open`, and
-    `postgresql_role_registry` holds only the `ROLE_INVENTORY_REQUIRED`
-    placeholder (`INCOMPLETE_EVIDENCE`). These require real evidence
-    production via the governed pipeline — never hand-edit the rows.
+    `postgresql_role_registry` is now populated (48 rows observed live
+    2026-10-02, live↔registry delta = 0, evidence
+    `postgresql-role-observation-20261002.json`) but every row is still
+    `INCOMPLETE_EVIDENCE` — the governed *purpose* of each role is
+    unverified, which requires real acceptance evidence through the
+    governed pipeline (never hand-edit). `DIR_DATA_SCHEMA_AUTHORITY` =
+    `INCOMPLETE_EVIDENCE` / `verified-release-denied` / `open` remains
+    unresolved likewise.
 10. **No system Python on this host.** `Python313` lacks `python.exe`
     and the `py` launcher finds no install, so the retired
     `python -m governance_rule.execution.audit` entry cannot run.
@@ -1512,9 +1525,14 @@ Worker rules for codex work:
     governor-side recipe; the executor's `OBJECT_MANIFEST_V1`
     fingerprint will mismatch until the governor publishes the recipe
     or authorizes a chain restamp.
-13. **`semantic_hash_toolchain.py` retired with the Python lane.** The
-    machine-schema parity extractor referenced by the 2026-09-24 staged
-    restamp proposal no longer exists; when the governor selects a
-    canonical recipe (option A or B in that proposal), the extractor
-    must be reimplemented in the C# lane before parity can close.
+13. **Parity extractor reimplemented in C#; canonical binding still
+    governor-blocked.** `MachineSchemaParity.cs` ports
+    `SEAL_CANONICAL_V1` byte-exact (verified against a hand-computed
+    Python-semantics hash for AUDIT_EVENT) — verbs `--schema-parity`
+    (full probe) and `--parity-descriptor <code>` (diagnostic).
+    Current evidence `machine-schema-parity-probe-20261002.json`:
+    77/77 producer=validator PASS, 0/77 canonical match. The remaining
+    step is purely governor-side: publish the canonical descriptor
+    projection or authorize a restamp (staged proposal
+    `codex-amendment-proposal-machine-schema-parity-restamp-20260924`).
     Item 1's `PENDING` state stays until then.

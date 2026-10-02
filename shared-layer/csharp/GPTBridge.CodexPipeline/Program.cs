@@ -35,6 +35,9 @@ using GPTBridge.CodexPipeline;
 ///       --sequence &lt;n&gt;         sequence to apply (fail-closed)
 ///       [--migration-db &lt;db&gt;]    scratch-db test hook (never the
 ///                              governed DB by accident)
+///   --schema-parity            machine-schema parity probe, recipe
+///                              SEAL_CANONICAL_V1 (read-only; C# port of
+///                              the retired semantic_hash_toolchain.py)
 ///
 /// Maintenance:
 ///   --repair-projections       rebuild live gptbridge_codex derived

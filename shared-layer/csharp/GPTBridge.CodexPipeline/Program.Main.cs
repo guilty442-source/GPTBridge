@@ -43,6 +43,8 @@ internal static partial class Program
         var pinSync = false;
         var migrationStatus = false;
         var migrationApply = false;
+        var schemaParity = false;
+        string? parityDescriptor = null;
         string? migrationSequence = null;
         string? migrationDb = null;
         string? watchInterval = null;
@@ -89,6 +91,9 @@ internal static partial class Program
                 case "--maintain": maintain = true; break;
                 case "--pin-sync": pinSync = true; break;
                 case "--migration-status": migrationStatus = true;
+                    break;
+                case "--schema-parity": schemaParity = true; break;
+                case "--parity-descriptor": parityDescriptor = Value();
                     break;
                 case "--migration-apply": migrationApply = true; break;
                 case "--sequence": migrationSequence = Value(); break;
@@ -226,6 +231,11 @@ internal static partial class Program
                 });
             if (migrationStatus)
                 return Emit(MigrationExecutor.Status(Repo.Root()));
+            if (schemaParity)
+                return Emit(MachineSchemaParity.Probe());
+            if (parityDescriptor is not null)
+                return Emit(MachineSchemaParity.Describe(
+                    parityDescriptor));
             if (migrationApply)
             {
                 if (!long.TryParse(migrationSequence, out var seq))
