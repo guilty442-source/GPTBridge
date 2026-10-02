@@ -2946,6 +2946,42 @@
       "path": "scripts/devin-cli-p6-test-sla.py"
     },
     {
+      "exclude": [
+        "node_modules",
+        "target",
+        "bin",
+        "obj"
+      ],
+      "glob": "*.py",
+      "id": "python-retirement:source:*.py",
+      "kind": "glob-absent",
+      "path": ""
+    },
+    {
+      "exclude": [
+        "node_modules",
+        "target",
+        "bin",
+        "obj"
+      ],
+      "glob": "*.pyw",
+      "id": "python-retirement:source:*.pyw",
+      "kind": "glob-absent",
+      "path": ""
+    },
+    {
+      "exclude": [
+        "node_modules",
+        "target",
+        "bin",
+        "obj"
+      ],
+      "glob": "*.pyi",
+      "id": "python-retirement:source:*.pyi",
+      "kind": "glob-absent",
+      "path": ""
+    },
+    {
       "id": "python-retirement:inventory-parses",
       "kind": "json-parses",
       "path": "governance_rule/execution/audit/pytest_retirement_inventory.json"
@@ -27620,7 +27656,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3574,
+    "native_checks": 3577,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27643,7 +27679,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T11:41:31Z",
+  "generated_at": "2026-10-02T11:50:32Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
