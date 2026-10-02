@@ -31,198 +31,17 @@ namespace GPTBridge.CodexPipeline;
 /// </summary>
 internal static class MachineSchemaParity
 {
-    public const string Recipe = "SEAL_CANONICAL_V1";
+    public const string Recipe = SemanticHashToolchain.Recipe;
+    internal static readonly string[] DescriptorFields = SemanticHashToolchain.DescriptorFields;
 
-    /// <summary>Semantic contract fields — the complete set defining
-    /// what a schema IS.  Registry bookkeeping (version_identity,
-    /// status, parity_status, content_hash) is excluded.</summary>
-    internal static readonly string[] DescriptorFields =
-    {
-        "schema_code", "schema_kind", "semantic_owner",
-        "required_fields", "optional_fields", "compatibility_rule",
-        "persistence_class", "redaction_rule", "field_types",
-        "nullability", "schema_version", "unknown_fields_policy",
-        "enum_constraints", "range_constraints",
-        "successor_schema_code",
-    };
+    public static string SealHash(SortedDictionary<string, object?> descriptor) =>
+        SemanticHashToolchain.SealHash(descriptor);
 
-    private static readonly HashSet<string> EmbeddedJson = new(
-        StringComparer.Ordinal)
-    {
-        "required_fields", "optional_fields", "field_types",
-        "nullability", "enum_constraints", "range_constraints",
-    };
+    internal static string CanonicalDescriptorJson(Dictionary<string, object?> row) =>
+        SemanticHashToolchain.CanonicalDescriptorJson(row);
 
-    // ------------------------------------------------------------------
-    // canonical JSON writer — byte-identical to Python
-    // ``json.dumps(obj, sort_keys=True, separators=(",",":"))``
-    // (ensure_ascii default: non-ASCII escaped as \uXXXX lowercase hex,
-    // surrogate pairs for non-BMP).
-    // ------------------------------------------------------------------
-
-    private static void WriteJsonString(StringBuilder sb, string value)
-    {
-        sb.Append('"');
-        foreach (var c in value.Normalize(NormalizationForm.FormC))
-        {
-            switch (c)
-            {
-                case '"': sb.Append("\\\""); break;
-                case '\\': sb.Append("\\\\"); break;
-                case '\b': sb.Append("\\b"); break;
-                case '\f': sb.Append("\\f"); break;
-                case '\n': sb.Append("\\n"); break;
-                case '\r': sb.Append("\\r"); break;
-                case '\t': sb.Append("\\t"); break;
-                default:
-                    // Python ensure_ascii escapes c < 0x20 as \u00xx and
-                    // every non-ASCII char as \uXXXX (surrogate pairs
-                    // above the BMP — foreach already yields them as
-                    // separate chars, each below 0x10000).
-                    if (c < ' ' || c > 0x7E)
-                        sb.Append("\\u")
-                            .Append(((int)c).ToString("x4",
-                                CultureInfo.InvariantCulture));
-                    else
-                        sb.Append(c);
-                    break;
-            }
-        }
-        sb.Append('"');
-    }
-
-    private static void WriteCanonical(StringBuilder sb, object? value)
-    {
-        switch (value)
-        {
-            case null:
-                sb.Append("null"); break;
-            case string s:
-                WriteJsonString(sb, s); break;
-            case bool b:
-                sb.Append(b ? "true" : "false"); break;
-            case List<object?> list:
-                sb.Append('[');
-                for (var i = 0; i < list.Count; i++)
-                {
-                    if (i > 0) sb.Append(',');
-                    WriteCanonical(sb, list[i]);
-                }
-                sb.Append(']'); break;
-            case SortedDictionary<string, object?> dict:
-                sb.Append('{');
-                var first = true;
-                foreach (var (k, v) in dict)
-                {
-                    if (!first) sb.Append(',');
-                    first = false;
-                    WriteJsonString(sb, k);
-                    sb.Append(':');
-                    WriteCanonical(sb, v);
-                }
-                sb.Append('}'); break;
-            case long or int or short or byte:
-                sb.Append(Convert.ToString(value,
-                    CultureInfo.InvariantCulture)); break;
-            case double d:
-                // Python json.dumps float: integral floats keep ".0",
-                // others use repr() shortest round-trip.
-                sb.Append(double.IsInteger(d)
-                    ? d.ToString("0.0", CultureInfo.InvariantCulture)
-                    : d.ToString("G17",
-                        CultureInfo.InvariantCulture));
-                break;
-            default:
-                // Python default=str fallback
-                WriteJsonString(sb,
-                    Convert.ToString(value,
-                        CultureInfo.InvariantCulture) ?? "");
-                break;
-        }
-    }
-
-    public static string SealHash(SortedDictionary<string, object?> d)
-    {
-        var sb = new StringBuilder();
-        WriteCanonical(sb, d);
-        return Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())))
-            .ToLowerInvariant();
-    }
-
-    /// <summary>Canonical serialization of one descriptor — diagnostic
-    /// surface for recipe verification (``--parity-descriptor``).</summary>
-    internal static string CanonicalDescriptorJson(
-        Dictionary<string, object?> row)
-    {
-        var sb = new StringBuilder();
-        WriteCanonical(sb, BuildDescriptor(row));
-        return sb.ToString();
-    }
-
-    /// <summary>Parse an embedded field: JSON when the text is valid
-    /// JSON, else ``|``-split when it contains a bar, else the raw
-    /// string (mirrors the retired toolchain's ``_parse_embedded``).</summary>
-    private static object? ParseEmbedded(string? value)
-    {
-        if (value is null) return null;
-        try
-        {
-            return FromJsonElement(
-                JsonDocument.Parse(value).RootElement);
-        }
-        catch (JsonException)
-        {
-            return value.Contains('|')
-                ? value.Split('|').Cast<object?>().ToList()
-                : (object?)value;
-        }
-    }
-
-    private static object? FromJsonElement(JsonElement e) =>
-        e.ValueKind switch
-        {
-            JsonValueKind.Object => ToSorted(e),
-            JsonValueKind.Array => e.EnumerateArray()
-                .Select(FromJsonElement).Cast<object?>().ToList(),
-            JsonValueKind.String => e.GetString(),
-            JsonValueKind.Number =>
-                e.TryGetInt64(out long i)
-                    ? i
-                    : (object)e.GetDouble(),
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            _ => null,
-        };
-
-    private static SortedDictionary<string, object?> ToSorted(
-        JsonElement e)
-    {
-        var dict = new SortedDictionary<string, object?>(
-            StringComparer.Ordinal);
-        foreach (var p in e.EnumerateObject())
-            dict[p.Name] = FromJsonElement(p.Value);
-        return dict;
-    }
-
-    /// <summary>Project a registry row to its canonical descriptor —
-    /// the single definition both layers use so the field set cannot
-    /// drift.</summary>
-    private static SortedDictionary<string, object?> BuildDescriptor(
-        Dictionary<string, object?> row)
-    {
-        var d = new SortedDictionary<string, object?>(
-            StringComparer.Ordinal);
-        foreach (var field in DescriptorFields)
-        {
-            row.TryGetValue(field, out var raw);
-            var s = raw as string;
-            d[field] = EmbeddedJson.Contains(field)
-                ? ParseEmbedded(s)
-                : s;
-        }
-        return d;
-    }
+    private static SortedDictionary<string, object?> BuildDescriptor(Dictionary<string, object?> row) =>
+        new(SemanticHashToolchain.BuildDescriptor(row), StringComparer.Ordinal);
 
     /// <summary>Single-row descriptor + hash — used by
     /// ``--parity-descriptor &lt;code&gt;`` for recipe debugging.</summary>
@@ -288,28 +107,8 @@ internal static class MachineSchemaParity
             var canonical =
                 row["canonical_semantic_hash"] as string;
             var storedContent = row["content_hash"] as string;
-            var producer = SealHash(BuildDescriptor(row));
-            var validator = SealHash(BuildDescriptor(
-                new Dictionary<string, object?>(row,
-                    StringComparer.Ordinal)));
-            results.Add(new Dictionary<string, object?>(
-                StringComparer.Ordinal)
-            {
-                ["schema_code"] = row["schema_code"],
-                ["semantic_owner"] = row.GetValueOrDefault(
-                    "semantic_owner"),
-                ["parity_status"] = row.GetValueOrDefault(
-                    "parity_status"),
-                ["producer_semantic_hash"] = producer,
-                ["validator_semantic_hash"] = validator,
-                ["canonical_semantic_hash"] = canonical,
-                ["stored_content_hash"] = storedContent,
-                ["producer_validator_layer"] =
-                    producer == validator ? "PASS" : "FAIL",
-                ["persistence_layer"] =
-                    producer == canonical || producer == storedContent
-                        ? "MATCH" : "CANONICAL_MISMATCH",
-            });
+            results.Add(SemanticHashToolchain.EvaluateRow(
+                row, canonical, storedContent));
         }
 
         return new Dictionary<string, object?>(StringComparer.Ordinal)

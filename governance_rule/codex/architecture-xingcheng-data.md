@@ -71,7 +71,7 @@ flowchart LR
 ## 二進位容器家族
 
 <!-- autogen:xingcheng-containers -->
-*autogen-scanner/v1 · 2381 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
 | Magic | 定義/引用來源 |
 |---|---|
 | `XCB1` | devin:xingcheng/contracts/xnc/vectors/manifest.json, devin:xingcheng/src/backend/cpp/src/xcb_batch.h, devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/contracts/xnc/vectors/manifest.json (+14) |
@@ -131,7 +131,7 @@ jobs/<id>/
 ## JSONL/JSON artifact 索引（producer → consumer）
 
 <!-- autogen:xingcheng-formats -->
-*autogen-scanner/v1 · 2381 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
 | format tag | 來源檔 |
 |---|---|
 | `coding-agent-trajectory/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs (+2) |
@@ -245,7 +245,7 @@ jobs/<id>/
 ## PostgreSQL 表（`gptbridge_xingcheng`）
 
 <!-- autogen:xingcheng-pgtables -->
-*autogen-scanner/v1 · 2381 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
 | 表 | 定義/引用來源 |
 |---|---|
 | `transformer_adapter_candidate` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |

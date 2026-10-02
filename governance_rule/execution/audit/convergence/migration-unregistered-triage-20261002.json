@@ -1,0 +1,579 @@
+{
+    "artifact":  "migration-unregistered-triage/v1",
+    "generated_utc":  "2026-10-02",
+    "worker":  "devin",
+    "scope":  "shared-layer/migrations/*.sql absent from sql_migration_registry.forward_identity",
+    "source_status_report":  "main-system/runtime/temp/devin-migration-status-live-20261002.json",
+    "summary":  {
+                    "unregistered_files":  89,
+                    "classification_counts":  {
+                                                  "active-missing-registration":  89
+                                              },
+                    "sequence_collision_pairs":  {
+                                                     "87":  [
+                                                                "087_read_models.sql",
+                                                                "087_security_identity_control.sql"
+                                                            ],
+                                                     "88":  [
+                                                                "088_rag_capacity_governance.sql",
+                                                                "088_recovery_plan.sql"
+                                                            ]
+                                                 },
+                    "absent_sequence_numbers":  [
+                                                    53,
+                                                    54,
+                                                    67,
+                                                    68,
+                                                    79,
+                                                    80,
+                                                    99,
+                                                    101,
+                                                    102,
+                                                    103,
+                                                    104,
+                                                    132
+                                                ],
+                    "notes":  [
+                                  "All 89 files are numbered chain migrations (050-148); none carry a file-level retirement/supersession marker. 7 keyword hits for retired/superseded were domain enum text or \"moves off SQLite\" comments, not file markers.",
+                                  "The 087/088 collision pairs coexisted since 2026-09-16 commits 09a9ef006/213cd15dd; registration must assign distinct sequence numbers.",
+                                  "Absent numbers correspond to files deleted or never authored.",
+                                  "Registration requires governed target_schema_hash derivation per row under the governor recipe - a stamp-pipeline action, not part of this triage."
+                              ]
+                },
+    "files":  [
+                  {
+                      "file":  "050_unified_lifecycle_state.sql",
+                      "sequence":  50,
+                      "classification":  "active-missing-registration",
+                      "title":  "Unified Data Lifecycle State Machine."
+                  },
+                  {
+                      "file":  "051_transport_retention.sql",
+                      "sequence":  51,
+                      "classification":  "active-missing-registration",
+                      "title":  "Transport Retention Policy."
+                  },
+                  {
+                      "file":  "052_audit_retention_layering.sql",
+                      "sequence":  52,
+                      "classification":  "active-missing-registration",
+                      "title":  "Audit Retention Layering."
+                  },
+                  {
+                      "file":  "055_purge_queue.sql",
+                      "sequence":  55,
+                      "classification":  "active-missing-registration",
+                      "title":  "Tombstone Purge Queue."
+                  },
+                  {
+                      "file":  "056_archive_catalog.sql",
+                      "sequence":  56,
+                      "classification":  "active-missing-registration",
+                      "title":  "Archive Catalog."
+                  },
+                  {
+                      "file":  "057_archive_versioning.sql",
+                      "sequence":  57,
+                      "classification":  "active-missing-registration",
+                      "title":  "Archive Versioning."
+                  },
+                  {
+                      "file":  "058_transport_priority_queue.sql",
+                      "sequence":  58,
+                      "classification":  "active-missing-registration",
+                      "title":  "Adaptive SQL layer: priority queue support for"
+                  },
+                  {
+                      "file":  "059_retention_hold.sql",
+                      "sequence":  59,
+                      "classification":  "active-missing-registration",
+                      "title":  "Legal / Governance Hold."
+                  },
+                  {
+                      "file":  "060_dependency_check.sql",
+                      "sequence":  60,
+                      "classification":  "active-missing-registration",
+                      "title":  "Resource Dependency Check."
+                  },
+                  {
+                      "file":  "061_archive_restore_test.sql",
+                      "sequence":  61,
+                      "classification":  "active-missing-registration",
+                      "title":  "Archive Restore Test."
+                  },
+                  {
+                      "file":  "062_capacity_quota.sql",
+                      "sequence":  62,
+                      "classification":  "active-missing-registration",
+                      "title":  "Capacity Quota."
+                  },
+                  {
+                      "file":  "063_purge_audit.sql",
+                      "sequence":  63,
+                      "classification":  "active-missing-registration",
+                      "title":  "Purge Audit."
+                  },
+                  {
+                      "file":  "064_audit_hash_chain.sql",
+                      "sequence":  64,
+                      "classification":  "active-missing-registration",
+                      "title":  "Audit Hash Chain."
+                  },
+                  {
+                      "file":  "065_reconcile_batch_digest.sql",
+                      "sequence":  65,
+                      "classification":  "active-missing-registration",
+                      "title":  "Reconcile Batch Digest."
+                  },
+                  {
+                      "file":  "066_resource_content_hash.sql",
+                      "sequence":  66,
+                      "classification":  "active-missing-registration",
+                      "title":  "Resource Content Hash."
+                  },
+                  {
+                      "file":  "069_merkle_root.sql",
+                      "sequence":  69,
+                      "classification":  "active-missing-registration",
+                      "title":  "Merkle Root."
+                  },
+                  {
+                      "file":  "070_integrity_snapshot.sql",
+                      "sequence":  70,
+                      "classification":  "active-missing-registration",
+                      "title":  "Integrity Snapshot."
+                  },
+                  {
+                      "file":  "071_restore_verification.sql",
+                      "sequence":  71,
+                      "classification":  "active-missing-registration",
+                      "title":  "Restore Verification."
+                  },
+                  {
+                      "file":  "072_tamper_state.sql",
+                      "sequence":  72,
+                      "classification":  "active-missing-registration",
+                      "title":  "Tamper State."
+                  },
+                  {
+                      "file":  "073_fail_closed.sql",
+                      "sequence":  73,
+                      "classification":  "active-missing-registration",
+                      "title":  "Fail-closed."
+                  },
+                  {
+                      "file":  "074_version_lock.sql",
+                      "sequence":  74,
+                      "classification":  "active-missing-registration",
+                      "title":  "Version Lock."
+                  },
+                  {
+                      "file":  "075_compatibility_matrix_ext.sql",
+                      "sequence":  75,
+                      "classification":  "active-missing-registration",
+                      "title":  "Extended Compatibility Matrix."
+                  },
+                  {
+                      "file":  "076_upgrade_classification.sql",
+                      "sequence":  76,
+                      "classification":  "active-missing-registration",
+                      "title":  "Upgrade Classification."
+                  },
+                  {
+                      "file":  "077_driver_compatibility_test.sql",
+                      "sequence":  77,
+                      "classification":  "active-missing-registration",
+                      "title":  "Driver Compatibility Test."
+                  },
+                  {
+                      "file":  "078_pg_major_upgrade_rehearsal.sql",
+                      "sequence":  78,
+                      "classification":  "active-missing-registration",
+                      "title":  "PostgreSQL Major Upgrade Rehearsal."
+                  },
+                  {
+                      "file":  "081_sbom_dependency_inventory.sql",
+                      "sequence":  81,
+                      "classification":  "active-missing-registration",
+                      "title":  "SBOM / Dependency Inventory."
+                  },
+                  {
+                      "file":  "082_vulnerability_risk.sql",
+                      "sequence":  82,
+                      "classification":  "active-missing-registration",
+                      "title":  "Vulnerability \u0026 Risk Classification."
+                  },
+                  {
+                      "file":  "083_dependency_drift.sql",
+                      "sequence":  83,
+                      "classification":  "active-missing-registration",
+                      "title":  "Dependency Drift Detection."
+                  },
+                  {
+                      "file":  "084_offline_bundle.sql",
+                      "sequence":  84,
+                      "classification":  "active-missing-registration",
+                      "title":  "Offline Installation Bundle."
+                  },
+                  {
+                      "file":  "085_release_signature.sql",
+                      "sequence":  85,
+                      "classification":  "active-missing-registration",
+                      "title":  "Release Signature / Hash."
+                  },
+                  {
+                      "file":  "086_lineage_core.sql",
+                      "sequence":  86,
+                      "classification":  "active-missing-registration",
+                      "title":  "Central Lineage Model — append-only cross-engine provenance graph."
+                  },
+                  {
+                      "file":  "087_read_models.sql",
+                      "sequence":  87,
+                      "classification":  "active-missing-registration",
+                      "title":  "Optimized Read Model (CQRS boundary) — derived, rebuildable, non-authority."
+                  },
+                  {
+                      "file":  "087_security_identity_control.sql",
+                      "sequence":  87,
+                      "classification":  "active-missing-registration",
+                      "title":  "Access control plane for the local data platform."
+                  },
+                  {
+                      "file":  "088_rag_capacity_governance.sql",
+                      "sequence":  88,
+                      "classification":  "active-missing-registration",
+                      "title":  "RAG Capacity Governance — every pipeline layer has a budget."
+                  },
+                  {
+                      "file":  "088_recovery_plan.sql",
+                      "sequence":  88,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Plan Versioning."
+                  },
+                  {
+                      "file":  "089_recovery_incident.sql",
+                      "sequence":  89,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Incident Tracking."
+                  },
+                  {
+                      "file":  "090_recovery_state_machine.sql",
+                      "sequence":  90,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery State Machine."
+                  },
+                  {
+                      "file":  "091_pg_offline_recovery.sql",
+                      "sequence":  91,
+                      "classification":  "active-missing-registration",
+                      "title":  "PostgreSQL Offline Recovery."
+                  },
+                  {
+                      "file":  "092_pg_recovery_verification.sql",
+                      "sequence":  92,
+                      "classification":  "active-missing-registration",
+                      "title":  "PostgreSQL Recovery Verification."
+                  },
+                  {
+                      "file":  "093_reconcile_recovery_phase.sql",
+                      "sequence":  93,
+                      "classification":  "active-missing-registration",
+                      "title":  "Reconcile Recovery Phase."
+                  },
+                  {
+                      "file":  "094_recovery_generation.sql",
+                      "sequence":  94,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Generation."
+                  },
+                  {
+                      "file":  "095_recovery_barrier.sql",
+                      "sequence":  95,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Barrier."
+                  },
+                  {
+                      "file":  "096_transport_recovery.sql",
+                      "sequence":  96,
+                      "classification":  "active-missing-registration",
+                      "title":  "Transport Recovery."
+                  },
+                  {
+                      "file":  "097_unknown_commit_resolution.sql",
+                      "sequence":  97,
+                      "classification":  "active-missing-registration",
+                      "title":  "Unknown Commit Resolution."
+                  },
+                  {
+                      "file":  "098_lease_recovery.sql",
+                      "sequence":  98,
+                      "classification":  "active-missing-registration",
+                      "title":  "Lease Recovery."
+                  },
+                  {
+                      "file":  "100_recovery_priority.sql",
+                      "sequence":  100,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Priority."
+                  },
+                  {
+                      "file":  "105_backup_restore_orchestration.sql",
+                      "sequence":  105,
+                      "classification":  "active-missing-registration",
+                      "title":  "Backup Restore Orchestration."
+                  },
+                  {
+                      "file":  "106_pitr_boundary.sql",
+                      "sequence":  106,
+                      "classification":  "active-missing-registration",
+                      "title":  "Point-in-Time Recovery Boundary."
+                  },
+                  {
+                      "file":  "107_recovery_retry_policy.sql",
+                      "sequence":  107,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Retry Policy."
+                  },
+                  {
+                      "file":  "108_recovery_checkpoint.sql",
+                      "sequence":  108,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Checkpoint."
+                  },
+                  {
+                      "file":  "109_recovery_idempotency.sql",
+                      "sequence":  109,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Idempotency."
+                  },
+                  {
+                      "file":  "110_recovery_safety_fence.sql",
+                      "sequence":  110,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Safety Fence."
+                  },
+                  {
+                      "file":  "111_chaos_drill.sql",
+                      "sequence":  111,
+                      "classification":  "active-missing-registration",
+                      "title":  "Chaos Drill for Recovery Workflow."
+                  },
+                  {
+                      "file":  "112_recovery_certification.sql",
+                      "sequence":  112,
+                      "classification":  "active-missing-registration",
+                      "title":  "Recovery Certification."
+                  },
+                  {
+                      "file":  "113_workflow_operation.sql",
+                      "sequence":  113,
+                      "classification":  "active-missing-registration",
+                      "title":  "Cross-engine workflow (Saga) authority in PostgreSQL."
+                  },
+                  {
+                      "file":  "114_data_layer_contract.sql",
+                      "sequence":  114,
+                      "classification":  "active-missing-registration",
+                      "title":  "Data Layer Master Contract."
+                  },
+                  {
+                      "file":  "115_dependency_classification.sql",
+                      "sequence":  115,
+                      "classification":  "active-missing-registration",
+                      "title":  "Dependency Classification."
+                  },
+                  {
+                      "file":  "116_startup_phase.sql",
+                      "sequence":  116,
+                      "classification":  "active-missing-registration",
+                      "title":  "Startup Phase Sequence."
+                  },
+                  {
+                      "file":  "117_startup_phase_gate.sql",
+                      "sequence":  117,
+                      "classification":  "active-missing-registration",
+                      "title":  "Startup Phase Gate."
+                  },
+                  {
+                      "file":  "118_schema_readiness.sql",
+                      "sequence":  118,
+                      "classification":  "active-missing-registration",
+                      "title":  "Per-Schema Readiness."
+                  },
+                  {
+                      "file":  "119_rag_readiness_gate.sql",
+                      "sequence":  119,
+                      "classification":  "active-missing-registration",
+                      "title":  "RAG Readiness Gate."
+                  },
+                  {
+                      "file":  "120_shutdown_phase.sql",
+                      "sequence":  120,
+                      "classification":  "active-missing-registration",
+                      "title":  "Shutdown Phase Sequence."
+                  },
+                  {
+                      "file":  "121_shutdown_audit.sql",
+                      "sequence":  121,
+                      "classification":  "active-missing-registration",
+                      "title":  "Shutdown Audit."
+                  },
+                  {
+                      "file":  "122_unclean_shutdown_detection.sql",
+                      "sequence":  122,
+                      "classification":  "active-missing-registration",
+                      "title":  "Unclean Shutdown Detection."
+                  },
+                  {
+                      "file":  "123_cache_invalidation_policy.sql",
+                      "sequence":  123,
+                      "classification":  "active-missing-registration",
+                      "title":  "Cache Invalidation Policy."
+                  },
+                  {
+                      "file":  "124_data_layer_dependency_graph.sql",
+                      "sequence":  124,
+                      "classification":  "active-missing-registration",
+                      "title":  "Data Layer Dependency Graph."
+                  },
+                  {
+                      "file":  "125_integration_rule.sql",
+                      "sequence":  125,
+                      "classification":  "active-missing-registration",
+                      "title":  "Integration Rules."
+                  },
+                  {
+                      "file":  "126_transport_lease_idempotency_catchup.sql",
+                      "sequence":  126,
+                      "classification":  "active-missing-registration",
+                      "title":  "Brings a drifted live database up to the transport columns the runtime"
+                  },
+                  {
+                      "file":  "127_audit_hash_chain_insert_time.sql",
+                      "sequence":  127,
+                      "classification":  "active-missing-registration",
+                      "title":  "Audit hash chain: compute sequence + previous_event_hash + event_hash at"
+                  },
+                  {
+                      "file":  "128_ddl_guard_role_fence_and_workflow_fingerprint.sql",
+                      "sequence":  128,
+                      "classification":  "active-missing-registration",
+                      "title":  "Fixes two verified drift points:"
+                  },
+                  {
+                      "file":  "129_permission_projection_runtime.sql",
+                      "sequence":  129,
+                      "classification":  "active-missing-registration",
+                      "title":  "A501/A506: permission projection for the least-privilege runtime login."
+                  },
+                  {
+                      "file":  "130_maintenance_schema.sql",
+                      "sequence":  130,
+                      "classification":  "active-missing-registration",
+                      "title":  "Database Auto Maintenance v1 schema"
+                  },
+                  {
+                      "file":  "131_rag_generation_registry.sql",
+                      "sequence":  131,
+                      "classification":  "active-missing-registration",
+                      "title":  "RAG-11 canonical generation registry."
+                  },
+                  {
+                      "file":  "133_rag_canonical_outbox_event.sql",
+                      "sequence":  133,
+                      "classification":  "active-missing-registration",
+                      "title":  "RAG-08 canonical transactional outbox (gptbridge_rag.outbox_event)."
+                  },
+                  {
+                      "file":  "134_trading_system.sql",
+                      "sequence":  134,
+                      "classification":  "active-missing-registration",
+                      "title":  "星澄 AI 投資管理與自動操盤系統 — canonical trading schema."
+                  },
+                  {
+                      "file":  "135_market_data.sql",
+                      "sequence":  135,
+                      "classification":  "active-missing-registration",
+                      "title":  "星澄 AI 投資管理與自動操盤系統 — market data center schema."
+                  },
+                  {
+                      "file":  "136_fund_data.sql",
+                      "sequence":  136,
+                      "classification":  "active-missing-registration",
+                      "title":  "星澄 AI 投資管理與自動操盤系統 — mutual fund domain schema."
+                  },
+                  {
+                      "file":  "137_ai_intelligence.sql",
+                      "sequence":  137,
+                      "classification":  "active-missing-registration",
+                      "title":  "星澄 AI 投資決策中心 — analysis/recommendation provenance schema."
+                  },
+                  {
+                      "file":  "138_strategy_backtest.sql",
+                      "sequence":  138,
+                      "classification":  "active-missing-registration",
+                      "title":  "策略引擎與歷史回測系統 — strategy lifecycle + simulation schema."
+                  },
+                  {
+                      "file":  "139_simulation_trading.sql",
+                      "sequence":  139,
+                      "classification":  "active-missing-registration",
+                      "title":  "AI 影子操盤 + PAPER 模擬交易 — dedicated simulation schema."
+                  },
+                  {
+                      "file":  "140_live_trading.sql",
+                      "sequence":  140,
+                      "classification":  "active-missing-registration",
+                      "title":  "============================================================================"
+                  },
+                  {
+                      "file":  "141_offline_broker.sql",
+                      "sequence":  141,
+                      "classification":  "active-missing-registration",
+                      "title":  "============================================================================"
+                  },
+                  {
+                      "file":  "142_asset_management.sql",
+                      "sequence":  142,
+                      "classification":  "active-missing-registration",
+                      "title":  "============================================================================"
+                  },
+                  {
+                      "file":  "143_monitoring_center.sql",
+                      "sequence":  143,
+                      "classification":  "active-missing-registration",
+                      "title":  "============================================================================"
+                  },
+                  {
+                      "file":  "144_autotrading_center.sql",
+                      "sequence":  144,
+                      "classification":  "active-missing-registration",
+                      "title":  "============================================================================"
+                  },
+                  {
+                      "file":  "145_baseline_reanchor.sql",
+                      "sequence":  145,
+                      "classification":  "active-missing-registration",
+                      "title":  "Executor: SQL_MIGRATION_EXECUTOR only (sql_migration_executor_contract)."
+                  },
+                  {
+                      "file":  "146_governance_nonce.sql",
+                      "sequence":  146,
+                      "classification":  "active-missing-registration",
+                      "title":  "nonce store moves off SQLite (A348/A610: PostgreSQL sole structured-data"
+                  },
+                  {
+                      "file":  "147_state_outbox.sql",
+                      "sequence":  147,
+                      "classification":  "active-missing-registration",
+                      "title":  "moves off SQLite (state-outbox.sqlite3 retired; PostgreSQL sole"
+                  },
+                  {
+                      "file":  "148_rag_canonical_chunk_embedding.sql",
+                      "sequence":  148,
+                      "classification":  "active-missing-registration",
+                      "title":  "B61/C56/C62/C63: PostgreSQL+pgvector is the sole canonical durable"
+                  }
+              ]
+}
