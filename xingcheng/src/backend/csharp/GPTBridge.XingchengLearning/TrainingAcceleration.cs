@@ -96,6 +96,25 @@ internal static class TrainingAcceleration
 
     // --------------------------------------------------- telemetry --
 
+    /// <summary>§63/§100 (capability unification): when a plan request
+    /// names a capability, resolve it through the canonical registry
+    /// (unknown names fail closed) and stamp the request with the
+    /// resolved id, its §55-§57 execution profile and its §61 resource
+    /// hint — the plan never selects kernels or demands resources.
+    /// </summary>
+    private static void WithCapability(JsonElement el,
+        Dictionary<string, object?> result)
+    {
+        string raw = Str(el, "capability");
+        if (raw.Length == 0) return;
+        string? cap = CapabilityRegistry.Resolve(raw)
+            ?? throw new ExecutorError("CAPABILITY_UNKNOWN", raw);
+        result["capability_id"] = cap;
+        var profile = CapabilityRuntimeProfile.Emit(cap);
+        result["runtime_profile"] = profile["execution_profile"];
+        result["resource_hint"] = profile["resource_hint"];
+    }
+
     /// <summary>Validate a §1 telemetry record: every field present and
     /// numeric; the §65 step parts must account for >=95% of step_ms
     /// (5% slack for untracked overhead — anything larger means the
@@ -256,7 +275,7 @@ internal static class TrainingAcceleration
                 violations.Add($"lr_pilot_steps {n} outside " +
                                "20-50 (§43)");
         }
-        return new Dictionary<string, object?>
+        var result = new Dictionary<string, object?>
         {
             ["ok"] = violations.Count == 0,
             ["format"] = PilotFormat,
@@ -267,6 +286,8 @@ internal static class TrainingAcceleration
             ["verdict"] = violations.Count == 0
                 ? "PILOT_VALID" : "PILOT_INVALID",
         };
+        WithCapability(el, result);
+        return result;
     }
 
     // ------------------------------------------------- batch plan ---
@@ -327,6 +348,7 @@ internal static class TrainingAcceleration
         }
         else plan["verdict"] = accum <= 1
             ? "MAX_MICROBATCH" : "ACCUMULATING";
+        WithCapability(el, plan);
         return plan;
     }
 
@@ -464,7 +486,7 @@ internal static class TrainingAcceleration
                 "capability_before/after required — a speed change " +
                 "without capability evidence cannot pass (§67)");
         bool drop = after < before - 1e-9;
-        return new Dictionary<string, object?>
+        var result = new Dictionary<string, object?>
         {
             ["ok"] = !drop,
             ["format"] = SpeedGateFormat,
@@ -478,5 +500,7 @@ internal static class TrainingAcceleration
             ["rule"] = "+30% speed with a capability drop is FAIL " +
                        "(§67)",
         };
+        WithCapability(el, result);
+        return result;
     }
 }

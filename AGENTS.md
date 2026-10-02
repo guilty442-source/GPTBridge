@@ -391,7 +391,12 @@ carries `attribution` + `pool_eligible`/`trainable`. `ArchitectureGate`
 (`--arch-gate`) now requires a recorded
 `star-architecture-limitation-evidence/v1` entry when a justification
 claims `existing_architecture_cannot_solve` for a named capability —
-the claim alone demotes to unmet.
+the claim alone demotes to unmet. Acceleration-plane verbs
+(`--training-pilot`, `--training-batch-plan`, `--speed-gate`)
+accept an optional `capability` field — resolved through the registry
+(fail-closed) and stamped on the plan as `capability_id` +
+`runtime_profile` + `resource_hint` (§63/§100; plans still never
+select kernels or demand resources).
 
 Admission wiring (phase 2, §82/§98): SFT jobs and the
 single-capability recovery lane validate declared capabilities through
