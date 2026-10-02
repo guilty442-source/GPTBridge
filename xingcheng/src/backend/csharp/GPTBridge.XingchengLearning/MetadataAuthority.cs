@@ -14,7 +14,6 @@
 // xstore and any surviving PG path answers EXTERNAL_DATABASE_DENIED
 // (§47).
 
-using System.Diagnostics;
 using System.Text.Json;
 
 namespace GPTBridge.XingchengLearning;
@@ -26,6 +25,12 @@ internal static class MetadataAuthority
     public const string GateReportFormat = "star-native-metadata-authority-gate/v1";
 
     private const string MarkerPrefix = "authority-transition-";
+
+    /// <summary>JsonElement truthiness — the verify/mutation reports
+    /// arrive as JsonElement (a struct; `?? false` cannot apply).</summary>
+    private static bool Truth(JsonElement el, string key)
+        => el.TryGetProperty(key, out var v) &&
+           v.ValueKind == JsonValueKind.True;
 
     // ------------------------------------------------------- resolution --
 
@@ -78,16 +83,16 @@ internal static class MetadataAuthority
             (parity["status"] as string) ?? "?");
 
         var verify = meta.Verify();
-        bool auditOk = (bool)(verify["ok"] ?? false) &&
+        bool auditOk = Truth(verify, "ok") &&
                        verify.TryGetProperty("receipts", out var rc) &&
-                       (bool)(rc.GetProperty("ok").GetBoolean());
-        bool integrityOk = auditOk &&
-                           (bool)(verify["schema_identity_ok"] ?? false) &&
-                           (bool)(verify["invariants_ok"] ?? false);
+                       Truth(rc, "ok");
+        bool integrityOk = Truth(verify, "ok") &&
+                           Truth(verify, "schema_identity_ok") &&
+                           Truth(verify, "invariants_ok");
         gates["audit_verify"] = Gate("audit_verify", auditOk,
             $"receipts.ok={auditOk}");
         gates["metadata_integrity"] = Gate("metadata_integrity", integrityOk,
-            $"schema_identity_ok={verify.TryGetProperty("schema_identity_ok", out var s) && s.GetBoolean()}");
+            $"schema_identity_ok={Truth(verify, "schema_identity_ok")}");
 
         // Replay + restart (§83): snapshot → rebuild index → rescan.
         bool replay = false;
@@ -97,8 +102,7 @@ internal static class MetadataAuthority
             meta.Snapshot();
             meta.RebuildIndex();
             var again = meta.Verify();
-            replay = (bool)(again["ok"] ?? false) &&
-                     (bool)(again["index_fresh"] ?? false);
+            replay = Truth(again, "ok") && Truth(again, "index_fresh");
             replayDetail = "snapshot+rebuild+rescan";
         }
         catch (Exception e) { replayDetail = e.Message; }
@@ -131,10 +135,10 @@ internal static class MetadataAuthority
             var marker = LatestTransition(meta);
             var verify = meta.Verify();
             bool auditRoot = verify.TryGetProperty("receipts", out var rc) &&
-                             rc.TryGetProperty("ok", out var ro) && ro.GetBoolean();
-            bool integrity = (bool)(verify["ok"] ?? false) &&
-                             (bool)(verify["schema_identity_ok"] ?? false) &&
-                             (bool)(verify["invariants_ok"] ?? false);
+                             Truth(rc, "ok");
+            bool integrity = Truth(verify, "ok") &&
+                             Truth(verify, "schema_identity_ok") &&
+                             Truth(verify, "invariants_ok");
             string authority = marker != null
                 ? (marker["new_authority"] as string) ?? "postgresql"
                 : "postgresql";
@@ -183,10 +187,7 @@ internal static class MetadataAuthority
         var verify = meta.Verify();
         var snap = meta.Snapshot();
         string parityHash = TransformerTrainingRepository.Sha256Text(
-            CanonicalJson.CanonicalDict(
-                parity.ToDictionary(kv => kv.Key,
-                    kv => NativeMetadataClient.ToValue(
-                        JsonSerializer.SerializeToElement(kv.Value)))));
+            CanonicalJson.CanonicalDict(parity));
 
         var marker = new Dictionary<string, object?>
         {
@@ -266,7 +267,7 @@ internal static class MetadataAuthority
                 fs.Write(junk);
             }
             var v1 = tm.Verify();
-            bool tornOk = (bool)(v1["ok"] ?? false) &&
+            bool tornOk = Truth(v1, "ok") &&
                           v1.TryGetProperty("ignored_tail_bytes", out var tb) &&
                           tb.GetInt64() > 0;
 

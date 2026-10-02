@@ -15,6 +15,7 @@ mod outbox;
 mod pending_actions;
 mod pg;
 mod resident;
+mod resource_governor_host;
 mod resource_mode;
 mod saga;
 mod tools;
@@ -465,6 +466,10 @@ fn main() {
     // ``periodic_scheduler``; git/codex/permission planes run
     // in-process under per-plane defer/retry/park supervision).
     automation_host::start();
+    // Sole-entry rule: the desktop 專案程式庫.exe chain is the only
+    // launch path — the native resource governor runs --watch under
+    // this supervision (no Run-key/scheduled-task second entry).
+    resource_governor_host::start();
     println!("gptbridge-backend listening on 127.0.0.1:{port}");
     for stream in listener.incoming() {
         match stream {

@@ -400,6 +400,11 @@ internal sealed class TransformerTrainingRepository
             throw new InvalidOperationException("EXTERNAL_DATABASE_DENIED");
     }
 
+    /// <summary>JsonElement truthiness for xstore verb reports.</summary>
+    private static bool JTruth(JsonElement el, string key)
+        => el.TryGetProperty(key, out var v) &&
+           v.ValueKind == JsonValueKind.True;
+
     /// <summary>Map xstore domain errors onto the exception vocabulary
     /// PG-era callers already handle.</summary>
     private static Exception TranslateMetadataError(MetadataError e)
@@ -523,7 +528,7 @@ internal sealed class TransformerTrainingRepository
     /// not a healthy one (§36, §44: never merge, never pretend).</summary>
     private void ShadowMismatch(string op, string detail)
     {
-        if (_metaShadowUnavailable || _metaShadowFailed)
+        if (_metaShadowUnavailable || _metaShadowFailed || XstoreAuthority)
             return;
         _metaShadowFailed = true;
         _metaShadowError = $"XSTORE_METADATA_SHADOW_FAILED: {op}: {detail}";
@@ -970,14 +975,14 @@ internal sealed class TransformerTrainingRepository
             if (ds == null)
                 return (new Dictionary<string, object?>(),
                         new Dictionary<string, string>());
-            var splits = Meta().Query(
+            var splitMap = Meta().Query(
                 NativeMetadataClient.Types.DatasetExample,
                 new Dictionary<string, object?> { ["dataset_id"] = datasetId },
                 500000)
                 .ToDictionary(r => (string)r["content_sha256"]!,
                               r => (string)r["split"]!,
                               StringComparer.Ordinal);
-            return (ds, splits);
+            return (ds, splitMap);
         }
         using var db = Pg.Connect(Schema);
         var dataset = db.QueryOne(
@@ -1555,12 +1560,12 @@ internal sealed class TransformerTrainingRepository
             {
                 Meta().ReleaseAdapter(adapterId, normalized, governedBy,
                     reason);
-                var row = Meta().Get(NativeMetadataClient.Types.Candidate,
-                                     adapterId)
+                var released = Meta().Get(
+                    NativeMetadataClient.Types.Candidate, adapterId)
                     ?? throw new InvalidOperationException(
                         "adapter release was not stored");
-                row["runtime_state"] = RuntimeModelState();
-                return row;
+                released["runtime_state"] = RuntimeModelState();
+                return released;
             }
             catch (MetadataError e) { throw TranslateMetadataError(e); }
         }
@@ -1849,7 +1854,7 @@ internal sealed class TransformerTrainingRepository
                 NativeMetadataClient.Types.Audit, null, 1000000).Count;
             return new Dictionary<string, object?>
             {
-                ["ok"] = (bool)(v["ok"] ?? false) && receiptsOk,
+                ["ok"] = JTruth(v, "ok") && receiptsOk,
                 ["engine"] = "xstore",
                 ["event_count"] = auditEvents,
                 ["head_sha256"] = v.TryGetProperty("receipts", out var r2) &&
@@ -1991,7 +1996,7 @@ internal sealed class TransformerTrainingRepository
                           rc.TryGetProperty("ok", out var ro) && ro.GetBoolean();
         return new Dictionary<string, object?>
         {
-            ["ok"] = (bool)(v["ok"] ?? false) && receiptsOk &&
+            ["ok"] = JTruth(v, "ok") && receiptsOk &&
                      (bool)audit["ok"]!,
             ["engine"] = "xstore",
             ["canonical_central_engine"] = "xstore",
@@ -2003,8 +2008,8 @@ internal sealed class TransformerTrainingRepository
             ["schema_version"] = SchemaVersion,
             ["path"] = $"xstore:{Meta().StoreDir}",
             ["engine_integrity"] =
-                (bool)(v["schema_identity_ok"] ?? false) &&
-                (bool)(v["invariants_ok"] ?? false) ? "ok" : "fail",
+                JTruth(v, "schema_identity_ok") &&
+                JTruth(v, "invariants_ok") ? "ok" : "fail",
             ["tables"] = tables,
             ["audit_chain"] = audit,
             ["metadata_verify"] = JsonSerializer
@@ -2049,6 +2054,21 @@ internal sealed class TransformerTrainingRepository
 
     public Dictionary<string, object?> Maintain()
     {
+        if (XstoreAuthority)
+        {
+            // Post-flip maintenance is index rebuild + verify — the
+            // native plane has no ANALYZE; audit the maintenance tick
+            // on the canonical chain.
+            Meta().RebuildIndex();
+            AuditEvent("database-maintained", "training-database",
+                       DatabaseName,
+                       new Dictionary<string, object?>
+                       {
+                           ["schema_version"] = SchemaVersion,
+                           ["engine"] = "xstore",
+                       });
+            return DatabaseStatus();
+        }
         var before = DatabaseStatus();
         var maintainPayload = new Dictionary<string, object?>
         {

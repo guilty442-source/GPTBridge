@@ -225,6 +225,18 @@ internal static class Program
                 if (flags.Contains("xstore-backfill"))
                     outMap["xstore_backfill"] =
                         MetadataMigration.Backfill(repo);
+                if (flags.Contains("authority-flip"))
+                {
+                    // §45: single governed authority transition — every
+                    // §42 gate must pass before the marker commits.
+                    var meta = new NativeMetadataClient(
+                        toolRoot, actor: "xingcheng-authority-flip");
+                    outMap["authority_flip"] =
+                        MetadataAuthority.Flip(repo, meta);
+                    outMap["ok"] = (bool)outMap["ok"]! &&
+                        (bool)(((Dictionary<string, object?>)
+                            outMap["authority_flip"]!)["ok"] ?? false);
+                }
                 return Emit(outMap);
             }
             // B154 retired (executed 2026-10-02, rev 235): the external
