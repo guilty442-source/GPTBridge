@@ -1478,12 +1478,7 @@ Worker rules for codex work:
    + governance capability only — removal requires a codex amendment
    (B154 retirement) plus code removal; do not delete the capability
    without the amendment landing first.
-8. **Codex data-dir residue needs a governor decision.**
-    `governance_rule/codex/data/` holds a 0-byte `governance_codex.db`
-    plus a 12.6 MB `governance_codex.sql` dump, while the project
-    architecture doc forbids retaining SQL dumps/DB mirrors. Codex is
-    read-only for workers — a human governor must decide; do not touch.
-9. **Codex open evidence gaps block verified release.**
+8. **Codex open evidence gaps block verified release.**
     `postgresql_role_registry` is now populated (48 rows observed live
     2026-10-02, live↔registry delta = 0, evidence
     `postgresql-role-observation-20261002.json`) but every row is still
@@ -1492,12 +1487,12 @@ Worker rules for codex work:
     governed pipeline (never hand-edit). `DIR_DATA_SCHEMA_AUTHORITY` =
     `INCOMPLETE_EVIDENCE` / `verified-release-denied` / `open` remains
     unresolved likewise.
-10. **No system Python on this host.** `Python313` lacks `python.exe`
+9. **No system Python on this host.** `Python313` lacks `python.exe`
     and the `py` launcher finds no install, so the retired
     `python -m governance_rule.execution.audit` entry cannot run.
     Expected (Python lane retired, B166); audit evidence must come from
     the governed C#/native pipeline and the pre-commit hooks.
-11. **Governed migration executor now exists; live chain is still
+10. **Governed migration executor now exists; live chain is still
     unapplied.** `shared-layer/csharp/GPTBridge.CodexPipeline/
     MigrationExecutor.cs` implements `sql_migration_executor_contract`
     (`--migration-status` read-only, `--migration-apply --sequence N`,
@@ -1507,7 +1502,7 @@ Worker rules for codex work:
     and 110/148 migration files with no applied objects — do not claim
     migration closure. `--migration-db` is a scratch-only test hook,
     never point it at the governed DB.
-12. **Migration registry reconciliation needs three governor
+11. **Migration registry reconciliation needs three governor
     decisions** (evidence: `migration-live-catalog-probe-20261002.json`
     + `implementation-obligations-evidence-refresh-20261002.json`):
     (a) 15 source-hash mismatches are post-registration semantic
@@ -1526,7 +1521,7 @@ Worker rules for codex work:
     (all restamps/retirements with live hashes + 89 registrations
     precomputed + 4 open decisions incl. the 087/088 filename-prefix
     collisions; predecessor rev 234 @ 11:31:06Z, re-stamp at intake).
-13. **Parity extractor reimplemented in C#; canonical binding still
+12. **Parity extractor reimplemented in C#; canonical binding still
     governor-blocked.** `MachineSchemaParity.cs` ports
     `SEAL_CANONICAL_V1` byte-exact (verified against a hand-computed
     Python-semantics hash for AUDIT_EVENT) — verbs `--schema-parity`
