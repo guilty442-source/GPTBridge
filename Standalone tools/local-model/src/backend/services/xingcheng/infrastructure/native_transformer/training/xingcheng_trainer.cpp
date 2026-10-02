@@ -140,6 +140,11 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+// windows.h's legacy segmented-memory macros collide with ordinary
+// identifiers (xct_csa.h uses `far` as a variable); this TU never needs
+// the 16-bit qualifiers.
+#undef far
+#undef near
 #endif
 #if defined(_M_X64) || defined(__x86_64__)
 #include <immintrin.h>
