@@ -60,6 +60,7 @@ using xcd::CUdevptr_t;
 using xcd::CUmodule_t;
 using xcd::CUfunction_t;
 using xcd::CUstream_t;
+using xcd::CUevent_t;
 using xcd::CUgraph_t;
 using xcd::CUgraphExec_t;
 
@@ -860,6 +861,15 @@ DevPool g_adamw_norm_part;
 DevPool g_sgemm_a, g_sgemm_b, g_sgemm_c;
 std::vector<float> g_adamw_norm_host;
 
+// AdamW batch pipeline (§26): pinned staging slabs bound the per-wave
+// host footprint; per-slot events chain H2D -> kernel -> D2H across the
+// manager's dedicated lanes so one step pipelines every bound tensor.
+constexpr size_t kAdamwWaveBytes = 16u << 20;
+float* g_adamw_pin_in = nullptr;
+float* g_adamw_pin_out = nullptr;
+size_t g_adamw_pin_cap = 0;
+std::vector<CUevent_t> g_adamw_ev_h, g_adamw_ev_k;
+
 constexpr int kSqsumBlocks = 128;
 
 }  // namespace
@@ -950,6 +960,21 @@ int xcuda_probe(long long* free_bytes, long long* total_bytes,
 int xcuda_sm_count() {
     if (!device_ready()) return 0;
     return xcd::dev().sm_count > 0 ? xcd::dev().sm_count : 0;
+}
+
+// Host physical memory (MB) for the star-accel-plane telemetry — kept
+// behind the C ABI so consuming TUs (the trainer) never need windows.h
+// and its legacy far/near macros. Returns 1 on success, 0 otherwise;
+// output parameters may be null independently.
+int xcm_host_mem_mb(long long* total_mb, long long* avail_mb) {
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof(ms);
+    if (!GlobalMemoryStatusEx(&ms)) return 0;
+    if (total_mb != nullptr)
+        *total_mb = (long long)(ms.ullTotalPhys >> 20);
+    if (avail_mb != nullptr)
+        *avail_mb = (long long)(ms.ullAvailPhys >> 20);
+    return 1;
 }
 
 // NVML instantaneous sensors for the §66 hardware baseline — same
@@ -1437,6 +1462,270 @@ int xcuda_adamw_sqsum(const float* x_host, long long n, double* out) {
     return rc;
 }
 
+// ------------------------------------------------ AdamW batch pipeline --
+// §26 whole-step batch surface: the caller hands the full tensor list in
+// one call so the three engine stages (H2D gradient, fused kernel, D2H
+// weights) pipeline across the manager's dedicated lanes instead of
+// serialising per tensor. Per-item semantics are identical to
+// step_dev+sync — same kernel, same bias-correction inputs, same "device
+// m/v stay authoritative, host g consumed" contract.
+
+// One tensor of a batch step — the trainer declares the identical POD
+// in its own TU (same pattern as the extern "C" entry decls).
+struct XcudaAdamwItem {
+    const float* g_host;   // host gradient, length = bound tensor n
+    const void*  w_key;    // bound host weight pointer (map key)
+    float*       w_out;    // host dst for updated w (may equal w_key)
+    int          rc;       // per-item verdict — written by the batch call
+};
+
+// Pipelined-path prerequisites — optional like the graph set: any absent
+// piece degrades the batch to the serial path, never to an error.
+bool adamw_pipe_ready() {
+    return g_drv.event_create != nullptr &&
+           g_drv.event_record != nullptr &&
+           g_drv.stream_wait_event != nullptr &&
+           g_drv.event_query != nullptr &&
+           g_drv.memcpy_htod_async != nullptr &&
+           g_drv.memcpy_dtoh_async != nullptr &&
+           g_drv.stream_sync != nullptr && mp::mgr().ensure();
+}
+
+// Allocate the two staging slabs once; a refused allocation (pinned cap
+// bound) disables the pipelined path for the process — the serial path
+// keeps identical semantics, just without overlap.
+bool adamw_staging_ready() {
+    if (g_adamw_pin_in != nullptr && g_adamw_pin_out != nullptr)
+        return true;
+    void* in = mp::mgr().pinned_alloc(
+        static_cast<int64_t>(kAdamwWaveBytes));
+    void* out = mp::mgr().pinned_alloc(
+        static_cast<int64_t>(kAdamwWaveBytes));
+    if (in == nullptr || out == nullptr) {
+        if (in != nullptr) mp::mgr().pinned_free(in);
+        if (out != nullptr) mp::mgr().pinned_free(out);
+        return false;
+    }
+    g_adamw_pin_in = static_cast<float*>(in);
+    g_adamw_pin_out = static_cast<float*>(out);
+    g_adamw_pin_cap = kAdamwWaveBytes;
+    return true;
+}
+
+// Grow the per-wave event pools (CU_EVENT_DISABLE_TIMING = 0x2 — they
+// carry ordering only, never profiling data).
+bool adamw_ensure_events(size_t n) {
+    while (g_adamw_ev_h.size() < n) {
+        CUevent_t h = 0, k = 0;
+        if (g_drv.event_create(&h, 2u) != kCudaSuccess || h == 0 ||
+            g_drv.event_create(&k, 2u) != kCudaSuccess || k == 0) {
+            if (h != 0) g_drv.event_destroy(h);
+            if (k != 0) g_drv.event_destroy(k);
+            return false;
+        }
+        g_adamw_ev_h.push_back(h);
+        g_adamw_ev_k.push_back(k);
+    }
+    return true;
+}
+
+// Serial per-tensor step — identical work to step_dev + sync(w), used by
+// the batch path for oversized tensors and whenever the pipeline lanes
+// are unavailable. Caller holds g_adamw_mu.
+int adamw_step_serial(AdamwState& st, const float* g_host,
+                      float* w_out, float gscale, float lr_t,
+                      float wd, float b1, float b2, float bc1,
+                      float bc2, float eps) {
+    const size_t bytes = static_cast<size_t>(st.n) * sizeof(float);
+    if (xmemcpy_htod(st.dg, g_host, bytes) != kCudaSuccess) return 3;
+    long long n = st.n;
+    float gs = gscale, lt = lr_t, wdv = wd;
+    void* params[] = {&st.dg, &st.dm, &st.dv, &st.dw,
+                      &gs, &lt, &wdv, &b1, &b2, &bc1, &bc2, &eps, &n};
+    const unsigned blocks = static_cast<unsigned int>(
+        std::min<long long>((n + 255) / 256, 65535));
+    if (!launch(g_f_adamw, blocks, 1, 256, 1, 0, params)) return 3;
+    if (w_out != nullptr &&
+        xmemcpy_dtoh(w_out, st.dw, bytes) != kCudaSuccess)
+        return 3;
+    return 0;
+}
+
+// One call consumes a whole step: per item the gradient goes H2D, the
+// fused kernel updates resident w/m/v, and the updated w comes back D2H
+// (host forward still reads host weights this phase). rc per item: 0
+// consumed incl. read-back; 2 bad args; 3 device untouched — caller may
+// recompute on host; 4 unbound key; 6 kernel ran — device state is
+// authoritative, caller pulls w/m/v but must NOT recompute. Return is
+// transport-level — 0 means the batch ran and per-item rc is the
+// verdict; nonzero means nothing was consumed and the caller's scalar
+// path still owns every tensor.
+int xcuda_adamw_step_all(XcudaAdamwItem* items, long long count,
+                         float gscale, float lr_t, float wd, int step) {
+    if (items == nullptr || count <= 0 || step < 0) return 2;
+    if (!use_ctx() || !ensure_module() || g_f_adamw == 0) return 3;
+    // Bias corrections in fp64 host-side — bit-identical to the
+    // per-tensor path's std::pow inputs. Non-const: cuLaunchKernel
+    // copies the params at enqueue and needs void* addresses.
+    float b1 = 0.9f, b2 = 0.999f, eps = 1e-8f;
+    float bc1 = static_cast<float>(
+        1.0 - std::pow(0.9, static_cast<double>(step + 1)));
+    float bc2 = static_cast<float>(
+        1.0 - std::pow(0.999, static_cast<double>(step + 1)));
+    std::lock_guard<std::mutex> lk(g_adamw_mu);
+    for (long long i = 0; i < count; ++i) {
+        XcudaAdamwItem& it = items[i];
+        if (it.g_host == nullptr || it.w_key == nullptr) {
+            it.rc = 2;
+            continue;
+        }
+        it.rc = g_adamw.find(it.w_key) != g_adamw.end() ? -1 : 4;
+    }
+    const CUstream_t s_h2d = mp::mgr().stream(mp::StreamLane::H2D);
+    const CUstream_t s_cmp = mp::mgr().stream(mp::StreamLane::TRAIN_COMPUTE);
+    const CUstream_t s_d2h = mp::mgr().stream(mp::StreamLane::D2H);
+    const bool pipe = adamw_pipe_ready() && adamw_staging_ready() &&
+                      s_h2d != 0 && s_cmp != 0 && s_d2h != 0;
+    if (!pipe) {
+        for (long long i = 0; i < count; ++i) {
+            XcudaAdamwItem& it = items[i];
+            if (it.rc != -1) continue;
+            it.rc = adamw_step_serial(g_adamw.find(it.w_key)->second,
+                                      it.g_host, it.w_out, gscale, lr_t,
+                                      wd, b1, b2, bc1, bc2, eps);
+        }
+        return 0;
+    }
+    // Wave loop: each wave's staging footprint is bounded by the slab;
+    // oversized tensors run the serial path inline without stalling the
+    // pipeline.
+    long long i = 0;
+    while (i < count) {
+        std::vector<long long> wave;
+        size_t wave_bytes = 0;
+        for (; i < count; ++i) {
+            XcudaAdamwItem& it = items[i];
+            if (it.rc != -1) continue;
+            AdamwState& st = g_adamw.find(it.w_key)->second;
+            const size_t bytes =
+                static_cast<size_t>(st.n) * sizeof(float);
+            if (bytes > g_adamw_pin_cap) {
+                it.rc = adamw_step_serial(st, it.g_host, it.w_out,
+                                          gscale, lr_t, wd, b1, b2,
+                                          bc1, bc2, eps);
+                continue;
+            }
+            if (wave_bytes > 0 && wave_bytes + bytes > g_adamw_pin_cap)
+                break;
+            wave_bytes += bytes;
+            wave.push_back(i);
+        }
+        if (wave.empty()) continue;
+        if (!adamw_ensure_events(wave.size())) {
+            for (long long wi : wave) {
+                XcudaAdamwItem& it = items[wi];
+                it.rc = adamw_step_serial(
+                    g_adamw.find(it.w_key)->second, it.g_host, it.w_out,
+                    gscale, lr_t, wd, b1, b2, bc1, bc2, eps);
+            }
+            continue;
+        }
+        // Stage + enqueue: H2D on its own lane, kernel on TRAIN_COMPUTE
+        // gated by the H2D event, D2H on its own lane gated by the
+        // kernel event — tensor i's D2H overlaps tensor i+1's H2D.
+        size_t off = 0;
+        size_t slot = 0;
+        for (long long wi : wave) {
+            XcudaAdamwItem& it = items[wi];
+            AdamwState& st = g_adamw.find(it.w_key)->second;
+            const size_t bytes =
+                static_cast<size_t>(st.n) * sizeof(float);
+            std::memcpy(reinterpret_cast<char*>(g_adamw_pin_in) + off,
+                        it.g_host, bytes);
+            long long n = st.n;
+            float gs = gscale, lt = lr_t, wdv = wd;
+            void* params[] = {&st.dg, &st.dm, &st.dv, &st.dw, &gs, &lt,
+                              &wdv, &b1, &b2, &bc1, &bc2, &eps, &n};
+            const unsigned blocks = static_cast<unsigned int>(
+                std::min<long long>((n + 255) / 256, 65535));
+            // Ordered enqueue — a stage failure stops this item's chain
+            // before later stages could wait on an unrecorded event or
+            // run on a gradient that never landed. rc=3 means the device
+            // was untouched (caller may recompute on host); rc=6 means
+            // the kernel was enqueued — device state is authoritative
+            // and the caller must pull, never recompute (a recompute
+            // would double-apply the update).
+            bool ok = g_drv.memcpy_htod_async(
+                          st.dg,
+                          reinterpret_cast<const char*>(g_adamw_pin_in) +
+                              off,
+                          bytes, s_h2d) == kCudaSuccess;
+            if (ok)
+                ok = g_drv.event_record(g_adamw_ev_h[slot], s_h2d) ==
+                     kCudaSuccess;
+            if (ok)
+                ok = g_drv.stream_wait_event(s_cmp, g_adamw_ev_h[slot],
+                                             0u) == kCudaSuccess;
+            if (ok)
+                ok = launch_s(g_f_adamw, blocks, 1, 256, 1, 0, params,
+                              s_cmp);
+            if (!ok) {
+                it.rc = 3;
+                off += bytes;
+                ++slot;
+                continue;
+            }
+            // Kernel enqueued — from here on the device owns this
+            // item's update even if the read-back stages fail.
+            it.rc = 6;
+            if (g_drv.event_record(g_adamw_ev_k[slot], s_cmp) ==
+                    kCudaSuccess &&
+                g_drv.stream_wait_event(s_d2h, g_adamw_ev_k[slot], 0u) ==
+                    kCudaSuccess &&
+                g_drv.memcpy_dtoh_async(
+                    reinterpret_cast<char*>(g_adamw_pin_out) + off,
+                    st.dw, bytes, s_d2h) == kCudaSuccess)
+                it.rc = -2;    // fully enqueued, awaiting wave drain
+            off += bytes;
+            ++slot;
+        }
+        // One drain per wave, then write every staged weight back to its
+        // host destination. On a drain failure the kernel event
+        // disambiguates: complete => device applied the update (rc=6,
+        // pull-only); not complete => device untouched (rc=3,
+        // pull + host recompute stays consistent because the kernel's
+        // math is bitwise-identical to the scalar lane).
+        if (g_drv.stream_sync(s_d2h) != kCudaSuccess) {
+            size_t slot2 = 0;
+            for (long long wi : wave) {
+                XcudaAdamwItem& it = items[wi];
+                if (it.rc == -2 &&
+                    g_drv.event_query(g_adamw_ev_k[slot2]) !=
+                        kCudaSuccess)
+                    it.rc = 3;   // 6 stays 6 — kernel ran
+                ++slot2;
+            }
+            continue;
+        }
+        off = 0;
+        for (long long wi : wave) {
+            XcudaAdamwItem& it = items[wi];
+            const size_t bytes = static_cast<size_t>(
+                g_adamw.find(it.w_key)->second.n) * sizeof(float);
+            if (it.rc == -2) {
+                if (it.w_out != nullptr)
+                    std::memcpy(it.w_out,
+                                reinterpret_cast<const char*>(
+                                    g_adamw_pin_out) + off,
+                                bytes);
+                it.rc = 0;
+            }
+            off += bytes;
+        }
+    }
+    return 0;
+}
+
 // Run teardown: free every bound tensor's device state.
 int xcuda_adamw_release() {
     std::lock_guard<std::mutex> lk(g_adamw_mu);
@@ -1453,6 +1742,20 @@ int xcuda_adamw_release() {
     dev_pool_release(g_sgemm_c);
     g_adamw_norm_host.clear();
     g_adamw_norm_host.shrink_to_fit();
+    // Batch pipeline teardown: driver events are owned objects — always
+    // destroy; the pinned slabs came from the manager.
+    if (g_drv.event_destroy != nullptr) {
+        for (CUevent_t e : g_adamw_ev_h) g_drv.event_destroy(e);
+        for (CUevent_t e : g_adamw_ev_k) g_drv.event_destroy(e);
+    }
+    g_adamw_ev_h.clear();
+    g_adamw_ev_k.clear();
+    if (g_adamw_pin_in != nullptr)
+        mp::mgr().pinned_free(g_adamw_pin_in);
+    if (g_adamw_pin_out != nullptr)
+        mp::mgr().pinned_free(g_adamw_pin_out);
+    g_adamw_pin_in = g_adamw_pin_out = nullptr;
+    g_adamw_pin_cap = 0;
     return 0;
 }
 

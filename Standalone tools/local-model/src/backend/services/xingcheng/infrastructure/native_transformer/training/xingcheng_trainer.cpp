@@ -101,12 +101,16 @@
 //   env:   XCT_TPU_THREADS / XCT_TPU_SIMD=0 override the job fields.
 //   lanes: disjoint-output partitions keep results identical for any
 //          thread count; SIMD keeps one fixed order per build.
-//   data:  { path, format(sft|pretrain|dpo), max_rows }
+//   data:  { path, format(sft|pretrain|dpo|grpo), max_rows }
 //
-// data rows:  sft      {"input_ids":[...],"labels":[...]}   (-100 = masked)
+// data rows:  governed container is XCB1 (xcb_batch.h — binary token
+//             batches; magic-sniffed). Legacy JSONL remains readable
+//             for registered datasets:
+//             sft      {"input_ids":[...],"labels":[...]}   (-100 = masked)
 //             pretrain {"input_ids":[...]}                  (labels = shifted)
 //             dpo      {"chosen":{"input_ids":[...],"labels":[...]},
 //                       "rejected":{"input_ids":[...],"labels":[...]}}
+//             grpo     {"prompt_ids":[...],"completion_ids":[...]}
 //
 // checkpoint: star-native-ckpt/v1 binary — magic, config, then name/shape/f32
 //             tensors in deterministic order. emit_checkpoint is written to a
@@ -139,6 +143,7 @@
 #endif
 
 #include "jsonlite.h"
+#include "xcb_batch.h"
 
 using gptbridge::jsonlite::JsonParser;
 using gptbridge::jsonlite::JsonValue;
@@ -147,6 +152,7 @@ namespace xct {
 
 #include "xct_util.h"
 #include "xct_tpu.h"
+#include "xct_kernels.h"
 #include "xct_math.h"
 #include "xct_gemma4.h"
 #include "xct_backward.h"
@@ -165,7 +171,8 @@ namespace xct {
 
 int main(int argc, char** argv) {
     std::string job_path, report_path;
-    bool do_smoke = false;
+    bool do_smoke = false, do_kernel_registry = false,
+         do_accel_plane = false;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--job" && i + 1 < argc) job_path = argv[++i];
@@ -188,10 +195,16 @@ int main(int argc, char** argv) {
         else if (a == "--canoncheck") return xct::canoncheck();
         else if (a == "--freezecheck") return xct::freezecheck();
         else if (a == "--gemmbench") return xct::gemmbench();
+        else if (a == "--kernel-registry") do_kernel_registry = true;
+        else if (a == "--accel-plane") do_accel_plane = true;
+        else if (a == "--kernel-policy" && i + 1 < argc)
+            xct::g_kernel_policy_arg = argv[++i];
         else if (a == "--canonical-materialize")
             return xct::canonical_materialize();
         else if (a == "--probe-all") return xct::probe_all();
     }
+    if (do_kernel_registry) return xct::kernel_registry_emit();
+    if (do_accel_plane) return xct::accel_plane_emit();
     if (do_smoke) return xct::smoke();
     if (job_path.empty()) {
         std::fprintf(stderr, "usage: xingcheng_trainer --job <job.json> [--report <out.json>] | --smoke | --gradcheck | --maskcheck | --headcheck | --rulecheck | --depthcheck | --poscheck | --inputcheck | --mixcheck | --mtpcheck | --routecheck | --gemmacheck | --dsvcheck | --yarncheck | --csacheck | --canoncheck\n");

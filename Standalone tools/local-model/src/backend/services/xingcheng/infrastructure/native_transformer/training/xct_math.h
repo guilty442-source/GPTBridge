@@ -50,7 +50,7 @@ static void rmsnorm_bwd(const float* dy, const float* x, const float* w,
             dots[(size_t)t] = dot;
         }
     });
-    parallel_for(H, [&](int64_t b, int64_t e) {
+    parallel_for(H, (int64_t)T, [&](int64_t b, int64_t e) {
         for (int64_t i = b; i < e; ++i) {
             float acc = 0.0f;
             for (int t = 0; t < T; ++t) {
@@ -116,14 +116,17 @@ static const RopeCs& rope_cs(int T, int dim, float theta,
         const bool yarn = mc && mc->use_yarn();
         tab.c.assign((size_t)T * half, 0.0f);
         tab.s.assign((size_t)T * half, 0.0f);
-        for (int i = 0; i < half; ++i) {
-            float fr = std::pow(theta, -(float)(2 * i) / (float)dim);
-            if (yarn) fr *= yarn_blend_i(i, dim, theta, yf, yo, ybF, ybS);
-            for (int t = 0; t < T; ++t) {
-                tab.c[(size_t)t * half + i] = std::cos(t * fr) * ms;
-                tab.s[(size_t)t * half + i] = std::sin(t * fr) * ms;
+        parallel_for(half, (int64_t)T * 8, [&](int64_t b, int64_t e) {
+            for (int64_t i = b; i < e; ++i) {
+                float fr = std::pow(theta, -(float)(2 * i) / (float)dim);
+                if (yarn)
+                    fr *= yarn_blend_i((int)i, dim, theta, yf, yo, ybF, ybS);
+                for (int t = 0; t < T; ++t) {
+                    tab.c[(size_t)t * half + i] = std::cos(t * fr) * ms;
+                    tab.s[(size_t)t * half + i] = std::sin(t * fr) * ms;
+                }
             }
-        }
+        });
         cT = T; cd = dim; ct = theta;
         cyf = yf; cyo = yo; cybF = ybF; cybS = ybS; cyaF = yaF;
     }
@@ -243,7 +246,7 @@ static void conv1d_causal_bwd(const float* dy, const float* y_pre,
     });
     // Channels are disjoint lanes: dx[t*D+c] and dw[c*K+j] are owned by
     // the channel lane, so the t/j accumulation order is unchanged.
-    parallel_for(D, [&](int64_t b, int64_t e) {
+    parallel_for(D, (int64_t)T * K, [&](int64_t b, int64_t e) {
         for (int64_t c = b; c < e; ++c)
             for (int t = 0; t < T; ++t) {
                 float d = dpre[(size_t)t * D + c];
@@ -260,7 +263,7 @@ static void conv1d_causal_bwd(const float* dy, const float* y_pre,
 
 static void l2norm_fwd(float* v, int rows, int dim, float eps,
                        float* norms_out) {
-    parallel_for(rows, [&](int64_t b, int64_t e) {
+    parallel_for(rows, (int64_t)dim, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             float* r = v + (size_t)t * dim;
             float ss = 0.0f;
@@ -277,7 +280,7 @@ static void l2norm_fwd(float* v, int rows, int dim, float eps,
 // norms holds the forward ||x|| per row.
 static void l2norm_bwd(const float* dy, const float* x_normed,
                        const float* norms, float* dx, int rows, int dim) {
-    parallel_for(rows, [&](int64_t b, int64_t e) {
+    parallel_for(rows, (int64_t)dim, [&](int64_t b, int64_t e) {
         for (int64_t t = b; t < e; ++t) {
             const float* xr = x_normed + (size_t)t * dim;
             const float* dr = dy + (size_t)t * dim;
@@ -508,6 +511,22 @@ struct Fwd {
     int vision_patches = 0;
 };
 
+// Forward workspace: the non-cached temporaries (projection results,
+// MoE slot packs, conv staging) total tens of MB per layer and were
+// malloc'd + first-touched every layer of every example. Reusing
+// capacity via one thread_local workspace removes that churn; every
+// field is re-initialized at its use site (assign/clear/resize before
+// any read), so semantics are identical. fwd/mtp_fwd only run on the
+// caller thread — never inside a TPU lane. Lane-private vectors inside
+// parallel_for lambdas stay local.
+struct FwdWs {
+    std::vector<float> x, proj, qkvz, conv_out, qraw, kraw, beta;
+    std::vector<float> qf, qfused;
+    std::vector<float> moe_cnt, eos, X, FA, FB, Fh, EO, sg, so, p_i, zc;
+    std::vector<std::vector<int>> slots;
+    std::vector<float> dtmp;    // mtp_fwd ce_loss gradient sink
+};
+
 static void fwd_g4(const Params& p, const ModelConfig& c,
                    const std::vector<int>& ids, Fwd& o);
 static void mtp_fwd(const Params& p, const ModelConfig& c,
@@ -520,10 +539,11 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
 static float mtp_stack_aux_loss(const ModelConfig& c,
                                 const std::vector<int>& ids, const Fwd& fw,
                                 std::vector<std::vector<float>>& dmtp);
+struct BwdWs;
 static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                           const std::vector<int>& ids, Fwd& o,
                           const std::vector<std::vector<float>>& dm,
-                          float* dh_main);
+                          float* dh_main, BwdWs& ws);
 
 static void fwd(const Params& p, const ModelConfig& c,
                 const std::vector<int>& ids, Fwd& o,
@@ -549,7 +569,9 @@ static void fwd(const Params& p, const ModelConfig& c,
     const int T = P + PT;
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd;
-    std::vector<float> x((size_t)T * H);
+    static thread_local FwdWs ws;
+    auto& x = ws.x;
+    x.assign((size_t)T * H, 0.0f);
     if (P > 0) {
         linear_fwd(vision->data(), p.w.at("vision.patch_proj"),
                    x.data(), P, c.vision_patch_dim, H);
@@ -561,7 +583,7 @@ static void fwd(const Params& p, const ModelConfig& c,
     }
     {
         const float* emb = p.w.at("embed").d.data();
-        parallel_for(PT, [&](int64_t b, int64_t e) {
+        parallel_for(PT, (int64_t)H, [&](int64_t b, int64_t e) {
             for (int64_t t = b; t < e; ++t)
                 std::copy(emb + (size_t)ids[(size_t)t] * H,
                           emb + (size_t)ids[(size_t)t] * H + H,
@@ -578,7 +600,8 @@ static void fwd(const Params& p, const ModelConfig& c,
         L.n1.resize((size_t)T * H); L.rms1.resize(T);
         rmsnorm_fwd(x.data(), p.w.at(ln(l, "norm1")).d.data(),
                     L.n1.data(), L.rms1.data(), T, H, c.rms_eps);
-        std::vector<float> proj((size_t)T * H);
+        auto& proj = ws.proj;
+        proj.assign((size_t)T * H, 0.0f);
         if (c.is_linear(l)) {
             // ----- Qwen3.5 gated deltanet (linear attention) -----
             const int kd = c.lin_key_dim, vd = c.lin_value_dim;
@@ -590,24 +613,29 @@ static void fwd(const Params& p, const ModelConfig& c,
             const std::string lb = ln(l, "lin.");
             // in_proj_qkv rows are grouped per key head [q|k|v-group];
             // unpack into flat conv layout [q_flat | k_flat | v_flat].
-            std::vector<float> qkvz((size_t)T * kh * group_sz);
+            auto& qkvz = ws.qkvz;
+            qkvz.assign((size_t)T * kh * group_sz, 0.0f);
             linear_fwd(L.n1.data(), p.w.at(lb + "in_proj_qkv"),
                        qkvz.data(), T, H, kh * group_sz);
             L.lin_conv_in.resize((size_t)T * conv_dim);
-            for (int t = 0; t < T; ++t) {
-                const float* src = qkvz.data() + (size_t)t * kh * group_sz;
-                float* dst = L.lin_conv_in.data() + (size_t)t * conv_dim;
-                for (int g = 0; g < kh; ++g) {
-                    const float* gr = src + (size_t)g * group_sz;
-                    std::copy(gr, gr + kd, dst + (size_t)g * kd);
-                    std::copy(gr + kd, gr + 2 * kd,
-                              dst + key_dim + (size_t)g * kd);
-                    std::copy(gr + 2 * kd, gr + group_sz,
-                              dst + key_dim * 2 + (size_t)g * (vd * ratio));
+            parallel_for(T, [&](int64_t tb, int64_t te) {
+                for (int64_t t = tb; t < te; ++t) {
+                    const float* src =
+                        qkvz.data() + (size_t)t * kh * group_sz;
+                    float* dst = L.lin_conv_in.data() + (size_t)t * conv_dim;
+                    for (int g = 0; g < kh; ++g) {
+                        const float* gr = src + (size_t)g * group_sz;
+                        std::copy(gr, gr + kd, dst + (size_t)g * kd);
+                        std::copy(gr + kd, gr + 2 * kd,
+                                  dst + key_dim + (size_t)g * kd);
+                        std::copy(gr + 2 * kd, gr + group_sz,
+                                  dst + key_dim * 2 + (size_t)g * (vd * ratio));
+                    }
                 }
-            }
+            });
             L.lin_conv_pre.resize((size_t)T * conv_dim);
-            std::vector<float> conv_out((size_t)T * conv_dim);
+            auto& conv_out = ws.conv_out;
+            conv_out.assign((size_t)T * conv_dim, 0.0f);
             conv1d_causal_fwd(L.lin_conv_in.data(),
                               p.w.at(lb + "conv1d").d.data(), conv_out.data(),
                               L.lin_conv_pre.data(), T, conv_dim,
@@ -616,23 +644,29 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.lin_qn.resize((size_t)T * vh * kd);
             L.lin_kn.resize((size_t)T * vh * kd);
             L.lin_v.resize((size_t)T * vd * vh);
-            std::vector<float> qraw((size_t)T * vh * kd),
-                               kraw((size_t)T * vh * kd);
-            for (int t = 0; t < T; ++t) {
-                const float* cr = conv_out.data() + (size_t)t * conv_dim;
-                for (int g = 0; g < kh; ++g) {
-                    for (int r = 0; r < ratio; ++r) {
-                        int h = g * ratio + r;
-                        std::copy(cr + (size_t)g * kd, cr + (size_t)(g + 1) * kd,
-                                  qraw.data() + ((size_t)t * vh + h) * kd);
-                        std::copy(cr + key_dim + (size_t)g * kd,
-                                  cr + key_dim + (size_t)(g + 1) * kd,
-                                  kraw.data() + ((size_t)t * vh + h) * kd);
+            auto& qraw = ws.qraw;
+            auto& kraw = ws.kraw;
+            qraw.assign((size_t)T * vh * kd, 0.0f);
+            kraw.assign((size_t)T * vh * kd, 0.0f);
+            parallel_for(T, [&](int64_t tb, int64_t te) {
+                for (int64_t t = tb; t < te; ++t) {
+                    const float* cr =
+                        conv_out.data() + (size_t)t * conv_dim;
+                    for (int g = 0; g < kh; ++g) {
+                        for (int r = 0; r < ratio; ++r) {
+                            int h = g * ratio + r;
+                            std::copy(cr + (size_t)g * kd,
+                                      cr + (size_t)(g + 1) * kd,
+                                      qraw.data() + ((size_t)t * vh + h) * kd);
+                            std::copy(cr + key_dim + (size_t)g * kd,
+                                      cr + key_dim + (size_t)(g + 1) * kd,
+                                      kraw.data() + ((size_t)t * vh + h) * kd);
+                        }
                     }
+                    std::copy(cr + key_dim * 2, cr + conv_dim,
+                              L.lin_v.data() + (size_t)t * val_dim);
                 }
-                std::copy(cr + key_dim * 2, cr + conv_dim,
-                          L.lin_v.data() + (size_t)t * val_dim);
-            }
+            });
             L.lin_qrms.resize((size_t)T * vh); L.lin_krms.resize((size_t)T * vh);
             std::copy(qraw.begin(), qraw.end(), L.lin_qn.begin());
             std::copy(kraw.begin(), kraw.end(), L.lin_kn.begin());
@@ -652,23 +686,24 @@ static void fwd(const Params& p, const ModelConfig& c,
             const float* A_log = p.w.at(lb + "A_log").d.data();
             const float* dt_bias = p.w.at(lb + "dt_bias").d.data();
             L.lin_decay.resize((size_t)T * vh);
-            std::vector<float> beta((size_t)T * vh);
-            for (int t = 0; t < T; ++t)
-                for (int h = 0; h < vh; ++h) {
-                    float ar = L.lin_a_raw[(size_t)t * vh + h] + dt_bias[h];
-                    L.lin_a_raw[(size_t)t * vh + h] = ar;
-                    float g = -std::exp(A_log[h]) * softplus_f(ar);
-                    L.lin_decay[(size_t)t * vh + h] = std::exp(g);
-                    beta[(size_t)t * vh + h] =
-                        sigmoid_f(L.lin_b_raw[(size_t)t * vh + h]);
-                }
+            auto& beta = ws.beta;
+            beta.assign((size_t)T * vh, 0.0f);
+            tpu_elementwise((int64_t)T * vh, [&](int64_t i) {
+                const int h = (int)(i % vh);
+                const float ar = L.lin_a_raw[(size_t)i] + dt_bias[h];
+                L.lin_a_raw[(size_t)i] = ar;
+                const float g = -std::exp(A_log[h]) * softplus_f(ar);
+                L.lin_decay[(size_t)i] = std::exp(g);
+                beta[(size_t)i] = sigmoid_f(L.lin_b_raw[(size_t)i]);
+            });
             // recurrent scan (fp32 state, HF torch_recurrent_gated_delta_rule)
             // TPU lanes: heads are disjoint lanes; each step is expressed as
             // contiguous axpy/scale sweeps so SIMD tiles the state block.
             L.lin_S.assign((size_t)(T + 1) * vh * kd * vd, 0.0f);
             L.lin_o.resize((size_t)T * vh * vd);
             const size_t ssz = (size_t)kd * vd;
-            parallel_for(vh, [&](int64_t hb, int64_t he) {
+            parallel_for(vh, (int64_t)T * kd * vd,
+                         [&](int64_t hb, int64_t he) {
                 std::vector<float> u(vd), kvm(vd);
                 for (int64_t h = hb; h < he; ++h)
                 for (int t = 0; t < T; ++t) {
@@ -732,7 +767,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                         L.mla_ckv.data(), L.mla_ckv_rms.data(), T, rank,
                         c.rms_eps);
             const int qd = kn + kr;
-            std::vector<float> qf((size_t)T * c.heads * qd);
+            auto& qf = ws.qf;
+            qf.assign((size_t)T * c.heads * qd, 0.0f);
             if (qr > 0) {
                 L.mla_cq_raw.resize((size_t)T * qr);
                 linear_fwd(L.n1.data(), p.w.at(b + "w_dq"),
@@ -750,7 +786,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             }
             L.mla_qn.resize((size_t)T * c.heads * kn);
             L.mla_qr.resize((size_t)T * c.heads * kr);
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * qd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h)
                     for (int t = 0; t < T; ++t) {
                         const float* fr = qf.data() +
@@ -780,7 +817,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             const float scale = 1.0f / std::sqrt((float)qd);
             L.probs.assign((size_t)c.heads * T * T, 0.0f);
             L.attn_out.assign((size_t)T * c.heads * hd, 0.0f);
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * T * hd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h) {
                 // MLA scores split into nope+rope dots — two dot4 lanes
                 // summed keep the per-element order of the serial dots.
@@ -829,23 +867,26 @@ static void fwd(const Params& p, const ModelConfig& c,
             // ----- full attention (optional qk_norm / output gate /
             // partial rotary — all three gate Qwen3.5 parity) -----
             const int qmul = c.attn_output_gate ? 2 : 1;
-            std::vector<float> qfused;
+            auto& qfused = ws.qfused;
+            qfused.clear();
             if (c.attn_output_gate) {
                 qfused.resize((size_t)T * Hq * 2);
                 linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")),
                            qfused.data(), T, H, Hq * 2);
                 L.q.resize((size_t)T * Hq);
                 L.attn_gate.resize((size_t)T * Hq);
-                for (int t = 0; t < T; ++t)
-                    for (int h = 0; h < c.heads; ++h) {
-                        const float* fr = qfused.data() +
-                            ((size_t)t * c.heads + h) * (size_t)hd * 2;
-                        std::copy(fr, fr + hd,
-                                  L.q.data() + ((size_t)t * c.heads + h) * hd);
-                        std::copy(fr + hd, fr + 2 * hd,
-                                  L.attn_gate.data() +
-                                      ((size_t)t * c.heads + h) * hd);
-                    }
+                parallel_for(T, [&](int64_t tb, int64_t te) {
+                    for (int64_t t = tb; t < te; ++t)
+                        for (int h = 0; h < c.heads; ++h) {
+                            const float* fr = qfused.data() +
+                                ((size_t)t * c.heads + h) * (size_t)hd * 2;
+                            std::copy(fr, fr + hd,
+                                      L.q.data() + ((size_t)t * c.heads + h) * hd);
+                            std::copy(fr + hd, fr + 2 * hd,
+                                      L.attn_gate.data() +
+                                          ((size_t)t * c.heads + h) * hd);
+                        }
+                });
             } else {
                 L.q.resize((size_t)T * Hq);
                 linear_fwd(L.n1.data(), p.w.at(ln(l, "wq")),
@@ -926,34 +967,38 @@ static void fwd(const Params& p, const ModelConfig& c,
                     // from the mean latent (shared indexer K).
                     L.csa_ckr.assign((size_t)nc * kvh * hd, 0.0f);
                     L.csa_cv.assign((size_t)nc * kvh * hd, 0.0f);
-                    std::vector<float> cvec((size_t)csa_r * hd);
-                    for (int cc = 0; cc < nc; ++cc)
-                        for (int g = 0; g < kvh; ++g) {
-                            for (int j = 0; j < csa_r; ++j)
-                                std::copy(L.csa_kpre.data() +
-                                              ((size_t)(cc * csa_r + j) *
-                                                   kvh + g) * hd,
-                                          L.csa_kpre.data() +
-                                              ((size_t)(cc * csa_r + j) *
-                                                   kvh + g) * hd + hd,
-                                          cvec.data() + (size_t)j * hd);
-                            linear_fwd(cvec.data(), p.w.at(ln(l, "wck")),
-                                       L.csa_ckr.data() +
-                                           ((size_t)cc * kvh + g) * hd,
-                                       1, csa_r * hd, hd);
-                            for (int j = 0; j < csa_r; ++j)
-                                std::copy(L.v.data() +
-                                              ((size_t)(cc * csa_r + j) *
-                                                   kvh + g) * hd,
-                                          L.v.data() +
-                                              ((size_t)(cc * csa_r + j) *
-                                                   kvh + g) * hd + hd,
-                                          cvec.data() + (size_t)j * hd);
-                            linear_fwd(cvec.data(), p.w.at(ln(l, "wcv")),
-                                       L.csa_cv.data() +
-                                           ((size_t)cc * kvh + g) * hd,
-                                       1, csa_r * hd, hd);
-                        }
+                    // chunk lanes: each (cc,g) writes a disjoint ckr/cv
+                    // row; T=1 linear_fwd degrades to an inline o-loop.
+                    parallel_for(nc, [&](int64_t cb, int64_t ce) {
+                        std::vector<float> cvec((size_t)csa_r * hd);
+                        for (int64_t cc = cb; cc < ce; ++cc)
+                            for (int g = 0; g < kvh; ++g) {
+                                for (int j = 0; j < csa_r; ++j)
+                                    std::copy(L.csa_kpre.data() +
+                                                  ((size_t)(cc * csa_r + j) *
+                                                       kvh + g) * hd,
+                                              L.csa_kpre.data() +
+                                                  ((size_t)(cc * csa_r + j) *
+                                                       kvh + g) * hd + hd,
+                                              cvec.data() + (size_t)j * hd);
+                                linear_fwd(cvec.data(), p.w.at(ln(l, "wck")),
+                                           L.csa_ckr.data() +
+                                               ((size_t)cc * kvh + g) * hd,
+                                           1, csa_r * hd, hd);
+                                for (int j = 0; j < csa_r; ++j)
+                                    std::copy(L.v.data() +
+                                                  ((size_t)(cc * csa_r + j) *
+                                                       kvh + g) * hd,
+                                              L.v.data() +
+                                                  ((size_t)(cc * csa_r + j) *
+                                                       kvh + g) * hd + hd,
+                                              cvec.data() + (size_t)j * hd);
+                                linear_fwd(cvec.data(), p.w.at(ln(l, "wcv")),
+                                           L.csa_cv.data() +
+                                               ((size_t)cc * kvh + g) * hd,
+                                           1, csa_r * hd, hd);
+                            }
+                    });
                     const float thc = c.csa_rope_theta > 0.0f
                                           ? c.csa_rope_theta : c.rope_theta;
                     L.csa_ck = L.csa_ckr;
@@ -964,18 +1009,20 @@ static void fwd(const Params& p, const ModelConfig& c,
                         rope(L.csa_ck.data(), nc, kvh, hd, thc, false);
                     if (c.csa_indexer) {
                         L.csa_ik.assign((size_t)nc * hd, 0.0f);
-                        std::vector<float> mk((size_t)hd);
-                        for (int cc = 0; cc < nc; ++cc) {
-                            std::fill(mk.begin(), mk.end(), 0.0f);
-                            for (int g = 0; g < kvh; ++g)
-                                tpu_axpy(mk.data(), 1.0f / (float)kvh,
-                                         L.csa_ckr.data() +
-                                             ((size_t)cc * kvh + g) * hd,
-                                         hd);
-                            linear_fwd(mk.data(), p.w.at(ln(l, "wik")),
-                                       L.csa_ik.data() + (size_t)cc * hd,
-                                       1, hd, hd);
-                        }
+                        parallel_for(nc, [&](int64_t cb, int64_t ce) {
+                            std::vector<float> mk((size_t)hd);
+                            for (int64_t cc = cb; cc < ce; ++cc) {
+                                std::fill(mk.begin(), mk.end(), 0.0f);
+                                for (int g = 0; g < kvh; ++g)
+                                    tpu_axpy(mk.data(), 1.0f / (float)kvh,
+                                             L.csa_ckr.data() +
+                                                 ((size_t)cc * kvh + g) * hd,
+                                             hd);
+                                linear_fwd(mk.data(), p.w.at(ln(l, "wik")),
+                                           L.csa_ik.data() + (size_t)cc * hd,
+                                           1, hd, hd);
+                            }
+                        });
                     }
                     // producer bwd scratch (consumers accumulate here)
                     L.csa_dck.assign((size_t)nc * kvh * hd, 0.0f);
@@ -1001,56 +1048,64 @@ static void fwd(const Params& p, const ModelConfig& c,
                     if (c.csa_indexer && c.csa_indexer_w > 0.0f)
                         L.csa_msc.assign((size_t)T * c.heads * nc, 0.0f);
                     L.csa_ncand.assign((size_t)T, 0);
-                    for (int t = 0; t < T; ++t) {
-                        // candidates: chunks fully inside the causal past
-                        // whose start lies before the raw window start —
-                        // no coverage gap except a bounded (r-1)-token
-                        // seam, no double coverage above the window edge.
-                        const int s0 = std::max(0, t - win + 1);
-                        int cn = 0;
-                        for (int cc = 0; cc < nc; ++cc)
-                            if (cc * csa_r < s0 &&
-                                (cc + 1) * csa_r <= t + 1)
-                                ++cn;
-                        L.csa_ncand[(size_t)t] = cn;
-                        if (cn <= 0) continue;
-                        if (!c.csa_indexer) {
-                            // recency top-K: the last min(K,cn) candidates
-                            int n = 0;
-                            for (int cc = cn - 1; cc >= 0 && n < csa_K;
-                                 --cc, ++n)
-                                L.csa_sel[(size_t)t * csa_K + n] = cc;
-                            L.csa_nsel[(size_t)t] = n;
-                        } else {
-                            const float* iqr =
-                                L.csa_iq.data() + (size_t)t * hd;
-                            float* isc = L.csa_isc.data() + (size_t)t * nc;
-                            const float* ikp = csa_prod->csa_ik.data();
-                            for (int cc = 0; cc < cn; ++cc)
-                                isc[cc] = tpu_dot(iqr,
-                                                  ikp + (size_t)cc * hd,
-                                                  hd);
-                            // top-K over candidates (selection sort; nc
-                            // is small at trainer scale)
-                            const int n = std::min(csa_K, cn);
-                            std::vector<int> idx((size_t)cn);
-                            for (int i = 0; i < cn; ++i)
-                                idx[(size_t)i] = i;
-                            for (int i = 0; i < n; ++i) {
-                                int bj = i;
-                                for (int j = i + 1; j < cn; ++j)
-                                    if (isc[(size_t)idx[(size_t)j]] >
-                                        isc[(size_t)idx[(size_t)bj]])
-                                        bj = j;
-                                std::swap(idx[(size_t)i],
-                                          idx[(size_t)bj]);
+                    // token lanes: csa_sel/csa_nsel/csa_isc rows and
+                    // ncand slots are disjoint per t; selection order is
+                    // unchanged within each row.
+                    parallel_for(T, [&](int64_t tb, int64_t te) {
+                        for (int64_t t = tb; t < te; ++t) {
+                            // candidates: chunks fully inside the causal
+                            // past whose start lies before the raw window
+                            // start — no coverage gap except a bounded
+                            // (r-1)-token seam, no double coverage above
+                            // the window edge.
+                            const int s0 = std::max(0, (int)t - win + 1);
+                            int cn = 0;
+                            for (int cc = 0; cc < nc; ++cc)
+                                if (cc * csa_r < s0 &&
+                                    (cc + 1) * csa_r <= t + 1)
+                                    ++cn;
+                            L.csa_ncand[(size_t)t] = cn;
+                            if (cn <= 0) continue;
+                            if (!c.csa_indexer) {
+                                // recency top-K: the last min(K,cn)
+                                // candidates
+                                int n = 0;
+                                for (int cc = cn - 1; cc >= 0 && n < csa_K;
+                                     --cc, ++n)
+                                    L.csa_sel[(size_t)t * csa_K + n] = cc;
+                                L.csa_nsel[(size_t)t] = n;
+                            } else {
+                                const float* iqr =
+                                    L.csa_iq.data() + (size_t)t * hd;
+                                float* isc =
+                                    L.csa_isc.data() + (size_t)t * nc;
+                                const float* ikp = csa_prod->csa_ik.data();
+                                for (int cc = 0; cc < cn; ++cc)
+                                    isc[cc] = tpu_dot(iqr,
+                                                      ikp + (size_t)cc * hd,
+                                                      hd);
+                                // top-K over candidates (selection sort;
+                                // nc is small at trainer scale)
+                                const int n = std::min(csa_K, cn);
+                                std::vector<int> idx((size_t)cn);
+                                for (int i = 0; i < cn; ++i)
+                                    idx[(size_t)i] = i;
+                                for (int i = 0; i < n; ++i) {
+                                    int bj = i;
+                                    for (int j = i + 1; j < cn; ++j)
+                                        if (isc[(size_t)idx[(size_t)j]] >
+                                            isc[(size_t)idx[(size_t)bj]])
+                                            bj = j;
+                                    std::swap(idx[(size_t)i],
+                                              idx[(size_t)bj]);
+                                }
+                                for (int i = 0; i < n; ++i)
+                                    L.csa_sel[(size_t)t * csa_K + i] =
+                                        idx[(size_t)i];
+                                L.csa_nsel[(size_t)t] = n;
                             }
-                            for (int i = 0; i < n; ++i)
-                                L.csa_sel[(size_t)t * csa_K + i] =
-                                    idx[(size_t)i];
-                            L.csa_nsel[(size_t)t] = n;
                         }
-                    }
+                    });
                 }
                 L.csa_cp.assign((size_t)T * c.heads * csa_K, 0.0f);
             }
@@ -1060,7 +1115,8 @@ static void fwd(const Params& p, const ModelConfig& c,
             // TPU lanes: heads are disjoint lanes (probs per-h slice,
             // attn_out per-h column slice); per-element order unchanged.
             if (crole < 0 || nc == 0) {
-                parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+                parallel_for(c.heads, (int64_t)T * T * hd,
+                             [&](int64_t hb, int64_t he) {
                     for (int64_t h = hb; h < he; ++h) {
                         const int kh2 = (int)h / group;
                         tpu_attn_fwd(
@@ -1082,7 +1138,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     }
                 });
             } else
-            parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+            parallel_for(c.heads, (int64_t)T * T * hd,
+                         [&](int64_t hb, int64_t he) {
                 for (int64_t h = hb; h < he; ++h) {
                 int kh2 = (int)h / group;
                 for (int t = 0; t < T; ++t) {
@@ -1217,46 +1274,55 @@ static void fwd(const Params& p, const ModelConfig& c,
             L.gate_probs.resize((size_t)T * E);
             L.moe_idx.resize((size_t)T * K); L.moe_w.resize((size_t)T * K);
             L.mfa.resize((size_t)T * K); L.mfb.resize((size_t)T * K); L.mfh.resize((size_t)T * K);
-            std::vector<float> moe_cnt((size_t)E, 0.0f);  // top-k assignments per expert
-            for (int t = 0; t < T; ++t) {
-                const float* gl = L.gate_logits.data() + (size_t)t * E;
-                float* gp = L.gate_probs.data() + (size_t)t * E;
-                if (c.moe_router_sigmoid) {
-                    // v28 fused scoring (Qwen3.5): per-expert sigmoid —
-                    // no shared denominator, so scores stay scale-robust
-                    // under many fine-grained experts. The deterministic
-                    // top-k + renorm below is unchanged.
-                    for (int e = 0; e < E; ++e) gp[e] = sigmoid_f(gl[e]);
-                } else {
-                    float mx = *std::max_element(gl, gl + E), sum = 0.0f;
-                    for (int e = 0; e < E; ++e) { gp[e] = std::exp(gl[e] - mx); sum += gp[e]; }
-                    for (int e = 0; e < E; ++e) gp[e] /= sum;
-                }
-                std::vector<int> idx(E);
-                std::iota(idx.begin(), idx.end(), 0);
-                // DeepSeek aux-free balance: selection ranks s+b (bias is
-                // routing-time only); weights still come from s itself.
+            auto& moe_cnt = ws.moe_cnt;
+            moe_cnt.assign((size_t)E, 0.0f);  // top-k assignments per expert
+            // Token lanes: gate_probs/moe_idx/moe_w rows are disjoint per
+            // t; the deterministic top-K order is unchanged within a row.
+            parallel_for(T, [&](int64_t tb, int64_t te) {
+                std::vector<int> idx((size_t)E);
                 const float* lbb = c.moe_auxfree_balance
                     ? p.w.at(ln(l, "lb_bias")).d.data() : nullptr;
-                std::partial_sort(idx.begin(), idx.begin() + K, idx.end(),
-                                  [&](int a, int b) {
-                                      // Deterministic tie-break mirrors the
-                                      // inference engine (stable_sort, ties
-                                      // keep lower expert index first).
-                                      float sa = gp[a], sb = gp[b];
-                                      if (lbb) { sa += lbb[a]; sb += lbb[b]; }
-                                      if (sa != sb) return sa > sb;
-                                      return a < b;
-                                  });
-                float wsum = 0.0f;
-                for (int s = 0; s < K; ++s) wsum += gp[idx[s]];
-                for (int s = 0; s < K; ++s) {
-                    int e = idx[s];
-                    L.moe_idx[(size_t)t * K + s] = e;
-                    L.moe_w[(size_t)t * K + s] = gp[e] / wsum;
-                    ++moe_cnt[(size_t)e];
+                for (int64_t t = tb; t < te; ++t) {
+                    const float* gl = L.gate_logits.data() + (size_t)t * E;
+                    float* gp = L.gate_probs.data() + (size_t)t * E;
+                    if (c.moe_router_sigmoid) {
+                        // v28 fused scoring (Qwen3.5): per-expert sigmoid —
+                        // no shared denominator, so scores stay
+                        // scale-robust under many fine-grained experts.
+                        // The deterministic top-k + renorm below is
+                        // unchanged.
+                        for (int e = 0; e < E; ++e) gp[e] = sigmoid_f(gl[e]);
+                    } else {
+                        float mx = *std::max_element(gl, gl + E), sum = 0.0f;
+                        for (int e = 0; e < E; ++e) { gp[e] = std::exp(gl[e] - mx); sum += gp[e]; }
+                        for (int e = 0; e < E; ++e) gp[e] /= sum;
+                    }
+                    std::iota(idx.begin(), idx.end(), 0);
+                    // DeepSeek aux-free balance: selection ranks s+b (bias
+                    // is routing-time only); weights still come from s
+                    // itself.
+                    std::partial_sort(idx.begin(), idx.begin() + K,
+                                      idx.end(),
+                                      [&](int a, int b) {
+                                          // Deterministic tie-break
+                                          // mirrors the inference engine
+                                          // (stable_sort, ties keep lower
+                                          // expert index first).
+                                          float sa = gp[a], sb = gp[b];
+                                          if (lbb) { sa += lbb[a]; sb += lbb[b]; }
+                                          if (sa != sb) return sa > sb;
+                                          return a < b;
+                                      });
+                    float wsum = 0.0f;
+                    for (int s = 0; s < K; ++s) wsum += gp[idx[(size_t)s]];
+                    for (int s = 0; s < K; ++s) {
+                        int e = idx[(size_t)s];
+                        L.moe_idx[(size_t)t * K + s] = e;
+                        L.moe_w[(size_t)t * K + s] = gp[e] / wsum;
+                    }
                 }
-            }
+            });
+            for (int e_slot : L.moe_idx) ++moe_cnt[(size_t)e_slot];
             // Grouped expert forward: tokens sharing an expert run as one
             // GEMM (T_e rows) instead of K matvecs per token — the expert
             // weights are read once per layer instead of once per pair.
@@ -1264,11 +1330,14 @@ static void fwd(const Params& p, const ModelConfig& c,
             // per-row dots are identical, and the weighted sum lands in
             // slot order — bitwise identical to the per-pair path.
             {
-                std::vector<std::vector<int>> slots((size_t)E);
+                auto& slots = ws.slots;
+                slots.assign((size_t)E, std::vector<int>());
                 for (size_t a = 0; a < L.moe_idx.size(); ++a)
                     slots[(size_t)L.moe_idx[a]].push_back((int)a);
-                std::vector<float> eos((size_t)T * K * H);
-                std::vector<float> X, FA, FB, Fh, EO;
+                auto& eos = ws.eos;
+                eos.assign((size_t)T * K * H, 0.0f);
+                auto& X = ws.X; auto& FA = ws.FA; auto& FB = ws.FB;
+                auto& Fh = ws.Fh; auto& EO = ws.EO;
                 for (int e = 0; e < E; ++e) {
                     auto& sl = slots[(size_t)e];
                     const int Te = (int)sl.size();
@@ -1312,13 +1381,18 @@ static void fwd(const Params& p, const ModelConfig& c,
                     }
                 }
                 // Weighted sum lands in slot order (t, s) — the same
-                // accumulation order as the per-pair path.
-                for (int slot = 0; slot < T * K; ++slot) {
-                    float* pr = proj.data() + (size_t)(slot / K) * H;
-                    const float* er = eos.data() + (size_t)slot * H;
-                    const float wgt = L.moe_w[(size_t)slot];
-                    for (int i = 0; i < H; ++i) pr[i] += wgt * er[i];
-                }
+                // accumulation order as the per-pair path. Token lanes:
+                // each pr row receives its K adds in s-ascending order.
+                parallel_for(T, [&](int64_t tb, int64_t te) {
+                    for (int64_t t = tb; t < te; ++t) {
+                        float* pr = proj.data() + (size_t)t * H;
+                        for (int s = 0; s < K; ++s) {
+                            const size_t slot = (size_t)t * K + s;
+                            tpu_axpy(pr, L.moe_w[slot],
+                                     eos.data() + slot * H, H);
+                        }
+                    }
+                });
             }
             // Shared experts (v26): always-on SwiGLU, weight 1.0 — mirrors
             // the engine's `output + shared(x)` residual contribution.
@@ -1327,11 +1401,14 @@ static void fwd(const Params& p, const ModelConfig& c,
             const int SI = c.shared_inter();
             if (c.shared_expert_gate && c.moe_shared_experts > 0) {
                 L.shared_gate_sig.resize((size_t)T);
-                std::vector<float> sg((size_t)T);
+                auto& sg = ws.sg;
+                sg.assign((size_t)T, 0.0f);
                 linear_fwd(L.n2.data(), p.w.at(ln(l, "shared_gate")),
                            sg.data(), T, H, 1);
-                for (int t = 0; t < T; ++t)
-                    L.shared_gate_sig[(size_t)t] = sigmoid_f(sg[(size_t)t]);
+                tpu_elementwise(T, [&](int64_t t) {
+                    L.shared_gate_sig[(size_t)t] =
+                        sigmoid_f(sg[(size_t)t]);
+                });
             }
             L.sfa.resize((size_t)c.moe_shared_experts);
             L.sfb.resize((size_t)c.moe_shared_experts);
@@ -1349,7 +1426,8 @@ static void fwd(const Params& p, const ModelConfig& c,
                     fh[(size_t)i] = gate_act_f(fa[(size_t)i], c.ffn_act) *
                                     fb[(size_t)i];
                 });
-                std::vector<float> so((size_t)T * H);
+                auto& so = ws.so;
+                so.assign((size_t)T * H, 0.0f);
                 linear_fwd(fh.data(), p.w.at(b + "w2"), so.data(), T, SI, H);
                 if (L.shared_gate_sig.empty())
                     tpu_elementwise((int64_t)so.size(), [&](int64_t i) {
@@ -1372,14 +1450,22 @@ static void fwd(const Params& p, const ModelConfig& c,
             // DeepSeek aux-free mode skips it: load shaping comes from the
             // lb_bias ranking offset, not a loss term.
             if (!c.moe_auxfree_balance) {
+                // Expert lanes compute P_i; the scalar lb_dot fold stays
+                // e-ascending — bitwise identical to the serial loop.
+                auto& p_i = ws.p_i;
+                p_i.assign((size_t)E, 0.0f);
+                parallel_for(E, (int64_t)T, [&](int64_t b, int64_t e) {
+                    for (int64_t e2 = b; e2 < e; ++e2) {
+                        float s = 0.0f;
+                        for (int t = 0; t < T; ++t)
+                            s += L.gate_probs[(size_t)t * E + e2];
+                        p_i[(size_t)e2] = s / (float)T;
+                    }
+                });
                 float lb_dot = 0.0f;
-                for (int e = 0; e < E; ++e) {
-                    float p_i = 0.0f;
-                    for (int t = 0; t < T; ++t)
-                        p_i += L.gate_probs[(size_t)t * E + e];
-                    p_i /= (float)T;
-                    lb_dot += (moe_cnt[(size_t)e] / (float)(T * K)) * p_i;
-                }
+                for (int e = 0; e < E; ++e)
+                    lb_dot += (moe_cnt[(size_t)e] / (float)(T * K)) *
+                              p_i[(size_t)e];
                 o.moe_aux += c.moe_aux_w * (float)E * lb_dot;
             }
             // Router z-loss (B133): w·mean_t lse(gate_logits_t)² — penalizes
@@ -1388,14 +1474,21 @@ static void fwd(const Params& p, const ModelConfig& c,
             // bwd: dz/dlogit_e = 2·w·lse_t·softmax_e/T (softmax over the raw
             // logits regardless of the v28 sigmoid scoring mode).
             if (c.moe_zloss_w > 0.0f) {
+                auto& zc = ws.zc;
+                zc.assign((size_t)T, 0.0f);
+                parallel_for(T, [&](int64_t b, int64_t e) {
+                    for (int64_t t = b; t < e; ++t) {
+                        const float* gl =
+                            L.gate_logits.data() + (size_t)t * E;
+                        float mx = *std::max_element(gl, gl + E), s = 0.0f;
+                        for (int e2 = 0; e2 < E; ++e2)
+                            s += std::exp(gl[e2] - mx);
+                        const float lse = mx + std::log(s);
+                        zc[(size_t)t] = lse * lse;
+                    }
+                });
                 float zsum = 0.0f;
-                for (int t = 0; t < T; ++t) {
-                    const float* gl = L.gate_logits.data() + (size_t)t * E;
-                    float mx = *std::max_element(gl, gl + E), s = 0.0f;
-                    for (int e = 0; e < E; ++e) s += std::exp(gl[e] - mx);
-                    float lse = mx + std::log(s);
-                    zsum += lse * lse;
-                }
+                for (int t = 0; t < T; ++t) zsum += zc[(size_t)t];
                 o.moe_zloss += c.moe_zloss_w * zsum / (float)std::max(1, T);
             }
         }
@@ -1458,26 +1551,31 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     M.nh_src.resize((size_t)PT * H); M.nh_rms.resize((size_t)PT);
     M.ne_src.assign((size_t)PT * H, 0.0f); M.ne_rms.resize((size_t)PT);
     M.ne_ids.assign((size_t)PT, -1);
-    for (int i = 0; i < PT; ++i) {
-        M.lab[(size_t)i] = i + 2 < PT ? ids[(size_t)i + 2] : -100;
-        std::copy(o.hidden.data() + (size_t)(P + i) * H,
-                  o.hidden.data() + (size_t)(P + i + 1) * H,
-                  M.nh_src.data() + (size_t)i * H);
-        rmsnorm_fwd(M.nh_src.data() + (size_t)i * H,
-                    p.w.at("mtp.norm_h").d.data(),
-                    M.cin.data() + (size_t)i * 2 * H,
-                    M.nh_rms.data() + i, 1, H, c.rms_eps);
-        if (i + 1 < PT) {
-            int nid = ids[(size_t)i + 1];
-            M.ne_ids[(size_t)i] = nid;
-            const float* er = p.w.at("embed").d.data() + (size_t)nid * H;
-            std::copy(er, er + H, M.ne_src.data() + (size_t)i * H);
+    // Row lanes: lab/nh_src/ne_src/cin rows and rms slots are disjoint
+    // per i; T=1 rmsnorm_fwd calls degrade to inline lanes.
+    parallel_for(PT, [&](int64_t b, int64_t e) {
+        for (int64_t i = b; i < e; ++i) {
+            M.lab[(size_t)i] = i + 2 < PT ? ids[(size_t)i + 2] : -100;
+            std::copy(o.hidden.data() + (size_t)(P + i) * H,
+                      o.hidden.data() + (size_t)(P + i + 1) * H,
+                      M.nh_src.data() + (size_t)i * H);
+            rmsnorm_fwd(M.nh_src.data() + (size_t)i * H,
+                        p.w.at("mtp.norm_h").d.data(),
+                        M.cin.data() + (size_t)i * 2 * H,
+                        M.nh_rms.data() + i, 1, H, c.rms_eps);
+            if (i + 1 < PT) {
+                int nid = ids[(size_t)i + 1];
+                M.ne_ids[(size_t)i] = nid;
+                const float* er =
+                    p.w.at("embed").d.data() + (size_t)nid * H;
+                std::copy(er, er + H, M.ne_src.data() + (size_t)i * H);
+            }
+            rmsnorm_fwd(M.ne_src.data() + (size_t)i * H,
+                        p.w.at("mtp.norm_e").d.data(),
+                        M.cin.data() + (size_t)i * 2 * H + H,
+                        M.ne_rms.data() + i, 1, H, c.rms_eps);
         }
-        rmsnorm_fwd(M.ne_src.data() + (size_t)i * H,
-                    p.w.at("mtp.norm_e").d.data(),
-                    M.cin.data() + (size_t)i * 2 * H + H,
-                    M.ne_rms.data() + i, 1, H, c.rms_eps);
-    }
+    });
     M.z.resize((size_t)PT * H);
     linear_fwd(M.cin.data(), p.w.at("mtp.w_proj"), M.z.data(), PT, 2 * H, H);
     L.x_in = M.z;
@@ -1495,7 +1593,8 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     const float scale = 1.0f / std::sqrt((float)hd);
     L.probs.assign((size_t)c.heads * PT * PT, 0.0f);
     L.attn_out.assign((size_t)PT * Hq, 0.0f);
-    parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+    parallel_for(c.heads, (int64_t)PT * PT * hd,
+                 [&](int64_t hb, int64_t he) {
         for (int64_t h = hb; h < he; ++h) {
             const int kh2 = (int)h / group;
             tpu_attn_fwd(
@@ -1513,7 +1612,9 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
                 });
         }
     });
-    std::vector<float> proj((size_t)PT * H);
+    static thread_local FwdWs ws;
+    auto& proj = ws.proj;
+    proj.assign((size_t)PT * H, 0.0f);
     linear_fwd(L.attn_out.data(), p.w.at("mtp.wo"), proj.data(), PT, Hq, H);
     L.x_res.resize((size_t)PT * H);
     tpu_elementwise((int64_t)L.x_res.size(), [&](int64_t i) {
@@ -1542,7 +1643,8 @@ static void mtp_fwd(const Params& p, const ModelConfig& c,
     M.logits.resize((size_t)PT * c.vocab);
     linear_fwd(M.out.data(), p.w.at("lm_head"), M.logits.data(), PT, H,
                c.vocab);
-    std::vector<float> dtmp;
+    auto& dtmp = ws.dtmp;
+    dtmp.clear();
     M.loss = c.mtp_loss_weight *
              ce_loss(M.logits, M.lab, PT, c.vocab, dtmp);
 }

@@ -78,7 +78,10 @@ fn monitor_loop() {
     let mut pending_restart_at: Option<Instant> = None;
     let mut next_attached_probe = Instant::now();
     loop {
-        std::thread::sleep(Duration::from_millis(200));
+        // 500 ms tick: restart dispatch delays are ≥2 s and attached
+        // probes run on the 10 s contract interval — a 200 ms tick only
+        // burned idle wakeups.
+        std::thread::sleep(Duration::from_millis(500));
 
         // Fire a pending auto-restart.
         if let Some(at) = pending_restart_at {
@@ -151,8 +154,9 @@ fn monitor_loop() {
         if s.ready_at.is_none() {
             continue;
         }
-        // Attached-mode probes run on the 10s contract interval — the 200ms
-        // tick only keeps child reaping and restart dispatch responsive.
+        // Attached-mode probes run on the 10s contract interval — the
+        // 500 ms tick only keeps child reaping and restart dispatch
+        // responsive.
         if Instant::now() < next_attached_probe {
             continue;
         }

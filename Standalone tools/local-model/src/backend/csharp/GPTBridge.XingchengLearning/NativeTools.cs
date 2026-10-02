@@ -50,6 +50,22 @@ internal static class NativeTools
         return path;
     }
 
+    /// <summary>Rust data/safety lane exe (xstore/xcorpus) under
+    /// src/backend/rust/&lt;name&gt;/target/release. These are optional
+    /// deployments — the resolver returns "" when the crate is not
+    /// built so the caller decides whether absence is fatal.</summary>
+    public static string RustExe(string toolRoot, string name)
+    {
+        string path = Path.Combine(toolRoot, "src", "backend", "rust",
+            name, "target", "release", $"{name}.exe");
+        return File.Exists(path) ? path : "";
+    }
+
+    /// <summary>Content-addressed artifact store dir owned by the Rust
+    /// lane (xstore objects + receipts + audit chain).</summary>
+    public static string ArtifactStoreDir(string toolRoot)
+        => Path.Combine(toolRoot, "xingcheng", "runtime", "store");
+
     public sealed class RunResult
     {
         public int ExitCode;

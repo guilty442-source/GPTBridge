@@ -5,9 +5,9 @@
 // ---------------------------------------------------- MTP module (v29) --
 //
 // Qwen3-Next/Max multi-token prediction: each depth-d module fuses the
-// previous hidden stream with the next token's embedding ??//   u[t] = W_proj 繚 [ rms(h_{d-1}[t]) ; rms(embed[ids[t+d+1]]) ]   (2H ??H)
+// previous hidden stream with the next token's embedding ??//   u[t] = W_proj ??[ rms(h_{d-1}[t]) ; rms(embed[ids[t+d+1]]) ]   (2H ??H)
 //   h_d  = decoder_block(u)   (causal GQA + RoPE + SwiGLU, c.inter)
-//   logits_d[t] = lm_head 繚 rms(h_d[t])         predicts ids[t+d+2]
+//   logits_d[t] = lm_head ??rms(h_d[t])         predicts ids[t+d+2]
 // h_0 = trunk hidden (post final norm), text rows only ??vision prefix
 // rows never enter the MTP stack. lm_head and embed are shared with the
 // trunk. Rows per depth: R_d = PT-2-d. The aux CE densifies supervision
@@ -15,8 +15,13 @@
 
 static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o) {
-    o.mtp_stack.clear();
-    if (c.mtp_depth <= 0) return;
+    if (c.mtp_depth <= 0) { o.mtp_stack.clear(); return; }
+    // Depth slots persist across calls like the layer caches: each field
+    // is fully rewritten by resize/assign below before any read, so the
+    // retained capacity just skips realloc + first-touch churn. Sizing
+    // once up front also keeps the per-depth references stable ??no
+    // mid-loop reallocation can move an element a live ref points into.
+    o.mtp_stack.resize((size_t)c.mtp_depth);
     const int PT = (int)ids.size();
     const int P = o.vision_patches;
     const int H = c.hidden, hd = H / c.heads;
@@ -25,10 +30,21 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
     const int group = c.heads / kvh;
     const int rd = c.rotary_dim();
     const float scale = 1.0f / std::sqrt((float)hd);
+    // Fwd temporaries: hoisted out of the depth loop so capacity is kept
+    // across depths within a call. NOTE: these must NOT be thread_local ??
+    // several grouped static thread_local vectors in this function were
+    // observed to crash nondeterministically inside the depth loop.
+    std::vector<float> ehn, een, aproj, fproj;
     for (int d = 0; d < c.mtp_depth; ++d) {
-        MtpStackCache M;
+        MtpStackCache& M = o.mtp_stack[(size_t)d];
         const int R = PT - 2 - d;
-        if (R <= 0) { o.mtp_stack.push_back(std::move(M)); break; }
+        if (R <= 0) {
+            // Mark this and every deeper slot empty ??readers all gate
+            // on rows<=0, matching the old truncated-stack semantics.
+            for (int e = d; e < c.mtp_depth; ++e)
+                o.mtp_stack[(size_t)e].rows = 0;
+            break;
+        }
         M.rows = R;
         const std::string b = "mtp." + std::to_string(d) + ".";
         // prev stream: d=0 reads trunk hidden at row P+t (text positions);
@@ -46,7 +62,8 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
             std::copy(er, er + H, M.ee_in.data() + (size_t)t * H);
         }
         M.eh_rms.resize(R); M.ee_rms.resize(R);
-        std::vector<float> ehn((size_t)R * H), een((size_t)R * H);
+        ehn.assign((size_t)R * H, 0.0f);
+        een.assign((size_t)R * H, 0.0f);
         rmsnorm_fwd(M.eh_in.data(), p.w.at(b + "eh").d.data(),
                     ehn.data(), M.eh_rms.data(), R, H, c.rms_eps);
         rmsnorm_fwd(M.ee_in.data(), p.w.at(b + "et").d.data(),
@@ -83,7 +100,8 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
         }
         M.probs.assign((size_t)c.heads * R * R, 0.0f);
         M.attn_out.assign((size_t)R * Hq, 0.0f);
-        parallel_for(c.heads, [&](int64_t hb, int64_t he) {
+        parallel_for(c.heads, (int64_t)R * R * hd,
+                     [&](int64_t hb, int64_t he) {
             for (int64_t h = hb; h < he; ++h) {
                 int kh2 = (int)h / group;
                 for (int t = 0; t < R; ++t) {
@@ -113,7 +131,7 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
                 }
             }
         });
-        std::vector<float> aproj((size_t)R * H);
+        aproj.assign((size_t)R * H, 0.0f);
         linear_fwd(M.attn_out.data(), p.w.at(b + "wo"), aproj.data(),
                    R, Hq, H);
         M.x1.resize((size_t)R * H);
@@ -131,7 +149,7 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
             M.fh[(size_t)i] = gate_act_f(M.fa[(size_t)i], c.ffn_act) *
                               M.fb[(size_t)i];
         });
-        std::vector<float> fproj((size_t)R * H);
+        fproj.assign((size_t)R * H, 0.0f);
         linear_fwd(M.fh.data(), p.w.at(b + "w2"), fproj.data(),
                    R, c.inter, H);
         M.x2.resize((size_t)R * H);
@@ -145,7 +163,6 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
         M.logits.resize((size_t)R * c.vocab);
         linear_fwd(M.hn.data(), p.w.at("lm_head"), M.logits.data(),
                    R, H, c.vocab);
-        o.mtp_stack.push_back(std::move(M));
     }
 }
 
@@ -155,7 +172,7 @@ static void mtp_stack_fwd(const Params& p, const ModelConfig& c,
 static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                     const std::vector<int>& ids, Fwd& o,
                     const std::vector<std::vector<float>>& dm,
-                    float* dh_main) {
+                    float* dh_main, BwdWs& ws) {
     const int H = c.hidden, hd = H / c.heads;
     const int Hq = c.heads * hd;
     const int kvh = std::max(1, c.kv_heads), Hkv = kvh * hd;
@@ -163,17 +180,20 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
     const int rd = c.rotary_dim();
     const float scale = 1.0f / std::sqrt((float)hd);
     const int P = o.vision_patches;
-    std::vector<float> carry;   // d x2 of module d (for its eh input)
+    auto& carry = ws.carry;   // d x2 of module d (for its eh input)
+    carry.clear();
     for (int d = (int)dm.size() - 1; d >= 0; --d) {
         MtpStackCache& M = o.mtp_stack[(size_t)d];
         const int R = M.rows;
         if (R <= 0 || d >= (int)o.mtp_stack.size()) continue;
         const std::string b = "mtp." + std::to_string(d) + ".";
-        // head: logits = lm_head 繚 norm_o(x2)
-        std::vector<float> dhn((size_t)R * H, 0.0f);
+        // head: logits = lm_head ??norm_o(x2)
+        auto& dhn = ws.dhn;
+        dhn.assign((size_t)R * H, 0.0f);
         linear_bwd(dm[(size_t)d].data(), M.hn.data(), p.w.at("lm_head"),
                    dhn.data(), p.dw("lm_head"), R, H, c.vocab);
-        std::vector<float> dx2((size_t)R * H, 0.0f);
+        auto& dx2 = ws.dx2;
+        dx2.assign((size_t)R * H, 0.0f);
         rmsnorm_bwd(dhn.data(), M.x2.data(),
                     p.w.at(b + "norm_o").d.data(), M.hrms.data(),
                     dx2.data(), p.dw(b + "norm_o"), R, H);
@@ -181,41 +201,58 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         if (!carry.empty())
             for (size_t i = 0; i < carry.size(); ++i) dx2[i] += carry[i];
         carry.clear();
-        // ffn: x2 = x1 + w2繚(act(fa)?b)
-        std::vector<float> dx1 = dx2;                    // residual
-        std::vector<float> dfh((size_t)R * c.inter, 0.0f);
+        // ffn: x2 = x1 + w2??act(fa)???)
+        auto& dx1 = ws.dx1;
+        dx1 = dx2;                                     // residual
+        auto& dfh = ws.dfh;
+        dfh.assign((size_t)R * c.inter, 0.0f);
         linear_bwd(dx2.data(), M.fh.data(), p.w.at(b + "w2"),
                    dfh.data(), p.dw(b + "w2"), R, c.inter, H);
-        std::vector<float> dfa((size_t)R * c.inter, 0.0f),
-                           dfb((size_t)R * c.inter, 0.0f);
+        auto& dfa = ws.dfa;
+        auto& dfb = ws.dfb;
+        dfa.assign((size_t)R * c.inter, 0.0f);
+        dfb.assign((size_t)R * c.inter, 0.0f);
         tpu_elementwise((int64_t)M.fh.size(), [&](int64_t i) {
             float a = M.fa[(size_t)i], bb = M.fb[(size_t)i],
                   dd = dfh[(size_t)i];
             dfa[(size_t)i] += dd * bb * gate_act_df(a, c.ffn_act);
             dfb[(size_t)i] += dd * gate_act_f(a, c.ffn_act);
         });
-        std::vector<float> dn2((size_t)R * H, 0.0f);
+        auto& dn2 = ws.dn2;
+        dn2.assign((size_t)R * H, 0.0f);
         linear_bwd(dfa.data(), M.n2.data(), p.w.at(b + "w1"),
                    dn2.data(), p.dw(b + "w1"), R, H, c.inter);
         linear_bwd(dfb.data(), M.n2.data(), p.w.at(b + "w3"),
                    dn2.data(), p.dw(b + "w3"), R, H, c.inter);
-        std::vector<float> dx1n((size_t)R * H, 0.0f);
+        auto& dx1n = ws.dx1n;
+        dx1n.assign((size_t)R * H, 0.0f);
         rmsnorm_bwd(dn2.data(), M.x1.data(), p.w.at(b + "norm2").d.data(),
                     M.rms2.data(), dx1n.data(), p.dw(b + "norm2"),
                     R, H);
         tpu_elementwise((int64_t)dx1.size(), [&](int64_t i) {
             dx1[(size_t)i] += dx1n[(size_t)i];
         });
-        // attention: x1 = u + wo繚attn_out
-        std::vector<float> du = dx1;                     // residual to u
-        std::vector<float> dao((size_t)R * Hq, 0.0f);
+        // attention: x1 = u + wo??ttn_out
+        auto& du = ws.du;
+        du = dx1;                                      // residual to u
+        auto& dao = ws.dao;
+        dao.assign((size_t)R * Hq, 0.0f);
         linear_bwd(dx1.data(), M.attn_out.data(), p.w.at(b + "wo"),
                    dao.data(), p.dw(b + "wo"), R, Hq, H);
-        std::vector<float> dq((size_t)R * Hq, 0.0f),
-                           dk((size_t)R * Hkv, 0.0f),
-                           dvv((size_t)R * Hkv, 0.0f);
-        parallel_for(c.heads, [&](int64_t hb, int64_t he) {
-            for (int64_t h = hb; h < he; ++h) {
+        auto& dq = ws.dq;
+        auto& dk = ws.dk;
+        auto& dvv = ws.dvv;
+        dq.assign((size_t)R * Hq, 0.0f);
+        dk.assign((size_t)R * Hkv, 0.0f);
+        dvv.assign((size_t)R * Hkv, 0.0f);
+        // kv-group lanes: q-heads of a GQA group share dk/dvv slices, so
+        // lanes own whole groups; per-element order identical to serial
+        // h-ascending.
+        parallel_for(kvh, (int64_t)R * R * hd * group,
+                     [&](int64_t gb, int64_t ge) {
+            for (int64_t g = gb; g < ge; ++g)
+            for (int h = (int)g * group;
+                 h < std::min((int)(g + 1) * group, c.heads); ++h) {
                 int kh2 = (int)h / group;
                 std::vector<float> dscore;
                 for (int t = 0; t < R; ++t) {
@@ -262,7 +299,8 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
             rope(dq.data(), R, c.heads, hd, c.rope_theta, true);
             rope(dk.data(), R, kvh, hd, c.rope_theta, true);
         }
-        std::vector<float> dn1((size_t)R * H, 0.0f);
+        auto& dn1 = ws.dn1;
+        dn1.assign((size_t)R * H, 0.0f);
         linear_bwd(dq.data(), M.n1.data(), p.w.at(b + "wq"),
                    dn1.data(), p.dw(b + "wq"), R, H, Hq);
         linear_bwd(dk.data(), M.n1.data(), p.w.at(b + "wk"),
@@ -272,11 +310,15 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
         rmsnorm_bwd(dn1.data(), M.u.data(), p.w.at(b + "norm1").d.data(),
                     M.rms1.data(), du.data(), p.dw(b + "norm1"),
                     R, H);
-        // fusion proj: u = Wp繚[ehn|een] ??split back into the normed halves
-        std::vector<float> dcat((size_t)R * 2 * H, 0.0f);
+        // fusion proj: u = Wp??ehn|een] ??split back into the normed halves
+        auto& dcat = ws.dcat;
+        dcat.assign((size_t)R * 2 * H, 0.0f);
         linear_bwd(du.data(), M.cat.data(), p.w.at(b + "proj"),
                    dcat.data(), p.dw(b + "proj"), R, 2 * H, H);
-        std::vector<float> deh((size_t)R * H), dee((size_t)R * H);
+        auto& deh = ws.deh;
+        auto& dee = ws.dee;
+        deh.assign((size_t)R * H, 0.0f);
+        dee.assign((size_t)R * H, 0.0f);
         for (int t = 0; t < R; ++t) {
             std::copy(dcat.data() + (size_t)t * 2 * H,
                       dcat.data() + (size_t)t * 2 * H + H,
@@ -285,8 +327,10 @@ static void mtp_stack_bwd(Params& p, const ModelConfig& c,
                       dcat.data() + (size_t)t * 2 * H + 2 * H,
                       dee.data() + (size_t)t * H);
         }
-        std::vector<float> dhprev((size_t)R * H, 0.0f),
-                           demb((size_t)R * H, 0.0f);
+        auto& dhprev = ws.dhprev;
+        auto& demb = ws.demb;
+        dhprev.assign((size_t)R * H, 0.0f);
+        demb.assign((size_t)R * H, 0.0f);
         rmsnorm_bwd(deh.data(), M.eh_in.data(), p.w.at(b + "eh").d.data(),
                     M.eh_rms.data(), dhprev.data(),
                     p.dw(b + "eh"), R, H);
@@ -349,7 +393,7 @@ static float mtp_stack_aux_loss(const ModelConfig& c, const std::vector<int>& id
 //      non-zero grads on mtp.* params, embed rows and the trunk ??verified
 //      by finite differences on a sample of elements;
 //   5. router z-loss: with moe_z_loss_weight>0 the forward accumulates
-//      w繚mean(lse簡) and the gate weight receives the 2繚lse繚p/T gradient.
+//      w??ean(lse?? and the gate weight receives the 2??se??/T gradient.
 static int mtpcheck() {
     int failures = 0;
     auto fail = [&](const char* what) {

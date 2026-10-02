@@ -84,6 +84,10 @@ struct Api {
     CUresult_t (*event_create)(CUevent_t*, unsigned int) = nullptr;
     CUresult_t (*event_record)(CUevent_t, CUstream_t) = nullptr;
     CUresult_t (*event_destroy)(CUevent_t) = nullptr;
+    // Optional: the batch AdamW pipeline uses query only to
+    // disambiguate a failed wave drain; absence degrades that path to
+    // the serial per-tensor lane, never to an error.
+    CUresult_t (*event_query)(CUevent_t) = nullptr;
     CUresult_t (*module_load_data)(CUmodule_t*, const void*) = nullptr;
     // Ex variant carries the JIT error log — governance evidence for a
     // fail-closed module load (which PTX line rejected, and why).
@@ -179,6 +183,7 @@ inline bool api_init() {
         r &= sym(a.dll, &a.event_record, "cuEventRecord", nullptr);
         r &= sym(a.dll, &a.event_destroy, "cuEventDestroy_v2",
                  "cuEventDestroy");
+        sym_opt(a.dll, &a.event_query, "cuEventQuery", nullptr);
         r &= sym(a.dll, &a.module_load_data, "cuModuleLoadData", nullptr);
         sym_opt(a.dll, &a.module_load_data_ex, "cuModuleLoadDataEx",
                 nullptr);

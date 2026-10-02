@@ -137,6 +137,65 @@ internal static partial class GenerationProjections
             });
     }
 
+    /// <summary>codex_version_authority_registry is a derived
+    /// current-state registry (D108): exactly one
+    /// CURRENT_AUTHORITATIVE row equal to the live generation, every
+    /// earlier publication HISTORICAL_SUPERSEDED with its successor
+    /// link. Rebuilt whole from the revision ledger plus the staged
+    /// version — drift here is a projection defect, never a rewrite
+    /// of history (D73: LATEST-PUBLISHED-ONLY).</summary>
+    private static int RebuildVersionAuthorityRegistry(
+        StageConnection connection, string version)
+    {
+        if (!HasTable(connection, "codex_version_authority_registry"))
+            return 0;
+        var versions = new SortedSet<string>(StringComparer.Ordinal);
+        if (HasTable(connection, "revision_history"))
+            foreach (var row in connection.Execute(
+                "SELECT DISTINCT version FROM revision_history").Rows)
+            {
+                var v = row[0]?.ToString() ?? "";
+                if (v.Length > 0) versions.Add(v);
+            }
+        foreach (var row in connection.Execute(
+            "SELECT version_identity "
+            + "FROM codex_version_authority_registry").Rows)
+        {
+            var v = row[0]?.ToString() ?? "";
+            if (v.Length > 0) versions.Add(v);
+        }
+        versions.Add(version);
+        var ordered = versions.ToList();
+        connection.Execute(
+            "DELETE FROM codex_version_authority_registry");
+        var staged = new List<object?[]>();
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            var v = ordered[i];
+            var isCurrent = v == version;
+            var next = i + 1 < ordered.Count ? ordered[i + 1] : null;
+            staged.Add(new object?[]
+            {
+                v,
+                isCurrent ? "CURRENT_AUTHORITATIVE"
+                    : "HISTORICAL_SUPERSEDED",
+                isCurrent ? null : next,
+                isCurrent ? null : version,
+                isCurrent ? "latest-published-version"
+                    : "latest-successor-published",
+                isCurrent ? 0L : 1L,
+                version,
+            });
+        }
+        connection.Executemany(
+            "INSERT INTO codex_version_authority_registry "
+            + "(version_identity, authority_status, successor_version, "
+            + "retired_at, reason, immutable, current_binding_version) "
+            + "VALUES (?,?,?,?,?,?,?)",
+            staged.Select(r => (IReadOnlyList<object?>)r).ToList());
+        return ordered.Count;
+    }
+
     private static void SyncNormativeSurface(
         StageConnection connection, string version)
     {
@@ -324,6 +383,7 @@ internal static partial class GenerationProjections
             RebuildModuleManifest(connection, version);
             RebuildSearchManifest(connection, version, ftsCount,
                 docCount);
+            RebuildVersionAuthorityRegistry(connection, version);
             SyncNormativeSurface(connection, version);
             var historyHead = AppendRevision(connection, version,
                 epoch,
@@ -371,12 +431,15 @@ internal static partial class GenerationProjections
             RebuildModuleManifest(connection, version);
             RebuildSearchManifest(connection, version, ftsCount,
                 docCount);
+            var authorityRows = RebuildVersionAuthorityRegistry(
+                connection, version);
             connection.Commit();
             return new Dictionary<string, object?>(
                 StringComparer.Ordinal)
             {
                 ["ok"] = true,
                 ["schema"] = PgDsn.CodexSchema,
+                ["authority_registry_rows"] = authorityRows,
                 ["version"] = version,
                 ["documents"] = (long)docCount,
                 ["fts_rows"] = (long)ftsCount,

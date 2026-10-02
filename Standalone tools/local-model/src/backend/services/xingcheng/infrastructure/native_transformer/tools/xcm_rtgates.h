@@ -397,6 +397,176 @@ int mode_hw_caps(const Args&) {
     return 0;
 }
 
+// star-kernel-registry — engine/data-plane kernel inventory. Same
+// governed contract the trainer lane emits: every kernel's name,
+// category, determinism guarantee, implementation variants and the
+// resolved active variant under the current capability set. Phase 1 is
+// inventory + star-kernel-policy deny reporting (policy path comes
+// from --policy or XCT_KERNEL_POLICY); the lanes still dispatch
+// themselves until the registry becomes the dispatch authority.
+struct EngineKernelVar {
+    const char* id; const char* req; const char* parity;
+};
+struct EngineKernel {
+    const char* name; const char* category; const char* determinism;
+    const char* dispatch; std::vector<EngineKernelVar> variants;
+};
+
+static const EngineKernel kEngineKernels[] = {
+    // ---- host fp64 lanes (engine_kernels.h) ----
+    {"matmul_f64", "GEMM", "exact",
+     "row lanes; AVX2 dual-acc fp64; CUDA sync/async/grouped when live",
+     {{"scalar", "", "exact"},
+      {"avx2-fp64", "avx2", "exact"},
+      {"cuda", "cuda", "device-cert-pending"}}},
+    {"matmul_grouped", "GEMM", "exact",
+     "MoE grouped GEMM — one H2D pipeline or cpu row groups",
+     {{"scalar-grouped", "", "exact"},
+      {"cuda-grouped", "cuda", "device-cert-pending"}}},
+    {"dot_f64", "REDUCE", "exact",
+     "fp64 dot; AVX2 dual-accumulator fixed tree",
+     {{"scalar", "", "exact"}, {"avx2", "avx2", "exact"}}},
+    {"axpy_f64", "ELEMENTWISE", "exact",
+     "fp64 axpy; AVX2 lanes",
+     {{"scalar", "", "exact"}, {"avx2", "avx2", "exact"}}},
+    {"dot_int8", "REDUCE", "exact",
+     "int8-quantized weight dot (fp64 accumulate)",
+     {{"scalar", "", "exact"}, {"avx2", "avx2", "exact"}}},
+    {"axpy_int8", "ELEMENTWISE", "exact",
+     "int8-quantized axpy (fp64 out)",
+     {{"scalar", "", "exact"}, {"avx2", "avx2", "exact"}}},
+    {"rmsnorm_f64", "NORM", "exact",
+     "fp64 rmsnorm per row",
+     {{"scalar", "", "exact"}, {"avx2", "avx2", "exact"}}},
+    {"rope_tables", "POS", "exact",
+     "cos/sin table build + yarn adjust; cached per (dim,theta)",
+     {{"scalar", "", "exact"}}},
+    {"attention_infer", "ATTN", "exact",
+     "cpu kv-gather rows; xc_kv_attention fused lane on device",
+     {{"cpu-rows", "", "exact"},
+      {"cuda-kv-attn", "cuda", "device-cert-pending"}}},
+    {"kv_cache", "CACHE", "exact",
+     "paged KV alloc/write/read — device-resident",
+     {{"cuda", "cuda", "device-cert-pending"},
+      {"cpu-fallback", "", "exact"}}},
+    {"sampling", "SAMPLE", "exact",
+     "argmax/top-k/top-p — cpu serial, seeded",
+     {{"cpu-serial", "", "exact"}}},
+    {"tokenizer", "TOKENIZE", "exact",
+     "xtok/v1 C ABI into the Rust xcorpus tokenizer (B81)",
+     {{"rust-abi", "", "exact"}}},
+    // ---- device kernels (cuda_kernels.cpp, driver-resolved) ----
+    {"xc_gemm_bf16", "GEMM", "exact",
+     "bf16 GEMM lane; certified vs cpu fp64 oracle (bf16-cert)",
+     {{"cuda-bf16", "cuda", "device-cert-pending"}}},
+    {"xc_gemv_bf16", "GEMM", "exact",
+     "bf16 decode GEMV partial+reduce pair",
+     {{"cuda-bf16", "cuda", "device-cert-pending"}}},
+    {"xc_gemm_fp8", "GEMM", "exact",
+     "fp8 GEMM — sm_89+/sm_90+ only, quant-cert gated",
+     {{"cuda-fp8", "cuda", "device-cert-pending"}}},
+    {"xc_kv_attention", "ATTN", "exact",
+     "fused decode-time kv attention kernel",
+     {{"cuda", "cuda", "device-cert-pending"}}},
+    {"xc_adamw_fused", "OPTIM", "exact",
+     "fused adamw + batch pipeline (H2D/compute/D2H lanes)",
+     {{"cuda", "cuda", "device-cert-pending"}}},
+    {"xc_sqsum_part", "REDUCE", "exact",
+     "gradient-norm partial sums on device",
+     {{"cuda", "cuda", "device-cert-pending"}}},
+    {"quant_convert", "QUANT", "exact",
+     "f64 -> bf16/fp8/fp32 converters (host + device)",
+     {{"scalar", "", "exact"}, {"cuda", "cuda", "device-cert-pending"}}},
+};
+
+static int mode_kernel_registry(const Args& a) {
+    xcm2::HardwareCapabilityRegistry r;
+    r.detect_cpu();
+    long long fb = 0, tb = 0; int ccm = 0, ccn = 0;
+    const bool cuda = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
+    // star-kernel-policy — deny list is reported per kernel; a set
+    // but unreadable/malformed policy marks the emit itself failed.
+    std::string ppath = a.get("policy");
+    if (ppath.empty()) {
+        if (const char* e = std::getenv("XCT_KERNEL_POLICY"))
+            ppath = e;
+    }
+    bool pol_loaded = false, pol_enabled = true;
+    std::string pol_err;
+    std::vector<std::string> deny_k;
+    if (!ppath.empty()) {
+        try {
+            JsonValue pol = parse_json_file(ppath);
+            if (jget_str(pol, "format") != "star-kernel-policy") {
+                pol_err = "FORMAT_MISMATCH";
+            } else {
+                pol_loaded = true;
+                const JsonValue* en = pol.get("enabled");
+                pol_enabled =
+                    !(en && en->type == JsonValue::Type::Bool &&
+                      !en->boolean);
+                const JsonValue* dk = pol.get("deny_kernels");
+                if (dk && dk->type == JsonValue::Type::Array)
+                    for (const auto& e : dk->array)
+                        if (e.type == JsonValue::Type::String)
+                            deny_k.push_back(e.string);
+            }
+        } catch (...) {
+            pol_err = "UNREADABLE_OR_MALFORMED";
+        }
+    }
+    auto cap_ok = [&](const char* req) {
+        const std::string s = req;
+        if (s.empty()) return true;
+        if (s == "avx2") return r.avx2 && r.fma;
+        if (s == "cuda") return cuda;
+        return false;
+    };
+    std::ostringstream o;
+    o << "{\"ok\":" << (pol_err.empty() ? "true" : "false")
+      << ",\"format\":\"star-kernel-registry\",\"lane\":\"engine\","
+      << "\"count\":" << (int)(sizeof(kEngineKernels) /
+                              sizeof(kEngineKernels[0]))
+      << ",\"caps\":{\"avx2\":" << (r.avx2 ? "true" : "false")
+      << ",\"fma\":" << (r.fma ? "true" : "false")
+      << ",\"avx512f\":" << (r.avx512f ? "true" : "false")
+      << ",\"cuda\":" << (cuda ? "true" : "false")
+      << ",\"cuda_cc\":\"" << ccm << "." << ccn << "\"},"
+      << "\"policy\":{\"source\":\"" << ppath
+      << "\",\"loaded\":" << (pol_loaded ? "true" : "false")
+      << ",\"enabled\":" << (pol_enabled ? "true" : "false")
+      << ",\"error\":"
+      << (pol_err.empty() ? "null" : "\"" + pol_err + "\"")
+      << "},\"kernels\":[";
+    bool first = true;
+    for (const auto& k : kEngineKernels) {
+        bool denied = pol_loaded && pol_enabled &&
+                      std::find(deny_k.begin(), deny_k.end(), k.name) !=
+                          deny_k.end();
+        const char* active = k.variants[0].id;
+        for (const auto& v : k.variants)
+            if (cap_ok(v.req)) active = v.id;
+        o << (first ? "" : ",")
+          << "{\"name\":\"" << k.name << "\",\"category\":\""
+          << k.category << "\",\"family\":\"engine\""
+          << ",\"determinism\":\"" << k.determinism
+          << "\",\"dispatch\":\"" << k.dispatch
+          << "\",\"active\":\"" << (denied ? "denied" : active)
+          << "\",\"variants\":[";
+        for (size_t i = 0; i < k.variants.size(); ++i) {
+            const auto& v = k.variants[i];
+            o << (i ? "," : "") << "{\"id\":\"" << v.id
+              << "\",\"requires\":\"" << v.req
+              << "\",\"parity\":\"" << v.parity << "\"}";
+        }
+        o << "]}";
+        first = false;
+    }
+    o << "]}\n";
+    std::printf("%s", o.str().c_str());
+    return pol_err.empty() ? 0 : 2;
+}
+
 // §29/§14-15 state2-smoke: star-native-state/v2 seal/verify + the
 // typed binding gate — every mismatch class must return its §15 code.
 int mode_state2_smoke(const Args&) {

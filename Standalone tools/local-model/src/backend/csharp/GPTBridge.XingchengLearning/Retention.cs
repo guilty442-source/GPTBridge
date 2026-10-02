@@ -404,22 +404,15 @@ internal static class Retention
             ["snapshots"] = PlanSnapshots(root, resolved, protected_),
             ["retired_weights"] = PlanRetiredWeights(root, protected_),
         };
-        string boundary = Path.GetFullPath(
-            Path.Combine(root, "xingcheng"));
         var deleted = new List<Dictionary<string, object?>>();
         int boundarySkipped = 0;
         foreach (var (category, paths) in plans)
         {
             foreach (string path in paths)
             {
-                string resolvedPath;
-                try { resolvedPath = Path.GetFullPath(path); }
-                catch { boundarySkipped++; continue; }
-                if (!resolvedPath.StartsWith(
-                        boundary + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    !resolvedPath.Equals(boundary,
-                        StringComparison.OrdinalIgnoreCase))
+                // Data residency: both registered domain roots count as
+                // in-boundary; unresolvable paths fail closed.
+                if (!DataBoundary.IsInside(root, path))
                 {
                     boundarySkipped++;
                     continue;

@@ -112,8 +112,10 @@ internal sealed class ModelDialogueExecutor
             "star_chat_agent_task" => await AgentTask(
                     payload, requestId, emitProgress, cancellationToken)
                 .ConfigureAwait(false),
-            "star_chat_codex_alignment" => CodexAlignmentResult(),
-            "star_chat_architecture_sync" => ArchitectureSyncResult(),
+            "star_chat_codex_alignment" => await CodexAlignmentResult(
+                    cancellationToken).ConfigureAwait(false),
+            "star_chat_architecture_sync" => await ArchitectureSyncResult(
+                    cancellationToken).ConfigureAwait(false),
             _ => throw new PermissionDeniedException(),
         };
         return ($"{command}_result", result);
@@ -150,6 +152,26 @@ internal sealed class ModelDialogueExecutor
             if (string.IsNullOrWhiteSpace(checkpoint)) return false;
             var path = Path.GetFullPath(Path.IsPathRooted(checkpoint)
                 ? checkpoint : Path.Combine(_localModelRoot, checkpoint));
+            // Data residency: an out-of-boundary pin refuses to serve —
+            // the bundle must resolve inside a registered xingcheng
+            // domain root (institution root or the model-dialogue star
+            // directory).
+            var roots = new[]
+            {
+                Path.Combine(_localModelRoot, "xingcheng"),
+                Path.GetFullPath(Path.Combine(
+                    _localModelRoot, "..", "model-dialogue",
+                    "xingcheng")),
+            };
+            var inBoundary = roots.Any(r =>
+            {
+                var root = Path.GetFullPath(r);
+                return path.Equals(root,
+                        StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith(root + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase);
+            });
+            if (!inBoundary) return false;
             return File.Exists(Path.Combine(path, "manifest.json"))
                 && File.Exists(Path.Combine(path, "weights.bin"));
         }
@@ -1111,7 +1133,8 @@ internal sealed class ModelDialogueExecutor
 
     // ----------------------------------------------------- diagnostics --
 
-    private JsonObject CodexAlignmentResult()
+    private async Task<JsonObject> CodexAlignmentResult(
+        CancellationToken ct)
     {
         var checks = new JsonArray();
         var report = new StringBuilder();
@@ -1169,6 +1192,13 @@ internal sealed class ModelDialogueExecutor
         Check("原生引擎設定", File.Exists(engineSettings)
             && BundlePinned(), engineSettings);
 
+        // Deep lane: architecture registry × docs report via the
+        // governed CodexPipeline (read-only --arch-docs verb).
+        var archDocs = await CodexDiagnostics.RunAsync(
+            _env, "--arch-docs", ct).ConfigureAwait(false);
+        CodexDiagnostics.AppendChecks(
+            checks, report, "codex-arch-docs", archDocs);
+
         var passed = checks.Count > 0 && checks.All(
             c => c?["ok"]?.GetValue<bool>() == true);
         report.Insert(0,
@@ -1183,7 +1213,8 @@ internal sealed class ModelDialogueExecutor
         };
     }
 
-    private JsonObject ArchitectureSyncResult()
+    private async Task<JsonObject> ArchitectureSyncResult(
+        CancellationToken ct)
     {
         var checks = new JsonArray();
         var report = new StringBuilder();
@@ -1245,6 +1276,13 @@ internal sealed class ModelDialogueExecutor
             lifecycle
                 ? "descriptor present"
                 : "descriptor absent（on-demand）");
+
+        // Deep lane: live zh-TW mirror validation via the governed
+        // CodexPipeline (read-only --mirror-check verb).
+        var mirror = await CodexDiagnostics.RunAsync(
+            _env, "--mirror-check", ct).ConfigureAwait(false);
+        CodexDiagnostics.AppendChecks(
+            checks, report, "codex-mirror", mirror);
 
         var passed = checks.Count > 0 && checks.All(
             c => c?["ok"]?.GetValue<bool>() == true);

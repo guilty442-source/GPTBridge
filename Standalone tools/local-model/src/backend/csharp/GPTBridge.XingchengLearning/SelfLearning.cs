@@ -1080,7 +1080,8 @@ internal static class SelfLearning
                     examplesByScope: examples,
                     valPermille: permille,
                     generation: sftGeneration,
-                    modelVersion: sftModelVersion);
+                    modelVersion: sftModelVersion,
+                    toolRoot: tool);
                 break;
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)

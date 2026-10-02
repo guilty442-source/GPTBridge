@@ -237,6 +237,19 @@ impl OutboxHub {
     fn drain_loop(&self, mut client: postgres::Client) {
         let mut last_prune = Instant::now();
         while !self.shutdown.load(Ordering::SeqCst) {
+            // Idle fast path: reap sessions whose writer died, and when
+            // no subscriber remains skip the PostgreSQL probe outright —
+            // an unattached backend must not issue outbox queries at all
+            // (was: one MAX(sequence) every 500 ms forever).  Events
+            // accumulate server-side until the next state_event_hello.
+            if {
+                let mut sessions = self.sessions.lock().unwrap();
+                sessions.retain(|_, s| !s.writer.is_closed());
+                sessions.is_empty()
+            } {
+                thread::sleep(POLL_INTERVAL);
+                continue;
+            }
             let latest = Self::max_sequence(&mut client);
             let deliveries: Vec<(u64, ServerWriter, i64, i64)> = {
                 let sessions = self.sessions.lock().unwrap();

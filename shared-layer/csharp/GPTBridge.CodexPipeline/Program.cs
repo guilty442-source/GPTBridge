@@ -37,6 +37,11 @@ using GPTBridge.CodexPipeline;
 ///   --mirror-zh                re-render the five zh-TW mirror parts
 ///                              from the live authority into the
 ///                              canonical codex root (read-only output)
+///   --mirror-check             validate the existing five zh-TW mirror
+///                              parts (chain/hash/parity/damage)
+///                              read-only; never re-renders
+///   --arch-docs                architecture registry × docs
+///                              completeness report (read-only)
 ///
 /// Official read entry (A113/A435, port of codex_session/dual_key/
 /// official):

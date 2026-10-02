@@ -114,6 +114,14 @@ internal static class Program
                 return Emit(SelfTest(toolRoot));
             if (flags.Contains("converge-check"))
                 return Emit(ConvergenceChecks.Run(toolRoot));
+            if (flags.Contains("corpus"))
+                return Emit(CorpusRunner.Run(toolRoot, opts));
+            // Read-only data-residency probe: classifies --path against
+            // the registered xingcheng domain roots.
+            if (flags.Contains("boundary-check"))
+                return Emit(DataBoundary.Check(toolRoot,
+                    opts.TryGetValue("path", out string? bp)
+                        ? bp : ""));
             if (flags.Contains("maturation-status"))
                 return Emit(MaturationStatus(toolRoot));
             if (flags.Contains("maturation-freeze"))
@@ -139,6 +147,11 @@ internal static class Program
                         ? mue : "",
                     opts.TryGetValue("reason", out string? mur)
                         ? mur : ""));
+            if (flags.Contains("maturation-complete"))
+                return Emit(Maturation300M.Complete(
+                    toolRoot,
+                    opts.TryGetValue("reason", out string? mcr)
+                        ? mcr : ""));
             if (flags.Contains("maturation-baseline"))
                 return Emit(MaturationBaseline(toolRoot, opts));
             // §15/§16: thinking OFF/ON comparison over identical-suite
@@ -394,9 +407,12 @@ internal static class Program
                 if (opts.TryGetValue("capability", out string? rcp) &&
                     rcp.Length > 0)
                     InstructionRecovery.Capability = rcp;
+                // Boundary: an explicit --out must stay in-domain.
+                var rdoAssert = opts.TryGetValue("out", out string? rdo)
+                    && rdo.Length > 0
+                    ? DataBoundary.AssertInside(toolRoot, rdo) : "";
                 return Emit(InstructionRecovery.BuildDataset(
-                    opts.TryGetValue("out", out string? rdo)
-                        ? rdo : "",
+                    rdoAssert,
                     opts.TryGetValue("count", out string? rc) &&
                         int.TryParse(rc, out int rcv) ? rcv : 2800,
                     opts.TryGetValue("seed", out string? rsd) &&
@@ -1680,6 +1696,7 @@ internal static class Program
             "<id> --evidence <ref> | --maturation-reopen --capability " +
             "<id> --reason <text> | --maturation-unsupported " +
             "--capability <id> --evidence <ref> --reason <text> | " +
+            "--maturation-complete --reason <text> | " +
             "--maturation-baseline --weights " +
             "<ref> --weights-sha256 <sha> --model <f> --runtime <f> " +
             "--service <f> | " +
@@ -1687,6 +1704,8 @@ internal static class Program
             "[--no-builds] | " +
             "--verify-audit | --db-status | " +
             "--migrate | --teacher-collect [--dry-run] | " +
+            "--corpus --registry <j> --root <d> --tokenizer <t> " +
+            "--out <d> [--policy <j>] | " +
             "--queue-job --config <cfg.json> [--rows <rows.jsonl>] " +
             "[--include-collected] [--val-permille N] | " +
             "--evaluate --job-id <id> --bundle <dir> --suite <suite.json> " +
@@ -2104,8 +2123,10 @@ internal static class Program
             tk is string tkStr &&
             string.Equals(tkStr, "pretrain", StringComparison.OrdinalIgnoreCase);
         var snapshot = isPretrain
-            ? SftDataset.BuildPretrainDataset(snapshotPath, byScope, valPermille)
-            : SftDataset.BuildSftDataset(snapshotPath, byScope, valPermille);
+            ? SftDataset.BuildPretrainDataset(snapshotPath, byScope,
+                valPermille, toolRoot: toolRoot)
+            : SftDataset.BuildSftDataset(snapshotPath, byScope,
+                valPermille, toolRoot: toolRoot);
         var repo = new TransformerTrainingRepository(toolRoot);
         var dataset = repo.CreateDataset(
             contentSha256: (string)snapshot["content_sha256"]!,
@@ -2169,7 +2190,16 @@ internal static class Program
         return new Dictionary<string, object?>
         {
             ["ok"] = true,
-            ["phase"] = Maturation300M.PhaseId,
+            // Report the persisted phase — PhaseComplete after the
+            // governor stamps completion, PhaseId while ordered
+            // activation is live.
+            ["phase"] = state.TryGetValue("phase", out object? ph)
+                ? ph?.ToString() ?? Maturation300M.PhaseId
+                : Maturation300M.PhaseId,
+            ["completed_at"] =
+                state.GetValueOrDefault("completed_at"),
+            ["completed_reason"] =
+                state.GetValueOrDefault("completed_reason"),
             ["model_scale"] = Maturation300M.ModelScale,
             ["architecture_generation"] =
                 Maturation300M.ArchitectureGeneration,
@@ -2249,7 +2279,7 @@ internal static class Program
             {
                 ["main"] = examples,
             },
-            valPermille: 500);
+            valPermille: 500, toolRoot: toolRoot);
         steps.Add(new Dictionary<string, object?>
         {
             ["step"] = "snapshot",

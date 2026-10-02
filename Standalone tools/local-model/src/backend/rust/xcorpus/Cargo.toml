@@ -1,0 +1,22 @@
+[package]
+name = "xcorpus"
+version = "0.1.0"
+edition = "2021"
+description = "GPTBridge local-model Rust corpus pipeline (star-pretrain-corpus/v1 port): registry-gated scan, NFC, MinHash dedup, sequence packing, integrity manifest"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "xcorpus"
+# cdylib: xcorpus.dll — the xtok/v1 C ABI consumed by the C++ engine
+# through run-time LoadLibrary binding (B81 tokenizer ownership).
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+serde_json = "1.0"
+sha2 = "0.10"
+unicode-normalization = "0.1.24"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

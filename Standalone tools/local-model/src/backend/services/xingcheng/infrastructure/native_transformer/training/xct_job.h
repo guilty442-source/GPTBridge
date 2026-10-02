@@ -1,4 +1,4 @@
-// xct_job.h — B94 fragment of xingcheng_trainer.cpp (job/load_data/run_job/smoke).
+// xct_job.h ??B94 fragment of xingcheng_trainer.cpp (job/load_data/run_job/smoke).
 // Included once by xingcheng_trainer.cpp inside namespace xct.
 #pragma once
 
@@ -12,10 +12,79 @@ struct Example {
     int vision_dim = 0;
 };
 
+// Binary token-batch ingest (XCB1): same Example semantics as the
+// legacy JSONL path — kind drives interpretation, fmt is verified
+// fail-closed against the record kind so a mismatched job spec can
+// never silently reinterpret a batch.
+static void load_data_xcb(const std::string& path, const std::string& fmt,
+                          int max_rows, int max_len,
+                          std::vector<Example>& out) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) throw "data: path unreadable";
+    std::string blob((std::istreambuf_iterator<char>(f)),
+                     std::istreambuf_iterator<char>());
+    xcb::Reader r(blob.data(), blob.size());
+    while (!r.done() && (int)out.size() < max_rows) {
+        xcb::Record rec = r.next();
+        Example e;
+        const bool vision = !rec.vision.empty();
+        switch (rec.kind) {
+            case xcb::Kind::kDpo:
+                if (fmt != "dpo") throw "data: XCB_KIND_MISMATCH";
+                if (vision) throw "data: vision unsupported for dpo";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                e.labels.assign(rec.labels.begin(), rec.labels.end());
+                if (e.labels.empty()) e.labels = e.ids;
+                e.rej_ids.assign(rec.rej_ids.begin(), rec.rej_ids.end());
+                e.rej_labels.assign(rec.rej_labels.begin(),
+                                    rec.rej_labels.end());
+                if (e.rej_labels.empty()) e.rej_labels = e.rej_ids;
+                break;
+            case xcb::Kind::kGrpo:
+                if (fmt != "grpo") throw "data: XCB_KIND_MISMATCH";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                e.labels.assign(rec.labels.begin(), rec.labels.end());
+                break;
+            case xcb::Kind::kSft:
+                if (fmt == "dpo" || fmt == "grpo")
+                    throw "data: XCB_KIND_MISMATCH";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                if (fmt == "sft") {
+                    e.labels.assign(rec.labels.begin(), rec.labels.end());
+                    if (e.labels.empty()) e.labels = e.ids;
+                } else {
+                    e.labels = e.ids;          // pretrain: shifted CE
+                }
+                break;
+            case xcb::Kind::kPretrain:
+                if (fmt == "dpo" || fmt == "grpo")
+                    throw "data: XCB_KIND_MISMATCH";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                e.labels = e.ids;              // pretrain: shifted CE
+                break;
+        }
+        if (vision) {
+            e.vision = std::move(rec.vision);
+            e.vision_patches = (int)rec.vision_patches;
+            e.vision_dim = (int)rec.vision_dim;
+        }
+        if ((int)e.ids.size() > max_len) { e.ids.resize(max_len); e.labels.resize(max_len); }
+        if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
+        if (e.ids.size() >= 2) out.push_back(std::move(e));
+    }
+}
+
 static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt,
                                       int max_rows, int max_len) {
     std::vector<Example> out;
     std::string path = j_str(d, "path", "");
+    // Binary-hot-data rule: XCB1 is the governed token-batch container;
+    // a file without the magic falls back to legacy JSONL so registered
+    // datasets stay readable — malformed XCB1 throws, never silently
+    // reinterpreted.
+    if (xcb::is_xcb_file(path)) {
+        load_data_xcb(path, fmt, max_rows, max_len, out);
+    } else {
     std::ifstream f(path);
     if (!f) throw "data: path unreadable";
     std::string line;
@@ -38,7 +107,7 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
             e.rej_labels = j_ids(rj, "labels");
             if (e.rej_labels.empty()) e.rej_labels = e.rej_ids;
         } else if (fmt == "grpo") {
-            // {"prompt_ids": [...], "completion_ids": [...]} — the
+            // {"prompt_ids": [...], "completion_ids": [...]} ??the
             // completion is the verifiable target the sampled rollouts
             // are rewarded against.
             e.ids = j_ids(&row, "prompt_ids");
@@ -66,11 +135,12 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
         if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
         if (e.ids.size() >= 2) out.push_back(std::move(e));
     }
+    }
     // Sequence packing (data.pack > 0): consecutive short rows share one
     // training sequence up to `pack` tokens so a single fwd/bwd/optimizer
     // step amortizes per-example overhead over ~pack tokens (larger GEMM
     // M). Semantics: token-level CE is unchanged, but one optimizer step
-    // now covers several examples — effective batch grows, so lanes using
+    // now covers several examples ??effective batch grows, so lanes using
     // pack must set max_steps/lr accordingly (governed decision, not a
     // silent default). pack_sep inserts a boundary token id between docs
     // (its own position is ignored via -100; the pretrain shifted-label
@@ -99,7 +169,7 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
                 // pretrain/ids labels are unshifted ids (shift_labels
                 // runs on the packed row), so push sep to keep
                 // doc-end->sep and sep->next-doc both taught; sft
-                // labels are pre-aligned targets — mask the sep
+                // labels are pre-aligned targets ??mask the sep
                 // position so packing never teaches a cross-doc
                 // transition.
                 cur.labels.push_back(fmt == "sft" ? -100 : sep);
@@ -144,9 +214,17 @@ static double now_s() {
 
 // NativeCudaTrainingPlane §26: when XINGCHENG_TRAINER_CUDA_OPT is set
 // and the CUDA lane probes live, each tensor's update runs as one fused
-// device kernel with w/m/v resident — the host only ships the gradient
+// device kernel with w/m/v resident ??the host only ships the gradient
 // and reads back w (host forward still needs it this phase). Any miss
-// falls through to the scalar path per tensor — never a partial tensor.
+// falls through to the scalar path per tensor ??never a partial tensor.
+// §26 batch surface POD — identical declaration in cuda_kernels.cpp
+// (same pattern as the extern "C" entries below).
+struct XcudaAdamwItem {
+    const float* g_host;   // host gradient, length = bound tensor n
+    const void*  w_key;    // bound host weight pointer (map key)
+    float*       w_out;    // host dst for updated w
+    int          rc;       // per-item verdict written by the batch call
+};
 #if defined(XINGCHENG_CUDA)
 extern "C" int xcuda_adamw_probe();
 extern "C" int xcuda_adamw_bind(const float*, const float*, const float*,
@@ -154,6 +232,8 @@ extern "C" int xcuda_adamw_bind(const float*, const float*, const float*,
 extern "C" int xcuda_adamw_step_dev(const float*, const void*, float,
                                     float, float, int);
 extern "C" int xcuda_adamw_sync(const void*, float*, float*, float*);
+extern "C" int xcuda_adamw_step_all(XcudaAdamwItem*, long long, float,
+                                    float, float, int);
 #else
 static int xcuda_adamw_probe() { return 0; }
 static int xcuda_adamw_bind(const float*, const float*, const float*,
@@ -163,6 +243,8 @@ static int xcuda_adamw_step_dev(const float*, const void*, float, float,
 static int xcuda_adamw_sync(const void*, float*, float*, float*) {
     return 3;
 }
+static int xcuda_adamw_step_all(XcudaAdamwItem*, long long, float,
+                                float, float, int) { return 3; }
 #endif
 
 static void adamw_step(Params& p, float gscale, float lr_t, float wd,
@@ -176,10 +258,84 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
     static const bool cuda_opt =
         std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
     static const bool cuda_ok =
-        cuda_opt && xcuda_adamw_probe() != 0;
+        cuda_opt && !kernel_policy_cuda_denied() &&
+        xcuda_adamw_probe() != 0;
+    if (cuda_ok) {
+        // §26 batch path: one call pipelines every bound tensor's
+        // H2D/kernel/D2H across the manager's dedicated lanes. The
+        // skip guards are identical to the serial loop; a failed item
+        // falls back to scalar for that tensor only — never a partial
+        // tensor.
+        std::vector<XcudaAdamwItem> items;
+        std::vector<const std::string*> names;
+        items.reserve(p.order.size());
+        names.reserve(p.order.size());
+        for (auto& n : p.order) {
+            // lb_bias: routing-time buffer updated by the sign rule,
+            // never by the optimizer — decay would pull it to zero.
+            if (n.size() >= 7 &&
+                n.compare(n.size() - 7, 7, "lb_bias") == 0)
+                continue;
+            // §41 frozen params own no Adam moments, never updated.
+            if (p.frozen.count(n)) continue;
+            // §44 routed-expert sparsity: untouched experts get no
+            // gradient update AND no optimizer update.
+            if (n.find(".experts.") != std::string::npos &&
+                !p.touched.count(n))
+                continue;
+            Tensor& w = p.w[n];
+            Tensor& m = p.m[n];
+            Tensor& v = p.v[n];
+            if (xcuda_adamw_bind(w.d.data(), m.d.data(), v.d.data(),
+                                 static_cast<int64_t>(w.d.size())) != 0) {
+                // never bound — no device state to pull back.
+                Tensor& g = p.g[n];
+                tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
+                          (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
+                          bc1, bc2, eps);
+                continue;
+            }
+            Tensor& g = p.g[n];
+            items.push_back({g.d.data(), w.d.data(), w.d.data(), 0});
+            names.push_back(&n);
+        }
+        const int batch_rc = items.empty()
+            ? 0
+            : xcuda_adamw_step_all(items.data(),
+                                   (long long)items.size(), gscale,
+                                   lr_t, wd, step);
+        for (size_t i = 0; i < items.size(); ++i) {
+            const std::string& n = *names[i];
+            Tensor& w = p.w[n]; Tensor& g = p.g[n];
+            Tensor& m = p.m[n]; Tensor& v = p.v[n];
+            const int irc = batch_rc == 0 ? items[i].rc : 3;
+            if (irc == 0 || irc == 6) {
+                if (irc == 6)
+                    // kernel ran but the staged read-back did not land —
+                    // pull the authoritative device state; do NOT
+                    // recompute, the update was already applied.
+                    xcuda_adamw_sync(w.d.data(), w.d.data(),
+                                     m.d.data(), v.d.data());
+                // consumed: the fused-zero contract clears the host
+                // gradient so the next step's backward starts clean.
+                std::fill(g.d.begin(), g.d.end(), 0.0f);
+                continue;
+            }
+            // Device holds the newest m/v — pull them back so the
+            // scalar fallback resumes from the last good optimizer
+            // state rather than stale host copies.
+            xcuda_adamw_sync(w.d.data(), w.d.data(), m.d.data(),
+                             v.d.data());
+            tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
+                      (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
+                      bc1, bc2, eps);
+        }
+        p.touched.clear();
+        return;
+    }
     for (auto& n : p.order) {
         // DeepSeek aux-free lb_bias is a routing-time buffer updated by
-        // the sign rule (lb_bias_step), never by the optimizer — without
+        // the sign rule (lb_bias_step), never by the optimizer ??without
         // this guard decoupled weight decay would pull it to zero.
         if (n.size() >= 7 && n.compare(n.size() - 7, 7, "lb_bias") == 0)
             continue;
@@ -189,36 +345,15 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
         Tensor& w = p.w[n]; Tensor& g = p.g[n];
         // §44 gradient sparsity, scoped to routed experts: an expert no
         // token selected this step (backward never marked it touched)
-        // gets no gradient update AND no optimizer update — decoupled
+        // gets no gradient update AND no optimizer update ??decoupled
         // weight decay would otherwise silently shrink dormant experts.
         // Dense params keep standard AdamW semantics (wd applies at g=0).
         if (n.find(".experts.") != std::string::npos &&
             !p.touched.count(n))
             continue;
         Tensor& m = p.m[n]; Tensor& v = p.v[n];
-        if (cuda_ok) {
-            const int64_t cnt = static_cast<int64_t>(w.d.size());
-            if (xcuda_adamw_bind(w.d.data(), m.d.data(), v.d.data(),
-                                 cnt) == 0) {
-                if (xcuda_adamw_step_dev(g.d.data(), w.d.data(), gscale,
-                                         lr_t, wd, step) != 0 ||
-                    xcuda_adamw_sync(w.d.data(), w.d.data(), nullptr,
-                                     nullptr) != 0) {
-                    // Device holds the newest m/v — pull them back so
-                    // the scalar fallback resumes from the last good
-                    // optimizer state rather than stale host copies.
-                    xcuda_adamw_sync(w.d.data(), w.d.data(),
-                                     m.d.data(), v.d.data());
-                } else {
-                    // consumed: the fused-zero contract clears the host
-                    // gradient so the next step's backward starts clean.
-                    std::fill(g.d.begin(), g.d.end(), 0.0f);
-                    continue;
-                }
-            }
-        }
         // Fused lane: same op-for-op math as the scalar loop (g consumed
-        // and zeroed, m/v updated, w stepped) — bitwise per element.
+        // and zeroed, m/v updated, w stepped) ??bitwise per element.
         tpu_adamw(g.d.data(), w.d.data(), m.d.data(), v.d.data(),
                   (int64_t)w.d.size(), gscale, lr_t, wd, b1, b2,
                   bc1, bc2, eps);
@@ -228,7 +363,7 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
 
 // DeepSeek V3 aux-loss-free load balancing: per-expert bias b_e ranks
 // selection (s+b) while combination weights stay s; after each forward
-// the batch's assignment counts nudge b_e toward under-served experts —
+// the batch's assignment counts nudge b_e toward under-served experts ??
 // b_e += u * sign(mean_load - load_e). Piecewise-constant by design.
 static void lb_bias_step(Params& p, const ModelConfig& c, const Fwd& o) {
     if (!c.moe_auxfree_balance || c.moe_lb_bias_rate <= 0.0f) return;
@@ -304,16 +439,22 @@ static JsonValue run_job(const JsonValue& job) {
         tc.simd = !(e[0] == '0' && e[1] == '\0');
     g_tpu.threads = tc.threads;
     g_tpu.simd = tc.simd;
-    // XCT_TPU_TILE4=0 pins the legacy GEMM path — measurement/A-B
+    // XCT_TPU_TILE4=0 pins the legacy GEMM path ??measurement/A-B
     // evidence only; production training keeps the tile4 dispatcher.
     if (const char* e = std::getenv("XCT_TPU_TILE4"))
         g_tpu.tile4 = !(e[0] == '0' && e[1] == '\0');
+    // star-kernel-policy: governed kernel pins land after every other
+    // lane override — force_serial/max_threads bound the pool,
+    // deny_variants pin impls off, deny_kernels refuse the job when the
+    // model/task activates the denied kernel's family. Any referenced
+    // but unreadable/malformed policy fails closed.
+    kernel_policy_enforce(c, task);
     int max_rows = j_int(dj, "max_rows", 10000);
     int max_len = j_int(dj, "max_len", c.max_pos);
 
     Params p;
     // §41 ParameterFreezeMap: train.freeze = ["layers.*.experts.",
-    // "embed", ...] — resolved at alloc_adam inside init_params, so
+    // "embed", ...] ??resolved at alloc_adam inside init_params, so
     // frozen params never allocate Adam moments (§43 sparse optimizer).
     if (const JsonValue* fj = tj ? tj->get("freeze") : nullptr)
         if (fj->type == JsonValue::Type::Array)
@@ -329,7 +470,7 @@ static JsonValue run_job(const JsonValue& job) {
             file_cfg.vision_patch_dim != c.vision_patch_dim)
             throw "init_checkpoint: vision config mismatch";
         // Fail fast on a poisoned source: resuming from a checkpoint
-        // that already carries NaN/Inf weights cannot recover — refuse
+        // that already carries NaN/Inf weights cannot recover ??refuse
         // the job before burning the training budget.
         for (auto& n : p.order)
             for (float x : p.w[n].d)
@@ -353,6 +494,10 @@ static JsonValue run_job(const JsonValue& job) {
     bool deadline_hit = false;
     bool nonfinite_abort = false;
     Fwd fw;
+    // Reused across examples: fwd() fully rewrites every field it reads
+    // under config-gated conditions, so keeping the Fwd objects retains
+    // vector capacity (skips realloc+first-touch each step).
+    Fwd fc, fr, frr, rf;
     std::vector<float> dlogits;
     float mtp_last = 0.0f;
     float mtp_stack_last = 0.0f;
@@ -366,20 +511,20 @@ static JsonValue run_job(const JsonValue& job) {
                 deadline_hit = true; break;
             }
             // Gradients self-clear: adamw_step zeroes each buffer as it
-            // consumes it (fused zero_grad) — params skipped by the
+            // consumes it (fused zero_grad) ??params skipped by the
             // §44/§41 guards always hold zero already.
             float loss = 0.0f;
             if (task == "dpo") {
                 // policy chosen
-                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
+                fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 fwd(p, c, ex.ids, fw);
                 lb_bias_step(p, c, fw);
                 float lp_c = seq_logprob(fw.logits, ex.labels, (int)ex.ids.size(), c.vocab);
-                Fwd fc; fwd(ref, c, ex.ids, fc);
+                fwd(ref, c, ex.ids, fc);
                 float rp_c = seq_logprob(fc.logits, ex.labels, (int)ex.ids.size(), c.vocab);
-                Fwd fr; fwd(p, c, ex.rej_ids, fr);
+                fwd(p, c, ex.rej_ids, fr);
                 float lp_r = seq_logprob(fr.logits, ex.rej_labels, (int)ex.rej_ids.size(), c.vocab);
-                Fwd frr; fwd(ref, c, ex.rej_ids, frr);
+                fwd(ref, c, ex.rej_ids, frr);
                 float rp_r = seq_logprob(frr.logits, ex.rej_labels, (int)ex.rej_ids.size(), c.vocab);
                 float margin = (lp_c - rp_c) - (lp_r - rp_r);
                 float sig = 1.0f / (1.0f + std::exp(-tc.beta * margin));
@@ -388,26 +533,24 @@ static JsonValue run_job(const JsonValue& job) {
                 // dL/dlp_rejected = +beta*(1-sig). soft_grad emits
                 // scale*(p - 1[y]) = scale*d(-lp)/dz, so scale = beta*(1-sig).
                 float s = tc.beta * (1.0f - sig);
-                std::vector<float> dl_c(fw.logits.size(), 0.0f), dl_r(fr.logits.size(), 0.0f);
-                auto soft_grad = [&](const std::vector<float>& lg,
-                                     const std::vector<int>& lab, int T,
-                                     float scale, std::vector<float>& dl) {
-                    for (int t = 0; t < T; ++t) {
-                        int y = lab[t];
-                        if (y < 0 || y >= c.vocab) continue;
-                        const float* lr = lg.data() + (size_t)t * c.vocab;
-                        float mx = *std::max_element(lr, lr + c.vocab), sum = 0.0f;
-                        for (int i = 0; i < c.vocab; ++i) sum += std::exp(lr[i] - mx);
-                        float* d = dl.data() + (size_t)t * c.vocab;
-                        for (int i = 0; i < c.vocab; ++i) d[i] = scale * std::exp(lr[i] - mx) / sum;
-                        d[y] -= scale;
-                    }
-                };
-                soft_grad(fw.logits, ex.labels, (int)ex.ids.size(), s, dl_c);
-                soft_grad(fr.logits, ex.rej_labels, (int)ex.rej_ids.size(), -s, dl_r);
+                // Workspace buffers: keep capacity across examples —
+                // two [T,V] gradient rows per example is ~32 MB of
+                // realloc+first-touch churn per pair. Kept in ONE struct
+                // TLS — grouped function-scope static thread_local
+                // vectors crash in this TU (mtp_stack_fwd incident).
+                static thread_local struct DpoWs {
+                    std::vector<float> dl_c, dl_r;
+                } dws;
+                auto& dl_c = dws.dl_c;
+                auto& dl_r = dws.dl_r;
+                dl_c.assign(fw.logits.size(), 0.0f);
+                dl_r.assign(fr.logits.size(), 0.0f);
+                soft_grad(fw.logits, ex.labels, (int)ex.ids.size(),
+                          c.vocab, s, dl_c);
+                soft_grad(fr.logits, ex.rej_labels, (int)ex.rej_ids.size(),
+                          c.vocab, -s, dl_r);
                 bwd(p, c, ex.ids, fw, dl_c, 0.0f);
-                Fwd fr2 = std::move(fr);        // reuse caches for rej backward
-                bwd(p, c, ex.rej_ids, fr2, dl_r, 0.0f);
+                bwd(p, c, ex.rej_ids, fr, dl_r, 0.0f);
             } else if (task == "grpo") {
                 // Native Thinking RL: sample G parallel rollouts from the
                 // current policy, score them with a verifiable reward,
@@ -424,7 +567,7 @@ static JsonValue run_job(const JsonValue& job) {
                 for (auto& r : ro) {
                     std::vector<int> seq = ex.ids;
                     for (int m = 0; m < M; ++m) {
-                        fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
+                        fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                         fwd(p, c, seq, fw);
                         const float* lr = fw.logits.data() +
                             ((size_t)seq.size() - 1) * c.vocab;
@@ -466,10 +609,9 @@ static JsonValue run_job(const JsonValue& job) {
                     for (int t = P - 1; t < T - 1; ++t) {
                         lab[(size_t)t] = full[(size_t)t + 1];
                     }
-                    fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
+                    fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                     fwd(p, c, std::vector<int>(full.begin(), full.end() - 1),
                         fw);
-                    Fwd rf;
                     fwd(ref, c, std::vector<int>(full.begin(), full.end() - 1),
                         rf);
                     const float lp_p = seq_logprob(
@@ -484,16 +626,22 @@ static JsonValue run_job(const JsonValue& job) {
                     grpo_kl_sum += kl;
                     // dL/dz = (A - kl_c)/ntok * (softmax - 1[y]) over the
                     // completion positions only.
-                    std::vector<float> dl(fw.logits.size(), 0.0f);
+                    static thread_local struct GrpoWs {
+                        std::vector<float> dl;
+                    } gws;
+                    auto& dl = gws.dl;
+                    dl.assign(fw.logits.size(), 0.0f);
                     const float scale = (r.adv - tc.kl_coef) / (float)ntok;
-                    for (int t = P - 1; t < T - 1; ++t) {
-                        const int y = full[(size_t)t + 1];
-                        if (y < 0 || y >= c.vocab) continue;
-                        soft_grad_row(
-                            fw.logits.data() + (size_t)t * c.vocab,
-                            c.vocab, y, scale,
-                            dl.data() + (size_t)t * c.vocab);
-                    }
+                    parallel_for((int64_t)T - P, [&](int64_t b, int64_t e) {
+                        for (int64_t t = (P - 1) + b; t < (P - 1) + e; ++t) {
+                            const int y = full[(size_t)t + 1];
+                            if (y < 0 || y >= c.vocab) continue;
+                            soft_grad_row(
+                                fw.logits.data() + (size_t)t * c.vocab,
+                                c.vocab, y, scale,
+                                dl.data() + (size_t)t * c.vocab);
+                        }
+                    });
                     bwd(p, c,
                         std::vector<int>(full.begin(), full.end() - 1),
                         fw, dl, 0.0f);
@@ -503,7 +651,7 @@ static JsonValue run_job(const JsonValue& job) {
                 std::vector<int> lab = ex.labels;
                 if (task == "pretrain" || j_str(dj, "format", task) == "pretrain")
                     shift_labels(lab);
-                fw.layers.clear(); fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
+                fw.moe_aux = 0.0f; fw.moe_zloss = 0.0f; fw.csa_idx = 0.0f;
                 if (!ex.vision.empty()) {
                     // Vision early-fusion: prefix rows carry -100 labels
                     // (ce_loss skips them; loss normalizes over text only).
@@ -539,7 +687,7 @@ static JsonValue run_job(const JsonValue& job) {
                     bwd(p, c, ex.ids, fw, dlogits, 1.0f, nullptr, &dmtp);
                 }
             }
-            // grad clip (global norm over trainable params only —
+            // grad clip (global norm over trainable params only ??
             // frozen grads would inflate the norm and shrink the
             // effective scale for the params actually being updated)
             double gnorm = 0.0f;
@@ -602,6 +750,54 @@ static JsonValue run_job(const JsonValue& job) {
         tpu.object.emplace_back("simd", str(tpu_simd_name()));
         put("tpu_cluster", tpu);
     }
+    {
+        // star-kernel-policy echo ??the report is self-describing:
+        // every governed job records which policy (if any) pinned its
+        // lanes, so benchmarks/diagnostics never guess.
+        JsonValue kp; kp.type = JsonValue::Type::Object;
+        const std::string ksrc = kernel_policy_path();
+        kp.object.emplace_back("source", str(ksrc.c_str()));
+        KernelPolicy kpol;
+        try { kpol = kernel_policy_load(ksrc); }
+        catch (...) { kpol = KernelPolicy(); }
+        kp.object.emplace_back("loaded", bol(kpol.loaded));
+        kp.object.emplace_back("force_serial", bol(kpol.force_serial));
+        kp.object.emplace_back("max_threads",
+                               num((double)kpol.max_threads));
+        JsonValue dv; dv.type = JsonValue::Type::Array;
+        for (const auto& v : kpol.deny_variants)
+            dv.array.push_back(str(v.c_str()));
+        kp.object.emplace_back("deny_variants", dv);
+        JsonValue dk; dk.type = JsonValue::Type::Array;
+        for (const auto& v : kpol.deny_kernels)
+            dk.array.push_back(str(v.c_str()));
+        kp.object.emplace_back("deny_kernels", dk);
+        put("kernel_policy", kp);
+    }
+    {
+        // star-accel-plane echo: the resolved device lane and the live
+        // admission counters the run actually observed.
+        accel_refresh_mem();
+        JsonValue ap; ap.type = JsonValue::Type::Object;
+        ap.object.emplace_back("cuda_lane", bol(g_accel.cuda));
+        ap.object.emplace_back("dev_min_flops",
+                               num((double)g_accel.dev_min_flops));
+        ap.object.emplace_back("vram_reserve_mb",
+                               num((double)g_accel.vram_reserve_mb));
+        ap.object.emplace_back("vram_free_mb",
+                               num((double)g_accel.vram_free_mb));
+        ap.object.emplace_back("ram_free_mb",
+                               num((double)g_accel.ram_free_mb));
+        ap.object.emplace_back("dev_calls",
+                               num((double)g_accel.dev_calls));
+        ap.object.emplace_back("denied_off",
+                               num((double)g_accel.dev_denied_off));
+        ap.object.emplace_back("denied_work",
+                               num((double)g_accel.dev_denied_work));
+        ap.object.emplace_back("denied_vram",
+                               num((double)g_accel.dev_denied_vram));
+        put("accel", ap);
+    }
     put("steps", num(step));
     put("examples", num((double)data.size()));
     put("deadline_hit", bol(deadline_hit));
@@ -620,7 +816,7 @@ static JsonValue run_job(const JsonValue& job) {
         put("loss_tail", tail);
     }
     // Router-health observation (B139): last forward's accumulated
-    // load-balancing aux — ≈moe_aux_w×layers at perfect balance.
+    // load-balancing aux ???�moe_aux_w?layers at perfect balance.
     if (c.moe_experts > 0) {
         put("moe_aux_last", num(fw.moe_aux));
         put("moe_zlast", num(fw.moe_zloss));
@@ -634,7 +830,7 @@ static JsonValue run_job(const JsonValue& job) {
     // v29 MTP stack observability: weighted aux CE of the last example.
     if (c.mtp_depth > 0) put("mtp_stack_loss_last", num(mtp_stack_last));
     // §45 parameter-efficiency metrics: trainable vs frozen counts and
-    // gain-per-million — the capability loop's comparison currency.
+    // gain-per-million ??the capability loop's comparison currency.
     {
         const int64_t trainable = p.trainable_params();
         put("trainable_params", num((double)trainable));
@@ -670,7 +866,7 @@ static JsonValue run_job(const JsonValue& job) {
 
 // Central finite-difference check of analytic gradients on a tiny hybrid
 // (deltanet + gated attention + gated-MoE) model. fp32 limits accuracy, so
-// the pass bar is a loose relative tolerance — this catches sign/order
+// the pass bar is a loose relative tolerance ??this catches sign/order
 // bugs, not last-ulp drift.
 static int gradcheck() {
     ModelConfig c;
@@ -931,8 +1127,8 @@ static int smoke() {
 // -------------------------------------------------------------- maskcheck --
 
 // Masked self-attention causality probe: corrupting the token at position j
-// must leave logits[0..j) bitwise identical — a decoder may never read the
-// future — while logits[j..] must move (non-vacuous perturbation). Identity
+// must leave logits[0..j) bitwise identical ??a decoder may never read the
+// future ??while logits[j..] must move (non-vacuous perturbation). Identity
 // is bitwise because every mixing op is causal-bounded: full attention
 // scores rows s<=t only, the deltanet scan accumulates state strictly
 // forward, and the depthwise conv reads x[t-j]. Sweeps the layer matrix
@@ -988,15 +1184,15 @@ static int maskcheck() {
 // -------------------------------------------------------------- headcheck --
 //
 // Multi-head attention probe: proves the fused decoder's full-attention
-// layers really run `heads` independent views over GQA kv groups — the
+// layers really run `heads` independent views over GQA kv groups ??the
 // "analyze the sequence from multiple angles at once" contract:
 //   1. normalized causal softmax: every (head,t) prob row sums to 1 on
 //      s<=t and stays exactly 0 above the diagonal;
 //   2. head isolation: perturbing head h's wq rows moves probs[h] and its
-//      attn_out slice while every other head stays bitwise identical —
+//      attn_out slice while every other head stays bitwise identical ??
 //      no cross-head leakage through the packed qkv buffers;
 //   3. kv-group sharing: perturbing kv head g's wk/wv rows moves exactly
-//      the q-heads {h | h/group == g} — the GQA map, and only it;
+//      the q-heads {h | h/group == g} ??the GQA map, and only it;
 //   4. non-degeneracy: distinct heads produce distinct attention patterns
 //      (a slicing bug that folds every head onto one view fails here).
 // Sweeps GQA (4q/2kv), MHA (2q/2kv) and MQA (4q/1kv) geometries under the
@@ -1118,14 +1314,14 @@ static int headcheck() {
 // -------------------------------------------------------------- rulecheck --
 
 // The fused network's three canonical parts, each probed executably:
-//   structure  — weights + activity topology: every declared weight has
+//   structure  ??weights + activity topology: every declared weight has
 //                matching grad/m/v state, expected per-layer params exist,
 //                and one forward yields finite activities.
-//   activation — short-timescale dynamics: scalar rules (sigmoid/silu/
+//   activation ??short-timescale dynamics: scalar rules (sigmoid/silu/
 //                softplus) obey their math, and cached activities satisfy
 //                their invariants (softmax rows sum to 1, sigmoid gates in
 //                (0,1), deltanet decay in (0,1], rms factors > 0).
-//   learning   — long-timescale weight update: the rule depends on the
+//   learning   ??long-timescale weight update: the rule depends on the
 //                supervised target (different labels -> different grads),
 //                on activities (all-masked labels -> zero CE signal), and
 //                on current weights (pure decay scales w by 1-lr*wd);
@@ -1346,8 +1542,8 @@ static int rulecheck() {
 // ------------------------------------------------------------- inputcheck --
 
 // Input layer: token embedding (lookup table) + positional encoding.
-// The architecture gathers all token rows in parallel — there is no
-// RNN-style sequential input — so order information must be injected
+// The architecture gathers all token rows in parallel ??there is no
+// RNN-style sequential input ??so order information must be injected
 // afterwards: rotary position coding on full-attention q/k, and the
 // strictly forward recurrent state inside the deltanet/conv mixers.
 // Probes: layer-0 residual input rows are bitwise the embed lookup rows
@@ -1486,7 +1682,7 @@ static int inputcheck() {
     }
 
     // (3) parallel-input + position contract at model level: reversing
-    // the sequence changes the outputs — order reaches the model through
+    // the sequence changes the outputs ??order reaches the model through
     // the positional code, not through the embedding gather.
     {
         std::vector<int> rev = ids;
@@ -1511,7 +1707,7 @@ static int inputcheck() {
 // alternating with global attention (num_global_kv_heads + unified K==V),
 // per-type RoPE (local full / global p-RoPE, independent base
 // frequencies), post attention/FFW norms, GeGLU FFN, and the final logit
-// softcap — plus a finite-difference spot check of the new backward
+// softcap ??plus a finite-difference spot check of the new backward
 // paths (windowed score grads, wkv merge, post-norm, softcap chain).
 static int gemmacheck() {
     int failures = 0;
@@ -1547,7 +1743,7 @@ static int gemmacheck() {
     Fwd fw;
     fwd(p, c, ids, fw);
 
-    // (1) local layers: window mask — zero outside the last W, sum 1.
+    // (1) local layers: window mask ??zero outside the last W, sum 1.
     //     global layers: reach beyond the window must be non-degenerate.
     for (int l = 0; l < c.layers; ++l) {
         const LayerCache& L = fw.layers[(size_t)l];
@@ -1590,7 +1786,7 @@ static int gemmacheck() {
         if (c.kv_unified(l)) {
             // one projection: v IS the raw shared tensor; k takes the
             // scoring transforms (qk_norm + rope) on top of the same
-            // values — qk_kraw (pre-norm cache) must equal v bitwise.
+            // values ??qk_kraw (pre-norm cache) must equal v bitwise.
             if (!L.qk_kraw.empty() &&
                 std::memcmp(L.qk_kraw.data(), L.v.data(),
                             L.v.size() * sizeof(float)) != 0)
@@ -1710,17 +1906,17 @@ static int gemmacheck() {
 
 // -------------------------------------------------------------- dsvcheck --
 //
-// DeepSeek V4-Pro signatures — executable evidence:
+// DeepSeek V4-Pro signatures ??executable evidence:
 //   MLA: kv latent reconstruction (normed c drives per-head up
 //        projections bitwise), shared decoupled rope key (one w_kr
 //        perturbation moves every head while a per-head w_uk slice
 //        moves only its own), causal + sliding-window masks still hold;
 //   aux-free LB: bias ranks selection (s+b) yet never enters the
-//        weights — flipping a bias re-routes a token while its router
+//        weights ??flipping a bias re-routes a token while its router
 //        scores stay bitwise identical; the sign rule moves load toward
 //        under-served experts; lb_bias is outside the optimizer;
 //   MTP: depth-1 module predicts ids[i+2] via shared embed/lm_head and
-//        the hidden states — labels, finite logits and gradients on the
+//        the hidden states ??labels, finite logits and gradients on the
 //        shared tensors + a finite-difference sweep over the new
 //        backward paths;
 //   XCN7: checkpoint round-trip preserves the whole axis.
@@ -1916,7 +2112,7 @@ static int dsvcheck() {
 
     // (4) finite-difference sweep over the new backward paths: MLA
     //     latent chain (both directions), shared rope key, low-rank q,
-    //     MTP block + shared embed. lb_bias skipped — piecewise.
+    //     MTP block + shared embed. lb_bias skipped ??piecewise.
     {
         std::vector<int> lab = ids;
         shift_labels(lab);

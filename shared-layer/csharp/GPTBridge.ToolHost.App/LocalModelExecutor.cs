@@ -26,7 +26,7 @@ using GPTBridge.ToolHost;
 namespace GPTBridge.ToolHost.App;
 
 internal sealed class LocalModelExecutor
-    : IGovernedCommandExecutor, IAsyncDisposable
+    : IGovernedCommandExecutor, IWsCommandSurface, IAsyncDisposable
 {
     internal const string LifecycleOwner = "local-model/toolhost-model-service";
     internal const string ConsumerPolicy = "csharp-orchestrator-client-only";
@@ -35,6 +35,16 @@ internal sealed class LocalModelExecutor
     private const string DescriptorFileName =
         ModelServiceDescriptor.DescriptorFileName;
     private static readonly TimeSpan ServeOpTimeout = TimeSpan.FromMinutes(10);
+
+    // Read-only Codex diagnostic commands routed model-dialogue/
+    // star-chat -> xingcheng (tool_routes.json). Both verbs run on the
+    // governed CodexPipeline and never touch the model engine.
+    private static readonly HashSet<string> OwnedCommands = new(
+        StringComparer.Ordinal)
+    {
+        "xingcheng_codex_alignment",
+        "xingcheng_codex_mirror_check",
+    };
 
     private readonly GovernedEnvironment _env;
     private readonly string _ownerId;
@@ -49,11 +59,23 @@ internal sealed class LocalModelExecutor
     private readonly CancellationTokenSource _cts = new();
     private HttpListener? _listener;
     private Task? _acceptLoop;
+    private Task? _watchdog;
     private Process? _child;
     private int _port;
     private string _token = "";
     private volatile bool _engineLoaded;
     private volatile string? _lastError;
+    private volatile string? _lastRelease;
+
+    // AutoRelease (successor of the retired auto_release.py
+    // AutoReleaseManager): the loaded engine is evicted when idle past
+    // native-engine.json:auto_release_idle_seconds (default 300) or
+    // under governed memory pressure (resource-governor model class
+    // paused / critical memory). In-flight inference holds the child
+    // lock and is never evicted mid-request.
+    private readonly int _idleReleaseSeconds;
+    private int _inflight;
+    private long _lastActivityTicks = DateTime.UtcNow.Ticks;
 
     public LocalModelExecutor(GovernedEnvironment env, string ownerId)
     {
@@ -64,8 +86,22 @@ internal sealed class LocalModelExecutor
             env.ToolRoot, "src", "backend", "services", "xingcheng",
             "infrastructure", "native_transformer", "tools",
             "xc_modeltool.exe");
-        (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda) =
-            ResolveBundle(env.ToolRoot);
+        (_bundleDir, _samplingDefaults, _cpuThreads, _cppCuda,
+            _idleReleaseSeconds) = ResolveBundle(env.ToolRoot);
+    }
+
+    /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
+    /// copy under the legacy local-model settings dir is accepted
+    /// read-only. Writes always target the canonical path.</summary>
+    internal static string EngineSettingsPath(string toolRoot)
+    {
+        var canonical = Path.Combine(
+            toolRoot, "xingcheng", "runtime", "settings",
+            "native-engine.json");
+        if (File.Exists(canonical)) return canonical;
+        var legacy = Path.Combine(
+            toolRoot, "runtime", "settings", "native-engine.json");
+        return File.Exists(legacy) ? legacy : canonical;
     }
 
     /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
@@ -96,7 +132,7 @@ internal sealed class LocalModelExecutor
     /// probe; denial is CPU fail-soft, never a load failure.
     /// </summary>
     private static (string Bundle, JsonObject Defaults, int CpuThreads,
-        bool CppCuda)
+        bool CppCuda, int IdleReleaseSeconds)
         ResolveBundle(string toolRoot)
     {
         var settingsPath = EngineSettingsPath(toolRoot);
@@ -128,6 +164,26 @@ internal sealed class LocalModelExecutor
             throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_UNPINNED");
         var checkpointPath = Path.GetFullPath(Path.IsPathRooted(checkpoint)
             ? checkpoint : Path.Combine(toolRoot, checkpoint));
+        // Data residency: an out-of-boundary pin refuses to serve —
+        // the pinned artifact must resolve inside a registered
+        // xingcheng domain root.
+        var inBoundary = new[]
+        {
+            Path.Combine(toolRoot, "xingcheng"),
+            Path.GetFullPath(Path.Combine(
+                toolRoot, "..", "model-dialogue", "xingcheng")),
+        }.Any(r =>
+        {
+            var boundary = Path.GetFullPath(r);
+            return checkpointPath.Equals(boundary,
+                    StringComparison.OrdinalIgnoreCase)
+                || checkpointPath.StartsWith(
+                    boundary + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase);
+        });
+        if (!inBoundary)
+            throw new InvalidOperationException(
+                "XINGCHENG_DATA_BOUNDARY");
         var cpuThreads =
             root.TryGetProperty("cpu_threads", out var ct)
             && ct.ValueKind == JsonValueKind.Number
@@ -135,11 +191,20 @@ internal sealed class LocalModelExecutor
                 : 0;
         var cppCuda = root.TryGetProperty("cpp_cuda", out var cu)
             && cu.ValueKind == JsonValueKind.True;
+        // AutoRelease idle budget (auto_release_idle_seconds, default
+        // 300 s; 0/negative disables idle eviction — pressure eviction
+        // stays armed either way).
+        var idleReleaseSeconds =
+            root.TryGetProperty("auto_release_idle_seconds", out var ar)
+            && ar.ValueKind == JsonValueKind.Number
+                ? Math.Max(0, ar.GetInt32())
+                : 300;
 
         // Pinned bundle directory (current contract).
         if (Directory.Exists(checkpointPath)
             && IsBundleDir(checkpointPath))
-            return (checkpointPath, defaults, cpuThreads, cppCuda);
+            return (checkpointPath, defaults, cpuThreads, cppCuda,
+                idleReleaseSeconds);
 
         // Legacy contract: checkpoint is the source .pt; find its bundle.
         if (File.Exists(checkpointPath))
@@ -174,7 +239,8 @@ internal sealed class LocalModelExecutor
                             && sz.GetInt64() != size)
                             continue;
                         if (IsBundleDir(dir))
-                            return (dir, defaults, cpuThreads, cppCuda);
+                            return (dir, defaults, cpuThreads, cppCuda,
+                                idleReleaseSeconds);
                     }
                     catch (JsonException) { /* skip unreadable bundle */ }
                 }
@@ -283,6 +349,7 @@ internal sealed class LocalModelExecutor
             descriptor.ToJsonString() + "\n");
 
         _acceptLoop = Task.Run(AcceptLoopAsync);
+        _watchdog = Task.Run(AutoReleaseLoopAsync);
     }
 
     private static void WriteJson(
@@ -371,6 +438,15 @@ internal sealed class LocalModelExecutor
                     ["worker"] = "not-started",
                 };
                 status["service_port"] = _port;
+                status["auto_release"] = new JsonObject
+                {
+                    ["idle_seconds"] = _idleReleaseSeconds,
+                    ["inflight"] = Volatile.Read(ref _inflight),
+                    ["idle_for_s"] = (DateTime.UtcNow.Ticks
+                        - Interlocked.Read(ref _lastActivityTicks))
+                        / TimeSpan.TicksPerSecond,
+                    ["last_release"] = _lastRelease,
+                };
                 WriteJson(context.Response, 200, status);
                 return;
             }
@@ -409,6 +485,12 @@ internal sealed class LocalModelExecutor
                 foreach (var (key, value) in _samplingDefaults)
                     if (op[key] is null && value is not null)
                         op[key] = value.DeepClone();
+                // In-flight reference: the request holds a strong ref
+                // on the engine — the AutoRelease watchdog can never
+                // evict while this counter is non-zero.
+                Interlocked.Increment(ref _inflight);
+                Interlocked.Exchange(ref _lastActivityTicks,
+                    DateTime.UtcNow.Ticks);
                 JsonObject? reply;
                 try
                 {
@@ -435,6 +517,12 @@ internal sealed class LocalModelExecutor
                         ["message"] = ex.Message.Length > 240
                             ? ex.Message[..240] : ex.Message,
                     };
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _lastActivityTicks,
+                        DateTime.UtcNow.Ticks);
+                    Interlocked.Decrement(ref _inflight);
                 }
                 WriteJson(context.Response,
                     reply?["ok"]?.GetValue<bool>() == true ? 200 : 500,
@@ -584,6 +672,109 @@ internal sealed class LocalModelExecutor
         return child;
     }
 
+    // ---------------------------------------------------- auto-release --
+
+    /// <summary>Idle/pressure eviction watchdog (AutoReleaseManager
+    /// successor). Periodically checks: engine loaded → no in-flight
+    /// request → idle timeout or governed memory pressure → send the
+    /// serve child's ``unload`` op (graceful eviction; the worker
+    /// process stays resident-but-empty). Every eviction appends an
+    /// audit entry to xingcheng/runtime/logs/auto-release.jsonl.</summary>
+    private async Task AutoReleaseLoopAsync()
+    {
+        var ct = _cts.Token;
+        var interval = TimeSpan.FromSeconds(
+            Math.Clamp(_idleReleaseSeconds / 4, 15, 60));
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(interval, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { break; }
+            if (!_engineLoaded) continue;
+            if (Volatile.Read(ref _inflight) > 0) continue;
+
+            string? reason = null;
+            var idleS = (DateTime.UtcNow.Ticks
+                - Interlocked.Read(ref _lastActivityTicks))
+                / TimeSpan.TicksPerSecond;
+            if (_idleReleaseSeconds > 0
+                && idleS >= _idleReleaseSeconds)
+                reason = $"idle-timeout:{idleS}s>={_idleReleaseSeconds}s";
+            var pressure = MemoryPressure();
+            if (reason is null && pressure is not null)
+                reason = pressure;
+            if (reason is null) continue;
+
+            // Re-check under the op lock implicitly: ServeOpAsync
+            // serializes against any infer that started meanwhile —
+            // worst case a just-completed engine unloads once and the
+            // next request reloads it (never mid-request eviction).
+            var reply = await ServeOpAsync(
+                    new JsonObject { ["op"] = "unload" },
+                    spawnIfAbsent: false, ct)
+                .ConfigureAwait(false);
+            var evicted = reply?["ok"]?.GetValue<bool>() != false;
+            _lastRelease =
+                $"{reason} at {DateTime.UtcNow:O} (evicted={evicted})";
+            AppendReleaseAudit(reason, evicted, idleS);
+        }
+    }
+
+    /// <summary>Governed memory-pressure signal: the resource
+    /// governor's concurrency budget marks the model class
+    /// ``paused`` (shed signal) or reports critical memory usage.</summary>
+    private string? MemoryPressure()
+    {
+        try
+        {
+            var state = Path.Combine(_env.ProjectRoot, "main-system",
+                "runtime", "state", "resource-governor.json");
+            if (!File.Exists(state)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(state));
+            var root = doc.RootElement;
+            if (root.TryGetProperty("concurrency_budget", out var cb)
+                && cb.TryGetProperty("classes", out var classes)
+                && classes.TryGetProperty("model", out var model)
+                && model.TryGetProperty("state", out var s)
+                && s.GetString() == "paused")
+                return "memory-pressure:model-class-paused";
+            if (root.TryGetProperty("mem_used_pct", out var m)
+                && m.ValueKind == JsonValueKind.Number
+                && m.GetDouble() >= 92.0)
+                return "memory-pressure:mem-used>=92%";
+        }
+        catch { /* unreadable governor state → no pressure signal */ }
+        return null;
+    }
+
+    private void AppendReleaseAudit(
+        string reason, bool evicted, long idleSeconds)
+    {
+        try
+        {
+            var logs = Path.Combine(
+                _env.ToolRoot, "xingcheng", "runtime", "logs");
+            Directory.CreateDirectory(logs);
+            var entry = new JsonObject
+            {
+                ["format"] = "star-auto-release/v1",
+                ["at"] = DateTimeOffset.UtcNow.ToString("O"),
+                ["event"] = "engine-evict",
+                ["reason"] = reason,
+                ["evicted"] = evicted,
+                ["idle_seconds"] = idleSeconds,
+                ["bundle"] = Path.GetFileName(_bundleDir),
+            };
+            File.AppendAllText(
+                Path.Combine(logs, "auto-release.jsonl"),
+                entry.ToJsonString() + "\n",
+                new UTF8Encoding(false));
+        }
+        catch { /* audit is best-effort; eviction already happened */ }
+    }
+
     private void KillChild()
     {
         var dead = _child;
@@ -595,21 +786,51 @@ internal sealed class LocalModelExecutor
         dead.Dispose();
     }
 
+    // IWsCommandSurface — the two read-only Codex diagnostic commands
+    // (tool_routes.json: (model-dialogue|star-chat) -> xingcheng). Both
+    // delegate to CodexDiagnostics over the governed CodexPipeline
+    // subprocess; neither requires the model engine.
+    public bool OwnsCommand(string command) =>
+        OwnedCommands.Contains(command);
+
+    public async Task<(string Event, JsonObject Result)> ExecuteWsAsync(
+        string command, JsonObject payload, string requestId,
+        Func<JsonObject, Task>? emitProgress,
+        CancellationToken cancellationToken)
+    {
+        var result = command switch
+        {
+            "xingcheng_codex_alignment" => await CodexDiagnostics
+                .RunAsync(_env, "--arch-docs", cancellationToken)
+                .ConfigureAwait(false),
+            "xingcheng_codex_mirror_check" => await CodexDiagnostics
+                .RunAsync(_env, "--mirror-check", cancellationToken)
+                .ConfigureAwait(false),
+            _ => throw new PermissionDeniedException(),
+        };
+        result["tool_id"] = _ownerId;
+        result["command"] = command;
+        return ($"{command}_result", result);
+    }
+
     // IGovernedCommandExecutor — the store claim lane carries no
-    // local-model business commands today; WS commands are not owned by
-    // this executor either (the model service is reached via HTTP).
+    // local-model business commands; WS commands are the read-only
+    // diagnostics above (the model service is reached via HTTP).
     public Task<(string Event, JsonObject Result)> ExecuteAsync(
         string command, JsonObject payload, string requestId,
         CancellationToken cancellationToken)
-        => Task.FromResult(($"{command}_result", new JsonObject
-        {
-            ["ok"] = false,
-            ["tool_id"] = _ownerId,
-            ["error_code"] = "COMMAND_NOT_OWNED",
-            ["message"] =
-                "local-model owns the model-service HTTP surface; " +
-                "the command lane is not implemented for this tool.",
-        }));
+        => OwnedCommands.Contains(command)
+            ? ExecuteWsAsync(command, payload, requestId, null,
+                cancellationToken)
+            : Task.FromResult(($"{command}_result", new JsonObject
+            {
+                ["ok"] = false,
+                ["tool_id"] = _ownerId,
+                ["error_code"] = "COMMAND_NOT_OWNED",
+                ["message"] =
+                    "local-model owns the model-service HTTP surface; " +
+                    "the command lane is not implemented for this tool.",
+            }));
 
     public JsonObject Health() => new()
     {
@@ -621,6 +842,12 @@ internal sealed class LocalModelExecutor
             ["worker_alive"] = _child is { HasExited: false },
             ["bundle"] = Path.GetFileName(_bundleDir),
             ["last_error"] = _lastError,
+            ["auto_release"] = new JsonObject
+            {
+                ["idle_seconds"] = _idleReleaseSeconds,
+                ["inflight"] = Volatile.Read(ref _inflight),
+                ["last_release"] = _lastRelease,
+            },
         },
         ["executor_state"] = "active:model-service",
     };

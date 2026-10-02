@@ -4387,7 +4387,10 @@ internal static class InstructionRecovery
         if (baselineBundle == null && baselineRecorded <= 0)
             throw new ExecutorError(
                 "RECOVERY_PLAN_MISSING", "baseline_bundle");
-        string outDir = Req("out_dir");
+        // Recovery output is xingcheng-owned data — the plan-declared
+        // staging target must resolve inside the domain roots.
+        string outDir = DataBoundary.AssertInside(toolRoot,
+            Req("out_dir"));
         Directory.CreateDirectory(outDir);
         PlanFreeze(plan);   // validate early — fail before any work
         string stderrLog = Path.Combine(outDir, "recovery-stderr.log");
@@ -4488,7 +4491,7 @@ internal static class InstructionRecovery
         // ── pretokenize (all data work completes before training) ──────
         var tkTimer = System.Diagnostics.Stopwatch.StartNew();
         string trainSrc = Path.Combine(dataDir, "train.jsonl");
-        string trainIds = Path.Combine(outDir, "train-ids.jsonl");
+        string trainIds = Path.Combine(outDir, "train-ids.xcb");
         var tkOut = ParseJsonStdout(
             NativeTools.Run(
                 NativeTools.ModelToolExe(toolRoot),

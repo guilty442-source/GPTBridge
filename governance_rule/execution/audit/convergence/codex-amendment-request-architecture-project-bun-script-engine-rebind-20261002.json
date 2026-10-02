@@ -1,0 +1,45 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "architecture-project-bun-script-engine-rebind-20261002",
+  "title": "重綁 architecture-project.md registry 雜湊（Bun script-engine 例外矛盾澄清後同步）",
+  "summary": "The architecture-project.md projection carried an internal contradiction: the UI shell paragraph grants managed Bun as the sole Tauri/Wails UI script-engine exception while the production-runtime paragraph denied every script engine without scoping the exception. The projection was corrected to match the authoritative language article semantics (managed Bun inside the Tauri/Wails UI boundary is the only exception; every other interpreter/script engine stays barred from production). This request rebinds the active architecture_diagram_artifact_registry row to the corrected file bytes so SYNCED_CURRENT is truthful again. Codex-only change: no implementation is modified by this request.",
+  "requested_by": "decision-sovereign",
+  "origin": "projection-level internal contradiction reported 2026-10-02 (architecture-project.md Bun exception vs script-engine ban); corrected file requires registry rebind",
+  "change_class": "clarification",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T03:59:48Z",
+    "version_identity": "E2:2026-10-02T03:59:48Z",
+    "version_epoch": 2,
+    "history_head": "6cecad8f1e9e79dfd8e660907da9788e2ed917b603d35b8c77574c61f4140af7",
+    "revision_sequence": 204
+  },
+  "problem": {
+    "summary": "active registry row content_hash no longer matches the on-disk architecture-project.md bytes after the projection correction."
+  },
+  "changes": [],
+  "proposed_successors": [
+    {
+      "registry": "architecture_diagram_artifact_registry",
+      "action": "update",
+      "key": {
+        "artifact_path": "governance_rule/codex/architecture-project.md"
+      },
+      "set": {
+        "content_hash": "590cbca1aaa9ad24233ef2125c40d0a95c8d80e472610d39e7214889f4b8ffc4",
+        "source_codex_version": "<successor-version>",
+        "validated_at_utc": "2026-10-02T04:48:15Z",
+        "sync_status": "SYNCED_CURRENT"
+      }
+    }
+  ],
+  "verification": {
+    "requested_at": "2026-10-02T04:48:15Z",
+    "expected_audit_result": "the active row carries content_hash matching the live artifact bytes and the current codex version"
+  }
+}

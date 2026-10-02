@@ -106,18 +106,20 @@ static int csacheck() {
                 const int cc = LL.csa_sel[(size_t)(T - 1) * c.csa_topk + j];
                 if (minc < 0 || cc < minc) minc = cc;
             }
-            const int far = minc * c.csa_ratio;   // first token of chunk
-            if (far < 0 || far >= T - c.csa_window)
-                fail("reach geometry", minc, far);
+            // first token of chunk (`far`/`near` are windows.h legacy
+            // macros — never name a variable after them)
+            const int far_tok = minc * c.csa_ratio;
+            if (far_tok < 0 || far_tok >= T - c.csa_window)
+                fail("reach geometry", minc, far_tok);
             else {
                 std::vector<int> ids2 = ids;
-                ids2[far] = (ids2[far] + 7) % c.vocab;
+                ids2[far_tok] = (ids2[far_tok] + 7) % c.vocab;
                 Fwd f1;
                 fwd(p, c, ids2, f1);
                 if (std::memcmp(f0.logits.data() + (size_t)(T - 1) * c.vocab,
                                 f1.logits.data() + (size_t)(T - 1) * c.vocab,
                                 (size_t)c.vocab * sizeof(float)) == 0)
-                    fail("compressed reach", far, T - 1);
+                    fail("compressed reach", far_tok, T - 1);
             }
         }
     }

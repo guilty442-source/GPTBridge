@@ -14,9 +14,11 @@ const freezeDeep = (o) => {
   return freeze(o);
 };
 
-// Active language roster per B166/P115 (rev 197): python and typescript
-// are retired — they classify, but no active role or authored extension
-// remains.
+// Active language roster per B166/P115 (rev 197+211): python,
+// typescript and julia are retired — they classify, but no active role
+// or authored extension remains. Julia retired with the JULIA_COMPUTE
+// service (rev 211): every codex mention of Julia lives in superseded
+// provisions and no active provision grants it an owner.
 export const LANGUAGE_ROLES = freezeDeep({
   c: 'deterministic-runtime+stable-abi+permission-hot-paths',
   cpp: 'native-inference+native-tool-runtime+audit+model-training',
@@ -25,10 +27,10 @@ export const LANGUAGE_ROLES = freezeDeep({
   rust: 'ui-core-state-lifecycle+ipc+security+os+vector-engine+rag',
   go: 'network-and-batch-services',
   'javascript-esm': 'general-ui+registered-governance-checker-subtree',
-  julia: 'scientific-compute',
   sql: 'postgresql-set-based-data',
   python: 'retired',
   typescript: 'retired',
+  julia: 'retired',
 });
 
 // Canonical authored-source extensions per language. Retired languages
@@ -42,8 +44,8 @@ export const CANONICAL_EXTENSIONS = freezeDeep({
   rust: ['.rs'],
   go: ['.go'],
   'javascript-esm': ['.js'],
-  julia: ['.jl'],
   sql: ['.sql'],
+  julia: ['.jl'],
   python: ['.py', '.pyi'],
   typescript: ['.ts', '.tsx', '.d.ts'],
 });
@@ -59,7 +61,7 @@ export const GRANDFATHERED_EXTENSIONS = freezeDeep({
 export const SOURCE_ORIGINS = freeze(['AUTHORED', 'GENERATED', 'THIRD_PARTY']);
 
 // Retired languages: classification only, authored source denied.
-export const RETIRED_LANGUAGES = freeze(['python', 'typescript']);
+export const RETIRED_LANGUAGES = freeze(['python', 'typescript', 'julia']);
 
 // Directory allowlist per language (B75). The javascript-esm entry
 // includes this registered governance checker subtree per the C55
@@ -76,10 +78,10 @@ export const SOURCE_ROOTS = freezeDeep({
     'Standalone tools/model-dialogue/',
     'governance_rule/execution/code/',
   ],
-  julia: ['Standalone tools/'],
   sql: ['governance_rule/', 'main-system/', 'shared-layer/sql/'],
   python: [],
   typescript: [],
+  julia: [],
 });
 
 // A352-style forbidden cross-boundary edges. Post-retirement: no live
@@ -101,8 +103,7 @@ export const FORBIDDEN_CROSS_BOUNDARIES = freezeDeep({
   csharp: ['domain', 'sql', 'ui', 'native', 'python', 'typescript'],
   fsharp: ['sql', 'ui', 'python', 'typescript'],
   go: ['domain', 'sql', 'ui', 'permission', 'governance', 'private-bridge', 'python', 'typescript'],
-  rust: ['domain', 'sql', 'ui', 'permission', 'governance', 'python', 'typescript'],
-  julia: ['governance', 'ui', 'sql', 'python', 'typescript'],
+  rust: ['domain', 'sql', 'ui', 'permission', 'governance', 'python', 'typescript', 'julia'],
 });
 
 // B32 canonical contract: javascript-esm -> information_layer expands to

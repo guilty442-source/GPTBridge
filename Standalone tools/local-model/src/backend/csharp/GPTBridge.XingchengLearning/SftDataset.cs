@@ -102,6 +102,51 @@ internal static class SftDataset
         };
     }
 
+    /// <summary>Pin a written snapshot file into the Rust artifact store
+    /// (xstore put --kind blob): verify-then-store, content-addressed
+    /// object, hash-chained receipt in store-index.jsonl. The receipt
+    /// becomes registration evidence so C# decides while Rust owns the
+    /// persistence boundary. When xstore.exe is not deployed the
+    /// evidence records "not-deployed" (the snapshot sha remains the
+    /// registration key); a deployed-but-failing store is a hard error
+    /// — a governed artifact must not silently skip its pin.</summary>
+    internal static Dictionary<string, object?> PinSnapshot(
+        string? toolRoot, string target)
+    {
+        string exe = toolRoot == null
+            ? "" : NativeTools.RustExe(toolRoot, "xstore");
+        if (exe.Length == 0)
+            return new Dictionary<string, object?>
+            {
+                ["status"] = "not-deployed",
+            };
+        var res = NativeTools.Run(exe,
+            new[] { "put",
+                    "--store", NativeTools.ArtifactStoreDir(toolRoot!),
+                    "--file", target,
+                    "--kind", "blob" },
+            toolRoot!,
+            Path.Combine(toolRoot!, "xingcheng", "runtime", "logs",
+                         "xstore-stderr.log"),
+            timeoutS: 600);
+        if (res.ExitCode != 0)
+            throw new ExecutorError("EXECUTOR_STORE_PIN_FAILED",
+                $"xstore put failed for {target}");
+        using var doc = JsonDocument.Parse(res.StdoutTail);
+        var root = doc.RootElement;
+        return new Dictionary<string, object?>
+        {
+            ["status"] = "pinned",
+            ["store"] = NativeTools.ArtifactStoreDir(toolRoot!),
+            ["object"] = root.TryGetProperty("object", out var o)
+                ? o.GetString() : null,
+            ["sha256"] = root.TryGetProperty("sha256", out var s)
+                ? s.GetString() : null,
+            ["index_prev"] = root.TryGetProperty("prev", out var p)
+                ? p.GetString() : null,
+        };
+    }
+
     /// <summary>Pretrain snapshot builder: same deterministic hash-permille
     /// split and snapshot serialization as the SFT lane, but documents are
     /// raw text (no prompt/completion structure).</summary>
@@ -110,7 +155,8 @@ internal static class SftDataset
         IReadOnlyDictionary<string, List<Dictionary<string, object?>>> examplesByScope,
         int valPermille = 50,
         string generation = "",
-        string modelVersion = "")
+        string modelVersion = "",
+        string? toolRoot = null)
     {
         string target = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -184,12 +230,14 @@ internal static class SftDataset
         string contentSha256 = Sha256Text(sb.ToString());
 
         string snapshotSha256 = TransformerTrainingRepository.Sha256File(target);
+        var pin = PinSnapshot(toolRoot, target);
         var scopes = examplesByScope
             .OrderBy(kv => kv.Key, StringComparer.Ordinal)
             .ToDictionary(kv => kv.Key, kv => (object?)kv.Value.Count);
         var manifest = new Dictionary<string, object?>
         {
             ["format_version"] = PretrainFormatVersion,
+            ["artifact_store"] = pin,
             ["snapshot_path"] = target,
             ["snapshot_sha256"] = snapshotSha256,
             ["content_sha256"] = contentSha256,
@@ -223,7 +271,8 @@ internal static class SftDataset
         IReadOnlyDictionary<string, List<Dictionary<string, object?>>> examplesByScope,
         int valPermille = 50,
         string generation = "",
-        string modelVersion = "")
+        string modelVersion = "",
+        string? toolRoot = null)
     {
         string target = Path.GetFullPath(outputPath);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -302,12 +351,14 @@ internal static class SftDataset
         string contentSha256 = Sha256Text(sb.ToString());
 
         string snapshotSha256 = TransformerTrainingRepository.Sha256File(target);
+        var pin = PinSnapshot(toolRoot, target);
         var scopes = examplesByScope
             .OrderBy(kv => kv.Key, StringComparer.Ordinal)
             .ToDictionary(kv => kv.Key, kv => (object?)kv.Value.Count);
         var manifest = new Dictionary<string, object?>
         {
             ["format_version"] = SftFormatVersion,
+            ["artifact_store"] = pin,
             ["snapshot_path"] = target,
             ["snapshot_sha256"] = snapshotSha256,
             ["content_sha256"] = contentSha256,
