@@ -330,7 +330,7 @@ internal static partial class GenerationProjections
             Count(connection, "provision_lifecycle_status");
         var identityCount = Count(connection, "provision_identities");
         var lineageCount = Count(connection, "provision_lineage");
-        const string certification = "sealed-governed-certification";
+        const string certification = "sealed-governed-authorization";
         connection.Execute(
             "INSERT INTO seal_manifest (version, history_head, "
             + "provision_count, identity_count, lineage_count, "
@@ -358,6 +358,56 @@ internal static partial class GenerationProjections
                 preview["content_root"], preview["identity_root"],
                 preview["full_root"], null,
             });
+        AppendCertificationRows(connection, version, epoch);
+    }
+
+    /// <summary>D113 continuity: every seal generation carries
+    /// same-version ``sealed_components`` coverage,
+    /// ``trust_anchor_requirements`` and ``certification_evidence``
+    /// rows.  External Ed25519 signatures stay pending by design —
+    /// the evidence row records that state honestly instead of
+    /// claiming a certified release that never completed.</summary>
+    private static readonly string[] SealComponents =
+    {
+        "certification-policy", "history", "identities", "lineage",
+        "metadata", "provisions", "schema", "sovereigns",
+        "supersessions", "version-rules",
+    };
+
+    private static void AppendCertificationRows(
+        StageConnection connection, string version, long epoch)
+    {
+        if (HasTable(connection, "sealed_components"))
+            foreach (var component in SealComponents)
+                connection.Execute(
+                    "INSERT INTO sealed_components (version, component,"
+                    + " included_in_full_root) VALUES (?,?,?)",
+                    new object?[] { version, component, 1L });
+        if (HasTable(connection, "trust_anchor_requirements"))
+            connection.Execute(
+                "INSERT INTO trust_anchor_requirements (version, "
+                + "algorithm, threshold, key_count, "
+                + "detached_signatures_required, private_key_storage, "
+                + "version_epoch) VALUES (?,?,?,?,?,?,?)",
+                new object?[]
+                {
+                    version, "Ed25519", 2L, 3L, 1L,
+                    "external-offline-never-in-codex", epoch,
+                });
+        if (HasTable(connection, "certification_evidence"))
+            connection.Execute(
+                "INSERT INTO certification_evidence (version, "
+                + "signed_payload_fields, evidence_location, "
+                + "validation_rule, status, version_epoch) "
+                + "VALUES (?,?,?,?,?,?)",
+                new object?[]
+                {
+                    version,
+                    "version|content-root|history-head|identity-root",
+                    "external-offline-signature-bundle",
+                    "human-governor-seal+Ed25519-2-of-3-verification",
+                    "external-signatures-required", epoch,
+                });
     }
 
     /// <summary>Rebind every derived projection of the staged

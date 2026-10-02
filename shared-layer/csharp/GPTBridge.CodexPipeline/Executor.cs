@@ -13,7 +13,7 @@ namespace GPTBridge.CodexPipeline;
 ///   runs the gate on behalf of a sovereign.
 /// * Seal roots and revision/lineage/certification rows remain governed
 ///   amendment-pipeline authority; the unanimous certificate is the
-///   seal-closing condition (``sealed-governed-certification``).
+///   seal-closing condition (``sealed-governed-authorization``).
 /// * ``apply=false`` (default) rehearses the change in isolation only.
 /// </summary>
 internal class ExecutorDenied : Exception
@@ -26,7 +26,7 @@ internal class ExecutorDenied : Exception
 internal sealed record AmendmentExecutionResult(
     bool Ok, bool Applied, string AmendmentId, string Version,
     string Reason, IReadOnlyList<Dictionary<string, object?>> Phases,
-    string SealState = "sealed-governed-certification")
+    string SealState = "sealed-governed-authorization")
 {
     public Dictionary<string, object?> ToDict() =>
         new(StringComparer.Ordinal)

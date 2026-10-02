@@ -26,6 +26,7 @@ internal static partial class Program
         private readonly HashSet<string> _wakeWorktrees =
             new(StringComparer.OrdinalIgnoreCase);
         private double _lastEventWake;
+        private readonly object _gate = new();
 
         public Service(string root, Options options)
         {
@@ -119,11 +120,14 @@ internal static partial class Program
                     // unscoped wake (overflow, unresolvable path) falls
                     // back to a full sweep.
                     HashSet<string>? scope = null;
-                    if (!_wakeAll && _wakeWorktrees.Count > 0)
-                        scope = new HashSet<string>(
-                            _wakeWorktrees,
-                            StringComparer.OrdinalIgnoreCase);
-                    _wakeWorktrees.Clear();
+                    lock (_gate)
+                    {
+                        if (!_wakeAll && _wakeWorktrees.Count > 0)
+                            scope = new HashSet<string>(
+                                _wakeWorktrees,
+                                StringComparer.OrdinalIgnoreCase);
+                        _wakeWorktrees.Clear();
+                    }
                     var wakeAll = _wakeAll;
                     _wakeAll = false;
                     if (wakeAll)
@@ -252,7 +256,7 @@ internal static partial class Program
                 _watchers[i].EnableRaisingEvents = false;
                 _watchers[i].Dispose();
                 _watchers.RemoveAt(i);
-                _watchRoots.RemoveAt(i);
+                lock (_gate) _watchRoots.RemoveAt(i);
             }
             foreach (var worktree in worktrees)
             {
@@ -274,7 +278,7 @@ internal static partial class Program
                 watcher.Renamed += (_, e) => OnChanged(e.FullPath);
                 watcher.Error += (_, _) => OnError();
                 _watchers.Add(watcher);
-                _watchRoots.Add(worktree);
+                lock (_gate) _watchRoots.Add(worktree);
             }
         }
 
@@ -284,7 +288,9 @@ internal static partial class Program
         private string? ScopeFor(string path)
         {
             string? best = null;
-            foreach (var watched in _watchRoots)
+            string[] roots;
+            lock (_gate) roots = _watchRoots.ToArray();
+            foreach (var watched in roots)
             {
                 if (path.StartsWith(
                         watched + Path.DirectorySeparatorChar,
@@ -318,7 +324,7 @@ internal static partial class Program
             }
             else
             {
-                _wakeWorktrees.Add(scope);
+                lock (_gate) _wakeWorktrees.Add(scope);
             }
             var now = Environment.TickCount64 / 1000.0;
             if (now - _lastEventWake < 15.0)
@@ -343,7 +349,7 @@ internal static partial class Program
                 watcher.Dispose();
             }
             _watchers.Clear();
-            _watchRoots.Clear();
+            lock (_gate) _watchRoots.Clear();
         }
 
         private void WriteState()
