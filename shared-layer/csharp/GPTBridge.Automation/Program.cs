@@ -129,6 +129,8 @@ internal static class Program
         await using (hostLock)
         {
             Planes.Journal(root, "host", "start");
+            Planes.Journal(root, "governance-engine",
+                "single-engine:domain-planes=git,sql(codex)");
             var planes = new List<Task>();
             // Every plane is queued via Task.Run: a plane entry whose
             // synchronous prefix blocks (e.g. a contested plane lock)
@@ -226,6 +228,22 @@ internal static class Program
             if (File.Exists(state))
                 result[plane] = JsonNode.Parse(
                     File.ReadAllText(state));
+        }
+        var convergence = Path.Combine(root, StateDir,
+            "governance-convergence.json");
+        if (File.Exists(convergence))
+        {
+            try
+            {
+                result["governance_engine"] = JsonNode.Parse(
+                    File.ReadAllText(convergence));
+            }
+            catch (Exception error) when (error is IOException
+                or JsonException)
+            {
+                result["governance_engine"] =
+                    "unreadable:convergence-receipt";
+            }
         }
         Console.WriteLine(result.ToJsonString());
         return 0;
