@@ -96,6 +96,26 @@
       "path": "governance_rule/codex/architecture-tool-vaultly.md"
     },
     {
+      "id": "architecture-pollution:architecture-xingcheng-architecture.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-xingcheng-architecture.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-xingcheng-capabilities.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-xingcheng-capabilities.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-xingcheng-data.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-xingcheng-data.md"
+    },
+    {
+      "id": "architecture-pollution:architecture-xingcheng-parameters.md",
+      "kind": "text-no-pollution",
+      "path": "governance_rule/codex/architecture-xingcheng-parameters.md"
+    },
+    {
       "id": "mirror-part-pollution:governance_codex.zh-TW.part-1.txt",
       "kind": "text-no-pollution",
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
@@ -4125,7 +4145,7 @@
     {
       "id": "activation:target:MODEL_DIALOGUE",
       "kind": "dir-exists",
-      "path": "Standalone tools/local-model/model-dialogue"
+      "path": "Standalone tools/model-dialogue"
     },
     {
       "id": "activation:owner:POSTGRESQL_AUTHORITY",
@@ -4423,56 +4443,6 @@
       "path": "Standalone tools"
     },
     {
-      "id": "activation:owner:STAR_DIRECTORY",
-      "items": "tables.architecture_activation_states",
-      "kind": "json-array-min-count",
-      "markers": [
-        "architecture_code=STAR_DIRECTORY",
-        "verification_owner!=automatic-log-sync-sub-sovereign",
-        "verification_owner!=change-acceptance-sub-sovereign",
-        "verification_owner!=channel-contract-sync-sub-sovereign",
-        "verification_owner!=cleanup-retention-sync-sub-sovereign",
-        "verification_owner!=data-governance-sub-sovereign",
-        "verification_owner!=data-sovereign",
-        "verification_owner!=data-sub-sovereign",
-        "verification_owner!=dependency-sync-sub-sovereign",
-        "verification_owner!=directory-sub-sovereign",
-        "verification_owner!=health-maintenance-test-sub-sovereign",
-        "verification_owner!=identity-group-sub-sovereign",
-        "verification_owner!=integration-sovereign",
-        "verification_owner!=integration-sub-sovereign",
-        "verification_owner!=language-review-sovereign",
-        "verification_owner!=language-review-sub-sovereign",
-        "verification_owner!=learning-evidence-sync-sub-sovereign",
-        "verification_owner!=learning-system-sovereign",
-        "verification_owner!=learning-system-sub-sovereign",
-        "verification_owner!=maintenance-sovereign",
-        "verification_owner!=maintenance-sub-sovereign",
-        "verification_owner!=permission-sub-sovereign",
-        "verification_owner!=policy-architecture-sub-sovereign",
-        "verification_owner!=priority-capability-sub-sovereign",
-        "verification_owner!=release-update-sync-sub-sovereign",
-        "verification_owner!=repair-backup-sync-sub-sovereign",
-        "verification_owner!=resource-dependency-sync-sub-sovereign",
-        "verification_owner!=resource-sovereign",
-        "verification_owner!=resource-sub-sovereign",
-        "verification_owner!=runtime-state-sync-sub-sovereign",
-        "verification_owner!=startup-sovereign",
-        "verification_owner!=startup-sub-sovereign",
-        "verification_owner!=system-programming-sovereign",
-        "verification_owner!=system-sub-sovereign",
-        "verification_owner!=third-party-sovereign",
-        "verification_owner!=third-party-sub-sovereign"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
-    },
-    {
-      "id": "activation:target:STAR_DIRECTORY",
-      "kind": "dir-exists",
-      "path": "Standalone tools/local-model/model-dialogue/xingcheng"
-    },
-    {
       "id": "activation:owner:STATE_SERVICE",
       "items": "tables.architecture_activation_states",
       "kind": "json-array-min-count",
@@ -4616,6 +4586,51 @@
       "id": "activation:target:VAULTLY",
       "kind": "dir-exists",
       "path": "Standalone tools/vaultly"
+    },
+    {
+      "id": "activation:owner:STAR_DIRECTORY",
+      "items": "tables.architecture_activation_states",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=STAR_DIRECTORY",
+        "verification_owner!=automatic-log-sync-sub-sovereign",
+        "verification_owner!=change-acceptance-sub-sovereign",
+        "verification_owner!=channel-contract-sync-sub-sovereign",
+        "verification_owner!=cleanup-retention-sync-sub-sovereign",
+        "verification_owner!=data-governance-sub-sovereign",
+        "verification_owner!=data-sovereign",
+        "verification_owner!=data-sub-sovereign",
+        "verification_owner!=dependency-sync-sub-sovereign",
+        "verification_owner!=directory-sub-sovereign",
+        "verification_owner!=health-maintenance-test-sub-sovereign",
+        "verification_owner!=identity-group-sub-sovereign",
+        "verification_owner!=integration-sovereign",
+        "verification_owner!=integration-sub-sovereign",
+        "verification_owner!=language-review-sovereign",
+        "verification_owner!=language-review-sub-sovereign",
+        "verification_owner!=learning-evidence-sync-sub-sovereign",
+        "verification_owner!=learning-system-sovereign",
+        "verification_owner!=learning-system-sub-sovereign",
+        "verification_owner!=maintenance-sovereign",
+        "verification_owner!=maintenance-sub-sovereign",
+        "verification_owner!=permission-sub-sovereign",
+        "verification_owner!=policy-architecture-sub-sovereign",
+        "verification_owner!=priority-capability-sub-sovereign",
+        "verification_owner!=release-update-sync-sub-sovereign",
+        "verification_owner!=repair-backup-sync-sub-sovereign",
+        "verification_owner!=resource-dependency-sync-sub-sovereign",
+        "verification_owner!=resource-sovereign",
+        "verification_owner!=resource-sub-sovereign",
+        "verification_owner!=runtime-state-sync-sub-sovereign",
+        "verification_owner!=startup-sovereign",
+        "verification_owner!=startup-sub-sovereign",
+        "verification_owner!=system-programming-sovereign",
+        "verification_owner!=system-sub-sovereign",
+        "verification_owner!=third-party-sovereign",
+        "verification_owner!=third-party-sub-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-2.txt"
     },
     {
       "id": "activation:owner:INVESTMENT_MOBILE",
@@ -6544,7 +6559,7 @@
       "markers": [
         "obligation_code=OBL_LANGUAGE_DEPENDENCY_DAG_GATE",
         "implementation_owner=module-execution-layer",
-        "target_state=registered read-only TypeScript language and dependency DAG checkers with exact evidence and mandatory cycle tests",
+        "target_state=registered read-only JavaScript-ESM language boundary and dependency DAG checkers (C55 code/ subtree) with exact evidence and mandatory cycle tests",
         "acceptance_evidence=TF_LANGUAGE_DEPENDENCY_DAG_GATE+all required PASS/FAIL cases+zero-mutation proof+integration/release gate evidence",
         "current_state=mandated"
       ],
@@ -6811,7 +6826,7 @@
         "obligation_code=OBL_NATIVE_PROMOTION_RECORD_CHECKER",
         "implementation_owner=module-execution-layer",
         "target_state=request_registry remains SHADOW/STAGED until its host explicitly wires _native_primary through the registered contract; no native-primary claim before host wiring, parity, fail-closed and release evidence",
-        "acceptance_evidence=host wiring evidence|native/Python parity|failure-mode evidence|current source revision|primary activation receipt",
+        "acceptance_evidence=host wiring evidence|recorded historical-baseline parity|failure-mode evidence|current source revision|primary activation receipt",
         "current_state=mandated"
       ],
       "min_count": 1,
@@ -16745,7 +16760,7 @@
       "items": "tables.project_architecture_directory",
       "kind": "json-array-min-count",
       "markers": [],
-      "min_count": 46,
+      "min_count": 54,
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
     },
     {
@@ -16831,6 +16846,17 @@
       "kind": "json-array-min-count",
       "markers": [
         "architecture_code=BUSINESS_LOGIC_CSHARP",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "directory:identity:project_architecture_directory:BUSINESS_LOGIC_FSHARP",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=BUSINESS_LOGIC_FSHARP",
         "owner=permission-sovereign"
       ],
       "min_count": 1,
@@ -16925,6 +16951,17 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
     },
     {
+      "id": "directory:identity:project_architecture_directory:JULIA_COMPUTE",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=JULIA_COMPUTE",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
       "id": "directory:identity:project_architecture_directory:LAUNCHER",
       "items": "tables.project_architecture_directory",
       "kind": "json-array-min-count",
@@ -16941,6 +16978,17 @@
       "kind": "json-array-min-count",
       "markers": [
         "architecture_code=LOCAL_MODEL",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "directory:identity:project_architecture_directory:LOCAL_VECTOR",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=LOCAL_VECTOR",
         "owner=permission-sovereign"
       ],
       "min_count": 1,
@@ -16974,6 +17022,17 @@
       "kind": "json-array-min-count",
       "markers": [
         "architecture_code=MODEL_TRAINING",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "directory:identity:project_architecture_directory:MODEL_TRAINING_NATIVE",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=MODEL_TRAINING_NATIVE",
         "owner=permission-sovereign"
       ],
       "min_count": 1,
@@ -17046,6 +17105,28 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
     },
     {
+      "id": "directory:identity:project_architecture_directory:RESOURCE_GOVERNOR",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=RESOURCE_GOVERNOR",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "directory:identity:project_architecture_directory:SEARCHD_GO",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=SEARCHD_GO",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
       "id": "directory:identity:project_architecture_directory:SHARED_LAYER",
       "items": "tables.project_architecture_directory",
       "kind": "json-array-min-count",
@@ -17073,6 +17154,17 @@
       "kind": "json-array-min-count",
       "markers": [
         "architecture_code=STANDALONE_TOOLS",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "directory:identity:project_architecture_directory:STAR_CHAT",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=STAR_CHAT",
         "owner=permission-sovereign"
       ],
       "min_count": 1,
@@ -17238,6 +17330,17 @@
       "kind": "json-array-min-count",
       "markers": [
         "architecture_code=VAULTLY",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-1.txt"
+    },
+    {
+      "id": "directory:identity:project_architecture_directory:VECTORD",
+      "items": "tables.project_architecture_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "architecture_code=VECTORD",
         "owner=permission-sovereign"
       ],
       "min_count": 1,
@@ -17494,17 +17597,6 @@
       "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
     },
     {
-      "id": "directory:identity:special_law_directory:CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
-      "items": "tables.special_law_directory",
-      "kind": "json-array-min-count",
-      "markers": [
-        "special_law_code=CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
-        "owner=permission-sovereign"
-      ],
-      "min_count": 1,
-      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
-    },
-    {
       "id": "directory:identity:special_law_directory:CODEX_STARTUP_CONTROL_SPECIAL_LAW",
       "items": "tables.special_law_directory",
       "kind": "json-array-min-count",
@@ -17543,6 +17635,17 @@
       "kind": "json-array-min-count",
       "markers": [
         "special_law_code=CODEX_RELEASE_VERSION_SPECIAL_LAW",
+        "owner=permission-sovereign"
+      ],
+      "min_count": 1,
+      "path": "governance_rule/codex/governance_codex.zh-TW.part-3.txt"
+    },
+    {
+      "id": "directory:identity:special_law_directory:CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
+      "items": "tables.special_law_directory",
+      "kind": "json-array-min-count",
+      "markers": [
+        "special_law_code=CODEX_STAR_PRIVILEGED_INSTITUTION_SPECIAL_LAW",
         "owner=permission-sovereign"
       ],
       "min_count": 1,
@@ -27472,7 +27575,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3564,
+    "native_checks": 3575,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27495,7 +27598,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-01T15:03:44Z",
+  "generated_at": "2026-10-02T03:45:29Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
