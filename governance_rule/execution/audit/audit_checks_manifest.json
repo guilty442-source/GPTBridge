@@ -26735,9 +26735,9 @@
       "path": "Standalone tools/vaultly/src/backend/services/vaultly/integration/__init__.py"
     },
     {
-      "id": "pkg-layer:Standalone tools/model-dialogue/src/backend/services/star_chat:application",
+      "id": "pkg-layer:Standalone tools/model-dialogue/star-chat:application",
       "kind": "file-not-exists",
-      "path": "Standalone tools/model-dialogue/src/backend/services/star_chat/application/__init__.py"
+      "path": "Standalone tools/model-dialogue/star-chat/application/__init__.py"
     },
     {
       "glob": "*.py",
@@ -27456,14 +27456,14 @@
     },
     {
       "glob": "*.py",
-      "id": "cross-import:star_chat:Standalone tools/model-dialogue/src",
+      "id": "cross-import:star_chat:Standalone tools/local-model/src",
       "kind": "tree-not-contains",
       "markers": [
         "import star_chat",
         "from star_chat"
       ],
       "optional": true,
-      "path": "Standalone tools/model-dialogue/src"
+      "path": "Standalone tools/local-model/src"
     },
     {
       "glob": "*.py",
@@ -27598,7 +27598,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T06:17:07Z",
+  "generated_at": "2026-10-02T06:27:32Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }
