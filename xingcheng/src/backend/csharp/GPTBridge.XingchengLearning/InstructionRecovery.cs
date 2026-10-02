@@ -1019,6 +1019,41 @@ internal static class InstructionRecovery
         return true;
     }
 
+    /// <summary>Maturation-closure §105: expose the capability's eval
+    /// suite items so the dataset-purity gate can hash protected
+    /// prompts without re-deriving them. Sequence-id vocabulary
+    /// (``reading_grounding`` etc.) — callers resolve aliases through
+    /// CapabilityRegistry first; unknown ids fall back to the
+    /// instruction_following suite.</summary>
+    internal static List<Dictionary<string, object?>> SuiteItemsFor(
+        string capability) => capability switch
+    {
+        "context_tracking" => BuildContextSuiteItems(),
+        "multi_turn" => BuildMultiTurnSuiteItems(),
+        "structured_output" => BuildStructuredSuiteItems(),
+        "tool_calling" => BuildToolCallingSuiteItems(),
+        "reading_grounding" => BuildReadingSuiteItems(),
+        "rag" => BuildRagSuiteItems(),
+        "math" => BuildMathSuiteItems(),
+        "coding" => BuildCodingSuiteItems(),
+        _ => BuildSuiteItems(),
+    };
+
+    /// <summary>§105: sha256(prompt) set for one capability's formal
+    /// eval suite — the protected-eval half of the purity gate.</summary>
+    public static HashSet<string> SuitePromptHashes(string capability)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var it in SuiteItemsFor(capability))
+            if (it.TryGetValue("prompt", out object? p) &&
+                p?.ToString() is { Length: > 0 } prompt)
+                set.Add(Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(
+                        System.Text.Encoding.UTF8.GetBytes(
+                            prompt.Trim()))).ToLowerInvariant());
+        return set;
+    }
+
     // -------------------------------------------------------- suite emit --
 
     // §20/§21 — the eval suite uses `category` = metric name so the
@@ -4092,18 +4127,7 @@ internal static class InstructionRecovery
         WriteRows(valPath, val);
 
         // Eval suite — disjoint phrasing; assert zero prompt overlap.
-        var suiteItems = Capability switch
-        {
-            "context_tracking" => BuildContextSuiteItems(),
-            "multi_turn" => BuildMultiTurnSuiteItems(),
-            "structured_output" => BuildStructuredSuiteItems(),
-            "tool_calling" => BuildToolCallingSuiteItems(),
-            "reading_grounding" => BuildReadingSuiteItems(),
-            "rag" => BuildRagSuiteItems(),
-            "math" => BuildMathSuiteItems(),
-            "coding" => BuildCodingSuiteItems(),
-            _ => BuildSuiteItems(),
-        };
+        var suiteItems = SuiteItemsFor(Capability);
         var corpusPrompts = rows
             .Select(x => x.Prompt.Trim())
             .ToHashSet(StringComparer.Ordinal);
