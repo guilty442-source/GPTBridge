@@ -35,6 +35,8 @@ internal static partial class Program
         var authorityState = false;
         var repairProjections = false;
         var mirrorZh = false;
+        var mirrorCheck = false;
+        var archDocs = false;
         var watch = false;
         var maintain = false;
         var pinSync = false;
@@ -74,6 +76,8 @@ internal static partial class Program
                 case "--repair-projections": repairProjections = true;
                     break;
                 case "--mirror-zh": mirrorZh = true; break;
+                case "--mirror-check": mirrorCheck = true; break;
+                case "--arch-docs": archDocs = true; break;
                 case "--watch": watch = true; break;
                 case "--maintain": maintain = true; break;
                 case "--pin-sync": pinSync = true; break;
@@ -218,6 +222,28 @@ internal static partial class Program
                         && seconds > 0 ? seconds : null);
             if (authorityState)
                 return Emit(PgExport.AuthorityState());
+            if (archDocs)
+                // Read-only architecture registry × docs completeness
+                // report (xingcheng_codex_alignment deep surface).
+                return Emit(ArchitectureDocs.Report(Repo.Root()));
+            if (mirrorCheck)
+            {
+                // Read-only live mirror validation — loads the five
+                // zh-TW parts from the canonical codex root and checks
+                // chain/hash/parity/replacement damage against the live
+                // authority. Never re-renders (xingcheng_codex_
+                // mirror_check deep surface).
+                var checkRoot = UpdatePipeline.CanonicalCodexRoot();
+                var errors = MirrorWriter.MirrorErrors(
+                    PgDsn.CodexSchema, checkRoot, "live");
+                return Emit(new Dictionary<string, object?>(
+                    StringComparer.Ordinal)
+                {
+                    ["ok"] = errors.Length == 0,
+                    ["errors"] = errors,
+                    ["root"] = checkRoot,
+                });
+            }
             if (verifyParity is not null)
                 return Emit(PgExport.VerifySqlParity(verifyParity));
             if (repairProjections)

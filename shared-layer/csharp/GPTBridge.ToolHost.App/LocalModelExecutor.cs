@@ -26,7 +26,7 @@ using GPTBridge.ToolHost;
 namespace GPTBridge.ToolHost.App;
 
 internal sealed class LocalModelExecutor
-    : IGovernedCommandExecutor, IAsyncDisposable
+    : IGovernedCommandExecutor, IWsCommandSurface, IAsyncDisposable
 {
     internal const string LifecycleOwner = "local-model/toolhost-model-service";
     internal const string ConsumerPolicy = "csharp-orchestrator-client-only";
@@ -35,6 +35,16 @@ internal sealed class LocalModelExecutor
     private const string DescriptorFileName =
         ModelServiceDescriptor.DescriptorFileName;
     private static readonly TimeSpan ServeOpTimeout = TimeSpan.FromMinutes(10);
+
+    // Read-only Codex diagnostic commands routed model-dialogue/
+    // star-chat -> xingcheng (tool_routes.json). Both verbs run on the
+    // governed CodexPipeline and never touch the model engine.
+    private static readonly HashSet<string> OwnedCommands = new(
+        StringComparer.Ordinal)
+    {
+        "xingcheng_codex_alignment",
+        "xingcheng_codex_mirror_check",
+    };
 
     private readonly GovernedEnvironment _env;
     private readonly string _ownerId;
@@ -581,21 +591,51 @@ internal sealed class LocalModelExecutor
         dead.Dispose();
     }
 
+    // IWsCommandSurface — the two read-only Codex diagnostic commands
+    // (tool_routes.json: (model-dialogue|star-chat) -> xingcheng). Both
+    // delegate to CodexDiagnostics over the governed CodexPipeline
+    // subprocess; neither requires the model engine.
+    public bool OwnsCommand(string command) =>
+        OwnedCommands.Contains(command);
+
+    public async Task<(string Event, JsonObject Result)> ExecuteWsAsync(
+        string command, JsonObject payload, string requestId,
+        Func<JsonObject, Task>? emitProgress,
+        CancellationToken cancellationToken)
+    {
+        var result = command switch
+        {
+            "xingcheng_codex_alignment" => await CodexDiagnostics
+                .RunAsync(_env, "--arch-docs", cancellationToken)
+                .ConfigureAwait(false),
+            "xingcheng_codex_mirror_check" => await CodexDiagnostics
+                .RunAsync(_env, "--mirror-check", cancellationToken)
+                .ConfigureAwait(false),
+            _ => throw new PermissionDeniedException(),
+        };
+        result["tool_id"] = _ownerId;
+        result["command"] = command;
+        return ($"{command}_result", result);
+    }
+
     // IGovernedCommandExecutor — the store claim lane carries no
-    // local-model business commands today; WS commands are not owned by
-    // this executor either (the model service is reached via HTTP).
+    // local-model business commands; WS commands are the read-only
+    // diagnostics above (the model service is reached via HTTP).
     public Task<(string Event, JsonObject Result)> ExecuteAsync(
         string command, JsonObject payload, string requestId,
         CancellationToken cancellationToken)
-        => Task.FromResult(($"{command}_result", new JsonObject
-        {
-            ["ok"] = false,
-            ["tool_id"] = _ownerId,
-            ["error_code"] = "COMMAND_NOT_OWNED",
-            ["message"] =
-                "local-model owns the model-service HTTP surface; " +
-                "the command lane is not implemented for this tool.",
-        }));
+        => OwnedCommands.Contains(command)
+            ? ExecuteWsAsync(command, payload, requestId, null,
+                cancellationToken)
+            : Task.FromResult(($"{command}_result", new JsonObject
+            {
+                ["ok"] = false,
+                ["tool_id"] = _ownerId,
+                ["error_code"] = "COMMAND_NOT_OWNED",
+                ["message"] =
+                    "local-model owns the model-service HTTP surface; " +
+                    "the command lane is not implemented for this tool.",
+            }));
 
     public JsonObject Health() => new()
     {
