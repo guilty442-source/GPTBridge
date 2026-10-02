@@ -528,9 +528,12 @@ int mode_corpus(const Args& a) {
     }
 
     // ---- emit (elements 2/8/9/11): packed ids + records + manifest ---
+    // Binary-hot-data rule: packed token ids ship as XCB1 containers
+    // (train-ids.xcb / valid-ids.xcb); the *-records/documents JSONL
+    // remain — they are provenance manifests, not token batches.
     fs::create_directories(out_dir);
-    fs::path train_path = out_dir / "train-ids.jsonl";
-    fs::path valid_path = out_dir / "valid-ids.jsonl";
+    fs::path train_path = out_dir / "train-ids.xcb";
+    fs::path valid_path = out_dir / "valid-ids.xcb";
     fs::path docs_path = out_dir / "documents.jsonl";
     fs::path trec_path = out_dir / "train-records.jsonl";
     fs::path vrec_path = out_dir / "valid-records.jsonl";
@@ -544,23 +547,33 @@ int mode_corpus(const Args& a) {
     std::ofstream vrec(vrec_path, std::ios::binary | std::ios::trunc);
     if (!train || !valid || !drec || !trec || !vrec)
         fail("CORPUS_OUT_UNWRITABLE");
+    const std::string ids_meta =
+        std::string("{\"format\":\"star-token-batch/v1\",")
+        + "\"producer\":\"xcm_corpus\",\"packing_max_len\":"
+        + std::to_string(max_len) + ",\"tokenizer_sha256\":\""
+        + sha256_file(tk_path) + "\"}";
+    xcb::Writer xw_train(train, ids_meta);
+    xcb::Writer xw_valid(valid, ids_meta);
     int64_t train_rows = 0, valid_rows = 0, train_toks = 0, valid_toks = 0;
     std::vector<int64_t> pack;
-    auto flush = [&](std::ofstream& out, int64_t& rows, int64_t& toks) {
+    auto flush = [&](xcb::Writer& xw, int64_t& rows, int64_t& toks) {
         if (pack.empty()) return;
-        std::string line = "{\"input_ids\":[";
-        for (size_t i = 0; i < pack.size(); ++i) {
-            if (i) line += ',';
-            line += std::to_string(pack[(size_t)i]);
+        xcb::Record rec;
+        rec.kind = xcb::Kind::kPretrain;
+        rec.ids.reserve(pack.size());
+        for (int64_t t : pack) {
+            if (t < std::numeric_limits<int32_t>::min() ||
+                t > std::numeric_limits<int32_t>::max())
+                fail("CORPUS_TOKEN_RANGE");
+            rec.ids.push_back(static_cast<int32_t>(t));
         }
-        line += "]}\n";
-        out << line;
+        xw.add(rec);
         toks += (int64_t)pack.size();
         ++rows;
         pack.clear();
     };
     for (const CorpusDoc& d : docs) {
-        std::ofstream& dst = d.split == "valid" ? valid : train;
+        xcb::Writer& dst = d.split == "valid" ? xw_valid : xw_train;
         int64_t& rows = d.split == "valid" ? valid_rows : train_rows;
         int64_t& toks = d.split == "valid" ? valid_toks : train_toks;
         size_t off = 0;
@@ -584,8 +597,10 @@ int mode_corpus(const Args& a) {
         ovl << "{\"path\":\"" << gptbridge::jsonlite::json_escape(d.relpath)
             << "\",\"sha256\":\"" << d.overlap_sha << "\"}\n";
     }
-    flush(train, train_rows, train_toks);
-    flush(valid, valid_rows, valid_toks);
+    flush(xw_train, train_rows, train_toks);
+    flush(xw_valid, valid_rows, valid_toks);
+    xw_train.close();
+    xw_valid.close();
     train.close(); valid.close(); drec.close();
     trec.close(); vrec.close();
 

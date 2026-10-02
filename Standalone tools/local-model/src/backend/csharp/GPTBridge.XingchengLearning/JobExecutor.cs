@@ -657,7 +657,7 @@ internal sealed class TrainingJobExecutor
         int maxLen = TransformerTrainingRepository.Int(configuration, "max_length");
         if (maxLen <= 0) maxLen = 256;
         string trainSrc = Path.Combine(outputDir, "train-src.jsonl");
-        string trainIds = Path.Combine(outputDir, "train-ids.jsonl");
+        string trainIds = Path.Combine(outputDir, "train-ids.xcb");
         WriteSourceRows(trainSrc, trainDocs, kind);
         var tkArgs = new List<string>
         {
@@ -677,7 +677,7 @@ internal sealed class TrainingJobExecutor
         //    the summary for the eval tier (the native trainer consumes
         //    the train path only).
         string valSrc = Path.Combine(outputDir, "val-src.jsonl");
-        string valIds = Path.Combine(outputDir, "val-ids.jsonl");
+        string valIds = Path.Combine(outputDir, "val-ids.xcb");
         WriteSourceRows(valSrc, valDocs, kind);
         var valTkArgs = new List<string>
         {

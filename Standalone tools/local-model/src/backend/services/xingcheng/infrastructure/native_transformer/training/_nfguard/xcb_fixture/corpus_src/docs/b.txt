@@ -1,0 +1,2 @@
+星澄原生模型使用二進位容器傳輸 token batch。
+Corpus manifests preserve provenance and integrity hashes.

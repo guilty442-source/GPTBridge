@@ -512,21 +512,32 @@ pub fn run(a: &Args) -> Result<String, String> {
     let out_dir = PathBuf::from(&a.out);
     std::fs::create_dir_all(&out_dir)
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
-    let train_path = out_dir.join("train-ids.jsonl");
-    let valid_path = out_dir.join("valid-ids.jsonl");
+    // Binary-hot-data rule: packed token ids ship as XCB1 containers
+    // (train-ids.xcb / valid-ids.xcb); documents/records JSONL remain —
+    // provenance manifests, not token batches.
+    let train_path = out_dir.join("train-ids.xcb");
+    let valid_path = out_dir.join("valid-ids.xcb");
     let docs_path = out_dir.join("documents.jsonl");
     let trec_path = out_dir.join("train-records.jsonl");
     let vrec_path = out_dir.join("valid-records.jsonl");
     let manifest_path = out_dir.join("manifest.json");
-    let mut train = std::fs::File::create(&train_path)
+    let train = std::fs::File::create(&train_path)
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
-    let mut valid = std::fs::File::create(&valid_path)
+    let valid = std::fs::File::create(&valid_path)
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
     let mut drec = std::fs::File::create(&docs_path)
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
     let mut trec = std::fs::File::create(&trec_path)
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
     let mut vrec = std::fs::File::create(&vrec_path)
+        .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
+    let tk_sha = textutil::sha256_file(&tk_path).unwrap_or_default();
+    let ids_meta = format!(
+        "{{\"format\":\"star-token-batch/v1\",\"producer\":\"xcorpus\",\"packing_max_len\":{},\"tokenizer_sha256\":\"{}\"}}",
+        a.max_len, tk_sha);
+    let mut xw_train = crate::xcb::Writer::new(train, &ids_meta)
+        .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
+    let mut xw_valid = crate::xcb::Writer::new(valid, &ids_meta)
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
 
     let (mut train_rows, mut valid_rows, mut train_toks, mut valid_toks) =
@@ -535,15 +546,14 @@ pub fn run(a: &Args) -> Result<String, String> {
     macro_rules! flush {
         ($out:expr, $rows:expr, $toks:expr) => {{
             if !pack.is_empty() {
-                let mut line = String::from("{\"input_ids\":[");
-                for (i, t) in pack.iter().enumerate() {
-                    if i > 0 {
-                        line.push(',');
+                let mut ids: Vec<i32> = Vec::with_capacity(pack.len());
+                for &t in pack.iter() {
+                    if t < i32::MIN as i64 || t > i32::MAX as i64 {
+                        return Err("CORPUS_TOKEN_RANGE".to_string());
                     }
-                    line.push_str(&t.to_string());
+                    ids.push(t as i32);
                 }
-                line.push_str("]}\n");
-                $out.write_all(line.as_bytes())
+                $out.add_ids(&ids)
                     .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
                 $toks += pack.len() as i64;
                 $rows += 1;
@@ -562,9 +572,9 @@ pub fn run(a: &Args) -> Result<String, String> {
             off += take;
             if pack.len() as i64 >= a.max_len {
                 if is_valid {
-                    flush!(valid, valid_rows, valid_toks);
+                    flush!(xw_valid, valid_rows, valid_toks);
                 } else {
-                    flush!(train, train_rows, train_toks);
+                    flush!(xw_train, train_rows, train_toks);
                 }
             }
         }
@@ -590,10 +600,10 @@ pub fn run(a: &Args) -> Result<String, String> {
         )
         .map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
     }
-    flush!(train, train_rows, train_toks);
-    flush!(valid, valid_rows, valid_toks);
-    drop(train);
-    drop(valid);
+    flush!(xw_train, train_rows, train_toks);
+    flush!(xw_valid, valid_rows, valid_toks);
+    xw_train.finish().map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
+    xw_valid.finish().map_err(|e| format!("CORPUS_OUT_UNWRITABLE: {e}"))?;
     drop(drec);
     drop(trec);
     drop(vrec);

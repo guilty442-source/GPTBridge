@@ -4473,7 +4473,7 @@ internal static class InstructionRecovery
         // ── pretokenize (all data work completes before training) ──────
         var tkTimer = System.Diagnostics.Stopwatch.StartNew();
         string trainSrc = Path.Combine(dataDir, "train.jsonl");
-        string trainIds = Path.Combine(outDir, "train-ids.jsonl");
+        string trainIds = Path.Combine(outDir, "train-ids.xcb");
         var tkOut = ParseJsonStdout(
             NativeTools.Run(
                 NativeTools.ModelToolExe(toolRoot),
