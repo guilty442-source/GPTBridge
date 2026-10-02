@@ -26,3 +26,20 @@ if (!(Test-Path (Join-Path $root 'obj'))) { New-Item -ItemType Directory (Join-P
 cmd /c "call `"$vsvars`" >nul 2>&1 && cl /nologo /std:c++latest /utf-8 /O2 /EHsc $cudaDefs /I`"$incNat`" /I`"$incCpp`" /I`"$cppSrc`" /I`"$train`" `"$root\xc_modeltool.cpp`" `"$engine`" `"$cppSrc\cuda_bridge.cpp`" `"$cppSrc\cuda_kernels.cpp`" `"$nat\transformer.c`" `"$nat\kv_pool.c`" /Fe`"$exe`" /Fo`"$root\obj\\`""
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Output "built: $exe"
+# Tokenizer lane (B81): the C++ engine reaches xcorpus only through the
+# stable xtok_* C ABI via LoadLibraryA("xcorpus.dll") — exe-directory
+# search, so the governed build must place the dll next to this exe.
+# Build the Rust cdylib if cargo is available; otherwise require a
+# prebuilt artifact in target/release. Missing dll = fail-closed
+# TOKENIZER_BACKEND_UNAVAILABLE at run time.
+$xcDir = Join-Path $repo 'xingcheng\src\backend\rust\xcorpus'
+$xcDll = Join-Path $xcDir 'target\release\xcorpus.dll'
+if (-not (Test-Path $xcDll)) {
+    if (Get-Command cargo -ErrorAction SilentlyContinue) {
+        cargo build --release --manifest-path (Join-Path $xcDir 'Cargo.toml')
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+}
+if (-not (Test-Path $xcDll)) { throw "XCORPUS_DLL_MISSING:$xcDll" }
+Copy-Item -LiteralPath $xcDll -Destination (Join-Path $root 'xcorpus.dll') -Force
+Write-Output "deployed: xcorpus.dll -> $root"
