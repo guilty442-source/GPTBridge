@@ -67,6 +67,7 @@
 #include <fstream>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <map>
 #include <mutex>
 #include <numeric>
@@ -99,6 +100,7 @@
 #pragma comment(lib, "Normaliz.lib")
 
 #include "jsonlite.h"
+#include "xcb_batch.h"
 #include "xingcheng_inference.hpp"
 
 using gptbridge::jsonlite::JsonParser;
@@ -704,6 +706,33 @@ int vision_grid_state(const JsonValue* v, int64_t& patches, int64_t& dim) {
     return (patches > 0 && dim > 0) ? 1 : -1;
 }
 
+// Binary-hot-data rule: token batches are emitted as XCB1, never JSON.
+// Flatten a validated vision_patches grid (array of P uniform D rows)
+// into row-major f32 — mirrors j_patch_grid semantics.
+void vision_grid_flat(const JsonValue* v, int64_t patches, int64_t dim,
+                      std::vector<float>& out) {
+    out.clear();
+    if (patches <= 0 || dim <= 0) return;
+    out.reserve(static_cast<size_t>(patches) * dim);
+    for (const auto& pr : v->array)
+        for (const auto& x : pr.array)
+            out.push_back(static_cast<float>(x.number));
+}
+
+// i64 ids -> i32 record fields; returns false when any id escapes the
+// i32 range (fail-closed drop, like a malformed row).
+bool ids_to_i32(const std::vector<int64_t>& in, std::vector<int32_t>& out) {
+    out.clear();
+    out.reserve(in.size());
+    for (int64_t t : in) {
+        if (t < std::numeric_limits<int32_t>::min() ||
+            t > std::numeric_limits<int32_t>::max())
+            return false;
+        out.push_back(static_cast<int32_t>(t));
+    }
+    return true;
+}
+
 int mode_tokenize(const Args& a) {
     std::string tk_path = resolve_tokenizer_path(a.get("tokenizer"));
     ByteLevelBPETokenizer tk = ByteLevelBPETokenizer::load(tk_path);
@@ -728,8 +757,25 @@ int mode_tokenize(const Args& a) {
     std::string in_path = a.get("in"), out_path = a.get("out");
     if (in_path.empty() || out_path.empty()) fail("TOKENIZE_ARGS_MISSING");
     std::vector<JsonValue> rows = read_jsonl(in_path);
+    // Binary-hot-data rule: --binary or a .xcb out path emits the XCB1
+    // token-batch container; .jsonl remains for legacy/debug exports.
+    const bool binary =
+        a.has("binary") ||
+        (out_path.size() >= 4 &&
+         out_path.compare(out_path.size() - 4, 4, ".xcb") == 0);
     std::ofstream out(out_path, std::ios::binary | std::ios::trunc);
     if (!out) fail("TOKENIZE_OUT_UNWRITABLE");
+    const std::string tk_sha = sha256_file(tk_path);
+    std::unique_ptr<xcb::Writer> xw;
+    if (binary) {
+        std::string meta =
+            std::string("{\"format\":\"star-token-batch/v1\",")
+            + "\"producer\":\"xc_modeltool tokenize\","
+            + "\"chat\":" + (chat ? "1" : "0") + ","
+            + "\"eos_id\":" + std::to_string(eos_id) + ","
+            + "\"tokenizer_sha256\":\"" + tk_sha + "\"}";
+        xw = std::make_unique<xcb::Writer>(out, meta);
+    }
     int64_t n_in = 0, n_out = 0, n_dropped = 0, n_vision = 0;
     for (const JsonValue& row : rows) {
         ++n_in;
@@ -747,6 +793,7 @@ int mode_tokenize(const Args& a) {
             continue;
         }
         std::string line;
+        xcb::Record rec;
         if (chosen && rejected) {
             if (v_state > 0) { ++n_dropped; continue; }
             std::string ch = chosen->type == JsonValue::Type::String
@@ -759,53 +806,90 @@ int mode_tokenize(const Args& a) {
                 ++n_dropped;
                 continue;
             }
-            line = "{\"chosen\":{";
-            ids_json(line, "input_ids", c.ids);
-            line += ',';
-            ids_json(line, "labels", c.labels);
-            line += "},\"rejected\":{";
-            ids_json(line, "input_ids", r.ids);
-            line += ',';
-            ids_json(line, "labels", r.labels);
-            line += "}}";
+            if (binary) {
+                rec.kind = xcb::Kind::kDpo;
+                if (!ids_to_i32(c.ids, rec.ids) ||
+                    !ids_to_i32(c.labels, rec.labels) ||
+                    !ids_to_i32(r.ids, rec.rej_ids) ||
+                    !ids_to_i32(r.labels, rec.rej_labels)) {
+                    ++n_dropped;
+                    continue;
+                }
+            } else {
+                line = "{\"chosen\":{";
+                ids_json(line, "input_ids", c.ids);
+                line += ',';
+                ids_json(line, "labels", c.labels);
+                line += "},\"rejected\":{";
+                ids_json(line, "input_ids", r.ids);
+                line += ',';
+                ids_json(line, "labels", r.labels);
+                line += "}}";
+            }
         } else if (text) {
             std::vector<int64_t> ids = tk.encode(text->string, true, true);
             if (max_len > 0 && (int64_t)ids.size() > max_len)
                 ids.resize((size_t)max_len);
             if (ids.size() < 2) { ++n_dropped; continue; }
-            line = "{";
-            ids_json(line, "input_ids", ids);
-            line += '}';
+            if (binary) {
+                rec.kind = xcb::Kind::kPretrain;
+                if (!ids_to_i32(ids, rec.ids)) { ++n_dropped; continue; }
+            } else {
+                line = "{";
+                ids_json(line, "input_ids", ids);
+                line += '}';
+            }
         } else {
             std::string completion = jget_str(row, "completion");
             if (completion.empty()) completion = jget_str(row, "target_text");
             if (prompt.empty() || completion.empty()) { ++n_dropped; continue; }
             Ids e = sft_encode(tk, prompt, completion, chat, eos_id);
             if (!clip_ids(e, max_len)) { ++n_dropped; continue; }
-            line = "{";
-            ids_json(line, "input_ids", e.ids);
-            line += ',';
-            ids_json(line, "labels", e.labels);
-            line += '}';
+            if (binary) {
+                rec.kind = xcb::Kind::kSft;
+                if (!ids_to_i32(e.ids, rec.ids) ||
+                    !ids_to_i32(e.labels, rec.labels)) {
+                    ++n_dropped;
+                    continue;
+                }
+            } else {
+                line = "{";
+                ids_json(line, "input_ids", e.ids);
+                line += ',';
+                ids_json(line, "labels", e.labels);
+                line += '}';
+            }
         }
         if (v_state > 0) {
-            line.resize(line.size() - 1);              // drop '}'
-            line += ",\"vision_patches\":";
-            line += gptbridge::jsonlite::json_serialize(*vp);
-            line += '}';
+            if (binary) {
+                rec.vision_patches = static_cast<uint32_t>(v_p);
+                rec.vision_dim = static_cast<uint32_t>(v_d);
+                vision_grid_flat(vp, v_p, v_d, rec.vision);
+            } else {
+                line.resize(line.size() - 1);          // drop '}'
+                line += ",\"vision_patches\":";
+                line += gptbridge::jsonlite::json_serialize(*vp);
+                line += '}';
+            }
             ++n_vision;
         }
-        out << line << '\n';
+        if (binary) {
+            xw->add(rec);
+        } else {
+            out << line << '\n';
+        }
         ++n_out;
     }
+    if (xw) xw->close();
     out.close();
     std::printf("{\"ok\":true,\"mode\":\"tokenize\",\"rows_in\":%lld,"
                 "\"rows_out\":%lld,\"rows_dropped\":%lld,"
                 "\"vision_rows\":%lld,\"eos_id\":%lld,"
+                "\"container\":\"%s\","
                 "\"tokenizer_sha256\":\"%s\"}\n",
                 (long long)n_in, (long long)n_out, (long long)n_dropped,
-                (long long)n_vision,
-                (long long)eos_id, sha256_file(tk_path).c_str());
+                (long long)n_vision, (long long)eos_id,
+                binary ? "xcb1" : "jsonl", tk_sha.c_str());
     return 0;
 }
 
@@ -4390,6 +4474,7 @@ static const ModeEntry kModeRegistry[] = {
     {"sparse-probe",          "CACHE",     mode_sparse_probe},
     {"kv-gather-probe",       "CACHE",     mode_kv_gather_probe},
     {"hw-caps",               "SCALE",     mode_hw_caps},
+    {"kernel-registry",       "SCALE",     mode_kernel_registry},
     // Checkpoint-format convergence onto the canonical writer
     // (byte-exact tensor table, zeroed MTP-stack block).
     {"ckpt-converge",         "MODEL",     mode_ckpt_converge},

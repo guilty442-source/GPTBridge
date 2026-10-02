@@ -1,10 +1,11 @@
-//! kernels.rs — star-kernel-registry/v1 for the xcorpus data lane.
+//! kernels.rs — star-kernel-registry/v1 for the xstore data/safety lane.
 //!
-//! Same contract as the xstore/trainer registries: governed inventory
-//! of every compute kernel in this lane (the corpus pipeline stages),
-//! single audited Rust implementation each, plus star-kernel-policy/v1
-//! deny enforcement. Phase 1 = inventory + policy gate; dispatch
-//! authority stays with the pipeline itself until phase 2.
+//! The registry is the governed inventory of every compute kernel this
+//! lane owns (same contract the C++ trainer emits for its TPU lanes).
+//! Every entry here has exactly one implementation — the audited Rust
+//! path — so `variants` documents capability, not dispatch. Phase 1
+//! scope: inventory + star-kernel-policy/v1 deny enforcement; the
+//! dispatch-authority phase is separate.
 
 use serde_json::{json, Value};
 
@@ -16,34 +17,51 @@ struct K {
 }
 
 static KERNELS: &[K] = &[
-    K { name: "registry-gate", category: "GATE", determinism: "exact",
-        dispatch: "enabled + license + clearance check before any read" },
-    K { name: "doc-scan", category: "SCAN", determinism: "exact",
-        dispatch: "bounded file walk under --root; denied paths counted" },
-    K { name: "doc-parse", category: "PARSE", determinism: "exact",
-        dispatch: "per-doc decode + NFC normalize; cache-gated reparse" },
-    K { name: "nfc-normalize", category: "PARSE", determinism: "exact",
-        dispatch: "textutil NFC pass over every document body" },
-    K { name: "minhash-dedup", category: "DEDUP", determinism: "exact",
-        dispatch: "C108 exact-hash + MinHash near-dup merge" },
-    K { name: "seq-pack", category: "PACK", determinism: "exact",
-        dispatch: "fixed-length sequence packing; val split by ratio" },
-    K { name: "manifest-emit", category: "EMIT", determinism: "exact",
-        dispatch: "content-addressed dataset_version + counts JSON" },
-    K { name: "tokenizer", category: "TOKENIZE", determinism: "exact",
-        dispatch: "engine_tokenizer.h port; encode on ingest" },
+    K { name: "xcn1-parse", category: "PARSE", determinism: "exact",
+        dispatch: "bounds-checked header + tensor table walk" },
+    K { name: "xcn1-verify", category: "PARSE", determinism: "exact",
+        dispatch: "full structural verify incl. payload extents" },
+    K { name: "ckpt-diff", category: "DIFF", determinism: "exact",
+        dispatch: "config parity + byte-exact payload compare" },
+    K { name: "sha256", category: "HASH", determinism: "exact",
+        dispatch: "single-shot sha256 over mapped bytes" },
+    K { name: "store-put", category: "STORE", determinism: "exact",
+        dispatch: "verify -> tmp spill -> fsync -> rehash -> rename" },
+    K { name: "store-get", category: "STORE", determinism: "exact",
+        dispatch: "resident rehash before export" },
+    K { name: "store-verify", category: "STORE", determinism: "exact",
+        dispatch: "rehash every object + walk receipt chain" },
+    K { name: "audit-append", category: "AUDIT", determinism: "exact",
+        dispatch: "hash-chained JSONL append with prev link" },
+    K { name: "audit-verify", category: "AUDIT", determinism: "exact",
+        dispatch: "chain walk; truncation/forgery flips ok" },
+    K { name: "snapshot", category: "STORE", determinism: "exact",
+        dispatch: "content-addressed dataset snapshot write" },
+    K { name: "snapshot-verify", category: "STORE", determinism: "exact",
+        dispatch: "manifest rehash + object presence" },
 ];
 
-/// Pipeline element names the `corpus` command dispatches to — a deny
-/// on any element refuses the whole run (fail-closed).
-pub fn corpus_kernels() -> &'static [&'static str] {
-    static KS: &[&str] = &[
-        "registry-gate", "doc-scan", "doc-parse", "nfc-normalize",
-        "minhash-dedup", "seq-pack", "manifest-emit", "tokenizer",
-    ];
-    KS
+/// Command name -> registry kernel it dispatches to.
+pub fn kernel_for(cmd: &str) -> Option<&'static str> {
+    Some(match cmd {
+        "ckpt-info" => "xcn1-parse",
+        "ckpt-verify" => "xcn1-verify",
+        "ckpt-diff" => "ckpt-diff",
+        "hash" => "sha256",
+        "put" => "store-put",
+        "get" => "store-get",
+        "verify-store" => "store-verify",
+        "audit-append" => "audit-append",
+        "audit-verify" => "audit-verify",
+        "snapshot" => "snapshot",
+        "snapshot-verify" => "snapshot-verify",
+        _ => return None,
+    })
 }
 
+/// star-kernel-policy/v1 (minimal surface): format tag + enabled +
+/// deny_kernels. A referenced but unreadable/malformed policy is a hard
+/// failure — callers propagate the Err verbatim.
 pub struct Policy {
     pub loaded: bool,
     pub enabled: bool,
@@ -101,6 +119,8 @@ pub fn policy_load(path: &str) -> Result<Policy, String> {
     Ok(pol)
 }
 
+/// Policy path precedence: explicit --policy arg, else
+/// XCT_KERNEL_POLICY env, else none.
 pub fn policy_path(arg: Option<&String>) -> String {
     if let Some(p) = arg {
         return p.clone();
@@ -108,16 +128,15 @@ pub fn policy_path(arg: Option<&String>) -> String {
     std::env::var("XCT_KERNEL_POLICY").unwrap_or_default()
 }
 
-/// `corpus` is denied when ANY pipeline kernel it dispatches is denied.
+/// Fail-closed deny check for a command's kernel. Returns Err with the
+/// KERNEL_POLICY_DENIED code — callers surface it as XSTORE_FAILED.
 pub fn policy_gate(pol: &Policy, cmd: &str) -> Result<(), String> {
     if !pol.loaded {
         return Ok(());
     }
-    if cmd == "corpus" {
-        for k in corpus_kernels() {
-            if pol.deny_kernels.iter().any(|d| d == k) {
-                return Err(format!("KERNEL_POLICY_DENIED: {k}"));
-            }
+    if let Some(k) = kernel_for(cmd) {
+        if pol.deny_kernels.iter().any(|d| d == k) {
+            return Err(format!("KERNEL_POLICY_DENIED: {k}"));
         }
     }
     Ok(())
@@ -150,7 +169,7 @@ pub fn registry_emit(policy_arg: Option<&String>) -> Value {
         .collect();
     json!({
         "format": "star-kernel-registry/v1",
-        "lane": "xcorpus",
+        "lane": "xstore",
         "count": KERNELS.len(),
         "policy": {
             "source": pol.as_ref().map(|p| p.source.clone())

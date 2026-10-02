@@ -39,7 +39,19 @@ xstore fail-list  --pool-dir <d> --class <c>
 xstore fail-mark  --pool-dir <d> --class <c> --fingerprint <fp>
    --state <OPEN|TRAINED|RESOLVED|REGRESSED>
 xstore fail-status --pool-dir <d>
+xstore kernel-registry [--policy <json>]
+                                      star-kernel-registry/v1 inventory
 ```
+
+Every command also accepts `--policy <json>` (or env
+`XCT_KERNEL_POLICY`) naming a `star-kernel-policy/v1` file. When the
+policy is loaded and `enabled`, a `deny_kernels` entry matching the
+kernel a command dispatches to fails closed as
+`XSTORE_FAILED: KERNEL_POLICY_DENIED: <kernel>` (exit 2); a referenced
+but unreadable/malformed/misformat policy is likewise a hard failure.
+`kernel-registry` emits the lane inventory (`star-kernel-registry/v1`)
+with the resolved policy echoed in the `policy` block and denied
+kernels marked `"active":"denied"`.
 
 Output contract: one JSON object on stdout (`format` tagged,
 `xstore-*/v1`); parse/IO failure → `XCN_PARSE` / `XCN_VERIFY` /

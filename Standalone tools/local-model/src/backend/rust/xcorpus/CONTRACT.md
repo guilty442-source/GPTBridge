@@ -12,10 +12,19 @@ xcorpus corpus --registry <json> --root <dir> --tokenizer <path-or-dir>
                --out <dir> [--max-len N=1024] [--val-ratio PCT=5]
                [--max-docs N=20000] [--max-doc-chars N=1000000]
                [--max-tokens N=50000000] [--jobs N=min(8,hw)]
+xcorpus kernel-registry [--policy <json>]
+               star-kernel-registry/v1 inventory of the corpus pipeline
 ```
 
 Identical CLI surface to `xc_modeltool corpus`; stdout emits the same
 single JSON summary; failures print the C108 error code and exit 2.
+
+Kernel policy (`star-kernel-policy/v1`, via `--policy <json>` or env
+`XCT_KERNEL_POLICY`): a `deny_kernels` entry matching ANY pipeline
+kernel (registry-gate, doc-scan, doc-parse, nfc-normalize,
+minhash-dedup, seq-pack, manifest-emit, tokenizer) refuses the whole
+`corpus` run as `KERNEL_POLICY_DENIED: <kernel>`; an unreadable or
+malformed referenced policy fails closed before any scan.
 
 ## Byte-parity contract
 

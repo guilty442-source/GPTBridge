@@ -7,5 +7,6 @@ pub mod abi;
 pub mod corpus;
 pub mod kernels;
 pub mod scan;
+pub mod xcb;
 pub mod textutil;
 pub mod tokenizer;

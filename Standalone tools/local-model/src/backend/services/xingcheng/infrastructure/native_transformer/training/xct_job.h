@@ -12,10 +12,79 @@ struct Example {
     int vision_dim = 0;
 };
 
+// Binary token-batch ingest (XCB1): same Example semantics as the
+// legacy JSONL path — kind drives interpretation, fmt is verified
+// fail-closed against the record kind so a mismatched job spec can
+// never silently reinterpret a batch.
+static void load_data_xcb(const std::string& path, const std::string& fmt,
+                          int max_rows, int max_len,
+                          std::vector<Example>& out) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) throw "data: path unreadable";
+    std::string blob((std::istreambuf_iterator<char>(f)),
+                     std::istreambuf_iterator<char>());
+    xcb::Reader r(blob.data(), blob.size());
+    while (!r.done() && (int)out.size() < max_rows) {
+        xcb::Record rec = r.next();
+        Example e;
+        const bool vision = !rec.vision.empty();
+        switch (rec.kind) {
+            case xcb::Kind::kDpo:
+                if (fmt != "dpo") throw "data: XCB_KIND_MISMATCH";
+                if (vision) throw "data: vision unsupported for dpo";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                e.labels.assign(rec.labels.begin(), rec.labels.end());
+                if (e.labels.empty()) e.labels = e.ids;
+                e.rej_ids.assign(rec.rej_ids.begin(), rec.rej_ids.end());
+                e.rej_labels.assign(rec.rej_labels.begin(),
+                                    rec.rej_labels.end());
+                if (e.rej_labels.empty()) e.rej_labels = e.rej_ids;
+                break;
+            case xcb::Kind::kGrpo:
+                if (fmt != "grpo") throw "data: XCB_KIND_MISMATCH";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                e.labels.assign(rec.labels.begin(), rec.labels.end());
+                break;
+            case xcb::Kind::kSft:
+                if (fmt == "dpo" || fmt == "grpo")
+                    throw "data: XCB_KIND_MISMATCH";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                if (fmt == "sft") {
+                    e.labels.assign(rec.labels.begin(), rec.labels.end());
+                    if (e.labels.empty()) e.labels = e.ids;
+                } else {
+                    e.labels = e.ids;          // pretrain: shifted CE
+                }
+                break;
+            case xcb::Kind::kPretrain:
+                if (fmt == "dpo" || fmt == "grpo")
+                    throw "data: XCB_KIND_MISMATCH";
+                e.ids.assign(rec.ids.begin(), rec.ids.end());
+                e.labels = e.ids;              // pretrain: shifted CE
+                break;
+        }
+        if (vision) {
+            e.vision = std::move(rec.vision);
+            e.vision_patches = (int)rec.vision_patches;
+            e.vision_dim = (int)rec.vision_dim;
+        }
+        if ((int)e.ids.size() > max_len) { e.ids.resize(max_len); e.labels.resize(max_len); }
+        if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
+        if (e.ids.size() >= 2) out.push_back(std::move(e));
+    }
+}
+
 static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt,
                                       int max_rows, int max_len) {
     std::vector<Example> out;
     std::string path = j_str(d, "path", "");
+    // Binary-hot-data rule: XCB1 is the governed token-batch container;
+    // a file without the magic falls back to legacy JSONL so registered
+    // datasets stay readable — malformed XCB1 throws, never silently
+    // reinterpreted.
+    if (xcb::is_xcb_file(path)) {
+        load_data_xcb(path, fmt, max_rows, max_len, out);
+    } else {
     std::ifstream f(path);
     if (!f) throw "data: path unreadable";
     std::string line;
@@ -65,6 +134,7 @@ static std::vector<Example> load_data(const JsonValue* d, const std::string& fmt
         if ((int)e.ids.size() > max_len) { e.ids.resize(max_len); e.labels.resize(max_len); }
         if ((int)e.rej_ids.size() > max_len) { e.rej_ids.resize(max_len); e.rej_labels.resize(max_len); }
         if (e.ids.size() >= 2) out.push_back(std::move(e));
+    }
     }
     // Sequence packing (data.pack > 0): consecutive short rows share one
     // training sequence up to `pack` tokens so a single fwd/bwd/optimizer
@@ -188,7 +258,8 @@ static void adamw_step(Params& p, float gscale, float lr_t, float wd,
     static const bool cuda_opt =
         std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
     static const bool cuda_ok =
-        cuda_opt && xcuda_adamw_probe() != 0;
+        cuda_opt && !kernel_policy_cuda_denied() &&
+        xcuda_adamw_probe() != 0;
     if (cuda_ok) {
         // §26 batch path: one call pipelines every bound tensor's
         // H2D/kernel/D2H across the manager's dedicated lanes. The
@@ -372,6 +443,12 @@ static JsonValue run_job(const JsonValue& job) {
     // evidence only; production training keeps the tile4 dispatcher.
     if (const char* e = std::getenv("XCT_TPU_TILE4"))
         g_tpu.tile4 = !(e[0] == '0' && e[1] == '\0');
+    // star-kernel-policy/v1: governed kernel pins land after every other
+    // lane override — force_serial/max_threads bound the pool,
+    // deny_variants pin impls off, deny_kernels refuse the job when the
+    // model/task activates the denied kernel's family. Any referenced
+    // but unreadable/malformed policy fails closed.
+    kernel_policy_enforce(c, task);
     int max_rows = j_int(dj, "max_rows", 10000);
     int max_len = j_int(dj, "max_len", c.max_pos);
 
@@ -672,6 +749,30 @@ static JsonValue run_job(const JsonValue& job) {
         tpu.object.emplace_back("threads", num((double)tpu_threads()));
         tpu.object.emplace_back("simd", str(tpu_simd_name()));
         put("tpu_cluster", tpu);
+    }
+    {
+        // star-kernel-policy/v1 echo ??the report is self-describing:
+        // every governed job records which policy (if any) pinned its
+        // lanes, so benchmarks/diagnostics never guess.
+        JsonValue kp; kp.type = JsonValue::Type::Object;
+        const std::string ksrc = kernel_policy_path();
+        kp.object.emplace_back("source", str(ksrc.c_str()));
+        KernelPolicy kpol;
+        try { kpol = kernel_policy_load(ksrc); }
+        catch (...) { kpol = KernelPolicy(); }
+        kp.object.emplace_back("loaded", bol(kpol.loaded));
+        kp.object.emplace_back("force_serial", bol(kpol.force_serial));
+        kp.object.emplace_back("max_threads",
+                               num((double)kpol.max_threads));
+        JsonValue dv; dv.type = JsonValue::Type::Array;
+        for (const auto& v : kpol.deny_variants)
+            dv.array.push_back(str(v.c_str()));
+        kp.object.emplace_back("deny_variants", dv);
+        JsonValue dk; dk.type = JsonValue::Type::Array;
+        for (const auto& v : kpol.deny_kernels)
+            dk.array.push_back(str(v.c_str()));
+        kp.object.emplace_back("deny_kernels", dk);
+        put("kernel_policy", kp);
     }
     put("steps", num(step));
     put("examples", num((double)data.size()));
