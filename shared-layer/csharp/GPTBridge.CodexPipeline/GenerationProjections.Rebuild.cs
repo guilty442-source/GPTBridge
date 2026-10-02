@@ -410,6 +410,79 @@ internal static partial class GenerationProjections
                 });
     }
 
+    /// <summary>C102 atomic-publication: every ``status='active'`` row
+    /// in ``architecture_diagram_artifact_registry`` rebinds to the
+    /// staged version inside the same successor transaction —
+    /// ``content_hash`` is recomputed from the artifact file itself and
+    /// ``validated_at_utc`` restamped, so a registered diagram can never
+    /// lag the generation that seals it (FORBID:diagram-lag|
+    /// mixed-version-generation).  The single
+    /// ``ARCHITECTURE_DIAGRAM_SYNC_CURRENT`` evidence row is rebuilt
+    /// from the measured file state; drift counts record what the
+    /// rebuild repaired.</summary>
+    private static void RebuildDiagramSync(StageConnection connection,
+        string version)
+    {
+        if (!HasTable(connection,
+                "architecture_diagram_artifact_registry"))
+            return;
+        var rows = connection.Execute(
+            "SELECT diagram_code, artifact_path, content_hash, "
+            + "source_codex_version "
+            + "FROM architecture_diagram_artifact_registry "
+            + "WHERE status='active' ORDER BY diagram_code").Rows
+            .ToList();
+        var present = 0;
+        var hashMatch = 0;
+        var readOnly = 0;
+        var stale = 0;
+        var missing = 0;
+        var rebind = new List<object?[]>();
+        foreach (var row in rows)
+        {
+            var code = row[0]?.ToString() ?? "";
+            var relative = (row[1]?.ToString() ?? "")
+                .Replace('/', Path.DirectorySeparatorChar);
+            var file = Path.GetFullPath(Path.Combine(Repo.Root(),
+                relative));
+            if ((row[4]?.ToString() ?? "") != version) stale++;
+            if (!File.Exists(file))
+            {
+                missing++;
+                continue;
+            }
+            present++;
+            if (new FileInfo(file).IsReadOnly) readOnly++;
+            var hash = SuccessorBuilder.FileSha256(file);
+            if (hash == (row[2]?.ToString() ?? "")) hashMatch++;
+            rebind.Add(new object?[] { version, hash, version, code });
+        }
+        connection.Executemany(
+            "UPDATE architecture_diagram_artifact_registry SET "
+            + "source_codex_version=?, content_hash=?, "
+            + "validated_at_utc=?, sync_status='SYNCED_CURRENT' "
+            + "WHERE diagram_code=? AND status='active'",
+            rebind.Select(r => (IReadOnlyList<object?>)r).ToList());
+        if (!HasTable(connection, "architecture_diagram_sync_evidence"))
+            return;
+        connection.Execute(
+            "UPDATE architecture_diagram_sync_evidence SET "
+            + "codex_version=?, required_count=?, registered_count=?, "
+            + "present_count=?, hash_match_count=?, read_only_count=?, "
+            + "stale_count=?, missing_count=?, result=?, "
+            + "verified_at_utc=?, "
+            + "verifier='deterministic-file-registry-validator', "
+            + "status='current' "
+            + "WHERE evidence_id='ARCHITECTURE_DIAGRAM_SYNC_CURRENT'",
+            new object?[]
+            {
+                version, (long)rows.Count, (long)rows.Count,
+                (long)present, (long)hashMatch, (long)readOnly,
+                (long)stale, (long)missing,
+                missing == 0 ? "PASS" : "FAIL", version,
+            });
+    }
+
     /// <summary>Rebind every derived projection of the staged
     /// generation to its version — runs inside the isolated staging
     /// copy after the prepared successor is applied.</summary>
@@ -435,6 +508,7 @@ internal static partial class GenerationProjections
                 docCount);
             RebuildVersionAuthorityRegistry(connection, version);
             SyncNormativeSurface(connection, version);
+            RebuildDiagramSync(connection, version);
             var historyHead = AppendRevision(connection, version,
                 epoch,
                 changeId.Length > 0 ? changeId
