@@ -2523,41 +2523,31 @@ int64_t last_int(const std::string& s, bool& found) {
     return v;
 }
 
-int mode_capability(const Args& a) {
-    std::string bundle = a.get("bundle");
-    std::string suite_path = a.get("suite");
-    if (bundle.empty() || suite_path.empty()) fail("CAPABILITY_ARGS_MISSING");
-    std::string raw = slurp(suite_path);
-    JsonValue suite = suite_load(suite_path, "star-capability-suite/v1");
-    const JsonValue* items = suite.get("items");
-    if (!items || items->type != JsonValue::Type::Array)
-        fail("CAPABILITY_SUITE_ITEMS_MISSING");
-    std::string suite_sha = suite_sha256(raw);
-    bool chat = a.has("chat");
+// Shared core behind one-shot `capability` and serve `capability`.
+// `engine` must already hold `bundle`. Throws on fatal errors (never
+// fail(): the serve loop must stay alive); per-item failures stay
+// embedded in the report exactly as the one-shot mode records them.
+struct CapabilityResult {
+    std::string output_json;  // exact one-shot stdout body (no newline)
+    bool passed;
+    int exit_code;            // 0, or 2 on baseline regression
+};
 
-    // §15/§16 thinking-ON eval lane: --think-steps N [--think-branches M]
-    // routes item generation through generate_thinking; absent = OFF.
-    int64_t think_steps = 0;
-    int64_t think_branches = 1;
-    if (a.has("think-steps")) {
-        try { think_steps = std::stoll(a.get("think-steps")); }
-        catch (...) { fail("CAPABILITY_BAD_THINK_STEPS"); }
-        if (a.has("think-branches")) {
-            try { think_branches = std::stoll(a.get("think-branches")); }
-            catch (...) { fail("CAPABILITY_BAD_THINK_BRANCHES"); }
-        }
-        if (think_steps < 1 || think_steps > 32)
-            fail("CAPABILITY_BAD_THINK_STEPS");
-        if (think_branches < 1 || think_branches > 8)
-            fail("CAPABILITY_BAD_THINK_BRANCHES");
-    }
-
+CapabilityResult capability_run_on_engine(
+    NativeInferenceEngine& engine,
+    const std::string& bundle,
+    const JsonValue& suite,
+    const std::string& suite_sha,
+    bool chat,
+    int64_t think_steps, int64_t think_branches,
+    const std::string& corpus_manifest,
+    const std::string& baseline_report) {
     // Fail-closed overlap check against the training corpus manifest.
     std::unordered_set<std::string> corpus_hashes;
     bool overlap_free = true;
     std::string overlap_error;
-    if (a.has("corpus-manifest")) {
-        fs::path mpath = fs::absolute(a.get("corpus-manifest"));
+    if (!corpus_manifest.empty()) {
+        fs::path mpath = fs::absolute(corpus_manifest);
         JsonValue manifest = parse_json_file(mpath.string());
         try {
             for (const char* split : {"train", "val"}) {
@@ -2595,13 +2585,6 @@ int mode_capability(const Args& a) {
         }
     }
     if (!rejected_ids.empty()) overlap_free = false;
-
-    NativeInferenceEngine engine;
-    try {
-        engine.load(bundle);
-    } catch (const std::exception& e) {
-        fail(std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + e.what());
-    }
     uint64_t seed = (uint64_t)xct::j_num(&suite, "seed", 42);
 
     std::unordered_map<std::string, std::vector<std::string>> cat_items;
@@ -2865,7 +2848,6 @@ int mode_capability(const Args& a) {
             track(cat, d.str());
         }
     }
-    engine.unload();
 
     // categories rollup ??same shape as star-capability-eval/v1.
     std::ostringstream cats;
@@ -2948,8 +2930,8 @@ int mode_capability(const Args& a) {
            << ",\"recorded_at\":\"" << now << "\"}";
 
     // Optional regression comparison against a baseline report file.
-    if (a.has("baseline-report")) {
-        JsonValue base = parse_json_file(a.get("baseline-report"));
+    if (!baseline_report.empty()) {
+        JsonValue base = parse_json_file(baseline_report);
         const JsonValue* bcats = base.get("categories");
         std::ostringstream cmp;
         std::vector<std::string> regressions;
@@ -2982,15 +2964,72 @@ int mode_capability(const Args& a) {
             << gptbridge::jsonlite::json_escape(jget_str(base, "suite_id"))
             << "\",\"candidate_suite\":\""
             << gptbridge::jsonlite::json_escape(suite_id) << "\"}";
-        std::printf("{\"ok\":true,\"mode\":\"capability\",\"passed\":%s,"
-                    "\"report\":%s,\"comparison\":%s}\n",
-                    regressions.empty() ? "true" : "false",
-                    report.str().c_str(), cmp.str().c_str());
-        return regressions.empty() ? 0 : 2;
+        std::ostringstream out_json;
+        out_json << "{\"ok\":true,\"mode\":\"capability\",\"passed\":"
+            << (regressions.empty() ? "true" : "false")
+            << ",\"report\":" << report.str()
+            << ",\"comparison\":" << cmp.str() << "}";
+        bool all_passed = regressions.empty();
+        return CapabilityResult{out_json.str(), all_passed, all_passed ? 0 : 2};
     }
-    std::printf("{\"ok\":true,\"mode\":\"capability\",\"report\":%s}\n",
-                report.str().c_str());
-    return 0;
+    std::ostringstream out_plain;
+    out_plain << "{\"ok\":true,\"mode\":\"capability\",\"report\":" << report.str() << "}";
+    return CapabilityResult{out_plain.str(), true, 0};
+}
+
+int mode_capability(const Args& a) {
+    std::string bundle = a.get("bundle");
+    std::string suite_path = a.get("suite");
+    if (bundle.empty() || suite_path.empty()) fail("CAPABILITY_ARGS_MISSING");
+    std::string raw = slurp(suite_path);
+    JsonValue suite = suite_load(suite_path, "star-capability-suite/v1");
+    const JsonValue* items = suite.get("items");
+    if (!items || items->type != JsonValue::Type::Array)
+        fail("CAPABILITY_SUITE_ITEMS_MISSING");
+    std::string suite_sha = suite_sha256(raw);
+    bool chat = a.has("chat");
+
+    // §15/§16 thinking-ON eval lane: --think-steps N [--think-branches M]
+    // routes item generation through generate_thinking; absent = OFF.
+    int64_t think_steps = 0;
+    int64_t think_branches = 1;
+    if (a.has("think-steps")) {
+        try { think_steps = std::stoll(a.get("think-steps")); }
+        catch (...) { fail("CAPABILITY_BAD_THINK_STEPS"); }
+        if (a.has("think-branches")) {
+            try { think_branches = std::stoll(a.get("think-branches")); }
+            catch (...) { fail("CAPABILITY_BAD_THINK_BRANCHES"); }
+        }
+        if (think_steps < 1 || think_steps > 32)
+            fail("CAPABILITY_BAD_THINK_STEPS");
+        if (think_branches < 1 || think_branches > 8)
+            fail("CAPABILITY_BAD_THINK_BRANCHES");
+    }
+    NativeInferenceEngine engine;
+    try {
+        engine.load(bundle);
+    } catch (const std::exception& e) {
+        fail(std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + e.what());
+    }
+    NativeInferenceEngine engine;
+    try {
+        engine.load(bundle);
+    } catch (const std::exception& e) {
+        fail(std::string("CAPABILITY_ENGINE_LOAD_FAILED:") + e.what());
+    }
+    CapabilityResult r;
+    try {
+        r = capability_run_on_engine(engine, bundle, suite, suite_sha, chat,
+                                     think_steps, think_branches,
+                                     a.has("corpus-manifest") ? a.get("corpus-manifest") : std::string(),
+                                     a.has("baseline-report") ? a.get("baseline-report") : std::string());
+    } catch (...) {
+        engine.unload();
+        throw;
+    }
+    engine.unload();
+    std::printf("%s\n", r.output_json.c_str());
+    return r.exit_code;
 }
 
 // -------------------------------------------------------- mtp-draft-probe --
