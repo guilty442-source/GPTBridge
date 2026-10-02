@@ -58,7 +58,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 環境變數
 
 <!-- autogen:xingcheng-env -->
-*autogen-scanner/v1 · 2495 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2496 files · main+devin+git+local-model+rag+ui*
 | var | 讀取處 |
 |---|---|
 | `GPTBRIDGE_POSTGRES_DSN` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+8) |
@@ -96,7 +96,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 政策/設定檔
 
 <!-- autogen:xingcheng-settings -->
-*autogen-scanner/v1 · 2495 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2496 files · main+devin+git+local-model+rag+ui*
 | 檔案 | format | 所在樹 |
 |---|---|---|
 | `kernel-policy.json` | `star-kernel-policy` | main:xingcheng/xingcheng/runtime/settings/kernel-policy.json |
@@ -107,13 +107,15 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 | `web-search.json` | `—` | main:xingcheng/xingcheng/runtime/settings/web-search.json |
 <!-- /autogen:xingcheng-settings -->
 
+> `teacher-distillation.json`（`star-teacher-distillation-policy/v1`）已退役（B154 rev 235）：檔案僅為 fail-closed 停用 stub，autogen 掃描仍列出屬預期；教師訊號由 native self-distillation lane（`self-learning.json` 的 `synthetic_source_prefixes` 含 `self-distillation`）承載。
+
 | 檔案 | format | 關鍵欄位 |
 |---|---|---|
 | `xingcheng/runtime/settings/self-learning.json` | `star-self-learning-policy/v1` | enabled, min_new_examples(24), auto_activate, suites[], max_steps(400), lr(5e-5), quiet_hours 22:00-07:00, inference_exclusion(T), capability_training_frozen, capability_training_mode, dpo_*, self_training_mode, degradation_probe_* 等 40+ keys |
 | `xingcheng/runtime/settings/retention.json` | `star-retention-policy/v1` | enabled, keep_job_dirs(3), keep_logs_days(30), keep_maturity_reports(10), keep_snapshots(5), keep_weight_versions(1) |
 | `xingcheng/runtime/settings/native-engine.json` | — | enabled, checkpoint 釘選, cpu_threads, cpp_cuda, sampling |
 | `xingcheng/runtime/settings/kernel-policy.json` | `star-kernel-policy` | enabled, force_serial, max_threads, deny_variants[simd\|tile4\|cuda], deny_kernels[] |
-| `xingcheng/runtime/settings/teacher-distillation.json` | `star-teacher-distillation-policy/v1` | enabled(F), teachers{}, prompts[], max_rows(24), quality_score(0.92), temperature(0.2) |
+| `xingcheng/runtime/settings/teacher-distillation.json` | `star-teacher-distillation-policy/v1` | **已退役**（B154 rev 235：外部教師 lane 退役，檔案為 fail-closed 停用 stub；教師訊號改由 native self-distillation lane 於受管正式權重產生，受 `self-learning.json` `synthetic_source_prefixes` 含 `self-distillation` 控管） |
 
 ## serve 推論參數
 

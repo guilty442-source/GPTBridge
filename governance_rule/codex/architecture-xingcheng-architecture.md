@@ -63,7 +63,7 @@ flowchart TB
     TRAINER -->|XCB1 input| XCORPUS
     SL -->|snapshot pin| XSTORE
     EV -->|eval/capability modes| MODELTOOL
-    SL -->|teacher-collect serve/infer<br/>native self-distillation| MODELTOOL
+    SL -->|native self-distillation<br/>serve/infer| MODELTOOL
 
     AUTO -.->|self-learning flow| SL
     CH -.->|request_channel| TOOL
@@ -92,7 +92,7 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2495 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2496 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |
