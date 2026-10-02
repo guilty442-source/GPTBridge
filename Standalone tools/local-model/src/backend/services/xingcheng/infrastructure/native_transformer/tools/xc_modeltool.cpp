@@ -108,6 +108,10 @@ using gptbridge::jsonlite::JsonValue;
 
 namespace xct {
 #include "xct_util.h"
+// No trainer-side kernel policy loader in this TU — the engine lane's
+// policy surface lives in xcm_rtgates.h; the accel plane reads the
+// closed default here.
+#define XCT_TPU_NO_KERNEL_POLICY 1
 #include "xct_tpu.h"
 #include "xct_math.h"
 #include "xct_gemma4.h"
