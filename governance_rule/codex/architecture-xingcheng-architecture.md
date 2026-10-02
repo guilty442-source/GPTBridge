@@ -44,7 +44,6 @@ flowchart TB
     subgraph EXT["外部依賴"]
         PG[("PostgreSQL<br/>gptbridge_xingcheng* schemas<br/>（正式結構化 metadata 權威）")]
         CONSUMERS["model-dialogue ToolHost / NativeModelClient<br/>(C# orchestrator-only consumers)"]
-        OLLAMA["ollama-service.exe<br/>teacher distillation (loopback 11434)<br/>（B154 註冊；native-only dependency 消除中）"]
     end
 
     BE -->|CreateProcess + injected env| TOOL
@@ -64,7 +63,7 @@ flowchart TB
     TRAINER -->|XCB1 input| XCORPUS
     SL -->|snapshot pin| XSTORE
     EV -->|eval/capability modes| MODELTOOL
-    OLLAMA -->|teacher-collect| SL
+    SL -->|teacher-collect serve/infer<br/>native self-distillation| MODELTOOL
 
     AUTO -.->|self-learning flow| SL
     CH -.->|request_channel| TOOL
@@ -93,7 +92,7 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |

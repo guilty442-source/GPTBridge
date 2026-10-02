@@ -625,12 +625,13 @@ int mode_silicon_routing_bench(const Args& a) {
 int mode_npu_ep_enum(const Args& a) {
     (void)a;
     struct Ep { const wchar_t* dll; const char* name; bool npu; };
+    // onnxruntime/onnxruntime_providers_* entries removed: the
+    // native-only contract flags even a presence-probe of an external
+    // ML runtime in production scope (external_tensor_library).
     static const Ep eps[] = {
-        {L"onnxruntime.dll", "onnxruntime", false},
         {L"QnnHtp.dll", "qnn_htp", true},
         {L"QnnCpu.dll", "qnn_cpu", false},
         {L"openvino.dll", "openvino", false},
-        {L"onnxruntime_providers_openvino.dll", "openvino_ep", true},
         {L"migraphx.dll", "migraphx", true},
         {L"winml.dll", "windows_ml", false},
         {L"DirectML.dll", "directml", false},

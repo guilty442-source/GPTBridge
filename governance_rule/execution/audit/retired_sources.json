@@ -745,6 +745,8 @@
                   "main-system/src-ui/renderer/ui/toolbox/tools/types.js",
                   "main-system/src-ui/renderer/ui/toolbox/useToolboxApplications.js",
                   "main-system/src-ui/renderer/ui/useAppState.js",
+                  "native/ollama_service/build.ps1",
+                  "native/ollama_service/ollama_service.cpp",
                   "scripts/build-business-rule-delegation.py",
                   "scripts/build-module-capability-registry.py",
                   "scripts/build-module-rule-index.py",
@@ -1587,6 +1589,12 @@
                   "Standalone tools/vaultly/src/ui/main.jsx",
                   "Standalone tools/vaultly/src/ui/toolWindowRunner.js",
                   "Standalone tools/vaultly/src/ui/VaultlyDownloadCenter.jsx",
-                  "Standalone tools/vaultly/src/ui/VaultlyWindowApp.jsx"
+                  "Standalone tools/vaultly/src/ui/VaultlyWindowApp.jsx",
+                  "xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/TeacherCollect.cs",
+                  "governance_rule/execution/audit/convergence/registry-snapshot-reconciliation.ps1",
+                  "main-system/development-tools/ollama/Modelfile.cline",
+                  "main-system/development-tools/ollama/Modelfile.cline2",
+                  "main-system/development-tools/ollama/Modelfile.cline3",
+                  "main-system/development-tools/ollama/qwen25-original.Modelfile"
               ]
 }

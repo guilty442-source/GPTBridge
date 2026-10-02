@@ -426,6 +426,7 @@ internal sealed class TrainingJobExecutor
         public ResourceGrant? Grant;
         public ResourceGovernorClient? Client;
         public ResourceRequest? Request;
+        public XingchengLocalResourceAllocator.LaneAllocation? Lane;
         public string RequestTimeoutNote = "";
 
         /// <summary>End-of-workload lifecycle: append the
@@ -496,8 +497,31 @@ internal sealed class TrainingJobExecutor
                 "resource preflight produced no grant — execution " +
                 "denied (fail-closed)");
         var grant = decision.Grant;
-        decision.Threads = Math.Clamp(grant.CpuThreadsMax, 1, 16);
-        decision.Gpu = ResolveGpuPlan(configuration, grant);
+        // §30/§34-§35: lane resources are allocated inside the grant
+        // envelope by XingchengLocalResourceAllocator — the lane never
+        // sizes itself directly from the grant (and never from the
+        // hardware). With the serial lane cap the request list holds a
+        // single training lane; multi-lane pilots append more entries.
+        var req = decision.Request;
+        decision.Lane = XingchengLocalResourceAllocator.Allocate(
+            grant,
+            new[]
+            {
+                new XingchengLocalResourceAllocator.LaneRequest
+                {
+                    LaneId = jobId,
+                    Kind = "training",
+                    CpuThreads = req?.PreferredCpuThreads
+                        ?? grant.CpuThreadsMax,
+                    RamBytes = req?.PreferredRamBytes ?? 0,
+                    WantsGpu = req?.GpuOptional ?? false,
+                    VramBytes = req?.PreferredVramBytes ?? 0,
+                    Priority = 100,
+                },
+            })[0];
+        decision.Threads = Math.Clamp(decision.Lane.CpuThreads, 1, 16);
+        decision.Gpu = ResolveGpuPlan(configuration, grant,
+            decision.Lane);
         return decision;
     }
 
@@ -792,14 +816,16 @@ internal sealed class TrainingJobExecutor
     }
 
     /// <summary>Resolve the GPU admission for a job's requested device.
-    /// Chain: device request -> grant.gpu_allowed (the grant is the
-    /// authority; governor mode is informational) -> live probe-cuda ->
-    /// effective VRAM = min(driver_free, grant vram cap) (spec §40–§41:
-    /// free memory is evidence, never permission). A denied request is
-    /// never fatal — the trainer simply runs its CPU lanes; denial is
-    /// recorded for audit.</summary>
+    /// Chain: device request -> lane.gpu_allowed (the allocator holds
+    /// the single GPU lease inside the grant envelope, §31; the grant is
+    /// still the authority, governor mode is informational) -> live
+    /// probe-cuda -> effective VRAM = min(driver_free, grant vram cap)
+    /// (spec §40–§41: free memory is evidence, never permission). A
+    /// denied request is never fatal — the trainer simply runs its CPU
+    /// lanes; denial is recorded for audit.</summary>
     private GpuPlan ResolveGpuPlan(
-        Dictionary<string, object?> configuration, ResourceGrant? grant)
+        Dictionary<string, object?> configuration, ResourceGrant? grant,
+        XingchengLocalResourceAllocator.LaneAllocation? lane = null)
     {
         var plan = new GpuPlan();
         string req = (TransformerTrainingRepository.Str(
@@ -817,6 +843,16 @@ internal sealed class TrainingJobExecutor
         if (grant != null && !grant.GpuAllowed)
         {
             plan.Reason = "grant-gpu-not-allowed";
+            return plan;
+        }
+        // §31/G: even with grant.GpuAllowed the allocator may have
+        // leased the GPU to a higher-priority lane — the lease, not
+        // the raw grant bit, decides this lane.
+        if (lane != null && !lane.GpuAllowed)
+        {
+            plan.Reason = lane.Note.Length > 0
+                ? $"lane-{lane.Note}"
+                : "lane-gpu-lease-not-held";
             return plan;
         }
         if (!enabled)
@@ -1970,6 +2006,7 @@ internal sealed class TrainingJobExecutor
                     ["trainer_threads"] = decision.Threads,
                     ["cuda_opt_admitted"] = decision.Gpu.Admitted,
                     ["gpu"] = decision.Gpu.ToDict(),
+                    ["lane_allocation"] = decision.Lane?.ToDict(),
                     ["resource_grant"] = decision.Grant?.ToDict(),
                 });
             return new LaneLease

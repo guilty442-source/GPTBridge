@@ -79,7 +79,7 @@ internal static class NativeDependencyGate
 
     /// <summary>The xingcheng dependency domain: the enclave's src tree,
     /// the institution root (runtime/ pruned inside the walk) and the
-    /// repo-native core where ollama_service and the C lane live.</summary>
+    /// repo-native core where the C lane lives.</summary>
     private static List<(string abs, string rel)> ScanRoots(
         string toolRoot)
     {

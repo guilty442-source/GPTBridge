@@ -58,7 +58,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 環境變數
 
 <!-- autogen:xingcheng-env -->
-*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
 | var | 讀取處 |
 |---|---|
 | `GPTBRIDGE_POSTGRES_DSN` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+8) |
@@ -71,11 +71,11 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 | `XCT_GC_PLAIN` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
 | `XCT_GC_SHARED` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
 | `XCT_KERNEL_POLICY` | devin:xingcheng/src/backend/rust/xcorpus/src/kernels.rs, devin:xingcheng/src/backend/rust/xstore/src/kernels.rs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_rtgates.h (+26) |
-| `XCT_PAUSE_FILE` | xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h |
-| `XCT_RESOURCE_CPU_THREADS_MAX` | xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h |
-| `XCT_RESOURCE_GRANT_ID` | xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h |
-| `XCT_RESOURCE_STREAMS_MAX` | xingcheng/src/backend/cpp/src/cuda_memplane.h |
-| `XCT_RESOURCE_VRAM_BYTES_MAX` | xingcheng/src/backend/cpp/src/cuda_memplane.h |
+| `XCT_PAUSE_FILE` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_RESOURCE_CPU_THREADS_MAX` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_RESOURCE_GRANT_ID` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
+| `XCT_RESOURCE_STREAMS_MAX` | devin:xingcheng/src/backend/cpp/src/cuda_memplane.h, git:xingcheng/src/backend/cpp/src/cuda_memplane.h, local-model:xingcheng/src/backend/cpp/src/cuda_memplane.h, xingcheng/src/backend/cpp/src/cuda_memplane.h (+2) |
+| `XCT_RESOURCE_VRAM_BYTES_MAX` | devin:xingcheng/src/backend/cpp/src/cuda_memplane.h, git:xingcheng/src/backend/cpp/src/cuda_memplane.h, local-model:xingcheng/src/backend/cpp/src/cuda_memplane.h, xingcheng/src/backend/cpp/src/cuda_memplane.h (+2) |
 | `XCT_TPU_SIMD` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+8) |
 | `XCT_TPU_THREADS` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+8) |
 | `XCT_TPU_TILE4` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
@@ -96,7 +96,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 政策/設定檔
 
 <!-- autogen:xingcheng-settings -->
-*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2482 files · main+devin+git+local-model+rag+ui*
 | 檔案 | format | 所在樹 |
 |---|---|---|
 | `kernel-policy.json` | `star-kernel-policy` | main:xingcheng/xingcheng/runtime/settings/kernel-policy.json |

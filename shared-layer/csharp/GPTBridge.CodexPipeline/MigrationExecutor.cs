@@ -71,6 +71,19 @@ internal static class MigrationExecutor
             .ToLowerInvariant();
     }
 
+    // Hash and decode one immutable byte snapshot. Reopening the file after
+    // verification could execute different SQL under the approved hash.
+    private static string VerifiedSource(string path, string expectedHash)
+    {
+        var bytes = File.ReadAllBytes(path);
+        if (!string.Equals(Sha256(bytes), expectedHash, StringComparison.Ordinal))
+            throw new ApplyDenied("SQL_SCHEMA_VERSION_MISMATCH");
+        using var stream = new MemoryStream(bytes, writable: false);
+        using var reader = new StreamReader(stream, Encoding.UTF8,
+            detectEncodingFromByteOrderMarks: true);
+        return reader.ReadToEnd();
+    }
+
     private static string RepoFile(string root, string forwardIdentity) =>
         Path.Combine(root,
             forwardIdentity.Replace('/', Path.DirectorySeparatorChar));
@@ -524,12 +537,14 @@ SELECT cls, nsp, name, def FROM (
         if (!File.Exists(file))
             throw Deny("verify-live-source-hash", "SOURCE_FILE_MISSING",
                 row.ForwardIdentity);
-        var liveHash = FileSha256(file);
-        if (liveHash != row.MigrationSourceHash)
+        string approvedSql;
+        try { approvedSql = VerifiedSource(file, row.MigrationSourceHash); }
+        catch (ApplyDenied)
+        {
             throw Deny("verify-live-source-hash",
-                "SQL_SCHEMA_VERSION_MISMATCH",
-                $"live={liveHash} registered={row.MigrationSourceHash}");
-        Step("verify-live-source-hash", true, liveHash);
+                "SQL_SCHEMA_VERSION_MISMATCH", row.ForwardIdentity);
+        }
+        Step("verify-live-source-hash", true, row.MigrationSourceHash);
 
         // 4. acquire-global-lock — try once; a held lock denies rather
         // than queues (the contract forbids concurrent executors).
@@ -553,6 +568,26 @@ SELECT cls, nsp, name, def FROM (
         string failureCode = "";
         try
         {
+            // Earlier checks preceded the lock. A competing executor may
+            // have committed since then, or the governor may have changed
+            // the approval. Reconcile both before executing any DDL.
+            var lockedContract = Query(connection,
+                $"SELECT * FROM {PgDsn.CodexSchema}"
+                + ".sql_migration_executor_contract LIMIT 1");
+            if (lockedContract.Count == 0
+                || $"{lockedContract[0].GetValueOrDefault("status")}" != "active")
+                throw Deny("read-registry", "EXECUTOR_CONTRACT_INACTIVE", "changed while acquiring lock");
+            var lockedRow = ReadRegistry(connection)
+                .FirstOrDefault(r => r.Sequence == sequence);
+            if (lockedRow != row)
+                throw Deny("read-registry", "REGISTRY_CHANGED", row.MigrationId);
+            var lockedReceipts = ReadReceipts(connection);
+            if (lockedReceipts.Any(r => r.MigrationId == row.MigrationId
+                && r.TransactionResult == "COMMITTED"
+                && r.VerificationResult == "PASS"))
+                throw Deny("verify-predecessor", "ALREADY_COMMITTED", row.MigrationId);
+            if (!lockedReceipts.SequenceEqual(receipts))
+                throw Deny("verify-predecessor", "RECEIPT_CHAIN_CHANGED", row.MigrationId);
             // 5. execute-approved-migration (single governed tx)
             using var tx = connection.BeginTransaction();
             try
@@ -563,7 +598,7 @@ SELECT cls, nsp, name, def FROM (
                     connection, tx))
                     flag.ExecuteScalar();
                 using (var script = new NpgsqlCommand(
-                    File.ReadAllText(file), connection, tx))
+                    approvedSql, connection, tx))
                 {
                     script.CommandTimeout = 600;
                     script.ExecuteNonQuery();
@@ -612,6 +647,28 @@ SELECT cls, nsp, name, def FROM (
                     $"{error.GetType().Name}:{error.Message}");
                 failureCode = "EXECUTION_FAILED";
             }
+            // Keep the global lock until a rolled-back attempt has appended
+            // its receipt too, so another executor cannot fork the chain.
+            if (failureCode.Length > 0)
+            {
+                try
+                {
+                    var receiptsNow = ReadReceipts(connection);
+                    var prev = receiptsNow.Count == 0
+                        ? new string('0', 64) : receiptsNow[^1].ReceiptHash;
+                    WriteReceipt(connection, null, row, lockIdentity,
+                        startedUtc, null, "ROLLED_BACK", failureCode,
+                        observedHash, prev, out var rid, out var rh);
+                    result["receipt_id"] = rid;
+                    result["receipt_hash"] = rh;
+                }
+                catch (Exception error)
+                {
+                    result["receipt_write_error"] =
+                        $"{error.GetType().Name}:{error.Message}";
+                }
+                result["denied"] = failureCode;
+            }
         }
         finally
         {
@@ -628,33 +685,6 @@ SELECT cls, nsp, name, def FROM (
             Step("release-lock", true, LockName);
         }
 
-        // failure receipts are recorded in a fresh autocommit write so a
-        // rolled-back migration still leaves an audit trail.
-        if (failureCode.Length > 0)
-        {
-            try
-            {
-                var receiptsNow = ReadReceipts(connection);
-                var prev = receiptsNow.Count == 0
-                    ? new string('0', 64)
-                    : receiptsNow[^1].ReceiptHash;
-                WriteReceipt(connection, null, row, lockIdentity,
-                    startedUtc, null,
-                    failureCode == "TARGET_HASH_MISMATCH"
-                        ? "ROLLED_BACK" : "ROLLED_BACK",
-                    failureCode, observedHash, prev,
-                    out var rid, out var rh);
-                result["receipt_id"] = rid;
-                result["receipt_hash"] = rh;
-            }
-            catch (Exception error)
-            {
-                result["receipt_write_error"] =
-                    $"{error.GetType().Name}:{error.Message}";
-            }
-            result["denied"] = failureCode;
-            return result;
-        }
         return result;
     }
 }

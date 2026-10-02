@@ -259,8 +259,7 @@ public static class SemanticHashToolchain
             ["producer_validator_layer"] =
                 producer == validator ? "PASS" : "FAIL",
             ["persistence_layer"] =
-                producer == canonicalSemanticHash
-                    || producer == storedContentHash
+                producer == (canonicalSemanticHash ?? storedContentHash)
                     ? "MATCH" : "CANONICAL_MISMATCH",
         };
     }

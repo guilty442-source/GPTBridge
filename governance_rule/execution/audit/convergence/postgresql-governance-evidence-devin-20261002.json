@@ -1,0 +1,85 @@
+{
+    "artifact":  "postgresql-governance-evidence/v1",
+    "worker":  "devin",
+    "observed_at":  "2026-10-02T11:55:00Z",
+    "database":  "gptbridge",
+    "authority":  "non-authoritative-read-only-observation",
+    "role_inventory":  {
+                           "registered_state":  "postgresql_role_registry populated 2026-10-02T11:17:55Z via amendment codex-postgresql-role-inventory-and-release-boundary-20261002 (executed 11:18:43Z); all rows INCOMPLETE_EVIDENCE / authorization-scope-unverified",
+                           "login_capable_roles":  [
+                                                       "postgres",
+                                                       "gptbridge_reader",
+                                                       "gptbridge_runtime"
+                                                   ],
+                           "findings":  [
+                                            "gptbridge_runtime (login) holds direct table grants on 39 schemas including test schemas (im_test_*, outbox_test_*, vect_test_*) - broadest surface; runtime DSN role scope review recommended",
+                                            "gptbridge_reader (login) inherits gptbridge_xingcheng_reader only",
+                                            "module executor roles inherit gptbridge_index_executor; module reader roles inherit gptbridge_index_reader (pg_auth_members)",
+                                            "retired tools still have live roles: gptbridge_module_system_rescue_executor/reader, gptbridge_module_global_cleaner_executor/reader, gptbridge_module_local_ai_* (local-model predecessor naming)",
+                                            "no gptbridge_module_model_dialogue_* or gptbridge_module_ai_assistant reader pairs missing: tool roster drift vs role set (model-dialogue has no module role; system-rescue/global-cleaner/local_ai remain)",
+                                            "superuser: only postgres (expected); gptbridge_reader/gptbridge_runtime are non-superuser login roles"
+                                        ]
+                       },
+    "schema_authority_coverage":  {
+                                      "directory":  "gptbridge_codex.data_schema_authority_directory (706 entries)",
+                                      "directory_state":  "DIR_DATA_SCHEMA_AUTHORITY: active-authoritative-structure / INCOMPLETE_EVIDENCE / verified-release-denied / open (version 2026-10-02T11:17:55Z)",
+                                      "schemas_with_entries":  [
+                                                                   "gptbridge_audit",
+                                                                   "gptbridge_index",
+                                                                   "gptbridge_rag",
+                                                                   "gptbridge_security",
+                                                                   "gptbridge_transport"
+                                                               ],
+                                      "non_schema_scopes":  [
+                                                                "engine",
+                                                                "module_private",
+                                                                "registry"
+                                                            ],
+                                      "live_gptbridge_schemas_without_entries":  [
+                                                                                     "gptbridge_ai_nexus",
+                                                                                     "gptbridge_codex",
+                                                                                     "gptbridge_collab",
+                                                                                     "gptbridge_file_sorter",
+                                                                                     "gptbridge_identity",
+                                                                                     "gptbridge_investment_mobile",
+                                                                                     "gptbridge_legacy",
+                                                                                     "gptbridge_maintenance",
+                                                                                     "gptbridge_migration",
+                                                                                     "gptbridge_perf",
+                                                                                     "gptbridge_permission",
+                                                                                     "gptbridge_repair",
+                                                                                     "gptbridge_trading",
+                                                                                     "gptbridge_vaultly",
+                                                                                     "gptbridge_workflow",
+                                                                                     "gptbridge_xingcheng",
+                                                                                     "gptbridge_xingcheng_coding",
+                                                                                     "gptbridge_xingcheng_investment",
+                                                                                     "gptbridge_xingcheng_main",
+                                                                                     "gptbridge_xingcheng_mathematical"
+                                                                                 ],
+                                      "leftover_staging_schemas":  [
+                                                                       "gptbridge_codex_codex_stage_27fdc35c27e02692_5a5bc4ab",
+                                                                       "gptbridge_codex_codex_stage_383509abba2e50b7_3e798a33",
+                                                                       "gptbridge_codex_codex_stage_3de77e66c3db8efb_85923e34",
+                                                                       "gptbridge_codex_codex_stage_55ac7fc5da59cce2_2c449fb9",
+                                                                       "gptbridge_codex_codex_stage_56c83a6e17f98386_89704401",
+                                                                       "gptbridge_codex_codex_stage_56c83a6e17f98386_c6ef337d",
+                                                                       "gptbridge_codex_codex_stage_56c83a6e17f98386_cbe15729",
+                                                                       "gptbridge_codex_codex_stage_56c83a6e17f98386_ced7e8f3",
+                                                                       "gptbridge_codex_codex_stage_5c2d819fbec95456_1a97022b",
+                                                                       "gptbridge_codex_codex_stage_96a83ed60874743d_d320618a",
+                                                                       "gptbridge_codex_codex_stage_ef5c022e9791971e_b9e4675d"
+                                                                   ],
+                                      "findings":  [
+                                                       "20 live gptbridge_* schemas have zero data_schema_authority_directory entries - authority coverage gap consistent with INCOMPLETE_EVIDENCE",
+                                                       "11 leftover gptbridge_codex_codex_stage_* schemas are amendment-staging residue (StageCodec.DropSchema cleanup leak), not governed data - candidates for governed cleanup, not registration",
+                                                       "directory scopes engine/module_private/registry have no matching live schema (non-schema authority classes - expected)"
+                                                   ]
+                                  },
+    "recommended_next":  [
+                             "role-to-governed-identity binding amendment once governor confirms each gptbridge_* role purpose (evidence above supplies grants/memberships)",
+                             "data-schema-authority coverage amendment or per-schema registration for the 20 uncovered schemas (or explicit exemption entries)",
+                             "governed cleanup of 11 codex_stage_* leftovers via the amendment pipeline staging teardown",
+                             "retired-tool roles (system_rescue/global_cleaner/local_ai): retirement or explicit retained-evidence marking in postgresql_role_registry"
+                         ]
+}

@@ -67,7 +67,11 @@ internal static class CudaLanguage
     // (silicon plane §10/§11).
     private static readonly string[] EpProbeLibs =
     {
-        "onnxruntime", "QnnHtp", "QnnCpu", "openvino", "migraphx",
+        // onnxruntime removed with the production-closure native-only
+        // fix — the C++ probe table (xcm_silicon.h mode_npu_ep_enum) no
+        // longer opens external ML runtimes, so the name leaves the
+        // sanctioned table too.
+        "QnnHtp", "QnnCpu", "openvino", "migraphx",
         "winml", "DirectML",
     };
     // OS libraries never count as compute dependencies.

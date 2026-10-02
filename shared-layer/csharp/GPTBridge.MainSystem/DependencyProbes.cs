@@ -1,5 +1,7 @@
 // Dependency phase probes — the per-identity handlers the Python
-// PhaseMixin exposes (_phase_postgresql / _phase_vectord / _phase_ollama).
+// PhaseMixin exposes (_phase_postgresql / _phase_vectord; the retired
+// _phase_ollama is gone with the B154 retirement — no probe may target
+// an external model service).
 //
 // Each probe maps a manifest declaration to a ProbeResult. Unknown
 // identities resolve through the generic loopback-tcp contract so new
@@ -97,11 +99,8 @@ public sealed class DependencyProbes
         DependencyDeclaration dep, int port, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
-        var timeout = dep.Identity == "ollama"
-            ? TimeSpan.FromSeconds(
-                _manifest.ProbeConstant("ollama_probe_timeout", 0.5))
-            : TimeSpan.FromSeconds(
-                _manifest.ProbeConstant("vectord_probe_timeout", 0.5));
+        var timeout = TimeSpan.FromSeconds(
+            _manifest.ProbeConstant("vectord_probe_timeout", 0.5));
         var ok = await StartupProbes.ProbeTcpAsync("127.0.0.1", port,
             timeout, ct).ConfigureAwait(false);
 
@@ -109,19 +108,17 @@ public sealed class DependencyProbes
         if (!ok && onDemand)
         {
             // §10.7: absent-but-installed is deferred, not degraded.
-            var installed = OllamaInstalled(dep.Identity);
             return new ProbeResult
             {
                 Phase = $"{dep.Identity}-start",
                 Label = $"啟動 {dep.Identity}",
                 Critical = false,
                 OnDemand = true,
-                Installed = installed,
+                Installed = true,
                 Ready = false,
-                State = installed ? "deferred" : "degraded",
+                State = "deferred",
                 FaultCode = $"{dep.Identity.ToUpperInvariant()}_UNREACHABLE",
-                Message = installed
-                    ? "on-demand deferred (installed)" : "not installed",
+                Message = "on-demand deferred",
                 DurationMs = (int)sw.ElapsedMilliseconds,
             };
         }
@@ -130,27 +127,6 @@ public sealed class DependencyProbes
             : NotReady(dep, $"{dep.Identity}-start", dep.Identity, sw,
                 $"{dep.Identity.ToUpperInvariant()}_UNREACHABLE",
                 "unreachable");
-    }
-
-    private static bool OllamaInstalled(string identity)
-    {
-        if (identity != "ollama") return true;
-        var local = Environment.GetFolderPath(
-            Environment.SpecialFolder.LocalApplicationData);
-        if (File.Exists(Path.Combine(
-                local, "Programs", "Ollama", "ollama.exe")))
-            return true;
-        foreach (var dir in (Environment.GetEnvironmentVariable("PATH")
-                     ?? "").Split(Path.PathSeparator))
-        {
-            try
-            {
-                if (File.Exists(Path.Combine(dir, "ollama.exe")))
-                    return true;
-            }
-            catch (ArgumentException) { /* malformed PATH entry */ }
-        }
-        return false;
     }
 
     private static ProbeResult Ok(

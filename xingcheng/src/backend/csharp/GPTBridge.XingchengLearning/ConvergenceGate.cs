@@ -306,7 +306,8 @@ $"gate-stderr-{Environment.ProcessId}.log";
                     $"{((IEnumerable<object?>)d["newly_certified"]!)
                         .Count()})");
             }),
-            // AC §73/§76: native dependency audit — PostgreSQL/Ollama/
+            // AC §73/§76: native dependency audit — PostgreSQL/Ollama
+            // (retired B154; residue tokens still denied fail-closed)/
             // cuBLAS/cuDNN/CUTLASS/NVRTC/external AI runtime findings
             // with Blocking=true fail promotion; the CUDA plane must
             // additionally pass the driver-only contract.

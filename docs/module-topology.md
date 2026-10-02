@@ -111,7 +111,7 @@ and no runtime entry. It is a **startup state storage location**.
 Per A129 (startup-sub-sovereign), the launcher (`main-system/launcher/`,
 `GPTBridge.Bootstrap.exe` / `GPTBridgeLauncher`) performs:
 1. Environment loading
-2. Runtime checks (PostgreSQL/Qdrant/Ollama probing)
+2. Runtime checks (PostgreSQL probing; Qdrant and Ollama are retired dependencies — Ollama retired by the B154 retirement amendment, executed 2026-10-02 rev 235)
 3. Governance audit
 4. Startup gate decision
 

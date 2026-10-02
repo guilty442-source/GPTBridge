@@ -107,7 +107,7 @@ GPTBridge 的資料層分為**兩大引擎**與**三種典範**：
 | `LocalSqliteRagRepository`（取代已退役的 `PostgresRagRepository`） | `xingcheng/src/backend/services/xingcheng/infrastructure/local_sqlite_rag_repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/local-rag-keywords.sqlite3` |
 | 本地 SQLite `repository.py` | `local-model/.../infrastructure/repository.py` | 內建 sqlite3 | `xingcheng/runtime/state/models/*.sqlite3` |
 | 本地 SQLite `local_command_parser.py` | `local-model/.../infrastructure/local_command_parser.py` | 內建 sqlite3 | 常用命令歷史 |
-| 本地 SQLite `ollama_model_repository.py` | `local-model/.../infrastructure/ollama_model_repository.py` | 內建 sqlite3 | 推論記錄、能力投票、訓練貢獻 |
+| 本地 SQLite `ollama_model_repository.py`（已退役 — B154 退役修正案 2026-10-02 rev 235 廢止 Ollama 依賴） | `local-model/.../infrastructure/ollama_model_repository.py` | 內建 sqlite3 | 推論記錄、能力投票、訓練貢獻 |
 | 本地 SQLite 語義索引快取（B 方案） | `xingcheng/src/backend/services/xingcheng/infrastructure/vector_store.py` | 內建 sqlite3 | 工具私有快取 `xingcheng/runtime/state/local-rag-vectors.sqlite3` |
 
 ---

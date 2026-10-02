@@ -282,8 +282,8 @@
   "governance_references": {
     "codex_identity": "governance-codex://official",
     "codex_authority": "postgresql://local/gptbridge_codex",
-    "codex_version": "2026-10-02T11:49:37Z",
-    "codex_sha256": "75acbcce61ee03f0e5d344fea4021fd0ac15211b7f414c75df82f5c0c7ccbeb3",
+    "codex_version": "2026-10-02T11:52:44Z",
+    "codex_sha256": "82c9ce17f3e6af181227a3e82f515555f04316f780f46ae4a624c5ff75aa3a4b",
     "governance_runtime_contract_version": "2026-09-16T09:22:51Z",
     "permission_contract_version": "2026-09-16T05:44:03Z",
     "sovereign_registry_identity": "31af0ed953a78e9bcb7ce01b4f852a32744601db3549575f0905fc7be8f30121",
@@ -454,9 +454,9 @@
     "required_files": {
       "main-system/config/tool-runtime-contract.json": "8d604adfdea752d14a27682ed92addb0b4056a643e798605dee713e40c4813cc",
       "main-system/config/tool-isolation-policy.json": "caaf5cd5f154399d4b105cc9b546cffb65647155122564aaf2ca162535fe944c",
-      "main-system/config/startup_manifest.json": "d6822763e8a4710f80e8704552969ad08c8ce996d806834af8938414208955bb",
+      "main-system/config/startup_manifest.json": "6d767c28106b9c4a2fdb23569f821da39e40cd7a2150735672168613bcb366bb",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
-      "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
+      "main-system/config/ai-connection-contract.json": "658856afc131fcf1fed5b9a6b85abfeb433a59edecf1d386c1f7a7d2484aa66a",
       "shared-layer/database-release.json": "388f304da1a8549aa08a9dc88061658bee9507f9291fa671b1f3c48dd0287d3e",
       "xingcheng/xingcheng/runtime/settings/native-engine.json": "439d0025c15cc948a44bcd18dfa4ca41d96f11db5da824f41f553feaae64d75c"
     },
@@ -471,7 +471,7 @@
     "endpoint_references": {
       "postgresql": "GPTBRIDGE_POSTGRES_DSN",
       "vectord": "http://127.0.0.1:8092 (Rust vector engine; readiness dependency)",
-      "ollama": "GPTBRIDGE_OLLAMA_URL or localhost:11434"
+      "note_ollama_retired": "B154 retired (executed 2026-10-02, rev 235): no external model service endpoint is a runtime dependency"
     },
     "model_registry": {
       "lifecycle": "xingcheng/xingcheng/runtime/models/lifecycle/xingcheng-native/lifecycle.json",

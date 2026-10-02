@@ -28,7 +28,7 @@ public class GovernedStartupTests
         ],
         CriticalityClasses =
             ["core-critical", "capability-critical", "optional"],
-        NoFixedCriticalityServices = ["postgresql", "vectord", "ollama"],
+        NoFixedCriticalityServices = ["postgresql", "vectord"],
     };
 
     private static DependencyDeclaration Dep(
