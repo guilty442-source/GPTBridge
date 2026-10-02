@@ -184,6 +184,22 @@ internal static class FailurePool
                         continue;
                     if (ofp?.ToString() != fp && onfp?.ToString() != nfp)
                         continue;
+                    // Maturation-closure §39: the dedup identity is the
+                    // tuple (content hash, semantic class, capability_id,
+                    // source identity) — fingerprints matching alone must
+                    // not merge failures that differ in capability or
+                    // provenance. Semantic class is the per-pool file
+                    // itself; a legacy record without capability_id only
+                    // merges with an equally untagged repeat.
+                    if ((old.TryGetValue("capability_id", out object? oc)
+                            ? oc?.ToString() : null)
+                        != (capabilityId ?? ""))
+                        continue;
+                    string op = old.TryGetValue("provenance",
+                        out object? opv) ? opv?.ToString() ?? "" : "";
+                    string np = provenance ?? "";
+                    if (op.Length > 0 && np.Length > 0 && op != np)
+                        continue;
                     int seen = old.TryGetValue("seen_count",
                         out object? sc) && sc is JsonElement je &&
                         je.TryGetInt32(out int n) ? n : 1;
