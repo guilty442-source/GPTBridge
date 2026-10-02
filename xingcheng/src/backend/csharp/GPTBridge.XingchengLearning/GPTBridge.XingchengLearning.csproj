@@ -9,9 +9,14 @@
     <RootNamespace>GPTBridge.XingchengLearning</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Npgsql is the governed PostgreSQL metadata-authority adapter
+         (codex: gptbridge_xingcheng remains the formal structured
+         metadata authority — 2026-10-02 decision). Its native-only
+         gate finding is pending a governor sanction decision
+         (convergence/native-only-dependency-decision-request-20261002),
+         not removable code. -->
     <PackageReference Include="Npgsql" Version="9.0.3" />
-    <PackageReference Include="System.Management" Version="9.0.3" />
-    <!-- The tool is Windows-only (native toolchain + WMI supervision). -->
+    <!-- The tool is Windows-only (native toolchain supervision). -->
     <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
       <_Parameter1>windows</_Parameter1>
     </AssemblyAttribute>

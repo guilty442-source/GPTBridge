@@ -30,7 +30,7 @@
       "permission_activation": "governance-rule-explicit-authorization-only",
       "third_party_models": true,
       "remote_model_inference": false,
-      "local_model_runtime": "ollama-loopback-only"
+      "local_model_runtime": "native-engine-only"
     },
     "external-ai": {
       "tool_id": "ai-collaboration",

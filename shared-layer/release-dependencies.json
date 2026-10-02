@@ -456,7 +456,7 @@
       "main-system/config/tool-isolation-policy.json": "caaf5cd5f154399d4b105cc9b546cffb65647155122564aaf2ca162535fe944c",
       "main-system/config/startup_manifest.json": "6d767c28106b9c4a2fdb23569f821da39e40cd7a2150735672168613bcb366bb",
       "main-system/config/feature_flags.json": "968a45a1ad161e113b65a66a1701e622187ecb33c39ad0edff976557d2e28c9d",
-      "main-system/config/ai-connection-contract.json": "0c5beac4f6d2e65fd166ee67df67d0d97114f21a3fa9a188c8f6c78fb0b58609",
+      "main-system/config/ai-connection-contract.json": "658856afc131fcf1fed5b9a6b85abfeb433a59edecf1d386c1f7a7d2484aa66a",
       "shared-layer/database-release.json": "388f304da1a8549aa08a9dc88061658bee9507f9291fa671b1f3c48dd0287d3e",
       "xingcheng/xingcheng/runtime/settings/native-engine.json": "439d0025c15cc948a44bcd18dfa4ca41d96f11db5da824f41f553feaae64d75c"
     },

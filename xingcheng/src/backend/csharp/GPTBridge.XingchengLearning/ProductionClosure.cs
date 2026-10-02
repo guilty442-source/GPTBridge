@@ -258,6 +258,9 @@ internal static class ProductionClosure
                 ["breaches"] = floorFindings.Take(6)
                     .Cast<object?>().ToList(),
             };
+        // §3 provenance: evaluated live — the pinned serving artifact
+        // must carry a verifiable star-bundle-provenance/v1 record.
+        map["provenance"] = ProvenancePrereq(toolRoot);
         return new Dictionary<string, object?>
         {
             ["format"] = Format,
@@ -266,6 +269,65 @@ internal static class ProductionClosure
                 v is Dictionary<string, object?> d &&
                 d["state"]?.ToString() == "PASS"),
         };
+    }
+
+    /// <summary>§3 provenance prerequisite: resolve the pin from
+    /// native-engine.json, load the artifact's provenance.json and run
+    /// the mandated hash → signature → identity checks. Missing
+    /// evidence stays NOT_EVALUATED (§5 — absence cannot convict); a
+    /// present-but-invalid record FAILs.</summary>
+    private static Dictionary<string, object?> ProvenancePrereq(
+        string toolRoot)
+    {
+        Dictionary<string, object?> Unevaluated(string source) => new()
+        {
+            ["state"] = "NOT_EVALUATED", ["source"] = source,
+        };
+        try
+        {
+            string? rel = EngineSettings.PinnedCheckpoint(toolRoot);
+            if (rel == null || rel.Length == 0)
+                return Unevaluated("no pinned checkpoint");
+            string dir = Path.GetFullPath(Path.Combine(toolRoot,
+                rel.Replace('/', Path.DirectorySeparatorChar)));
+            string provPath = Path.Combine(dir, "provenance.json");
+            if (!Directory.Exists(dir) || !File.Exists(provPath))
+            {
+                var miss = Unevaluated("pinned artifact carries no " +
+                    "provenance.json");
+                miss["pin"] = rel;
+                return miss;
+            }
+            var prov = ModelLifecycle.Decode(JsonDocument.Parse(
+                File.ReadAllText(provPath)).RootElement)
+                as Dictionary<string, object?>;
+            if (prov == null)
+                return Unevaluated("provenance.json unreadable");
+            // Empty expected generation/arch — this gate certifies the
+            // envelope (hash + signature); identity binding belongs to
+            // the candidate selection (§2).
+            var v = BundleProvenance.Verify(dir, prov, "", "");
+            return new Dictionary<string, object?>
+            {
+                ["state"] = "PASS",
+                ["source"] = "bundle provenance verified",
+                ["pin"] = rel,
+                ["generation"] = v["generation"],
+                ["signature_checked"] = v["signature_checked"],
+            };
+        }
+        catch (ExecutorError ex)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["state"] = "FAIL",
+                ["source"] = $"provenance invalid: {ex.Message}",
+            };
+        }
+        catch (Exception ex) when (ex is IOException or JsonException)
+        {
+            return Unevaluated("provenance read failed");
+        }
     }
 
     // ----------------------------------------------------- candidate --

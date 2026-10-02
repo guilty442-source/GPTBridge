@@ -1590,6 +1590,11 @@
                   "Standalone tools/vaultly/src/ui/toolWindowRunner.js",
                   "Standalone tools/vaultly/src/ui/VaultlyDownloadCenter.jsx",
                   "Standalone tools/vaultly/src/ui/VaultlyWindowApp.jsx",
-                  "xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/TeacherCollect.cs"
+                  "xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/TeacherCollect.cs",
+                  "governance_rule/execution/audit/convergence/registry-snapshot-reconciliation.ps1",
+                  "main-system/development-tools/ollama/Modelfile.cline",
+                  "main-system/development-tools/ollama/Modelfile.cline2",
+                  "main-system/development-tools/ollama/Modelfile.cline3",
+                  "main-system/development-tools/ollama/qwen25-original.Modelfile"
               ]
 }

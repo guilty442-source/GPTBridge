@@ -9,6 +9,7 @@
 // contracts (job spec -> trainer report -> eval output), never memory.
 
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace GPTBridge.XingchengLearning;
@@ -299,14 +300,57 @@ internal static class NativeTools
     private static List<int> ChildPids(int parentPid)
     {
         var children = new List<int>();
+        // Toolhelp32 snapshot, no WMI/System.Management package — the
+        // native-only gate flags third-party nuget in production scope.
+        IntPtr snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snap == IntPtr.Zero || snap == INVALID_HANDLE_VALUE)
+            return children;
         try
         {
-            using var searcher = new System.Management.ManagementObjectSearcher(
-                $"SELECT ProcessId FROM Win32_Process WHERE ParentProcessId = {parentPid}");
-            foreach (var row in searcher.Get())
-                children.Add(Convert.ToInt32(row["ProcessId"]));
+            var e = new PROCESSENTRY32
+                { dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32>() };
+            if (!Process32First(snap, ref e)) return children;
+            do
+            {
+                if (e.th32ParentProcessID == (uint)parentPid)
+                    children.Add((int)e.th32ProcessID);
+            }
+            while (Process32Next(snap, ref e));
         }
-        catch { /* WMI unavailable -> main process only */ }
+        finally { CloseHandle(snap); }
         return children;
     }
+
+    private const uint TH32CS_SNAPPROCESS = 0x00000002;
+    private static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct PROCESSENTRY32
+    {
+        public uint dwSize;
+        public uint cntUsage;
+        public uint th32ProcessID;
+        public UIntPtr th32DefaultHeapID;
+        public uint th32ModuleID;
+        public uint cntThreads;
+        public uint th32ParentProcessID;
+        public int pcPriClassBase;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szExeFile;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr CreateToolhelp32Snapshot(
+        uint dwFlags, uint th32ProcessID);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode,
+        SetLastError = true)]
+    private static extern bool Process32First(IntPtr hSnapshot,
+        ref PROCESSENTRY32 lppe);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode,
+        SetLastError = true)]
+    private static extern bool Process32Next(IntPtr hSnapshot,
+        ref PROCESSENTRY32 lppe);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
 }
