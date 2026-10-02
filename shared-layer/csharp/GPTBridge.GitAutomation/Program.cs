@@ -11,7 +11,11 @@ namespace GPTBridge.GitAutomation;
 ///                    60 s debounce, queue-event early sync)
 ///   --once           one sweep + one sync, then exit
 ///   --sweep          one debounced sweep only
-///   --sync           one workspace sync only
+///   --sync           one workspace sync only (SQL projections
+///                    refreshed first on measured drift; --no-sql opts
+///                    out of the SQL half)
+///   --parity         read-only SQL↔Git parity report (authority
+///                    version vs checked-in mirror; never mutates)
 ///   --hook <name>    governed git hook (pre-commit, pre-merge-commit,
 ///                    pre-push, pre-receive)
 ///   --install-hooks  write governed sh shims into .git/hooks
@@ -19,7 +23,7 @@ namespace GPTBridge.GitAutomation;
 ///   --status         print the service state file
 ///
 /// Options: --root <path>  --push  --interval <s>  --debounce <s>
-///          --sync-interval <s>  --no-commit
+///          --sync-interval <s>  --no-commit  --no-sql
 ///
 /// Fail-closed argument contract: a command flag is REQUIRED.  Bare
 /// words, unknown switches and a missing command all exit non-zero —
@@ -40,6 +44,7 @@ internal static partial class Program
         public readonly List<string> HookArgs = new();
         public bool Push;
         public bool CommitDirty = true;
+        public bool SqlSync = true;
         public double SweepInterval = 60;
         public double SyncInterval = 300;
         public double Debounce = 60;
@@ -49,9 +54,9 @@ internal static partial class Program
     private const string Usage =
         "usage: GPTBridge.GitAutomation <--watch|--once|--sweep|--sync|" +
         "--status|--install-hooks|--update-templates|--manifest-export|" +
-        "--manifest-diff <left> <right>|--hook <name>> " +
-        "[--root <path>] [--push] [--no-commit] [--interval <s>] " +
-        "[--debounce <s>] [--sync-interval <s>]";
+        "--manifest-diff <left> <right>|--parity|--hook <name>> " +
+        "[--root <path>] [--push] [--no-commit] [--no-sql] " +
+        "[--interval <s>] [--debounce <s>] [--sync-interval <s>]";
 
     private static string? TakeValue(
         string[] args, ref int i, string flag, Options options)
@@ -109,6 +114,8 @@ internal static partial class Program
                     break;
                 case "--push": options.Push = true; break;
                 case "--no-commit": options.CommitDirty = false; break;
+                case "--no-sql": options.SqlSync = false; break;
+                case "--parity": SetMode(options, "parity"); break;
                 case "--interval":
                     if (TakeValue(args, ref i, arg, options) is { } iv)
                         options.SweepInterval = double.Parse(
@@ -229,6 +236,8 @@ internal static partial class Program
                 case "manifest-diff":
                     return ManifestExport.Diff(
                         options.DiffLeft!, options.DiffRight!);
+                case "parity":
+                    return Print(SqlSync.Parity(projectRoot));
                 case "status":
                     return ShowStatus(projectRoot);
                 case "sweep":
@@ -243,7 +252,7 @@ internal static partial class Program
                     return options.Mode == "sweep"
                         ? Print(Sweep(projectRoot, options,
                             new Dictionary<string, (string, double)>()))
-                        : Print(SyncCycle(projectRoot, options));
+                        : PrintSync(SyncCycle(projectRoot, options));
                 case "once":
                 case "watch":
                     return await Watch(projectRoot, options);
@@ -276,6 +285,14 @@ internal static partial class Program
         Console.WriteLine(JsonSerializer.Serialize(payload,
             new JsonSerializerOptions { WriteIndented = true }));
         return 0;
+    }
+
+    private static int PrintSync((string Status, JsonObject? Sql) sync)
+    {
+        var payload = new JsonObject { ["result"] = sync.Status };
+        if (sync.Sql is not null)
+            payload["sql"] = sync.Sql;
+        return Print(payload);
     }
 
     private static int ShowStatus(string projectRoot)

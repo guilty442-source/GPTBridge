@@ -1,0 +1,100 @@
+﻿{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "model-training-native-xingcheng-boundary-convergence-20261002-r3",
+  "title": "MODEL_TRAINING_NATIVE converge to Xingcheng-owned boundary",
+  "summary": "Human-governor directive 2026-10-02: the canonical project_architecture_directory row for MODEL_TRAINING_NATIVE still carries tool-era semantics - parent UNIT_ENGINE (the model/engine unit that hosts LOCAL_MODEL), dependencies listing local-model, and a bare 'training-owned job state' data authority. This contradicts architecture-tool-local-model and B81 SERVICE-BOUNDARY: Xingcheng is separate from local-model, which does not own, host or control it. The correction reparents the service under UNIT_ASSISTANT (BLOCK_XINGCHENG, the same unit as XINGCHENG_INSTITUTION_ROOT and STAR_DIRECTORY), removes the false local-model dependency in favour of the actual authorities (governance codex|information layer|native compute core), restores the Xingcheng-exclusive data-authority wording its retired predecessor MODEL_TRAINING already carried, and declares the logical boundary as a Xingcheng-owned enclave whose source sits beneath registered XINGCHENG_PACKAGE_ROOT while runtime state and lifecycle remain under XINGCHENG_INSTITUTION_ROOT. physical_root is unchanged because it records the true on-disk path; ownership is expressed through parent, dependencies, data_authority and the registered Xingcheng package root, matching the established nested-institution pattern already accepted for XINGCHENG_INSTITUTION_ROOT itself. UNIT_ASSISTANT responsibilities gain MODEL_TRAINING_NATIVE in the member list, and both a233_normalized_directory_entry projections are updated in the same revision so canonical and projection never diverge. Codex/registry-only change: no implementation or file is moved by this request. r3: predecessor re-anchored to seq 212 after the r2 id was terminally rejected on a stale predecessor; r2 carried seq 212 (live head 2026-10-02T05:23:31Z) after six further revisions landed since the r1 draft; canonical values re-verified against the live registry at re-anchor time (MODEL_TRAINING_NATIVE still parent UNIT_ENGINE with local-model dependency; UNIT_ASSISTANT member list still lacks MODEL_TRAINING_NATIVE; XINGCHENG_PACKAGE_ROOT confirmed registered in permission source_ownership).",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: MODEL_TRAINING_NATIVE needs re-judgment - it is an active internal service depending on local-model with physical root under Standalone tools\\local-model, but current architecture states Xingcheng is separated from local-model, which does not own, host or control Xingcheng; dependency, physical-root and lifecycle ownership must converge to the true Xingcheng-owned boundary",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T05:23:31Z",
+    "version_identity": "E2:2026-10-02T05:23:31Z",
+    "version_epoch": 2,
+    "history_head": "71634b5b4b0adc587af1bb190517ced5ffd7fe897d38b17242b6525ac4286039",
+    "revision_sequence": 212
+  },
+  "problem": {
+    "summary": "MODEL_TRAINING_NATIVE canonical row claims dependency on local-model and sits under UNIT_ENGINE, contradicting the codified Xingcheng/local-model separation; data_authority lost the Xingcheng-exclusive wording of retired predecessor MODEL_TRAINING; lifecycle/state already live under XINGCHENG_INSTITUTION_ROOT but the row does not declare the enclave relationship. Residual open item (implementation, not registration): Xingcheng policy files under local-model\\runtime\\settings (self-learning.json, native-engine.json, retention.json, kernel-policy.json, teacher-distillation.json) sit outside XINGCHENG_INSTITUTION_ROOT physical root - a DATA-RESIDENCY migration follow-up, not part of this directory correction."
+  },
+  "changes": [
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "parent_code",
+      "proposed": "UNIT_ASSISTANT"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "dependencies",
+      "proposed": "governance codex|information layer|native compute core"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "data_authority",
+      "proposed": "Xingcheng-owned exclusive data authority; residency XINGCHENG_DOMAIN_ONLY; no external persistence"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "logical_boundary",
+      "proposed": "Xingcheng-owned native training lane enclave (cpp23+csharp); physical source beneath registered XINGCHENG_PACKAGE_ROOT inside the local-model directory tree, which does not own, host or control it (B81 SERVICE-BOUNDARY); runtime state and lifecycle under XINGCHENG_INSTITUTION_ROOT"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "interfaces",
+      "proposed": "governed-subprocess job lane|information-layer schema|append-only audit chain"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "failure_boundary",
+      "proposed": "fail-closed governed job chain; isolated from local-model, main-system and other tools"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "MODEL_TRAINING_NATIVE" },
+      "field": "responsibilities",
+      "proposed": "xingcheng native model training lane|pretrain|sft|dpo|grpo|checkpoint emission|training evidence|weights-succession participation"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": { "architecture_code": "UNIT_ASSISTANT" },
+      "field": "responsibilities",
+      "proposed": "members:XINGCHENG_INSTITUTION_ROOT|STAR_DIRECTORY|MODEL_TRAINING_NATIVE|xingcheng-assistant"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": { "entry_code": "MODEL_TRAINING_NATIVE", "source_table": "project_architecture_directory" },
+      "field": "domain_payload",
+      "proposed": "{\"architecture_code\":\"MODEL_TRAINING_NATIVE\",\"canonical_name\":\"model-training-native\",\"command_codes\":\"\",\"data_authority\":\"Xingcheng-owned exclusive data authority; residency XINGCHENG_DOMAIN_ONLY; no external persistence\",\"dependencies\":\"governance codex|information layer|native compute core\",\"entity_kind\":\"internal-service\",\"failure_boundary\":\"fail-closed governed job chain; isolated from local-model, main-system and other tools\",\"fault_codes\":\"\",\"interfaces\":\"governed-subprocess job lane|information-layer schema|append-only audit chain\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"Xingcheng-owned native training lane enclave (cpp23+csharp); physical source beneath registered XINGCHENG_PACKAGE_ROOT inside the local-model directory tree, which does not own, host or control it (B81 SERVICE-BOUNDARY); runtime state and lifecycle under XINGCHENG_INSTITUTION_ROOT\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_ASSISTANT\",\"permission_scope\":\"xingcheng-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\local-model\\\\src\\\\backend\\\\services\\\\xingcheng\\\\infrastructure\\\\native_transformer\\\\training\",\"responsibilities\":\"xingcheng native model training lane|pretrain|sft|dpo|grpo|checkpoint emission|training evidence|weights-succession participation\",\"retired_version\":null,\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}",
+      "also": {
+        "content_hash": "75bb1420c23765a012f60b1a8f33a26e37d0a5e58103980abffd5ce76f57ae7c",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": { "entry_code": "UNIT_ASSISTANT", "source_table": "project_architecture_directory" },
+      "field": "domain_payload",
+      "proposed": "{\"architecture_code\":\"UNIT_ASSISTANT\",\"canonical_name\":\"unit-assistant\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"host-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"xingcheng assistant|separate host|zh-TW codex visibility only here\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_XINGCHENG\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\xingcheng\\\\assistant\",\"responsibilities\":\"members:XINGCHENG_INSTITUTION_ROOT|STAR_DIRECTORY|MODEL_TRAINING_NATIVE|xingcheng-assistant\",\"retired_version\":null,\"runtime_boundary\":\"separate host|governed IPC only\",\"test_flow_codes\":\"\"}",
+      "also": {
+        "content_hash": "9aebdfa979b201be4294a859ec6dadc08f9dbca68df82acbf44af2e4dc9b7a06",
+        "revision": "<successor-version>"
+      }
+    }
+  ],
+  "proposed_successors": [],
+  "verification": {
+    "requested_at": "2026-10-02T04:45:00Z",
+    "expected_audit_result": "project_architecture_directory.MODEL_TRAINING_NATIVE has parent UNIT_ASSISTANT, no local-model dependency, Xingcheng-exclusive data authority and the enclave logical boundary; UNIT_ASSISTANT member list includes MODEL_TRAINING_NATIVE; a233_normalized_directory_entry carries identical domain_payload values with matching content_hash"
+  }
+}

@@ -193,8 +193,10 @@ internal static partial class Program
                 _lastSync = new JsonObject
                 {
                     ["at"] = Canon.EpochSeconds(),
-                    ["result"] = sync,
+                    ["result"] = sync.Status,
                 };
+                if (sync.Sql is not null)
+                    _lastSync["sql"] = sync.Sql;
                 WriteState();
             }
         }

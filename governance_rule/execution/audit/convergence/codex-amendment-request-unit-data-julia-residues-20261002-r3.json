@@ -1,0 +1,82 @@
+﻿{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "unit-data-julia-residues-20261002-r3",
+  "title": "Clean UNIT_DATA membership residue and retire JULIA_COMPUTE registration",
+  "summary": "Human-governor finding 2026-10-02: two current residues in project_architecture_directory. (1) UNIT_DATA responsibilities still declares 'members:POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY|module-sqlite|local-vector|ollama' - module-sqlite and ollama have no directory rows and do not parent to UNIT_DATA, local-vector (LOCAL_VECTOR) parents to UNIT_PLATFORM, so the declared membership diverges from the actual parent_code linkage (POSTGRESQL_AUTHORITY + retired QDRANT_AUTHORITY). The members list is corrected to the two rows that actually parent to UNIT_DATA; the retired member is retained consistent with the directory convention (UNIT_ASSISTANT retains STAR_DIRECTORY, UNIT_RUNTIME retains SUB_SOVEREIGN_LAYER, UNIT_ENGINE retains MODEL_TRAINING). (2) JULIA_COMPUTE is registered as an active internal-service although the current core language pool (B166 PRIMARY-CORE-LANGUAGE-POOL: C+C++23+CSharp+Rust+Go+FSharp only) no longer includes Julia - the entry has no authorized current owner. It is retired: entity_kind becomes retired-former-scientific-compute-service and retired_version binds to the successor codex version (same retirement shape as MODEL_TRAINING/QDRANT_AUTHORITY). The a233_normalized_directory_entry rows are updated in the same revision so canonical and projection do not diverge; JULIA_COMPUTE's a233 domain_payload embed is synced in a follow-up amendment once the concrete successor version is known (the embedded JSON string cannot carry the <successor-version> sentinel). Codex-only change: no implementation is modified.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor finding 2026-10-02: UNIT_DATA still lists QDRANT_AUTHORITY|module-sqlite|local-vector|ollama as members; JULIA_COMPUTE is registered as an active internal service although B166 core language pool is C/C++23/CSharp/Rust/Go/FSharp and the latest language projection has no Julia current owner.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T04:35:45Z",
+    "version_identity": "E2:2026-10-02T04:35:45Z",
+    "version_epoch": 2,
+    "history_head": "e9a6ec2ca305d0ac6154a6ede8c927abf5d5232b5a36477e7c72fa900c3609f2",
+    "revision_sequence": 208
+  },
+  "problem": {
+    "summary": "UNIT_DATA.members lists phantom members (module-sqlite, ollama - no directory rows) and a misassigned member (local-vector parents to UNIT_PLATFORM), plus the retired QDRANT_AUTHORITY; JULIA_COMPUTE remains an active internal-service registration although B166 removed Julia from the core language pool, leaving the entry without an authorized owner language."
+  },
+  "changes": [
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "UNIT_DATA"
+      },
+      "field": "responsibilities",
+      "proposed": "members:POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "UNIT_DATA",
+        "source_table": "project_architecture_directory"
+      },
+      "field": "domain_payload",
+      "proposed": "{\"architecture_code\":\"UNIT_DATA\",\"canonical_name\":\"unit-data\",\"command_codes\":\"\",\"data_authority\":\"none-beyond-member-components\",\"dependencies\":\"\",\"entity_kind\":\"architecture-unit\",\"failure_boundary\":\"unit-level isolation boundary\",\"fault_codes\":\"\",\"interfaces\":\"governed-ipc-contract|codex-adjudication\",\"introduced_version\":\"2026-09-22T03:05:31Z\",\"logical_boundary\":\"data services boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"BLOCK_SHARED\",\"permission_scope\":\"declared unit membership only\",\"physical_root\":\"E:\\\\GPTBridge\\\\blocks\\\\shared\\\\data\",\"responsibilities\":\"members:POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY\",\"retired_version\":null,\"runtime_boundary\":\"same-host in-process within block\",\"test_flow_codes\":\"\"}",
+      "also": {
+        "content_hash": "922cf9880ce973c79dc98738423c2e993eec0d8de4db60c62b85af513c1f1f69",
+        "revision": "<successor-version>"
+      }
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "JULIA_COMPUTE"
+      },
+      "field": "entity_kind",
+      "proposed": "retired-former-scientific-compute-service"
+    },
+    {
+      "table": "project_architecture_directory",
+      "key": {
+        "architecture_code": "JULIA_COMPUTE"
+      },
+      "field": "retired_version",
+      "proposed": "<successor-version>"
+    },
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "JULIA_COMPUTE",
+        "source_table": "project_architecture_directory"
+      },
+      "field": "status",
+      "proposed": "retired",
+      "also": {
+        "retired_version": "<successor-version>",
+        "revision": "<successor-version>"
+      }
+    }
+  ],
+  "proposed_successors": [],
+  "verification": {
+    "requested_at": "2026-10-02T04:40:00Z",
+    "expected_audit_result": "UNIT_DATA.members = POSTGRESQL_AUTHORITY|QDRANT_AUTHORITY matching parent_code linkage; JULIA_COMPUTE retired (entity_kind + retired_version + a233 status/retired_version); a233 UNIT_DATA domain_payload matches canonical; JULIA_COMPUTE domain_payload sync scheduled as follow-up once the successor version is concrete"
+  }
+}

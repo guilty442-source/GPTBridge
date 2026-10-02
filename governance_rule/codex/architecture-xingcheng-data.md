@@ -71,7 +71,7 @@ flowchart LR
 ## 二進位容器家族
 
 <!-- autogen:xingcheng-containers -->
-*autogen-scanner/v1 · 2105 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2107 files · main+devin+git+local-model+rag+ui*
 | Magic | 定義/引用來源 |
 |---|---|
 | `XCB1` | devin:Standalone tools/local-model/contracts/xnc/vectors/manifest.json, devin:Standalone tools/local-model/src/backend/cpp/src/xcb_batch.h, devin:Standalone tools/local-model/src/backend/rust/xcorpus/src/xcb.rs, Standalone tools/local-model/contracts/xnc/vectors/manifest.json |
@@ -131,7 +131,7 @@ jobs/<id>/
 ## JSONL/JSON artifact 索引（producer → consumer）
 
 <!-- autogen:xingcheng-formats -->
-*autogen-scanner/v1 · 2105 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2107 files · main+devin+git+local-model+rag+ui*
 | format tag | 來源檔 |
 |---|---|
 | `coding-agent-trajectory/v1` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs (+2) |
@@ -242,7 +242,7 @@ jobs/<id>/
 ## PostgreSQL 表（`gptbridge_xingcheng`）
 
 <!-- autogen:xingcheng-pgtables -->
-*autogen-scanner/v1 · 2105 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2107 files · main+devin+git+local-model+rag+ui*
 | 表 | 定義/引用來源 |
 |---|---|
 | `transformer_adapter_candidate` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
@@ -250,6 +250,7 @@ jobs/<id>/
 | `transformer_adapter_registry` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 | `transformer_adapter_release` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 | `transformer_audit_immutable` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
+| `transformer_blocks_present` | Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/ModelMaturity.cs |
 | `transformer_dataset_snapshot_immutable` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 | `transformer_runtime_model_state` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |
 | `transformer_schema_metadata` | devin:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, devin:main-system/config/sql-schema-contract.json, git:Standalone tools/local-model/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:main-system/config/sql-schema-contract.json (+8) |

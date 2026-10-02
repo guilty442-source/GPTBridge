@@ -1,0 +1,48 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "xingcheng-single-root-governance-convergence-20261002-r2",
+  "title": "Converge Xingcheng data governance on one canonical custody root",
+  "summary": "Align A133 and the canonical residency metadata with B81's single-root rule so the general deployment topology cannot be read as permitting multiple Xingcheng-owned stores.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction 2026-10-02: 推進治理 following the single-folder Xingcheng data mandate",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T04:35:45Z",
+    "version_identity": "E2:2026-10-02T04:35:45Z",
+    "version_epoch": 2,
+    "history_head": "e9a6ec2ca305d0ac6154a6ede8c927abf5d5232b5a36477e7c72fa900c3609f2",
+    "revision_sequence": 208
+  },
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A133"
+      },
+      "field": "rule",
+      "proposed": "IDENTITY-SEPARATION:decision,permission,runtime,automation and xingcheng-assistant remain distinct peer governance identities;DEPLOYMENT:they may share one local host but retain separate process,data,permission and failure boundaries according to the architecture registry;XINGCHENG-SEPARATION:xingcheng native model and xingcheng-assistant use separate identities and separate databases and neither database grants authority to the other;CROSS-BOUNDARY:only registered versioned channels;CODEX:the formal PostgreSQL Codex is read through governed scope,while the Chinese mirror is a non-authoritative projection synchronized with it;MAINTENANCE:authorized cores may maintain the formal Codex only through its amendment controls. DATA-RESIDENCY:all data owned by,created for or held in custody by Xingcheng,including identity,personality,memory,conversation context,learning corpus,training state,weights,checkpoints,evaluation evidence,repair knowledge,tool-use state,runtime records,cache,scratch,temporary,backup,recovery and migration forms,must remain exclusively inside the one registered canonical Xingcheng custody root required by B81;the registered root is the sole persistent Xingcheng data boundary and no subordinate component,process,tool or database creates another root. CROSS-DOMAIN:other cores,tools and the Xingcheng assistant may receive only the minimum typed result or an opaque owner-scoped reference through a registered channel;they may not persist,mirror,cache,index,train on,back up or claim authority over Xingcheng data. ACCESS:authorized processing outside the owning process must operate against data inside the canonical Xingcheng custody root under Xingcheng scope without transferring custody or creating an out-of-root copy. LIFECYCLE:retention,recovery,migration and deletion remain Xingcheng-owned and preserve the same single-root boundary."
+    },
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "A133"
+      },
+      "field": "prohibition",
+      "proposed": "FORBID:identity-collapse+database-mixing+co-residency-implying-authority+ungoverned-cross-boundary-channel+mirror-treated-as-authority+deployment-location-creating-permission+Xingcheng-data-outside-canonical-custody-root+second-Xingcheng-data-root+cross-domain-copy-or-cache+shared-database-mixing+assistant-storage-of-Xingcheng-data+external-indexing-or-training+custody-transfer-by-reference+out-of-root-cache-scratch-temporary-backup-recovery-or-migration-copy"
+    },
+    {
+      "table": "metadata",
+      "key": {
+        "key": "xingcheng_data_residency"
+      },
+      "field": "value",
+      "proposed": "SINGLE_CANONICAL_XINGCHENG_CUSTODY_ROOT_ONLY"
+    }
+  ]
+}

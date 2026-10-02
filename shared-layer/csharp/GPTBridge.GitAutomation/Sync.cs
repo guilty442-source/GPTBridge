@@ -124,7 +124,20 @@ internal static class Sync
 
     public static string Synchronize(
         string projectRoot, bool commitDirty = true, bool push = false)
+        => Synchronize(projectRoot, commitDirty, push,
+            withSql: true, sqlOutcome: out _);
+
+    /// <summary>Full workspace sync with the SQL half integrated: when
+    /// <paramref name="withSql"/> holds, SQL-derived git projections are
+    /// refreshed on measured version drift BEFORE the commit sweep, so
+    /// the merge→audit→fast-forward flow certifies the current
+    /// generation. The refresh never blocks git work: failures report
+    /// into <paramref name="sqlOutcome"/> and retry next cycle.</summary>
+    public static string Synchronize(
+        string projectRoot, bool commitDirty, bool push, bool withSql,
+        out JsonObject? sqlOutcome)
     {
+        sqlOutcome = null;
         var blocked = GovManifest.WriteBlockReason(
             projectRoot, "workspace-sync.synchronize");
         if (blocked is not null)
@@ -142,7 +155,7 @@ internal static class Sync
             using var coordinator = ProcessFileLock.Acquire(lockPath);
             return SynchronizeLocked(
                 projectRoot, worktrees, main, commonDir,
-                commitDirty, push);
+                commitDirty, push, withSql, out sqlOutcome);
         }
         catch (LockBusyException)
         {
@@ -152,8 +165,32 @@ internal static class Sync
 
     private static string SynchronizeLocked(
         string projectRoot, List<Worktree> worktrees, Worktree main,
-        string commonDir, bool commitDirty, bool push)
+        string commonDir, bool commitDirty, bool push, bool withSql,
+        out JsonObject? sqlOutcome)
     {
+        sqlOutcome = null;
+        if (withSql)
+        {
+            // SQL half first: refresh stale projections BEFORE the commit
+            // sweep, so the sweep commits them and audit certifies the
+            // current generation. Refresh failures report and retry next
+            // cycle — they never block git work.
+            try
+            {
+                var sql = SqlSync.RefreshIfStale(projectRoot);
+                sqlOutcome = sql;
+                if (sql["error"] is not null)
+                    Console.Error.WriteLine(
+                        "[workspace-sync] sql refresh deferred: " +
+                        sql["error"]?.GetValue<string>());
+            }
+            catch (Exception error)
+            {
+                Console.Error.WriteLine(
+                    "[workspace-sync] sql refresh deferred: " +
+                    $"{error.GetType().Name}: {error.Message}");
+            }
+        }
         List<string> dirty = new();
         for (var attempt = 0; attempt < 5; attempt++)
         {

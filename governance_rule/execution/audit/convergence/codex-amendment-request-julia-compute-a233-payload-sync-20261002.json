@@ -1,0 +1,45 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v1",
+  "request_id": "julia-compute-a233-payload-sync-20261002",
+  "title": "Sync JULIA_COMPUTE a233 domain_payload embed after retirement",
+  "summary": "Follow-up to unit-data-julia-residues-20261002-r7 (executed 2026-10-02T05:13:17Z as codex 2026-10-02T05:10:02Z): JULIA_COMPUTE was retired in the canonical row, but its a233_normalized_directory_entry domain_payload embed still carries entity_kind=internal-service and retired_version=null. The embedded JSON string cannot carry the <successor-version> sentinel, so the payload sync was explicitly deferred to this amendment once the concrete successor version was known. This change rewrites the embed to entity_kind=retired-former-scientific-compute-service and retired_version=2026-10-02T05:10:02Z, with the recomputed content_hash, restoring canonical/projection parity (same retirement shape as QDRANT_AUTHORITY). Codex-only change: no implementation is modified.",
+  "requested_by": "decision-sovereign",
+  "origin": "planned follow-up declared in unit-data-julia-residues-20261002-r7 verification contract: JULIA_COMPUTE a233 domain_payload sync once the concrete successor version is known.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T05:10:02Z",
+    "version_identity": "E2:2026-10-02T05:10:02Z",
+    "version_epoch": 2,
+    "history_head": "569dc243a221ca928c73c6769062940d60b88305b1ff5c890dfc2966d664d030",
+    "revision_sequence": 211
+  },
+  "problem": {
+    "summary": "a233_normalized_directory_entry[JULIA_COMPUTE].domain_payload diverges from the canonical row after r7: embed still shows entity_kind=internal-service / retired_version=null while canonical carries retired-former-scientific-compute-service / 2026-10-02T05:10:02Z."
+  },
+  "changes": [
+    {
+      "table": "a233_normalized_directory_entry",
+      "key": {
+        "entry_code": "JULIA_COMPUTE",
+        "source_table": "project_architecture_directory"
+      },
+      "field": "domain_payload",
+      "proposed": "{\"architecture_code\":\"JULIA_COMPUTE\",\"canonical_name\":\"julia-compute\",\"command_codes\":\"\",\"data_authority\":\"julia-compute-owned scratch state (rebuildable)\",\"dependencies\":\"governance codex|information layer|shared layer\",\"entity_kind\":\"retired-former-scientific-compute-service\",\"failure_boundary\":\"separate failure domain|no cascade to main-system or other tools\",\"fault_codes\":\"\",\"interfaces\":\"information-channel\",\"introduced_version\":\"2026-10-01T16:54:08Z\",\"logical_boundary\":\"registered scientific-compute service boundary\",\"manual_codes\":\"\",\"owner\":\"permission-sovereign\",\"parent_code\":\"UNIT_PLATFORM\",\"permission_scope\":\"system-runtime-domain\",\"physical_root\":\"E:\\\\GPTBridge\\\\Standalone tools\\\\julia-compute\",\"responsibilities\":\"statistics and scientific compute; optimization-simulation (A610 Python-work-transfer successor)\",\"retired_version\":\"2026-10-02T05:10:02Z\",\"runtime_boundary\":\"separate process tree|own generation|own supervisor|own watchdog\",\"test_flow_codes\":\"\"}",
+      "also": {
+        "content_hash": "9955604100294a6a7708181f1a64c5606d9f726a0ebc3762e56ccc22f8d177b1",
+        "revision": "<successor-version>"
+      }
+    }
+  ],
+  "proposed_successors": [],
+  "verification": {
+    "requested_at": "2026-10-02T05:20:00Z",
+    "expected_audit_result": "a233 JULIA_COMPUTE domain_payload matches canonical retirement shape (entity_kind=retired-former-scientific-compute-service, retired_version=2026-10-02T05:10:02Z); content_hash recomputed; canonical and projection fully synchronized"
+  }
+}

@@ -99,18 +99,20 @@ internal static partial class Program
         };
     }
 
-    private static string SyncCycle(
+    private static (string Status, JsonObject? Sql) SyncCycle(
         string root, Options options, bool push = false)
     {
         var effectivePush = push || options.Push;
         try
         {
-            return Sync.Synchronize(root,
-                commitDirty: options.CommitDirty, push: effectivePush);
+            var status = Sync.Synchronize(root,
+                commitDirty: options.CommitDirty, push: effectivePush,
+                withSql: options.SqlSync, sqlOutcome: out var sql);
+            return (status, sql);
         }
         catch (LockBusyException)
         {
-            return "skipped:lock-busy";
+            return ("skipped:lock-busy", null);
         }
     }
 }
