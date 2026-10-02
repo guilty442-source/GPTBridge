@@ -17,7 +17,9 @@
 
 mod audit;
 mod diff;
+mod failpool;
 mod hash;
+mod kernels;
 mod snapshot;
 mod store;
 mod xcn1;
@@ -267,6 +269,56 @@ fn cmd_snapshot_verify(m: &HashMap<String, String>) -> Result<serde_json::Value,
     snapshot::snapshot_verify(Path::new(store_dir), mf)
 }
 
+fn cmd_fail_record(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let pool = m.get("pool-dir").ok_or("POOL_ARG_MISSING: --pool-dir")?;
+    let need = |k: &str| -> Result<String, String> {
+        m.get(k)
+            .cloned()
+            .ok_or_else(|| format!("POOL_ARG_MISSING: --{k}"))
+    };
+    failpool::record(
+        Path::new(pool),
+        failpool::RecordArgs {
+            failure_class: need("class")?,
+            input: need("input")?,
+            generation: need("generation")?,
+            expected: need("expected")?,
+            actual: need("actual")?,
+            evidence: need("evidence")?,
+            severity: m.get("severity")
+                .cloned()
+                .unwrap_or_else(|| "medium".into()),
+            reproducible: m
+                .get("reproducible")
+                .map(|s| s != "0" && s != "false")
+                .unwrap_or(true),
+            reason: m.get("reason").cloned().unwrap_or_default(),
+            model_version: m.get("model-version").cloned(),
+            runtime_version: m.get("runtime-version").cloned(),
+            provenance: m.get("provenance").cloned().unwrap_or_default(),
+        },
+    )
+}
+
+fn cmd_fail_list(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let pool = m.get("pool-dir").ok_or("POOL_ARG_MISSING: --pool-dir")?;
+    let cls = m.get("class").ok_or("POOL_ARG_MISSING: --class")?;
+    failpool::list(Path::new(pool), cls)
+}
+
+fn cmd_fail_mark(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let pool = m.get("pool-dir").ok_or("POOL_ARG_MISSING: --pool-dir")?;
+    let cls = m.get("class").ok_or("POOL_ARG_MISSING: --class")?;
+    let fp = m.get("fingerprint").ok_or("POOL_ARG_MISSING: --fingerprint")?;
+    let st = m.get("state").ok_or("POOL_ARG_MISSING: --state")?;
+    failpool::mark(Path::new(pool), cls, fp, st)
+}
+
+fn cmd_fail_status(m: &HashMap<String, String>) -> Result<serde_json::Value, String> {
+    let pool = m.get("pool-dir").ok_or("POOL_ARG_MISSING: --pool-dir")?;
+    failpool::status(Path::new(pool))
+}
+
 fn usage() -> ExitCode {
     eprintln!(
         "usage: xstore <ckpt-info|ckpt-verify|hash> <file> [--hash-payloads]\n\
@@ -277,7 +329,15 @@ fn usage() -> ExitCode {
          \x20      xstore audit-append --log <f> --data <json>\n\
          \x20      xstore audit-verify --log <f>\n\
          \x20      xstore snapshot --store <dir> --src <dir> [--name <id>]\n\
-         \x20      xstore snapshot-verify --store <dir> --manifest <sha|path>"
+         \x20      xstore snapshot-verify --store <dir> --manifest <sha|path>\n\
+         \x20      xstore fail-record --pool-dir <d> --class <c> --input <s>\n\
+         \x20      \x20 --generation <g> --expected <s> --actual <s>\n\
+         \x20      \x20 --evidence <s> [--severity <l>] [--reason <s>]\n\
+         \x20      xstore fail-list  --pool-dir <d> --class <c>\n\
+         \x20      xstore fail-mark  --pool-dir <d> --class <c>\n\
+         \x20      \x20 --fingerprint <fp> --state <OPEN|TRAINED|RESOLVED|REGRESSED>\n\
+         \x20      xstore fail-status --pool-dir <d>\n\
+         \x20      xstore kernel-registry [--policy <json>]"
     );
     ExitCode::from(2)
 }
@@ -289,6 +349,18 @@ fn main() -> ExitCode {
     }
     let cmd = args[0].as_str();
     let hash_payloads = args.iter().any(|a| a == "--hash-payloads");
+    let kv = kv_args(&args[1..]);
+    // star-kernel-policy/v1: --policy <path> arg or XCT_KERNEL_POLICY
+    // env; a referenced but unreadable/denied policy fails closed.
+    let pol = match kernels::policy_load(
+        &kernels::policy_path(kv.get("policy")),
+    ) {
+        Ok(p) => p,
+        Err(e) => return fail("XSTORE_FAILED", &e),
+    };
+    if let Err(e) = kernels::policy_gate(&pol, cmd) {
+        return fail("XSTORE_FAILED", &e);
+    }
     let out = match cmd {
         "ckpt-info" if args.len() >= 2 => cmd_ckpt_info(&args[1]),
         "ckpt-verify" if args.len() >= 2 => {
@@ -303,6 +375,12 @@ fn main() -> ExitCode {
         "audit-verify" => cmd_audit_verify(&kv_args(&args[1..])),
         "snapshot" => cmd_snapshot(&kv_args(&args[1..])),
         "snapshot-verify" => cmd_snapshot_verify(&kv_args(&args[1..])),
+        "fail-record" => cmd_fail_record(&kv),
+        "fail-list" => cmd_fail_list(&kv),
+        "fail-mark" => cmd_fail_mark(&kv),
+        "fail-status" => cmd_fail_status(&kv),
+        "kernel-registry" => Ok(kernels::registry_emit(
+            kv.get("policy"))),
         _ => return usage(),
     };
     match out {

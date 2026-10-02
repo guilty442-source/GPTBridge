@@ -31,6 +31,14 @@ xstore audit-verify --log <f>         verify the whole chain
 xstore snapshot --store <d> --src <d> [--name <id>]
                                       pin a directory into the store
 xstore snapshot-verify --store <d> --manifest <sha256|path>
+xstore fail-record --pool-dir <d> --class <c> --input <s>
+   --generation <g> --expected <s> --actual <s> --evidence <s>
+   [--severity <l>] [--reason <s>] [--model-version <v>]
+   [--runtime-version <v>] [--provenance <s>] [--reproducible 0|1]
+xstore fail-list  --pool-dir <d> --class <c>
+xstore fail-mark  --pool-dir <d> --class <c> --fingerprint <fp>
+   --state <OPEN|TRAINED|RESOLVED|REGRESSED>
+xstore fail-status --pool-dir <d>
 ```
 
 Output contract: one JSON object on stdout (`format` tagged,
@@ -84,6 +92,19 @@ self-addressing (lookup sha == recomputed content hash) plus every
 listed object's presence + hash — tampered manifests, missing or
 corrupt objects all flip `ok:false`. Re-snapshotting a mutated
 directory yields a new manifest sha; old generations stay retrievable.
+
+## Failure pool (failpool.rs)
+
+`star-capability-failure-pool/v1` — persisted-form port of C#
+`FailurePool.cs` (§29/§55): `pool-<class>.jsonl` per capability,
+`input_fingerprint` = sha256(input)[:16], `norm_fingerprint` =
+sha256 of lowercase+whitespace-folded+punctuation/symbol-stripped
+input[:16] (unicode_categories). Exact-or-normalized repeats bump
+`seen_count`/`last_seen` in place instead of appending; `high`
+severity upgrades stick. Pools bounded at 4096 (newest kept).
+`fail-mark` drives §55 state transitions (OPEN→TRAINED/RESOLVED/
+REGRESSED). Records serialize as canonical sorted-key JSON so Rust-
+and C#-written lines are interchangeable in one pool dir.
 
 ## Guarantees (xcn1.rs)
 
