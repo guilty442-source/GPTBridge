@@ -1031,6 +1031,31 @@ internal static class GenerationMigration
         }
         Event(m, "post_promote_verify", ("pinned", pinned));
 
+        // maturation-closure §17/§123: refresh the promoted registry
+        // baseline only now — after post-promote verification passed.
+        // A blocked or rolled-back promotion must never re-baseline a
+        // regression into the promoted snapshot.
+        try
+        {
+            var reg = CapabilityRegistry.Emit(toolRoot);
+            string promotedPath = Path.Combine(toolRoot,
+                CapabilityRegistry.BaselineRel.Replace('/',
+                    Path.DirectorySeparatorChar));
+            ModelLifecycle.AtomicWrite(promotedPath,
+                File.ReadAllText(Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar))));
+            Event(m, "capability_baseline_refreshed",
+                  ("registry", CapabilityRegistry.BaselineRel));
+            m["capability_registry_baseline"] =
+                CapabilityRegistry.BaselineRel;
+        }
+        catch (Exception ex)
+        {
+            Event(m, "capability_baseline_refresh_failed",
+                  ("error", ex.Message));
+        }
+
         m["status"] = "PROMOTED";
         m["activation_status"] = "promoted";
         m["migration_completed_at"] = XcPaths.IsoNow();
