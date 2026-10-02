@@ -1410,3 +1410,26 @@ Worker rules for codex work:
    `GPTBridge.CodexPipeline/MigrationExecutor.cs` land via separate
    workers; do not sweep them into unrelated commits (path-scoped
    commits only).
+6. **xstore Native Metadata Authority takeover not done.** The
+   decided architecture makes `xstore` the native metadata authority
+   for xingcheng, but `XingchengLearning/Repository.cs` still writes
+   the `gptbridge_xingcheng` PG tables (dataset/job/candidate/
+   evaluation/audit) and SelfLearning still connects to PG directly.
+   The `architecture-xingcheng-{architecture,data,capabilities}.md`
+   views carry `（過渡期正式路徑 → xstore metadata 接管中）` marks;
+   the migration itself is open implementation work.
+7. **Ollama dependency elimination not done.** `ollama-service.exe`
+   and the teacher-distillation lane (`TeacherCollect.cs`,
+   `--teacher-collect`, `teacher-distillation.json`) still exist;
+   codex B154 still registers Ollama teacher distillation (enabled by
+   the 2026-09-30 governor directive). Native-Only is currently gate
+   + governance capability only — removal requires a codex amendment
+   (B154 retirement) plus code removal; do not delete the capability
+   without the amendment landing first.
+8. **Published `xc-learning.exe` is stale.** The binary in
+   `XingchengLearning/publish/` predates the native-only gate verbs
+   (`--native-only-check`, `--cuda-native-check`) present in source;
+   rebuild + republish before any gate output can count as evidence.
+   Related: `cuda_rtlane.h` was retired in `1a05cc74a` (orphan
+   cudart_static/toolkit surface); the production lane is Driver API
+   + in-tree PTX only.
