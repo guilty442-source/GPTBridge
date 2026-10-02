@@ -198,6 +198,11 @@ struct KernelPolicy {
     bool enabled = true;
     bool force_serial = false;
     int max_threads = 0;
+    // Accelerator-plane pins (optional; 0 = built-in default stands):
+    // dev_min_flops raises the device-GEMM work floor, vram_reserve_mb
+    // raises the live-VRAM headroom every offload must preserve.
+    int64_t dev_min_flops = 0;
+    int64_t vram_reserve_mb = 0;
     std::vector<std::string> deny_variants;
     std::vector<std::string> deny_kernels;
     std::string source;
@@ -236,6 +241,8 @@ static KernelPolicy kernel_policy_load(const std::string& path) {
     pol.enabled = j_bool(&root, "enabled", true);
     pol.force_serial = j_bool(&root, "force_serial", false);
     pol.max_threads = j_int(&root, "max_threads", 0);
+    pol.dev_min_flops = (int64_t)j_num(&root, "dev_min_flops", 0);
+    pol.vram_reserve_mb = (int64_t)j_num(&root, "vram_reserve_mb", 0);
     if (const JsonValue* dv = root.get("deny_variants"))
         if (dv->type == JsonValue::Type::Array)
             for (const auto& e : dv->array)
@@ -291,13 +298,19 @@ static void kernel_policy_enforce(const ModelConfig& c,
     for (const auto& v : pol.deny_variants) {
         if (v == "simd") g_tpu.simd = false;
         else if (v == "tile4") g_tpu.tile4 = false;
-        // "cuda" is enforced where the device lane is probed
-        // (adamw_step checks kernel_policy_cuda_denied()).
+        else if (v == "cuda") g_accel.cuda_denied = true;
+        // "cuda" is also re-checked live where the device lane probes
+        // (adamw_step checks kernel_policy_cuda_denied(), the GEMM lane
+        // binds it inside accel_detect).
     }
     if (pol.force_serial) g_tpu.threads = 1;
     else if (pol.max_threads > 0 &&
              (g_tpu.threads <= 0 || g_tpu.threads > pol.max_threads))
         g_tpu.threads = pol.max_threads;
+    // Accelerator-plane pins (optional; apply before the first dispatch).
+    if (pol.dev_min_flops > 0) g_accel.dev_min_flops = pol.dev_min_flops;
+    if (pol.vram_reserve_mb > 0)
+        g_accel.vram_reserve_mb = pol.vram_reserve_mb;
     const auto fams = kernel_active_families(c, task);
     for (const auto& e : kKernelRegistry) {
         if (!kernel_denied(pol, e.name)) continue;

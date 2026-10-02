@@ -135,6 +135,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 #if defined(_M_X64) || defined(__x86_64__)
 #include <immintrin.h>
 #include <intrin.h>

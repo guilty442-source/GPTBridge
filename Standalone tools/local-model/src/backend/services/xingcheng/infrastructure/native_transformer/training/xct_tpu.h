@@ -711,16 +711,121 @@ static int xcuda_sgemm_f32(const float*, const float*, float*,
 
 // Below ~64M FLOP-equivalents the PCIe round-trip outweighs the device
 // win (measured: 768x768 T=64 = 37.7M — device 147 vs CPU 154 GF/s);
-// a deterministic work gate keeps small ops on the CPU lanes.
+// a deterministic work gate keeps small ops on the CPU lanes. The
+// kernel policy may raise the floor (dev_min_flops).
 static constexpr int64_t kTpuDevMinFlops = 64LL * 1024 * 1024;
+
+// ------------------------------------------------ accelerator plane ---
+// star-accel-plane: the single dynamic accelerator — one authority that
+// unifies the CPU lane pool, the optional CUDA device lane, host RAM and
+// VRAM under one decision surface. Caps are detected once; memory
+// admission is refreshed live (TTL-bounded) so device dispatch reacts to
+// allocator pressure rather than a static snapshot, and
+// star-kernel-policy narrows the same plane.
+// (windows.h is included at TU top level in xingcheng_trainer.cpp.)
+
+struct AccelPlane {
+    bool probed = false;
+    bool cuda_opt = false;        // XINGCHENG_TRAINER_CUDA_OPT present
+    bool cuda_dev = false;        // driver probe live
+    bool cuda_denied = false;     // star-kernel-policy deny_variants:["cuda"]
+    bool cuda = false;            // opt && dev && !denied
+    int cc_major = 0, cc_minor = 0, sm_count = 0;
+    int64_t vram_total_mb = 0;
+    int64_t dev_min_flops = kTpuDevMinFlops;
+    int64_t vram_reserve_mb = 256;
+    // live memory telemetry — TTL-refreshed on each device decision
+    int64_t ram_total_mb = 0, ram_free_mb = 0, vram_free_mb = 0;
+    double mem_sampled_s = 0.0;
+    // decision counters, echoed into the train report
+    int64_t dev_calls = 0, dev_denied_off = 0,
+            dev_denied_work = 0, dev_denied_vram = 0;
+};
+static AccelPlane g_accel;
+
+// Defined in xct_kernels.h (same TU). Forward-declared so the device
+// lane consults the same pin before the first dispatch.
+static bool kernel_policy_cuda_denied();
+
+#if defined(XINGCHENG_CUDA)
+extern "C" int xcuda_probe(long long*, long long*, int*, int*);
+extern "C" int xcuda_sm_count();
+#else
+static int xcuda_probe(long long*, long long*, int*, int*) { return 0; }
+static int xcuda_sm_count() { return 0; }
+#endif
+
+// TTL-bounded refresh of the live memory inputs (RAM free always;
+// VRAM free only while the device lane is live — probing retains the
+// primary context, so it is never invoked on a dead lane).
+static void accel_refresh_mem() {
+    const double now = std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (g_accel.mem_sampled_s > 0 &&
+        now - g_accel.mem_sampled_s < 0.05)
+        return;
+    g_accel.mem_sampled_s = now;
+#if defined(_WIN32)
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof(ms);
+    if (GlobalMemoryStatusEx(&ms)) {
+        g_accel.ram_total_mb = (int64_t)(ms.ullTotalPhys >> 20);
+        g_accel.ram_free_mb = (int64_t)(ms.ullAvailPhys >> 20);
+    }
+#endif
+    if (g_accel.cuda_dev) {
+        long long fb = 0, tb = 0; int cm = 0, cn = 0;
+        if (xcuda_probe(&fb, &tb, &cm, &cn))
+            g_accel.vram_free_mb = (int64_t)(fb >> 20);
+    }
+}
+
+static void accel_detect() {
+    if (g_accel.probed) return;
+    g_accel.probed = true;
+    g_accel.cuda_opt =
+        std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
+    long long fb = 0, tb = 0; int cm = 0, cn = 0;
+    g_accel.cuda_dev = xcuda_probe(&fb, &tb, &cm, &cn) != 0;
+    g_accel.cc_major = cm;
+    g_accel.cc_minor = cn;
+    g_accel.vram_total_mb = (int64_t)(tb >> 20);
+    g_accel.sm_count = g_accel.cuda_dev ? xcuda_sm_count() : 0;
+    g_accel.cuda_denied = kernel_policy_cuda_denied();
+    g_accel.cuda = g_accel.cuda_opt && g_accel.cuda_dev &&
+                   !g_accel.cuda_denied;
+    g_accel.vram_free_mb = g_accel.cuda ? (int64_t)(fb >> 20) : 0;
+    accel_refresh_mem();
+}
+
+// One admission point for device offload: env opt-in, live device,
+// policy pin, work floor and live VRAM headroom all bind here. Returns
+// true only when the device lane owns the whole operand — a miss falls
+// back to the CPU lanes for the full result, never a partial output.
+static bool accel_pick_gemm(int m, int k, int n, int64_t dev_bytes) {
+    if (!g_accel.probed) accel_detect();
+    if (!g_accel.cuda) { ++g_accel.dev_denied_off; return false; }
+    if ((int64_t)m * k * n < g_accel.dev_min_flops) {
+        ++g_accel.dev_denied_work;
+        return false;
+    }
+    accel_refresh_mem();
+    if (g_accel.vram_free_mb > 0 && g_accel.vram_free_mb <
+        (dev_bytes >> 20) + g_accel.vram_reserve_mb) {
+        ++g_accel.dev_denied_vram;
+        return false;
+    }
+    ++g_accel.dev_calls;
+    return true;
+}
 
 static bool tpu_dev_gemm(const float* a, const float* w, float* c,
                          int m, int k, int n, int layout, int acc) {
-    static const bool cuda_opt =
-        std::getenv("XINGCHENG_TRAINER_CUDA_OPT") != nullptr;
-    if (!cuda_opt ||
-        (int64_t)m * k * n < kTpuDevMinFlops)
-        return false;
+    // Single admission point: the accel plane decides. dev_bytes covers
+    // the streamed operands plus output for the f32 GEMM call.
+    const int64_t bytes =
+        4LL * ((int64_t)m * k + (int64_t)k * n + (int64_t)m * n);
+    if (!accel_pick_gemm(m, k, n, bytes)) return false;
     return xcuda_sgemm_f32(a, w, c, m, k, n, layout, acc) == 0;
 }
 
