@@ -91,6 +91,12 @@ internal static class Program
                 return Emit(ConvergenceChecks.Run(toolRoot));
             if (flags.Contains("corpus"))
                 return Emit(CorpusRunner.Run(toolRoot, opts));
+            // Read-only data-residency probe: classifies --path against
+            // the registered xingcheng domain roots.
+            if (flags.Contains("boundary-check"))
+                return Emit(DataBoundary.Check(toolRoot,
+                    opts.TryGetValue("path", out string? bp)
+                        ? bp : ""));
             if (flags.Contains("maturation-status"))
                 return Emit(MaturationStatus(toolRoot));
             if (flags.Contains("maturation-freeze"))

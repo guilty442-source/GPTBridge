@@ -430,7 +430,14 @@ static int kernel_registry_emit() {
       << "},\"accel\":{";
     // The accel plane is part of the same contract: caps are detected
     // once, the resolved lane reflects policy pins, and the counters
-    // stay at zero (emit runs before any dispatch).
+    // stay at zero (emit runs before any dispatch). The deny flag is
+    // resolved before detect — unreadable policy fails the lane closed,
+    // same posture as kernel_policy_cuda_denied.
+    if (!pol_err.empty() ||
+        (pol.loaded && pol.enabled &&
+         std::find(pol.deny_variants.begin(), pol.deny_variants.end(),
+                   "cuda") != pol.deny_variants.end()))
+        g_accel.cuda_denied = true;
     accel_detect();
     if (pol.loaded && pol.enabled) {
         if (pol.dev_min_flops > 0)
@@ -489,6 +496,13 @@ static int accel_plane_emit() {
     } catch (const char* e) {
         pol_err = e;
     }
+    // Deny flag resolves before detect — same fail-closed posture as
+    // the job path (unreadable policy denies the device lane).
+    if (!pol_err.empty() ||
+        (pol.loaded && pol.enabled &&
+         std::find(pol.deny_variants.begin(), pol.deny_variants.end(),
+                   "cuda") != pol.deny_variants.end()))
+        g_accel.cuda_denied = true;
     accel_detect();
     if (pol.loaded && pol.enabled) {
         if (pol.dev_min_flops > 0)

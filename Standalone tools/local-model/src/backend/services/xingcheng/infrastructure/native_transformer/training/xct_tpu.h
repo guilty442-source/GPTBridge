@@ -722,7 +722,10 @@ static constexpr int64_t kTpuDevMinFlops = 64LL * 1024 * 1024;
 // admission is refreshed live (TTL-bounded) so device dispatch reacts to
 // allocator pressure rather than a static snapshot, and
 // star-kernel-policy narrows the same plane.
-// (windows.h is included at TU top level in xingcheng_trainer.cpp.)
+// Host RAM is sampled through the xcm_host_mem_mb C ABI in
+// cuda_kernels.cpp (which owns the platform includes) so this header
+// never pulls windows.h into consumer TUs — its legacy far/near macros
+// collide with ordinary identifiers (xct_csa.h uses `far`).
 
 struct AccelPlane {
     bool probed = false;
@@ -743,23 +746,21 @@ struct AccelPlane {
 };
 static AccelPlane g_accel;
 
-// xct_kernels.h (trainer TU) provides the policy-backed definition;
-// consumers without the policy loader (xc_modeltool) define
-// XCT_TPU_NO_KERNEL_POLICY before including this header and get the
-// closed default — their device lane stays gated by the env opt-in
-// and their own policy surface instead.
-#if defined(XCT_TPU_NO_KERNEL_POLICY)
-static bool kernel_policy_cuda_denied() { return false; }
-#else
-static bool kernel_policy_cuda_denied();
-#endif
+// The policy pin is flag-driven, never a call: kernel_policy_enforce
+// (xct_kernels.h) sets g_accel.cuda_denied before the first dispatch,
+// and the emit verbs set it from the loaded policy themselves. That
+// keeps this header free of the policy loader so consumers without it
+// (xc_modeltool) link unchanged — their device lane stays gated by
+// the env opt-in plus their own policy surface.
 
 #if defined(XINGCHENG_CUDA)
 extern "C" int xcuda_probe(long long*, long long*, int*, int*);
 extern "C" int xcuda_sm_count();
+extern "C" int xcm_host_mem_mb(long long*, long long*);
 #else
 static int xcuda_probe(long long*, long long*, int*, int*) { return 0; }
 static int xcuda_sm_count() { return 0; }
+static int xcm_host_mem_mb(long long*, long long*) { return 0; }
 #endif
 
 // TTL-bounded refresh of the live memory inputs (RAM free always;
@@ -772,14 +773,13 @@ static void accel_refresh_mem() {
         now - g_accel.mem_sampled_s < 0.05)
         return;
     g_accel.mem_sampled_s = now;
-#if defined(_WIN32)
-    MEMORYSTATUSEX ms{};
-    ms.dwLength = sizeof(ms);
-    if (GlobalMemoryStatusEx(&ms)) {
-        g_accel.ram_total_mb = (int64_t)(ms.ullTotalPhys >> 20);
-        g_accel.ram_free_mb = (int64_t)(ms.ullAvailPhys >> 20);
+    {
+        long long rt = 0, ra = 0;
+        if (xcm_host_mem_mb(&rt, &ra)) {
+            g_accel.ram_total_mb = rt;
+            g_accel.ram_free_mb = ra;
+        }
     }
-#endif
     if (g_accel.cuda_dev) {
         long long fb = 0, tb = 0; int cm = 0, cn = 0;
         if (xcuda_probe(&fb, &tb, &cm, &cn))
@@ -798,7 +798,8 @@ static void accel_detect() {
     g_accel.cc_minor = cn;
     g_accel.vram_total_mb = (int64_t)(tb >> 20);
     g_accel.sm_count = g_accel.cuda_dev ? xcuda_sm_count() : 0;
-    g_accel.cuda_denied = kernel_policy_cuda_denied();
+    // cuda_denied is flag-driven (set by kernel_policy_enforce or the
+    // emit verbs before the first detect) — no policy call here.
     g_accel.cuda = g_accel.cuda_opt && g_accel.cuda_dev &&
                    !g_accel.cuda_denied;
     g_accel.vram_free_mb = g_accel.cuda ? (int64_t)(fb >> 20) : 0;

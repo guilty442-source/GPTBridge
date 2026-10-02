@@ -124,6 +124,26 @@ internal sealed class LocalModelExecutor
             throw new InvalidOperationException("XC_BUNDLE_CHECKPOINT_UNPINNED");
         var checkpointPath = Path.GetFullPath(Path.IsPathRooted(checkpoint)
             ? checkpoint : Path.Combine(toolRoot, checkpoint));
+        // Data residency: an out-of-boundary pin refuses to serve —
+        // the pinned artifact must resolve inside a registered
+        // xingcheng domain root.
+        var inBoundary = new[]
+        {
+            Path.Combine(toolRoot, "xingcheng"),
+            Path.GetFullPath(Path.Combine(
+                toolRoot, "..", "model-dialogue", "xingcheng")),
+        }.Any(r =>
+        {
+            var boundary = Path.GetFullPath(r);
+            return checkpointPath.Equals(boundary,
+                    StringComparison.OrdinalIgnoreCase)
+                || checkpointPath.StartsWith(
+                    boundary + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase);
+        });
+        if (!inBoundary)
+            throw new InvalidOperationException(
+                "XINGCHENG_DATA_BOUNDARY");
         var cpuThreads =
             root.TryGetProperty("cpu_threads", out var ct)
             && ct.ValueKind == JsonValueKind.Number

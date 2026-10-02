@@ -15,6 +15,7 @@ extern "C" int xcuda_matmul_f64_begin(const double*, long long, long long,
                                       const double*, long long);
 extern "C" int xcuda_matmul_f64_wait(double*, long long, long long);
 extern "C" int xcuda_sm_count();
+extern "C" int xcm_host_mem_mb(long long*, long long*);
 extern "C" int gptbridge_native_transformer_matmul(
     const double*, int64_t, int64_t, const double*, int64_t, int64_t,
     double*);
@@ -234,13 +235,10 @@ int mode_compute_plane(const Args& a) {
 int mode_accel_plane(const Args& a) {
     SYSTEM_INFO si;
     GetSystemInfo(&si);
-    MEMORYSTATUSEX ms{};
-    ms.dwLength = sizeof(ms);
+    // Host RAM through the same C ABI as the trainer lane — single
+    // memory probe surface behind xcm_host_mem_mb.
     long long ram_total = 0, ram_free = 0;
-    if (GlobalMemoryStatusEx(&ms)) {
-        ram_total = (long long)(ms.ullTotalPhys >> 20);
-        ram_free = (long long)(ms.ullAvailPhys >> 20);
-    }
+    xcm_host_mem_mb(&ram_total, &ram_free);
     long long fb = 0, tb = 0;
     int ccm = 0, ccn = 0;
     const bool cuda = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
