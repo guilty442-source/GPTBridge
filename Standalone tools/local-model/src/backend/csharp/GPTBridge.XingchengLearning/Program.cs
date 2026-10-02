@@ -66,6 +66,8 @@ internal static class Program
                 return Emit(SelfTest(toolRoot));
             if (flags.Contains("converge-check"))
                 return Emit(ConvergenceChecks.Run(toolRoot));
+            if (flags.Contains("corpus"))
+                return Emit(CorpusRunner.Run(toolRoot, opts));
             if (flags.Contains("maturation-status"))
                 return Emit(MaturationStatus(toolRoot));
             if (flags.Contains("maturation-freeze"))
