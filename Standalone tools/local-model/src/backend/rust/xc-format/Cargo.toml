@@ -1,0 +1,18 @@
+[package]
+name = "xc-format"
+version = "0.1.0"
+edition = "2021"
+description = "Rust owner of Xingcheng binary format validation (XCN checkpoint headers first)"
+license = "MIT"
+
+[[bin]]
+name = "xc-format"
+path = "src/main.rs"
+
+[lib]
+name = "xc_format"
+path = "src/lib.rs"
+
+# Intentionally zero dependencies: the crate must build fully offline
+# (vendored toolchain only) and stay auditable by inspection.
+[dependencies]

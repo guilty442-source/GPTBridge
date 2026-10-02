@@ -560,6 +560,11 @@ reader/writer，共守同一份 owner-local byte-level spec——法典只綁
 不寫入法典。成員識別以名稱經權威 contract registry 解析（rev 199
 version-neutrality），法典內不釘版本後綴。
 
+Owner-local byte-level spec：`Standalone tools/local-model/contracts/xnc-spec.md`
+（`xnc-spec/v1`——magic/端序/envelope/成員 registry/XCN1+XCB1 逐位元版面/
+manifest 規則/三語言 conformance）。Canonical 測試向量：
+`Standalone tools/local-model/contracts/xnc/vectors/`。
+
 ## 星澄 Fast/Slow Capability Plane（Laya + MiMo-V2.6 原生吸收）
 
 同一 **HybridCausalDecoder** 提供兩條能力路徑 —— System-1 不是第二顆
