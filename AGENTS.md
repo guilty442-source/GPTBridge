@@ -1377,3 +1377,36 @@ Worker rules for codex work:
   hand-edit `governance_codex.sql`.
 - Honest-closure rule: missing execution evidence stays
   `INCOMPLETE_EVIDENCE`/`PENDING`; never fabricate PASS.
+
+## Open Work Items (as of 2026-10-02)
+
+1. **Machine schema parity — 77 rows PENDING (fail-closed).** All
+   `gptbridge_codex.machine_schema_registry` rows remain
+   `parity_status='PENDING'` and `OBL_MACHINE_SCHEMA_PARITY` stays
+   `pending`. To close: produce real producer/validator/persistence/
+   semantic-hash evidence per schema and rebuild via
+   `--repair-projections`; never mark `complete` without that evidence.
+2. **Xingcheng model-service runtime smoke not yet run.** The executor
+   re-home (`XingchengModelServiceExecutor`, owner
+   `xingcheng/toolhost-model-service`, `toolbox_start_tool(xingcheng)`)
+   is compiled and unit-tested but not smoke-tested end-to-end. Pending
+   check: start `xingcheng` ToolHost → descriptor +
+   `/v1/status` + session token → `model-dialogue` cold-start path.
+   Requires the pinned `xc_modeltool` bundle; do not fake the evidence.
+3. **Deferred native lanes stay fail-closed.** `ai-assistant` business
+   executor (DeferredExecutor), `file-sorter` native executor,
+   `investment-mobile` native entry, and `vaultly`
+   (`TOOL_EXECUTOR_PENDING_NATIVE_PORT`) have no production implementation;
+   keep them deferred/fail-closed, do not mark ready.
+4. **Stale-evidence hazard from resident hosts.** The resident
+   `GPTBridge.Automation` host can carry an older in-memory
+   `GPTBridge.CodexPipeline` binary and rewrite evidence rows with
+   stale logic. After any amendment + rebuild, verify the current
+   evidence row's `codex_version`/`version_identity` matches the live
+   head and, if needed, run the fresh published binary with
+   `--repair-projections` directly.
+5. **Other workers' in-flight changes.** `native/resource_governor`,
+   `XingchengLearning/ResourceGovernance*` and
+   `GPTBridge.CodexPipeline/MigrationExecutor.cs` land via separate
+   workers; do not sweep them into unrelated commits (path-scoped
+   commits only).
