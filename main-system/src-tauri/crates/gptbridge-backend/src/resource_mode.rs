@@ -19,7 +19,7 @@ use gptbridge_core::native::paths;
 
 use crate::audit;
 
-const GOVERNOR_MODES: [&str; 4] = ["sleep", "low", "medium", "high"];
+const GOVERNOR_MODES: [&str; 5] = ["sleep", "low", "medium", "high", "turbo"];
 const AUDIT_LEDGER: &str = "resource-mode-audit";
 
 fn workspace_root() -> PathBuf {
