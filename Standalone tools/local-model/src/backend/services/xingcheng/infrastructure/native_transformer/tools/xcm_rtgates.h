@@ -377,11 +377,11 @@ int mode_hw_caps(const Args&) {
     return 0;
 }
 
-// star-kernel-registry/v1 — engine/data-plane kernel inventory. Same
+// star-kernel-registry — engine/data-plane kernel inventory. Same
 // governed contract the trainer lane emits: every kernel's name,
 // category, determinism guarantee, implementation variants and the
 // resolved active variant under the current capability set. Phase 1 is
-// inventory + star-kernel-policy/v1 deny reporting (policy path comes
+// inventory + star-kernel-policy deny reporting (policy path comes
 // from --policy or XCT_KERNEL_POLICY); the lanes still dispatch
 // themselves until the registry becomes the dispatch authority.
 struct EngineKernelVar {
@@ -464,7 +464,7 @@ static int mode_kernel_registry(const Args& a) {
     r.detect_cpu();
     long long fb = 0, tb = 0; int ccm = 0, ccn = 0;
     const bool cuda = xcuda_probe(&fb, &tb, &ccm, &ccn) != 0;
-    // star-kernel-policy/v1 — deny list is reported per kernel; a set
+    // star-kernel-policy — deny list is reported per kernel; a set
     // but unreadable/malformed policy marks the emit itself failed.
     std::string ppath = a.get("policy");
     if (ppath.empty()) {
@@ -477,7 +477,7 @@ static int mode_kernel_registry(const Args& a) {
     if (!ppath.empty()) {
         try {
             JsonValue pol = parse_json_file(ppath);
-            if (jget_str(pol, "format") != "star-kernel-policy/v1") {
+            if (jget_str(pol, "format") != "star-kernel-policy") {
                 pol_err = "FORMAT_MISMATCH";
             } else {
                 pol_loaded = true;
@@ -504,7 +504,7 @@ static int mode_kernel_registry(const Args& a) {
     };
     std::ostringstream o;
     o << "{\"ok\":" << (pol_err.empty() ? "true" : "false")
-      << ",\"format\":\"star-kernel-registry/v1\",\"lane\":\"engine\","
+      << ",\"format\":\"star-kernel-registry\",\"lane\":\"engine\","
       << "\"count\":" << (int)(sizeof(kEngineKernels) /
                               sizeof(kEngineKernels[0]))
       << ",\"caps\":{\"avx2\":" << (r.avx2 ? "true" : "false")

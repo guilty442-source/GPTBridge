@@ -1,8 +1,8 @@
-//! kernels.rs — star-kernel-registry/v1 for the xcorpus data lane.
+﻿//! kernels.rs ??star-kernel-registry for the xcorpus data lane.
 //!
 //! Same contract as the xstore/trainer registries: governed inventory
 //! of every compute kernel in this lane (the corpus pipeline stages),
-//! single audited Rust implementation each, plus star-kernel-policy/v1
+//! single audited Rust implementation each, plus star-kernel-policy
 //! deny enforcement. Phase 1 = inventory + policy gate; dispatch
 //! authority stays with the pipeline itself until phase 2.
 
@@ -34,7 +34,7 @@ static KERNELS: &[K] = &[
         dispatch: "engine_tokenizer.h port; encode on ingest" },
 ];
 
-/// Pipeline element names the `corpus` command dispatches to — a deny
+/// Pipeline element names the `corpus` command dispatches to ??a deny
 /// on any element refuses the whole run (fail-closed).
 pub fn corpus_kernels() -> &'static [&'static str] {
     static KS: &[&str] = &[
@@ -71,7 +71,7 @@ pub fn policy_load(path: &str) -> Result<Policy, String> {
     let v: Value = serde_json::from_str(&text)
         .map_err(|e| format!("kernel-policy: JSON_PARSE: {e}"))?;
     if v.get("format").and_then(|f| f.as_str())
-        != Some("star-kernel-policy/v1")
+        != Some("star-kernel-policy")
     {
         return Err("kernel-policy: FORMAT_MISMATCH".into());
     }
@@ -149,7 +149,7 @@ pub fn registry_emit(policy_arg: Option<&String>) -> Value {
         })
         .collect();
     json!({
-        "format": "star-kernel-registry/v1",
+        "format": "star-kernel-registry",
         "lane": "xcorpus",
         "count": KERNELS.len(),
         "policy": {

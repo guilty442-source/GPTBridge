@@ -1,10 +1,10 @@
-//! kernels.rs — star-kernel-registry/v1 for the xstore data/safety lane.
+﻿//! kernels.rs ??star-kernel-registry for the xstore data/safety lane.
 //!
 //! The registry is the governed inventory of every compute kernel this
 //! lane owns (same contract the C++ trainer emits for its TPU lanes).
-//! Every entry here has exactly one implementation — the audited Rust
-//! path — so `variants` documents capability, not dispatch. Phase 1
-//! scope: inventory + star-kernel-policy/v1 deny enforcement; the
+//! Every entry here has exactly one implementation ??the audited Rust
+//! path ??so `variants` documents capability, not dispatch. Phase 1
+//! scope: inventory + star-kernel-policy deny enforcement; the
 //! dispatch-authority phase is separate.
 
 use serde_json::{json, Value};
@@ -59,9 +59,9 @@ pub fn kernel_for(cmd: &str) -> Option<&'static str> {
     })
 }
 
-/// star-kernel-policy/v1 (minimal surface): format tag + enabled +
+/// star-kernel-policy (minimal surface): format tag + enabled +
 /// deny_kernels. A referenced but unreadable/malformed policy is a hard
-/// failure — callers propagate the Err verbatim.
+/// failure ??callers propagate the Err verbatim.
 pub struct Policy {
     pub loaded: bool,
     pub enabled: bool,
@@ -89,7 +89,7 @@ pub fn policy_load(path: &str) -> Result<Policy, String> {
     let v: Value = serde_json::from_str(&text)
         .map_err(|e| format!("kernel-policy: JSON_PARSE: {e}"))?;
     if v.get("format").and_then(|f| f.as_str())
-        != Some("star-kernel-policy/v1")
+        != Some("star-kernel-policy")
     {
         return Err("kernel-policy: FORMAT_MISMATCH".into());
     }
@@ -129,7 +129,7 @@ pub fn policy_path(arg: Option<&String>) -> String {
 }
 
 /// Fail-closed deny check for a command's kernel. Returns Err with the
-/// KERNEL_POLICY_DENIED code — callers surface it as XSTORE_FAILED.
+/// KERNEL_POLICY_DENIED code ??callers surface it as XSTORE_FAILED.
 pub fn policy_gate(pol: &Policy, cmd: &str) -> Result<(), String> {
     if !pol.loaded {
         return Ok(());
@@ -168,7 +168,7 @@ pub fn registry_emit(policy_arg: Option<&String>) -> Value {
         })
         .collect();
     json!({
-        "format": "star-kernel-registry/v1",
+        "format": "star-kernel-registry",
         "lane": "xstore",
         "count": KERNELS.len(),
         "policy": {

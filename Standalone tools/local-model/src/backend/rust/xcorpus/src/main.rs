@@ -1,11 +1,11 @@
-//! xcorpus — governed corpus pipeline CLI (star-pretrain-corpus/v1 port).
+﻿//! xcorpus ??governed corpus pipeline CLI (star-pretrain-corpus/v1 port).
 //!
 //!   xcorpus corpus --registry <json> --root <dir> --tokenizer <p|dir>
 //!                  --out <dir> [--max-len N] [--val-ratio PCT]
 //!                  [--max-docs N] [--max-doc-chars N] [--max-tokens N]
 //!                  [--jobs N]
 //!
-//! One JSON object on stdout; errors to stderr with exit 2 — the same
+//! One JSON object on stdout; errors to stderr with exit 2 ??the same
 //! governed-subprocess contract as xc_modeltool.
 
 use xcorpus::corpus;
@@ -42,7 +42,7 @@ fn main() -> ExitCode {
     }
     let cmd = argv[0].as_str();
     let a = parse_args(&argv[1..]);
-    // star-kernel-policy/v1: --policy <path> or XCT_KERNEL_POLICY;
+    // star-kernel-policy: --policy <path> or XCT_KERNEL_POLICY;
     // unreadable/denied policy fails closed.
     let pol = match kernels::policy_load(
         &kernels::policy_path(a.get("policy")),

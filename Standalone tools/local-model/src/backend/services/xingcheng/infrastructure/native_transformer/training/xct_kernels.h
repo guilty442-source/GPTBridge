@@ -1,4 +1,4 @@
-﻿// xct_kernels.h ??star-kernel-registry/v1 + star-kernel-policy/v1.
+﻿// xct_kernels.h ??star-kernel-registry + star-kernel-policy.
 // Included once by xingcheng_trainer.cpp inside namespace xct, after
 // xct_util.h and xct_tpu.h (needs ModelConfig, g_tpu, tpu_threads,
 // tpu_has_avx2_fma) and before xct_job.h (run_job calls
@@ -9,12 +9,12 @@
 // contract, implementation variants and the dispatch rule that selects
 // between them. Phase 1 keeps dispatch where it is (the lanes in
 // xct_tpu.h/xct_math.h/xct_backward.h); the registry emits the resolved
-// variant per kernel and enforces star-kernel-policy/v1 pins
+// variant per kernel and enforces star-kernel-policy pins
 // fail-closed at job start. Phase 2 promotes the table to the single
 // dispatch authority.
 //
-// Policy file (star-kernel-policy/v1, runtime/settings/kernel-policy.json):
-//   {"format":"star-kernel-policy/v1","enabled":true,
+// Policy file (star-kernel-policy, runtime/settings/kernel-policy.json):
+//   {"format":"star-kernel-policy","enabled":true,
 //    "force_serial":false,"max_threads":0,
 //    "deny_variants":["simd"|"tile4"|"cuda"],
 //    "deny_kernels":["<registry name>", ...]}
@@ -230,7 +230,7 @@ static KernelPolicy kernel_policy_load(const std::string& path) {
         throw "kernel-policy: JSON_PARSE (fail-closed)";
     }
     const std::string fmt = j_str(&root, "format", "");
-    if (fmt != "star-kernel-policy/v1")
+    if (fmt != "star-kernel-policy")
         throw "kernel-policy: FORMAT_MISMATCH (fail-closed)";
     pol.loaded = true;
     pol.enabled = j_bool(&root, "enabled", true);
@@ -386,7 +386,7 @@ static int kernel_registry_emit() {
     const bool cuda = std::getenv("XINGCHENG_TRAINER_CUDA_OPT") !=
                           nullptr && xcuda_adamw_probe() != 0;
     std::ostringstream o;
-    o << "{\"format\":\"star-kernel-registry/v1\",\"lane\":\"trainer\","
+    o << "{\"format\":\"star-kernel-registry\",\"lane\":\"trainer\","
       << "\"count\":"
       << (int)(sizeof(kKernelRegistry) / sizeof(kKernelRegistry[0]))
       << ",\"caps\":{\"avx2_fma\":" << (simd ? "true" : "false")
