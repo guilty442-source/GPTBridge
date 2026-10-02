@@ -418,6 +418,63 @@ internal static class Program
             if (flags.Contains("catalog-validate"))
                 return Emit(FeatureCatalog.Validate(
                     opts.TryGetValue("file", out string? fv) ? fv : ""));
+            // ---- CapabilityRegistry plane (capability unification §3):
+            //      star-capability-registry/v1 is the single canonical
+            //      answer to "which capabilities exist"; the graph
+            //      (star-capability-graph/v1), eval map
+            //      (star-capability-eval-map/v1) and progression
+            //      policy (§14-§16) are derived views over it.
+            if (flags.Contains("capability-registry"))
+                return Emit(CapabilityRegistry.Emit(toolRoot));
+            if (flags.Contains("capability-graph"))
+                return Emit(CapabilityGraph.Emit(toolRoot));
+            if (flags.Contains("capability-eval-map"))
+                return Emit(CapabilityEvaluationMap.Emit());
+            if (flags.Contains("capability-progression"))
+                return Emit(
+                    CapabilityProgressionPolicy.Status(toolRoot));
+            if (flags.Contains("capability-resolve"))
+            {
+                string? resolved = CapabilityRegistry.Resolve(
+                    opts.TryGetValue("capability", out string? cvr)
+                        ? cvr : "");
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = resolved != null,
+                    ["format"] = CapabilityDescriptor.Format,
+                    ["capability"] =
+                        opts.TryGetValue("capability",
+                            out string? cvr2) ? cvr2 : "",
+                    ["capability_id"] = resolved,
+                });
+            }
+            if (flags.Contains("capability-validate"))
+            {
+                string vf = opts.TryGetValue("file", out string? cvf2)
+                    ? cvf2
+                    : Path.Combine(toolRoot,
+                          CapabilityRegistry.Rel.Replace(
+                              '/', Path.DirectorySeparatorChar));
+                return Emit(CapabilityRegistry.Validate(vf));
+            }
+            if (flags.Contains("capability-consistency"))
+                return Emit(CapabilityConsistency.Run(toolRoot));
+            if (flags.Contains("capability-regression-suite"))
+            {
+                string csn = opts.TryGetValue("capability",
+                    out string? crs) ? crs : "";
+                var suite = CapabilityGraph.RegressionSuiteFor(
+                    csn, toolRoot);
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["ok"] = true,
+                    ["format"] = CapabilityGraph.Format,
+                    ["capability_id"] =
+                        CapabilityRegistry.Resolve(csn) ?? csn,
+                    ["regression_suite"] =
+                        suite.Cast<object?>().ToList(),
+                });
+            }
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -1766,6 +1823,12 @@ internal static class Program
             "--cap-record --result <file.json> | --trace-status | " +
             "--caps-status | --caps-validate --file <f.json> | " +
             "--catalog-emit | --catalog-validate --file <f.json> | " +
+            "--capability-registry | --capability-graph | " +
+            "--capability-eval-map | --capability-progression | " +
+            "--capability-resolve --capability <name> | " +
+            "--capability-validate [--file <f.json>] | " +
+            "--capability-consistency | " +
+            "--capability-regression-suite --capability <id> | " +
             "--tool-validate --file <f.json> --kind <request|result> | " +
             "--tool-gate [--tool <name>] [--requirement <req>] " +
             "[--reason <code>] [--outcome-status <s>] [--schema-invalid] | " +

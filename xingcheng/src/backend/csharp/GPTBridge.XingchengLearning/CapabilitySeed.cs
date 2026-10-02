@@ -177,7 +177,7 @@ internal static class CapabilitySeed
         // sub-capabilities below it requires.
         D("rag", "knowledge", "RUNTIME_AUGMENTED", "MIXED",
           new[] { "rag", "citation" },
-          new[] { "rag_grounding", "rag-grounding" },
+          new[] { "rag-grounding-pipeline" },
           new[] { "model_weights", "full_attention" },
           new[] { "rag_engine", "retrieval_adapter" },
           new[] { "rag_dataset", "retrieval_corpus" },
@@ -194,7 +194,7 @@ internal static class CapabilitySeed
           new[] { "eval:rag" }),
         D("grounding", "knowledge", "RUNTIME_AUGMENTED", "MIXED",
           new[] { "rag", "citation" },
-          new[] { "rag_grounding_sub" },
+          new[] { "rag_grounding", "rag-grounding" },
           new[] { "model_weights" },
           new[] { "rag_engine" },
           new[] { "grounding_dataset" },

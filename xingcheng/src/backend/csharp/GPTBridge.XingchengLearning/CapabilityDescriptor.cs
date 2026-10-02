@@ -232,7 +232,13 @@ internal sealed class CapabilityDescriptor
             errors.Add($"bad_resource_pref:{Resource.Preferred}");
         if (Aliases.Any(a => string.IsNullOrWhiteSpace(a)))
             errors.Add("alias_empty");
-        if (!Binding.Complete)
+        // §87 class-aware coverage: SERVICE_AUGMENTED rows never carry
+        // model components (§8) — their binding is the service runtime
+        // surface; MODEL_NATIVE/RUNTIME_AUGMENTED rows need model+eval.
+        bool bindingOk = CapabilityClass == "SERVICE_AUGMENTED"
+            ? Binding.RuntimeComponents.Length > 0
+            : Binding.Complete;
+        if (!bindingOk)
             errors.Add("architecture_binding_incomplete");
         return errors;
     }
