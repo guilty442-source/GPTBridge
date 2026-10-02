@@ -58,10 +58,10 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 環境變數
 
 <!-- autogen:xingcheng-env -->
-*autogen-scanner/v1 · 2926 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2965 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
 | var | 讀取處 |
 |---|---|
-| `GPTBRIDGE_POSTGRES_DSN` | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+9) |
+| `GPTBRIDGE_POSTGRES_DSN` | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LegacyMigration/Pg.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LegacyMigration/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+7) |
 | `XCB_PARITY_OUT` | codex-metadata-closure:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, local-model:xingcheng/src/backend/rust/xcorpus/src/xcb.rs (+3) |
 | `XCT_GC_CSA` | codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+3) |
 | `XCT_GC_CSA_GROUP` | codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+3) |
@@ -81,7 +81,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 | `XCT_TPU_TILE4` | codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+3) |
 | `XINGCHENG_CPP_CUDA_GRAPH` | codex-metadata-closure:xingcheng/src/backend/cpp/src/cuda_kernels.cpp, devin:xingcheng/src/backend/cpp/src/cuda_kernels.cpp, git:xingcheng/src/backend/cpp/src/cuda_kernels.cpp, local-model:xingcheng/src/backend/cpp/src/cuda_kernels.cpp (+3) |
 | `XINGCHENG_HYBRID_CPU_PCT` | codex-metadata-closure:xingcheng/src/backend/cpp/src/engine_kernels.h, codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h, devin:xingcheng/src/backend/cpp/src/engine_kernels.h, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_computeplane.h (+10) |
-| `XINGCHENG_SHARED_PG_SCHEMA` | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+3) |
+| `XINGCHENG_SHARED_PG_SCHEMA` | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LegacyMigration/Pg.cs, devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LegacyMigration/Pg.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Pg.cs (+3) |
 | `XINGCHENG_TRAINER_CUDA_OPT` | codex-metadata-closure:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/MainlineConvergence.cs, codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_kernels.h, codex-metadata-closure:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_tpu.h (+24) |
 <!-- /autogen:xingcheng-env -->
 
@@ -96,7 +96,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 ## 政策/設定檔
 
 <!-- autogen:xingcheng-settings -->
-*autogen-scanner/v1 · 2926 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2965 files · main+codex-metadata-closure+devin+git+local-model+rag+ui*
 | 檔案 | format | 所在樹 |
 |---|---|---|
 | `kernel-policy.json` | `star-kernel-policy` | main:xingcheng/xingcheng/runtime/settings/kernel-policy.json |

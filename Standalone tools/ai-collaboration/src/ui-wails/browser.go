@@ -449,14 +449,26 @@ func (m *BrowserManager) ensureSession(id, owner, url string,
 	})
 	// If the previous session closed the environment's last controller,
 	// the browser process exits and the env goes zombie
-	// (0x802A000C) — discard it, create a fresh env, retry once.
-	for attempt := 0; attempt < 2; attempt++ {
+	// (0x802A000C) — discard it, create a fresh env, retry.  Async
+	// controller failures (E_ABORT and friends) arrive through the
+	// completion handler's errCh, observed by waitReady.
+	for attempt := 0; attempt < 3; attempt++ {
+		var handlerErr chan error
 		m.run(func() {
 			setChromiumHwnd(cr, hw)
-			err = attachController(cr, env, hw)
+			h, ch := newCtrlCompletedHandler(cr)
+			s.ctrlH = h
+			handlerErr = ch
+			err = attachController(cr, env, hw, h)
 		})
 		if err == nil {
-			break
+			// async completion: success registers the controller,
+			// failure arrives on handlerErr (no process exit).
+			if werr := m.waitReady(s, handlerErr); werr != nil {
+				err = werr
+			} else {
+				break
+			}
 		}
 		m.invalidateEnv()
 		m.run(func() { m.kickEnv() })
@@ -472,10 +484,6 @@ func (m *BrowserManager) ensureSession(id, owner, url string,
 	m.mu.Lock()
 	m.sessions[id] = s
 	m.mu.Unlock()
-	if !m.waitReady(s) {
-		m.closeSession(id)
-		return nil, errors.New("WEBVIEW2_INIT_TIMEOUT")
-	}
 	m.post(func() {
 		cr.Init("window.external={invoke:s=>window.chrome.webview.postMessage(s)}")
 		cr.Resize()
