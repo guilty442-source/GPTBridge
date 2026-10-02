@@ -705,9 +705,9 @@ internal static class ModelMaturity
                 : 1.0;
             string text = (reply.GetValueOrDefault("text")
                 as string ?? "").Trim();
-            bool ok = produced >= minTokens && text.Length > 0 &&
+            bool probeOk = produced >= minTokens && text.Length > 0 &&
                       uniqueRatio >= minUnique && topFraction <= maxTop;
-            if (ok) ++passed;
+            if (probeOk) ++passed;
             probes.Add(new Dictionary<string, object?>
             {
                 ["prompt"] = prompt,
@@ -716,7 +716,7 @@ internal static class ModelMaturity
                 ["top_token_fraction"] = Math.Round(topFraction, 3),
                 ["output_excerpt"] =
                     text[..Math.Min(80, text.Length)],
-                ["passed"] = ok,
+                ["passed"] = probeOk,
             });
         }
         double ratio = (double)passed / GenerationPrompts.Length;
@@ -793,8 +793,8 @@ internal static class ModelMaturity
                 messages.Add(new Dictionary<string, object?>
                     { ["role"] = "assistant", ["content"] = text });
             }
-            bool ok = CheckL5(spec.Check, text, ids, maxNew, ctx.EosId);
-            if (ok) ++passed;
+            bool probeOk = CheckL5(spec.Check, text, ids, maxNew, ctx.EosId);
+            if (probeOk) ++passed;
             probes.Add(new Dictionary<string, object?>
             {
                 ["id"] = spec.Id, ["desc"] = spec.Desc,
@@ -802,7 +802,7 @@ internal static class ModelMaturity
                     text[..Math.Min(80, text.Length)],
                 ["stopped_by_eos"] =
                     ids.Count > 0 && ids.Count < maxNew,
-                ["passed"] = ok,
+                ["passed"] = probeOk,
             });
         }
         double ratio = (double)passed / DialogueProbes.Length;
@@ -846,12 +846,12 @@ internal static class ModelMaturity
             string text = reply.GetValueOrDefault("text") as string ?? "";
             var m = Regex.Match(text, @"-?\d+");
             string? answer = m.Success ? m.Value : null;
-            bool ok = answer != null && answer == spec.Expect;
-            if (ok) ++reasoningPassed;
+            bool probeOk = answer != null && answer == spec.Expect;
+            if (probeOk) ++reasoningPassed;
             reasoning.Add(new Dictionary<string, object?>
             {
                 ["id"] = spec.Id, ["expected"] = spec.Expect,
-                ["answer"] = answer, ["passed"] = ok,
+                ["answer"] = answer, ["passed"] = probeOk,
                 ["reply_excerpt"] =
                     text[..Math.Min(80, text.Length)],
             });
