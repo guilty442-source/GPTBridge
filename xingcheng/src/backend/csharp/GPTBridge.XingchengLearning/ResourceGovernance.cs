@@ -44,6 +44,14 @@ public static class ResourceErrors
         "INSUFFICIENT_GRANTED_RESOURCES";
     public const string PausedByPressure =
         "TRAINING_PAUSED_BY_RESOURCE_PRESSURE";
+    /// <summary>Authority-convergence §6 hard rule: the main-system
+    /// resource governor is the only whole-machine authority. Any
+    /// xingcheng code path that tries to set a CPU/RAM/VRAM quota,
+    /// change machine-wide priority or touch another tool's
+    /// allocation throws this — xingcheng only requests, receives and
+    /// reports grants.</summary>
+    public const string AuthorityMainSystemOnly =
+        "RESOURCE_AUTHORITY_MAIN_SYSTEM_ONLY";
 }
 
 /// <summary>規格 §7：主系統只能回這五種回覆。</summary>

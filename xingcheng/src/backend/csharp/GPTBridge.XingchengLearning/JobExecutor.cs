@@ -516,8 +516,11 @@ internal sealed class TrainingJobExecutor
             WorkloadId = jobId,
             CandidateId = TransformerTrainingRepository.Str(
                 configuration, "model_id") ?? "",
-            Capability = TransformerTrainingRepository.Str(
-                configuration, "capability") ?? "",
+            // §63: the request carries only a canonical capability_id
+            // — a free string can never reach the governor.
+            Capability = CapabilityResolver.Require(
+                TransformerTrainingRepository.Str(
+                    configuration, "capability") ?? ""),
             WorkloadClass = "training",
             Priority = TransformerTrainingRepository.Int(
                 configuration, "priority"),

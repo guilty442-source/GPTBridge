@@ -152,22 +152,25 @@ internal static class Program
             if (flags.Contains("maturation-freeze"))
                 return Emit(Maturation300M.Freeze(
                     toolRoot,
-                    opts.TryGetValue("capability", out string? mc)
-                        ? mc : "",
+                    CapabilityResolver.Require(
+                        opts.TryGetValue("capability", out string? mc)
+                            ? mc : ""),
                     opts.TryGetValue("evidence", out string? me)
                         ? me : ""));
             if (flags.Contains("maturation-reopen"))
                 return Emit(Maturation300M.Reopen(
                     toolRoot,
-                    opts.TryGetValue("capability", out string? mrc)
-                        ? mrc : "",
+                    CapabilityResolver.Require(
+                        opts.TryGetValue("capability", out string? mrc)
+                            ? mrc : ""),
                     opts.TryGetValue("reason", out string? mrr)
                         ? mrr : ""));
             if (flags.Contains("maturation-unsupported"))
                 return Emit(Maturation300M.MarkUnsupported(
                     toolRoot,
-                    opts.TryGetValue("capability", out string? muc)
-                        ? muc : "",
+                    CapabilityResolver.Require(
+                        opts.TryGetValue("capability", out string? muc)
+                            ? muc : ""),
                     opts.TryGetValue("evidence", out string? mue)
                         ? mue : "",
                     opts.TryGetValue("reason", out string? mur)
@@ -435,20 +438,11 @@ internal static class Program
                 return Emit(
                     CapabilityProgressionPolicy.Status(toolRoot));
             if (flags.Contains("capability-resolve"))
-            {
-                string? resolved = CapabilityRegistry.Resolve(
+                // §80: the shared canonical resolver — alias → id,
+                // descriptor, dependencies, eval surfaces, pool class.
+                return Emit(CapabilityResolver.Inspect(
                     opts.TryGetValue("capability", out string? cvr)
-                        ? cvr : "");
-                return Emit(new Dictionary<string, object?>
-                {
-                    ["ok"] = resolved != null,
-                    ["format"] = CapabilityDescriptor.Format,
-                    ["capability"] =
-                        opts.TryGetValue("capability",
-                            out string? cvr2) ? cvr2 : "",
-                    ["capability_id"] = resolved,
-                });
-            }
+                        ? cvr : ""));
             if (flags.Contains("capability-validate"))
             {
                 string vf = opts.TryGetValue("file", out string? cvf2)
@@ -478,18 +472,17 @@ internal static class Program
                         ? cdc : ""));
             if (flags.Contains("capability-regression-suite"))
             {
-                string csn = opts.TryGetValue("capability",
-                    out string? crs) ? crs : "";
-                var suite = CapabilityGraph.RegressionSuiteFor(
-                    csn, toolRoot);
+                string csn = CapabilityResolver.Require(
+                    opts.TryGetValue("capability",
+                        out string? crs) ? crs : "");
                 return Emit(new Dictionary<string, object?>
                 {
                     ["ok"] = true,
                     ["format"] = CapabilityGraph.Format,
-                    ["capability_id"] =
-                        CapabilityRegistry.Resolve(csn) ?? csn,
+                    ["capability_id"] = csn,
                     ["regression_suite"] =
-                        suite.Cast<object?>().ToList(),
+                        CapabilityResolver.RegressionSuite(
+                            csn, toolRoot).Cast<object?>().ToList(),
                 });
             }
             // §31-§37 architecture-side binding: governed projection +
@@ -501,8 +494,9 @@ internal static class Program
             if (flags.Contains("capability-binding-check"))
                 return Emit(ArchitectureCapabilityBinding
                     .AdmissionCheck(
-                        opts.TryGetValue("capability",
-                            out string? cba) ? cba : ""));
+                        CapabilityResolver.Require(
+                            opts.TryGetValue("capability",
+                                out string? cba) ? cba : "")));
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -516,7 +510,8 @@ internal static class Program
             {
                 if (opts.TryGetValue("capability", out string? rcp) &&
                     rcp.Length > 0)
-                    InstructionRecovery.Capability = rcp;
+                    InstructionRecovery.Capability =
+                        CapabilityResolver.Require(rcp);
                 // Boundary: an explicit --out must stay in-domain.
                 var rdoAssert = opts.TryGetValue("out", out string? rdo)
                     && rdo.Length > 0
@@ -532,7 +527,8 @@ internal static class Program
             {
                 if (opts.TryGetValue("capability", out string? rec) &&
                     rec.Length > 0)
-                    InstructionRecovery.Capability = rec;
+                    InstructionRecovery.Capability =
+                        CapabilityResolver.Require(rec);
                 return Emit(InstructionRecovery.EvalBundle(
                     toolRoot,
                     opts.TryGetValue("bundle", out string? reb)
@@ -1019,8 +1015,13 @@ internal static class Program
                 var fr = ToolContracts.ReadJson(
                     opts.TryGetValue("file", out string? frf)
                         ? frf : "", "SELF_TRAINING_DISABLED");
-                string fcap = fr.TryGetProperty("capability",
-                    out var fcp) ? fcp.GetString() ?? "" : "";
+                // §15: capability is canonical-resolved before it can
+                // reach any governance surface — a free string never
+                // enters the failure pool (§16: unknown →
+                // CAPABILITY_UNKNOWN).
+                string fcap = CapabilityResolver.Require(
+                    fr.TryGetProperty("capability", out var fcp)
+                        ? fcp.GetString() ?? "" : "");
                 string fin = fr.TryGetProperty("input",
                     out var finp) ? finp.GetString() ?? "" : "";
                 if (fin.Length == 0)
@@ -1036,7 +1037,7 @@ internal static class Program
                         ["ok"] = true,
                         ["format"] = "star-self-training-failure/v1",
                         ["capability"] =
-                            attr["capability_id"] ?? fcap,
+                        attr["capability_id"] ?? fcap,
                         ["recorded"] = false,
                         ["attribution"] = attr,
                         ["rule"] = "RESOURCE_FAILURE is routed to " +
@@ -1046,7 +1047,7 @@ internal static class Program
                     toolRoot, fin,
                     fr.TryGetProperty("generation", out var fg)
                         ? fg.GetString() ?? "" : "",
-                    FailurePool.ClassForCapability(fcap),
+                    CapabilityResolver.PoolClass(fcap),
                     fr.TryGetProperty("expected", out var fe)
                         ? fe.GetString() ?? "" : "",
                     fr.TryGetProperty("actual", out var fa)
@@ -1069,8 +1070,7 @@ internal static class Program
                     ["ok"] = rec != null,
                     ["format"] = "star-self-training-failure/v1",
                     ["capability"] = fcap,
-                    ["failure_class"] =
-                        FailurePool.ClassForCapability(fcap),
+                    ["failure_class"] = CapabilityResolver.PoolClass(fcap),
                     ["recorded"] = rec != null,
                     ["dedup"] = rec != null &&
                         rec.TryGetValue("dedup", out var dd)
@@ -1115,7 +1115,8 @@ internal static class Program
                     fps.Length > 0)
                     st["pool_rows"] = FailurePool.ReadPool(
                         toolRoot,
-                        FailurePool.ClassForCapability(fps));
+                        CapabilityResolver.PoolClass(
+                            CapabilityResolver.Require(fps)));
                 return Emit(st);
             }
             // ---- XC-1B Mature Standard (maturity directive §1-§40)
