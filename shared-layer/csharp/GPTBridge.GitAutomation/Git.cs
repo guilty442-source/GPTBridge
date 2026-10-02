@@ -28,6 +28,15 @@ internal static class Git
             var directory = entry.Trim('"');
             if (!File.Exists(Path.Combine(directory, "git.exe"))) continue;
             var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(directory));
+            // Git hooks prepend libexec/git-core to PATH. Its git.exe is
+            // not the installation's bin entry and must not win resolution.
+            if (name.Equals("git-core", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(Path.GetFileName(Path.GetDirectoryName(directory)),
+                    "libexec", StringComparison.OrdinalIgnoreCase))
+            {
+                var hookNative = Path.GetFullPath(Path.Combine(directory, "..", "..", "bin", "git.exe"));
+                if (File.Exists(hookNative)) return hookNative;
+            }
             var root = name.Equals("cmd", StringComparison.OrdinalIgnoreCase)
                        || name.Equals("bin", StringComparison.OrdinalIgnoreCase)
                 ? Path.GetDirectoryName(directory) : directory;

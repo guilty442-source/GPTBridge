@@ -3,6 +3,19 @@ using System.Diagnostics;
 
 var root = Path.GetFullPath(args[0]);
 var executable = Git.ResolveExecutable();
+if (OperatingSystem.IsWindows())
+{
+    var originalPath = Environment.GetEnvironmentVariable("PATH");
+    var hookDirectory = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(executable)!, "..", "libexec", "git-core"));
+    try
+    {
+        Environment.SetEnvironmentVariable("PATH", hookDirectory + Path.PathSeparator + originalPath);
+        if (Git.ResolveExecutable() != executable) throw new Exception("Hook PATH selected libexec Git");
+        if (Git.Run(root, new[] { "rev-parse", "HEAD" }, 10000).Code != 0)
+            throw new Exception("Hook environment query failed");
+    }
+    finally { Environment.SetEnvironmentVariable("PATH", originalPath); }
+}
 if (OperatingSystem.IsWindows() && executable.Contains("\\cmd\\", StringComparison.OrdinalIgnoreCase))
     throw new Exception("Git launcher was not bypassed");
 foreach (var command in new[] {
