@@ -99,15 +99,15 @@ fn esc(s: &str) -> String {
 }
 
 /// Ingest a file into the store. `kind == "xcn1"` runs the full
-//! structural verify before any byte is stored; `blob` accepts any
-//! file. Returns the receipt.
+/// structural verify before any byte is stored; `blob` accepts any
+/// file. Returns the receipt.
 pub fn put(store: &Path, file: &Path, kind: &str) -> Result<Receipt, String> {
     let data = std::fs::read(file)
         .map_err(|e| format!("STORE_READ: {}: {e}", esc(&file.to_string_lossy())))?;
     let mut extra_fields = serde_json::json!({});
     match kind {
         "xcn1" => {
-            let (header, entries, trailing) = xcn1::verify(&data)
+            let (header, _entries, trailing) = xcn1::verify(&data)
                 .map_err(|e| format!("XCN_VERIFY: {e}"))?;
             extra_fields = serde_json::json!({
                 "xcn_version": header.version,
