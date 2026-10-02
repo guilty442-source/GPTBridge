@@ -197,5 +197,8 @@ fn mutate_locked(
         "event_hashes": event_hashes,
         "receipt_hash": receipt_hash,
         "head_hash": head,
+        // Post-flip callers (§48) need the committed identity back —
+        // a domain op may generate record_ids (e.g. create_dataset).
+        "records": receipt_records,
     }))
 }
