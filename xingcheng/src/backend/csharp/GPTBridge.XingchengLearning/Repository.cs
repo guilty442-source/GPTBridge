@@ -335,8 +335,146 @@ internal sealed class TransformerTrainingRepository
     {
         ToolRoot = Path.GetFullPath(Path.Combine(toolRoot, "xingcheng"));
         Schema = Pg.Schema;
+        _repoRoot = toolRoot;
         Migrate();
+        // §35 Phase A: the runtime-singleton row Migrate() maintains is
+        // itself metadata — shadow it so the xstore plane is never
+        // missing the singleton before the first domain mutation.
+        ShadowEmit("init_runtime", new Dictionary<string, object?>());
     }
+
+    // ------------------------------------------------- metadata shadow --
+    //
+    // Phase A of the PostgreSQL → xstore metadata-authority migration
+    // (§35-§37): PostgreSQL remains the authority; every committed
+    // mutation is additionally emitted to the native metadata plane via
+    // NativeMetadataClient. Shadow output never feeds reads back (§37).
+    //
+    // Failure semantics (§36): a shadow emit failure is NOT hidden —
+    // the lane latches XSTORE_METADATA_SHADOW_FAILED, records one audit
+    // event and reports unhealthy through DatabaseStatus()/ShadowStatus
+    // until an operator re-syncs from PG. Subsequent mutations keep
+    // committing to PG but the failed flag stays — a migration gate
+    // must never observe a green shadow that was actually broken.
+
+    private readonly string _repoRoot;
+    private NativeMetadataClient? _metaShadow;
+    private bool _metaShadowUnavailable;
+    private bool _metaShadowFailed;
+    private string _metaShadowError = "";
+
+    /// <summary>Shadow-lane health for gates and DatabaseStatus.</summary>
+    public Dictionary<string, object?> ShadowStatus()
+    {
+        var status = new Dictionary<string, object?>
+        {
+            ["format"] = "star-metadata-shadow-status/v1",
+            ["phase"] = "A-shadow",
+            ["authority"] = "postgresql",
+            ["shadow_mode"] = true,
+            ["dual_write"] = false, // shadow emits AFTER PG commit; PG alone is atomic authority
+            ["read_source"] = "postgresql",
+            ["healthy"] = !_metaShadowFailed && !_metaShadowUnavailable,
+        };
+        if (_metaShadowUnavailable)
+            status["status"] = "unavailable";
+        else if (_metaShadowFailed)
+            status["status"] = "XSTORE_METADATA_SHADOW_FAILED";
+        else
+            status["status"] = _metaShadow != null ? "active" : "pending";
+        if (_metaShadowError.Length > 0)
+            status["last_error"] = _metaShadowError;
+        return status;
+    }
+
+    /// <summary>Emit one shadow mutation to the xstore metadata plane
+    /// after the PG transaction has committed. Never throws (Phase A:
+    /// PG alone is authority) — a failure latches
+    /// XSTORE_METADATA_SHADOW_FAILED and is recorded once as an audit
+    /// event (§36).</summary>
+    private JsonElement? ShadowEmit(string op, Dictionary<string, object?> prms)
+    {
+        if (_metaShadowUnavailable || _metaShadowFailed)
+            return null;
+        try
+        {
+            _metaShadow ??= new NativeMetadataClient(
+                _repoRoot, actor: "xingcheng-metadata-shadow");
+            prms["operation_id"] = $"shadow-{Guid.NewGuid():N}";
+            return _metaShadow.ShadowOp(op, prms);
+        }
+        catch (MetadataError e) when (e.Code == "XSTORE_UNAVAILABLE")
+        {
+            // The Rust lane is not deployed — the plane cannot shadow.
+            // Distinct from a broken emit: reported as "unavailable".
+            _metaShadowUnavailable = true;
+            _metaShadowError = e.Message;
+        }
+        catch (Exception e)
+        {
+            _metaShadowFailed = true;
+            _metaShadowError = $"XSTORE_METADATA_SHADOW_FAILED: {op}: {e.Message}";
+            try
+            {
+                InTx(db =>
+                {
+                    AppendAudit(db,
+                        eventType: "xstore-metadata-shadow-failed",
+                        entityType: "training-database",
+                        entityId: DatabaseName,
+                        payload: new Dictionary<string, object?>
+                        {
+                            ["op"] = op,
+                            ["error"] = e.Message,
+                        });
+                    return 0;
+                });
+            }
+            catch { /* audit is best-effort; the latched flag stands */ }
+        }
+        return null;
+    }
+
+    /// <summary>Latch a semantic shadow mismatch (both sides committed
+    /// but disagree) as a shadow failure — drift is a broken shadow,
+    /// not a healthy one (§36, §44: never merge, never pretend).</summary>
+    private void ShadowMismatch(string op, string detail)
+    {
+        if (_metaShadowUnavailable || _metaShadowFailed)
+            return;
+        _metaShadowFailed = true;
+        _metaShadowError = $"XSTORE_METADATA_SHADOW_FAILED: {op}: {detail}";
+        try
+        {
+            InTx(db =>
+            {
+                AppendAudit(db,
+                    eventType: "xstore-metadata-shadow-failed",
+                    entityType: "training-database",
+                    entityId: DatabaseName,
+                    payload: new Dictionary<string, object?>
+                    {
+                        ["op"] = op,
+                        ["error"] = detail,
+                    });
+                return 0;
+            });
+        }
+        catch { /* audit is best-effort; the latched flag stands */ }
+    }
+
+    /// <summary>Shadow a standalone audit event (lane-level lifecycle
+    /// marks that AppendAudit writes inside a PG transaction).</summary>
+    private void ShadowAudit(string eventType, string entityType,
+                             string entityId,
+                             IReadOnlyDictionary<string, object?> payload)
+        => ShadowEmit("audit", new Dictionary<string, object?>
+        {
+            ["event_type"] = eventType,
+            ["entity_type"] = entityType,
+            ["entity_id"] = entityId,
+            ["payload"] = payload,
+        });
 
     // ------------------------------------------------------------ helpers --
 
@@ -626,6 +764,17 @@ internal sealed class TransformerTrainingRepository
         if (row == null)
             throw new InvalidOperationException("transformer training dataset was not created");
         row["inserted"] = inserted;
+        ShadowEmit("create_dataset", new Dictionary<string, object?>
+        {
+            ["content_sha256"] = contentDigest,
+            ["snapshot_path"] = snapshotFile,
+            ["snapshot_sha256"] = snapshotDigest,
+            ["source_manifest_json"] = manifestJson,
+            ["created_by"] = string.IsNullOrEmpty(createdBy)
+                ? "star-main-native-model" : createdBy,
+            ["format_version"] = formatVersion,
+            ["examples"] = normalized.Select(e => (object)e).ToList(),
+        });
         return row;
     }
 
@@ -721,6 +870,16 @@ internal sealed class TransformerTrainingRepository
         });
         if (row == null)
             throw new InvalidOperationException("transformer training job was not created");
+        ShadowEmit("create_job", new Dictionary<string, object?>
+        {
+            ["job_id"] = jobId,
+            ["dataset_id"] = normalizedDatasetId,
+            ["configuration_json"] = configurationJson,
+            ["requested_by"] = string.IsNullOrEmpty(requestedBy)
+                ? "star-main-native-model" : requestedBy,
+            ["retry_of_job_id"] = string.IsNullOrWhiteSpace(retryOfJobId)
+                ? null : retryOfJobId.Trim(),
+        });
         return row;
     }
 
@@ -807,6 +966,15 @@ internal sealed class TransformerTrainingRepository
         if (updated == null)
             throw new InvalidOperationException(
                 "transformer training job transition was not stored");
+        ShadowEmit("transition_job", new Dictionary<string, object?>
+        {
+            ["job_id"] = jobId,
+            ["to"] = requested,
+            ["output_path"] = string.IsNullOrEmpty(outputPath)
+                ? (string)(updated["output_path"] ?? "") : outputPath,
+            ["error_code"] = (string)(updated["error_code"] ?? ""),
+            ["error_message"] = (string)(updated["error_message"] ?? ""),
+        });
         return updated;
     }
 
@@ -823,7 +991,7 @@ internal sealed class TransformerTrainingRepository
     public (JobClaimResult Result, Dictionary<string, object?>? Row)
         TryClaimTrainingJob(string jobId)
     {
-        return InTx(db =>
+        var claim = InTx(db =>
         {
             // Serializes concurrent claimants: try-lock instead of a
             // blocking lock so a claimant waiting on the lane reports
@@ -873,6 +1041,35 @@ internal sealed class TransformerTrainingRepository
                 "WHERE job_id = $1", jobId);
             return (JobClaimResult.Claimed, updated);
         });
+        // Shadow claim doubles as a live parity probe (§38): the shadow
+        // lane must reach the same lane verdict under the writer lease.
+        var shadow = ShadowEmit("claim_job", new Dictionary<string, object?>
+        {
+            ["job_id"] = jobId,
+        });
+        if (shadow.HasValue)
+        {
+            string? sr = null;
+            if (shadow.Value.TryGetProperty("result", out JsonElement res))
+            {
+                if (res.ValueKind == JsonValueKind.Object &&
+                    res.TryGetProperty("result", out JsonElement inner))
+                    sr = inner.GetString();
+                else if (res.ValueKind == JsonValueKind.String)
+                    sr = res.GetString();
+            }
+            string expected = claim.Result switch
+            {
+                JobClaimResult.Claimed => "claimed",
+                JobClaimResult.Busy => "busy",
+                JobClaimResult.NotQueued => "not_queued",
+                _ => "missing",
+            };
+            if (!string.Equals(sr, expected, StringComparison.Ordinal))
+                ShadowMismatch("claim_job",
+                    $"pg={claim.Result} xstore={sr ?? "none"}");
+        }
+        return claim;
     }
 
     // ------------------------------------------------------------ adapters --
@@ -951,6 +1148,15 @@ internal sealed class TransformerTrainingRepository
         });
         if (row == null)
             throw new InvalidOperationException("adapter candidate was not registered");
+        ShadowEmit("register_candidate", new Dictionary<string, object?>
+        {
+            ["job_id"] = jobId,
+            ["adapter_id"] = adapterId,
+            ["artifact_path"] = artifact,
+            ["metrics_json"] = CanonicalJson.CanonicalDict(metrics),
+            ["adapter_format"] = string.IsNullOrEmpty(adapterFormat)
+                ? "native-checkpoint" : adapterFormat,
+        });
         return row;
     }
 
@@ -1029,6 +1235,22 @@ internal sealed class TransformerTrainingRepository
                 "FROM transformer_adapter_evaluation WHERE evaluation_id = $1",
                 evaluationId);
         });
+        if (row != null)
+        {
+            ShadowEmit("record_evaluation", new Dictionary<string, object?>
+            {
+                ["adapter_id"] = adapterId,
+                ["evaluation_id"] = evaluationId,
+                ["suite_id"] = suiteId,
+                ["suite_sha256"] = suiteDigest,
+                ["baseline_metrics_json"] = CanonicalJson.CanonicalDict(baselineMetrics),
+                ["adapter_metrics_json"] = CanonicalJson.CanonicalDict(adapterMetrics),
+                ["comparison_json"] = CanonicalJson.CanonicalDict(comparison),
+                ["quality_gates_json"] = CanonicalJson.CanonicalDict(qualityGates),
+                ["passed"] = passed,
+                ["evaluated_by"] = evaluatedBy,
+            });
+        }
         return row ?? throw new InvalidOperationException("evaluation was not stored");
     }
 
@@ -1159,6 +1381,13 @@ internal sealed class TransformerTrainingRepository
         });
         if (row == null)
             throw new InvalidOperationException("adapter release was not stored");
+        ShadowEmit("release", new Dictionary<string, object?>
+        {
+            ["adapter_id"] = adapterId,
+            ["action"] = normalized,
+            ["governed_by"] = governedBy,
+            ["reason"] = reason,
+        });
         row["runtime_state"] = RuntimeModelState();
         return row;
     }
@@ -1196,6 +1425,12 @@ internal sealed class TransformerTrainingRepository
         });
         if (row == null)
             throw new InvalidOperationException("adapter rejection was not stored");
+        ShadowEmit("reject_candidate", new Dictionary<string, object?>
+        {
+            ["adapter_id"] = adapterId,
+            ["governed_by"] = governedBy,
+            ["reason"] = reason,
+        });
         return row;
     }
 

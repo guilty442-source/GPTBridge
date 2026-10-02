@@ -480,6 +480,12 @@ internal sealed class NativeMetadataClient
         return Mutate("put", prms);
     }
 
+    /// <summary>Generic governed mutation entry — the shadow emitter
+    /// (Repository.Phase A) and migration tooling use this; product code
+    /// should prefer the typed methods above.</summary>
+    public JsonElement ShadowOp(string op, Dictionary<string, object?> prms)
+        => Mutate(op, prms);
+
     // -------------------------------------------------------- operation --
 
     /// <summary>metadata-verify: canonical scan + materialize + receipts

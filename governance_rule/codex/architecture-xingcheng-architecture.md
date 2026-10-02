@@ -92,7 +92,7 @@ flowchart TB
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
-*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2493 files · main+devin+git+local-model+rag+ui*
 | Binary | 語言 | 來源 |
 |---|---|---|
 | `xc-format.exe` | Rust | devin:xingcheng/src/backend/rust/xc-format/Cargo.toml |

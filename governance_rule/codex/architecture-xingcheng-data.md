@@ -71,7 +71,7 @@ flowchart LR
 ## 二進位容器家族
 
 <!-- autogen:xingcheng-containers -->
-*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2493 files · main+devin+git+local-model+rag+ui*
 | Magic | 定義/引用來源 |
 |---|---|
 | `XCB1` | devin:xingcheng/contracts/xnc/vectors/manifest.json, devin:xingcheng/src/backend/cpp/src/xcb_batch.h, devin:xingcheng/src/backend/rust/xcorpus/src/xcb.rs, git:xingcheng/contracts/xnc/vectors/manifest.json (+14) |
@@ -131,7 +131,7 @@ jobs/<id>/
 ## JSONL/JSON artifact 索引（producer → consumer）
 
 <!-- autogen:xingcheng-formats -->
-*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2493 files · main+devin+git+local-model+rag+ui*
 | format tag | 來源檔 |
 |---|---|
 | `coding-agent-trajectory/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs (+2) |
@@ -206,9 +206,10 @@ jobs/<id>/
 | `star-token-batch/v1` | devin:xingcheng/src/backend/rust/xcorpus/src/corpus.rs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xc_modeltool.cpp, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_corpus.h, git:xingcheng/src/backend/rust/xcorpus/src/corpus.rs (+14) |
 | `star-train-pause-state/v1` | devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, local-model:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h, xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_job.h (+2) |
 | `star-trainer-probe-report/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceChecks.cs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_canon.h, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceChecks.cs, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/training/xct_canon.h (+8) |
-| `star-transformer-sft/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs (+2) |
+| `star-transformer-sft/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/ConvergenceGate.cs (+3) |
 | `star-typed-decision/v1` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, devin:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_system1.h, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/LayaMiMoChecks.cs, git:xingcheng/src/backend/services/xingcheng/infrastructure/native_transformer/tools/xcm_system1.h (+8) |
 | `star-xcn-header/v1` | devin:xingcheng/src/backend/rust/xc-format/src/main.rs, git:xingcheng/src/backend/rust/xc-format/src/main.rs, local-model:xingcheng/src/backend/rust/xc-format/src/main.rs, xingcheng/src/backend/rust/xc-format/src/main.rs (+2) |
+| `star-xstore-metadata` | xingcheng/src/backend/rust/xstore/src/meta_tests.rs |
 | `star-xstore-metadata-epoch/v1` | xingcheng/src/backend/rust/xstore/src/meta_lease.rs |
 | `star-xstore-metadata-head/v1` | xingcheng/src/backend/rust/xstore/src/meta_index.rs |
 | `star-xstore-metadata-index/v1` | xingcheng/src/backend/rust/xstore/src/meta_index.rs |
@@ -256,7 +257,7 @@ jobs/<id>/
 ## PostgreSQL 表（`gptbridge_xingcheng`）
 
 <!-- autogen:xingcheng-pgtables -->
-*autogen-scanner/v1 · 2492 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2493 files · main+devin+git+local-model+rag+ui*
 | 表 | 定義/引用來源 |
 |---|---|
 | `transformer_adapter_candidate` | devin:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, git:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, local-model:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs, xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/Repository.cs (+2) |

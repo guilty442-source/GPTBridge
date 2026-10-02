@@ -323,6 +323,15 @@ void advisor_step(CycleEnv& env) {
          jobj({{"strained", jbool(sig.strained)},
                {"cpu_load_pct", jnum(round1(sig.cpu_load_pct))},
                {"mem_used_pct", jnum(round1(sig.mem_used_pct))},
+               {"cpu_load_ema",
+                decision.cpu_load_ema < 0.0
+                    ? jnull()
+                    : jnum(round1(decision.cpu_load_ema))},
+               {"mem_used_ema",
+                decision.mem_used_ema < 0.0
+                    ? jnull()
+                    : jnum(round1(decision.mem_used_ema))},
+               {"busy_cadence", jbool(decision.busy_cadence)},
                {"worker_demand", jbool(decision.demand)},
                {"headroom", jbool(decision.headroom)},
                {"worker_cpu_pct", jnum(round1(sig.worker_cpu_pct))},
