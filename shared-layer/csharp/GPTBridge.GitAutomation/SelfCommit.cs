@@ -15,6 +15,13 @@ internal static class SelfCommit
     public const string Actor = "governance/self-commit";
     public const string SyncActor = "governance/workspace-sync";
     private const double LeaseTtlSeconds = 120.0;
+    // The governed pre-commit hook runs the full native audit gate —
+    // a commit on a large tree legitimately takes minutes, so the
+    // generic 120 s subprocess cap killed every auto-commit mid-hook
+    // (and the kill also orphaned index.lock).  The 600 s ceiling
+    // matches the pipeline timeout precedent in SqlSync.
+    private const int AddTimeoutMs = 300_000;
+    private const int CommitTimeoutMs = 600_000;
 
     private static readonly string[] InProgressMarkers =
         { "MERGE_HEAD", "REBASE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD" };
@@ -25,6 +32,19 @@ internal static class SelfCommit
 
     private static bool StagedIndexPresent(string worktree) =>
         Git.Run(worktree, new[] { "diff", "--cached", "--quiet" }).Code == 1;
+
+    /// <summary>An index.lock whose creator is gone: git removes its own
+    /// lock on normal exit, so when no git process exists anywhere the
+    /// file can only be residue of a killed/crashed writer.  Any live
+    /// git process keeps the lock treated as real (fail-safe).</summary>
+    private static bool StaleIndexLock(string lockPath)
+    {
+        if (!File.Exists(lockPath))
+            return false;
+        var probes = System.Diagnostics.Process.GetProcessesByName("git");
+        try { return probes.Length == 0; }
+        finally { foreach (var probe in probes) probe.Dispose(); }
+    }
 
     public static string CommitMessage(
         string branch, Dictionary<string, string> entries)
@@ -151,16 +171,27 @@ internal static class SelfCommit
                 }
                 locked = true;
             }
+            var indexLock = Path.Combine(gitDir, "index.lock");
             var addGate = TierGate.Execute(projectRoot, worktree,
-                new[] { "add", "-A" }, actor);
+                new[] { "add", "-A" }, actor, AddTimeoutMs);
             for (var retry = 0; retry < 3; retry++)
             {
                 if (!addGate.Allowed || addGate.Result!.Code == 0
                     || !addGate.Result!.Stderr.Contains("index.lock"))
                     break;
                 Thread.Sleep(3000);
+                // A git process killed on timeout never unwinds its
+                // index.lock — with no git process alive anywhere the
+                // lock is a corpse, so reclaim it instead of waiting out
+                // retries that can never succeed.
+                if (StaleIndexLock(indexLock))
+                {
+                    try { File.Delete(indexLock); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
                 addGate = TierGate.Execute(projectRoot, worktree,
-                    new[] { "add", "-A" }, actor);
+                    new[] { "add", "-A" }, actor, AddTimeoutMs);
             }
             if (!addGate.Allowed || addGate.Result is null
                 || addGate.Result.Code != 0)
@@ -186,7 +217,7 @@ internal static class SelfCommit
             if (Status.Capture(worktree).Clean)
                 return "nothing-staged";
             var commitGate = TierGate.Execute(projectRoot, worktree,
-                new[] { "commit", "-F", msgFile }, actor);
+                new[] { "commit", "-F", msgFile }, actor, CommitTimeoutMs);
             if (!commitGate.Allowed || commitGate.Result is null
                 || commitGate.Result.Code != 0)
             {
@@ -200,6 +231,15 @@ internal static class SelfCommit
                     returncode: commitGate.Result?.Code ?? -1);
                 try
                 {
+                    // A killed commit can orphan index.lock; the
+                    // unstage would then fail too, leaving the sweep
+                    // permanently stuck on staged-index-present.
+                    if (StaleIndexLock(indexLock))
+                    {
+                        try { File.Delete(indexLock); }
+                        catch (IOException) { }
+                        catch (UnauthorizedAccessException) { }
+                    }
                     TierGate.Execute(projectRoot, worktree,
                         new[] { "restore", "--staged", "." }, actor);
                 }

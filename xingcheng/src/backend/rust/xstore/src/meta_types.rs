@@ -46,6 +46,11 @@ pub const RT_GRANT_REF: &str = "resource_grant_ref";
 pub const RT_RES_RECEIPT: &str = "resource_usage_receipt";
 pub const RT_SCHEMA_META: &str = "schema_metadata";
 pub const RT_MIGRATION: &str = "migration_marker";
+/// Role-DB source lanes (§54-§55): per-scope training corpora that the
+/// self-learning collectors read. Stateful — external writers update
+/// active/quality_score/paired, so these upsert with revision++.
+pub const RT_ROLE_EXAMPLE: &str = "role_training_example";
+pub const RT_ROLE_PAIR: &str = "role_preference_pair";
 
 /// Every registered record type — unknown types fail closed.
 pub const RECORD_TYPES: &[&str] = &[
@@ -54,7 +59,7 @@ pub const RECORD_TYPES: &[&str] = &[
     RT_CAP_EVIDENCE, RT_CAP_FLOOR, RT_CAP_DELTA, RT_CAP_BINDING,
     RT_CAP_MATURITY, RT_GENERATION, RT_LIFECYCLE, RT_SELFLEARN,
     RT_MATURATION, RT_TEACHER, RT_GRANT_REF, RT_RES_RECEIPT,
-    RT_SCHEMA_META, RT_MIGRATION,
+    RT_SCHEMA_META, RT_MIGRATION, RT_ROLE_EXAMPLE, RT_ROLE_PAIR,
 ];
 
 /// Append-only types: a committed record may never be mutated (§5 —

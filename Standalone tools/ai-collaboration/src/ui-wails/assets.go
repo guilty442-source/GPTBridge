@@ -29,6 +29,14 @@ window.electron = {
 		return window.runtime.EventsOn(name, function (data) { cb(data); });
 	}
 };
+// TEMP-DEBUG: surface renderer errors via an asset request.
+window.addEventListener("error", function (e) {
+	try { fetch("/__dbg?m=" + encodeURIComponent("ERR " + (e.message || "") + " @" + (e.filename || "") + ":" + (e.lineno || 0))); } catch (_) {}
+});
+window.addEventListener("unhandledrejection", function (e) {
+	try { fetch("/__dbg?m=" + encodeURIComponent("REJ " + String(e.reason))); } catch (_) {}
+});
+try { fetch("/__dbg?m=bridge-ready go=" + typeof window.go + " rt=" + typeof window.runtime); } catch (_) {}
 `
 
 var safeName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)

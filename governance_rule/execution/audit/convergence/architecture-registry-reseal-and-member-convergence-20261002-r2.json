@@ -1,0 +1,71 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "architecture-registry-reseal-and-member-convergence-20261002",
+  "title": "Re-seal architecture_diagram_artifact_registry content hashes and converge retired-module, sub-sovereign and registration/activation residues",
+  "summary": "Governor worklist (2026-10-02): (1) the four xingcheng diagram artifacts changed after the 13:44:01Z seal (autogen re-scan + F# eval lane + capability count fixes), so their part-5 registry content_hash entries are stale — publication rebinds every active row via the atomic RebuildDiagramSync step and the explicit rows below record the measured post-edit hashes; (2) B9 residue: module_capability_registry.global-cleaner still carries status=registered-current while its runtime_state/availability/execution_identity are already retired and the directory row is retired (2026-09-16) — status set to retired; module_assignment_registry.GLOBAL_CLEANER aligned from legacy-modular-dispatch-B162 to retired-no-current-dispatch (same vocabulary SYSTEM_RESCUE already uses); (3) B11 residue: the superseded B11 CONTROL:sub-sovereign clause is immutable history, but an assertion row formally binds it as non-operative retired vocabulary under A102/B162 so mirror readers cannot mistake it for live law; (4) B5 convergence: B166 narrowed to principles — Python total-ban, one-owner, no-authority-drift, fail-closed retained; the C/C++/C#/F#/Rust/Go division, tool names, UI shells and implementation details resolve from the registered language contract and dependency directories outside the Codex text (B170 already mandates directory resolution); (5) BLOCK_XINGCHENG/UNIT_ASSISTANT: registration (directory presence) and activation (mandated + INCOMPLETE_EVIDENCE) are recorded as distinct states in activation evidence and assertion rows instead of a single ambiguous status.",
+  "requested_by": "decision-sovereign",
+  "origin": "direct human-governor instruction: re-run architecture hash sync and re-seal architecture_diagram_artifact_registry; remove CONTROL:sub-sovereign residue (sub-sovereign retired, formal authorization/governance gate owns control); clear retired global-cleaner/system-rescue from current module-execution-layer registries; converge the B5 conflict keeping the Python prohibition principle while moving language division/tool names/implementation details to the formal registry/contract; record BLOCK_XINGCHENG/UNIT_ASSISTANT with explicit registration/activation dual state.",
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "auto_execute": true,
+  "predecessor": {
+    "codex_version": "2026-10-02T13:44:01Z",
+    "version_identity": "E2:2026-10-02T13:44:01Z",
+    "version_epoch": 2,
+    "history_head": "fd5a6aa0553c6ae59be26cbc5f0ada4a7a936619f834d5175a6e53748c13cfbd",
+    "revision_sequence": 246
+  },
+  "problem": {
+    "summary": "Four ARCH_XINGCHENG_* registry rows still carry the 13:44:01Z content_hash while the on-disk artifacts moved (autogen re-scan 2496 to 2497 files, verb count 401, F# eval lane added); module_capability_registry.global-cleaner reads status=registered-current although every other field and the directory mark it retired; GLOBAL_CLEANER dispatch is legacy while SYSTEM_RESCUE is retired-no-current-dispatch; superseded B11 CONTROL:sub-sovereign can read as live control vocabulary without an explicit retirement binding; B166 packs implementation detail (language pools, tool names, UI shells, runtimes) into normative text contrary to B5; BLOCK_XINGCHENG/UNIT_ASSISTANT appear registered in the directory while activation is mandated+INCOMPLETE_EVIDENCE with no explicit dual-state marker.",
+    "affected": ["architecture_diagram_artifact_registry","module_capability_registry","module_assignment_registry","articles (B166)","architecture_activation_states","architecture_assertion_evidence"],
+    "scope": "codex registry/article convergence and hash reseal only; the physical teacher-distillation.json stub removal is claimed by the devin-ollama-removal worker and is out of scope here; superseded article text (B9/B11) is immutable history and is bound by assertion evidence rather than rewritten"
+  },
+  "changes": [
+    {"table":"module_capability_registry","key":{"module_identity":"global-cleaner"},"field":"status","proposed":"retired"},
+    {"table":"module_assignment_registry","key":{"module_architecture_code":"GLOBAL_CLEANER"},"field":"status","proposed":"retired-no-current-dispatch"},
+    {"table":"articles","key":{"provision_id":"B166"},"field":"rule","proposed":"LANGUAGE-AUTHORITY:this provision is the sole current Codex-level language-allocation and UI-stack controller and records principles only;per B5 every per-capability language division,tool name,version pin,UI-shell selection and implementation detail is governed outside the Codex by the responsible owner through the registered language contract and governed dependency directories,and such external facts are subordinate operational artifacts that never amend law. NATIVE-ONLY:production uses verified precompiled native artifacts;no interpreter,script engine or runtime-source compiler enters production. PYTHON:total-ban with zero source,runtime,interpreter,environment,package,dependency,build,test,audit,training,inference,script,tool,artifact,proxy,bridge,reference or fallback. ONE-OWNER:each capability has exactly one current primary language owner under a typed boundary;allocation changes only inside the same registered capability contract and resource ceiling with atomic promotion and rollback. NO-AUTHORITY-DRIFT:language choice never creates authority,changes business semantics,bypasses permission or introduces a second scheduler or orchestrator. DATA:PostgreSQL remains the sole structured authority and is not an application-language owner. FAILURE:missing or regressing evidence retains the current verified owner or fails closed."},
+    {"table":"articles","key":{"provision_id":"B166"},"field":"prohibition","proposed":"FORBID:Python-or-interpreted-runtime-in-production+multiple-current-language-owners+unmeasured-reallocation+authority-drift+contract-bypass+runtime-compilation+unregistered-language-runtime+language-choice-creating-authority+language-owner-direct-database-access+permission-bypass+duplicate-owner+external-registry-or-contract-payload-imported-as-law"},
+    {"table":"architecture_activation_states","key":{"architecture_code":"BLOCK_XINGCHENG"},"field":"activation_evidence","proposed":"DUAL-STATE:registration=registered-current (project_architecture_directory presence, no retired_version);activation=mandated;governance_rule/execution/audit/convergence/xingcheng-host-root-observation-20261002.json#BLOCK_XINGCHENG;registered target root absent;member source root still top-level xingcheng;separate host not independently verified;approved physical-migration amendment required before relocation;no activation acceptance"},
+    {"table":"architecture_activation_states","key":{"architecture_code":"UNIT_ASSISTANT"},"field":"activation_evidence","proposed":"DUAL-STATE:registration=registered-current (project_architecture_directory presence, no retired_version);activation=mandated;governance_rule/execution/audit/convergence/xingcheng-host-root-observation-20261002.json#UNIT_ASSISTANT;registered target root absent;member source root still top-level xingcheng;separate host not independently verified;approved physical-migration amendment required before relocation;no activation acceptance"}
+  ],
+  "proposed_successors": [
+    {"registry":"architecture_diagram_artifact_registry","action":"update","key":{"diagram_code":"ARCH_XINGCHENG_ARCHITECTURE"},"set":{"content_hash":"e6650120a4cd7bdee0b20d491faa3a82076a35caf95f358eff564bf398cf4884","source_codex_version":"<successor-version>","validated_at_utc":"2026-10-02T14:25:00Z","sync_status":"SYNCED_CURRENT"}},
+    {"registry":"architecture_diagram_artifact_registry","action":"update","key":{"diagram_code":"ARCH_XINGCHENG_CAPABILITIES"},"set":{"content_hash":"920ef1bb322a881cb0579ba6f5db8cf52192d3882c45ae5b0d650b4736f15a0f","source_codex_version":"<successor-version>","validated_at_utc":"2026-10-02T14:25:00Z","sync_status":"SYNCED_CURRENT"}},
+    {"registry":"architecture_diagram_artifact_registry","action":"update","key":{"diagram_code":"ARCH_XINGCHENG_DATA"},"set":{"content_hash":"f654877e2f3ce824810a378c8d559037a0646d363cb2143a2f5777aa3d0fad23","source_codex_version":"<successor-version>","validated_at_utc":"2026-10-02T14:25:00Z","sync_status":"SYNCED_CURRENT"}},
+    {"registry":"architecture_diagram_artifact_registry","action":"update","key":{"diagram_code":"ARCH_XINGCHENG_PARAMETERS"},"set":{"content_hash":"36a1b2b5ab9a27642560f6a11cbca40d13ea080d7c0dadb1ef032dc5273e883a","source_codex_version":"<successor-version>","validated_at_utc":"2026-10-02T14:25:00Z","sync_status":"SYNCED_CURRENT"}},
+    {"registry":"architecture_assertion_evidence","action":"insert","rows":[
+      {"assertion_code":"BLOCK_XINGCHENG_REGISTRATION_STATE","expected_value":"registered-current","observed_value":"registered-current","result":"PASS","evidence":"project_architecture_directory presence without retired_version is registration only;activation remains mandated and is not active membership","version_identity":"<successor-version>","status":"current"},
+      {"assertion_code":"BLOCK_XINGCHENG_ACTIVATION_STATE","expected_value":"mandated","observed_value":"mandated+INCOMPLETE_EVIDENCE","result":"PASS","evidence":"registration and activation are distinct states;a mandated identity with INCOMPLETE_EVIDENCE is never presented as active","version_identity":"<successor-version>","status":"current"},
+      {"assertion_code":"UNIT_ASSISTANT_REGISTRATION_STATE","expected_value":"registered-current","observed_value":"registered-current","result":"PASS","evidence":"project_architecture_directory presence without retired_version is registration only;activation remains mandated and is not active membership","version_identity":"<successor-version>","status":"current"},
+      {"assertion_code":"UNIT_ASSISTANT_ACTIVATION_STATE","expected_value":"mandated","observed_value":"mandated+INCOMPLETE_EVIDENCE","result":"PASS","evidence":"registration and activation are distinct states;a mandated identity with INCOMPLETE_EVIDENCE is never presented as active","version_identity":"<successor-version>","status":"current"},
+      {"assertion_code":"B11_SUB_SOVEREIGN_CONTROL_RETIRED","expected_value":"non-operative-lineage","observed_value":"non-operative-lineage","result":"PASS","evidence":"superseded B11 CONTROL:sub-sovereign is immutable retired vocabulary under A102;current control boundary is the B162 five-core model and B106 pipeline stages carry no sub-sovereign owner","version_identity":"<successor-version>","status":"current"},
+      {"assertion_code":"B9_MODULE_ROSTER_RETIRED_MEMBER_CONVERGENCE","expected_value":"no-retired-member-current","observed_value":"no-retired-member-current","result":"PASS","evidence":"module_capability_registry.global-cleaner status=retired and module_assignment_registry.GLOBAL_CLEANER=retired-no-current-dispatch;current roster per B114/B123 lineage contains no retired member","version_identity":"<successor-version>","status":"current"}
+    ]}
+  ],
+  "acceptance": {
+    "expected_state": "every active architecture_diagram_artifact_registry row binds source_codex_version=successor with content_hash equal to the on-disk artifact sha256;module_capability_registry.global-cleaner status=retired;module_assignment_registry.GLOBAL_CLEANER=retired-no-current-dispatch;B166 rule carries the Python total-ban principle with division/tool/detail resolution deferred to the registered language contract;BLOCK_XINGCHENG and UNIT_ASSISTANT carry explicit registration/activation dual-state evidence plus assertion rows",
+    "criteria": [
+      "all active registry rows show sync_status=SYNCED_CURRENT at the successor version and file-hash parity",
+      "module_capability_registry has zero registered-current rows whose runtime_state=retired",
+      "B166 retains the PYTHON total-ban clause and no per-language tool enumeration",
+      "architecture_activation_states BLOCK_XINGCHENG/UNIT_ASSISTANT evidence declares registration=registered-current + activation=mandated",
+      "PostgreSQL/artifact parity PASS; zh-TW mirror parity PASS"
+    ],
+    "evidence": [
+      "gptbridge_codex.architecture_diagram_artifact_registry rows at 13:44:01Z vs current file sha256 (4 drifted xingcheng artifacts)",
+      "module_capability_registry.global-cleaner: status=registered-current with runtime_state=retired",
+      "architecture_activation_states BLOCK_XINGCHENG/UNIT_ASSISTANT: mandated+INCOMPLETE_EVIDENCE while directory presence reads as active registration",
+      "B162 LEGACY clause: implementation-specific wording is non-operative Codex detail under B5 pending lawful external custody"
+    ],
+    "out_of_scope": [
+      "physical deletion of xingcheng/xingcheng/runtime/settings/teacher-distillation.json (claimed by devin-ollama-removal worker until 2026-10-02T14:45Z; autogen listing resolves once the stub file is removed and the scanner re-runs)",
+      "rewriting superseded article text for B9/B11 (immutable history; bound via assertion evidence instead)",
+      "schema-level column additions to architecture_activation_states (dual state recorded within the existing evidence/assertion contract)",
+      "implementation-side B166 consumers; the registered language contract and dependency directories remain owner-local artifacts"
+    ]
+  }
+}

@@ -214,25 +214,24 @@ internal static class Program
                     .DatabaseStatus());
             if (flags.Contains("migrate"))
             {
-                // §102: the PG → xstore metadata backfill rides the
-                // existing --migrate verb (Phase A shadow replay, §87).
+                // xstore is the metadata authority — --migrate is the
+                // native maintenance tick (index rebuild + verify).
                 var repo = new TransformerTrainingRepository(toolRoot);
                 var outMap = new Dictionary<string, object?>
                 {
                     ["ok"] = true,
                     ["migrated"] = repo.Maintain(),
                 };
-                if (flags.Contains("xstore-backfill"))
-                    outMap["xstore_backfill"] =
-                        MetadataMigration.Backfill(repo);
                 if (flags.Contains("authority-flip"))
                 {
-                    // §45: single governed authority transition — every
-                    // §42 gate must pass before the marker commits.
+                    // §45-§46: idempotent authority receipt — returns
+                    // the committed transition, or commits a genesis
+                    // marker on a markerless native store after the
+                    // certification probes pass (fail-closed).
                     var meta = new NativeMetadataClient(
                         toolRoot, actor: "xingcheng-authority-flip");
                     outMap["authority_flip"] =
-                        MetadataAuthority.Flip(repo, meta);
+                        MetadataAuthority.Ensure(meta);
                     outMap["ok"] = (bool)outMap["ok"]! &&
                         (bool)(((Dictionary<string, object?>)
                             outMap["authority_flip"]!)["ok"] ?? false);

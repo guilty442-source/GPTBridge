@@ -1,18 +1,16 @@
-// MetadataAuthority.cs — Phase C authority flip (§42-§49) and the
-// NATIVE_METADATA_AUTHORITY_GATE report (§99-§100).
+// MetadataAuthority.cs — authority state + NATIVE_METADATA_AUTHORITY_GATE
+// (§45-§49, §99-§100).
 //
 // Authority state lives in the xstore metadata plane itself as
 // append-only `migration_marker` records carrying
-// `star-metadata-authority-transition/v1` payloads (§46). The CURRENT
-// authority is the new_authority of the newest transition marker; no
-// marker means the pre-migration default (postgresql). Resolution goes
-// through NativeMetadataClient only — C# never reads store files (§31).
+// `star-metadata-authority-transition/v1` payloads (§46). The
+// PostgreSQL → xstore flip committed on 2026-10-02; Phase D retired the
+// PG client entirely, so xstore is now the only possible authority —
+// the marker remains as the governed receipt of that transition, and a
+// fresh native store can commit a genesis marker through Ensure().
 //
-// The flip is a single governed transaction (§45): every pre-flight
-// gate (§42) must pass BEFORE the marker is written. Once the marker
-// commits, TransformerTrainingRepository routes every operation to
-// xstore and any surviving PG path answers EXTERNAL_DATABASE_DENIED
-// (§47).
+// Resolution goes through NativeMetadataClient only — C# never reads
+// store files (§31).
 
 using System.Text.Json;
 
@@ -35,7 +33,7 @@ internal static class MetadataAuthority
     // ------------------------------------------------------- resolution --
 
     /// <summary>Newest authority-transition marker, or null when the
-    /// migration has not flipped (Phase A default).</summary>
+    /// store carries no transition receipt yet.</summary>
     public static Dictionary<string, object?>? LatestTransition(
         NativeMetadataClient meta)
     {
@@ -58,29 +56,21 @@ internal static class MetadataAuthority
         return latest;
     }
 
-    /// <summary>Current metadata authority: "xstore" after the §45
-    /// flip, "postgresql" while no transition marker exists. An
-    /// unreachable xstore plane resolves to the Phase A default — the
-    /// plane cannot be authoritative if it cannot answer.</summary>
-    public static string Current(NativeMetadataClient meta)
-        => (LatestTransition(meta)?["new_authority"] as string) == "xstore"
-            ? "xstore"
-            : "postgresql";
+    /// <summary>Current metadata authority. PostgreSQL is retired — a
+    /// store without a transition marker is native by construction, so
+    /// the answer is always "xstore".</summary>
+    public static string Current(NativeMetadataClient meta) => "xstore";
 
     // ------------------------------------------------------------ gates --
 
-    /// <summary>§42 pre-flip gates. Returns the gate report; every
-    /// entry must pass before Flip() writes the marker. Crash and
-    /// concurrency probes run on a THROWAWAY store — the production
-    /// store is never deliberately corrupted (§95-§97 matrix).</summary>
-    public static Dictionary<string, object?> PreFlipGates(
-        TransformerTrainingRepository repo, NativeMetadataClient meta)
+    /// <summary>Certification probes run on a THROWAWAY store — the
+    /// production store is never deliberately corrupted
+    /// (§42, §94-§97 matrix). Also used as pre-commit evidence when a
+    /// store without a marker needs its genesis transition.</summary>
+    public static Dictionary<string, object?> CertificationProbes(
+        NativeMetadataClient meta)
     {
         var gates = new Dictionary<string, object?>();
-
-        var parity = MetadataParityCheck.Run(repo);
-        gates["parity"] = Gate("parity", (bool)(parity["ok"] ?? false),
-            (parity["status"] as string) ?? "?");
 
         var verify = meta.Verify();
         bool auditOk = Truth(verify, "ok") &&
@@ -121,8 +111,8 @@ internal static class MetadataAuthority
         };
     }
 
-    /// <summary>§100 gate — also emitted standalone after the flip so
-    /// release gates can re-verify without re-running probes.</summary>
+    /// <summary>§100 gate — emitted standalone so release gates can
+    /// re-verify without re-running probes.</summary>
     public static Dictionary<string, object?> Gate(NativeMetadataClient meta)
     {
         var report = new Dictionary<string, object?>
@@ -139,17 +129,14 @@ internal static class MetadataAuthority
             bool integrity = Truth(verify, "ok") &&
                              Truth(verify, "schema_identity_ok") &&
                              Truth(verify, "invariants_ok");
-            string authority = marker != null
-                ? (marker["new_authority"] as string) ?? "postgresql"
-                : "postgresql";
-            report["metadata_authority"] = authority;
-            report["postgres_required"] = authority != "xstore";
-            report["shadow_mode"] = authority != "xstore";
+            report["metadata_authority"] = "xstore";
+            report["postgres_required"] = false;
+            report["shadow_mode"] = false;
             report["dual_write"] = false;
+            report["transition_marker"] = marker != null;
             report["audit_root_valid"] = auditRoot;
             report["metadata_integrity"] = integrity ? "PASS" : "FAIL";
-            report["ok"] = authority == "xstore" &&
-                           auditRoot && integrity;
+            report["ok"] = auditRoot && integrity;
             report["status"] = (bool)report["ok"]! ? "PASS" : "FAIL";
         }
         catch (Exception e)
@@ -161,16 +148,44 @@ internal static class MetadataAuthority
         return report;
     }
 
-    // ------------------------------------------------------------- flip --
+    // ------------------------------------------------------ ensure/genesis --
 
-    /// <summary>§45-§46: gated authority transition. Writes the
-    /// `star-metadata-authority-transition/v1` marker as an append-only
-    /// migration_marker record — the receipt IS the record.</summary>
-    public static Dictionary<string, object?> Flip(
-        TransformerTrainingRepository repo, NativeMetadataClient meta)
+    /// <summary>Ensure the store carries a governed authority receipt
+    /// (§45-§46). Idempotent:
+    ///   - xstore marker with complete production-gate evidence →
+    ///     "already-flipped";
+    ///   - xstore marker missing production-gate fields → a
+    ///     reaffirmation marker is committed, carrying the original
+    ///     parity hash forward and re-running the live probes;
+    ///   - no marker → a genesis transition commits only after the
+    ///     certification probes pass — fail-closed otherwise.</summary>
+    public static Dictionary<string, object?> Ensure(
+        NativeMetadataClient meta)
     {
         string now = TransformerTrainingRepository.Now();
-        var gates = PreFlipGates(repo, meta);
+        var existing = LatestTransition(meta);
+        if (existing != null &&
+            (existing["new_authority"] as string) == "xstore")
+        {
+            bool complete =
+                NativeMetadataProductionGate.Evaluate(
+                    existing, meta.Verify(),
+                    postgresRuntimeDependency: false)
+                    .TryGetValue("ok", out var okObj) &&
+                okObj is true;
+            if (complete)
+                return new Dictionary<string, object?>
+                {
+                    ["format"] = TransitionFormat,
+                    ["ok"] = true,
+                    ["status"] = "already-flipped",
+                    ["marker_record_id"] = existing["record_id"],
+                    ["timestamp"] = now,
+                };
+            return Reaffirm(meta, existing, now);
+        }
+
+        var gates = CertificationProbes(meta);
         if (!(bool)gates["ok"]!)
         {
             return new Dictionary<string, object?>
@@ -183,11 +198,90 @@ internal static class MetadataAuthority
             };
         }
 
-        var parity = MetadataParityCheck.Run(repo);
         var verify = meta.Verify();
         var snap = meta.Snapshot();
-        string parityHash = TransformerTrainingRepository.Sha256Text(
-            CanonicalJson.CanonicalDict(parity));
+        var marker = new Dictionary<string, object?>
+        {
+            ["record_id"] = MarkerPrefix + now.Replace(":", "")
+                .Replace("+", "p").Replace(".", ""),
+            ["format"] = TransitionFormat,
+            ["old_authority"] = "none",
+            ["new_authority"] = "xstore",
+            ["snapshot_root"] = snap.TryGetProperty("snapshot_sha256", out var s)
+                ? s.GetString() : "",
+            ["audit_root"] = verify.TryGetProperty("receipts", out var r) &&
+                             r.TryGetProperty("head", out var h)
+                ? h.GetString() : "",
+            ["gates"] = ((Dictionary<string, object?>)gates["gates"]!)
+                .ToDictionary(kv => kv.Key,
+                    kv => (object?)((Dictionary<string, object?>)kv.Value)["ok"]),
+            ["timestamp"] = now,
+        };
+        var mutation = meta.PutRecord(
+            NativeMetadataClient.Types.MigrationMarker, marker,
+            operationId: $"authority-ensure-{now}");
+
+        return new Dictionary<string, object?>
+        {
+            ["format"] = TransitionFormat,
+            ["ok"] = true,
+            ["status"] = "genesis-committed",
+            ["old_authority"] = "none",
+            ["new_authority"] = "xstore",
+            ["marker_record_id"] = marker["record_id"],
+            ["snapshot_root"] = marker["snapshot_root"],
+            ["audit_root"] = marker["audit_root"],
+            ["transaction_id"] = mutation.TryGetProperty("transaction_id", out var t)
+                ? t.GetString() : "",
+            ["gates"] = gates["gates"],
+            ["timestamp"] = now,
+        };
+    }
+
+    /// <summary>Append-only reaffirmation of the committed PG → xstore
+    /// transition (§46): carries the original parity evidence forward
+    /// verbatim and re-runs the live certification probes so the newest
+    /// marker satisfies every production-gate field.</summary>
+    private static Dictionary<string, object?> Reaffirm(
+        NativeMetadataClient meta,
+        Dictionary<string, object?> prior,
+        string now)
+    {
+        var gates = CertificationProbes(meta);
+        var verify = meta.Verify();
+        var snap = meta.Snapshot();
+
+        var priorGates = prior.TryGetValue("gates", out var pg) &&
+                         pg is Dictionary<string, object?> pd
+            ? pd : new Dictionary<string, object?>();
+        bool priorParity = priorGates.TryGetValue("parity", out var pv) &&
+                           pv is true;
+        string parityHash = (prior["parity_report_hash"] as string) ?? "";
+
+        bool Probe(string name)
+            => ((Dictionary<string, object?>)gates["gates"]!)
+                .TryGetValue(name, out var g) &&
+               g is Dictionary<string, object?> gd &&
+               gd.TryGetValue("ok", out var ok) && ok is true;
+
+        var merged = new Dictionary<string, object?>
+        {
+            // Backfill + parity ran in Phase A — the carried parity
+            // hash is their evidence root.
+            ["backfill"] = parityHash.Length == 64 && priorParity,
+            ["parity"] = priorParity && parityHash.Length == 64,
+            ["audit_verify"] = Probe("audit_verify"),
+            ["metadata_integrity"] = Probe("metadata_integrity"),
+            ["crash_recovery"] = Probe("crash_recovery"),
+            ["concurrent_writer"] = Probe("concurrent_writer"),
+            ["replay_restart"] = Probe("replay_restart"),
+            ["metadata_snapshot"] =
+                snap.TryGetProperty("snapshot_sha256", out var ss) &&
+                ss.ValueKind == JsonValueKind.String &&
+                (ss.GetString() ?? "").Length == 64,
+            ["index_rebuild"] = verify.TryGetProperty("index_fresh",
+                out var idx) && idx.ValueKind == JsonValueKind.True,
+        };
 
         var marker = new Dictionary<string, object?>
         {
@@ -196,35 +290,35 @@ internal static class MetadataAuthority
             ["format"] = TransitionFormat,
             ["old_authority"] = "postgresql",
             ["new_authority"] = "xstore",
-            ["snapshot_root"] = snap.TryGetProperty("snapshot_sha256", out var s)
-                ? s.GetString() : "",
+            ["reaffirms"] = prior["record_id"],
+            ["metadata_root"] = verify.TryGetProperty("head_hash",
+                out var hh) ? hh.GetString() : "",
+            ["snapshot_root"] = snap.TryGetProperty("snapshot_sha256",
+                out var s2) ? s2.GetString() : "",
             ["audit_root"] = verify.TryGetProperty("receipts", out var r) &&
                              r.TryGetProperty("head", out var h)
                 ? h.GetString() : "",
             ["parity_report_hash"] = parityHash,
-            ["gates"] = ((Dictionary<string, object?>)gates["gates"]!)
-                .ToDictionary(kv => kv.Key,
-                    kv => (object?)((Dictionary<string, object?>)kv.Value)["ok"]),
+            ["gates"] = merged,
             ["timestamp"] = now,
         };
         var mutation = meta.PutRecord(
             NativeMetadataClient.Types.MigrationMarker, marker,
-            operationId: $"authority-flip-{now}");
+            operationId: $"authority-reaffirm-{now}");
 
+        bool allOk = merged.Values.All(v => v is true);
         return new Dictionary<string, object?>
         {
             ["format"] = TransitionFormat,
-            ["ok"] = true,
-            ["status"] = "flipped",
+            ["ok"] = allOk,
+            ["status"] = allOk ? "reaffirmed" : "gates-failed",
             ["old_authority"] = "postgresql",
             ["new_authority"] = "xstore",
             ["marker_record_id"] = marker["record_id"],
-            ["snapshot_root"] = marker["snapshot_root"],
-            ["audit_root"] = marker["audit_root"],
-            ["parity_report_hash"] = parityHash,
-            ["transaction_id"] = mutation.TryGetProperty("transaction_id", out var t)
-                ? t.GetString() : "",
-            ["gates"] = gates["gates"],
+            ["reaffirms"] = prior["record_id"],
+            ["transaction_id"] = mutation.TryGetProperty("transaction_id",
+                out var t) ? t.GetString() : "",
+            ["gates"] = merged,
             ["timestamp"] = now,
         };
     }

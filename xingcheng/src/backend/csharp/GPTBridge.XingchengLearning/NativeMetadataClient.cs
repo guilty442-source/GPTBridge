@@ -77,6 +77,9 @@ internal sealed class NativeMetadataClient
         public const string ResourceUsageReceipt = "resource_usage_receipt";
         public const string SchemaMetadata = "schema_metadata";
         public const string MigrationMarker = "migration_marker";
+        // §54-§55 role-DB source lanes migrated onto the native plane.
+        public const string RoleExample = "role_training_example";
+        public const string RolePair = "role_preference_pair";
     }
 
     private readonly string _exe;

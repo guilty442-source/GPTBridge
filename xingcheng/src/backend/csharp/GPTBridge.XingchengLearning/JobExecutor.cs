@@ -1860,36 +1860,31 @@ internal sealed class TrainingJobExecutor
         IReadOnlyDictionary<string, object?> job,
         IReadOnlyDictionary<string, object?> summary)
     {
-        using var db = Pg.Connect(_repo.Schema, autocommit: false);
-        try
-        {
-            var runtime = _repo.RuntimeModelState();
-            _repo.AppendAudit(db,
-                eventType: "training-job-executed",
-                entityType: "training-job",
-                entityId: (string)job["job_id"]!,
-                payload: new Dictionary<string, object?>
-                {
-                    ["dataset_id"] = job["dataset_id"],
-                    ["configuration_sha256"] = job["configuration_sha256"],
-                    ["steps"] = summary.GetValueOrDefault("steps"),
-                    ["tokens_seen"] = summary.GetValueOrDefault("tokens_seen"),
-                    ["final_loss"] = summary.GetValueOrDefault("loss_last"),
-                    ["eval"] = summary.GetValueOrDefault("eval")
+        var runtime = _repo.RuntimeModelState();
+        // §17-§18: the repository's standalone audit lane commits on the
+        // canonical plane (xstore post-flip; PG tx pre-flip) — no direct
+        // connection handling here.
+        _repo.AuditEvent(
+            eventType: "training-job-executed",
+            entityType: "training-job",
+            entityId: (string)job["job_id"]!,
+            payload: new Dictionary<string, object?>
+            {
+                ["dataset_id"] = job["dataset_id"],
+                ["configuration_sha256"] = job["configuration_sha256"],
+                ["steps"] = summary.GetValueOrDefault("steps"),
+                ["tokens_seen"] = summary.GetValueOrDefault("tokens_seen"),
+                ["final_loss"] = summary.GetValueOrDefault("loss_last"),
+                ["eval"] = summary.GetValueOrDefault("eval")
+                           ?? new Dictionary<string, object?>(),
+                ["resource"] = summary.GetValueOrDefault("resource")
                                ?? new Dictionary<string, object?>(),
-                    ["resource"] = summary.GetValueOrDefault("resource")
-                                   ?? new Dictionary<string, object?>(),
-                    ["output_path"] = job["output_path"]?.ToString() ?? "",
-                    ["automatic_weight_replacement"] = Convert.ToInt32(
-                        runtime.GetValueOrDefault("automatic_weight_replacement") ?? 0),
-                });
-            db.Commit();
-        }
-        catch
-        {
-            db.Rollback();
-            throw;
-        }
+                ["output_path"] = job["output_path"]?.ToString() ?? "",
+                ["automatic_weight_replacement"] =
+                    TransformerTrainingRepository.Truthy(
+                        runtime.GetValueOrDefault(
+                            "automatic_weight_replacement")) ? 1 : 0,
+            });
     }
 
     public Dictionary<string, object?>? RunNext()

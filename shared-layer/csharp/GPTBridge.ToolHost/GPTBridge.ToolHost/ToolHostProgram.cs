@@ -32,19 +32,26 @@ public static class ToolHostProgram
     /// <summary>Full form — the factory also receives a lazy transport
     /// accessor so the executor can bind submit-side channel clients
     /// (the transport exists once the worker loop's hello completes;
-    /// null before that keeps callers fail-closed).</summary>
+    /// null before that keeps callers fail-closed). When
+    /// <paramref name="allowDeferredTransport"/> is set, a missing
+    /// proxy entry yields a deferred store-less claim lane (the Go
+    /// lane's optional-sidecar convention) instead of PERMISSION_DENIED
+    /// — the WS command surface stays the only request path and the
+    /// deferred state is reported honestly in health.</summary>
     public static async Task<int> RunAsync(
         Func<GovernedEnvironment, Func<IToolTransport?>,
             IGovernedCommandExecutor> executorFactory,
         string version,
         string[]? processingChannels = null,
         IReadOnlyDictionary<string, SubmitBinding>? submitChannels =
-            null)
+            null,
+        bool allowDeferredTransport = false)
     {
         GovernedEnvironment env;
         try
         {
-            env = GovernedEnvironment.Load();
+            env = GovernedEnvironment.Load(
+                sidecarOptional: allowDeferredTransport);
         }
         catch (PermissionDeniedException)
         {
@@ -58,6 +65,9 @@ public static class ToolHostProgram
         var executor = executorFactory(env, () => hostRef?.Transport);
         await using var host = new GovernedToolHost(
             env, executor, version,
+            transportFactory: env.SidecarDeferred
+                ? _ => new DeferredStoreTransport()
+                : null,
             processingChannels: processingChannels,
             submitChannels: submitChannels);
         hostRef = host;
