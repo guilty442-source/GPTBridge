@@ -1693,6 +1693,12 @@ Worker rules for codex work:
    B155/B25/A130/C32(rule+exception)/P113 de-Ollama'd,
    FR-OLLAMA-ON-DEMAND and module_capability_registry 'ollama'
    retired, ollama metadata keys carry retired markers.
+   Follow-up EXECUTED (rev 242, 2026-10-02T13:04Z):
+   `codex-amendment-request-module-capability-retired-residue-20261002-r4`
+   — module_capability_registry rows sub-sovereign-orchestration,
+   model-training, module-sqlite and system-rescue stamped
+   status/runtime_state/availability=retired (r1-r3 rejected on stale
+   predecessor / intake read race).
 8. **Codex open evidence gaps block verified release.**
     `postgresql_role_registry` is now populated (48 rows observed live
     2026-10-02, live↔registry delta = 0, evidence
