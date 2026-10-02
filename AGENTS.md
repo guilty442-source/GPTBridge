@@ -383,10 +383,13 @@ spellings (`reading` → `reading_grounding`).
 
 `FeatureCatalog` is the *Implementation Feature Catalog* (§29): it
 answers "which mechanisms exist?", never "which capabilities are
-mature?". Later phases (pending): `star-capability-evidence/v1`,
-`ArchitectureCapabilityBinding`, `CapabilityDeltaReport`, capability_id
-propagation into autonomous learning / resource requests / accel plan,
-release-gate consistency wiring, alias convergence.
+mature?". Phase 3 landed: `CapabilityEvidence`
+(`star-capability-evidence/v1`, §20 hash-bound evidence chain) and
+`CapabilityDelta` (`star-capability-delta/v1`, §90-§92 promotion
+delta). Later phases (pending): `ArchitectureCapabilityBinding`
+promotion to a standalone contract, capability_id propagation into
+autonomous learning / resource requests / accel plan, release-gate
+consistency wiring (§101), alias convergence of legacy names (§103).
 
 ## 星澄 Model Maturity (`star-model-maturity/v1`)
 

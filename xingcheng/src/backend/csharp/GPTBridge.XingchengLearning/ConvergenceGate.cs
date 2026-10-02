@@ -260,6 +260,26 @@ $"gate-stderr-{Environment.ProcessId}.log";
                 return TruthyField(v, "ok",
                     $"catalog-validate emitted={emitted.Count}");
             }),
+            // §101/§102 Capability Architecture Consistency Gate:
+            // emit registry + graph, validate the persisted registry,
+            // then run the §102 violation battery — any finding fails
+            // the release step (deny on gap).
+            new("capability-consistency", true, () =>
+            {
+                CapabilityRegistry.Emit(toolRoot);
+                CapabilityGraph.Emit(toolRoot);
+                string rf = Path.Combine(toolRoot,
+                    CapabilityRegistry.Rel.Replace('/',
+                        Path.DirectorySeparatorChar));
+                var v = CapabilityRegistry.Validate(rf);
+                if (!TransformerTrainingRepository.Truthy(v["ok"]))
+                    return Fail("CAPABILITY_REGISTRY_INVALID",
+                                "registry file failed validation");
+                var c = CapabilityConsistency.Run(toolRoot);
+                return TruthyField(c, "ok",
+                    $"capability-consistency findings=" +
+                    $"{c["finding_count"]}");
+            }),
             // ---------- bundle-bound runtime steps ----------
             new("architecture-drift", true, () => NeedBundle(() =>
                 ArchitectureDrift(bundle!))),
