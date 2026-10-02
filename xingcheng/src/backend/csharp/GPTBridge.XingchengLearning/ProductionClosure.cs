@@ -147,7 +147,7 @@ internal static class ProductionClosure
         {
             var metadata = new NativeMetadataClient(toolRoot);
             var gate = NativeMetadataProductionGate.Evaluate(MetadataAuthority.LatestTransition(metadata), metadata.Verify(),
-                typeof(ProductionClosure).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "Npgsql"));
+                NativeMetadataProductionGate.HasExternalReference(typeof(ProductionClosure).Assembly));
             if (!(bool)gate["ok"]!) throw new ExecutorError("PRODUCTION_CLOSURE_FREEZE_DENIED", "Native metadata authority is not certified.");
         }
         var doc = Load(toolRoot);
@@ -436,7 +436,7 @@ internal static class ProductionClosure
                 var live = NativeMetadataProductionGate.Evaluate(
                     MetadataAuthority.LatestTransition(new NativeMetadataClient(toolRoot)),
                     new NativeMetadataClient(toolRoot).Verify(),
-                    typeof(ProductionClosure).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "Npgsql"));
+                    NativeMetadataProductionGate.HasExternalReference(typeof(ProductionClosure).Assembly));
                 if (!(bool)live["ok"]!) throw new ExecutorError("PRODUCTION_CERT_INVALID", "Native metadata authority gate has unresolved evidence.");
             }
             if (axis == "soak" && (!proof.TryGetProperty("duration_s", out var duration)

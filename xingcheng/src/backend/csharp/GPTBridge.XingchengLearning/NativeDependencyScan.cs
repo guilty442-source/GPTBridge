@@ -88,6 +88,9 @@ internal static class NativeDependencyScan
         bool dev = baseName.StartsWith("_", StringComparison.Ordinal) ||
                    r.Contains("/test_suites/", StringComparison.Ordinal) ||
                    r.Contains("/tests/", StringComparison.Ordinal) ||
+                   // *.Tests assemblies are verification tooling — they
+                   // never ship inside a production binary.
+                   r.Contains(".Tests/", StringComparison.Ordinal) ||
                    r.Contains("/fixtures/", StringComparison.Ordinal) ||
                    r.Contains("/_nfguard/", StringComparison.Ordinal) ||
                    r.Contains("/devin/", StringComparison.Ordinal);

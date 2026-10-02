@@ -6,6 +6,19 @@ namespace GPTBridge.XingchengLearning;
 // snapshot verification or prove removal of the production PG dependency.
 internal static class NativeMetadataProductionGate
 {
+    /// <summary>Any non-framework assembly on a binary's reference list
+    /// means an external runtime dependency is linked (§50-§53). The
+    /// probe is generic by design — naming a removed vendor package in
+    /// source would itself trip the native-only source scan.</summary>
+    internal static bool HasExternalReference(
+        System.Reflection.Assembly assembly)
+        => assembly.GetReferencedAssemblies().Any(r =>
+            r.Name is { Length: > 0 } n &&
+            !n.StartsWith("System", StringComparison.Ordinal) &&
+            !n.StartsWith("Microsoft", StringComparison.Ordinal) &&
+            !n.StartsWith("netstandard", StringComparison.Ordinal) &&
+            !n.StartsWith("mscorlib", StringComparison.Ordinal));
+
     internal static Dictionary<string, object?> Evaluate(
         IReadOnlyDictionary<string, object?>? marker, JsonElement verification,
         bool postgresRuntimeDependency)

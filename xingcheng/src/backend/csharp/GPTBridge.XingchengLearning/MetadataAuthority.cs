@@ -149,7 +149,8 @@ internal static class MetadataAuthority
             report["audit_root_valid"] = auditRoot;
             report["metadata_integrity"] = integrity ? "PASS" : "FAIL";
             var strict = NativeMetadataProductionGate.Evaluate(marker, verify,
-                typeof(MetadataAuthority).Assembly.GetReferencedAssemblies().Any(reference => reference.Name == "Npgsql"));
+                NativeMetadataProductionGate.HasExternalReference(
+                    typeof(MetadataAuthority).Assembly));
             report["ok"] = strict["ok"];
             report["status"] = strict["status"];
             report["failures"] = strict["failures"];
