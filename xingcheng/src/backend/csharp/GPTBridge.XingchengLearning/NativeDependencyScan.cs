@@ -82,6 +82,9 @@ internal static class NativeDependencyScan
     {
         string r = rel.Replace('\\', '/');
         string baseName = Path.GetFileName(r);
+        if (r.Contains("/GPTBridge.XingchengLearning/LegacyMigration/", StringComparison.OrdinalIgnoreCase)
+            && r.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            return "LEGACY_MIGRATION_ONLY"; // Explicitly excluded by the production csproj.
         bool dev = baseName.StartsWith("_", StringComparison.Ordinal) ||
                    r.Contains("/test_suites/", StringComparison.Ordinal) ||
                    r.Contains("/tests/", StringComparison.Ordinal) ||

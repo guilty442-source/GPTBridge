@@ -109,6 +109,7 @@ fn latest_valid(store: &Path) -> Option<(Value, u64, String)> {
             Some(s) => s.to_string(),
             None => continue,
         };
+        if sha.len() != 64 || !sha.bytes().all(|c| c.is_ascii_hexdigit()) { continue; }
         let Some(cnt) = m.get("event_count").and_then(|x| x.as_u64()) else {
             continue;
         };
@@ -127,6 +128,10 @@ fn latest_valid(store: &Path) -> Option<(Value, u64, String)> {
 /// commit point exists on the verified chain, materialize its records,
 /// then replay the tail. Falls back to full materialize.
 pub fn load_accelerated(store: &Path, scan: &Scan) -> Result<State, String> {
+    let verification = verify_status(store, scan);
+    if verification["invalid_count"].as_u64().unwrap_or(1) != 0 {
+        return Err("XSTORE_RECOVERY_REQUIRED: invalid metadata snapshot".into());
+    }
     let Some((manifest, snap_count, _sha)) = latest_valid(store) else {
         return meta_state::materialize(scan);
     };
@@ -179,6 +184,56 @@ pub fn load_accelerated(store: &Path, scan: &Scan) -> Result<State, String> {
     }
     meta_state::replay_into(&mut st, scan, snap_count)?;
     Ok(st)
+}
+
+/// Verify manifests against both their content-addressed objects and the
+/// canonical event prefix. A self-consistent forged snapshot is not evidence.
+pub fn verify_status(store: &Path, scan: &Scan) -> Value {
+    let mut checked = 0u64;
+    let mut failures = Vec::new();
+    let entries = match std::fs::read_dir(snaps_dir(store)) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound =>
+            return json!({"verified": false, "snapshot_count": 0, "invalid_count": 0, "failures": []}),
+        Err(error) => return json!({"verified": false, "snapshot_count": 0, "invalid_count": 1, "failures": [error.to_string()]}),
+    };
+    for entry in entries {
+        let check = (|| -> Result<(), String> {
+            let path = entry.map_err(|e| e.to_string())?.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") { return Ok(()); }
+            checked += 1;
+            let manifest: Value = serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+            let sha = manifest["snapshot_sha256"].as_str().ok_or("SNAP_HASH_MISSING")?;
+            if sha.len() != 64 || !sha.bytes().all(|c| c.is_ascii_hexdigit()) { return Err("SNAP_HASH_INVALID".into()); }
+            if manifest["format"] != mt::SNAPSHOT_FORMAT || manifest["schema_identity"] != mt::SCHEMA_IDENTITY
+                || path.file_stem().and_then(|s| s.to_str()) != Some(sha) { return Err("SNAP_MANIFEST_INVALID".into()); }
+            let bytes = std::fs::read(body_path(store, sha)).map_err(|e| e.to_string())?;
+            if crate::hash::sha256_hex(&bytes) != sha { return Err("SNAP_HASH_MISMATCH".into()); }
+            let body: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+            let count = manifest["event_count"].as_u64().ok_or("SNAP_COUNT_MISSING")?;
+            if count > scan.events.len() as u64 { return Err("SNAP_PREFIX_MISSING".into()); }
+            let head = if count == 0 { mt::GENESIS } else { &scan.events[count as usize - 1].line_hash };
+            if manifest["last_event_hash"] != head || body["last_event_hash"] != head
+                || body["event_count"] != count || body["format"] != mt::SNAPBODY_FORMAT { return Err("SNAP_PREFIX_MISMATCH".into()); }
+            let prefix = Scan { events: scan.events[..count as usize].iter().map(|e| crate::meta_log::LogEvent {
+                seq: e.seq, line_hash: e.line_hash.clone(), value: e.value.clone(),
+            }).collect(), head_hash: head.into(), ignored_tail_bytes: 0, committed_len: 0 };
+            let state = meta_state::materialize(&prefix)?;
+            let records: Vec<Value> = state.records.values().map(|r| json!({
+                "record_type": r.record_type, "record_id": r.record_id,
+                "revision": r.revision, "event_hash": r.event_hash,
+                "created_at": r.created_at, "payload": r.payload,
+            })).collect();
+            if body["records"] != json!(records) || manifest["record_count"] != records.len() as u64 {
+                return Err("SNAP_STATE_MISMATCH".into());
+            }
+            Ok(())
+        })();
+        if let Err(error) = check { failures.push(error); }
+    }
+    json!({"verified": checked > 0 && failures.is_empty(), "snapshot_count": checked,
+        "invalid_count": failures.len(), "failures": failures})
 }
 
 /// Report manifests for metadata-verify/status.

@@ -160,11 +160,11 @@ pub fn cmd_verify(store: &Path) -> Result<Value, String> {
     .and_then(|v| v.get("schema_identity").and_then(|x| x.as_str()).map(str::to_string))
         == Some(mt::SCHEMA_IDENTITY.into());
     let index_fresh = idx::load_index(store).is_some();
-    let ok = scan.ignored_tail_bytes == 0 || true; // torn tail is legal
-    let _ = ok;
+    let snapshots = snap::verify_status(store, &scan);
+    let snapshot_ok = snapshots["invalid_count"].as_u64() == Some(0);
     Ok(json!({
         "format": "xstore-metadata-verify/v1",
-        "ok": true,
+        "ok": schema_ok && snapshot_ok && receipts["ok"].as_bool() == Some(true),
         "metadata_authority": "xstore",
         "schema_identity_ok": schema_ok,
         "event_count": scan.events.len(),
@@ -174,7 +174,7 @@ pub fn cmd_verify(store: &Path) -> Result<Value, String> {
         "invariants_ok": true,
         "receipts": receipts,
         "index_fresh": index_fresh,
-        "snapshots": snap::status(store),
+        "snapshots": snapshots,
         "leases": {
             "current_epoch": lease::current_epoch(store),
         },

@@ -183,11 +183,11 @@ internal static class Maturation300M
     public static Dictionary<string, object?> LoadState(string toolRoot)
     {
         string path = Path.Combine(toolRoot, StateRel);
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             return FreshState();
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             if (doc.RootElement.ValueKind != JsonValueKind.Object ||
                 !doc.RootElement.TryGetProperty("capabilities", out var caps) ||
                 caps.ValueKind != JsonValueKind.Object)

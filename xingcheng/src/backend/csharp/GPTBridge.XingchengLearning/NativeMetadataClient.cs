@@ -75,11 +75,10 @@ internal sealed class NativeMetadataClient
         public const string TeacherEvidence = "teacher_evidence";
         public const string ResourceGrantRef = "resource_grant_ref";
         public const string ResourceUsageReceipt = "resource_usage_receipt";
-        public const string SchemaMetadata = "schema_metadata";
-        public const string MigrationMarker = "migration_marker";
-        // §54-§55 role-DB source lanes migrated onto the native plane.
         public const string RoleExample = "role_training_example";
         public const string RolePair = "role_preference_pair";
+        public const string SchemaMetadata = "schema_metadata";
+        public const string MigrationMarker = "migration_marker";
     }
 
     private readonly string _exe;
@@ -146,13 +145,15 @@ internal sealed class NativeMetadataClient
                 psi.ArgumentList.Add(a);
             using var proc = Process.Start(psi)
                 ?? throw new MetadataError("XSTORE_SPAWN_FAILED", "xstore.exe failed to start");
-            string stdout = proc.StandardOutput.ReadToEnd();
-            string stderr = proc.StandardError.ReadToEnd();
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
             if (!proc.WaitForExit(60_000))
             {
-                try { proc.Kill(entireProcessTree: true); } catch { }
+                try { proc.Kill(entireProcessTree: true); proc.WaitForExit(5000); } catch { }
                 throw new MetadataError("XSTORE_TIMEOUT", "xstore.exe metadata call timed out");
             }
+            string stdout = stdoutTask.GetAwaiter().GetResult();
+            string stderr = stderrTask.GetAwaiter().GetResult();
             if (proc.ExitCode != 0)
                 throw new MetadataError(MetadataError.CodeOf(stderr), stderr.Trim());
             using var doc = JsonDocument.Parse(stdout.Trim());

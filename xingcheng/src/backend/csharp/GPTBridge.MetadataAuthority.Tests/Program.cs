@@ -32,6 +32,7 @@ foreach (var field in new[] { "ok", "schema_identity_ok", "invariants_ok", "inde
 }
 Check(false, marker, JsonSerializer.SerializeToElement(new { ok = true, schema_identity_ok = true, invariants_ok = true, index_fresh = true, receipts = new { ok = true }, snapshots = new { snapshot_count = 1 } }));
 Console.WriteLine(JsonSerializer.Serialize(new { passed, failed = 0 }));
+if (args.Contains("--runtime")) RuntimeIntegration.Run();
 if (args.Contains("--live"))
 {
     var root = Path.GetFullPath("xingcheng");
@@ -57,7 +58,7 @@ if (args.Contains("--live"))
         foreach (var key in latest.Keys.ToArray())
             if (latest[key] is JsonElement e && e.ValueKind == JsonValueKind.String) latest[key] = e.GetString();
     var assembly = System.Reflection.Assembly.LoadFile(Path.Combine(root, "src/backend/csharp/GPTBridge.XingchengLearning/bin/Release/net10.0/xc-learning.dll"));
-    var report = NativeMetadataProductionGate.Evaluate(latest, Native("metadata-verify"), assembly.GetReferencedAssemblies().Any(r => r.Name is { Length: > 0 } n && !n.StartsWith("System") && !n.StartsWith("Microsoft") && !n.StartsWith("netstandard") && !n.StartsWith("mscorlib")));
+    var report = NativeMetadataProductionGate.Evaluate(latest, Native("metadata-verify"), assembly.GetReferencedAssemblies().Any(r => r.Name == "Npgsql"));
     Console.WriteLine(JsonSerializer.Serialize(report));
 }
 

@@ -58,6 +58,12 @@ internal sealed class TransformerTrainingRepository
     {
         ToolRoot = Path.GetFullPath(Path.Combine(toolRoot, "xingcheng"));
         _repoRoot = toolRoot;
+        if (MetadataAuthority() != "xstore")
+            throw new InvalidOperationException("XSTORE_AUTHORITY_REQUIRED");
+        var verification = Meta().Verify();
+        if (!JTruth(verification, "ok") || !JTruth(verification, "schema_identity_ok")
+            || !JTruth(verification, "invariants_ok"))
+            throw new InvalidOperationException("XSTORE_RECOVERY_REQUIRED");
         // xstore is the only metadata authority — the constructor never
         // touches an external database. The runtime singleton is
         // idempotently ensured on the native plane.
@@ -78,7 +84,9 @@ internal sealed class TransformerTrainingRepository
     /// <summary>Metadata authority is xstore by construction — the
     /// committed authority-transition marker is the receipt of the
     /// governed migration, not a runtime routing switch.</summary>
-    public string MetadataAuthority() => "xstore";
+    public string MetadataAuthority() =>
+        GPTBridge.XingchengLearning.MetadataAuthority.LatestTransition(Meta())
+            ?.GetValueOrDefault("new_authority")?.ToString() ?? "postgresql";
 
     /// <summary>JsonElement truthiness for xstore verb reports.</summary>
     private static bool JTruth(JsonElement el, string key)

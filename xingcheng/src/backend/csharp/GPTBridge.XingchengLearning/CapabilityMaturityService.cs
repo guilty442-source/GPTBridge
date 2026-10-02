@@ -64,10 +64,10 @@ internal static class CapabilityMaturityService
         var map = new Dictionary<string, Dictionary<string, object?>>(
             StringComparer.Ordinal);
         string p = Path_(toolRoot);
-        if (!File.Exists(p)) return map;
+        if (!NativeStateProjection.Exists(p)) return map;
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(p));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(p));
             if (doc.RootElement.TryGetProperty("capabilities",
                     out var caps) &&
                 caps.ValueKind == JsonValueKind.Object)

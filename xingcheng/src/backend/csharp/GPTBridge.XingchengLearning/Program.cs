@@ -72,6 +72,8 @@ internal static class Program
 
         try
         {
+            foreach (var mutation in new[] { "gen-begin", "arch-migrate", "arch-activate", "maturation-reopen" })
+                if (flags.Contains(mutation)) ProductionClosure.FreezeGuard(toolRoot, mutation);
             if (flags.Contains("model-maturity"))
                 return Emit(flags.Contains("status")
                     ? ModelMaturity.Status(toolRoot)
@@ -222,6 +224,8 @@ internal static class Program
                     ["ok"] = true,
                     ["migrated"] = repo.Maintain(),
                 };
+                if (flags.Contains("xstore-backfill"))
+                    outMap["xstore_backfill"] = MetadataMigration.Backfill(repo);
                 if (flags.Contains("authority-flip"))
                 {
                     // §45-§46: idempotent authority receipt — returns
@@ -231,7 +235,7 @@ internal static class Program
                     var meta = new NativeMetadataClient(
                         toolRoot, actor: "xingcheng-authority-flip");
                     outMap["authority_flip"] =
-                        MetadataAuthority.Ensure(meta);
+                        MetadataAuthority.Flip(repo, meta);
                     outMap["ok"] = (bool)outMap["ok"]! &&
                         (bool)(((Dictionary<string, object?>)
                             outMap["authority_flip"]!)["ok"] ?? false);

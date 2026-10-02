@@ -85,7 +85,7 @@ internal static class ProductionSoak
         var fs = new StreamWriter(log, append: true);
         try
         {
-            while (sw.Elapsed.TotalSeconds < seconds)
+            while (true)
             {
                 var row = new Dictionary<string, object?>
                 {
@@ -93,6 +93,7 @@ internal static class ProductionSoak
                     ["t"] = XcPaths.IsoNow(),
                     ["elapsed_s"] = (long)sw.Elapsed.TotalSeconds,
                     ["pid"] = pid,
+                    ["interval_ms"] = intervalMs,
                 };
                 try
                 {
@@ -158,11 +159,28 @@ internal static class ProductionSoak
                     }
                 }
 
+                try
+                {
+                    var verification = new NativeMetadataClient(toolRoot, "xingcheng-production-soak").Verify();
+                    bool Field(JsonElement value, string name) => value.ValueKind == JsonValueKind.Object
+                        && value.TryGetProperty(name, out var item) && item.ValueKind == JsonValueKind.True;
+                    row["metadata_integrity"] = Field(verification, "ok") && Field(verification, "schema_identity_ok")
+                        && Field(verification, "invariants_ok");
+                    row["audit_integrity"] = verification.TryGetProperty("receipts", out var receipts) && Field(receipts, "ok");
+                    row["metadata_root"] = verification.TryGetProperty("head_hash", out var head) ? head.GetString() : null;
+                }
+                catch (Exception error)
+                {
+                    row["metadata_integrity"] = false; row["audit_integrity"] = false;
+                    row["metadata_error"] = error.Message;
+                }
+
                 fs.WriteLine(CanonicalJson.Canonical(
                     ModelLifecycle.Encode(row)));
                 fs.Flush();
                 ++samples;
-                Thread.Sleep(intervalMs);
+                if (sw.Elapsed.TotalSeconds >= seconds) break;
+                Thread.Sleep(Math.Min(intervalMs, Math.Max(1, (int)((seconds - sw.Elapsed.TotalSeconds) * 1000))));
             }
         }
         finally { fs.Dispose(); }
@@ -247,17 +265,30 @@ internal static class ProductionSoak
 
         int exits = rows.Count(r =>
             r.TryGetValue("alive", out var a) && a is bool b && !b);
+        var missing = new List<string>();
+        var duration = Num(rows[^1], "elapsed_s") - Num(rows[0], "elapsed_s");
+        if (!duration.HasValue || duration < 8 * 3600) missing.Add("SOAK_8H_NOT_COMPLETED");
+        foreach (var required in new[] { "rss_bytes", "commit_bytes", "handles", "vram_bytes", "probe_latency_ms", "error_count" })
+            if (rows.Any(row => !Num(row, required).HasValue)) missing.Add("TELEMETRY_MISSING:" + required);
+        var probeErrors = rows.Count(row => Num(row, "probe_http") is not (>= 200 and < 300));
+        if (probeErrors > 0) missing.Add("SERVICE_PROBE_FAILED");
+        foreach (var required in new[] { "metadata_integrity", "audit_integrity" })
+            if (rows.Any(row => !row.TryGetValue(required, out var value) || value is not true))
+                missing.Add("INTEGRITY_EVIDENCE_MISSING:" + required);
         return new Dictionary<string, object?>
         {
-            ["ok"] = suspects.Count == 0 && exits == 0,
+            ["ok"] = suspects.Count == 0 && exits == 0 && missing.Count == 0,
             ["format"] = AnalysisFormat,
             ["log"] = logPath,
             ["samples"] = rows.Count,
             ["duration_s"] = Num(rows[^1], "elapsed_s"),
             ["metrics"] = metrics,
             ["target_exits"] = exits,
+            ["probe_errors"] = probeErrors,
+            ["missing_evidence"] = missing,
             ["verdict"] = exits > 0 ? "TARGET_EXITED"
                 : suspects.Count > 0 ? "UNBOUNDED_GROWTH"
+                : missing.Count > 0 ? "INCOMPLETE_EVIDENCE"
                 : "BOUNDED",
             ["suspects"] = suspects.Cast<object?>().ToList(),
             ["rule"] = "§9/§10: bounded warm-up allowed; tail-window " +

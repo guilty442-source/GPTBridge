@@ -10,6 +10,46 @@ use serde_json::json;
 use std::io::Write;
 use std::path::PathBuf;
 
+#[test]
+fn snapshot_verify_rejects_corrupt_body_and_manifest_without_panicking() {
+    let root = scratch();
+    put(&root, "put", json!({"record_type":"schema_metadata", "record":{"record_id":"snapshot-proof","value":1}})).unwrap();
+    let created = api::cmd_snapshot(&root).unwrap();
+    let sha = created["snapshot_sha256"].as_str().unwrap();
+    assert_eq!(api::cmd_verify(&root).unwrap()["snapshots"]["verified"], true);
+    let body = root.join("objects").join(&sha[..2]).join(format!("{sha}.bin"));
+    std::fs::write(&body, b"corrupt").unwrap();
+    assert_eq!(api::cmd_verify(&root).unwrap()["ok"], false);
+    assert!(crate::meta_snap::load_accelerated(&root, &log::scan(&root).unwrap()).is_err());
+    let manifest = root.join("metadata/snapshots").join(format!("{sha}.json"));
+    std::fs::write(manifest, serde_json::to_vec(&json!({"snapshot_sha256":"x"})).unwrap()).unwrap();
+    assert_eq!(api::cmd_verify(&root).unwrap()["snapshots"]["verified"], false);
+}
+
+#[test]
+fn snapshot_verify_rejects_rehashed_forged_state() {
+    let root = scratch();
+    put(&root, "put", json!({"record_type":"schema_metadata", "record":{"record_id":"snapshot-proof","value":1}})).unwrap();
+    let created = api::cmd_snapshot(&root).unwrap();
+    let sha = created["snapshot_sha256"].as_str().unwrap();
+    let manifest_path = root.join("metadata/snapshots").join(format!("{sha}.json"));
+    let mut manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    let original = root.join("objects").join(&sha[..2]).join(format!("{sha}.bin"));
+    let mut body: serde_json::Value = serde_json::from_slice(&std::fs::read(original).unwrap()).unwrap();
+    body["records"][0]["payload"]["value"] = json!(999);
+    let bytes = crate::meta_types::canonical(&body).into_bytes();
+    let forged_hash = crate::hash::sha256_hex(&bytes);
+    let forged = root.join("objects").join(&forged_hash[..2]);
+    std::fs::create_dir_all(&forged).unwrap();
+    std::fs::write(forged.join(format!("{forged_hash}.bin")), bytes).unwrap();
+    manifest["snapshot_sha256"] = json!(forged_hash);
+    std::fs::remove_file(manifest_path).unwrap();
+    std::fs::write(root.join("metadata/snapshots").join(format!("{forged_hash}.json")), serde_json::to_vec(&manifest).unwrap()).unwrap();
+    let report = api::cmd_verify(&root).unwrap();
+    assert_eq!(report["ok"], false);
+    assert_eq!(report["snapshots"]["failures"][0], "SNAP_STATE_MISMATCH");
+}
+
 fn scratch() -> PathBuf {
     let dir = std::env::temp_dir().join(crate::meta_types::new_id("xmeta-t"));
     std::fs::create_dir_all(&dir).unwrap();

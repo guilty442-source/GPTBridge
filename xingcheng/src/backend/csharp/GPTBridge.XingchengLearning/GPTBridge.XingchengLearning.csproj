@@ -9,8 +9,8 @@
     <RootNamespace>GPTBridge.XingchengLearning</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <!-- No external database client: Rust xstore is the sole metadata
-         authority (PostgreSQL retired — Phase D, §50-§51). -->
+    <!-- Historical PostgreSQL source is excluded from the production assembly. -->
+    <Compile Remove="LegacyMigration/**/*.cs" />
     <!-- The tool is Windows-only (native toolchain supervision). -->
     <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
       <_Parameter1>windows</_Parameter1>

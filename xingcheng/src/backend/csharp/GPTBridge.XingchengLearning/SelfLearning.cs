@@ -162,10 +162,10 @@ internal static class SelfLearning
                 foreach (var p in cfg.EnumerateObject())
                     config[p.Name] = ModelLifecycle.Decode(p.Value);
             }
-            else if (File.Exists(path) &&
+            else if (NativeStateProjection.Exists(path) &&
                      Path.GetFileName(path) == "manifest.json")
             {
-                using var doc = JsonDocument.Parse(File.ReadAllText(path));
+                using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
                 if (!doc.RootElement.TryGetProperty("config", out var cfg) ||
                     cfg.ValueKind != JsonValueKind.Object)
                     return null;
@@ -173,7 +173,7 @@ internal static class SelfLearning
                 foreach (var p in cfg.EnumerateObject())
                     config[p.Name] = ModelLifecycle.Decode(p.Value);
             }
-            else if (File.Exists(path))
+            else if (NativeStateProjection.Exists(path))
             {
                 config = ReadXcnHeaderConfig(path);
             }
@@ -507,7 +507,7 @@ internal static class SelfLearning
         int certified;
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             certified = doc.RootElement.GetProperty("certified_level").GetInt32();
         }
         catch (Exception)

@@ -142,14 +142,14 @@ internal static class ModelMaturity
     {
         string path = Path.Combine(Path.GetFullPath(toolRoot),
             StateRelative.Replace('/', Path.DirectorySeparatorChar));
-        if (!File.Exists(path))
+        if (!NativeStateProjection.Exists(path))
             return new Dictionary<string, object?>
             {
                 ["format"] = Format, ["certified_level"] = null,
             };
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(NativeStateProjection.ReadAllText(path));
             var map = new Dictionary<string, object?>();
             foreach (var p in doc.RootElement.EnumerateObject())
                 map[p.Name] = ModelLifecycle.Decode(p.Value);
@@ -261,7 +261,7 @@ internal static class ModelMaturity
                 string tk = Path.Combine(path, "tokenizer.json");
                 if (File.Exists(tk)) ctx.TokenizerPath = tk;
             }
-            else if (File.Exists(path))
+            else if (NativeStateProjection.Exists(path))
             {
                 ctx.InitCkpt = path;          // bare .xcn: L0-L2 only
             }
@@ -1113,7 +1113,7 @@ internal static class ModelMaturity
             try
             {
                 string p = Path.Combine(scratch, name);
-                if (File.Exists(p)) File.Delete(p);
+                if (NativeStateProjection.Exists(p)) File.Delete(p);
             }
             catch { /* best-effort cleanup; never fails the run */ }
         }
