@@ -191,16 +191,17 @@ internal static class Program
 
     /// <summary>
     /// Executor factory keyed on the OWNER tool id (GPTBRIDGE_TOOL_ID)
-    /// rather than the governed runtime identity — local-model's host
-    /// authenticates as xingcheng and model-dialogue's as star-chat, but
-    /// the owner id is what decides which business executor the host
-    /// runs. Unknown owners keep the honest deferred executor.
+    /// rather than the governed runtime identity — model-dialogue's host
+    /// authenticates as star-chat, but the owner id is what decides which
+    /// business executor the host runs. Xingcheng's own host carries the
+    /// model service under its own identity; unknown owners keep the
+    /// honest deferred executor.
     /// </summary>
     private static IGovernedCommandExecutor CreateExecutor(
         GovernedEnvironment env, string ownerId) =>
         ownerId switch
         {
-            "local-model" => new LocalModelExecutor(env, ownerId),
+            "xingcheng" => new XingchengModelServiceExecutor(env, ownerId),
             "model-dialogue" => new ModelDialogueExecutor(env),
             _ => new DeferredExecutor(env.ToolId),
         };
@@ -223,7 +224,7 @@ internal static class Program
         }
 
         var executor = CreateExecutor(env, ownerId);
-        if (executor is LocalModelExecutor modelService)
+        if (executor is XingchengModelServiceExecutor modelService)
         {
             try
             {

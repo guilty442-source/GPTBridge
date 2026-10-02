@@ -1,8 +1,9 @@
-// LocalModelExecutor — local-model's governed executor: owns the
+// XingchengModelServiceExecutor — xingcheng's governed executor: owns the
 // xc-model-service loopback HTTP surface (star-model-service/v1) and the
 // resident xc_modeltool serve child (the native inference worker).
 //
-// Topology: this executor runs inside the local-model ToolHost process.
+// Topology: this executor runs inside the xingcheng ToolHost process —
+// the institution owns its own service process, lifecycle and identity.
 // It opens an authenticated loopback listener, publishes the
 // star-model-service-descriptor/v1 descriptor + session token under
 // xingcheng/runtime/ipc/, and lazily spawns `xc_modeltool serve` the
@@ -25,10 +26,10 @@ using GPTBridge.ToolHost;
 
 namespace GPTBridge.ToolHost.App;
 
-internal sealed class LocalModelExecutor
+internal sealed class XingchengModelServiceExecutor
     : IGovernedCommandExecutor, IWsCommandSurface, IAsyncDisposable
 {
-    internal const string LifecycleOwner = "local-model/toolhost-model-service";
+    internal const string LifecycleOwner = "xingcheng/toolhost-model-service";
     internal const string ConsumerPolicy = "csharp-orchestrator-client-only";
     private const string TokenFileName =
         ModelServiceDescriptor.TokenFileName;
@@ -78,7 +79,7 @@ internal sealed class LocalModelExecutor
     private int _inflight;
     private long _lastActivityTicks = DateTime.UtcNow.Ticks;
 
-    public LocalModelExecutor(GovernedEnvironment env, string ownerId)
+    public XingchengModelServiceExecutor(GovernedEnvironment env, string ownerId)
     {
         _env = env;
         _ownerId = ownerId;
@@ -93,7 +94,7 @@ internal sealed class LocalModelExecutor
     }
 
     /// <summary>Canonical Xingcheng-owned settings path; a pre-migration
-    /// copy under the legacy local-model settings dir is accepted
+    /// copy under the legacy pre-relocation settings dir is accepted
     /// read-only. Writes always target the canonical path.</summary>
     internal static string EngineSettingsPath(string toolRoot)
     {
@@ -800,7 +801,7 @@ internal sealed class LocalModelExecutor
     }
 
     // IGovernedCommandExecutor — the store claim lane carries no
-    // local-model business commands; WS commands are the read-only
+    // xingcheng business commands; WS commands are the read-only
     // diagnostics above (the model service is reached via HTTP).
     public Task<(string Event, JsonObject Result)> ExecuteAsync(
         string command, JsonObject payload, string requestId,
@@ -814,7 +815,7 @@ internal sealed class LocalModelExecutor
                 ["tool_id"] = _ownerId,
                 ["error_code"] = "COMMAND_NOT_OWNED",
                 ["message"] =
-                    "local-model owns the model-service HTTP surface; " +
+                    "xingcheng owns the model-service HTTP surface; " +
                     "the command lane is not implemented for this tool.",
             }));
 
@@ -893,7 +894,7 @@ internal sealed class LocalModelExecutor
 
 /// <summary>Single owned implementation of the
 /// star-model-service-descriptor/v1 file contract. Writer:
-/// LocalModelExecutor.StartService. Reader:
+/// XingchengModelServiceExecutor.StartService. Reader:
 /// ModelDialogueExecutor.DiscoverService (StarBusinessLogic's
 /// ModelServiceLocator.Discover is the orphan twin kept in parity by
 /// inspection — it is not referenced by this host). Wire format and

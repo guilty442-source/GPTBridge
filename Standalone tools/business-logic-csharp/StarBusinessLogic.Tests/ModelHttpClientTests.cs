@@ -5,7 +5,7 @@ using StarBusinessLogic.Application;
 
 namespace StarBusinessLogic.Tests;
 
-// G30 契約測試：C# HttpModelClient ↔ 原生 star-model-service/v1（C# LocalModelExecutor + C++ 引擎）
+// G30 契約測試：C# HttpModelClient ↔ 原生 star-model-service/v1（C# XingchengModelServiceExecutor + C++ 引擎）
 public class ModelHttpClientTests
 {
     private sealed class StubHandler : HttpMessageHandler
@@ -143,11 +143,11 @@ public class ModelHttpClientTests
         File.WriteAllText(Path.Combine(ipc, "model-service.json"), JsonSerializer.Serialize(new
         {
             schema = "star-model-service-descriptor/v1",
-            tool_id = "local-model",
+            tool_id = "xingcheng",
             pid = 1234,
             port = 4567,
             token_file = "model-service-session-token",
-            lifecycle_owner = "local-model/toolhost-model-service",
+            lifecycle_owner = "xingcheng/toolhost-model-service",
             consumer_policy = "csharp-orchestrator-client-only",
             session_token_sha256 = "abc",
         }));
@@ -157,7 +157,7 @@ public class ModelHttpClientTests
             Assert.Equal("http://127.0.0.1:4567", ep.Endpoint);
             Assert.Equal("tok-xyz", ep.SessionToken);
             Assert.Equal(1234, ep.Pid);
-            Assert.Equal("local-model/toolhost-model-service", ep.LifecycleOwner);
+            Assert.Equal("xingcheng/toolhost-model-service", ep.LifecycleOwner);
             Assert.Equal("csharp-orchestrator-client-only", ep.ConsumerPolicy);
         }
         finally { Directory.Delete(root, true); }

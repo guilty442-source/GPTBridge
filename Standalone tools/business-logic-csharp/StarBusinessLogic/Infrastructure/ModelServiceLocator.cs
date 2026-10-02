@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace StarBusinessLogic.Infrastructure;
 
-// star-model-service-descriptor/v1：local-model ToolHost（C# LocalModelExecutor）
+// star-model-service-descriptor/v1：xingcheng ToolHost（C# XingchengModelServiceExecutor）
 // 啟動時原子寫入 <toolRoot>/xingcheng/runtime/ipc/model-service.json，停止時移除。
 // C# 編排層據此定位 loopback endpoint 與 session token，fail-closed。
 public sealed record ModelServiceEndpoint(
@@ -68,7 +68,7 @@ public static class ModelServiceLocator
         var consumerPolicy = root.TryGetProperty("consumer_policy", out var policy)
             ? policy.GetString()
             : null;
-        if (lifecycleOwner != "local-model/toolhost-model-service")
+        if (lifecycleOwner != "xingcheng/toolhost-model-service")
             throw new InvalidOperationException("MODEL_SERVICE_LIFECYCLE_OWNER_MISMATCH");
         if (consumerPolicy != "csharp-orchestrator-client-only")
             throw new InvalidOperationException("MODEL_SERVICE_CONSUMER_POLICY_MISMATCH");
@@ -110,7 +110,7 @@ public static class ModelServiceLocator
     }
 
     // Canonical Xingcheng-owned settings path; a pre-migration copy under
-    // the legacy local-model settings dir is accepted read-only.
+    // the legacy pre-relocation settings dir is accepted read-only.
     private static string EngineSettingsPath(string toolRoot)
     {
         var canonical = Path.Combine(
@@ -153,7 +153,7 @@ public static class ModelServiceLocator
         return image;
     }
 
-    // bundle 有效性契約與 C# LocalModelExecutor.ResolveBundle 相同：
+    // bundle 有效性契約與 C# XingchengModelServiceExecutor.ResolveBundle 相同：
     // schema、source_checkpoint 解析後路徑一致、size/mtime 吻合、weights 檔存在。
     // bundle 只由受管 export 管線產生——此處純消費，缺合法 bundle 即 fail-closed。
     private static string ResolveBundleDir(string toolRoot)

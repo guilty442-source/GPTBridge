@@ -67,7 +67,7 @@ pub(super) fn runtime_owner_tool_id(
 /// ``_governed_runtime_tool_id`` — the sealed-registry identity a tool's
 /// runtime authenticates as.  A nested channel participant whose bound
 /// manifest lives directly inside the tool root claims the runtime
-/// (local-model → xingcheng); deeper nestings belong to their own root.
+/// (model-dialogue → star-chat); deeper nestings belong to their own root.
 pub(super) fn governed_runtime_tool_id(
     tool_id: &str,
     tool_root: &Path,
