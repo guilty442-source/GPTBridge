@@ -200,10 +200,13 @@ internal static class ProductionClosure
                 void FromStep(string gate, string step)
                 {
                     string? st = StepStatus(step);
-                    if (st == null) return;
+                    // §5: SKIP is neither PASS nor FAIL — an
+                    // unevaluated gate stays NOT_EVALUATED, it can
+                    // never convict or acquit.
+                    if (st != "PASS" && st != "FAIL") return;
                     map[gate] = new Dictionary<string, object?>
                     {
-                        ["state"] = st == "PASS" ? "PASS" : "FAIL",
+                        ["state"] = st,
                         ["source"] = $"release-gate:{step} " +
                             $"({Path.GetFileName(latest)})",
                     };
@@ -213,10 +216,48 @@ internal static class ProductionClosure
                 FromStep("regression", "capability-delta");
                 FromStep("native-only", "native-dependency");
                 FromStep("resource-contract", "resource-contract");
+                FromStep("native-cuda", "cuda-probe");
+                FromStep("architecture", "architecture-drift");
             }
             catch (JsonException) { /* unreadable report → all stay
                 NOT_EVALUATED (fail-closed) */ }
         }
+
+        // §3 capability-floors: every canonical capability's floor
+        // verdict — derived from the maturity service, not assumed.
+        // FAIL beats NOT_EVALUATED: a measured breach must surface.
+        var floorFindings = new List<object?>();
+        bool floorsMeasured = false;
+        foreach (var cd in CapabilityRegistry.Canonical)
+        {
+            var fc = CapabilityMaturityService.FloorCheck(
+                cd.CapabilityId, toolRoot);
+            bool measured = fc["latest_evidence_hash"] != null;
+            if (measured &&
+                !TransformerTrainingRepository.Truthy(fc["ok"]))
+            {
+                // Real breach: evidence exists and misses the floor.
+                floorsMeasured = true;
+                floorFindings.Add(new Dictionary<string, object?>
+                {
+                    ["capability_id"] = cd.CapabilityId,
+                    ["findings"] = fc["findings"],
+                });
+            }
+            else if (measured)
+                floorsMeasured = true;
+            // missing-evidence is NOT_EVALUATED, not a breach —
+            // an unmeasured floor cannot convict (§5).
+        }
+        if (floorsMeasured)
+            map["capability-floors"] = new Dictionary<string, object?>
+            {
+                ["state"] = floorFindings.Count == 0
+                    ? "PASS" : "FAIL",
+                ["source"] = "capability-maturity floor check",
+                ["breaches"] = floorFindings.Take(6)
+                    .Cast<object?>().ToList(),
+            };
         return new Dictionary<string, object?>
         {
             ["format"] = Format,

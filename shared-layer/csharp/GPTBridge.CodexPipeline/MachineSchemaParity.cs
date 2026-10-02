@@ -51,7 +51,7 @@ internal static class MachineSchemaParity
         using var command = new NpgsqlCommand(
             $"SELECT r.*, p.canonical_semantic_hash "
             + $"FROM {PgDsn.CodexSchema}.machine_schema_registry r "
-            + $"JOIN {PgDsn.CodexSchema}.machine_schema_parity_evidence p"
+            + $"LEFT JOIN {PgDsn.CodexSchema}.machine_schema_parity_evidence p"
             + "  ON p.schema_code = r.schema_code "
             + "WHERE r.schema_code = @c", connection);
         command.Parameters.AddWithValue("c", code);
@@ -84,7 +84,7 @@ internal static class MachineSchemaParity
         using var command = new NpgsqlCommand(
             $"SELECT r.*, p.canonical_semantic_hash "
             + $"FROM {PgDsn.CodexSchema}.machine_schema_registry r "
-            + $"JOIN {PgDsn.CodexSchema}.machine_schema_parity_evidence p"
+            + $"LEFT JOIN {PgDsn.CodexSchema}.machine_schema_parity_evidence p"
             + "  ON p.schema_code = r.schema_code ORDER BY r.schema_code",
             connection);
         var rows = new List<Dictionary<string, object?>>();

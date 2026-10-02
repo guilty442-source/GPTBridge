@@ -608,6 +608,28 @@ internal static class Program
             }
             if (flags.Contains("production-health"))
                 return Emit(ProductionClosure.Health(toolRoot));
+            // ---- production-closure §6-§10: RuntimeSoakTest sampler
+            //      (star-runtime-soak-sample/v1 JSONL) + §9/§10 leak
+            //      analysis (star-production-soak-analysis/v1).
+            if (flags.Contains("production-soak"))
+            {
+                int IntOpt(string key, int dflt) =>
+                    opts.TryGetValue(key, out string? ov) &&
+                    int.TryParse(ov, out int iv) && iv > 0
+                        ? iv : dflt;
+                return Emit(ProductionSoak.Run(
+                    toolRoot,
+                    IntOpt("pid", 0),
+                    IntOpt("seconds", 60),
+                    IntOpt("interval-ms", 5000),
+                    IntOpt("port", 0),
+                    opts.TryGetValue("token-file", out string? ptf)
+                        ? ptf : ""));
+            }
+            if (flags.Contains("production-soak-analyze"))
+                return Emit(ProductionSoak.Analyze(
+                    opts.TryGetValue("file", out string? psa)
+                        ? psa : ""));
             // ---- repo-level convergence battery: platform invariants
             // (single runtime owner, canonical contract, frozen
             // training, supported axes). star-convergence-checks/v1.
@@ -2057,6 +2079,9 @@ internal static class Program
             "--production-state [--state <s>] [--note <t>] | " +
             "--production-freeze --on|--off [--note <t>] | " +
             "--production-health | " +
+            "--production-soak --pid <n> [--seconds <s>] " +
+            "[--interval-ms <ms>] [--port <p>] [--token-file <f>] | " +
+            "--production-soak-analyze --file <f.jsonl> | " +
             "--capability-runtime-profile --capability <id> | " +
             "--failure-attribute --file <f.json> | " +
             "--arch-limitation-record --file <f.json> | " +

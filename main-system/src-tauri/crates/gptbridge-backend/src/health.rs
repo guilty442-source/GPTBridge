@@ -104,12 +104,10 @@ fn dependencies() -> &'static [DependencySpec] {
             port: 8092,
             on_demand: false,
         },
-        DependencySpec {
-            identity: "ollama",
-            criticality: "capability-critical",
-            port: 11434,
-            on_demand: true,
-        },
+        // Retired B154 (executed, rev 235): no ollama dependency entry —
+        // nothing may probe, lazy-activate or route to an external model
+        // service; the on_demand flag exists for other deferred
+        // dependencies only.
     ]
 }
 

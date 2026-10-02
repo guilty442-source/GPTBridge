@@ -27,17 +27,6 @@
       "shutdown_order": 20
     },
     {
-      "identity": "ollama",
-      "owner": "xingcheng-sovereign",
-      "required_by": "local-model-inference",
-      "criticality": "capability-critical",
-      "readiness_contract": "loopback-tcp-11434",
-      "deadline": "3s",
-      "retry_budget": 1,
-      "shutdown_order": 10,
-      "activation": "on-demand"
-    },
-    {
       "identity": "ragd",
       "owner": "rag-runtime-sovereign",
       "required_by": "rag-retrieval-plane (DAG/CAG/RAG chain)",
@@ -65,7 +54,6 @@
     }
   ],
   "probe_constants": {
-    "ollama_probe_timeout": 0.5,
     "postgres_connect_timeout": 1.0,
     "postgres_probe_attempts": 3,
     "postgres_probe_delay": 0.5,
@@ -74,7 +62,6 @@
     "vectord_probe_timeout": 0.5
   },
   "ports": {
-    "ollama": 11434,
     "postgresql": 5432,
     "vectord": 8092,
     "ragd": 8094,
@@ -143,8 +130,7 @@
     ],
     "no_fixed_criticality_services": [
       "postgresql",
-      "vectord",
-      "ollama"
+      "vectord"
     ]
   }
 }

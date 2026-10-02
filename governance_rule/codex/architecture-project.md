@@ -75,16 +75,16 @@ flowchart TB
 ### 獨立工具清單（autogen）
 
 <!-- autogen:project-tools -->
-*autogen-scanner/v1 · 2384 files · main+devin+git+local-model+rag+ui*
+*autogen-scanner/v1 · 2481 files · main+devin+git+local-model+rag+ui*
 | 工具 | manifest version | runtime | native entry | 樹 |
 |---|---|---|---|---|
-| `ai-assistant` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `ai-assistant` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
 | `ai-collaboration` | 1.0 | go | `dist/ai-collab-host.exe` | devin+git+local-model+main+rag+ui |
-| `file-sorter` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `file-sorter` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
 | `investment-mobile` | 1.0 | native | `dist/InvestmentMobile.ToolHost.exe` | devin+git+local-model+main+rag+ui |
 | `local-model` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
 | `model-dialogue` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
-| `vaultly` | 1.0 | retired-python | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
+| `vaultly` | 1.0 | csharp | `dist/GPTBridge.ToolHost.App.exe` | devin+git+local-model+main+rag+ui |
 
 （count=7）
 <!-- /autogen:project-tools -->

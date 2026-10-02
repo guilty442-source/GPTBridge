@@ -240,15 +240,16 @@
       "id": "ollama",
       "name": "Ollama",
       "category": "llm-runtime",
-      "formal": true,
-      "formality": "formal-tool",
+      "formal": false,
+      "formality": "retired",
       "codex_formal_tool_name": "llm",
       "version": "0.33.2",
       "path": "ollama",
       "license": "MIT",
-      "status": "active",
+      "status": "retired",
       "verified": true,
-      "endpoint": "127.0.0.1:11434"
+      "endpoint": "127.0.0.1:11434",
+      "notes": "retired (B154 retirement amendment executed 2026-10-02, rev 235): no module may start, probe, lazy-activate, route to or depend on an Ollama instance; reactivation requires a successor codex amendment"
     },
     {
       "id": "local-rag",

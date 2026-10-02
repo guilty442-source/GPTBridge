@@ -180,31 +180,9 @@ internal static partial class ManifestExport
         e.Contains("bootstrap-entry:contract-marker",
             $"{bootstrapDir}/Program.cs", new[] { "--prepare-only" });
 
-        const string ollamaSvc = "native/ollama_service";
-        e.Emit("ollama-service:source", "file-exists",
-            $"{ollamaSvc}/ollama_service.cpp");
-        e.Emit("ollama-service:build", "file-exists",
-            $"{ollamaSvc}/build.ps1");
-        e.Contains("ollama-service:contract",
-            $"{ollamaSvc}/ollama_service.cpp",
-            new[]
-            {
-                "ollama-demand.jsonl", "ollama-demand-state.json",
-                "spawned_image",
-            });
-        e.Contains("ollama-service:demand-start",
-            $"{ollamaSvc}/ollama_service.cpp",
-            new[]
-            {
-                "DETACHED_PROCESS", "CREATE_NO_WINDOW",
-                "\" serve\"", "spawn-unavailable",
-            });
-        e.Contains("ollama-service:ownership",
-            $"{ollamaSvc}/ollama_service.cpp",
-            new[]
-            {
-                "UNLOAD_REFUSED_IMAGE_MISMATCH", "QueryFullProcessImageNameW",
-            });
+        // ollama-service checks removed — the lane is retired under the
+        // B154 retirement amendment (executed, rev 235); the deleted
+        // sources are pinned file-not-exists via retired_sources.json.
 
         const string channelLib =
             "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels";

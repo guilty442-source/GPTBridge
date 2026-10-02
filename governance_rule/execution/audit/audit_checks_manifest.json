@@ -2213,46 +2213,6 @@
       "path": "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs"
     },
     {
-      "id": "ollama-service:source",
-      "kind": "file-exists",
-      "path": "native/ollama_service/ollama_service.cpp"
-    },
-    {
-      "id": "ollama-service:build",
-      "kind": "file-exists",
-      "path": "native/ollama_service/build.ps1"
-    },
-    {
-      "id": "ollama-service:contract",
-      "kind": "file-contains",
-      "markers": [
-        "ollama-demand.jsonl",
-        "ollama-demand-state.json",
-        "spawned_image"
-      ],
-      "path": "native/ollama_service/ollama_service.cpp"
-    },
-    {
-      "id": "ollama-service:demand-start",
-      "kind": "file-contains",
-      "markers": [
-        "DETACHED_PROCESS",
-        "CREATE_NO_WINDOW",
-        "\" serve\"",
-        "spawn-unavailable"
-      ],
-      "path": "native/ollama_service/ollama_service.cpp"
-    },
-    {
-      "id": "ollama-service:ownership",
-      "kind": "file-contains",
-      "markers": [
-        "UNLOAD_REFUSED_IMAGE_MISMATCH",
-        "QueryFullProcessImageNameW"
-      ],
-      "path": "native/ollama_service/ollama_service.cpp"
-    },
-    {
       "id": "channel-gateway:GPTBridge.Channels.csproj",
       "kind": "file-exists",
       "path": "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/GPTBridge.Channels.csproj"
@@ -24496,6 +24456,16 @@
       "path": "main-system/src-ui/renderer/ui/useAppState.js"
     },
     {
+      "id": "forbidden-source:native/ollama_service/build.ps1",
+      "kind": "file-not-exists",
+      "path": "native/ollama_service/build.ps1"
+    },
+    {
+      "id": "forbidden-source:native/ollama_service/ollama_service.cpp",
+      "kind": "file-not-exists",
+      "path": "native/ollama_service/ollama_service.cpp"
+    },
+    {
       "id": "forbidden-source:scripts/build-business-rule-delegation.py",
       "kind": "file-not-exists",
       "path": "scripts/build-business-rule-delegation.py"
@@ -25799,6 +25769,11 @@
       "id": "forbidden-source:xingcheng/src/backend/cpp/build_cpp.py",
       "kind": "file-not-exists",
       "path": "xingcheng/src/backend/cpp/build_cpp.py"
+    },
+    {
+      "id": "forbidden-source:xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/TeacherCollect.cs",
+      "kind": "file-not-exists",
+      "path": "xingcheng/src/backend/csharp/GPTBridge.XingchengLearning/TeacherCollect.cs"
     },
     {
       "id": "forbidden-source:xingcheng/src/backend/services/__init__.py",
@@ -27711,7 +27686,7 @@
   ],
   "coverage": {
     "delegated_checks": 0,
-    "native_checks": 3582,
+    "native_checks": 3580,
     "native_kinds": [
       "file-exists",
       "file-not-exists",
@@ -27734,7 +27709,7 @@
       "fail"
     ]
   },
-  "generated_at": "2026-10-02T11:50:51Z",
+  "generated_at": "2026-10-02T11:58:45Z",
   "generator": "governance_rule.execution.audit.export_audit_manifest",
   "schema": "star-audit-manifest/v1"
 }

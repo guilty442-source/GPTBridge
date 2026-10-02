@@ -5,7 +5,7 @@
     "git": "system-version-development-history-code-schema-configuration",
     "sql": "structured-mutable-official-data-postgresql",
     "rag": "semantic-index-serving-vectord-derived-from-postgresql-canonical-embeddings",
-    "ollama": "local-model-understanding-reasoning-operations"
+    "note_ollama_retired": "B154 retired (executed 2026-10-02, rev 235): no external model service is a system of record; the llm role is served by the governed native platform"
   },
   "architecture_responsibilities": {
     "git": {

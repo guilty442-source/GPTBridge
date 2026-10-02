@@ -60,10 +60,6 @@
       "mode": "on-demand",
       "activation": "ModelServiceActivationBroker on queued ai->xingcheng request (A540)"
     },
-    "ollama": {
-      "mode": "on-demand",
-      "activation": "model-runtime request path (§10.7)"
-    },
     "standalone_tools": {
       "mode": "on-demand",
       "activation": "governed ToolboxService.start_tool (5s start/stop contract)"
