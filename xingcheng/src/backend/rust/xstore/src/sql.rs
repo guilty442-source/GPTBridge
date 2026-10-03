@@ -1,7 +1,9 @@
 //! Bounded native SQL reads over one canonical snapshot. No external engine.
 //! Supported: SELECT columns|* FROM registered_table [WHERE predicates joined
-//! by AND] [ORDER BY column [ASC|DESC]] [LIMIT $n]. Predicates are column=$n
-//! or column=ANY($n); values are always bound separately, never SQL text.
+//! by AND] [ORDER BY column [ASC|DESC]] [LIMIT $n | integer]. Predicates are
+//! column=$n, column=ANY($n), column op $n for op in {=,<,<=,>,>=,<>,!=},
+//! and column IS [NOT] NULL. Values are always bound separately, never SQL
+//! text; ordering comparisons on incomparable types fail closed.
 //!
 //! Domains: `Session::open` serves the sealed RAG store (static table and
 //! column registry); `Session::open_codex` serves the sealed codex store
@@ -37,9 +39,21 @@ pub struct Session {
     codex_columns: BTreeMap<String, BTreeSet<String>>,
 }
 
+#[derive(Clone, Copy)]
+enum Cmp {
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Ne,
+}
 enum Predicate {
     Equal(String, usize),
     Any(String, usize),
+    /// column op $n for op in {<,<=,>,>=,<>} (!= folds into <>).
+    Compare(String, Cmp, usize),
+    /// column IS NULL; bool flag = negated (IS NOT NULL).
+    IsNull(String, bool),
 }
 struct Plan {
     table: String,
@@ -56,7 +70,7 @@ fn tokens(sql: &str) -> Result<Vec<String>, String> {
     let mut result = Vec::new();
     let mut word = String::new();
     for c in sql.chars() {
-        if c.is_ascii_whitespace() || "*,=()".contains(c) {
+        if c.is_ascii_whitespace() || "*,=()<>!".contains(c) {
             if !word.is_empty() {
                 result.push(std::mem::take(&mut word));
             }
@@ -188,27 +202,58 @@ fn parse(
     if p.eat("WHERE") {
         loop {
             let field = p.identifier()?;
-            p.need("=")?;
-            let predicate = if p.eat("ANY") {
-                p.need("(")?;
-                let n = p.parameter(params)?;
-                p.need(")")?;
-                if !params[n].is_array() {
-                    return Err("NATIVE_SQL_ARRAY_PARAMETER_REQUIRED".into());
-                }
-                let values = params[n].as_array().unwrap();
-                if values.len() > 4096 || values.iter().any(|v| v.is_array() || v.is_object()) {
-                    return Err("NATIVE_SQL_ARRAY_PARAMETER_INVALID".into());
-                }
-                Predicate::Any(field, n)
+            if p.eat("IS") {
+                let negated = p.eat("NOT");
+                p.need("NULL")?;
+                predicates.push(Predicate::IsNull(field, negated));
             } else {
-                let n = p.parameter(params)?;
-                if params[n].is_array() || params[n].is_object() {
-                    return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
-                }
-                Predicate::Equal(field, n)
-            };
-            predicates.push(predicate);
+                let cmp = if p.eat("=") {
+                    None
+                } else if p.eat("<") {
+                    if p.eat("=") {
+                        Some(Cmp::Le)
+                    } else if p.eat(">") {
+                        Some(Cmp::Ne)
+                    } else {
+                        Some(Cmp::Lt)
+                    }
+                } else if p.eat(">") {
+                    Some(if p.eat("=") { Cmp::Ge } else { Cmp::Gt })
+                } else if p.eat("!") {
+                    p.need("=")?;
+                    Some(Cmp::Ne)
+                } else {
+                    return Err("NATIVE_SQL_OPERATOR_REQUIRED".into());
+                };
+                let predicate = match cmp {
+                    None if p.eat("ANY") => {
+                        p.need("(")?;
+                        let n = p.parameter(params)?;
+                        p.need(")")?;
+                        if !params[n].is_array() {
+                            return Err("NATIVE_SQL_ARRAY_PARAMETER_REQUIRED".into());
+                        }
+                        let values = params[n].as_array().unwrap();
+                        if values.len() > 4096
+                            || values.iter().any(|v| v.is_array() || v.is_object())
+                        {
+                            return Err("NATIVE_SQL_ARRAY_PARAMETER_INVALID".into());
+                        }
+                        Predicate::Any(field, n)
+                    }
+                    _ => {
+                        let n = p.parameter(params)?;
+                        if params[n].is_array() || params[n].is_object() {
+                            return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
+                        }
+                        match cmp {
+                            None => Predicate::Equal(field, n),
+                            Some(op) => Predicate::Compare(field, op, n),
+                        }
+                    }
+                };
+                predicates.push(predicate);
+            }
             if !p.eat("AND") {
                 break;
             }
@@ -226,11 +271,19 @@ fn parse(
         None
     };
     let limit = if p.eat("LIMIT") {
-        let n = p.parameter(params)?;
-        params[n]
-            .as_u64()
-            .filter(|n| *n <= 10000)
-            .ok_or("NATIVE_SQL_LIMIT_INVALID")? as usize
+        if p.peek().starts_with('$') {
+            let n = p.parameter(params)?;
+            params[n]
+                .as_u64()
+                .filter(|n| *n <= 10000)
+                .ok_or("NATIVE_SQL_LIMIT_INVALID")? as usize
+        } else {
+            p.take()
+                .parse::<u64>()
+                .ok()
+                .filter(|n| *n <= 10000)
+                .ok_or("NATIVE_SQL_LIMIT_INVALID")? as usize
+        }
     } else {
         10000
     };
@@ -248,7 +301,10 @@ fn parse(
     }
     for pred in &predicates {
         fields.push(match pred {
-            Predicate::Equal(c, _) | Predicate::Any(c, _) => c.clone(),
+            Predicate::Equal(c, _)
+            | Predicate::Any(c, _)
+            | Predicate::Compare(c, _, _)
+            | Predicate::IsNull(c, _) => c.clone(),
         });
     }
     if let Some((c, _)) = &order {
@@ -401,6 +457,9 @@ impl Session {
                 Predicate::Any(field, n) => params[*n]
                     .as_array()
                     .and_then(|values| self.index.any_candidates(&plan.table, field, values)),
+                // Ordered/null tests are not indexable: they never narrow,
+                // so the canonical candidate set (whole table) stands.
+                Predicate::Compare(..) | Predicate::IsNull(..) => None,
             };
             let Some(set) = candidates else { continue };
             if best.as_ref().map(|b| set.len() < b.len()).unwrap_or(true) {
@@ -426,15 +485,47 @@ impl Session {
     }
 }
 
-fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> bool {
-    plan.predicates.iter().all(|pred| match pred {
-        Predicate::Equal(field, n) => equal(&row[field], &params[*n]),
-        Predicate::Any(field, n) => params[*n]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|v| equal(&row[field], v)),
-    })
+/// Ordering comparison for predicates: same-type scalars only —
+/// numbers compare numerically (exact integer lanes first), strings
+/// lexically, booleans by false<true. A null on either side yields no
+/// match (not an error); any other type pair is incomparable and fails
+/// the whole query closed.
+fn cmp_scalars(a: &Value, b: &Value) -> Result<Option<std::cmp::Ordering>, String> {
+    if a.is_null() || b.is_null() {
+        return Ok(None);
+    }
+    match (a, b) {
+        (Value::Number(_), Value::Number(_)) => Ok(Some(compare(a, b))),
+        (Value::String(x), Value::String(y)) => Ok(Some(x.cmp(y))),
+        (Value::Bool(x), Value::Bool(y)) => Ok(Some(x.cmp(y))),
+        _ => Err("NATIVE_SQL_INCOMPARABLE".into()),
+    }
+}
+fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> Result<bool, String> {
+    for pred in &plan.predicates {
+        let ok = match pred {
+            Predicate::Equal(field, n) => equal(&row[field], &params[*n]),
+            Predicate::Any(field, n) => params[*n]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|v| equal(&row[field], v)),
+            Predicate::Compare(field, Cmp::Ne, n) => {
+                !row[field].is_null() && !params[*n].is_null() && row[field] != params[*n]
+            }
+            Predicate::Compare(field, op, n) => match cmp_scalars(&row[field], &params[*n])? {
+                None => false,
+                Some(std::cmp::Ordering::Less) => matches!(op, Cmp::Lt | Cmp::Le),
+                Some(std::cmp::Ordering::Equal) => matches!(op, Cmp::Le | Cmp::Ge),
+                Some(std::cmp::Ordering::Greater) => matches!(op, Cmp::Gt | Cmp::Ge),
+            },
+            Predicate::IsNull(field, negated) => row[field].is_null() != *negated,
+        };
+        if !ok {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 fn evaluate(
@@ -443,19 +534,30 @@ fn evaluate(
     params: &[Value],
     keys: Option<BTreeSet<String>>,
 ) -> Result<Vec<Value>, String> {
+    fn keep<'a>(
+        row: &'a Value,
+        plan: &Plan,
+        params: &[Value],
+    ) -> Option<Result<&'a Value, String>> {
+        match predicate_ok(row, plan, params) {
+            Ok(true) => Some(Ok(row)),
+            Ok(false) => None,
+            Err(e) => Some(Err(e)),
+        }
+    }
     let mut result: Vec<&Value> = match &keys {
         Some(keys) => keys
             .iter()
             .filter_map(|k| rows.get(k.as_str()))
-            .filter(|row| predicate_ok(row, plan, params))
-            .collect(),
+            .filter_map(|row| keep(row, plan, params))
+            .collect::<Result<_, String>>()?,
         None => {
             let prefix = format!("{}/", plan.table);
             rows.range(prefix.clone()..)
                 .take_while(|(key, _)| key.starts_with(&prefix))
                 .map(|(_, row)| row)
-                .filter(|row| predicate_ok(row, plan, params))
-                .collect()
+                .filter_map(|row| keep(row, plan, params))
+                .collect::<Result<_, String>>()?
         }
     };
     if let Some((field, descending)) = &plan.order {
@@ -665,11 +767,116 @@ mod tests {
                 "SELECT * FROM rag_chunk WHERE module_id = $1 AND sequence = $2",
                 vec![json!("m"), json!(3)],
             ),
+            (
+                "SELECT * FROM rag_chunk WHERE sequence >= $1 AND sequence < $2",
+                vec![json!(10), json!(20)],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id IS NULL",
+                vec![],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id IS NOT NULL LIMIT 3",
+                vec![],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE resource_id <> $1",
+                vec![json!("r0")],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE resource_id != $1",
+                vec![json!("r0")],
+            ),
         ] {
             let indexed = session.query(sql, &params).unwrap();
             let scanned = Session::query_rows(&map, sql, &params).unwrap();
             assert_eq!(indexed, scanned, "{sql}");
         }
+    }
+    #[test]
+    fn comparison_predicates_is_null_and_literal_limit() {
+        let session = session();
+        // Ordering comparisons run against the same bounded rows; < on a
+        // string param is incomparable and fails the query closed.
+        let rows = session
+            .query(
+                "SELECT chunk_id FROM rag_chunk WHERE sequence < $1 ORDER BY sequence DESC",
+                &[json!(2)],
+            )
+            .unwrap();
+        assert_eq!(rows, vec![json!({"chunk_id":"b"}), json!({"chunk_id":"c"})]);
+        assert_eq!(
+            session
+                .query(
+                    "SELECT chunk_id FROM rag_chunk WHERE sequence >= $1 AND sequence <= $2",
+                    &[json!(1), json!(2)]
+                )
+                .unwrap()
+                .len(),
+            2
+        );
+        // Null never matches any comparison, and IS [NOT] NULL sees it.
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk WHERE module_id IS NULL", &[])
+                .unwrap(),
+            vec![json!({"chunk_id":"c"})]
+        );
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk WHERE module_id IS NOT NULL ORDER BY chunk_id ASC LIMIT 1", &[])
+                .unwrap(),
+            vec![json!({"chunk_id":"a"})]
+        );
+        assert!(session
+            .query("SELECT * FROM rag_chunk WHERE module_id != $1", &[Value::Null])
+            .unwrap()
+            .is_empty());
+        // Literal LIMIT shares the parameter bound; overflow fails closed.
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk ORDER BY sequence ASC LIMIT 2", &[])
+                .unwrap()
+                .len(),
+            2
+        );
+        for sql in [
+            "SELECT * FROM rag_chunk WHERE module_id",
+            "SELECT * FROM rag_chunk WHERE module_id IS",
+            "SELECT * FROM rag_chunk WHERE module_id IS UNKNOWN",
+            "SELECT * FROM rag_chunk LIMIT x",
+            "SELECT * FROM rag_chunk LIMIT 10001",
+            "SELECT * FROM rag_chunk LIMIT -1",
+        ] {
+            assert!(session.query(sql, &[]).is_err(), "{sql}");
+        }
+        // Missing parameter for the comparison itself also fails closed.
+        assert!(session
+            .query("SELECT * FROM rag_chunk WHERE sequence < $1", &[])
+            .is_err());
+    }
+    #[test]
+    fn incomparable_ordering_and_bad_operators_fail_closed() {
+        let session = session();
+        // String parameter against numeric column: incomparable → query error.
+        assert!(session
+            .query(
+                "SELECT * FROM rag_chunk WHERE sequence < $1",
+                &[json!("1")]
+            )
+            .is_err());
+        // Numeric parameter against a column holding a null row still
+        // succeeds — null rows simply never match the comparison.
+        assert_eq!(
+            session
+                .query(
+                    "SELECT chunk_id FROM rag_chunk WHERE module_id = $1 AND sequence <= $2",
+                    &[json!("m"), json!(2)]
+                )
+                .unwrap()
+                .len(),
+            2
+        );
     }
     #[test]
     fn codex_domain_serves_sealed_tables_and_fails_closed() {
