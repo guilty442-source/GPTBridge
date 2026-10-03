@@ -202,6 +202,17 @@ internal static partial class ManifestExport
         e.Contains("channel-gateway:port-invariants",
             $"{channelLib}/A263Channel.cs",
             new[] { "Stopwatch.GetTimestamp", "ReconnectAsync" });
+        // Wake hints run locally; a SQL driver must never return to this
+        // channel adapter. Tool bodies still cannot bypass the gateway.
+        e.NotContains("channel-gateway:postgresql-driver-retired",
+            $"{channelLib}/GPTBridge.Channels.csproj",
+            new[] { "Npgsql" });
+        e.Contains("channel-gateway:native-notify",
+            $"{channelLib}/NotifyTransport.cs",
+            new[] { "NativeNotifyTransport", "FileSystemWatcher", "File.Move" });
+        e.Contains("channel-gateway:native-notify-factory",
+            $"{channelLib}/NotifyListener.cs",
+            new[] { "ForNative", "new NativeNotifyTransport(root)" });
 
         const string toolHost =
             "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost";
@@ -217,6 +228,7 @@ internal static partial class ManifestExport
             "HMACSHA", "issue_token", "launcher_key",
             "integrity_manifest", "identity_attestation",
             "gptbridge_transport", "Npgsql", "pg_notify",
+            "NativeNotifyTransport",
         })
             e.Checks.Add(new JsonObject
             {
@@ -264,6 +276,7 @@ internal static partial class ManifestExport
             "HMACSHA", "issue_token", "launcher_key",
             "integrity_manifest", "identity_attestation",
             "gptbridge_transport", "Npgsql", "pg_notify",
+            "NativeNotifyTransport",
         })
             e.Checks.Add(new JsonObject
             {
@@ -479,6 +492,7 @@ internal static partial class ManifestExport
             "HMACSHA", "issue_token", "launcher_key",
             "integrity_manifest", "identity_attestation",
             "gptbridge_transport", "Npgsql", "pg_notify",
+            "NativeNotifyTransport",
         })
             e.Checks.Add(new JsonObject
             {
