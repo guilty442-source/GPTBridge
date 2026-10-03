@@ -50,6 +50,7 @@ internal static partial class Program
         string? watchInterval = null;
         string? captureSchema = null;
         string? captureOut = null;
+        string? captureGeneration = null;
         var codexRead = false;
         var mintDualKey = false;
         var revokeReads = false;
@@ -103,6 +104,10 @@ internal static partial class Program
                 case "--interval": watchInterval = Value(); break;
                 case "--capture-schema-snapshot":
                     captureSchema = Value(); captureOut = Value(); break;
+                case "--capture-codex-snapshot":
+                    captureGeneration = Value();
+                    captureOut = Value();
+                    captureSchema = PgDsn.CodexSchema; break;
                 case "--codex-read": codexRead = true; break;
                 case "--mint-dual-key": mintDualKey = true; break;
                 case "--revoke-codex-reads": revokeReads = true; break;
@@ -263,15 +268,29 @@ internal static partial class Program
                 return Emit(PgExport.AuthorityState());
             if (captureSchema is not null)
             {
-                // Read-only retirement capture: seals one gptbridge_*
-                // schema into a pinned snapshot artifact (Phase 2+ of
-                // docs/postgresql-retirement-route.md). Never writes
-                // to the source.
-                var bytes = PgSchemaSnapshot.Capture(captureSchema);
+                // Read-only retirement captures: codex takes the
+                // generation-pinned NativeCodexMigration bridge (fails
+                // closed on BLOCKED_GENERATION_DRIFT); any other
+                // gptbridge_* domain takes the generalized snapshot
+                // (Phase 2+ of docs/postgresql-retirement-route.md).
+                // Neither writes to the source.
+                byte[] bytes;
+                string artifact;
+                if (captureGeneration is not null)
+                {
+                    bytes = NativeCodexMigration.Capture(
+                        captureGeneration);
+                    artifact = NativeCodexSnapshot.Format;
+                }
+                else
+                {
+                    bytes = PgSchemaSnapshot.Capture(captureSchema);
+                    artifact = PgSchemaSnapshot.Format;
+                }
                 File.WriteAllBytes(captureOut!, bytes);
                 return Emit(new Dictionary<string, object?>
                 {
-                    ["artifact"] = PgSchemaSnapshot.Format,
+                    ["artifact"] = artifact,
                     ["schema"] = captureSchema,
                     ["snapshot"] = captureOut,
                     ["sha256"] = FileHash(captureOut!),

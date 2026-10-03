@@ -153,64 +153,62 @@ internal static class PermissionAutomation
     // --------------------------------------------------------------
 
     /// <summary>Governance connectivity probe for the self-healing
-    /// flow: the PostgreSQL authority DSN must resolve and accept a TCP
-    /// connection inside a bounded window.  Missing DSN or unreachable
-    /// endpoint both report disconnected — fail-closed.</summary>
+    /// flow: the governed CodexPipeline read lane must answer
+    /// ``--authority-state`` inside a bounded window — a real authority
+    /// read through the PgDsn.Readonly credential boundary, stronger
+    /// than a bare socket probe and future-proof across the native SQL
+    /// cutover (the probe follows whatever the pipeline resolves).
+    /// Missing pipeline or a failed read reports disconnected —
+    /// fail-closed.</summary>
     private static bool GovernanceConnected()
     {
-        var dsn = Environment.GetEnvironmentVariable(
-            "GPTBRIDGE_POSTGRES_DSN")?.Trim() ?? "";
-        if (dsn.Length == 0)
-            return false;
-        string host;
-        int port = 5432;
-        if (dsn.StartsWith("postgresql://", StringComparison.Ordinal)
-            || dsn.StartsWith("postgres://", StringComparison.Ordinal))
-        {
-            try
-            {
-                var uri = new Uri(dsn);
-                host = uri.Host;
-                if (uri.Port > 0)
-                    port = uri.Port;
-            }
-            catch (UriFormatException) { return false; }
-        }
-        else
-        {
-            host = "";
-            // libpq keyword form is space- or semicolon-separated.
-            foreach (var pair in dsn.Split(
-                new[] { ';', ' ', '\t' },
-                StringSplitOptions.RemoveEmptyEntries))
-            {
-                var eq = pair.IndexOf('=');
-                if (eq <= 0)
-                    continue;
-                var key = pair[..eq].Trim();
-                var value = pair[(eq + 1)..].Trim();
-                if (key.Equals("host",
-                    StringComparison.OrdinalIgnoreCase))
-                    host = value;
-                else if (key.Equals("port",
-                        StringComparison.OrdinalIgnoreCase)
-                    && int.TryParse(value, out var parsed))
-                    port = parsed;
-            }
-        }
-        if (host.Length == 0)
+        var exe = PipelineExe();
+        if (exe is null)
             return false;
         try
         {
-            using var client = new System.Net.Sockets.TcpClient();
-            var connect = client.ConnectAsync(host, port);
-            return connect.Wait(TimeSpan.FromMilliseconds(1500))
-                && client.Connected;
+            using var process = System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(exe,
+                    "--authority-state")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                })!;
+            process.StandardOutput.ReadToEnd();
+            process.StandardError.ReadToEnd();
+            if (!process.WaitForExit(15_000))
+            {
+                try { process.Kill(); }
+                catch (InvalidOperationException) { }
+                return false;
+            }
+            return process.ExitCode == 0;
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>Locate the governed CodexPipeline exe: walk ancestors
+    /// of the automation publish root for a sibling
+    /// GPTBridge.CodexPipeline/publish entry — same discovery rule as
+    /// SqlSync.PipelineExe. Null when absent.</summary>
+    private static string? PipelineExe()
+    {
+        var cursor = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 6 && cursor is not null; i++)
+        {
+            var candidate = Path.Combine(cursor.FullName,
+                "GPTBridge.CodexPipeline", "publish",
+                "GPTBridge.CodexPipeline.exe");
+            if (File.Exists(candidate))
+                return candidate;
+            cursor = cursor.Parent;
+        }
+        return null;
     }
 
     /// <summary>Sovereign-state probe: the release pin must resolve a

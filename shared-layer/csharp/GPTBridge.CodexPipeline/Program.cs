@@ -30,6 +30,10 @@ using GPTBridge.CodexPipeline;
 ///                              read-only gptbridge_* schema capture
 ///                              to a pinned snapshot artifact
 ///                              (PostgreSQL retirement route Phase 2+)
+///   --capture-codex-snapshot &lt;generation&gt; &lt;out&gt;
+///                              generation-pinned read-only codex
+///                              capture via NativeCodexMigration
+///                              (fails closed on generation drift)
 ///   --verify-parity &lt;sql&gt;      verify_sql_parity
 ///
 /// Governed migration executor (sql_migration_executor_contract):

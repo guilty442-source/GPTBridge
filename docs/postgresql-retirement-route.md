@@ -79,7 +79,9 @@ MainSystem DependencyProbes（PG readiness 主動以 `POSTGRESQL_RETIRED` 拒絕
 | MainSystem PG readiness 退役（`POSTGRESQL_RETIRED`） | `codex-postgres-main-retirement` 認領 | landed |
 | xstore metadata write plane（meta_*.rs＋NativeMetadataClient＋影子 hooks） | `devin-cli` 認領（進行中） | in-flight |
 | AuditGate `psql` → 受管 `--authority-state` | `638933f32` | landed |
-| 一般化 schema 唯讀匯出器 `--capture-schema-snapshot`（`PgSchemaSnapshot`） | 本次 | landed |
+| 一般化 schema 唯讀匯出器 `--capture-schema-snapshot`（`PgSchemaSnapshot`） | `8b7fdcad1` | landed |
+| codex 快照產線接線 `--capture-codex-snapshot`（generation pin，BLOCKED_GENERATION_DRIFT fail-closed） | 本次 | landed |
+| PermissionAutomation 治理連通探測 TCP→受管 `--authority-state`（探針隨權威遷移） | 本次 | landed |
 
 ## 五、分階段路線
 
@@ -100,7 +102,10 @@ MainSystem DependencyProbes（PG readiness 主動以 `POSTGRESQL_RETIRED` 拒絕
   <schema> <out>`（`PgSchemaSnapshot.Capture`，`gptbridge-pg-snapshot/v1`，
   fail-closed `BLOCKED_SCHEMA_NAME`/`SCHEMA_NOT_FOUND`）；首兩域已封存至
   `main-system/runtime/review/pg-schema-snapshots/`
-  （transport 5 表/7,672 列、workflow 快照，各附檔案 sha256）；
+  （transport 5 表/7,672 列、workflow 快照，各附檔案 sha256）。
+  **凍結實證**：~30 分鐘後重抓 transport/workflow 快照 sha256 位元組級
+  一致，確認無 live writer；codex 域亦可以
+  `--capture-codex-snapshot <generation> <out>` 產出 pinned 快照；
 - backend `outbox.rs`/`saga.rs` 改讀原生快照或退役對應端點
   （兩者皆 fail-closed 設計，DSN 缺席時已自然沉默）；
 - 完成後 `pg.rs` 與 `postgres` crate 可自 backend 移除（Rust 面 PG 依賴歸零）。
