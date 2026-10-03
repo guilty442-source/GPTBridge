@@ -78,7 +78,8 @@ MainSystem DependencyProbes（PG readiness 主動以 `POSTGRESQL_RETIRED` 拒絕
 | Channels 原生通知傳輸（取代 LISTEN/NOTIFY） | `5a463151e`/`fe7663f0d` | landed |
 | MainSystem PG readiness 退役（`POSTGRESQL_RETIRED`） | `codex-postgres-main-retirement` 認領 | landed |
 | xstore metadata write plane（meta_*.rs＋NativeMetadataClient＋影子 hooks） | `devin-cli` 認領（進行中） | in-flight |
-| AuditGate `psql` → 受管 `--authority-state` | 本次 | landed |
+| AuditGate `psql` → 受管 `--authority-state` | `638933f32` | landed |
+| 一般化 schema 唯讀匯出器 `--capture-schema-snapshot`（`PgSchemaSnapshot`） | 本次 | landed |
 
 ## 五、分階段路線
 
@@ -94,7 +95,12 @@ MainSystem DependencyProbes（PG readiness 主動以 `POSTGRESQL_RETIRED` 拒絕
 ### Phase 2 — 凍結表封存＋讀者改道
 - `gptbridge_transport.outbox_event`、`gptbridge_workflow.*`：
   一次性受管匯出（沿用 NativeCodexMigration.Capture 的 repeatable-read
-  read-only 模式，一般化至多 schema），產出 pinned snapshot artifact；
+  read-only 模式，一般化至多 schema），產出 pinned snapshot artifact——
+  **機械已落地**：`GPTBridge.CodexPipeline --capture-schema-snapshot
+  <schema> <out>`（`PgSchemaSnapshot.Capture`，`gptbridge-pg-snapshot/v1`，
+  fail-closed `BLOCKED_SCHEMA_NAME`/`SCHEMA_NOT_FOUND`）；首兩域已封存至
+  `main-system/runtime/review/pg-schema-snapshots/`
+  （transport 5 表/7,672 列、workflow 快照，各附檔案 sha256）；
 - backend `outbox.rs`/`saga.rs` 改讀原生快照或退役對應端點
   （兩者皆 fail-closed 設計，DSN 缺席時已自然沉默）；
 - 完成後 `pg.rs` 與 `postgres` crate 可自 backend 移除（Rust 面 PG 依賴歸零）。

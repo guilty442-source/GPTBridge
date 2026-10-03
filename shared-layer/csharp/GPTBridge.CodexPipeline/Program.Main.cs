@@ -48,6 +48,8 @@ internal static partial class Program
         string? migrationSequence = null;
         string? migrationDb = null;
         string? watchInterval = null;
+        string? captureSchema = null;
+        string? captureOut = null;
         var codexRead = false;
         var mintDualKey = false;
         var revokeReads = false;
@@ -99,6 +101,8 @@ internal static partial class Program
                 case "--sequence": migrationSequence = Value(); break;
                 case "--migration-db": migrationDb = Value(); break;
                 case "--interval": watchInterval = Value(); break;
+                case "--capture-schema-snapshot":
+                    captureSchema = Value(); captureOut = Value(); break;
                 case "--codex-read": codexRead = true; break;
                 case "--mint-dual-key": mintDualKey = true; break;
                 case "--revoke-codex-reads": revokeReads = true; break;
@@ -257,6 +261,22 @@ internal static partial class Program
                         && seconds > 0 ? seconds : null);
             if (authorityState)
                 return Emit(PgExport.AuthorityState());
+            if (captureSchema is not null)
+            {
+                // Read-only retirement capture: seals one gptbridge_*
+                // schema into a pinned snapshot artifact (Phase 2+ of
+                // docs/postgresql-retirement-route.md). Never writes
+                // to the source.
+                var bytes = PgSchemaSnapshot.Capture(captureSchema);
+                File.WriteAllBytes(captureOut!, bytes);
+                return Emit(new Dictionary<string, object?>
+                {
+                    ["artifact"] = PgSchemaSnapshot.Format,
+                    ["schema"] = captureSchema,
+                    ["snapshot"] = captureOut,
+                    ["sha256"] = FileHash(captureOut!),
+                });
+            }
             if (archDocs)
                 // Read-only architecture registry × docs completeness
                 // report (xingcheng_codex_alignment deep surface).

@@ -26,6 +26,10 @@ using GPTBridge.CodexPipeline;
 ///   --roundtrip &lt;sql&gt; &lt;out&gt;    materialize + dump (byte parity)
 ///   --export &lt;target&gt;          export_postgresql_codex
 ///   --authority-state          codex_authority_state row
+///   --capture-schema-snapshot &lt;schema&gt; &lt;out&gt;
+///                              read-only gptbridge_* schema capture
+///                              to a pinned snapshot artifact
+///                              (PostgreSQL retirement route Phase 2+)
 ///   --verify-parity &lt;sql&gt;      verify_sql_parity
 ///
 /// Governed migration executor (sql_migration_executor_contract):
