@@ -304,9 +304,10 @@ internal static partial class GenerationProjections
             "architecture_diagram_sync_evidence")
             .Where(r => Text(r, "status") == "current").ToList();
         var projectionOpen = ClosureEvidence.CountOpen(sync, r =>
-            Text(r, "result") != "PASS"
-            || Int(r, "hash_match_count") != Int(r, "required_count")
-            || Int(r, "stale_count") != 0 || Int(r, "missing_count") != 0);
+            ClosureEvidence.ProjectionIncomplete(version, Text(r, "codex_version"),
+                Text(r, "result"), Int(r, "required_count"),
+                Int(r, "registered_count"), Int(r, "present_count"),
+                Int(r, "hash_match_count"), Int(r, "stale_count"), Int(r, "missing_count")));
         var firstSync = sync.FirstOrDefault();
 
         // -- closure rows -----------------------------------------------
