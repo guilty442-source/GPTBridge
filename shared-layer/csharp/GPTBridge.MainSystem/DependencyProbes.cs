@@ -1,5 +1,5 @@
 // Dependency phase probes — the per-identity handlers the Python
-// PhaseMixin exposes (_phase_postgresql / _phase_vectord; the retired
+// PhaseMixin exposes (_phase_vectord; the retired
 // _phase_ollama is gone with the B154 retirement — no probe may target
 // an external model service).
 //
@@ -9,34 +9,36 @@
 
 using System.Diagnostics;
 using System.Text.Json.Nodes;
-using Npgsql;
+
 
 namespace GPTBridge.MainSystem;
 
 public sealed class DependencyProbes
 {
     private readonly StartupManifest _manifest;
-    private readonly Func<string?> _dsn;
+    private readonly Func<DependencyDeclaration, CancellationToken, Task<bool>>? _nativeIntegrity;
 
-    /// <param name="dsn">
-    /// Governed-DSN resolver for the runtime purpose; the Python path uses
-    /// shared_layer.security.dsn_policy.resolve_dsn(RUNTIME) with the
-    /// GPTBRIDGE_POSTGRES_DSN env fallback — inject the resolved value.
-    /// </param>
-    public DependencyProbes(StartupManifest manifest, Func<string?>? dsn = null)
+    // The DSN parameter remains for source compatibility; retired PostgreSQL
+    // contracts never resolve it or open a connection.
+    public DependencyProbes(StartupManifest manifest, Func<string?>? dsn = null,
+        Func<DependencyDeclaration, CancellationToken, Task<bool>>? nativeIntegrity = null)
     {
         _manifest = manifest;
-        _dsn = dsn ?? (() => Environment
-            .GetEnvironmentVariable("GPTBRIDGE_POSTGRES_DSN"));
+        _nativeIntegrity = nativeIntegrity;
     }
 
-    /// <summary>Dispatch by readiness_contract; never throws.</summary>
+    /// <summary>Dispatch by readiness_contract; cancellation propagates.</summary>
     public Task<ProbeResult> ProbeAsync(
         DependencyDeclaration dep, CancellationToken ct)
     {
         var contract = dep.ReadinessContract;
-        if (contract == "tcp-or-dsn-select-1")
-            return PostgresAsync(dep, ct);
+        if (contract == "tcp-or-dsn-select-1"
+            || dep.Identity.Equals("postgresql", StringComparison.OrdinalIgnoreCase)
+            || dep.Identity.Equals("postgres", StringComparison.OrdinalIgnoreCase))
+            return Task.FromResult(Fault(dep, "POSTGRESQL_RETIRED",
+                "retired PostgreSQL readiness contract; native migration required"));
+        if (contract == "native-store-integrity")
+            return NativeIntegrityAsync(dep, ct);
         if (contract.StartsWith("loopback-tcp-", StringComparison.Ordinal)
             && int.TryParse(contract["loopback-tcp-".Length..], out var port))
             return LoopbackTcpAsync(dep, port, ct);
@@ -44,55 +46,27 @@ public sealed class DependencyProbes
             $"unsupported readiness_contract:{contract}"));
     }
 
-    private async Task<ProbeResult> PostgresAsync(
+    private async Task<ProbeResult> NativeIntegrityAsync(
         DependencyDeclaration dep, CancellationToken ct)
     {
+        if (_nativeIntegrity is null)
+            return Fault(dep, "NATIVE_STORE_VERIFIER_UNAVAILABLE",
+                "native authority verifier is required");
         var sw = Stopwatch.StartNew();
-        var dsn = (_dsn() ?? "").Trim();
-        var connectTimeout = TimeSpan.FromSeconds(
-            _manifest.ProbeConstant("postgres_connect_timeout", 1.0));
-        var attempts = Math.Max(1,
-            (int)_manifest.ProbeConstant("postgres_probe_attempts", 3));
-        var delay = TimeSpan.FromSeconds(
-            _manifest.ProbeConstant("postgres_probe_delay", 0.5));
-
-        if (dsn.Length > 0)
+        try
         {
-            for (var attempt = 0; attempt < attempts; attempt++)
-            {
-                try
-                {
-                    var builder = new NpgsqlConnectionStringBuilder(dsn)
-                    {
-                        Timeout = (int)Math.Max(1, connectTimeout.TotalSeconds),
-                    };
-                    await using var conn = new NpgsqlConnection(
-                        builder.ConnectionString);
-                    await conn.OpenAsync(ct).ConfigureAwait(false);
-                    await using var cmd = new NpgsqlCommand("SELECT 1", conn);
-                    await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
-                    return Ok(dep, "postgresql-start", "PostgreSQL",
-                        sw, "ready:dsn-select-1",
-                        extra: ("dsn_source", "governed-or-env"));
-                }
-                catch (Exception) when (!ct.IsCancellationRequested)
-                {
-                    if (attempt + 1 < attempts)
-                        await Task.Delay(delay, ct).ConfigureAwait(false);
-                }
-            }
+            ct.ThrowIfCancellationRequested();
+            var verified = await _nativeIntegrity(dep, ct).ConfigureAwait(false);
+            return verified
+                ? Ok(dep, $"{dep.Identity}-start", dep.Identity, sw, "ready:native-integrity")
+                : NotReady(dep, $"{dep.Identity}-start", dep.Identity, sw,
+                    "NATIVE_STORE_INTEGRITY_FAILED", "native authority integrity failed");
         }
-
-        // No DSN anywhere (or the DSN path failed) — degrade to TCP probe.
-        var tcpOk = await StartupProbes.ProbeTcpAsync("127.0.0.1",
-            _manifest.Port("postgresql", 5432), connectTimeout, ct)
-            .ConfigureAwait(false);
-        if (tcpOk)
-            return Ok(dep, "postgresql-start", "PostgreSQL", sw,
-                "ready:tcp-probe",
-                extra: ("dsn_source", dsn.Length > 0 ? "failed" : "none"));
-        return NotReady(dep, "postgresql-start", "PostgreSQL", sw,
-            "POSTGRES_UNREACHABLE", "unreachable");
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return NotReady(dep, $"{dep.Identity}-start", dep.Identity, sw,
+                "NATIVE_STORE_INTEGRITY_FAILED", "native authority verifier failed");
+        }
     }
 
     private async Task<ProbeResult> LoopbackTcpAsync(
