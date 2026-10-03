@@ -458,8 +458,52 @@ if (-not (Invoke-JobFleet $linkJobs $linkArgs 300)) {
 # the source revision the binaries were built from for revision checks.
 $revision = ""
 try {
-    $revision = (git -C (Join-Path $nativeRoot "..") rev-parse HEAD 2>$null)
-    if ($revision) { $revision = $revision.Trim() }
+    # Zero-shell-git: resolve HEAD directly from the .git plumbing.  Handles
+    # worktree indirection (.git file + commondir), symref HEAD, loose refs,
+    # packed-refs and detached HEAD — equivalent to `git rev-parse HEAD`.
+    $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $nativeRoot ".."))
+    $gitPath = Join-Path $repoRoot ".git"
+    $gitDir = $gitPath
+    if (Test-Path $gitPath -PathType Leaf) {
+        $gd = ((Get-Content $gitPath -Raw).Trim() -replace '^gitdir:\s*', '')
+        if (-not [System.IO.Path]::IsPathRooted($gd)) {
+            $gd = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $gd))
+        }
+        $gitDir = $gd
+    }
+    $commonDir = $gitDir
+    $cdFile = Join-Path $gitDir "commondir"
+    if (Test-Path $cdFile) {
+        $cd = (Get-Content $cdFile -Raw).Trim()
+        if (-not [System.IO.Path]::IsPathRooted($cd)) {
+            $cd = [System.IO.Path]::GetFullPath((Join-Path $gitDir $cd))
+        }
+        $commonDir = $cd
+    }
+    $resolveRef = {
+        param($ref)
+        $refFile = Join-Path $commonDir ($ref -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+        if (Test-Path $refFile) { return ((Get-Content $refFile -Raw).Trim() -split '\s')[0] }
+        $packed = Join-Path $commonDir "packed-refs"
+        if (Test-Path $packed) {
+            foreach ($line in Get-Content $packed) {
+                if ($line -match '^[0-9a-fA-F]{40}\s+\S+$') {
+                    $sha, $name = $line -split '\s+', 2
+                    if ($name.Trim() -eq $ref) { return $sha }
+                }
+            }
+        }
+        return $null
+    }
+    $head = (Get-Content (Join-Path $gitDir "HEAD") -Raw).Trim()
+    $depth = 0
+    while ($head -match '^ref:\s*(\S+)$' -and $depth -lt 10) {
+        $head = & $resolveRef $Matches[1]
+        $depth++
+        if (-not $head) { break }
+        if ($head -match '^[0-9a-fA-F]{40}$') { break }
+    }
+    if ($head -match '^[0-9a-fA-F]{40}$') { $revision = $head }
 } catch { $revision = "" }
 $manifestSuites = @($suites | ForEach-Object {
     $exePath = Join-Path $out $_.exe
