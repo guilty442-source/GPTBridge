@@ -65,6 +65,13 @@ internal static class Git
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        // Spawned reads must never wait on index.lock: callers (pre-commit
+        // hook, sweep, sync) legitimately run while another git process
+        // holds the lock, and the index stat-cache refresh each read
+        // would otherwise attempt burns the full subprocess timeout.
+        // Required locks (add/commit/update-ref) are unaffected — the
+        // knob only disables *optional* lock acquisition.
+        startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
         if (!string.IsNullOrEmpty(workDirectory))
             startInfo.WorkingDirectory = workDirectory;
         foreach (var arg in args)
