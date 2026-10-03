@@ -146,3 +146,22 @@ Native sparse ranking uses conjunctive exact Unicode alphanumeric terms and
 frequency divided by token count, with stable chunk-id ties. It replaces
 PostgreSQL `ts_rank`; ranking parity is not claimed. Vector candidates still
 pass resource, tombstone, scope, generation and index-state barriers.
+## Native SQL in process
+
+Generation, chunk-candidate and index-state reads use the existing xstore
+Rust library's bounded SQL evaluator over the verified canonical snapshot.
+Supported grammar is `SELECT <registered columns or *> FROM <registered RAG
+ table> [WHERE column = $n or column = ANY($n), joined with AND] [ORDER BY
+ column ASC|DESC] [LIMIT $n]`. Parameters are separate JSON values; SQL literals,
+joins, DDL, DML and transaction statements are rejected. NULL equality never
+matches. Limits: statement 4096 bytes, 64 parameters, ANY arrays 4096 values,
+10,000 matching rows. These limits never silently suppress authoritative rows.
+
+The same engine exposes `xstore_sql_query_json` / `xstore_sql_buffer_free` in
+`xstore.dll` for C/C++/C#/F#/Go/Julia/AOT callers. ABI declaration is
+`xingcheng/src/backend/rust/xstore/include/xstore_sql.h`. Request envelope:
+`{"format":"xstore-native-sql-request/v1","store":"<path>","sql":"SELECT generation_id FROM rag_generation WHERE alias_name = $1","params":["gptbridge_rag"]}`.
+Returned UTF-8 JSON is engine-owned and length-delimited. Release exactly once
+through the matching engine free function; do not use another allocator. SQL
+execution neither invokes an executable nor accesses PostgreSQL. Mutable SQL
+and transactions remain unsupported pending the governed writer protocol.

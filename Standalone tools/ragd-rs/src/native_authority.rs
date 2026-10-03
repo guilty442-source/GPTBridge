@@ -24,10 +24,11 @@ impl Authority {
             .map(|(_, v)| v)
     }
     pub fn active_generation(&mut self, alias: &str) -> Result<Option<String>, String> {
-        let rows: Vec<_> = self
-            .table("rag_generation")
-            .filter(|r| text(r, "alias_name") == alias && text(r, "state") == "ACTIVE")
-            .collect();
+        let rows = xstore::sql::Session::query_rows(
+            &self.rows,
+            "SELECT generation_id FROM rag_generation WHERE alias_name = $1 AND state = $2",
+            &[json!(alias), json!("ACTIVE")],
+        )?;
         if rows.len() > 1 {
             return Err("RAG_ACTIVE_GENERATION_AMBIGUOUS".into());
         }
@@ -77,11 +78,12 @@ impl Authority {
         points: &[String],
     ) -> Result<HashMap<String, Value>, String> {
         let mut result = HashMap::new();
-        for chunk in self.table("rag_chunk").filter(|r| {
-            modules.iter().any(|m| m == text(r, "module_id"))
-                && points.iter().any(|p| p == text(r, "vector_point_id"))
-        }) {
-            if let Some(row) = self.barrier_row(chunk) {
+        for chunk in xstore::sql::Session::query_rows(
+            &self.rows,
+            "SELECT * FROM rag_chunk WHERE module_id = ANY($1) AND vector_point_id = ANY($2)",
+            &[json!(modules), json!(points)],
+        )? {
+            if let Some(row) = self.barrier_row(&chunk) {
                 if result.insert(text(&row, "point_id").into(), row).is_some() {
                     return Err("RAG_POINT_AMBIGUOUS".into());
                 }
@@ -95,11 +97,11 @@ impl Authority {
         ids: &[String],
     ) -> Result<HashMap<String, String>, String> {
         let mut result = HashMap::new();
-        for row in self.table("rag_index_state").filter(|r| {
-            text(r, "module_id") == module && ids.iter().any(|id| id == text(r, "resource_id"))
-        }) {
+        for row in xstore::sql::Session::query_rows(&self.rows,
+            "SELECT resource_id, status FROM rag_index_state WHERE module_id = $1 AND resource_id = ANY($2)",
+            &[json!(module),json!(ids)])? {
             if result
-                .insert(text(row, "resource_id").into(), text(row, "status").into())
+                .insert(text(&row, "resource_id").into(), text(&row, "status").into())
                 .is_some()
             {
                 return Err("RAG_INDEX_STATE_AMBIGUOUS".into());

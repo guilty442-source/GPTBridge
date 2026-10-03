@@ -5,6 +5,9 @@ edition = "2021"
 description = "GPTBridge local-model Rust data/safety lane (xstore/v1): untrusted-input boundary — binary format parsing, checkpoint integrity, hashing"
 license = "MIT OR Apache-2.0"
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 # float_roundtrip: correctly-rounded f64 parse — the metadata plane
 # replays C#-canonical JSON payloads; without it serde_json's fast path
