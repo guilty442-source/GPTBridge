@@ -665,6 +665,7 @@ internal static partial class GenerationProjections
             RebuildStaleReferenceEvidence(connection, version);
             var parityUpdates = RebuildSchemaParityStatus(connection);
             RebuildDiagramSync(connection, version, failClosed: false);
+            RebuildClosureBookkeeping(connection, version);
             connection.Commit();
             return new Dictionary<string, object?>(
                 StringComparer.Ordinal)

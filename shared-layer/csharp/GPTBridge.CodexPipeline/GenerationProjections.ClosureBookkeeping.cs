@@ -343,7 +343,7 @@ internal static partial class GenerationProjections
             $"registered={schemas.Count};PENDING={schemaOpen.Count};"
             + $"input-sha256={schemaDigest};"
             + "activation-and-verified-release=DENIED",
-            schemaOpen.Count, incomplete);
+            schemaOpen.Count, schemaOpen.Count > 0 ? incomplete : "PASS");
         UpdateClosure("NORMATIVE_SURFACE_CLOSURE",
             "active lifecycle identities require classified canonical "
             + "current normative surface",

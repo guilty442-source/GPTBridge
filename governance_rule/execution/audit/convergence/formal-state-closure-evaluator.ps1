@@ -134,7 +134,8 @@ if ($Verify) {
     $formalClosure=$closure | Where-Object closure_id -eq 'FORMAL_RULE_CLOSURE'
     Assert-State ($formalClosure.open_finding_count -eq $formalFindings.Count -and $formalClosure.result -eq 'INCOMPLETE_EVIDENCE') 'formal-findings-recomputed-not-status-only-pass'
     $schemaClosure=$closure | Where-Object closure_id -eq 'MACHINE_SCHEMA_CLOSURE'
-    Assert-State ($schemaClosure.open_finding_count -eq $schemaOpen.Count -and $schemaClosure.result -eq 'INCOMPLETE_EVIDENCE') 'schema-dependent-closure-fail-closed'
+    $schemaExpectedResult = if ($schemaOpen.Count -gt 0) { 'INCOMPLETE_EVIDENCE' } else { 'PASS' }
+    Assert-State ($schemaClosure.open_finding_count -eq $schemaOpen.Count -and $schemaClosure.result -eq $schemaExpectedResult) 'schema-dependent-closure-fail-closed'
     $metric=@(Get-CodexRows 'codex_convergence_metrics' | Where-Object status -eq 'current')
     Assert-State ($metric.Count -eq 1 -and $metric[0].version_identity -eq $head.version -and $metric[0].machine_schema_parity -eq "$($schemas.Count-$schemaOpen.Count)/$($schemas.Count)") 'single-current-metrics-dynamic-schema-denominator'
     Assert-State ($metric[0].active_article_count_after -eq $activeIds.Count -and $metric[0].unknown_article_count -eq @($surfaceUnknown | Where-Object object_type -eq 'article').Count -and $metric[0].superseded_default_search_count -eq @($allSurface | Where-Object { $_.lifecycle_state -ne 'active' -and $_.default_search_visible -ne 0 }).Count) 'current-metrics-match-all-surface-measurements'
