@@ -1,0 +1,62 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "git-engine-native-20261003-r1",
+  "title": "Register native C/C++ git engine component with read-only shadow scope and maturity ladder",
+  "summary": "Registers git-engine-native (C++23 execution, C stable ABI) as a new implementation of the existing git-automation capability; M0 scope is read-only parity probing only, the C# host remains the sole committer; declares the M0-M4 maturity ladder whose final state is a mature C/C++ engine.",
+  "requested_by": "permission-sovereign",
+  "origin": "user explicit 2026-10-03 instruction: upgrade the engine first, final goal a mature C/C++ engine",
+  "problem": {
+    "summary": "The git plane runs only on the C# host with no native successor path; without a registered native component and maturity ladder, any C/C++ git work is unowned and risks parallel authority or duplicated orchestration.",
+    "current": "GPTBridge.GitAutomation (C#) is the sole committer; native/ has no git module.",
+    "impact": "No governed path exists to mature the git engine toward C/C++ ownership."
+  },
+  "change_class": "architecture-authority",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-03T03:26:10Z",
+    "version_identity": "E2:2026-10-03T03:26:10Z",
+    "version_epoch": 2,
+    "history_head": "b67fc0a52b34352282c313dedac083c54d5745744e65d01134e008fa943f2876",
+    "revision_sequence": 254
+  },
+  "scope": [
+    "table:project_architecture_directory",
+    "field:project_architecture_directory.physical_root"
+  ],
+  "proposed_change": {
+    "table": "project_architecture_directory",
+    "component_id": "git-engine-native",
+    "architectural_role": "execution",
+    "runtime_form": "native-library",
+    "owner_sovereign": "automation",
+    "execution_identity": "git-engine-native",
+    "physical_path": "native/git_engine",
+    "lifecycle": "on-demand",
+    "canonical": false,
+    "implementation_language": "cpp23+c",
+    "formal_responsibility": "Native git plane successor: C++23 owns execution, C owns the stable ABI and deterministic rules; M0 read-only parity probing (version, worktree status probe via governed git subprocess, bounded output, timeout); never commits, never owns the git plane until a cutover amendment advances it.",
+    "maturity_ladder": "M0 scaffold plus read-only probe; M1 status/diff/log parity versus the C# host; M2 sweep port in shadow verify-only mode; M3 sync port plus cutover amendment; M4 native sole owner with the C# host retired to compatibility.",
+    "authority_guard": "No new authority, scheduler, store, or governor; the C# GPTBridge.GitAutomation host remains the sole committer through M3; the native engine takes no lock owned by the live watcher."
+  },
+  "acceptance": {
+    "expected_state": "A non-canonical git-engine-native component is registered with C++23/C ownership, read-only M0 scope, and an explicit maturity ladder, with no change to the live committer.",
+    "criteria": [
+      "exactly one owner per capability (C++23 execution, C ABI)",
+      "M0 takes no git-plane lock and performs no write",
+      "C# host remains the sole committer",
+      "no new authority, scheduler, store, or governor created"
+    ],
+    "evidence": [
+      "native/git_engine build plus self-contained test run",
+      "five-sovereign audit unanimous pass on successor candidate"
+    ],
+    "out_of_scope": [
+      "sweep/sync porting (M2/M3) and cutover (M4) are later amendments",
+      "no modification to the live C# host or its publish output"
+    ]
+  }
+}
