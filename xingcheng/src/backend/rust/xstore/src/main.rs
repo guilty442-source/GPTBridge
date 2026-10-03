@@ -16,6 +16,7 @@
 #![recursion_limit = "512"]
 
 mod audit;
+mod codex;
 mod diff;
 mod failpool;
 mod hash;
@@ -378,7 +379,9 @@ fn usage() -> ExitCode {
          \x20      \x20 [--where <json>] [--limit <n>]\n\
          \x20      xstore metadata-snapshot --store <d>\n\
          \x20      xstore metadata-verify --store <d>\n\
-         \x20      xstore metadata-rebuild-index --store <d>"
+         \x20      xstore metadata-rebuild-index --store <d>\n\
+         \x20      xstore codex-migrate --store <d> --snapshot <f>\n\
+         \x20      xstore codex-verify --store <d>"
     );
     ExitCode::from(2)
 }
@@ -435,6 +438,22 @@ fn main() -> ExitCode {
         "metadata-rebuild-index" => {
             cmd_meta0(&kv, meta_api::cmd_rebuild_index)
         }
+        "codex-migrate" => cmd_meta(&kv, |s, m| {
+            let file = m
+                .get("snapshot")
+                .ok_or("STORE_ARG_MISSING: --snapshot")?;
+            let bytes = std::fs::read(file).map_err(|e| {
+                format!("CODEX_SNAPSHOT_UNREADABLE: {e}")
+            })?;
+            let source: serde_json::Value = serde_json::from_slice(&bytes)
+                .map_err(|e| format!("CODEX_SNAPSHOT_JSON: {e}"))?;
+            codex::migrate(s, &source)
+        }),
+        "codex-verify" => cmd_meta0(&kv, |s| {
+            let rows = codex::read(s)?;
+            Ok(serde_json::json!({"format":"xstore-codex-verify/v1",
+                "ok":true,"row_count":rows.len()}))
+        }),
         _ => return usage(),
     };
     match out {
