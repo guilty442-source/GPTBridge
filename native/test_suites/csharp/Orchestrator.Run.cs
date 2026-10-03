@@ -274,28 +274,11 @@ internal static async Task<int> RunSuites(string[] args)
     string? currentRevision = null;
     try
     {
-        var gitPsi = new ProcessStartInfo("git", "rev-parse HEAD")
-        {
-            WorkingDirectory = Path.GetFullPath(
-                Path.Combine(binDir, "..", "..", "..")),
-            RedirectStandardOutput = true,
-            RedirectStandardInput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        using var git = Process.Start(gitPsi)!;
-        git.StandardInput.Dispose();
-        var gitOut = git.StandardOutput.ReadToEndAsync();
-        var exited = await git.WaitForExitAsync()
-            .WaitAsync(TimeSpan.FromSeconds(10))
-            .ContinueWith(t => t.Status == TaskStatus.RanToCompletion);
-        if (exited)
-            currentRevision = (await gitOut).Trim();
-        else
-        {
-            try { git.Kill(entireProcessTree: true); } catch (Exception) { }
-            currentRevision = null;
-        }
+        // Zero-shell-git: resolve HEAD directly from .git plumbing
+        // (worktree .git-file indirection, commondir, loose/packed refs,
+        // detached HEAD) — equivalent to `git rev-parse HEAD`.
+        currentRevision = ResolveHeadRevision(Path.GetFullPath(
+            Path.Combine(binDir, "..", "..", "..")));
     }
     catch (Exception) { currentRevision = null; }
 
@@ -417,5 +400,63 @@ internal static async Task<int> RunSuites(string[] args)
     Console.WriteLine($"report: {nativeReportPath}");
     Console.WriteLine($"orchestration: {orchPath}");
     return deny ? 1 : 0;
+}
+
+// Resolves HEAD to a commit hex from .git plumbing only — no external
+// git executable.  Handles worktree indirection (.git file + commondir),
+// symref chains, loose refs, packed-refs and detached HEAD.
+private static string? ResolveHeadRevision(string worktreeRoot)
+{
+    var gitPath = Path.Combine(worktreeRoot, ".git");
+    var gitDir = gitPath;
+    if (File.Exists(gitPath))
+    {
+        var gd = (File.ReadAllText(gitPath).Trim())
+            .Replace("gitdir:", "", StringComparison.Ordinal).Trim();
+        gitDir = Path.IsPathRooted(gd)
+            ? gd : Path.GetFullPath(Path.Combine(worktreeRoot, gd));
+    }
+    if (!Directory.Exists(gitDir)) return null;
+
+    var commonDir = gitDir;
+    var cdFile = Path.Combine(gitDir, "commondir");
+    if (File.Exists(cdFile))
+    {
+        var cd = File.ReadAllText(cdFile).Trim();
+        commonDir = Path.IsPathRooted(cd)
+            ? cd : Path.GetFullPath(Path.Combine(gitDir, cd));
+    }
+
+    string? ResolveRef(string name)
+    {
+        var refFile = Path.Combine(
+            commonDir, name.Replace('/', Path.DirectorySeparatorChar));
+        if (File.Exists(refFile))
+            return File.ReadAllText(refFile).Trim().Split(
+                (char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
+        var packed = Path.Combine(commonDir, "packed-refs");
+        if (File.Exists(packed))
+            foreach (var line in File.ReadLines(packed))
+            {
+                var t = line.Trim();
+                if (t.Length > 42 && t[40] == ' '
+                    && t[..40].All(Uri.IsHexDigit)
+                    && t[41..].Trim() == name)
+                    return t[..40];
+            }
+        return null;
+    }
+
+    var headFile = Path.Combine(gitDir, "HEAD");
+    if (!File.Exists(headFile)) return null;
+    var head = File.ReadAllText(headFile).Trim();
+    for (var depth = 0; depth < 10; depth++)
+    {
+        if (head.Length == 40 && head.All(Uri.IsHexDigit))
+            return head;
+        if (!head.StartsWith("ref:", StringComparison.Ordinal)) return null;
+        head = ResolveRef(head[4..].Trim()) ?? "";
+    }
+    return null;
 }
 }
