@@ -80,8 +80,9 @@ MainSystem DependencyProbes（PG readiness 主動以 `POSTGRESQL_RETIRED` 拒絕
 | xstore metadata write plane（meta_*.rs＋NativeMetadataClient＋影子 hooks） | `devin-cli` 認領（進行中） | in-flight |
 | AuditGate `psql` → 受管 `--authority-state` | `638933f32` | landed |
 | 一般化 schema 唯讀匯出器 `--capture-schema-snapshot`（`PgSchemaSnapshot`） | `8b7fdcad1` | landed |
-| codex 快照產線接線 `--capture-codex-snapshot`（generation pin，BLOCKED_GENERATION_DRIFT fail-closed） | 本次 | landed |
-| PermissionAutomation 治理連通探測 TCP→受管 `--authority-state`（探針隨權威遷移） | 本次 | landed |
+| codex 快照產線接線 `--capture-codex-snapshot`（generation pin，BLOCKED_GENERATION_DRIFT fail-closed） | `f5495472b` | landed |
+| PermissionAutomation 治理連通探測 TCP→受管 `--authority-state`（探針隨權威遷移） | `f5495472b` | landed |
+| xstore codex sealed domain（`codex-migrate`/`codex-verify`，吃 `gptbridge-codex-native-snapshot/v1`） | `42b6fa7f0`/`a08b8216e`/`9a7645e10`（devin-native-sql） | landed |
 
 ## 五、分階段路線
 
@@ -133,8 +134,13 @@ MainSystem DependencyProbes（PG readiness 主動以 `POSTGRESQL_RETIRED` 拒絕
 
 ## 六、開放問題
 
-1. `NativeCodexMigration.Capture` 目前無 in-repo 呼叫點——需接線至
-   遷移驅動（快照產線）才能成為 codex 讀面替代品；
+1. ~~`NativeCodexMigration.Capture` 無呼叫點~~ — 已接線：
+   `--capture-codex-snapshot <generation> <out>` → pinned snapshot →
+   `xstore codex-migrate --store <d> --snapshot <f>` → `codex-verify`
+   構成完整 capture→seal→verify 鏈（端到端演練中）；
+   **容量觀測**：debug build 下 24,170 列 codex 匯入的
+   materialize/parity pass 為重 CPU 長行程（>15 min），
+   正式切換演練應使用 release build 或優化 materialize 路徑；
 2. `MirrorWriter` 對 live authority 的 `writeBack` 路徑是否曾被
    `gptbridge_runtime` 拒絕——需驗證角色授權再分類；
 3. `gptbridge_audit`/`gptbridge_index` 等無消費者 schema 的最終封存
