@@ -1,14 +1,16 @@
-// EvalVerdict.cs — C# parity port of the F# eval-verdict owner.
+// EvalVerdict.cs — the C# eval-verdict authority.
 //
-// LANGUAGE-ARCHITECTURE MIGRATION (2026-10-02, human-governor directive):
-// eval-verdict ownership migrates from F# (xc-eval,
-// star-fsharp-eval-verdict/v1) to this C# governance lane. Until the
-// governed codex amendment flips verdict_owner, this port is
-// parity-tracked evidence only: Evaluation runs it beside F# on every
-// verdict and records agreement; F# still decides, a mismatch never
-// overrides the gate. Tracks codex-amendment-request-
-// xingcheng-language-ownership-20261001 (B81 LANGUAGE-OWNERSHIP +
-// B139 rebind, submitted, not executed).
+// LANGUAGE-ARCHITECTURE MIGRATION (2026-10-03, human-governor
+// directive — F# retirement): eval-verdict ownership moved from F#
+// (xc-eval, star-fsharp-eval-verdict/v1) to this C# governance lane
+// under the B81 LANGUAGE-OWNERSHIP lanes + B139 rebind
+// (codex-amendment-request-xingcheng-language-ownership-20261001).
+// Parity evidence for the flip: every recorded production verdict
+// pair agreed — 0 disagreements across the certification
+// evaluations (see Evaluation.VerdictParity /
+// star-eval-verdict-parity-report/v1). There is exactly one
+// production verdict authority — the retired F# lane may only run
+// through the parity-verification surface and never decides again.
 //
 // Semantics mirror Program.fs exactly (same defaults, same eps, same
 // fail-closed edges):
@@ -109,7 +111,7 @@ internal static class EvalVerdict
             ["tokens_per_second_ratio_ok"] = tpsRatioOk,
             ["baseline_tokens_per_second"] = baseTps is double tbv
                 ? (object?)tbv : null,
-            ["verdict_owner"] = "csharp-parity",
+            ["verdict_owner"] = "csharp",
         };
         return (cmp, passed);
     }
@@ -147,7 +149,7 @@ internal static class EvalVerdict
             ["regressions"] = regs,
             ["baseline_suite"] = StrOr(baseline, "suite_id", ""),
             ["candidate_suite"] = StrOr(cand, "suite_id", ""),
-            ["verdict_owner"] = "csharp-parity",
+            ["verdict_owner"] = "csharp",
         };
         return (cmp, noRegression && baseline.Count > 0);
     }
@@ -177,9 +179,9 @@ internal static class EvalVerdict
         };
     }
 
-    /// <summary>Parity record against the authoritative F# verdict.
-    /// Never throws — a port failure is recorded as evidence, never as
-    /// a gate override.</summary>
+    /// <summary>Parity record against the retired F# verdict —
+    /// parity-verification surface only, never a gate path. Never
+    /// throws: a port failure is recorded as evidence.</summary>
     public static Dictionary<string, object?> Parity(
         string format,
         IReadOnlyDictionary<string, object?> gates,

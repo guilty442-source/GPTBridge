@@ -91,7 +91,7 @@ AdamW 內部常數 b1=0.9 b2=0.999 eps=1e-8 不可配。
 | `XCT_KERNEL_POLICY` / `--kernel-policy` | kernel 政策路徑（arg > env） |
 | `XINGCHENG_TRAINER_CUDA_OPT` | CUDA AdamW lane opt-in |
 | `XINGCHENG_CPP_CUDA` / `_BF16` / `_FP8`(與bf16互斥) / `_KV` / `_GRAPH` / `_KV_INT8` | engine CUDA/量化 opt-in |
-| `GPTBRIDGE_POSTGRES_DSN` / `XINGCHENG_SHARED_PG_SCHEMA` | PG 連線/schema |
+| `GPTBRIDGE_POSTGRES_DSN` / `XINGCHENG_SHARED_PG_SCHEMA` | **LEGACY_MIGRATION_ONLY** — 僅 `LegacyMigration/Pg.cs` 讀取；非 production parameter，production 不讀取 |
 
 ## 政策/設定檔
 

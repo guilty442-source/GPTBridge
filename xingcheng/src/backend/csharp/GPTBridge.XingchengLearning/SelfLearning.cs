@@ -1665,8 +1665,8 @@ internal static class SelfLearning
 
         // In-cycle correctness verification (star-learning-verify/v1):
         // re-check the evidence chain this cycle just produced — trainer
-        // report sanity, F# verdict ownership on every evaluation,
-        // engine/F# verdict parity, lifecycle transition consistent with
+        // report sanity, C# verdict ownership on every evaluation,
+        // engine/verdict parity, lifecycle transition consistent with
         // the action, dataset registered. An "upgraded" action whose
         // verification fails means the promotion lacks valid evidence:
         // take the governed rollback path (same posture as the maturity
@@ -1686,22 +1686,22 @@ internal static class SelfLearning
             if (em["comparison"] is not Dictionary<string, object?> cmp)
             {
                 // Fail-closed rows legitimately carry no verdict; a
-                // PASSING evaluation without an F# verdict is the
+                // PASSING evaluation without a C# verdict is the
                 // violation this check exists to catch.
                 if (TransformerTrainingRepository.Truthy(em["passed"]))
                     verdictOwned = false;
                 continue;
             }
             verdictOwned = verdictOwned &&
-                "fsharp".Equals(
+                "csharp".Equals(
                     TransformerTrainingRepository.Str(cmp, "verdict_owner"));
             if (cmp.TryGetValue("engine_passed", out object? ep) &&
                 TransformerTrainingRepository.Truthy(ep) !=
                 TransformerTrainingRepository.Truthy(em["passed"]))
                 parityOk = false;
         }
-        verifyChecks["verdict_owner_fsharp"] = verdictOwned;
-        verifyChecks["engine_fsharp_parity"] = parityOk;
+        verifyChecks["verdict_owner_csharp"] = verdictOwned;
+        verifyChecks["engine_verdict_parity"] = parityOk;
         verifyChecks["lifecycle_transition"] = action == "upgraded"
             ? lifecycle.ActiveWeightsVersion > preWeightsVersion &&
               pinned != null

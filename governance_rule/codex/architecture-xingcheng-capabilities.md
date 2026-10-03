@@ -37,12 +37,12 @@ flowchart LR
     GOV --> G3["failure pool 15 classes<br/>OPEN/TRAINED/RESOLVED/REGRESSED"]
     GOV --> G4["recovery lane<br/>single-capability staged SFT"]
     GOV --> G5["retention sweep<br/>(lifecycle-pinned fail-closed kept)"]
-    GOV --> G6["audit chain (PG + JSONL)<br/>provenance/binary-provenance"]
+    GOV --> G6["xstore canonical audit + JSONL projection<br/>provenance/binary-provenance"]
     GOV --> G7["release-gate / converge-check<br/>~30 ordered steps"]
 
     DATA --> D1["xcorpus corpus:<br/>registry gate→scan→dedup(MinHash)→<br/>pack→manifest"]
     DATA --> D2["xstore: ckpt-*/put/get/verify-store/<br/>snapshot/audit-*/fail-*"]
-    DATA --> D3["PG schemas + role DB collectors"]
+    DATA --> D3["xstore metadata authority<br/>(role DB collectors = external source only)"]
     DATA --> D4["native self-distillation<br/>（教師訊號原生自蒸餾 lane；B154 已退役 rev 235）"]
 
     HW --> H1["hw-caps / hw-baseline / probe-cuda"]

@@ -21,19 +21,19 @@
 // matching the Python lane where suite execution errors produced a
 // failed evaluation row, not a crash.
 //
-// Ownership split (codex B139/B132/B141): the native engine only
-// measures — perplexity, tokens/sec, per-category pass rates. The
-// pass/fail verdict is owned by the F# evaluator (xc-eval,
-// star-fsharp-eval-verdict/v1); its comparison is recorded as the
-// authoritative comparison and the engine's own comparison is carried
-// as engine_comparison evidence only. If the F# owner is missing or
-// errors, the evaluation fails closed (EVAL_OWNER_UNAVAILABLE /
-// EVAL_VERDICT_FAILED).
+// Verdict authority (B81 LANGUAGE-OWNERSHIP + B139 rebind —
+// F# retirement, human-governor directive 2026-10-03): the native
+// engine only measures — perplexity, tokens/sec, per-category pass
+// rates. The pass/fail verdict is owned by the C# evaluation
+// authority (EvalVerdict.cs, star-csharp-eval-verdict/v1); its
+// comparison is recorded as the authoritative comparison and the
+// engine's own comparison is carried as engine_comparison evidence
+// only. A verdict failure fails closed.
 //
-// LANGUAGE-ARCHITECTURE MIGRATION (2026-10-02): EvalVerdict.cs carries
-// the C# parity port; every verdict embeds csharp_parity evidence while
-// F# still decides. The verdict_owner flip awaits the governed codex
-// amendment.
+// The retired F# evaluator (xc-eval.exe) keeps exactly one
+// surface — parity verification through EvalParity.VerdictParity; it
+// no longer decides any production verdict (recorded parity: every
+// verdict pair in the store agrees).
 
 using System.Text.Json;
 
@@ -62,7 +62,7 @@ internal static class Evaluation
         => TransformerTrainingRepository.Str(suite, "suite_id")
            ?? Path.GetFileNameWithoutExtension(path);
 
-    private static Dictionary<string, object?> LoadSuite(string suitePath)
+    internal static Dictionary<string, object?> LoadSuite(string suitePath)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(suitePath));
         if (doc.RootElement.ValueKind != JsonValueKind.Object)
@@ -73,10 +73,10 @@ internal static class Evaluation
         return map;
     }
 
-    private static string SuiteFormat(Dictionary<string, object?> suite)
+    internal static string SuiteFormat(Dictionary<string, object?> suite)
         => TransformerTrainingRepository.Str(suite, "format_version") ?? "";
 
-    private static Dictionary<string, object?> ParseStdoutJson(
+    internal static Dictionary<string, object?> ParseStdoutJson(
         NativeTools.RunResult run, string code)
     {
         string tail = run.StdoutTail.Trim();
@@ -91,78 +91,12 @@ internal static class Evaluation
         return map;
     }
 
-    private static Dictionary<string, object?> Child(
+    internal static Dictionary<string, object?> Child(
         IReadOnlyDictionary<string, object?> map, string key)
     {
         return map.TryGetValue(key, out object? v) &&
                v is Dictionary<string, object?> d
             ? d : new Dictionary<string, object?>();
-    }
-
-    /// <summary>Resolve the F# evaluation-verdict executable that owns
-    /// the gate decision (codex B139/B132/B141). Missing → fail closed.</summary>
-    private static string XcEvalExe(string execRoot)
-    {
-        string path = Path.Combine(
-            execRoot, "src", "backend", "fsharp",
-            "GPTBridge.XingchengEval", "publish", "xc-eval.exe");
-        if (!File.Exists(path))
-            throw new ExecutorError(
-                "EVAL_OWNER_UNAVAILABLE",
-                $"xc-eval.exe missing: {path}");
-        return path;
-    }
-
-    /// <summary>Ask the F# evaluator for the authoritative verdict on the
-    /// measurements the native engine produced. Returns the recorded
-    /// comparison (verdict_owner=fsharp).</summary>
-    private static Dictionary<string, object?> FsharpVerdict(
-        string execRoot, TransformerTrainingRepository repo,
-        string format, Dictionary<string, object?> gates,
-        Dictionary<string, object?> adapterMetrics,
-        Dictionary<string, object?> baselineMetrics,
-        Dictionary<string, object?> engineComparison,
-        bool enginePassed,
-        string stderrLog, out bool passed)
-    {
-        var input = new Dictionary<string, object?>
-        {
-            ["format"] = format,
-            ["quality_gates"] = gates,
-            ["candidate"] = adapterMetrics,
-            ["baseline"] = baselineMetrics,
-            ["engine_comparison"] = engineComparison,
-        };
-        string inputPath = Path.Combine(
-            Path.GetTempPath(), $"xc-eval-in-{Guid.NewGuid():N}.json");
-        File.WriteAllText(inputPath, CanonicalJson.PlainDict(input),
-                          new System.Text.UTF8Encoding(false));
-        try
-        {
-            var run = NativeTools.Run(
-                XcEvalExe(execRoot),
-                new[] { "gate", "--input", inputPath },
-                repo.ToolRoot, stderrLog, timeoutS: 120);
-            var verdict = ParseStdoutJson(run, "EVAL_VERDICT_FAILED");
-            if (run.ExitCode == 1 ||
-                !TransformerTrainingRepository.Truthy(
-                    verdict.GetValueOrDefault("ok")))
-                throw new ExecutorError("EVAL_VERDICT_FAILED",
-                    $"xc-eval exited {run.ExitCode}");
-            passed = TransformerTrainingRepository.Truthy(
-                verdict.GetValueOrDefault("passed"));
-            var cmp = Child(verdict, "comparison");
-            // The measurement lane's own verdict stays embedded as
-            // evidence — the cycle verifier checks F#/engine parity and
-            // flags contract drift; authority remains the F# verdict.
-            cmp["engine_passed"] = enginePassed;
-            cmp["engine_comparison"] = engineComparison;
-            return cmp;
-        }
-        finally
-        {
-            try { File.Delete(inputPath); } catch { }
-        }
     }
 
     /// <summary>Route an engine op (capability/eval) through the resident
@@ -371,19 +305,22 @@ internal static class Evaluation
             return Fail(repo, adapterId, suiteId, ex.Message, evaluatedBy);
         }
 
-        // The verdict belongs to the F# evaluator (B139/B132/B141).
-        // C# parity re-derivation (language-architecture migration):
-        // recorded as evidence on every verdict; F# still decides and a
-        // mismatch never overrides the gate — it is data for the owner-
-        // flip amendment, carried under csharp_parity.
+        // The verdict belongs to the C# evaluation authority
+        // (EvalVerdict.cs — single owner, no second lane). The
+        // measurement lane's own verdict stays embedded as evidence:
+        // the cycle verifier checks engine/verdict parity and flags
+        // contract drift; authority remains the C# verdict.
         try
         {
-            comparison = FsharpVerdict(
-                execRoot, repo, format, gates,
-                adapterMetrics, baselineMetrics, comparison,
-                enginePassed, stderrLog, out passed);
-            comparison["csharp_parity"] = EvalVerdict.Parity(
-                format, gates, adapterMetrics, baselineMetrics, passed);
+            var engineCmp = comparison;
+            var verdict = EvalVerdict.Evaluate(
+                format, gates, adapterMetrics, baselineMetrics);
+            passed = TransformerTrainingRepository.Truthy(
+                verdict.GetValueOrDefault("passed"));
+            comparison = Child(verdict, "comparison");
+            comparison["verdict_owner"] = "csharp";
+            comparison["engine_passed"] = enginePassed;
+            comparison["engine_comparison"] = engineCmp;
         }
         catch (ExecutorError ex)
         {
@@ -426,7 +363,7 @@ internal static class Evaluation
     /// resolves to a canonical capability — baseline vs candidate
     /// score plus the regression flag, contribution=model. Recording
     /// is best-effort per row so an exotic category name can never
-    /// mask the F# verdict it describes.</summary>
+    /// mask the C# verdict it describes.</summary>
     private static int RecordCapabilityEvidence(
         string toolRoot, string adapterId, string suiteId,
         string suiteSha, string candidateBundle,

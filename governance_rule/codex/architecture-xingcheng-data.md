@@ -18,11 +18,12 @@ flowchart LR
         TOK["xc_modeltool tokenize →<br/>XCB1 star-token-batch"]
     end
 
-    subgraph PG["PostgreSQL gptbridge_xingcheng（正式結構化 metadata 權威）"]
-        DS["transformer_training_dataset(+example)<br/>immutable snapshot"]
-        JOB["transformer_training_job<br/>queued→preflight→training→validating→completed"]
+    subgraph META["xstore metadata plane（正式結構化 metadata 權威）"]
+        DS["training_dataset(+dataset_example)<br/>immutable snapshot"]
+        JOB["training_job<br/>queued→preflight→training→validating→completed"]
         ADP["adapter_candidate/evaluation/release"]
-        AUD["transformer_training_audit_event<br/>sha256 chain"]
+        AUD["audit_event + mutation receipts<br/>sha256 chain"]
+        MSTATE["runtime_model_state / lifecycle /<br/>capability / generation / migration_marker"]
     end
 
     subgraph JDIR["runtime/models/jobs/&lt;id&gt;/"]
@@ -33,12 +34,13 @@ flowchart LR
         RPT["report.json<br/>star-native-train-report/v1"]
     end
 
-    subgraph STORE["xstore &lt;store&gt;/（物件、快照、內容雜湊、衍生索引）"]
+    subgraph STORE["xstore &lt;store&gt;/（物件、快照、內容雜湊、衍生索引 + metadata plane）"]
         OBJ["objects/&lt;sha2&gt;/&lt;sha256&gt;.bin"]
         IDX["store-index.jsonl (prev-chain)"]
         SNPM["snapshots/&lt;sha&gt;.json"]
-        AUDP["store-audit.jsonl"]
+        AUDP["store-audit.jsonl + metadata/audit/receipts.jsonl"]
         POOL["pool-&lt;class&gt;.jsonl ×15"]
+        MEVT["metadata/events|index|leases|snapshots<br/>append-only + writer lease + hash chain"]
     end
 
     subgraph STATE["runtime/state + lifecycle"]
@@ -99,8 +101,19 @@ flowchart LR
 ├── tmp/*.tmp                      fsync+rename spill
 ├── store-index.jsonl              star-store-index/v1, prev-chained receipts
 ├── snapshots/<manifest-sha>.json  star-dataset-snapshot/v1
-└── store-audit.jsonl              star-audit-log/v1 (prev=sha256 of prev raw line)
+├── store-audit.jsonl              star-audit-log/v1 (prev=sha256 of prev raw line)
+└── metadata/                      正式結構化 metadata 權威（authority flip
+    ├── events/events.jsonl        star-xstore-metadata-event/v1 append-only + hash chain
+    ├── index/                     derived index（records/operations/head）
+    ├── leases/epoch.json          writer lease + epoch（single-writer CAS）
+    ├── snapshots/                 metadata snapshots
+    └── audit/receipts.jsonl       mutation receipts chain
+        schema.json                xingcheng-metadata/v1 schema identity
 ```
+
+Metadata authority：xstore（authority flip 已執行 2026-10-02，
+`star-metadata-authority-transition/v1` marker + reaffirm，NATIVE_METADATA_AUTHORITY_GATE=PASS；
+C# 一律經 `NativeMetadataClient` → `xstore.exe metadata-*`，不直接讀 store 檔）。
 
 ## corpus 輸出佈局
 
@@ -319,3 +332,26 @@ identity：`xingcheng_identity`（RLS，`gptbridge_xingcheng_internal` 唯一內
 
 新 contract 一律使用不帶 `/vN` 的 stable identity；唯有「對既有註冊名稱的
 明確世代演進」才允許新增 `/vN`，且必須在 codex 登錄其 predecessor。
+
+## Legacy Migration Appendix（LEGACY_MIGRATION_ONLY）
+
+PostgreSQL `gptbridge_xingcheng*` schemas 為上一任正式結構化 metadata 權威；
+authority 已翻轉至 xstore metadata plane（2026-10-02 authority-transition
+markers + reaffirm，九項 gate 全通過）。PostgreSQL 現為 **LEGACY_READONLY**
+歷史資料 — 禁止 production 讀寫、禁止 dual-write。
+
+下列 PG tables 僅存在於 `LegacyMigration/` 工具組（production assembly
+`Compile Remove="LegacyMigration/**/*.cs"` 排除，`LEGACY_MIGRATION_ONLY`）：
+
+| PG table | 接替 xstore record type |
+|---|---|
+| `transformer_training_dataset`(+`example`) | `training_dataset` / `training_dataset_example` |
+| `transformer_training_job` | `training_job` |
+| `transformer_adapter_candidate/evaluation/release` | `adapter_candidate` / `adapter_evaluation` / `adapter_release` |
+| `transformer_training_audit_event` | `audit_event` + mutation receipts（canonical） |
+| model lifecycle / self-learning / maturation state | `runtime_model_state` + `lifecycle` + `generation` records |
+
+遷移驗證鏈：xstore-backfill → metadata parity（61946/61946 semantic
+equivalent）→ metadata verify → audit verify（360 receipts + 3199 events +
+319 PG audit rows）→ snapshot verify → concurrency test → restart test →
+authority-flip。Role DB 僅為外部資料來源（collector 讀取端），非權威。

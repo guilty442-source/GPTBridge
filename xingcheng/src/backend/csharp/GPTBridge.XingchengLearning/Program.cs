@@ -268,6 +268,14 @@ internal static class Program
                     opts.TryGetValue("suite", out string? es) ? es : "",
                     opts.TryGetValue("baseline", out string? bl) ? bl : null,
                     flags.Contains("chat")));
+            // --eval-parity: the retired F# lane's only remaining
+            // surface — parity verification against the C# verdict
+            // authority (never a production verdict path).
+            if (flags.Contains("eval-parity"))
+                return Emit(EvalParity.VerdictParity(
+                    new TransformerTrainingRepository(toolRoot),
+                    opts.TryGetValue("file", out string? epf)
+                        ? epf : null));
             if (flags.Contains("gen-begin"))
                 return Emit(GenerationMigration.Begin(
                     toolRoot,
@@ -2102,6 +2110,7 @@ internal static class Program
             "[--include-collected] [--val-permille N] | " +
             "--evaluate --job-id <id> --bundle <dir> --suite <suite.json> " +
             "[--baseline <dir>] [--chat] | " +
+            "--eval-parity [--file <fixture.json>] | " +
             "--gen-begin --target <gen> --weights <path> " +
             "--weight-method <direct|partial|distill> [--source <gen>] " +
             "[--tokenizer <path>] [--schema-from <s>] [--schema-to <s>] " +

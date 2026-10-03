@@ -25,7 +25,7 @@ flowchart TB
     end
 
     subgraph RUST["Rust 資料面"]
-        XSTORE["xstore.exe<br/>content-addressed store + XCN verify<br/>（物件/快照/內容雜湊/衍生索引；metadata 權威在 PG）"]
+        XSTORE["xstore.exe<br/>content-addressed store + XCN verify + metadata plane<br/>（物件/快照/內容雜湊/衍生索引 + 正式結構化 metadata 權威）"]
         XCORPUS["xcorpus.exe / xcorpus.dll<br/>corpus pipeline + xtok tokenizer ABI"]
     end
 
@@ -42,7 +42,6 @@ flowchart TB
     end
 
     subgraph EXT["外部依賴"]
-        PG[("PostgreSQL<br/>gptbridge_xingcheng* schemas<br/>（正式結構化 metadata 權威）")]
         CONSUMERS["model-dialogue ToolHost / NativeModelClient<br/>(C# orchestrator-only consumers)"]
     end
 
@@ -55,7 +54,7 @@ flowchart TB
     CONSUMERS -->|read descriptor + POST /v1/infer| EXEC
     CONSUMERS -->|NativeLibrary.Load engine_c.h| ENGINE
 
-    SL --> PG
+    SL -->|NativeMetadataClient → metadata read/write| XSTORE
     SL --> JE
     JE -->|tokenize via| MODELTOOL
     JE -->|--job/--report| TRAINER
@@ -74,7 +73,7 @@ flowchart TB
 | Lane | 位置 | 權責 |
 |---|---|---|
 | C# 治理 | `src/backend/csharp/GPTBridge.XingchengLearning` → `xc-learning.exe` | 編排、政策閘門、DB、生命週期、稽核 |
-| F# 評估 | `src/backend/fsharp/GPTBridge.XingchengEval` → `xc-eval.exe` | 評判定決與驗證、高正確性分析（B167）；已凍結維護，verdict 所有權遷移至 C# `EvalVerdict.cs`（parity-tracked） |
+| F#（inactive） | `src/backend/fsharp/GPTBridge.XingchengEval` | **已退役**：production verdict 權威為 C# `EvalVerdict.cs`（`verdict_owner=csharp`，`star-csharp-eval-verdict/v1`）；F# 僅存 `--eval-verdict-parity` 對照用途，不屬 production lane |
 | C++ native | `src/backend/cpp/` + `native_transformer/` | 模型核心、推論引擎、訓練器、模型工具 |
 | Rust 資料面 | `src/backend/rust/xstore`、`xcorpus` | 不受信任輸入邊界：剖析、儲存、語料、tokenizer |
 | C ABI | `xingcheng_engine_c.h`、`xtok_abi.h`、`xcuda_*` | 跨語言邊界，僅 ABI 不承載治理 |
@@ -90,7 +89,7 @@ flowchart TB
 | `xc-learning.exe` | C# | CLI / AutomationCore flow |
 | `xstore.exe` | Rust | 子行程（JSON-on-stdout） |
 | `xcorpus.exe` / `.dll` | Rust | 子行程 / engine LoadLibrary |
-| `xc-eval.exe` | F# | 評估閘定決（`gate --input <json>` → `star-fsharp-eval-verdict/v1`）；凍結維護中，遷移至 `EvalVerdict.cs` |
+| ~~`xc-eval.exe`~~ | F# | **已退役** — production invocation 已移除；僅 `EvalParity.cs` parity 對照可呼叫（非 production lane） |
 | `xingcheng_engine*.dll` | C++ | NativeModelClient NativeLibrary.Load |
 
 <!-- autogen:xingcheng-binaries -->
