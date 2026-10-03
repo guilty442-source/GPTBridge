@@ -1,369 +1,468 @@
 {
-  "contract": "CROSS_LANGUAGE_CONTRACT",
-  "contract_version": 1,
-  "minimum_supported_contract_version": 1,
-  "authority": "governance-rule-only",
-  "description": "INTEGRATION-CROSS-LANGUAGE 唯一索引：全專案跨語言呼叫、交接、錯誤表示、記憶體擁有權規則的唯一索引；本檔只做索引與規範，不複製任何 registry 內容；boundary 詳細 schema 仍以各 owner registry 為準；修訂與世代存於 metadata，不得由此推斷 identity 名稱。",
-  "revision_policy": "identity names are stable (no version suffix, no final/latest/generation tokens). Revisions live in metadata only: contract_revision, generation, content_hash, producer, consumer, compatibility, created_at, source_revision.",
-  "metadata": {
-    "contract_revision": 2,
-    "generation": 1,
-    "producer": "integration-cross-language",
-    "created_at": "2026-09-27T00:00:00Z",
-    "source_revision": null,
-    "compatibility": "additive-only",
-    "note": "rev2: Python lane retired (B36 Python=retired; B162/B167/B38 zero role/residency). python-involving boundaries carry status=retired tombstones; native successors are recorded per-entry."
-  },
-  "mechanism_classes": {
-    "SAME_RUNTIME_TYPED_CALL": {
-      "applies": ["C# <-> F# (.NET 10)"],
-      "rules": [
-        "shared .NET 10 runtime, direct typed interface",
-        "shared formal DTO / record / enum, single definition",
-        "prefer record, readonly struct, ReadOnlyMemory<T>, Memory<T>, Task<T>, ValueTask<T>",
-        "no JSON/HTTP/socket/extra IPC between C# and F#",
-        "exceptions converge to the formal error contract at the application boundary"
-      ]
-    },
-    "NATIVE_ABI": {
-      "applies": ["C", "C++", "Rust", "Go only when benchmark-justified"],
-      "rules": [
-        "stable C ABI on the public native boundary",
-        "C++ must not expose STL containers, C++ exceptions, template ABI, compiler-specific ABI",
-        "Rust must not expose enum layout, Vec, String, trait objects, panics",
-        "preferred types: fixed-width integers, enum codes, pointer, length, offset, flat structs",
-        "every struct carries struct_size and contract_revision metadata with ownership semantics",
-        "allocator owner, free owner, lifetime, mutability, thread safety and alignment are explicit",
-        "panic/exception never crosses the ABI"
-      ]
-    },
-    "VERSIONED_SERVICE_CONTRACT": {
-      "applies": ["cross-process runtimes", "isolated tools", "information layer", "Rust<->JS", "Go<->app"],
-      "rules": [
-        "request identity, correlation identity, generation, contract revision",
-        "timeout, cancellation, idempotency identity",
-        "error code plus compatibility metadata"
-      ]
-    }
-  },
-  "contracts": {
-    "NATIVE_ABI_CONTRACT": {
-      "owner": "system-runtime",
-      "members": [
-        "py-sovereign-native",
-        "py-xingcheng-inference",
-        "cs-native-inference",
-        "py-strategy-risk-ctypes",
-        "native-tool-runtime",
-        "a263-channel-native-ports"
-      ],
-      "metadata": {
-        "contract_revision": 1,
-        "header": "native/include/gptbridge_native.h",
-        "abi": "C, extern-C, flat structs, status codes"
-      }
-    },
-    "SERVICE_CONTRACT": {
-      "owner": "system-runtime",
-      "members": [
-        "vectord-http",
-        "searchd-http",
-        "model-service-http",
-        "tool-proxy-stdio",
-        "julia-spawn",
-        "launcher-spawn"
-      ],
-      "metadata": {
-        "contract_revision": 1,
-        "transport": "loopback HTTP/JSON or child-process stdio JSONL, no shared memory"
-      }
-    },
-    "MODEL_ARTIFACT_CONTRACT": {
-      "owner": "local-model",
-      "members": ["model-artifact-export"],
-      "metadata": {
-        "contract_revision": 1,
-        "formats": ["star-transformer-checkpoint/v1", "star-jax-checkpoint/v1", "star-native-inference-bundle/v1", "star-model-lifecycle/v1"],
-        "note": "identity is stable; format tokens and hashes live in artifact metadata, never in file or folder names"
-      }
-    },
-    "UI_BRIDGE_CONTRACT": {
-      "owner": "system-runtime",
-      "members": ["tauri-ui-bridge", "ws-ipc", "embedded-worker-http"],
-      "metadata": {
-        "contract_revision": 1,
-        "config_refs": ["ipc-contract.json", "ipc-surface-frontend.json", "ipc-surface-backend.json"],
-        "note": "single Rust application state projected to JavaScript/GPUI/egui; JavaScript never touches backend authority directly"
-      }
-    }
-  },
-  "boundaries": [
-    {
-      "id": "py-sovereign-native",
-      "caller": "python",
-      "callee": "c",
-      "mechanism_class": "NATIVE_ABI",
-      "mechanism": "pybind11 module _sovereign_native over extern-C header",
-      "owner": "main-system",
-      "status": "retired",
-      "retired_by": "B162/B167/B38: Python lane retired; native successor is GPTBridge.MainSystem (C#) over native/bridge gptbridge_native.c",
-      "contract_ref": "native/include/gptbridge_native.h",
-      "files": ["native/include/gptbridge_native.h", "native/bridge/gptbridge_native.c"]
-    },
-    {
-      "id": "py-xingcheng-inference",
-      "caller": "python",
-      "callee": "cpp",
-      "mechanism_class": "NATIVE_ABI",
-      "mechanism": "pybind11 module _xingcheng_inference",
-      "owner": "local-model",
-      "status": "retired",
-      "retired_by": "B162/B167/B38: Python inference retired; successor is cs-native-inference + native engine process",
-      "contract_ref": "xingcheng/src/backend/cpp/include/xingcheng_inference.hpp",
-      "files": ["xingcheng/src/backend/cpp/src/binding.cpp"]
-    },
-    {
-      "id": "cs-native-inference",
-      "caller": "csharp",
-      "callee": "cpp",
-      "mechanism_class": "NATIVE_ABI",
-      "mechanism": "flat C ABI via NativeLibrary (no Python in path)",
-      "owner": "business-logic-csharp",
-      "contract_ref": "xingcheng/src/backend/cpp/include/xingcheng_engine_c.h",
-      "files": ["xingcheng/src/backend/cpp/src/engine_c_abi.cpp", "Standalone tools/business-logic-csharp/StarBusinessLogic/Application/NativeModelClient.cs"]
-    },
-    {
-      "id": "py-strategy-risk-ctypes",
-      "caller": "python",
-      "callee": "cpp+c",
-      "mechanism_class": "NATIVE_ABI",
-      "mechanism": "ctypes CDLL over flat C exports, python fallback",
-      "status": "retired",
-      "retired_by": "B162: Python caller retired; investment-mobile native surfaces remain under investment-mobile ownership",
-      "owner": "investment-mobile",
-      "contract_ref": "module-local parity (no versioned contract file: see blockers)",
-      "files": ["Standalone tools/investment-mobile/native/strategy/strategy_engine.cpp", "Standalone tools/investment-mobile/native/risk/risk_core.c"]
-    },
-    {
-      "id": "cs-fs-typed",
-      "caller": "csharp",
-      "callee": "fsharp",
-      "mechanism_class": "SAME_RUNTIME_TYPED_CALL",
-      "mechanism": "in-process ProjectReference, F#-owned DTOs, no serialization",
-      "owner": "business-logic",
-      "contract_ref": "Standalone tools/business-logic-fsharp/StarDomain/Types.fs",
-      "files": ["Standalone tools/business-logic-fsharp/StarDomain/Types.fs", "Standalone tools/business-logic-fsharp/StarDomain/Plan.fs", "Standalone tools/business-logic-csharp/StarBusinessLogic/Application/IToolRouter.cs"]
-    },
-    {
-      "id": "native-tool-runtime",
-      "caller": "cpp+csharp",
-      "callee": "cpp",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "child-process stdio JSONL proxy plus loopback HTTP/WS; python transport_proxy sidecar retired (B162), native sidecar is native/tool_runtime/sidecar_transport.cpp",
-      "owner": "governance",
-      "contract_ref": "star-governed-tool-runtime-abi/v1",
-      "files": ["native/tool_runtime/tool_host.cpp", "native/tool_runtime/sidecar_transport.cpp", "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/GovernedToolHost.cs"]
-    },
-    {
-      "id": "a263-channel",
-      "caller": "multi",
-      "callee": "multi",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "generation/heartbeat/backpressure/outbox/ack/cursor",
-      "owner": "shared-layer",
-      "contract_ref": "native/include/channel_runtime.h",
-      "files": ["native/include/channel_runtime.h", "native/include/a263_channel_core.h", "native/core/a263_channel_core.c", "native/tool_runtime/channel_runtime.cpp", "native/tool_runtime/channel_runtime_loops.cpp", "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/A263Channel.cs"]
-    },
-    {
-      "id": "vectord-http",
-      "caller": "cpp+csharp",
-      "callee": "rust",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "loopback HTTP/JSON, no FFI, no shared memory",
-      "owner": "system-runtime",
-      "contract_ref": "Standalone tools/vectord-rs/CONTRACT.md",
-      "files": ["Standalone tools/vectord-rs/src/main.rs"]
-    },
-    {
-      "id": "searchd-http",
-      "caller": "cpp+csharp",
-      "callee": "go",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "loopback HTTP/JSON, no cgo",
-      "owner": "system-runtime",
-      "contract_ref": "Standalone tools/searchd-go/CONTRACT.md",
-      "files": ["Standalone tools/searchd-go/cmd/searchd/main.go"]
-    },
-    {
-      "id": "model-service-http",
-      "caller": "csharp",
-      "callee": "python",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "loopback HTTP/JSON with session token",
-      "owner": "local-model",
-      "status": "retired",
-      "retired_by": "B162: model_service_http.py retired; C# consumers use cs-native-inference (native ABI), governed channel for the rest",
-      "contract_ref": "star-model-service/v1",
-      "files": []
-    },
-    {
-      "id": "model-artifact-export",
-      "caller": "python",
-      "callee": "cpp",
-      "mechanism_class": "NATIVE_ABI",
-      "mechanism": "one-way file export checkpoint to inference bundle, sha256 chained",
-      "owner": "local-model",
-      "status": "retired",
-      "retired_by": "B162/B167/B38: python exporter retired; native training lane is native_transformer/training (C++/C#)",
-      "contract_ref": "MODEL_ARTIFACT_CONTRACT",
-      "files": []
-    },
-    {
-      "id": "tauri-ui-bridge",
-      "caller": "javascript",
-      "callee": "rust",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "Tauri typed command whitelist plus events; single Rust state projected",
-      "owner": "system-runtime",
-      "contract_ref": "UI_BRIDGE_CONTRACT",
-      "files": ["main-system/src-tauri/src/main.rs", "main-system/src-tauri/src/tool_dispatch.rs"]
-    },
-    {
-      "id": "ws-ipc",
-      "caller": "javascript",
-      "callee": "csharp",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "authenticated loopback WebSocket with bounded queue, outbox cursors, reconnect; python ipc/server.py retired (B162), backend is GPTBridge.MainSystem (C#)",
-      "owner": "main-system",
-      "contract_ref": "main-system/config/ipc-contract.json",
-      "files": ["main-system/config/ipc-surface-frontend.json", "main-system/config/ipc-surface-backend.json"]
-    },
-    {
-      "id": "embedded-worker-http",
-      "caller": "rust",
-      "callee": "rust",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "token-guarded loopback HTTP parent to worker process",
-      "owner": "system-runtime",
-      "contract_ref": "UI_BRIDGE_CONTRACT",
-      "files": ["main-system/src-tauri/src/webview_host/mod.rs", "main-system/src-tauri/src/webview_host/worker_server.rs"]
-    },
-    {
-      "id": "julia-spawn",
-      "caller": "csharp",
-      "callee": "julia",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "spawn-per-call, stdin JSON job, stdout last-line JSON, no resident state; python spawner (julia_compute.py) retired (B162), spawn is owned by the C# orchestrator",
-      "owner": "main-system",
-      "contract_ref": "Standalone tools/julia-compute/CONTRACT.md",
-      "files": ["Standalone tools/julia-compute/src/JuliaCompute.jl"]
-    },
-    {
-      "id": "launcher-spawn",
-      "caller": "csharp",
-      "callee": "rust",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "process spawn with env bindings, file journal, single-instance mutex",
-      "owner": "system-runtime",
-      "contract_ref": "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs",
-      "files": ["main-system/launcher/src/GPTBridge.Bootstrap/Program.cs"]
-    },
-    {
-      "id": "pg-structured",
-      "caller": "csharp",
-      "callee": "postgresql",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "Npgsql pool with contract handshake, session identity, generation fence; psycopg3/python lane retired (B162), canonical reader is GPTBridge.CodexPipeline",
-      "owner": "shared-layer",
-      "contract_ref": "main-system/config/sql-schema-contract.json",
-      "files": ["shared-layer/csharp/GPTBridge.CodexPipeline"]
-    },
-    {
-      "id": "tool-proxy-stdio",
-      "caller": "csharp",
-      "callee": "cpp",
-      "mechanism_class": "VERSIONED_SERVICE_CONTRACT",
-      "mechanism": "child-process stdio JSONL with per-call id, bounded line size; python transport_proxy.py retired (B162), native sidecar is native/tool_runtime/sidecar_transport.cpp",
-      "owner": "governance",
-      "contract_ref": "star-governed-transport-proxy/v1",
-      "files": ["shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs", "native/tool_runtime/transport_proxy_client.cpp"]
-    }
-  ],
-  "error_contract": {
-    "description": "unified cross-language error codes. Boundaries carry error_code plus bounded metadata plus correlation_id only. No stack traces cross trust boundaries; no free-form exception strings as decision conditions.",
-    "codes": [
-      "OK",
-      "INVALID_ARGUMENT",
-      "PERMISSION_DENIED",
-      "NOT_READY",
-      "TIMEOUT",
-      "CANCELLED",
-      "RESOURCE_BUSY",
-      "CONTRACT_MISMATCH",
-      "GENERATION_MISMATCH",
-      "DATA_INTEGRITY_ERROR",
-      "INTERNAL_ERROR"
-    ],
-    "language_mapping": {
-      "rust": "Result<T, E> with code enums; never panic across boundary",
-      "cpp": "std::expected / status codes; exceptions converted at the ABI edge",
-      "c": "integer status codes; fail-closed negatives",
-      "csharp": "typed results; exceptions converge at the application boundary",
-      "fsharp": "typed results (Result/Option); exceptions converge at the application boundary",
-      "go": "error values carrying codes",
-      "javascript": "typed error objects {error_code, message, correlation_id}",
-      "python": "retired (B162): no Python domain remains; wire codes unchanged",
-      "julia": "ok:false envelopes with op-scoped codes"
-    }
-  },
-  "memory_ownership": {
-    "rules": [
-      "every native struct declares allocator owner, free owner, lifetime, mutability, thread safety, alignment",
-      "same-process hot paths target zero-copy or one-copy; cross-process prefers formal binary IPC",
-      "no new ungoverned shared-memory mechanisms",
-      "canonical owners: C++ owns weight bundles with stable addresses; Rust owns vectord store; callers own opaque handles and transfer buffers. (Python/pybind memory edge retired with B162 — memory_contract.py removed.)"
-    ]
-  },
-  "known_relays": [
-    {
-      "chain": "javascript -> csharp(GPTBridge.ChannelHost) -> cpp(xingcheng native engine)",
-      "reason": "governed AI channel, permission routing and audit (B162: python hops retired)"
-    },
-    {
-      "chain": "csharp -> cpp (cs-native-inference)",
-      "reason": "primary C# path is the native ABI; the python model-service-http hop is retired (B162)"
-    },
-    {
-      "chain": "cpp(xingcheng) -> go(searchd) -> public web",
-      "reason": "network isolation: only the Go service touches the public web, metadata only"
-    }
-  ],
-  "blockers": [
-    {
-      "id": "xcuda-abi-unregistered",
-      "boundary": "cpp -> cuda runtime",
-      "reason": "ad-hoc 0/1/2/3 codes, no contract file, no registry entry; needs owner declaration"
-    },
-    {
-      "id": "strategy-risk-ctypes-unregistered",
-      "boundary": "py-strategy-risk-ctypes",
-      "reason": "resolved by file existence only; needs a versioned contract file under investment-mobile ownership"
-    },
-    {
-      "id": "native-model-image-resolution",
-      "boundary": "cs-native-inference",
-      "reason": "engine image resolved by newest mtime (implicit versioning); needs content-hash pinning"
-    },
-    {
-      "id": "python-in-inference-path",
-      "boundary": "model-artifact-export consumers",
-      "status": "resolved",
-      "reason": "Codex amendment landed (B162/B167/B38): Python routing/facade on the local-model inference path is retired; native engine + cs-native-inference own the path"
-    },
-    {
-      "id": "tauri-untyped-envelope",
-      "boundary": "tauri-ui-bridge",
-      "reason": "gptbridge_invoke is a single raw-JSON envelope; per-command typed structs plus generated TS bindings are future work under system-runtime"
-    }
-  ]
+    "contract":  "CROSS_LANGUAGE_CONTRACT",
+    "contract_version":  1,
+    "minimum_supported_contract_version":  1,
+    "authority":  "governance-rule-only",
+    "description":  "INTEGRATION-CROSS-LANGUAGE 唯一索引：全專案跨語言呼叫、交接、錯誤表示、記憶體擁有權規則的唯一索引；本檔只做索引與規範，不複製任何 registry 內容；boundary 詳細 schema 仍以各 owner registry 為準；修訂與世代存於 metadata，不得由此推斷 identity 名稱。",
+    "revision_policy":  "identity names are stable (no version suffix, no final/latest/generation tokens). Revisions live in metadata only: contract_revision, generation, content_hash, producer, consumer, compatibility, created_at, source_revision.",
+    "metadata":  {
+                     "contract_revision":  2,
+                     "generation":  1,
+                     "producer":  "integration-cross-language",
+                     "created_at":  "2026-09-27T00:00:00Z",
+                     "source_revision":  null,
+                     "compatibility":  "additive-only",
+                     "note":  "rev2: Python lane retired (B36 Python=retired; B162/B167/B38 zero role/residency). python-involving boundaries carry status=retired tombstones; native successors are recorded per-entry."
+                 },
+    "mechanism_classes":  {
+                              "SAME_RUNTIME_TYPED_CALL":  {
+                                                              "applies":  [
+                                                                              "C# \u003c-\u003e F# (.NET 10)"
+                                                                          ],
+                                                              "rules":  [
+                                                                            "shared .NET 10 runtime, direct typed interface",
+                                                                            "shared formal DTO / record / enum, single definition",
+                                                                            "prefer record, readonly struct, ReadOnlyMemory\u003cT\u003e, Memory\u003cT\u003e, Task\u003cT\u003e, ValueTask\u003cT\u003e",
+                                                                            "no JSON/HTTP/socket/extra IPC between C# and F#",
+                                                                            "exceptions converge to the formal error contract at the application boundary"
+                                                                        ]
+                                                          },
+                              "NATIVE_ABI":  {
+                                                 "applies":  [
+                                                                 "C",
+                                                                 "C++",
+                                                                 "Rust",
+                                                                 "Go only when benchmark-justified"
+                                                             ],
+                                                 "rules":  [
+                                                               "stable C ABI on the public native boundary",
+                                                               "C++ must not expose STL containers, C++ exceptions, template ABI, compiler-specific ABI",
+                                                               "Rust must not expose enum layout, Vec, String, trait objects, panics",
+                                                               "preferred types: fixed-width integers, enum codes, pointer, length, offset, flat structs",
+                                                               "every struct carries struct_size and contract_revision metadata with ownership semantics",
+                                                               "allocator owner, free owner, lifetime, mutability, thread safety and alignment are explicit",
+                                                               "panic/exception never crosses the ABI"
+                                                           ]
+                                             },
+                              "VERSIONED_SERVICE_CONTRACT":  {
+                                                                 "applies":  [
+                                                                                 "cross-process runtimes",
+                                                                                 "isolated tools",
+                                                                                 "information layer",
+                                                                                 "Rust\u003c-\u003eJS",
+                                                                                 "Go\u003c-\u003eapp"
+                                                                             ],
+                                                                 "rules":  [
+                                                                               "request identity, correlation identity, generation, contract revision",
+                                                                               "timeout, cancellation, idempotency identity",
+                                                                               "error code plus compatibility metadata"
+                                                                           ]
+                                                             }
+                          },
+    "contracts":  {
+                      "NATIVE_ABI_CONTRACT":  {
+                                                  "owner":  "system-runtime",
+                                                  "members":  [
+                                                                  "py-sovereign-native",
+                                                                  "py-xingcheng-inference",
+                                                                  "cs-native-inference",
+                                                                  "py-strategy-risk-ctypes",
+                                                                  "native-tool-runtime",
+                                                                  "a263-channel-native-ports"
+                                                              ],
+                                                  "metadata":  {
+                                                                   "contract_revision":  1,
+                                                                   "header":  "native/include/gptbridge_native.h",
+                                                                   "abi":  "C, extern-C, flat structs, status codes"
+                                                               }
+                                              },
+                      "SERVICE_CONTRACT":  {
+                                               "owner":  "system-runtime",
+                                               "members":  [
+                                                               "vectord-http",
+                                                               "searchd-http",
+                                                               "model-service-http",
+                                                               "tool-proxy-stdio",
+                                                               "julia-spawn",
+                                                               "launcher-spawn"
+                                                           ],
+                                               "metadata":  {
+                                                                "contract_revision":  1,
+                                                                "transport":  "loopback HTTP/JSON or child-process stdio JSONL, no shared memory"
+                                                            }
+                                           },
+                      "MODEL_ARTIFACT_CONTRACT":  {
+                                                      "owner":  "local-model",
+                                                      "members":  [
+                                                                      "model-artifact-export"
+                                                                  ],
+                                                      "metadata":  {
+                                                                       "contract_revision":  1,
+                                                                       "formats":  [
+                                                                                       "star-transformer-checkpoint/v1",
+                                                                                       "star-jax-checkpoint/v1",
+                                                                                       "star-native-inference-bundle/v1",
+                                                                                       "star-model-lifecycle/v1"
+                                                                                   ],
+                                                                       "note":  "identity is stable; format tokens and hashes live in artifact metadata, never in file or folder names"
+                                                                   }
+                                                  },
+                      "UI_BRIDGE_CONTRACT":  {
+                                                 "owner":  "system-runtime",
+                                                 "members":  [
+                                                                 "tauri-ui-bridge",
+                                                                 "ws-ipc",
+                                                                 "embedded-worker-http"
+                                                             ],
+                                                 "metadata":  {
+                                                                  "contract_revision":  1,
+                                                                  "config_refs":  [
+                                                                                      "ipc-contract.json",
+                                                                                      "ipc-surface-frontend.json",
+                                                                                      "ipc-surface-backend.json"
+                                                                                  ],
+                                                                  "note":  "single Rust application state projected to JavaScript/GPUI/egui; JavaScript never touches backend authority directly"
+                                                              }
+                                             }
+                  },
+    "boundaries":  [
+                       {
+                           "id":  "py-sovereign-native",
+                           "caller":  "python",
+                           "callee":  "c",
+                           "mechanism_class":  "NATIVE_ABI",
+                           "mechanism":  "pybind11 module _sovereign_native over extern-C header",
+                           "owner":  "main-system",
+                           "status":  "retired",
+                           "retired_by":  "B162/B167/B38: Python lane retired; native successor is GPTBridge.MainSystem (C#) over native/bridge gptbridge_native.c",
+                           "contract_ref":  "native/include/gptbridge_native.h",
+                           "files":  [
+                                         "native/include/gptbridge_native.h",
+                                         "native/bridge/gptbridge_native.c"
+                                     ]
+                       },
+                       {
+                           "id":  "py-xingcheng-inference",
+                           "caller":  "python",
+                           "callee":  "cpp",
+                           "mechanism_class":  "NATIVE_ABI",
+                           "mechanism":  "pybind11 module _xingcheng_inference",
+                           "owner":  "local-model",
+                           "status":  "retired",
+                           "retired_by":  "B162/B167/B38: Python inference retired; successor is cs-native-inference + native engine process",
+                           "contract_ref":  "xingcheng/src/backend/cpp/include/xingcheng_inference.hpp",
+                           "files":  [
+                                         "xingcheng/src/backend/cpp/src/binding.cpp"
+                                     ]
+                       },
+                       {
+                           "id":  "cs-native-inference",
+                           "caller":  "csharp",
+                           "callee":  "cpp",
+                           "mechanism_class":  "NATIVE_ABI",
+                           "mechanism":  "flat C ABI via NativeLibrary (no Python in path)",
+                           "owner":  "business-logic-csharp",
+                           "contract_ref":  "xingcheng/src/backend/cpp/include/xingcheng_engine_c.h",
+                           "files":  [
+                                         "xingcheng/src/backend/cpp/src/engine_c_abi.cpp",
+                                         "Standalone tools/business-logic-csharp/StarBusinessLogic/Application/NativeModelClient.cs"
+                                     ]
+                       },
+                       {
+                           "id":  "py-strategy-risk-ctypes",
+                           "caller":  "python",
+                           "callee":  "cpp+c",
+                           "mechanism_class":  "NATIVE_ABI",
+                           "mechanism":  "ctypes CDLL over flat C exports, python fallback",
+                           "status":  "retired",
+                           "retired_by":  "B162: Python caller retired; investment-mobile native surfaces remain under investment-mobile ownership",
+                           "owner":  "investment-mobile",
+                           "contract_ref":  "module-local parity (no versioned contract file: see blockers)",
+                           "files":  [
+                                         "Standalone tools/investment-mobile/native/strategy/strategy_engine.cpp",
+                                         "Standalone tools/investment-mobile/native/risk/risk_core.c"
+                                     ]
+                       },
+                       {
+                           "id":  "cs-fs-typed",
+                           "caller":  "csharp",
+                           "callee":  "fsharp",
+                           "mechanism_class":  "SAME_RUNTIME_TYPED_CALL",
+                           "mechanism":  "in-process ProjectReference, F#-owned DTOs, no serialization",
+                           "owner":  "business-logic",
+                           "contract_ref":  "Standalone tools/business-logic-fsharp/StarDomain/Types.fs",
+                           "files":  [
+                                         "Standalone tools/business-logic-fsharp/StarDomain/Types.fs",
+                                         "Standalone tools/business-logic-fsharp/StarDomain/Plan.fs",
+                                         "Standalone tools/business-logic-csharp/StarBusinessLogic/Application/IToolRouter.cs"
+                                     ]
+                       },
+                       {
+                           "id":  "native-tool-runtime",
+                           "caller":  "cpp+csharp",
+                           "callee":  "cpp",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "child-process stdio JSONL proxy plus loopback HTTP/WS; python transport_proxy sidecar retired (B162), native sidecar is native/tool_runtime/sidecar_transport.cpp",
+                           "owner":  "governance",
+                           "contract_ref":  "star-governed-tool-runtime-abi/v1",
+                           "files":  [
+                                         "native/tool_runtime/tool_host.cpp",
+                                         "native/tool_runtime/sidecar_transport.cpp",
+                                         "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/GovernedToolHost.cs"
+                                     ]
+                       },
+                       {
+                           "id":  "a263-channel",
+                           "caller":  "multi",
+                           "callee":  "multi",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "generation/heartbeat/backpressure/outbox/ack/cursor",
+                           "owner":  "shared-layer",
+                           "contract_ref":  "native/include/channel_runtime.h",
+                           "files":  [
+                                         "native/include/channel_runtime.h",
+                                         "native/include/a263_channel_core.h",
+                                         "native/core/a263_channel_core.c",
+                                         "native/tool_runtime/channel_runtime.cpp",
+                                         "native/tool_runtime/channel_runtime_loops.cpp",
+                                         "shared-layer/csharp/GPTBridge.Channels/GPTBridge.Channels/A263Channel.cs"
+                                     ]
+                       },
+                       {
+                           "id":  "vectord-http",
+                           "caller":  "cpp+csharp",
+                           "callee":  "rust",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "loopback HTTP/JSON, no FFI, no shared memory",
+                           "owner":  "system-runtime",
+                           "contract_ref":  "Standalone tools/vectord-rs/CONTRACT.md",
+                           "files":  [
+                                         "Standalone tools/vectord-rs/src/main.rs"
+                                     ]
+                       },
+                       {
+                           "id":  "searchd-http",
+                           "caller":  "cpp+csharp",
+                           "callee":  "go",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "loopback HTTP/JSON, no cgo",
+                           "owner":  "system-runtime",
+                           "contract_ref":  "Standalone tools/searchd-go/CONTRACT.md",
+                           "files":  [
+                                         "Standalone tools/searchd-go/cmd/searchd/main.go"
+                                     ]
+                       },
+                       {
+                           "id":  "model-service-http",
+                           "caller":  "csharp",
+                           "callee":  "python",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "loopback HTTP/JSON with session token",
+                           "owner":  "local-model",
+                           "status":  "retired",
+                           "retired_by":  "B162: model_service_http.py retired; C# consumers use cs-native-inference (native ABI), governed channel for the rest",
+                           "contract_ref":  "star-model-service/v1",
+                           "files":  [
+
+                                     ]
+                       },
+                       {
+                           "id":  "model-artifact-export",
+                           "caller":  "python",
+                           "callee":  "cpp",
+                           "mechanism_class":  "NATIVE_ABI",
+                           "mechanism":  "one-way file export checkpoint to inference bundle, sha256 chained",
+                           "owner":  "local-model",
+                           "status":  "retired",
+                           "retired_by":  "B162/B167/B38: python exporter retired; native training lane is native_transformer/training (C++/C#)",
+                           "contract_ref":  "MODEL_ARTIFACT_CONTRACT",
+                           "files":  [
+
+                                     ]
+                       },
+                       {
+                           "id":  "tauri-ui-bridge",
+                           "caller":  "javascript",
+                           "callee":  "rust",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "Tauri typed command whitelist plus events; single Rust state projected",
+                           "owner":  "system-runtime",
+                           "contract_ref":  "UI_BRIDGE_CONTRACT",
+                           "files":  [
+                                         "main-system/src-tauri/src/main.rs",
+                                         "main-system/src-tauri/src/tool_dispatch.rs"
+                                     ]
+                       },
+                       {
+                           "id":  "ws-ipc",
+                           "caller":  "javascript",
+                           "callee":  "csharp",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "authenticated loopback WebSocket with bounded queue, outbox cursors, reconnect; python ipc/server.py retired (B162), backend is GPTBridge.MainSystem (C#)",
+                           "owner":  "main-system",
+                           "contract_ref":  "main-system/config/ipc-contract.json",
+                           "files":  [
+                                         "main-system/config/ipc-surface-frontend.json",
+                                         "main-system/config/ipc-surface-backend.json"
+                                     ]
+                       },
+                       {
+                           "id":  "embedded-worker-http",
+                           "caller":  "rust",
+                           "callee":  "rust",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "token-guarded loopback HTTP parent to worker process",
+                           "owner":  "system-runtime",
+                           "contract_ref":  "UI_BRIDGE_CONTRACT",
+                           "files":  [
+                                         "main-system/src-tauri/src/webview_host/mod.rs",
+                                         "main-system/src-tauri/src/webview_host/worker_server.rs"
+                                     ]
+                       },
+                       {
+                           "id":  "julia-spawn",
+                           "caller":  "csharp",
+                           "callee":  "julia",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "spawn-per-call, stdin JSON job, stdout last-line JSON, no resident state; python spawner (julia_compute.py) retired (B162), spawn is owned by the C# orchestrator",
+                           "owner":  "main-system",
+                           "contract_ref":  "Standalone tools/julia-compute/CONTRACT.md",
+                           "files":  [
+                                         "Standalone tools/julia-compute/src/JuliaCompute.jl"
+                                     ]
+                       },
+                       {
+                           "id":  "launcher-spawn",
+                           "caller":  "csharp",
+                           "callee":  "rust",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "process spawn with env bindings, file journal, single-instance mutex",
+                           "owner":  "system-runtime",
+                           "contract_ref":  "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs",
+                           "files":  [
+                                         "main-system/launcher/src/GPTBridge.Bootstrap/Program.cs"
+                                     ]
+                       },
+                       {
+                           "id":  "pg-structured",
+                           "caller":  "csharp",
+                           "callee":  "postgresql",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "Npgsql pool with contract handshake, session identity, generation fence; psycopg3/python lane retired (B162), canonical reader is GPTBridge.CodexPipeline",
+                           "owner":  "shared-layer",
+                           "contract_ref":  "main-system/config/sql-schema-contract.json",
+                           "files":  [
+                                         "shared-layer/csharp/GPTBridge.CodexPipeline"
+                                     ]
+                       },
+                       {
+                           "id":  "tool-proxy-stdio",
+                           "caller":  "csharp",
+                           "callee":  "cpp",
+                           "mechanism_class":  "VERSIONED_SERVICE_CONTRACT",
+                           "mechanism":  "child-process stdio JSONL with per-call id, bounded line size; python transport_proxy.py retired (B162), native sidecar is native/tool_runtime/sidecar_transport.cpp",
+                           "owner":  "governance",
+                           "contract_ref":  "star-governed-transport-proxy/v1",
+                           "files":  [
+                                         "shared-layer/csharp/GPTBridge.ToolHost/GPTBridge.ToolHost/TransportProxyClient.cs",
+                                         "native/tool_runtime/transport_proxy_client.cpp"
+                                     ]
+                       }
+                   ],
+    "error_contract":  {
+                           "description":  "unified cross-language error codes. Boundaries carry error_code plus bounded metadata plus correlation_id only. No stack traces cross trust boundaries; no free-form exception strings as decision conditions.",
+                           "codes":  [
+                                         "OK",
+                                         "INVALID_ARGUMENT",
+                                         "PERMISSION_DENIED",
+                                         "NOT_READY",
+                                         "TIMEOUT",
+                                         "CANCELLED",
+                                         "RESOURCE_BUSY",
+                                         "CONTRACT_MISMATCH",
+                                         "GENERATION_MISMATCH",
+                                         "DATA_INTEGRITY_ERROR",
+                                         "INTERNAL_ERROR"
+                                     ],
+                           "language_mapping":  {
+                                                    "rust":  "Result\u003cT, E\u003e with code enums; never panic across boundary",
+                                                    "cpp":  "std::expected / status codes; exceptions converted at the ABI edge",
+                                                    "c":  "integer status codes; fail-closed negatives",
+                                                    "csharp":  "typed results; exceptions converge at the application boundary",
+                                                    "fsharp":  "typed results (Result/Option); exceptions converge at the application boundary",
+                                                    "go":  "error values carrying codes",
+                                                    "javascript":  "typed error objects {error_code, message, correlation_id}",
+                                                    "python":  "retired (B162): no Python domain remains; wire codes unchanged",
+                                                    "julia":  "ok:false envelopes with op-scoped codes"
+                                                }
+                       },
+    "memory_ownership":  {
+                             "rules":  [
+                                           "every native struct declares allocator owner, free owner, lifetime, mutability, thread safety, alignment",
+                                           "same-process hot paths target zero-copy or one-copy; cross-process prefers formal binary IPC",
+                                           "no new ungoverned shared-memory mechanisms",
+                                           "canonical owners: C++ owns weight bundles with stable addresses; Rust owns vectord store; callers own opaque handles and transfer buffers. (Python/pybind memory edge retired with B162 — memory_contract.py removed.)"
+                                       ]
+                         },
+    "known_relays":  [
+                         {
+                             "chain":  "javascript -\u003e csharp(GPTBridge.ChannelHost) -\u003e cpp(xingcheng native engine)",
+                             "reason":  "governed AI channel, permission routing and audit (B162: python hops retired)"
+                         },
+                         {
+                             "chain":  "csharp -\u003e cpp (cs-native-inference)",
+                             "reason":  "primary C# path is the native ABI; the python model-service-http hop is retired (B162)"
+                         },
+                         {
+                             "chain":  "cpp(xingcheng) -\u003e go(searchd) -\u003e public web",
+                             "reason":  "network isolation: only the Go service touches the public web, metadata only"
+                         }
+                     ],
+    "blockers":  [
+                     {
+                         "id":  "xcuda-abi-unregistered",
+                         "boundary":  "cpp -\u003e cuda runtime",
+                         "reason":  "ad-hoc 0/1/2/3 codes, no contract file, no registry entry; needs owner declaration"
+                     },
+                     {
+                         "id":  "strategy-risk-ctypes-unregistered",
+                         "boundary":  "py-strategy-risk-ctypes",
+                         "reason":  "resolved by file existence only; needs a versioned contract file under investment-mobile ownership"
+                     },
+                     {
+                         "id":  "native-model-image-resolution",
+                         "boundary":  "cs-native-inference",
+                         "reason":  "engine image resolved by newest mtime (implicit versioning); needs content-hash pinning"
+                     },
+                     {
+                         "id":  "python-in-inference-path",
+                         "boundary":  "model-artifact-export consumers",
+                         "status":  "resolved",
+                         "reason":  "Codex amendment landed (B162/B167/B38): Python routing/facade on the local-model inference path is retired; native engine + cs-native-inference own the path"
+                     },
+                     {
+                         "id":  "tauri-untyped-envelope",
+                         "boundary":  "tauri-ui-bridge",
+                         "reason":  "gptbridge_invoke is a single raw-JSON envelope; per-command typed structs plus generated TS bindings are future work under system-runtime"
+                     }
+                 ],
+    "implementation_language_declaration":  {
+                                                "owner":  "system-runtime",
+                                                "classification":  "subordinate-business-declaration",
+                                                "allowed_languages":  [
+                                                                          "C",
+                                                                          "C++",
+                                                                          "C#",
+                                                                          "F#",
+                                                                          "Rust",
+                                                                          "Go",
+                                                                          "Julia",
+                                                                          "JavaScript"
+                                                                      ],
+                                                "current_primary_owner_count_per_capability":  1,
+                                                "production_execution":  "verified-precompiled-native-artifact",
+                                                "registration_required":  true,
+                                                "language_permission_is_execution_evidence":  false,
+                                                "does_not_grant_authority":  true
+                                            }
 }
