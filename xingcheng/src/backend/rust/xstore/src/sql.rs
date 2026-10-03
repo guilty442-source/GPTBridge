@@ -2,11 +2,22 @@
 //! Supported: SELECT columns|* FROM registered_table [WHERE predicates joined
 //! by AND] [ORDER BY column [ASC|DESC]] [LIMIT $n]. Predicates are column=$n
 //! or column=ANY($n); values are always bound separately, never SQL text.
+//!
+//! `Session` carries a derived column index (`sql/index.rs`): the most
+//! selective indexable predicate narrows candidates and the full
+//! predicate filter re-runs on every candidate, so an index lookup
+//! only shortens the canonical scan — it never changes a result.
 use serde_json::{Map, Value};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
+
+mod index;
 
 pub struct Session {
     rows: BTreeMap<String, Value>,
+    index: index::Index,
 }
 
 enum Predicate {
@@ -261,17 +272,47 @@ fn compare(a: &Value, b: &Value) -> std::cmp::Ordering {
 }
 impl Session {
     pub fn open(store: &Path) -> Result<Self, String> {
-        Ok(Self {
-            rows: crate::rag::read(store)?,
-        })
+        let rows = crate::rag::read(store)?;
+        let index = index::Index::build(&rows);
+        Ok(Self { rows, index })
     }
     /// Pure in-memory evaluation; caller-owned rows carry no authority claim.
     /// Production consumers use `open` or independently verified canonical replay.
     pub fn from_rows(rows: BTreeMap<String, Value>) -> Self {
-        Self { rows }
+        let index = index::Index::build(&rows);
+        Self { rows, index }
     }
     pub fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Value>, String> {
-        Self::query_rows(&self.rows, sql, params)
+        let plan = parse(sql, params)?;
+        let keys = self.narrow(&plan, params);
+        evaluate(&self.rows, &plan, params, keys)
+    }
+    /// The most selective indexable predicate narrows the candidate
+    /// set; the full predicate filter still runs on every candidate,
+    /// so an index lookup can only shorten the scan, never lose a row.
+    /// `None` = no indexable predicate — canonical prefix scan.
+    fn narrow(
+        &self,
+        plan: &Plan,
+        params: &[Value],
+    ) -> Option<BTreeSet<String>> {
+        let mut best: Option<BTreeSet<String>> = None;
+        for pred in &plan.predicates {
+            let candidates = match pred {
+                Predicate::Equal(field, n) => self
+                    .index
+                    .candidates(&plan.table, field, &params[*n])
+                    .map(|keys| keys.iter().cloned().collect()),
+                Predicate::Any(field, n) => params[*n]
+                    .as_array()
+                    .and_then(|values| self.index.any_candidates(&plan.table, field, values)),
+            };
+            let Some(set) = candidates else { continue };
+            if best.as_ref().map(|b| set.len() < b.len()).unwrap_or(true) {
+                best = Some(set);
+            }
+        }
+        best
     }
     /// Pure SQL evaluation over a caller-owned snapshot; does not grant authority.
     pub fn query_rows(
@@ -280,54 +321,73 @@ impl Session {
         params: &[Value],
     ) -> Result<Vec<Value>, String> {
         let plan = parse(sql, params)?;
-        let prefix = format!("{}/", plan.table);
-        let mut result: Vec<&Value> = rows
-            .range(prefix.clone()..)
-            .take_while(|(key, _)| key.starts_with(&prefix))
-            .map(|(_, row)| row)
-            .filter(|row| {
-                plan.predicates.iter().all(|pred| match pred {
-                    Predicate::Equal(field, n) => equal(&row[field], &params[*n]),
-                    Predicate::Any(field, n) => params[*n]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .any(|v| equal(&row[field], v)),
-                })
-            })
-            .collect();
-        if let Some((field, descending)) = &plan.order {
-            result.sort_by(|a, b| {
-                let c = compare(&a[field], &b[field]);
-                if *descending {
-                    c.reverse()
-                } else {
-                    c
-                }
-            });
-        }
-        // Explicit LIMIT is intentional selection. Implicit overflow is rejected,
-        // so missing authority rows can never be hidden by an undocumented cap.
-        if result.len() > 10000 {
-            return Err("NATIVE_SQL_RESULT_LIMIT".into());
-        }
-        result.truncate(plan.limit);
-        Ok(result
-            .into_iter()
-            .map(|row| {
-                if plan.columns.is_empty() {
-                    row.clone()
-                } else {
-                    Value::Object(
-                        plan.columns
-                            .iter()
-                            .map(|c| (c.clone(), row[c].clone()))
-                            .collect::<Map<_, _>>(),
-                    )
-                }
-            })
-            .collect())
+        evaluate(rows, &plan, params, None)
     }
+}
+
+fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> bool {
+    plan.predicates.iter().all(|pred| match pred {
+        Predicate::Equal(field, n) => equal(&row[field], &params[*n]),
+        Predicate::Any(field, n) => params[*n]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| equal(&row[field], v)),
+    })
+}
+
+fn evaluate(
+    rows: &BTreeMap<String, Value>,
+    plan: &Plan,
+    params: &[Value],
+    keys: Option<BTreeSet<String>>,
+) -> Result<Vec<Value>, String> {
+    let mut result: Vec<&Value> = match &keys {
+        Some(keys) => keys
+            .iter()
+            .filter_map(|k| rows.get(k.as_str()))
+            .filter(|row| predicate_ok(row, plan, params))
+            .collect(),
+        None => {
+            let prefix = format!("{}/", plan.table);
+            rows.range(prefix.clone()..)
+                .take_while(|(key, _)| key.starts_with(&prefix))
+                .map(|(_, row)| row)
+                .filter(|row| predicate_ok(row, plan, params))
+                .collect()
+        }
+    };
+    if let Some((field, descending)) = &plan.order {
+        result.sort_by(|a, b| {
+            let c = compare(&a[field], &b[field]);
+            if *descending {
+                c.reverse()
+            } else {
+                c
+            }
+        });
+    }
+    // Explicit LIMIT is intentional selection. Implicit overflow is rejected,
+    // so missing authority rows can never be hidden by an undocumented cap.
+    if result.len() > 10000 {
+        return Err("NATIVE_SQL_RESULT_LIMIT".into());
+    }
+    result.truncate(plan.limit);
+    Ok(result
+        .into_iter()
+        .map(|row| {
+            if plan.columns.is_empty() {
+                row.clone()
+            } else {
+                Value::Object(
+                    plan.columns
+                        .iter()
+                        .map(|c| (c.clone(), row[c].clone()))
+                        .collect::<Map<_, _>>(),
+                )
+            }
+        })
+        .collect())
 }
 
 #[cfg(test)]
@@ -452,5 +512,62 @@ mod tests {
         assert!(session
             .query("SELECT sequence, sequence FROM rag_chunk", &[])
             .is_err());
+    }
+    #[test]
+    fn indexed_and_scanned_queries_agree() {
+        let mut map = BTreeMap::new();
+        for i in 0..40 {
+            map.insert(
+                format!("rag_chunk/c{i}"),
+                json!({"record_id":format!("c{i}"),
+                    "module_id":if i%3==0{"m"}else{"n"},
+                    "sequence":i,"resource_id":format!("r{}",i%5),
+                    "vector_point_id":format!("p{i}")}),
+            );
+        }
+        map.insert(
+            "rag_chunk/odd".into(),
+            json!({"record_id":"odd","module_id":null,"sequence":-0.0}),
+        );
+        let session = Session::from_rows(map.clone());
+        for (sql, params) in [
+            ("SELECT * FROM rag_chunk", vec![]),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id = $1",
+                vec![json!("m")],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id = $1",
+                vec![json!("absent")],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id = $1",
+                vec![Value::Null],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id = ANY($1)",
+                vec![json!(["m", "n"])],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE sequence = $1",
+                vec![json!(-0.0)],
+            ),
+            (
+                "SELECT chunk_id, sequence FROM rag_chunk WHERE resource_id = ANY($1) ORDER BY sequence DESC LIMIT $2",
+                vec![json!(["r0", "r1"]), json!(3)],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE record_id = $1",
+                vec![json!("c7")],
+            ),
+            (
+                "SELECT * FROM rag_chunk WHERE module_id = $1 AND sequence = $2",
+                vec![json!("m"), json!(3)],
+            ),
+        ] {
+            let indexed = session.query(sql, &params).unwrap();
+            let scanned = Session::query_rows(&map, sql, &params).unwrap();
+            assert_eq!(indexed, scanned, "{sql}");
+        }
     }
 }
