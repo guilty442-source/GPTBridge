@@ -47,10 +47,9 @@ internal static class Ledger
         if (string.IsNullOrEmpty(worktree))
             return snapshot;
         var head = Git.Run(worktree, new[] { "rev-parse", "HEAD" });
-        snapshot["head_revision"] = head.Code == 0 ? head.Stdout.Trim() : "";
+        snapshot["head_revision"] = SnapshotEvidence.Require(head).Trim();
         var branch = Git.Run(worktree, new[] { "rev-parse", "--abbrev-ref", "HEAD" });
-        snapshot["branch"] = branch.Code == 0 && branch.Stdout.Trim().Length > 0
-            ? branch.Stdout.Trim() : "HEAD";
+        snapshot["branch"] = SnapshotEvidence.Require(branch).Trim();
         snapshot["staged_files"] = NameList(
             Git.Run(worktree, new[] { "diff", "--cached", "--name-only" }));
         snapshot["dirty_files"] = NameList(
@@ -62,16 +61,7 @@ internal static class Ledger
 
     private static JsonArray NameList(GitResult result)
     {
-        var array = new JsonArray();
-        if (result.Code != 0)
-            return array;
-        foreach (var line in result.Stdout.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Length > 0)
-                array.Add(trimmed);
-        }
-        return array;
+        return SnapshotEvidence.Names(result);
     }
 
     /// <summary>Flat audit record (parity with git_tiers.audit_log).</summary>

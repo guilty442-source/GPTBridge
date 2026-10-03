@@ -2,6 +2,15 @@ using GPTBridge.GitAutomation;
 using System.Diagnostics;
 
 var root = Path.GetFullPath(args[0]);
+foreach (var failed in new[] { new GitResult(-1, "partial.txt", "timeout", true),
+    new GitResult(128, "", "failed"), new GitResult(0, "", "timeout", true) })
+{
+    try { SnapshotEvidence.Names(failed); throw new Exception("Failed Git evidence became a clean snapshot"); }
+    catch (InvalidOperationException error) when (error.Message.StartsWith("GIT_SNAPSHOT_")) { }
+}
+if (SnapshotEvidence.Names(new GitResult(0, "", "")).Count != 0
+    || SnapshotEvidence.Names(new GitResult(0, "a.txt\nb.txt\n", "")).Count != 2)
+    throw new Exception("Successful Git evidence was lost");
 var executable = Git.ResolveExecutable();
 if (OperatingSystem.IsWindows())
 {

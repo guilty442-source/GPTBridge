@@ -8,5 +8,6 @@
   <ItemGroup>
     <Compile Include="../GPTBridge.GitAutomation/Git.cs" Link="Git.cs" />
     <Compile Include="../GPTBridge.GitAutomation/Canon.cs" Link="Canon.cs" />
+    <Compile Include="../GPTBridge.GitAutomation/SnapshotEvidence.cs" Link="SnapshotEvidence.cs" />
   </ItemGroup>
 </Project>
