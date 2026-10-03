@@ -1,201 +1,283 @@
 {
-  "schema": "gptbridge-data-architecture/v1",
-  "manager": "xingcheng-core-orchestrator",
-  "systems_of_record": {
-    "git": "system-version-development-history-code-schema-configuration",
-    "sql": "structured-mutable-official-data-postgresql",
-    "rag": "semantic-index-serving-vectord-derived-from-postgresql-canonical-embeddings",
-    "note_ollama_retired": "B154 retired (executed 2026-10-02, rev 235): no external model service is a system of record; the llm role is served by the governed native platform"
-  },
-  "architecture_responsibilities": {
-    "git": {
-      "role": "system-version-and-development-history",
-      "stores": ["source-code", "schema", "configuration", "versioned-system-change-history"],
-      "must_not_store": ["mutable-business-records", "vector-index", "llm-memory"]
-    },
-    "sql": {
-      "engine": "postgresql",
-      "role": "structured-mutable-official-data",
-      "stores": ["official-business-records", "relations", "status", "audit", "rag-document-chunk-mapping", "canonical-chunk-embeddings-pgvector"],
-      "authority": "official-structured-data-source-of-truth-and-canonical-vector-values"
-    },
-    "rag": {
-      "engine": "vectord",
-      "role": "semantic-knowledge-index",
-      "stores": ["derived-embedding-projections", "semantic-index", "opaque-resource-identities"],
-      "authority": "retrieval-candidate-only",
-      "rebuild": "copy-canonical-embeddings-from-postgresql",
-      "official_data_verification": "mandatory-through-local-governed-executor"
-    },
-    "llm": {
-      "engine": "governed-local-model-platform",
-      "role": "understanding-reasoning-and-operations",
-      "permanent_system_of_record": false,
-      "mutation": "governed-executor-only"
-    },
-    "separation": "git-sql-rag-and-llm-must-not-replace-one-another",
-    "governed_flow": "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
-  },
-  "routing": "user-chat-xingcheng-core-orchestrator-to-llm-rag-sql",
-  "xingcheng_authority": {
-    "highest_authority_management_required": true,
-    "management": "central-sql-rag-git-management",
-    "management_owner": "xingcheng-core-orchestrator-under-governance-rule",
-    "management_source_basis": {
-      "governance_rule": "authority-permissions-and-boundaries",
-      "git": "system-version-and-development-history",
-      "sql": "structured-mutable-official-data",
-      "rag": "semantic-retrieval-candidates"
-    },
-    "llm_inference_as_source_of_truth": false,
-    "responsibilities": [
-      "sql-inventory-health-policy-and-migration-orchestration",
-      "rag-index-health-routing-and-consistency-management",
-      "git-status-history-change-planning-and-release-coordination"
-    ],
-    "decision_and_orchestration": true,
-    "execution": false,
-    "git_write": false,
-    "sql_write": false,
-    "rag_mutation": false,
-    "system_mutation": false,
-    "self_model_data": "read-write",
-    "execution_delegation": "governed-executor-only"
-  },
-  "xingcheng_governance_connection": {
-    "mode": "direct-read-only",
-    "sources": ["governance-policy-snapshot", "directory-authority-snapshot"],
-    "source_priority": "authoritative-highest",
-    "write": false,
-    "execute": false,
-    "bypass": false
-  },
-  "git_policy": {
-    "repository_scope": "E:/GPTBridge",
-    "platform_root": "Standalone tools/local-model",
-    "xingcheng_data_root": "xingcheng/xingcheng",
-    "remote_contact_default": false,
-    "write_requires_governance_approval": true,
-    "xingcheng_write": false,
-    "stores_business_data": false,
-    "stores_vector_index": false,
-    "version_records": [
-      "local-model-identifiers-and-configuration",
-      "third-party-package-manifests-and-lockfiles"
-    ],
-    "version_normalization_exclusions": [
-      "local-model-runtime-and-model-release-versions",
-      "third-party-package-and-dependency-versions"
-    ]
-  },
-  "identity_format": "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
-  "identity_fields": [
-    "platform_id", "module_id", "owner_id", "data_category",
-    "resource_type", "resource_id", "resource_label", "classification",
-    "version", "content_hash", "created_at", "updated_at"
-  ],
-  "central_local_layers": {
-    "central-index": "resource-registry-relations-status-postgresql",
-    "semantic-index": "document-chunk-vectord-vector-mapping",
-    "transport": "governed-system-and-ai-requests-postgresql",
-    "audit": "append-only-governance-and-execution-events"
-  },
-  "module_private_layers": {
-    "module_data": "module-owned-structured-resources",
-    "module_state": "module-owned-operation-state",
-    "module_audit": "module-owned-audit-events",
-    "ntfs": "module-owned-original-and-derived-files"
-  },
-  "rag": {
-    "structured_index": "postgresql/shared-layer-runtime",
-    "vector_index": "vectord/standalone-vectord-rs-runtime",
-    "mandatory_payload_fields": [
-      "platform_id", "module_id", "owner_id", "resource_id",
-      "resource_label", "classification", "version", "content_hash"
-    ],
-    "mandatory_query_filter": "module_id",
-    "sqlite_fallback": false
-  },
-  "access_enforcement": {
-    "default_cross_module_access": "deny",
-    "governance_rule": "decision-authority",
-    "shared_layer": "caller-resource-action-validation",
-    "module_private_store": "declared-path-and-executor-validation",
-    "central_index_physical_path": "prohibited",
-    "central_index_locator": "opaque-locator-id-only"
-  },
-  "xingcheng": {
-    "platform_id": "local-model-platform",
-    "module_id": "xingcheng",
-    "identity_database": "xingcheng_identity",
-    "native_model_display_name": "星澄",
-    "assistant_identity_group": "xingcheng-assistant-identity-group",
-    "assistant_display_name": "星澄助理",
-    "assistant_classification": "independent-privileged-institution",
-    "assistant_rank": "peer-to-sovereigns",
-    "native_model_parent": "xingcheng-assistant-identity-group",
-    "consolidated_capability": "central-automatic-repair",
-    "consolidated_capability_display_name": "自我學習與自動編程",
-    "consolidated_capability_description": "自我學習與自動編程",
-    "public_repair_capability_count": 1,
-    "repair_module_visibility": "internal-only",
-    "repair_network_research_route": "ai-collaboration/governance-authenticated-ai-channel",
-    "repair_network_result_role": "unverified-repair-candidates",
-    "xingcheng_self_update": "candidate-authoring-and-verification",
-    "xingcheng_self_update_user_switch": "none",
-    "xingcheng_self_update_release": "governed-release-only",
-    "system_repair_management_owner": "星澄",
-    "system_automatic_repair_responsibility_owner": "星澄",
-    "xingcheng_assistant_repair_role": "inspection-control-and-result-surface",
-    "xingcheng_repair_proposal_owner": "星澄",
-    "uncertain_repair_policy": "stop-request-evidence-no-mutation",
-    "repair_force_overwrite_reset": "forbidden",
-    "repair_audit_flow": "assistant-inspection>xingcheng-proposal>applicability-risk-rollback-gate>authorization>specialist-execution>regression-verification>assistant-closeout",
-    "repair_plan_visibility_order": "read-only-plan-and-requirements-before-user-authorization",
-    "repair_quality_minimum": "verified-applicability+minimal-change+backup+rollback+targeted-tests+independent-closeout",
-    "system_repair_execution": "governed-executor-only",
-    "system_repair_control_surface": "xingcheng-assistant",
-    "system_repair_user_switch_cardinality": 1,
-    "system_repair_user_switch_scope": "automatic-repair-only",
-    "xingcheng_assistant_switches": [
-      "system-automatic-update",
-      "system-automatic-repair"
-    ],
-    "xingcheng_assistant_switch_cardinality": 2,
-    "system_automatic_update_control_surface": "xingcheng-assistant",
-    "system_automatic_update_governance_form": "subordinate-ordinance",
-    "system_automatic_update_workflow_owner": "automation-sovereign",
-    "system_automatic_update_assignment": "automation-sovereign-delegates-to-registered-specialist-units",
-    "system_automatic_update_execution_route": "governed-module-executors-only",
-    "system_automatic_update_stages": "detect>classify>decide>authorize>assign>schedule>execute>verify>rollback-or-complete>report",
-    "system_automatic_update_interactive_confirmation": "optional-single-item-override",
-    "single_item_permission": "assistant-one-shot-action-bound-without-changing-standing-switch",
-    "single_item_denial": "assistant-explicit-action-bound-denial",
-    "single_item_choice_scope": "repair-or-update-independently",
-    "system_automatic_update_fail_policy": "fail-closed-retain-last-verified-release",
-    "automatic_learning_user_switch": "none",
-    "system_repair_modules": [
-      "xingcheng-auto-repair-module",
-      "xingcheng-auto-learning-module"
-    ],
-    "assistant_identity_database": "xingcheng_assistant_identity",
-    "assistant_inherits_native_identity": false,
-    "database_separation": "strict-no-shared-table-file-or-authority",
-    "role_setting": {
-      "type": "personality",
-      "database_isolation": "dedicated",
-      "owner": "xingcheng-native-model",
-      "layers": ["role_data", "role_history", "role_audit"],
-      "identity_format": "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
-      "maximum_records": 1,
-      "initial_record_count": 0,
-      "population_owner": "model-dialogue",
-      "bootstrap_seed": false,
-      "empty_record_count_is_valid": true
-    },
-    "cognition_database": "xingcheng_cognition",
-    "legacy_model_settings_integration": "model-data",
-    "other_modules": "read-only",
-    "external_execution": false
-  }
+    "schema":  "gptbridge-data-architecture/v1",
+    "manager":  "xingcheng-core-orchestrator",
+    "systems_of_record":  {
+                              "git":  "system-version-development-history-code-schema-configuration",
+                              "sql":  "structured-mutable-official-data-postgresql",
+                              "rag":  "semantic-index-serving-vectord-derived-from-postgresql-canonical-embeddings",
+                              "note_ollama_retired":  "B154 retired (executed 2026-10-02, rev 235): no external model service is a system of record; the llm role is served by the governed native platform"
+                          },
+    "architecture_responsibilities":  {
+                                          "git":  {
+                                                      "role":  "system-version-and-development-history",
+                                                      "stores":  [
+                                                                     "source-code",
+                                                                     "schema",
+                                                                     "configuration",
+                                                                     "versioned-system-change-history"
+                                                                 ],
+                                                      "must_not_store":  [
+                                                                             "mutable-business-records",
+                                                                             "vector-index",
+                                                                             "llm-memory"
+                                                                         ]
+                                                  },
+                                          "sql":  {
+                                                      "engine":  "postgresql",
+                                                      "role":  "structured-mutable-official-data",
+                                                      "stores":  [
+                                                                     "official-business-records",
+                                                                     "relations",
+                                                                     "status",
+                                                                     "audit",
+                                                                     "rag-document-chunk-mapping",
+                                                                     "canonical-chunk-embeddings-pgvector"
+                                                                 ],
+                                                      "authority":  "official-structured-data-source-of-truth-and-canonical-vector-values"
+                                                  },
+                                          "rag":  {
+                                                      "engine":  "vectord",
+                                                      "role":  "semantic-knowledge-index",
+                                                      "stores":  [
+                                                                     "derived-embedding-projections",
+                                                                     "semantic-index",
+                                                                     "opaque-resource-identities"
+                                                                 ],
+                                                      "authority":  "retrieval-candidate-only",
+                                                      "rebuild":  "copy-canonical-embeddings-from-postgresql",
+                                                      "official_data_verification":  "mandatory-through-local-governed-executor"
+                                                  },
+                                          "llm":  {
+                                                      "engine":  "governed-local-model-platform",
+                                                      "role":  "understanding-reasoning-and-operations",
+                                                      "permanent_system_of_record":  false,
+                                                      "mutation":  "governed-executor-only"
+                                                  },
+                                          "separation":  "git-sql-rag-and-llm-must-not-replace-one-another",
+                                          "governed_flow":  "llm-understands-reasons-and-operates-rag-retrieves-sql-persists-official-data-git-versions-system-changes"
+                                      },
+    "routing":  "user-chat-xingcheng-core-orchestrator-to-llm-rag-sql",
+    "xingcheng_authority":  {
+                                "highest_authority_management_required":  true,
+                                "management":  "central-sql-rag-git-management",
+                                "management_owner":  "xingcheng-core-orchestrator-under-governance-rule",
+                                "management_source_basis":  {
+                                                                "governance_rule":  "authority-permissions-and-boundaries",
+                                                                "git":  "system-version-and-development-history",
+                                                                "sql":  "structured-mutable-official-data",
+                                                                "rag":  "semantic-retrieval-candidates"
+                                                            },
+                                "llm_inference_as_source_of_truth":  false,
+                                "responsibilities":  [
+                                                         "sql-inventory-health-policy-and-migration-orchestration",
+                                                         "rag-index-health-routing-and-consistency-management",
+                                                         "git-status-history-change-planning-and-release-coordination"
+                                                     ],
+                                "decision_and_orchestration":  true,
+                                "execution":  false,
+                                "git_write":  false,
+                                "sql_write":  false,
+                                "rag_mutation":  false,
+                                "system_mutation":  false,
+                                "self_model_data":  "read-write",
+                                "execution_delegation":  "governed-executor-only"
+                            },
+    "xingcheng_governance_connection":  {
+                                            "mode":  "direct-read-only",
+                                            "sources":  [
+                                                            "governance-policy-snapshot",
+                                                            "directory-authority-snapshot"
+                                                        ],
+                                            "source_priority":  "authoritative-highest",
+                                            "write":  false,
+                                            "execute":  false,
+                                            "bypass":  false
+                                        },
+    "git_policy":  {
+                       "repository_scope":  "E:/GPTBridge",
+                       "platform_root":  "Standalone tools/local-model",
+                       "xingcheng_data_root":  "xingcheng/xingcheng",
+                       "remote_contact_default":  false,
+                       "write_requires_governance_approval":  true,
+                       "xingcheng_write":  false,
+                       "stores_business_data":  false,
+                       "stores_vector_index":  false,
+                       "version_records":  [
+                                               "local-model-identifiers-and-configuration",
+                                               "third-party-package-manifests-and-lockfiles"
+                                           ],
+                       "version_normalization_exclusions":  [
+                                                                "local-model-runtime-and-model-release-versions",
+                                                                "third-party-package-and-dependency-versions"
+                                                            ]
+                   },
+    "identity_format":  "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
+    "identity_fields":  [
+                            "platform_id",
+                            "module_id",
+                            "owner_id",
+                            "data_category",
+                            "resource_type",
+                            "resource_id",
+                            "resource_label",
+                            "classification",
+                            "version",
+                            "content_hash",
+                            "created_at",
+                            "updated_at"
+                        ],
+    "central_local_layers":  {
+                                 "central-index":  "resource-registry-relations-status-postgresql",
+                                 "semantic-index":  "document-chunk-vectord-vector-mapping",
+                                 "transport":  "governed-system-and-ai-requests-postgresql",
+                                 "audit":  "append-only-governance-and-execution-events"
+                             },
+    "module_private_layers":  {
+                                  "module_data":  "module-owned-structured-resources",
+                                  "module_state":  "module-owned-operation-state",
+                                  "module_audit":  "module-owned-audit-events",
+                                  "ntfs":  "module-owned-original-and-derived-files"
+                              },
+    "rag":  {
+                "structured_index":  "postgresql/shared-layer-runtime",
+                "vector_index":  "vectord/standalone-vectord-rs-runtime",
+                "mandatory_payload_fields":  [
+                                                 "platform_id",
+                                                 "module_id",
+                                                 "owner_id",
+                                                 "resource_id",
+                                                 "resource_label",
+                                                 "classification",
+                                                 "version",
+                                                 "content_hash"
+                                             ],
+                "mandatory_query_filter":  "module_id",
+                "sqlite_fallback":  false
+            },
+    "access_enforcement":  {
+                               "default_cross_module_access":  "deny",
+                               "governance_rule":  "decision-authority",
+                               "shared_layer":  "caller-resource-action-validation",
+                               "module_private_store":  "declared-path-and-executor-validation",
+                               "central_index_physical_path":  "prohibited",
+                               "central_index_locator":  "opaque-locator-id-only"
+                           },
+    "xingcheng":  {
+                      "platform_id":  "local-model-platform",
+                      "module_id":  "xingcheng",
+                      "identity_database":  "xingcheng_identity",
+                      "native_model_display_name":  "星澄",
+                      "assistant_identity_group":  "xingcheng-assistant-identity-group",
+                      "assistant_display_name":  "星澄助理",
+                      "assistant_classification":  "independent-privileged-institution",
+                      "assistant_rank":  "peer-to-sovereigns",
+                      "native_model_parent":  "xingcheng-assistant-identity-group",
+                      "consolidated_capability":  "central-automatic-repair",
+                      "consolidated_capability_display_name":  "自我學習與自動編程",
+                      "consolidated_capability_description":  "自我學習與自動編程",
+                      "public_repair_capability_count":  1,
+                      "repair_module_visibility":  "internal-only",
+                      "repair_network_research_route":  "ai-collaboration/governance-authenticated-ai-channel",
+                      "repair_network_result_role":  "unverified-repair-candidates",
+                      "xingcheng_self_update":  "candidate-authoring-and-verification",
+                      "xingcheng_self_update_user_switch":  "none",
+                      "xingcheng_self_update_release":  "governed-release-only",
+                      "system_repair_management_owner":  "星澄",
+                      "system_automatic_repair_responsibility_owner":  "星澄",
+                      "xingcheng_assistant_repair_role":  "inspection-control-and-result-surface",
+                      "xingcheng_repair_proposal_owner":  "星澄",
+                      "uncertain_repair_policy":  "stop-request-evidence-no-mutation",
+                      "repair_force_overwrite_reset":  "forbidden",
+                      "repair_audit_flow":  "assistant-inspection\u003exingcheng-proposal\u003eapplicability-risk-rollback-gate\u003eauthorization\u003especialist-execution\u003eregression-verification\u003eassistant-closeout",
+                      "repair_plan_visibility_order":  "read-only-plan-and-requirements-before-user-authorization",
+                      "repair_quality_minimum":  "verified-applicability+minimal-change+backup+rollback+targeted-tests+independent-closeout",
+                      "system_repair_execution":  "governed-executor-only",
+                      "system_repair_control_surface":  "xingcheng-assistant",
+                      "system_repair_user_switch_cardinality":  1,
+                      "system_repair_user_switch_scope":  "automatic-repair-only",
+                      "xingcheng_assistant_switches":  [
+                                                           "system-automatic-update",
+                                                           "system-automatic-repair"
+                                                       ],
+                      "xingcheng_assistant_switch_cardinality":  2,
+                      "system_automatic_update_control_surface":  "xingcheng-assistant",
+                      "system_automatic_update_governance_form":  "subordinate-ordinance",
+                      "system_automatic_update_workflow_owner":  "automation-sovereign",
+                      "system_automatic_update_assignment":  "automation-sovereign-delegates-to-registered-specialist-units",
+                      "system_automatic_update_execution_route":  "governed-module-executors-only",
+                      "system_automatic_update_stages":  "detect\u003eclassify\u003edecide\u003eauthorize\u003eassign\u003eschedule\u003eexecute\u003everify\u003erollback-or-complete\u003ereport",
+                      "system_automatic_update_interactive_confirmation":  "optional-single-item-override",
+                      "single_item_permission":  "assistant-one-shot-action-bound-without-changing-standing-switch",
+                      "single_item_denial":  "assistant-explicit-action-bound-denial",
+                      "single_item_choice_scope":  "repair-or-update-independently",
+                      "system_automatic_update_fail_policy":  "fail-closed-retain-last-verified-release",
+                      "automatic_learning_user_switch":  "none",
+                      "system_repair_modules":  [
+                                                    "xingcheng-auto-repair-module",
+                                                    "xingcheng-auto-learning-module"
+                                                ],
+                      "assistant_identity_database":  "xingcheng_assistant_identity",
+                      "assistant_inherits_native_identity":  false,
+                      "database_separation":  "strict-no-shared-table-file-or-authority",
+                      "role_setting":  {
+                                           "type":  "personality",
+                                           "database_isolation":  "dedicated",
+                                           "owner":  "xingcheng-native-model",
+                                           "layers":  [
+                                                          "role_data",
+                                                          "role_history",
+                                                          "role_audit"
+                                                      ],
+                                           "identity_format":  "{platform_id}:{module_id}:{data_category}:{resource_type}:{resource_id}",
+                                           "maximum_records":  1,
+                                           "initial_record_count":  0,
+                                           "population_owner":  "model-dialogue",
+                                           "bootstrap_seed":  false,
+                                           "empty_record_count_is_valid":  true
+                                       },
+                      "cognition_database":  "xingcheng_cognition",
+                      "legacy_model_settings_integration":  "model-data",
+                      "other_modules":  "read-only",
+                      "external_execution":  false
+                  },
+    "retrieval_plane_roles":  {
+                                  "DAG":  "global-orchestration",
+                                  "CAG":  "cache",
+                                  "Agentic RAG":  "single-agent-autonomous-retrieval",
+                                  "Multi-Agent RAG":  "multi-agent-collaborative-retrieval",
+                                  "GraphRAG":  "specialized-data-path",
+                                  "TAG":  "specialized-data-path",
+                                  "Memory":  "specialized-data-path",
+                                  "Multimodal":  "specialized-data-path",
+                                  "XRAG":  "context-compression"
+                              },
+    "native_sql_retirement":  {
+                                  "target_engine":  "project-owned-native-sql",
+                                  "execution":  "in-process",
+                                  "external_sql_tools_allowed":  false,
+                                  "external_sql_services_allowed":  false,
+                                  "production_cli_allowed":  false,
+                                  "legacy_engine":  "postgresql",
+                                  "legacy_role":  "read-only-migration-source-until-verified-cutover",
+                                  "state":  "INCOMPLETE_EVIDENCE",
+                                  "activated":  false,
+                                  "required_evidence":  [
+                                                            "complete-source-inventory",
+                                                            "data-schema-parity",
+                                                            "transaction-crash-recovery",
+                                                            "permission-audit-parity",
+                                                            "current-generation-verification",
+                                                            "atomic-cutover-and-rollback"
+                                                        ],
+                                  "allowed_implementation_languages":  [
+                                                                           "C",
+                                                                           "C++",
+                                                                           "C#",
+                                                                           "F#",
+                                                                           "Rust",
+                                                                           "Go",
+                                                                           "Julia",
+                                                                           "JavaScript"
+                                                                       ]
+                              }
 }
