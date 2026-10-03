@@ -210,6 +210,119 @@ pub fn build_context(
     }
 }
 
+// ---------------------------------------------------------------------
+// XRAG — context compression (C106)
+// ---------------------------------------------------------------------
+
+const XRAG_STOPWORDS: [&str; 24] = [
+    "the", "a", "an", "and", "or", "of", "to", "in", "is", "are", "for", "on", "at", "by",
+    "with", "as", "it", "its", "be", "this", "that", "from", "what", "how",
+];
+
+fn query_terms(query: &str, aspects: &[String]) -> Vec<String> {
+    let mut terms: Vec<String> = Vec::new();
+    for source in aspects.iter().map(|s| s.as_str()).chain(std::iter::once(query)) {
+        for token in source.split(|c: char| !c.is_alphanumeric()) {
+            let t = token.to_lowercase();
+            if t.chars().count() < 2
+                || XRAG_STOPWORDS.contains(&t.as_str())
+                || terms.iter().any(|x| *x == t)
+            {
+                continue;
+            }
+            terms.push(t);
+        }
+    }
+    terms.truncate(32);
+    terms
+}
+
+fn sentences(content: &str) -> Vec<&str> {
+    content
+        .split(|c: char| matches!(c, '.' | '!' | '?' | '\n' | '。' | '！' | '？' | '；' | ';'))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+fn sentence_score(sentence: &str, terms: &[String]) -> f64 {
+    if terms.is_empty() {
+        return 0.0;
+    }
+    let lower = sentence.to_lowercase();
+    let hits = terms.iter().filter(|t| lower.contains(t.as_str())).count();
+    hits as f64 / (sentence.chars().count() as f64).sqrt().max(1.0)
+}
+
+/// XRAG — context compression after governed evidence retrieval:
+/// extractive sentence selection only. Every kept sentence is verbatim
+/// chunk content; nothing is generated, re-ranked, retrieved or
+/// cached. `char_budget` is shared across the pool (0 = no
+/// compression); per-evidence cap is a fair share with a floor so a
+/// large pool still yields usable context.
+pub fn compress_evidence(
+    evidence: &[RagEvidence],
+    query: &str,
+    aspects: &[String],
+    char_budget: usize,
+) -> Vec<RagEvidence> {
+    if char_budget == 0 || evidence.is_empty() {
+        return evidence.to_vec();
+    }
+    let terms = query_terms(query, aspects);
+    let share = (char_budget / evidence.len()).max(160);
+    let mut out: Vec<RagEvidence> = Vec::with_capacity(evidence.len());
+    for e in evidence {
+        if e.content.chars().count() <= share || terms.is_empty() {
+            out.push(e.clone());
+            continue;
+        }
+        let sents = sentences(&e.content);
+        let mut scored: Vec<(usize, f64)> = sents
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (i, sentence_score(s, &terms)))
+            .collect();
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Greedy fill under the per-evidence cap; the head sentence is
+        // always kept (it carries chunk context), then best-scoring.
+        let mut picked: Vec<usize> = vec![0];
+        let mut used = sents.first().map(|s| s.chars().count()).unwrap_or(0);
+        for (i, score) in scored {
+            if i == 0 || score <= 0.0 {
+                continue;
+            }
+            let len = sents[i].chars().count();
+            if used + len > share {
+                continue;
+            }
+            picked.push(i);
+            used += len;
+        }
+        picked.sort_unstable();
+        let original_len = e.content.chars().count();
+        let mut compressed = e.clone();
+        compressed.content = picked
+            .iter()
+            .map(|&i| sents[i])
+            .collect::<Vec<_>>()
+            .join(" ");
+        compressed
+            .provenance
+            .insert("xrag_compressed".to_string(), Value::Bool(true));
+        compressed.provenance.insert(
+            "xrag_original_chars".to_string(),
+            Value::from(original_len),
+        );
+        out.push(compressed);
+    }
+    // Dedupe identical compressed payloads — the earliest (highest
+    // ranked) occurrence wins.
+    let mut seen: HashSet<String> = HashSet::new();
+    out.retain(|e| e.content.is_empty() || seen.insert(e.content.clone()));
+    out
+}
+
 /// CITATION_VALIDATION node semantics — every `[R#]` label the answer
 /// cites must resolve to a citation whose evidence is authorized and
 /// present in the candidate pool. Returns the validated citation

@@ -67,15 +67,40 @@ stored payload without running the DAG; a denied entry is evicted,
 never served. Caches are derived/cache authority only, never
 canonical.
 
-## Retrieval lanes (retrieve.rs)
+## Retrieval lanes (retrieve.rs, lanes.rs)
 
-- `hybrid` : vectord dense (barrier-proved) + native lexical retrieval
-  (`gptbridge_rag.chunk` `to_tsvector`/`plainto_tsquery`, `index_state`
-  proof) → `channel_fusion_hybrid` RRF
-- `code`   : dense + FTS → RRF + symbol boost → CODE_SNIPPET
-- `memory` : dense + FTS → RRF → memory-scope/session filter +
+Retrieval-plane roles (C106 / `data-architecture-contract.json`
+`retrieval_plane_roles`): DAG is the sole global orchestration plane,
+CAG the scoped non-authoritative cache, RAG the canonical retrieval
+plane. The lanes below are governed data paths inside that DAG —
+none is an independent orchestration or authority plane.
+
+- `hybrid`     : vectord dense (barrier-proved) + native lexical
+  retrieval (`index_state` proof) → `channel_fusion_hybrid` RRF
+- `code`       : dense + FTS → RRF + symbol boost → CODE_SNIPPET
+- `memory`     : dense + FTS → RRF → memory-scope/session filter +
   session boost → `memory_score` composite
-- `agentic`: declared; no lane wired (bounded rounds reserved)
+- `agentic`    : single-agent autonomous retrieval — bounded
+  retrieve→sufficiency→reformulate rounds over the hybrid core
+  (`budgets.max_rounds`, hard cap 3)
+- `multi-agent`: collaborative retrieval — the specialized peer lanes
+  answer the same query concurrently and merge under the same bounded
+  DAG (accepts `multi-agent`, `multiagent`, `multi-agent-rag`)
+- `graph`      : specialized data path — relation-aware rerank over the
+  in-pool evidence graph (shared-resource + sequence-adjacency +
+  metadata-declared links; accepts `graph`, `graphrag`, `graph-rag`)
+- `tag`        : specialized data path — structured/table canonical
+  content under structured-authority (accepts `tag`, `tag-rag`)
+- `multimodal` : specialized data path — media-bearing sources
+  (declared modality or media-file source; accepts `multimodal`,
+  `multimodal-rag`)
+
+XRAG is **not** a lane: `compression: "xrag"` (or `"xrag"` inside
+`rag_types`) runs extractive context compression inside CONTEXT_BUILD
+after governed evidence retrieval (`context::compress_evidence`) —
+verbatim sentence selection under the budget, never independent
+retrieval, authority or cache. GAG is not a separate architecture and
+resolves to the DAG plane; it never parses as a lane.
 
 Fusion/rerank/context (`fusion.rs`/`context.rs`): architecture fusion
 with authority-rank bonus, conflict flagging, no-external-reranker

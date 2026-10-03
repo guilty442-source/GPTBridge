@@ -56,7 +56,7 @@ fn request_id() -> String {
 // ---------------------------------------------------------------------
 
 /// Dense lane: vectord candidates -> canonical barrier proof -> evidence.
-fn dense_lane(
+pub(crate) fn dense_lane(
     app: &Arc<App>,
     collection: &str,
     query: &str,
@@ -119,7 +119,7 @@ fn dense_lane(
 /// Sparse lane: PG full-text search over canonical chunk content.
 /// Rows are canonical table reads; `index_state` proof is re-applied
 /// before a row becomes evidence.
-fn sparse_lane(
+pub(crate) fn sparse_lane(
     app: &Arc<App>,
     query: &str,
     module_ids: &[String],
@@ -173,7 +173,7 @@ fn sparse_lane(
 // Retriever lanes (retrievers/hybrid.py, code.py, memory.py)
 // ---------------------------------------------------------------------
 
-fn lane_hybrid(
+pub(crate) fn lane_hybrid(
     app: &Arc<App>,
     req: &RetrieveRequest,
     active_generation: Option<&str>,
@@ -197,7 +197,7 @@ fn lane_hybrid(
 /// `_SYMBOL_PATTERN`/`_IMPORT_PATTERN` — query-symbol extraction for the
 /// code lane boost (code.py). Lightweight port: identifier-ish tokens
 /// plus import/require/include/using subjects.
-fn extract_symbols(query: &str) -> Vec<String> {
+pub(crate) fn extract_symbols(query: &str) -> Vec<String> {
     const KEYWORDS: [&str; 8] = [
         "def", "class", "function", "func", "method", "import", "from", "async",
     ];
@@ -232,7 +232,7 @@ fn extract_symbols(query: &str) -> Vec<String> {
     symbols
 }
 
-fn lane_code(
+pub(crate) fn lane_code(
     app: &Arc<App>,
     req: &RetrieveRequest,
     active_generation: Option<&str>,
@@ -285,7 +285,7 @@ fn lane_code(
         .collect())
 }
 
-fn lane_memory(
+pub(crate) fn lane_memory(
     app: &Arc<App>,
     req: &RetrieveRequest,
     active_generation: Option<&str>,
@@ -391,7 +391,11 @@ fn dispatch(
             RagArchitecture::Hybrid => lane_hybrid(app, req, gen),
             RagArchitecture::Code => lane_code(app, req, gen),
             RagArchitecture::Memory => lane_memory(app, req, gen),
-            RagArchitecture::Agentic => Ok(Vec::new()),
+            RagArchitecture::Agentic => crate::lanes::lane_agentic(app, req, gen),
+            RagArchitecture::MultiAgent => crate::lanes::lane_multi_agent(app, req, gen),
+            RagArchitecture::Graph => crate::lanes::lane_graph(app, req, gen),
+            RagArchitecture::Tag => crate::lanes::lane_tag(app, req, gen),
+            RagArchitecture::Multimodal => crate::lanes::lane_multimodal(app, req, gen),
         }
     }
     if archs.len() <= 1 {
@@ -411,7 +415,7 @@ fn dispatch(
                 })
                 .collect();
             handles.into_iter().map(|h| h.join().unwrap_or_else(|_| {
-                (RagArchitecture::Agentic, Err("lane-panicked".to_string()))
+                (RagArchitecture::Hybrid, Err("lane-panicked".to_string()))
             })).collect()
         });
     let mut pools = BTreeMap::new();
@@ -425,7 +429,7 @@ fn dispatch(
 // Sufficiency (orchestration/sufficiency.py)
 // ---------------------------------------------------------------------
 
-struct SufficiencyPolicy {
+pub(crate) struct SufficiencyPolicy {
     min_evidence: usize,
     min_coverage: f64,
     min_diversity: usize,
@@ -443,7 +447,7 @@ impl Default for SufficiencyPolicy {
     }
 }
 
-fn evaluate_sufficiency(
+pub(crate) fn evaluate_sufficiency(
     evidence: &[RagEvidence],
     policy: &SufficiencyPolicy,
     required_aspects: &[String],
@@ -725,9 +729,14 @@ fn build_handlers(
     );
 
     // CONTEXT_BUILD — four-layer context within the token budget.
+    // C106 XRAG: when the request asks for `xrag` compression the
+    // governed evidence is compressed extractively before the layers
+    // are built — compression is a context-build step, never a lane.
     {
         let task_instruction = req.task_instruction.clone();
         let query = req.query.clone();
+        let aspects = req.required_aspects.clone();
+        let compression = req.compression.clone();
         let max_chars = req.max_context_chars;
         handlers.insert(
             RagDagNodeType::ContextBuild,
@@ -752,7 +761,17 @@ fn build_handlers(
                     } else {
                         &task_instruction
                     };
-                    let built = build_context(&ranked, "", instruction, max_chars);
+                    let prepared = if compression == "xrag" {
+                        crate::context::compress_evidence(
+                            &ranked,
+                            instruction,
+                            &aspects,
+                            max_chars,
+                        )
+                    } else {
+                        ranked
+                    };
+                    let built = build_context(&prepared, "", instruction, max_chars);
                     let citations: Vec<Value> = built
                         .citations
                         .iter()
@@ -768,6 +787,7 @@ fn build_handlers(
                         ("token_budget", json!(budget)),
                         ("citations", Value::Array(citations)),
                         ("evidence_used", json!(built.evidence_used)),
+                        ("compression", json!(compression)),
                     ]))
                 },
             ),
@@ -974,25 +994,29 @@ fn build_handlers(
 // ---------------------------------------------------------------------
 
 #[derive(Clone)]
-struct RetrieveRequest {
-    query: String,
-    collection: String,
-    module_ids: Vec<String>,
-    rag_types: Vec<String>,
-    session_id: String,
-    task_instruction: String,
-    top_k: usize,
-    candidate_limit: usize,
-    max_context_chars: usize,
-    memory_scopes: Vec<String>,
-    cache_request: Option<CacheRequest>,
-    kind: RagDagKind,
-    budgets: RagDagBudgets,
-    required_aspects: Vec<String>,
-    permission_scope: String,
-    data_categories: Vec<String>,
-    identity_id: String,
-    generation_id: String,
+pub(crate) struct RetrieveRequest {
+    pub(crate) query: String,
+    pub(crate) collection: String,
+    pub(crate) module_ids: Vec<String>,
+    pub(crate) rag_types: Vec<String>,
+    pub(crate) session_id: String,
+    pub(crate) task_instruction: String,
+    pub(crate) top_k: usize,
+    pub(crate) candidate_limit: usize,
+    pub(crate) max_context_chars: usize,
+    pub(crate) memory_scopes: Vec<String>,
+    pub(crate) cache_request: Option<CacheRequest>,
+    pub(crate) kind: RagDagKind,
+    pub(crate) budgets: RagDagBudgets,
+    pub(crate) required_aspects: Vec<String>,
+    pub(crate) permission_scope: String,
+    pub(crate) data_categories: Vec<String>,
+    pub(crate) identity_id: String,
+    pub(crate) generation_id: String,
+    /// C106 XRAG role: "xrag" enables extractive context compression
+    /// inside CONTEXT_BUILD. Never an independent lane, authority or
+    /// cache — empty means no compression beyond the budget clamp.
+    pub(crate) compression: String,
 }
 
 fn str_field(req: &Value, key: &str) -> String {
@@ -1062,6 +1086,17 @@ fn parse_request(body: &[u8]) -> Result<RetrieveRequest, Value> {
         budgets
     };
     let rag_types = str_list(&req, "rag_types");
+    // C106: XRAG is context compression, not a retrieval lane — accept
+    // it either as an explicit `compression` value or inside
+    // `rag_types` (where it never resolves to a lane).
+    let compression = {
+        let c = str_field(&req, "compression");
+        if c.is_empty() && rag_types.iter().any(|t| t == "xrag" || t == "x-rag") {
+            "xrag".to_string()
+        } else {
+            c
+        }
+    };
     let use_cache = req
         .get("use_cache")
         .and_then(Value::as_bool)
@@ -1138,6 +1173,7 @@ fn parse_request(body: &[u8]) -> Result<RetrieveRequest, Value> {
         data_categories: str_list(&req, "data_categories"),
         identity_id: str_field(&req, "identity_id"),
         generation_id: str_field(&req, "generation_id"),
+        compression,
     })
 }
 

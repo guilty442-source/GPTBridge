@@ -22,17 +22,35 @@ pub enum RagArchitecture {
     Memory,
     #[serde(rename = "agentic-rag")]
     Agentic,
+    #[serde(rename = "multi-agent-rag")]
+    MultiAgent,
+    #[serde(rename = "graph-rag")]
+    Graph,
+    #[serde(rename = "tag-rag")]
+    Tag,
+    #[serde(rename = "multimodal-rag")]
+    Multimodal,
 }
 
 impl RagArchitecture {
     /// Tolerates bare names ("hybrid") alongside enum values
     /// ("hybrid-rag") — same resolution as the Python `_ARCH_BY_NAME`.
+    /// Retrieval-plane roles (C106): Agentic-RAG is single-agent
+    /// autonomous retrieval; Multi-Agent-RAG is collaborative
+    /// retrieval under the same bounded DAG; GraphRAG/TAG/Memory/
+    /// Multimodal are specialized governed data paths. XRAG is not a
+    /// lane (context compression) and GAG resolves to the DAG plane —
+    /// neither parses here.
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "hybrid-rag" | "hybrid" => Some(Self::Hybrid),
             "code-rag" | "code" => Some(Self::Code),
             "memory-rag" | "memory" => Some(Self::Memory),
             "agentic-rag" | "agentic" => Some(Self::Agentic),
+            "multi-agent-rag" | "multi-agent" | "multiagent" => Some(Self::MultiAgent),
+            "graph-rag" | "graphrag" | "graph" => Some(Self::Graph),
+            "tag-rag" | "tag" => Some(Self::Tag),
+            "multimodal-rag" | "multimodal" => Some(Self::Multimodal),
             _ => None,
         }
     }
@@ -43,6 +61,10 @@ impl RagArchitecture {
             Self::Code => "code-rag",
             Self::Memory => "memory-rag",
             Self::Agentic => "agentic-rag",
+            Self::MultiAgent => "multi-agent-rag",
+            Self::Graph => "graph-rag",
+            Self::Tag => "tag-rag",
+            Self::Multimodal => "multimodal-rag",
         }
     }
 }
@@ -128,6 +150,7 @@ pub fn authority_of(e: &RagEvidence) -> SourceAuthority {
     match e.rag_type {
         RagArchitecture::Memory => SourceAuthority::ContextualMemory,
         RagArchitecture::Code => SourceAuthority::CodeCurrent,
+        RagArchitecture::Tag => SourceAuthority::StructuredAuthority,
         _ => SourceAuthority::CanonicalSource,
     }
 }

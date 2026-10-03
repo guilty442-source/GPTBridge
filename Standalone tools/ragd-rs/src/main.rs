@@ -15,6 +15,7 @@ mod dag;
 mod evidence;
 mod fusion;
 mod http;
+mod lanes;
 mod native_authority;
 mod retrieve;
 mod vectord;
