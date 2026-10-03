@@ -1,0 +1,911 @@
+{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "principles-business-adaptive-boundary-convergence-20261003-r1",
+    "title":  "Fix language and prohibited-tool principles; delegate adaptive implementations",
+    "summary":  "Explicit latest user directives: eight languages and prohibited tools are normative principles; implementation assignment,tool/version/configuration choices are adaptive subordinate business rules. Remove conflicting PostgreSQL-exclusive storage requirements from active provisions,retain named production SQL-tool prohibitions,one canonical authority,permission,independent verdict,resource,transaction/recovery,evidence,atomic cutover and rollback gates. Preserve prior data and constrained readonly migration;no executed-retirement or release claim. Retrieval roles follow user global-orchestration/cache/retrieval/specialized-data/context-compression division.",
+    "requested_by":  "permission-sovereign",
+    "origin":  "user explicit 2026-10-03 instruction",
+    "problem":  "Active language/storage/retrieval provisions mix principles with business declarations and retain conflicting retired-engine authority",
+    "acceptance":  [
+                       "eight languages remain principles with no versions or fixed per-language owners",
+                       "prohibited tools remain principles;no external production SQL tools/services/subprocesses",
+                       "adaptive rules cannot change authority,independent verdict,permission or exceed resources",
+                       "active PostgreSQL-exclusive canon/recovery/directory requirements replaced by single registered authority principles",
+                       "DAG,CAG,retrieval,data paths and XRAG maintain exact requested boundaries",
+                       "publication does not certify retirement implementation or release"
+                   ],
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-03T02:58:01Z",
+                        "revision_sequence":  251,
+                        "version_identity":  "E2:2026-10-03T02:58:01Z",
+                        "history_head":  "7c41bcb1c2a511ce9ee229506b5427a931cb17f93e9042b9611af0dc7956fa7f"
+                    },
+    "scope":  [
+                  "table:articles",
+                  "field:articles.rule",
+                  "field:articles.prohibition",
+                  "field:articles.exception",
+                  "field:articles.subject"
+              ],
+    "changes":  [
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A115"
+                                },
+                        "proposed":  "AUTOMATIC-PERMISSION-LEDGER:ISSUE|ACTIVATE|RENEW|RESTRICT|SUSPEND|REVOKE|TERMINATE append immutable events to the canonical permission decision ledger; each event is produced automatically from current typed trigger and policy result and carries permission_id+decision_id+revision+subject+scope+basis+generation+effective/expiry time+correlation+result; ledger is restart source of truth; prior events remain immutable; current state is deterministic projection; unrecordable decision denies; callers never infer grant from transport acceptance"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A126"
+                                },
+                        "proposed":  "SECURITY-PROJECTION:current permission decision and authorization artifact produce an owner-scoped enforceable data-access projection. Refresh,expiry,generation fences,suspension,revocation and termination propagate from the permission ledger. Principal identity resolves registered identity,generation and scope without implicit actor equivalence. Enforcement denies stale state and cannot issue,renew or expand permission. Concrete tables,functions and security mechanisms are subordinate implementation contracts."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A129"
+                                },
+                        "proposed":  "FORBID:create-active-learning-sub-sovereign+learning-module-mutate-fault-directory+learning-issue-permission+learning-decide-or-execute-repair+persist-authoritative-fault-directory-outside-registered-canonical-store"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A129"
+                                },
+                        "proposed":  "FAULT-MANUAL-LEARNING:the registered Xingcheng learning module receives authorized read-only fault messages,formal manuals,use outcomes and update suggestions for autonomous learning. FAULT-DIRECTORY:permission-core retains fault identity,classification and directory authority;the governed executor persists authorized directory changes only in the registered canonical structured store. NO-TRANSFER:learning grants no fault mutation,permission,repair-decision or repair-execution authority. LINEAGE:historical learning-evidence-sync-sub-sovereign references resolve through the current controlling successor under B162."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A133"
+                                },
+                        "proposed":  "IDENTITY-SEPARATION:decision,permission,runtime,automation and xingcheng-assistant remain distinct peer governance identities;DEPLOYMENT:they may share one local host but retain separate process,data,permission and failure boundaries according to the architecture registry;XINGCHENG-SEPARATION:xingcheng native model and xingcheng-assistant use separate identities and separate databases and neither database grants authority to the other;CROSS-BOUNDARY:only registered versioned channels;CODEX:the formal Codex is read through governed scope,while the Chinese mirror is a non-authoritative projection synchronized with it;MAINTENANCE:authorized cores may maintain the formal Codex only through its amendment controls. DATA-RESIDENCY:all data owned by,created for or held in custody by Xingcheng,including identity,personality,memory,conversation context,learning corpus,training state,weights,checkpoints,evaluation evidence,repair knowledge,tool-use state,runtime records,cache,scratch,temporary,backup,recovery and migration forms,must remain exclusively inside the one registered canonical Xingcheng custody root required by B81;the registered root is the sole persistent Xingcheng data boundary and no subordinate component,process,tool or database creates another root. CROSS-DOMAIN:other cores,tools and the Xingcheng assistant may receive only the minimum typed result or an opaque owner-scoped reference through a registered channel;they may not persist,mirror,cache,index,train on,back up or claim authority over Xingcheng data. ACCESS:authorized processing outside the owning process must operate against data inside the canonical Xingcheng custody root under Xingcheng scope without transferring custody or creating an out-of-root copy. LIFECYCLE:retention,recovery,migration and deletion remain Xingcheng-owned and preserve the same single-root boundary."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A17"
+                                },
+                        "proposed":  "INFORMATION-LAYER:cross-layer-peer-authority;AUTHORITY-RANK:equal-to-sovereign-layer;DUTIES:governed information channels,transport,state,structured data and derived semantic indexing;CONTENT-OWNERSHIP:source-and-authorized-consumer;IMPLEMENTATION:registered subordinate architecture contracts allocate components without changing these duties or granting business-decision or execution authority."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A17"
+                                },
+                        "proposed":  "FORBID:sovereign-or-sub-sovereign-override-information-layer-authority+information-layer-own-sovereign-business-decision-or-module-execution+component-duty-substitution+alter-message-or-authoritative-data-outside-governed-operation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A5"
+                                },
+                        "proposed":  "MODE:directory-driven+event-driven-full-automation; SOURCE:canonical permission,identity,capability,action,target and scope directories; TRIGGERS:typed request+identity/role/scope/risk/purpose/expiry/generation/revocation/security-event; ACTIONS:ISSUE|DENY|ACTIVATE|RENEW|RESTRICT|SUSPEND|REVOKE|TERMINATE; DECISION:permission-core applies current Codex+directory+least-privilege+separation+expiry policy automatically; EXECUTION:DirectoryAuthority performs exact deterministic transaction only; EVIDENCE:immutable decision+authorization artifact+receipt+audit correlation; FAILURE:missing/stale/conflicting/out-of-scope input denies"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A54"
+                                },
+                        "proposed":  "CHANNEL-ID:information-layer://星澄/auxiliary-private; OWNER:information-layer; ENDPOINT-PRINCIPAL:星澄-only; PURPOSE:星澄-autonomous-reasoning/context/learning/review-working-information within-declared-auxiliary-system-domain; ENTRY:official-information-layer-entry-only+mutual-endpoint-attestation+session-bound-identity+per-message-authenticity+confidentiality+sequence+expiry; PAYLOAD-ACCESS:星澄-exclusive; OTHER-SOVEREIGNS/MODULES/TOOLS/UI/OPERATORS/ADMINISTRATORS/MAINTAINERS/DEVELOPERS/LOGGERS/AUDITORS/BROKERS/data storage or indexing component/RUST-VECTOR-ENGINE:content-access-none; PERMISSION-SOVEREIGN:may-validate-fixed-channel-identity/status/revocation-proof but-cannot-view/decrypt/search/export/replay-or-expand-payload-access; INFORMATION-LAYER:route/store-forward/deduplicate/order/expire/deliver opaque-ciphertext only+observe-minimum-metadata{channel-id,message-id,session-generation,size-class,time,state,error-code}+no-content-derived-metadata; KEYS:星澄-endpoint-held+channel-specific+non-exportable+rotating+revocable+not-held-by-router/store/audit/system-sovereign; STORAGE:encrypted+owner-isolated+bounded-retention+no-general-index/RAG/telemetry/log/backup/analytics/training; OUTPUT-SEPARATION:any-user-or-system-anomaly-notification is-new-redacted-purpose-bound-message over-separate-authorized-information-route+never-forward/reveal/private-channel-payload; FAILURE:identity/key/session/integrity/sequence/expiry uncertainty=\u003edeny+drop-content+publish-generic-channel-health-only; DELETION:expiry/revocation/owner-request=\u003ecryptographic-erasure+receipt-without-content; AUDIT:metadata-only+no-payload/hash/embedding/preview/token"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A59"
+                                },
+                        "proposed":  "SPECIAL-LAW:this-section exclusively governs every current-and-future directory+registry+catalog+index-of-authoritative-identities; OWNER:permission-sovereign solely owns directory definition+schema+identity+registration+classification+relationship+version+activation+retirement+read-scope+write-decision+supervision; EXECUTION:governed-executor only after exact permission-sovereign decision; STORAGE:decision-sovereign manages data integrity and storage modules without directory-content authority; DOMAIN-OWNERS:may submit candidates+read authorized projections+own referenced domain bodies but cannot create+rename+mutate+activate+retire directory entries; PRECEDENCE:this-special-law prevails over general provisions for directory matters; CONSOLIDATION:A5+C8+A55-B41 and every future directory provision inherit this ownership automatically; ENTRY:all directory access through permission-directory official entry or its explicitly registered typed subdirectory route; FAILURE:directory unavailable or inconsistent=\u003eaffected authorization fails-closed while unrelated runtime individuals remain available under B24;DIRECTORY-STORAGE:every directory managed by permission-core is persisted in the registered canonical structured authority only; the registered canonical store is the sole current structured storage and transaction boundary for directory entries,relationships,lifecycle and write receipts; unregistered stores,files,caches,mirrors or module-private state cannot be directory authority or write fallback."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "A59"
+                                },
+                        "proposed":  "FORBID:any-other-sovereign/module/tool/system owning-or-controlling-a-directory+parallel-directory-authority+private-registry+shadow-catalog+directory-write-without-permission-sovereign-decision+storage-owner-content-authority+domain-owner-self-registration+implicit-directory-exception+permission-directory-outside-registered-canonical-authority+unregistered-store-or-file-as-directory-authority+directory-write-fallback-outside-registered-authority+unregistered-store-active-consumer+unregistered-store-runtime-write+unregistered-store-fallback+unregistered-store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B132"
+                                },
+                        "proposed":  "GPU-ACCELERATION:the current registered native model execution owner controls the sole training and inference execution path behind its stable typed public interface;CPU and GPU executors consume the same versioned model-artifact and numerical contract. INDEPENDENT-VERDICT:the current registered correctness-evaluation owner alone determines authoritative correctness verdicts;the model engine measures and never self-certifies. DECLARATIONS:implementation languages,tool names and concrete platform bindings resolve through subordinate owner contracts under B166 and B5;their removal from law never transfers execution or evaluation decision rights. EVIDENCE:current artifact compatibility,bounded numerical tolerance,resource ceilings,deadlines,cancellation and failure classification are required. FAILURE:unavailable or uncertified acceleration uses only a registered verified native path under the same owner and contract or fails closed;retired frameworks and bridges hold no reference,executor,fallback or acceptance role."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B141"
+                                },
+                        "proposed":  "TRAINING-INFERENCE-COMPATIBILITY:the current sole registered native model execution owner controls training artifact production and production inference consumption under one versioned model-artifact contract;the existing independent correctness-evaluation owner alone determines authoritative compatibility and correctness verdicts. DECLARATIONS:implementation languages,tool names,artifact field lists and probe inventories belong to subordinate owner contracts under B166 and B5 and cannot transfer either owner role or verdict authority. COMPATIBILITY:current evidence must prove schema,type/shape,tokenizer/configuration and behavioral numerical compatibility within declared bounded tolerances;incompatible or unverified artifacts are rejected fail-closed. RETIRED:retired execution languages,frameworks and bridges cannot produce artifacts,configuration,tokenizers or acceptance evidence and are never baseline,reference,executor or fallback. EXPLICIT-BANS:Python,JAX/XLA,NumPy,PyTorch and Triton-to-PyTorch production fallback are forbidden as artifact producer,tokenizer/configuration source,baseline,reference,executor,fallback or acceptance evidence."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B147"
+                                },
+                        "proposed":  "Development source and production runtime are separated: coding agents edit the working tree while the production system executes from runtime/releases/release-A or release-B. A release must contain backend code, shared runtime dependencies, required contracts, the dependency lock and build metadata - otherwise a development shared-layer can still be imported even when main-system is pinned.\nCanonical durable data, Rust-Vector-Engine indexes, model weights and user data must not be copied per release.\nregistered Codex contract section 10.19 records the layout and contents; runtime/releases and the release packaging do not exist (gap G57).\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。;MUTABLE-VALUES:resolve-current-values-from-owner-versioned-contract-or-registry;CODEX:retains-owner+boundary+prohibition+acceptance-dimensions-only"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B147"
+                                },
+                        "proposed":  "FORBID:deployment-version+benchmark-result+model-threshold+port+path+operational-tunable-as-permanent-Codex-literal"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B157"
+                                },
+                        "proposed":  "FORBID:new-framework+unregistered-framework-or-parallel-control-plane+unbounded-concurrency-queue-buffer-or-allocation+request-triggered-unaudited-model-reload+avoidable-copy-allocation-serialization-hop-or-per-item-I/O+orphaned-cancelled-work+unversioned-unscoped-or-unbounded-cache-or-format+canonical-data-used-as-unregistered-runtime-queue+blocking-observability-on-critical-path+late-permission-check+eager-noncritical-service+unregistered-permanent-tool-daemon+performance-by-timeout-increase+format-selection-without-measurement+schema-less-binary+silent-incompatible-rewrite+active-consumer-format-purge+optimization-changing-authority-permission-business-semantics-or-resource-ceiling+performance-claim-without-representative-current-evidence+correctness-security-portability-reviewability-or-maintainability-loss"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B157"
+                                },
+                        "proposed":  "PERFORMANCE-PRINCIPLE:every new or modified code,data format,contract,cache,index,transport and artifact is designed for measured high execution speed,low latency,high throughput and low resource consumption while preserving correctness,security,authority,permission,business semantics,portability,reviewability,maintainability and declared compatibility. OWNERSHIP:registered native owners choose concrete languages,algorithms,patterns,optimization flags,formats,cache tiers and pipeline order through subordinate contracts under B166 and B5;such declarations never become law or create a framework,scheduler,governor or authority. BOUNDED-EXECUTION:parallelize independent work only with bounded workers,queues,memory,backpressure,deadline,cancellation and cleanup;reuse verified expensive state,activate noncritical work lazily and release idle resources under registered policy. EFFICIENT-DATA:avoid unnecessary copies,allocation,serialization,whole-payload materialization,per-item I/O and language/process/network/storage hops when equally safe typed references,streaming,batching or native representations exist;all interfaces preserve ownership,lifetime,validation and resource ceilings. MODEL-LIFECYCLE:residency and load/unload choices remain inside the single governed lifecycle and resource envelope,never request-driven unaudited reload or duplicate runtime. CACHE:bounded,scope-aware,permission-aware,generation-aware and non-authoritative;canonical writes remain distinct from telemetry and derived state. FORMAT:explicit typed identity,encoding,compatibility,size bounds and lineage;production artifacts use the approved reproducible measured release profile;optimization cannot relax numerical,safety,ABI or security semantics without current equivalence evidence. ADAPTATION:registered owners may adjust internal declared parameters only within immutable permission,contract and resource ceilings using bounded steps,hysteresis,cooldown,current signals,generation fences and automatic rollback;the existing resource regulator alone governs whole-project resources. ACCEPTANCE:representative current before/after or candidate-comparison evidence must show no unapproved regression across applicable latency,throughput,resource,storage,I/O,startup,cleanup and quality budgets;single-metric improvement,timeout inflation or skipped verification never establishes acceptance. FAILURE:missing,stale,conflicting or regressing evidence keeps the verified state or fails closed."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B163"
+                                },
+                        "proposed":  "建立唯一 runtime-rule-index contract。索引只能由 the current formal Codex authority 的 current effective principles、articles、edicts、responsibilities、prohibitions、formal rule registry、law classification、ownership、deadline、dependency 與 provision supersession edges 生成；生成前必須先解析 successor，禁止收錄模組規則及 superseded、retired、缺少效力或 unresolved-conflict 的條文。索引是唯讀、可重建、非權威 Runtime 投影，不得產生、擴張、刪減或覆寫法典權限。每筆索引規則必須具有 rule_ordinal、provision identity、rule code、lifecycle state、controlling successor、owner、capability、trigger、phase、severity、effect、deadline、resource class、data class、dependency ordinals、content hash 與 source version。查詢結構固定包含 provision/rule-code 精確鍵、owner/capability/trigger/phase/severity/effect/deadline/resource/data/dependency/successor 倒排集合，以及 active、prohibition、fail-closed、hot-path 位元集合；多條件查詢必須由最小候選集合開始交集，禁止逐條全文掃描作正常 Runtime 路徑。generation 必須使用緊湊連續 ordinal、去重字典、排序 posting list 與不可變資料區；建置完成後驗證 count、identity set、content hash、successor resolution、dependency acyclic 與 source version，全部通過才可原子切換。讀取者必須綁定 generation，舊 generation 在所有讀取者釋放後回收。exact lookup 的 warm p95 目標不超過 1ms，多維交集 warm p95 目標不超過 5ms，完整建置與 mandatory verification 必須在 30 秒內完成；超時、版本不符、缺列、重複 identity、解析失敗或驗證失敗一律 INDEX_NOT_READY，並回到受管正式法典查詢，不得使用 stale index。\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B164"
+                                },
+                        "proposed":  "FORBID:business-rule-in-Codex+implementation-specification-in-Codex+module-rule-as-law+implementation-registry-as-authority+runtime-index-storing-module-rule+module-self-authorization+cross-owner-local-rule-effect+projection-writing-law+delegated-rule-overriding-Codex+duplicated-business-rule-across-layers+Codex-prescribing-file/class/function/algorithm/internal-step+Codex-hardcoding-owner-local-codec-or-layout+implementation-format-claiming-normative-authority+unclassified-rule+same-rule-in-Codex-and-implementation-registry+implementation-detail-promoted-to-Codex-by-convenience+authority-boundary-hidden-as-business-rule+mixed-requirement-stored-unsplit+mutable-operational-literal-in-Codex-article+duplicated-parameter-value+deployment-setting-as-normative-law"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B164"
+                                },
+                        "proposed":  "NORMATIVE-SURFACE:principles+articles+edicts+responsibilities+authority-boundaries+prohibitions+cross-layer-invariants only;AUTHORITY:the formal Codex is the sole project-wide normative authority;DELEGATED-CONTENT:business-rules+domain-validation+algorithms+parameters+steps+queries+retries+batches+caches+transformations+UI-behavior+implementation-specifications+internal-tests+operational-tunables belong to their owning implementation layer;DELEGATED-FORM:versioned-owner-local-contract-or-registry with authority_class=implementation-derived-non-authoritative;OWNER:implementation owner controls content+version+lifecycle within Codex ceilings;CROSS-LAYER:any behavior crossing owner boundaries uses a registered versioned contract but does not move business rules into Codex;INDEX:module-rule-index contract provides discovery+scope+validation+revocation only and owns no content or authority;RUNTIME-INDEX:contains Codex governance rules only and never implementation rules;CONFLICT:Codex authority/responsibility/prohibition wins and affected implementation fails closed;CHANGE:implementation owner may directly add+change+delete delegated rules without Codex amendment when no Codex boundary or cross-layer contract changes;FORMAT-OWNERSHIP:concrete source/file/data/transport format choice+layout+codec+compression+chunking+serialization are implementation specifications owned by the relevant implementation layer under the cross-layer FORMAT-PERFORMANCE-INVARIANT in B157;Codex declares performance+authority+compatibility+resource boundaries only;AUTO-CLASSIFICATION:every new or changed requirement is classified before storage;CODEX-CLASS:principle+article+edict+responsibility+authority-boundary+permission/security/canonical-data-boundary+prohibition+cross-layer-invariant+shared-contract-ownership;IMPLEMENTATION-CLASS:business-rule+domain-validation+algorithm+parameter+internal-workflow+query+retry+batch+cache+format/codec/layout+UI-behavior+test-implementation+operational-tunable;MIXED-CLASS:split into minimum Codex invariant and owner-local implementation rule joined by controlling_provision+contract_identity;DECISION-ORDER:authority/security/permission/canonicality/cross-owner-effect first\u003ecross-layer contract second\u003eowner-local behavior third;DEFAULT:owner-local behavior is implementation-derived-non-authoritative;AMBIGUITY:if a requirement can grant power+change authority+cross owner or weaken a prohibition classify its boundary as Codex and defer only the unresolved implementation detail;OUTPUT:classification+owner+scope+reason+controlling_provision+target_registry+source_revision+status;NO-DUPLICATION:one semantic rule has one owner and one authoritative location;LITERAL-POLICY:mutable path+port+tool/model/package version+deadline+resource limit+threshold+batch/cache/retry value is referenced by canonical directory/parameter/contract code;explicit literals remain only for immutable identity grammar+cryptographic/interoperability constant+closed enum+safety invariant"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B166"
+                                },
+                        "proposed":  "FORBID:Python-or-interpreted-runtime-in-production+multiple-current-language-owners+unmeasured-reallocation+authority-drift+contract-bypass+runtime-compilation+unregistered-language-runtime+language-choice-creating-authority+language-owner-direct-database-access+permission-bypass+duplicate-owner+external-registry-or-contract-payload-imported-as-law+PostgreSQL-production-runtime+psql-production-execution+Npgsql-production-SQL-consumer+external-production-SQL-tool-service-or-subprocess"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B166"
+                                },
+                        "proposed":  "LANGUAGE-BOUNDARY:permitted project implementation languages are C/C++/C#/F#/Rust/Go/Julia/JavaScript;SQL is a relational storage and query contract,not an application-language owner;no subordinate rule expands this boundary. LANGUAGE-AUTHORITY:this provision is the sole current Codex-level language-allocation and UI-stack controller and records principles only;per B5 every per-capability language division,tool name,version pin,UI-shell selection and implementation detail is governed outside the Codex by the responsible owner through the registered language contract and governed dependency directories,and such external facts are subordinate operational artifacts that never amend law. NATIVE-ONLY:production uses verified precompiled native artifacts;no interpreter,script engine or runtime-source compiler enters production. PYTHON:total-ban with zero source,runtime,interpreter,environment,package,dependency,build,test,audit,training,inference,script,tool,artifact,proxy,bridge,reference or fallback. ONE-OWNER:each capability has exactly one current primary language owner under a typed boundary;allocation changes only inside the same registered capability contract and resource ceiling with atomic promotion and rollback. NO-AUTHORITY-DRIFT:language choice never creates authority,changes business semantics,bypasses permission or introduces a second scheduler or orchestrator. DATA:project-owned in-process native SQL is the structured authority target;retired implementation identities and successor choices are subordinate business declarations,not application-language owners;one registered canonical store per domain;cutover requires complete data,schema,permission,audit,transaction,recovery and current-generation parity evidence plus atomic promotion and rollback;legacy structured data is preserved as a read-only migration source until validated cutover and is never a second active writer;no retirement certification is inferred from language permission or implementation labels. FAILURE:missing or regressing evidence retains the current verified owner or fails closed. PROHIBITED-TOOLS:PostgreSQL production database execution,psql and Npgsql production SQL consumers are prohibited;no external database tool,service or subprocess executes production SQL;isolated read-only legacy capture is permitted solely within a registered bounded migration scope until independent cutover proof,never as production fallback or a second active writer."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B167"
+                                },
+                        "proposed":  "XINGCHENG-LANGUAGE-PRINCIPLE:the complete Xingcheng source,production runtime,training,inference,learning,evaluation,data-processing and internal-tool surface permits exactly C/C++/C#/F#/Rust/Go/Julia/JavaScript;this law fixes the permitted language boundary and no subordinate business rule,toolchain or contract expands it. NATIVE-ONLY:production uses verified precompiled native artifacts under B166;interpreters,script engines,runtime-source compilation and unregistered execution paths are prohibited. ADAPTIVE-BUSINESS-RULES:per-capability language assignment,implementation owner allocation,tool names,versions,configuration and measured automatic selection belong to subordinate registered owner contracts under B5;adaptation selects exactly one current primary implementation owner only within existing authority,permission,scope and resource budgets using current correctness,performance and independent evaluation evidence. ROLE-INVARIANCE:adaptive language selection never reassigns sovereign identity,governance authority,permission decisions,independent evaluation-verdict ownership or canonical data authority. CHANGE:current typed compatibility,evaluation,resource,permission and generation-bound evidence must support atomic promotion and verified rollback;missing,stale,conflicting or regressing evidence retains the last verified implementation or fails closed. ONE-OWNER:no duplicate primary implementation,scheduler,orchestrator,model runtime or structured authority. INTERNET:purpose-bound scoped public-data access through a registered native owner channel is bounded,cancellable,validated and audited;retrieved content is untrusted non-authoritative input. EXTERNAL-EXECUTION:no external model,cloud inference,remote code execution,external execution engine,third-party inference or training framework,external capability service or arbitrary external dependency becomes a Xingcheng runtime,producer,consumer,reference,fallback or authority. PLATFORM:operating-system facilities,hardware drivers,approved build toolchains and governed typed channels provide platform boundaries only and gain no capability,model,data or authority ownership. TRAINING:training remains internal to Xingcheng and no retired independent training role is restored. FAILURE:excluded language,interpreted or unregistered execution,unbounded or unaudited access,contract conflict or incomplete evidence is denied fail-closed. EXPLICIT-TOOL-BANS:Python,NumPy,JAX/XLA,PyTorch/Torch,pytest,Bun and WebView script execution are forbidden inside Xingcheng;allowing JavaScript source never authorizes those banned execution tools or interpreted production."
+                    },
+                    {
+                        "field":  "exception",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B169"
+                                },
+                        "proposed":  "Registered approved build-time tools may produce verified native artifacts but never become production runtime consumers or acquire capability authority."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B169"
+                                },
+                        "proposed":  "FORBID:retired-backend-runtime-consumer+runtime-package-manager+unregistered-native-backend-runtime+interpreted-production+duplicate-owner+owner-change-without-current-evidence"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B169"
+                                },
+                        "proposed":  "BACKEND-EDGE-RUNTIME:each backend or edge capability has one registered current primary owner under B166 native production and allocation principles;per B5 permitted-language declarations,concrete versions,runtime assignments and build-tool choices belong to subordinate owner contracts and dependency directories. RETIREMENT:retired runtime consumers cannot execute or provide fallback. CHANGE:owner replacement preserves typed boundaries,permission,resource ceilings,business semantics and current equivalent correctness,compatibility,atomic-promotion and rollback evidence. FAILURE:unregistered or interpreted production execution,duplicate ownership,contract conflict or missing current evidence fails closed."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B171"
+                                },
+                        "proposed":  "NATIVE-TEST-PROVIDERS:each current capability requires a registered native test provider compatible with its owner contract and B166 production principles;all providers submit validated typed evidence to the current sole test-orchestration owner. DECLARATIONS:runner languages,tool names,UI runner choices and provider assignments belong to subordinate registered owner contracts under B5 and do not transfer orchestration,audit or release authority. RETIRED:retired test execution and verification adapters have no formal responsibility or fallback. FAILURE:unsupported or missing current coverage is BLOCKED and release remains denied. EXPLICIT-BANS:Python test runners,LegacyPythonVerificationAdapter and formal pytest execution remain prohibited."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B172"
+                                },
+                        "proposed":  "FINAL-EXECUTION-ARCHITECTURE:execution-provider allocation follows B166 single-owner native production principles and subordinate registered owner contracts;the existing sole test-orchestration owner and existing sole independent audit owner retain their current identity,scope and decision rights. NO-TRANSFER:language and tool declarations never create a role,reassign authority,merge independent verdict ownership or introduce a parallel execution layer. RETIRED:retired execution holds no test,audit,verification,delegation or fallback role. FAILURE:unsupported capability,missing coverage or incomplete current evidence is BLOCKED and release denied;all mandatory manifests and typed receipts remain required."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B25"
+                                },
+                        "proposed":  "AUTHORITATIVE-STARTUP-ORDER:B26+B30; DEPENDENCY-DECLARATION:each-service states identity+owner+required-by+criticality+readiness-contract+deadline+retry-budget+shutdown-order; DATA-AND-INDEX-CAPABILITIES:no-global-fixed-criticality+critical-only-when-required-by-a-core-ready-contract in-current-certified-manifest; MISSING-OPTIONAL:do-not-block-core+publish-capability-degraded; MISSING-CAPABILITY-CRITICAL:block-that-capability-only; MISSING-CORE-CRITICAL:block-core-ready; RECLASSIFICATION:new-certified-manifest+decision-acceptance+permission-validation; LEGACY-HARDCODED-SEQUENCE:no-effect\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B34"
+                                },
+                        "proposed":  "SOLE-TEST-ORCHESTRATOR:the existing registered test-orchestration owner alone controls discovery,classification,bounded scheduling,timeout,cancellation,isolation,typed normalization,evidence aggregation and final test receipts. NATIVE-RUNNERS:registered native execution providers operate only inside that owner-controlled contract and B166 production principles;runner implementations never acquire orchestration,audit or release authority. DECLARATIONS:implementation language,tool names,versions and concrete runner allocation belong to subordinate owner contracts under B5. NO-REASSIGNMENT:removing implementation declarations does not change the current registered orchestration identity or decision rights;replacement requires separately governed authorization and current equivalent evidence. FAILURE:missing or unsupported native coverage is BLOCKED and never delegated to retired execution."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B42"
+                                },
+                        "proposed":  "FORBID:directory-private-common-field-name+free-form-untyped-payload+delimiter-packed-relationship+implicit-null+missing-owner/scope/status/version/hash+display-label-as-identity+same-semantic-field-different-name+schema-drift-between-storage/API/mirror+content-in-unsuitable-generic-field+one-format-erasing-domain-semantics+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B42"
+                                },
+                        "proposed":  "REQUIREMENT-FORMAT:every normative requirement uses ordered fields SCOPE\u003eOWNER\u003eIDENTITY\u003eAUTHORITY\u003eINPUT\u003eRULE\u003eRELATIONSHIPS\u003eLIFECYCLE\u003eVALIDATION\u003eFAILURE\u003eEVIDENCE with PROHIBITION and EXCEPTION stored separately; OMITTED-FIELD:use explicit not-applicable with reason and never silent absence; DIRECTORY-COMMON-ENVELOPE:entry-code+canonical-name+directory-code+owner+scope+authority-kind+status+revision+content-hash+introduced-version+retired-version mandatory for every directory entry; CONTENT-ADAPTATION:each directory adds only typed domain fields declared in directory-format-contract and those fields reflect its actual semantic content; FIELD-NAMING:lowercase-snake-case storage+lowercase-kebab-case canonical identity+uppercase-snake-case immutable code; TYPES:scalar fields use explicit string+integer+boolean+timestamp+enum and relationships use normalized link rows rather than delimiter-packed text; ORDER:common-envelope first then domain-identity+authority+inputs+rules+relationships+lifecycle+validation+evidence fields; NULL:allowed only where format contract marks optional; VERSIONING:schema-version+entry-revision+content-hash change atomically and immutable identity codes never change; SERIALIZATION:canonical structured storage+typed API projections preserve identical field names,types,nullability,order,semantics and code values; VALIDATION:permission-sovereign validates common envelope then directory-specific schema then cross-directory relations; MIGRATION:legacy rows transform atomically with lossless mapping+compatibility evidence+rollback"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B56"
+                                },
+                        "proposed":  "IDENTITY:MODEL_DIALOGUE/model-dialogue;DISPLAY-NAME:對話;CLASSIFICATION:independent-tool+local-LLM;PHYSICAL-BOUNDARY:registered independent tool root and not a child identity of LOCAL_MODEL;SCOPE:local LLM dialogue+session+context+model routing+streaming+tool interaction coordination;LIFECYCLE:self-hosted start+stop+health+failure isolation;DATA:its own registered structured-data scope separated from XINGCHENG and LOCAL_MODEL owner data;BOUNDARY:no sovereign identity+permission authority+network authority+direct cross-owner data access;all external access uses governed typed contracts"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B6"
+                                },
+                        "proposed":  "FORMAL-TOOLS:formal tools are registered local-owned capabilities with one current owner and bounded authority;tool names,language allocations,implementation choices and lifecycle declarations belong to subordinate versioned contracts. HOSTING:local-only. SUBSTITUTION:unregistered or unverified replacements forbidden. BROWSER:an authorized network-access channel creates neither a formal-tool replacement nor independent authority. PROHIBITED-TOOLS:the current centralized production tool prohibitions in B166 and C81 remain controlling;an engine-neutral authority description never permits a prohibited tool,runtime fallback or active legacy writer."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B62"
+                                },
+                        "proposed":  "CATALOG:every component has one registered identity,owner,role,contract and data,runtime,failure boundary. VECTOR:canonical vector data and rebuildable semantic execution are distinct roles;their concrete component names are business declarations. ACTIVATION:declared,planned,in-progress,validated,active and retired states require corresponding evidence. MIGRATION:no second active owner or writer. GATES:physical completion requires current inventory,consumer,dependency,data-migration,parity and removal evidence."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B79"
+                                },
+                        "proposed":  "BUILD-ABI-REPRO-GATE:the registered build,interface and reproducibility verification owner independently verifies approved toolchain identity,canonical build configuration,public interface compatibility,artifact integrity and reproducibility from current source and registered baselines;it never repairs configuration or creates authority. DECLARATIONS:checker paths,tool names,versions,optimization flags,architecture/runtime settings and language-specific build fields belong to subordinate registered owner contracts and dependency directories under B5 and B166. IDENTITY:all compatibility-relevant settings bind a reproducible build identity;public symbols,type layout,width,signedness,alignment,lifetime,calling convention and semantic behavior must match the approved typed interface contract. COMPATIBILITY:breaking interface changes require governed version transition and current consumer compatibility evidence;registered compatible additions follow the declared compatibility policy. REPRODUCIBILITY:equivalence uses the registered canonical semantic contract rather than an unjustified byte-identity rule. FAILURE:missing manifests,unregistered toolchains,mixed incompatible build identities,baseline overwrite,undeclared public interfaces,unverified consumer compatibility or missing current evidence deny acceptance;WARN cannot become PASS without independent evidence. RETIRED-TOOLCHAINS:Python,NumPy and JAX remain prohibited and record no formal toolchain."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B87"
+                                },
+                        "proposed":  "FORBID:create-multiple-canonical-Codex-authorities+grant-module-sovereign-or-execution-authority+orphan-or-duplicate-provision-membership+introduce-dependency-cycle+claim-partial-load-is-whole-Codex+persist-module-authority-outside-formal-Codex+activate-unregistered-store+write-or-fallback-or-reconcile-through-unregistered-store"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B87"
+                                },
+                        "proposed":  "ARCHITECTURE:the Codex remains one highest-rule declaration authority and one canonical structured Codex authority while its internal content is partitioned into registered non-sovereign rule modules. MODULES:foundation,authority,permission,directory,XINGCHENG,information,runtime,data,resource,language,release,external,audit,Git,learning,maintenance,test,ordinance and privacy-security each have one code,one responsibility and explicit dependency boundary. MEMBERSHIP:each provision identity has exactly one primary module membership;cross-module citations are dependencies. AUTHORITY:no module is an actor,sovereign,executor or separate law source. STORAGE:module directory,membership and dependency DAG are stored inside the formal Codex authority. LOADING:bounded module reads never replace whole-Codex seal verification. unregistered store:non-authoritative historical or fixture use only.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B88"
+                                },
+                        "proposed":  "MODULE-MANIFEST:each Codex internal module has one current manifest binding module identity,membership count,active count,content root,dependency root,search-document root,version identity and lifecycle. AGGREGATE:one Codex aggregate manifest binds all module manifests;whole-Codex claims verify every module and aggregate root. UPDATE:an amendment updates affected memberships,search documents,module manifests and aggregate seal in one atomic transaction at the formal authority. FAILURE:stale,missing or mismatched manifest is incomplete evidence and cannot silently serve results.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B88"
+                                },
+                        "proposed":  "FORBID:persist-manifest-outside-formal-authority+serve-stale-manifest-as-current+claim-partial-module-is-whole-Codex+create-independent-manifest-authority"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B92"
+                                },
+                        "proposed":  "SCOPE:all GPTBridge platform-core,independent tools,information services,data adapters,model capabilities,UI,backend,workers,launchers,maintenance,tests,build and governance-support code are recursively modular. CANONICAL-TOPOLOGY:project_architecture_directory remains the sole top-level architecture authority;system_module_profile adds normalized module semantics without duplicating path or ownership truth. STRUCTURAL-NODES:project roots,containers,declaration layers and composition layers are non-runtime structural modules and cannot execute. RUNTIME-MODULES:each executable leaf has exactly one architecture_code as module_code,one identity-group binding,one lifecycle,one generation,one failure domain,one interface contract,one state owner and one execution identity. INTERNAL-MODULES:every runtime module decomposes into single-responsibility internal modules;one internal module has at most three explicitly registered capabilities and no hidden cross-module state. DEPENDENCY:system_module_dependency stores typed directed dependencies;parent containment is not execution permission;runtime calls use declared information-layer contracts. EXECUTION:B162 current cores retain separate decision,runtime,automation,permission and independent-audit duties;automation-core orchestrates under C50 and registered module-execution components alone perform authorized business work. ISOLATION:failure,timeout,restart,repair,update,resource pressure and release handover are contained to the exact module and declared dependents;unaffected modules and channels continue. UI:each module publishes field-scoped state and never forces whole-UI refresh. AUTOMATION:repair/update switches,confirmation,status and executor are module-scoped;one automation failure cannot stop another. DATA:each module declares its canonical structured-data role and any Rust-derived-index consumption boundary; retired embedded SQL storage has no active role. ACTIVATION:a runtime module is active only after identity,permission,interface,dependency,lifecycle,test,resource,observability and failure-injection evidence pass;missing identity-group registration remains mandated-pending-registration and cannot be inferred. SEARCH:module_code is indexed for direct architecture and Codex lookup. HISTORY:revision_history remains user-deleted.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B92"
+                                },
+                        "proposed":  "FORBID:monolithic whole-system executor+structural node executing+module without unique code or failure domain+shared mutable cross-module state+implicit dependency+direct cross-module call+more than three unregistered capabilities+one module failure stopping system+whole-UI refresh+global automation lock+identity group inferred without directory proof+architecture profile duplicating path authority+history reconstruction.+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B97"
+                                },
+                        "proposed":  "FORBID:source-unit-limit-applied-to-architecture-aggregate+folder/package-treated-as-one-source-unit+combining-files-to-hide-individual-violation+parser-partition-to-evade-source-limit+language-alias-ambiguity+byte-or-statement-count-as-source-line-evidence+minified-logical-line-substitution+comment-parser-guessing+path-alias-duplicate-row+missing-summary+summary-PASS-with-fail-stale-incomplete-child+inventory-mismatch-accepted"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B97"
+                                },
+                        "proposed":  "SOURCE-ROSTER:one normalized registered source roster resolves current language identities,extensions,parsers,source-unit and module-summary declarations from subordinate owner contracts under B166 and the applicable B167 language boundary;the roster never defines a competing language allowlist or expands the permitted language boundary. COUNTING:canonical authored source units and architecture aggregates remain distinct;registered source and declaration limits apply to their declared unit and cannot be evaded by aliases,formatting,minification,generation or parser partition. XINGCHENG:the complete Xingcheng native domain remains excluded from line-count and declaration-count limits;this does not waive correctness,security,authority,data-residency,performance,resource bounds,reviewability or native-production principles. EVIDENCE:measurements must be parser-proven,content-bound,current and inventory-complete;inventory,language,ownership,parser or policy changes invalidate affected evidence. ACCEPTANCE:module summaries cannot pass while required child evidence is missing,stale,incomplete or failing;release requires complete current roster parity. DECLARATIONS:concrete threshold values,language codes,parser normalization and source record fields belong to subordinate registered owner contracts."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C106"
+                                },
+                        "proposed":  "PROJECT-WIDE-HYBRID:DAG is the sole bounded acyclic global orchestration plane;CAG is a scoped versioned non-authoritative cache;Agentic RAG is single-agent autonomous retrieval;Multi-Agent RAG is multi-agent collaborative retrieval under the same global orchestration;GraphRAG,TAG,Memory and Multimodal are specialized governed data paths and never independent orchestration or authority planes;XRAG compresses retrieved context without becoming an independent retrieval,cache or authority plane;RAG remains the canonical retrieval function. GOVERNANCE:the global orchestration plane coordinates registered executors without replacing application,permission,resource or data authority;each action has one owner and typed input,output,scope,deadline,cancellation and resource boundaries. DECLARATIONS:per B5 concrete planner/executor names,pipeline order,tool choices,storage implementations,maintenance operations and publication-state vocabulary belong to subordinate owner contracts. AUTOMATION:deterministic reversible maintenance may execute automatically inside current permission and scope;unknown-effect,destructive or authority-conflicting work fails closed and isolates affected scope. DATA:one registered canonical structured authority per domain;indexes,caches,compressed context and retrieved content are derived non-authoritative representations. PUBLICATION:current validated generations become visible atomically with recovery and rollback;stale,partial or contradictory evidence cannot masquerade as current. EVIDENCE:retrieval and maintenance require current input/version/source lineage,scope isolation,citation validity,resource and latency evidence,complete execution receipts and independent verification."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C108"
+                                },
+                        "proposed":  "TRAINING-DATA-INTEGRITY:training data must have governed source identity,version,lineage,license eligibility,classification,normalization traceability,deduplication,training/validation separation,bounded preparation and independently verifiable integrity;each dataset is reproducible and its acceptance binds current evidence. CONFIDENTIALITY:confidential Codex,permission,private channels,runtime state,audit records and unauthorized data never enter training automatically;eligibility and license checks precede ingestion and missing or conflicting evidence fails closed. SEMANTICS:normalization preserves original-to-normalized lineage and cannot damage code,paths,names or meaning;training/evaluation isolation and exclusion controls apply before access. OWNERSHIP:the current registered native corpus preparation owner executes under B167 without acquiring permission or correctness-verdict authority. DECLARATIONS:course priorities,concrete processing stages,tool names,paths,registry names,schema fields and parser/exclusion implementations belong to subordinate registered owner contracts under B5. ACCEPTANCE:implementation labels or enumerated stages never replace current executed evidence of all applicable traceability,confidentiality,license,integrity,scope and separation requirements."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C109"
+                                },
+                        "proposed":  "Blueprint,roadmap,phased-plan,flow-plan and equivalent planning files are retired and MUST NOT be created or restored. Current work is governed directly by the formal Codex authority,registered contracts and explicit current instructions. Historical planning material remains Git history only and has no current force. Work status belongs in registered lifecycle,obligation and evidence projections rather than a parallel planning document."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C112"
+                                },
+                        "proposed":  "MACHINE-CONTRACTS:C106 functions require versioned typed contracts with explicit ownership,scope,validation,compatibility,unknown-field policy,semantic identity and lineage;concrete schema names,registry names,record fields and suite inventories belong to subordinate registered owner contracts under B5. PARITY:producer,validator,persistence,consumer and canonical descriptor must demonstrate recomputable current-generation semantic parity before certification. CACHE:maintenance proves scoped lifecycle,causal invalidation,permission-generation validity,bounded capacity/expiry and complete receipts. ORCHESTRATION:maintenance proves acyclic graphs,atomic generation switching,bounded execution,recovery,cancellation,deadline,cleanup and complete receipts. ACCEPTANCE:retrieval and maintenance remain incomplete until all applicable contract parity,scope isolation,citation,resource,recovery,publication and measured performance obligations have current independently verified evidence;labels,prose,counts or partial suites never establish acceptance."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C115"
+                                },
+                        "proposed":  "CANONICAL:one registered structured authority owns durable resource,chunk,embedding,vector,revision,scope and deletion state. DERIVED:one registered semantic accelerator is rebuildable and non-authoritative. IDENTITY:content and embedding generation identities are explicit. SCOPE:validate before retrieval and again before context;deleted data is never a candidate. RECOVERY:bounded authoritative replay into a temporary derived generation,independent verification,atomic switch and controlled retirement. DEGRADATION:only previously certified bounded paths against the same canonical authority may continue;otherwise fail closed. IMPLEMENTATION:index layout,precision,codec,engine identity and retrieval strategy belong to owner contracts. PROHIBITED-TOOLS:the current centralized production tool prohibitions in B166 and C81 remain controlling;an engine-neutral authority description never permits a prohibited tool,runtime fallback or active legacy writer."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C115"
+                                },
+                        "proposed":  "FORBID:second-vector-authority+canonical-data-in-derived-index+retired-runtime-or-fallback+unregistered-canonical-store+unverified-candidate+mixed-generation+in-place-index-destruction+unbounded-vector-work"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C116"
+                                },
+                        "proposed":  "RETIRED-REGISTER:retired dependency identities remain historical only;current successors and retirement operations belong to the registered business contract. SAFETY:retired items cannot be active dependencies or fallback owners. PURGE:package,configuration,route,runtime state and data artifacts may be removed only after owner inventory,canonical migration,zero-consumer and rollback-expiry evidence;legacy read-only migration sources remain until independently verified cutover."
+                    },
+                    {
+                        "field":  "subject",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C13"
+                                },
+                        "proposed":  "storage-consumer-cannot-amend-codex"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C13"
+                                },
+                        "proposed":  "FORBID:consumer-write-sync-replicate-restore-override-author-or-canonicalize-law+database-trigger-or-procedure-creating-law+ungoverned-Codex-mutation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C13"
+                                },
+                        "proposed":  "CONSUMERS:may hold only authorized citations,derived status and audit results;Codex-to-consumer projection is one-way. AUTHORITY:only the governed amendment executor may change the single formal Codex through current permission,transaction,version,lineage and seal controls;storage technology itself confers no amendment power."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C14"
+                                },
+                        "proposed":  "OFFICIAL-CODEX:one current local structured authority resolved through the sole governed official entry,current identity,integrity,seal and lineage verification. AUTHENTICITY:deterministic match-or-deny;no human,service,database or storage artifact may invent authenticity. IMPLEMENTATION:physical engine and locator choices are subordinate registered contracts. Historical predecessors and bounded fixtures are non-authoritative."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C14"
+                                },
+                        "proposed":  "FORBID:ask-or-allow-human/sovereign/service/tool/database-availability-to-invent-authenticity+promote-unregistered store/file/replica/cache/backup-to-official-Codex+majority-vote/latest-timestamp-as-authenticity-proof+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C15"
+                                },
+                        "proposed":  "RECOVERY-ARTIFACT:offline+read-only+byte-identical+same-version+same-content-root+same-history-head+same-threshold-signature;STATUS:non-authoritative-unless-official-entry-resolution;RESTORE:atomic-repoint-single-logical-entry-after-deterministic-match;FAILURE:deny-adjudication-without-reactivating-superseded-law"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C15"
+                                },
+                        "proposed":  "FORBID:unverified-recovery-source+repair-content+partial-restore+different-hash+multiple-official-entries+automatic-superseded-law-reactivation"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C16"
+                                },
+                        "proposed":  "FORBID:opaque-payload-as-canonical-schema+in-place-unverified-schema-mutation+unregistered-canonicalization+external-production-database-tool-service-or-subprocess+second-active-authority+purge-before-independent-cutover-proof"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C16"
+                                },
+                        "proposed":  "OFFICIAL-STORAGE:single project-owned in-process native SQL authority;no external database tool,service or subprocess in production SQL execution; SCHEMA:declared+frozen+validated; ACCESS:single-read-entry; MIGRATION:complete-successor-candidate-only with data+schema+transaction+permission+audit+recovery+current-generation parity,atomic cutover and rollback;legacy data preserved until independently verified; PYTHON-READER:retired PROHIBITED-TOOLS:the current centralized production tool prohibitions in B166 and C81 remain controlling;an engine-neutral authority description never permits a prohibited tool,runtime fallback or active legacy writer."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C2"
+                                },
+                        "proposed":  "FORBID:authority-role-substitution+second-active-writer+derived-index-as-canonical+unregistered-store+silent-fallback+unverified-context"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C2"
+                                },
+                        "proposed":  "SEPARATION:source and immutable repository history,official mutable structured data,canonical semantic metadata,derived retrieval indexes,retrieval orchestration and model inference remain distinct authority domains. STRUCTURED:one registered canonical in-process SQL authority per domain. DERIVED:semantic accelerators and caches are rebuildable non-authoritative projections. RETRIEVAL:every candidate is validated against current authoritative identity,revision,hash,scope and lifecycle before context. IMPLEMENTATION:component identities and retrieval-path selection remain subordinate owner contracts. PROHIBITED-TOOLS:the current centralized production tool prohibitions in B166 and C81 remain controlling;an engine-neutral authority description never permits a prohibited tool,runtime fallback or active legacy writer."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C25"
+                                },
+                        "proposed":  "SOLE-AUTHORITY:one current local formal structured Codex is the sole governing authority,accessed only through its registered official entry. COPIES:exports,backups,files,caches,search projections and generated artifacts never create parallel authority. MIRROR:only expressly authorized synchronized read-only language projections may exist with no adjudication,execution,import,write or authority rights. CONFLICT:current effective law at the formal authority prevails. FAILURE:missing,stale,mixed-version or damaged projections are unavailable and never fallback authorities. Storage engine,physical locator and mirror packaging are subordinate implementation contracts."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C30"
+                                },
+                        "proposed":  "SCOPE:all-main-system+independent-tools+sovereigns+information-layer+executors+frontend/backend+canonical structured and semantic data+Rust-derived-index-metadata+RAG+model-operations+files-cross-owner+Git-operations+commands+requests+responses+events+state+data-mutations+decisions+permission-proofs+execution-proofs+health+repair+learning+audit+errors+retries+checkpoints+backups+releases+versions+UI-projections; REQUIRED-FIELDS:event-or-record-id+occurred-at-utc-RFC3339+recorded-at-utc-RFC3339+timezone-IANA+local-display-time-RFC3339-with-offset+monotonic-sequence+clock-source+clock-status+origin-generation+correlation-id; AUTHORITY:occurred-at assigned-once-by-origin-owner+recorded-at assigned-once-by-authoritative-store/ledger; PROPAGATION:information-layer validates-format/drift/generation+preserves-original-times+adds-hop-received/sent timestamps without-overwrite; STORAGE:canonical structured storage=timezone-aware-UTC+sequence+canonical-semantic-metadata,Rust-derived-index=UTC-string+source-record-id/revision,JSON/API=RFC3339-UTC+explicit-timezone,UI=localized-display-derived-from-UTC+shows-staleness; PRECISION:minimum-millisecond+preserve-higher-source-precision; ORDER:origin-monotonic-sequence+causal-parent+authoritative-revision determine-order+wall-clock-never-sole-order; CLOCK:D20 authenticated-source+max-drift-5-seconds; DRIFT/UNKNOWN-CLOCK:mark-untrusted+block-expiry/security/release/order-sensitive mutation+permit-redacted-diagnostic-only; REPLAY:retain-original-occurred-at/sequence+new-delivery-time-separated; MIGRATION:legacy-record-without-time remains-legacy-unknown+must-not-fabricate; RETENTION/TZ-CHANGE/DST:never-change-stored-UTC+render-current-or-recorded-zone-explicitly; UI-SYNC:D31 includes-commit-time/event-time/render-time/ack-time and calculates-lag; AUDIT:append-only timestamp evidence+clock corrections as-new-events"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C30"
+                                },
+                        "proposed":  "FORBID:missing-timestamp-on-new-record+naive-local-time+timezone-abbreviation-only+server-receipt-time-replacing-origin-time+timestamp-overwrite/backdate/future-date beyond-tolerance+fabricated-legacy-time+wall-clock-only-order+cross-generation-sequence reuse+UI-generated-authoritative-time+database-default-time-as-origin-when-origin-known+silent-clock-drift+timestamp-stripping at-channel/serialization/indexing/export+different-module-private-time-format+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C32"
+                                },
+                        "proposed":  "DEPENDENCY-ROOT:DIR[DIR_MANAGED_DEPENDENCY_ROOT] is sole managed dependency root; Windows-native registered tools are the only exceptions. ADMISSION:staging directory may be created only after new-dependency permission or for an already registered update candidate. ACTIVE-LAYOUT:environments|runtimes|sdks|toolchains|packages|caches|models|staging; each identity has exactly one ACTIVE and at most one ROLLBACK_ONLY generation. PURGE:after retention expiry and zero references,automatic deletion removes old version directories,package/cache objects,old environments and staging remnants; audit receipts remain in canonical audit store,not as executable artifacts.; UPDATE-DETECTION:every-24-hours+immediate-governed-security-advisory-event; RETIREMENT-TAG:mandatory from SUPERSEDED through PURGE_READY and binds dependency-id+old-version+successor-version+state+reason+zero-consumer-progress+rollback-deadline+scheduled-purge-at\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C33"
+                                },
+                        "proposed":  "FORBID:fetch-all-then-filter/sort/group/join/page+SELECT-star production-contract+string-concatenated-SQL+N+1+unbounded-result+offset-only-large-pagination+application-enforced-row-security+SQL-business-policy/sovereign-decision+cross-owner-direct-database+query-without-timeout+silent-client-side-fallback+unregistered-store-active-consumer+unregistered-store-runtime-write+unregistered-store-fallback+unregistered-store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C33"
+                                },
+                        "proposed":  "RULE:set-based-data-work executes-at-owning-SQL-engine; PUSH-DOWN:filter+projection+join+aggregation+grouping+window+sorting+distinct+pagination+existence+constraint+upsert+transactional-condition+authorized-row/column restriction; APPLICATION:submits-bounded-parameterized-query-contract+receives-only-required-columns/rows/aggregates; AUTHORITY:queries execute against the registered canonical structured store;retired engine identities never select a runtime fallback; QUERY-PLAN:EXPLAIN-based evidence for-new/changed/hot paths+index/selectivity/row-estimate/temp-sort/full-scan thresholds; PAGINATION:keyset-preferred+stable-order+bounded-limit; BULK:batch/set operation+no-N+1; SECURITY:parameter binding+server-side scope predicates+transaction/isolation/deadline/cancellation; OBSERVE:query-id+contract-version+duration+rows-scanned/returned+plan-hash+timeout without-sensitive-literals; FALLBACK:application-side operation only-for-non-SQL semantics after-bounded-pushdown and documented evidence; FSHARP:after bounded SQL reduction, owns typed data analysis, machine-learning pipelines and high-correctness complex calculation where typed immutable functional modeling materially improves correctness; FSHARP-NO:database-authority+unbounded-fetch+duplicate-algorithm-authority"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C34"
+                                },
+                        "proposed":  "PIPELINE:authorized request,bounded parameterized relational reduction,bounded typed result,registered domain validation and authorized state transition. OWNERSHIP:SQL owns selection,relational integrity and set computation;application orchestration and domain meaning retain their separate registered owners. Language allocations,adapters and engine names remain subordinate contracts and cannot create policy,permission or data authority. PROHIBITED-TOOLS:the current centralized production tool prohibitions in B166 and C81 remain controlling;an engine-neutral authority description never permits a prohibited tool,runtime fallback or active legacy writer."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C35"
+                                },
+                        "proposed":  "FORBID:unregistered-directory-class+parallel-master-catalog+directory-owned-by-other-sovereign+missing-required-domain+active-status-before-implementation-proof+legacy-registry-as-separate-authority+directory-ownership-changing-domain-body-authority+catch-all-entry-hiding-unclassified-identity+permission-directory-outside-registered-canonical-authority+unregistered-store-or-file-as-directory-authority+directory-write-fallback-outside-registered-authority+unregistered-store-active-consumer+unregistered-store-runtime-write+unregistered-store-fallback+unregistered-store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C35"
+                                },
+                        "proposed":  "MASTER-DIRECTORY:directory-master-catalog is the exhaustive registry of every governed directory class; REQUIRED-DOMAINS:law-structure+special-law+provision-classification+project-architecture+identity-module+permission-capability+tool-route+data-schema-authority+API-event-contract+service-process-port-environment+model-resource-dependency+configuration-credential-secret+version-release-artifact+audit-evidence-retention+backup-recovery-migration+UI-window-feature-entry+command-code+fault-code+maintenance-manual+test-flow; OWNER:permission-sovereign for directory definition+identity+registration+relationship+version+activation+retirement+access and write decisions; DOMAIN-AUTHORITY:referenced bodies remain with their codex-declared domain owners and directory ownership grants no body authority; MASTER-ENTRY:directory-code+canonical-name+scope+authority-kind+required-fields+relationships+coverage-rule+implementation-state+introduced-version+retired-version; COMPLETENESS:no governed identity may exist outside exactly-one applicable registered directory and every directory appears in master catalog; IMPLEMENTATION-STATE:mandated-pending-implementation cannot be represented as active and blocks dependent verified release; CONVERGENCE:legacy permission registries become projections or implementations of the matching master entry and cannot remain parallel authority; VALIDATION:permission-sovereign verifies master coverage+schema+ownership+links before activation;DIRECTORY-STORAGE:every directory managed by permission-core is persisted in the registered canonical structured authority only; the registered canonical store is the sole current structured storage and transaction boundary for directory entries,relationships,lifecycle and write receipts; unregistered stores,files,caches,mirrors or module-private state cannot be directory authority or write fallback.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C46"
+                                },
+                        "proposed":  "SCOPE:all project+Git+main-system+startup-core+governance-codex+local-model+independent-tool and registered module roots; OWNER:permission-sovereign exclusively registers path codes and canonical targets; IDENTITY:each top-level root has one immutable uppercase path-code+lower-kebab canonical-name+one canonical absolute path+entity-kind+parent+logical owner+activation state; RESOLUTION:environment variables and configuration reference path-code only and resolver canonicalizes case+separator+relative segments+symlink+junction/reparse target before descendant validation; BOUNDARY:no owned local artifact may resolve outside registered root; AUTHORITY-ENDPOINT:structured stores,derived indexes and authorized service storage resolve through registered opaque owner-scoped references;physical residency never grants authority or creates a path-policy exception; MIGRATION:old and target roots recorded with one-way state transition+read-only old root+atomic reference cutover+tests+rollback; COMPLETION:new architecture is complete only after target validation+all references cut over+rollback window closed+legacy data reconciled+old root safely deleted+deletion proof recorded; NO-LEGACY-ROOT:no completed architecture may retain old directory+junction+symlink+redirect+duplicate+backup inside active namespace; AUTHORITY:directory declaration and its implementation obligation are both mandatory"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C50"
+                                },
+                        "proposed":  "OWNER:automation-core. GOVERNANCE-ENGINE:one registered governance engine is the sole system-wide orchestration boundary for authorized governance workflows,including Git coordination and SQL governance;Git and SQL are domain planes of that engine and never independent schedulers,coordinators or governance authorities. RESPONSIBILITY:the engine receives current decision and permission artifacts,orders dependencies,applies generation fences,coordinates bounded domain executors,joins receipts,isolates conflicts and publishes one convergence result. AUTHORITY-SEPARATION:Git remains authority only for source and immutable repository history;the canonical structured store is authoritative only for official mutable structured data and Codex state;the governance engine owns neither domain truth and cannot translate availability in one domain into authority over the other. ATOMICITY:a cross-domain change declares one correlation identity,one intended generation and one ordered transaction plan;Git commit publication,SQL migration or data mutation,verification and activation either converge to the same accepted generation or the affected change remains incomplete and fail-closed;no distributed transaction fiction or silent partial success is permitted. EXECUTION:registered Git and SQL modules perform bounded owner-language work and return typed receipts;runtime-core owns execution mechanics. FAILURE:a failure in one plane blocks only the dependent convergence path,preserves the last accepted state and evidence,and cannot corrupt or promote the other plane. SUCCESS:required Git,SQL,Codex,permission,runtime and audit identities,versions,hashes and receipts agree and independent verification passes. GOVERNANCE-UNITY:C50 controls the one governance orchestration engine for all registered system-wide workflows,including Git,SQL,Codex publication,permission-registry synchronization,release,maintenance,recovery and audit delivery. Every plane uses the same current Codex generation,task identity,correlation chain,permission proof,dependency ordering,cancellation and convergence contract. Decision-core retains decisions and acceptance;permission-core retains identity,scope and permission;runtime-core retains governed execution;automation-core retains orchestration;xingcheng-assistant retains independent read-side review. Domain executors cannot establish another control plane. A domain-specific operating loop remains bounded by its registered owner and cannot become a system-wide governance scheduler. Publication requires current authority-pointer,search,lifecycle,seal and mirror parity;stale or mixed generation blocks the affected activation."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C54"
+                                },
+                        "proposed":  "TOPOLOGY:B166-managed UI client\u003eselected approved shell and typed bridge\u003eapplication/workflow API;branches resolve through current B166 single-owner allocation and registered structured authority;TEST-AUDIT:CSharp sole orchestration+owner-language native runners+C++23 Audit Engine;FAILURE:typed fail-closed without alternate owner"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C56"
+                                },
+                        "proposed":  "WRITE-BOUNDARY:one transaction at the canonical structured authority writes resource+chunk+embedding+revision+scope+tombstone+durable-index-outbox-event;APPLICATION-DUAL-WRITE:forbidden;INDEX-WORKER:bounded Rust owner consumes idempotently+in-batches+generation-aware+crash-recoverable and records index-state acknowledgement;QUEUE-BOUNDARY:the canonical structured authority stores durable mutation events but is not used for high-frequency ephemeral runtime events;GENERATION:index_generation+schema_version+embedding_model+embedding_version+dimensions+distance_metric+source_revision_watermark+build_hash+created_at+verified_at;READ:query cannot mix incompatible generations;RECOVERY:last verified generation remains active until replacement passes"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C58"
+                                },
+                        "proposed":  "FORBID:skip-required-acceptance-stage+activate-dependent-index-before-canonical-parity+run-retired-service-after-cutover+delete-legacy-data-before-canonical-migration-proof+claim-completion-without-rebuild-zero-consumer-and-removal-evidence"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C58"
+                                },
+                        "proposed":  "ACCEPTANCE:verify canonical schema and migration parity,security and permission enforcement,transaction and recovery semantics,derived-index rebuild parity,retrieval parity and authoritative post-validation before activation. ORDER:dependency order and one current generation are mandatory. IMPLEMENTATION:extension names,test commands,index layouts and engine selection remain subordinate contracts;missing evidence is incomplete and blocks dependent release."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C59"
+                                },
+                        "proposed":  "POOL-ISOLATION:central-index,transport,audit and each module-private database use separately budgeted connection pools with owner,max/open/idle/wait/lease metrics and reserved critical capacity;one workload cannot exhaust another pool. READ-WRITE-PATH:code exposes distinct read and write paths even on one host;transaction consistency and read-after-write requirements are explicit and routing may later change without contract drift. SQL-SAFETY:all runtime values use prepared statements or parameterized queries;SQL string concatenation/interpolation for transport,locator,resource lookup and every runtime query is prohibited. TIMEOUTS:every runtime statement has a bounded statement_timeout;transactions have lock_timeout,idle timeout and bounded deadlock/serialization retry with jitter,idempotency and total deadline;retry never duplicates committed side effects. PERFORMANCE-EVIDENCE:slow-query log stores redacted query digest,role/module,mean,p95,p99,rows examined/returned,calls and plan identity without secrets or raw personal values. Periodic analysis identifies unused/duplicate indexes and abnormal sequential scans;index removal/addition requires workload,query-plan,write/storage and rollback evidence. RETENTION:audit,transport history,model inference history and repair history each declare retention,archive/legal-hold,purge owner and proof;central append-only audit uses governed archival/purge rather than runtime mutation. VACUUM-ANALYZE:registered native health/maintenance execution observes bloat,dead tuples,statistics freshness and transaction age,then schedules bounded VACUUM/ANALYZE through governed execution;Python is retired and manual recurring dependence is forbidden. SCHEMA-CONTRACT:startup verifies expected schema version,tables,columns/types/nullability,constraints,indexes,RLS/policies,extensions and migration head before write readiness. DRIFT:actual catalog is deterministically compared to approved migration-derived schema digest;out-of-band change becomes SCHEMA_DRIFT,blocks unsafe writes and cannot be silently adopted. MIGRATION-DRY-RUN:before formal migration validate dependency graph,lock/table-rewrite risk,name/type/default conflicts,data conversion,space/time budget,upgrade order,rollback or downgrade feasibility and mixed-version compatibility;destructive or irreversible steps require explicit evidence and user/governance authorization. MODULE-DB-HEALTH:each module database state is exactly healthy|degraded|reconcile_required|read_only|failed with reason,evidence,time and allowed operations;health state does not change authority. LOCATOR:verify locator target identity,existence,boundary and content/version hash;missing or mismatched target is orphaned and is never returned as valid. TOMBSTONE:resource deletion first writes deleted/tombstoned status,revision,time,actor,reason and correlation_id;downstream cleanup and audit complete before policy-governed purge;hard delete cannot erase required lineage. VECTOR-FRESHNESS:compare derived-index resource_id/chunk_id/resource_version/content_hash/embedding version to canonical structured data;older or mismatched vector is stale,excluded from authoritative retrieval and queued for idempotent rebuild. CENTRAL-SHAPE:central index stores necessary normalized frequently queried fields;JSONB is for bounded typed extension data with schema,size/index/retention rules and cannot become an unbounded catch-all. CROSS-ENGINE-EVENT:every canonical structured data\u003eRust-derived-index transition uses one correlation_id with resource_id,from/to revision,hash,status,idempotency key and audit linkage across the entire chain. All controls obey the C58 stage order.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C59"
+                                },
+                        "proposed":  "FORBID:shared universal pool+unbounded connection acquisition+mixed hidden read/write route+SQL concatenation/interpolation+unbounded statement/lock wait+unbounded deadlock retry+raw sensitive slow-query text+automatic index churn+unbounded history+manual-only vacuum/analyze+write-ready before schema check+accepting schema drift as baseline+production migration without dry-run+unknown module DB health+returning orphan locator+immediate unaudited hard delete+serving stale vector as current+unmanaged-recovery-log-or-checkpoint-state+all-DB blocking startup scan by default+JSONB dumping ground+cross-engine update without correlation_id.+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C60"
+                                },
+                        "proposed":  "PLATFORM:canonical structured and semantic data plus rebuildable retrieval acceleration operate within one local governed platform without a second authority. HEALTH:each required capability reports current scoped status,revision,evidence and allowed operations. CONSISTENCY:derived entries match authoritative identity,revision,content,embedding and scope. RECOVERY:detect,isolate,discard invalid derived state,rebuild from the canonical store,verify,activate and audit. Concrete capability and engine names are subordinate business declarations."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C61"
+                                },
+                        "proposed":  "AUTOMATIC-DATA-MAINTENANCE:canonical structured storage and derived semantic indexing self-observe,self-diagnose and self-maintain through one registered event-driven maintenance flow; EVENTS:schema/migration+query-plan+capacity+WAL+transport-backlog+source-revision+index-generation+permission+restore; ACTIONS:bounded analyze/vacuum/reindex/rebuild/reconcile/retention/connection-generation-fence and safe additive index maintenance; SAFETY:canonical migration/schema/permission contracts control every action; reversible deterministic actions execute automatically; destructive,authority-changing or unknown-effect actions fail closed and quarantine; CAPACITY:30/90/180-day forecast+warning/critical/fail-closed; EVIDENCE:before/after plan+counts+hashes+generation+latency+resource+result; SCHEDULER:existing sole automation scheduler only GOVERNANCE-UNITY:all orchestration under this provision resolves exclusively through the single C50 governance engine and its current-generation,permission,execution,receipt and convergence contract;this provision creates no separate scheduler,coordinator or governance authority."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C62"
+                                },
+                        "proposed":  "PLANNER:one registered retrieval planner selects only necessary authorized semantic,lexical,relational or exact retrieval paths. SCOPE:permission,revision and bounded work constraints apply before retrieval. AUTHORITY-VERIFY:all candidate identities undergo one bounded canonical-store validation before context. EXECUTION:parallelize only independent paths under shared budgets,cancellation and deadlines. IMPLEMENTATION:path names,index choices,thresholds and batching remain subordinate owner contracts;missing required evidence fails closed."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C64"
+                                },
+                        "proposed":  "BACKPRESSURE:bounded priority queue interactive\u003emaintenance\u003erebuild using existing scheduler/resource envelope;ADAPTATION:batch+queue+cache+chunk are tuned only within registered ceilings from queue-depth+CPU+RAM+DB-latency+index-latency+interactive-load;CACHE:key includes resource_id+revision+scope_id+embedding_model+embedding_version+query/config-generation and remains non-canonical;CANCELLATION:request\u003eRAG\u003eplanner\u003evectord-rs\u003ecanonical SQL execution owner\u003ereranker\u003econtext-builder with necessary audit receipt retained;LOW-COPY:large cross-layer payload uses resource/chunk/revision+offset/reference and governed streaming where owner-local benchmark supports it;POOL:existing bounded workload-class SQL execution pools only"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C65"
+                                },
+                        "proposed":  "FORBID:index_state missing any minimum field+whole-collection rebuild when exact affected scope is provable+CANONICAL on endpoint availability alone+direct degraded-vector transfer+clearing reconciliation before count/ID/hash/version proof+four physical canonical RAG collections+unregistered rag_type+multi-rag membership without evidence+silent reranker fallback+response claiming reranker active when RRF fallback ran+skipping the eleven-stage order.+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation+deployment-version+benchmark-result+model-threshold+port+path+operational-tunable-as-permanent-Codex-literal"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C65"
+                                },
+                        "proposed":  "INDEX-STATE:every indexed resource/chunk has an authoritative index_state recording at minimum embedding_model,embedding_dimension,chunk_size,chunk_overlap,chunking_version,parser_version,rag_schema_version,content_sha256,indexed_at plus resource_id,chunk_id,source_revision,pipeline_version,backend_generation and status. Reindex planning compares each field and marks only the exact affected resources/chunks stale. A change such as chunk_size 1200/overlap 200 to 1600/250 invalidates entries built under the old pair and their dependent chunk/point mappings;it does not authorize deleting/rebuilding unrelated compatible data or the entire collection. STATE-MACHINE:runtime RAG state is exactly CANONICAL,DEGRADED or RECONCILING. CANONICAL requires healthy registered derived index and canonical structured authority,matching index_state and complete queue. A verified derived-index or canonical-store fault moves affected scope to DEGRADED;canonical writes fail closed and only a registered bounded non-authoritative in-memory cache may serve an already verified read snapshot;each deferred mutation remains in the canonical durable transport with reconciliation_required=true. Canonical recovery moves to RECONCILING,which must verify source SHA256,resolve owning-module original content,re-chunk under current index_state,re-embed with canonical model/dimension,idempotently write Rust-Vector-Engine,update authoritative structured records and semantic metadata,verify resource/chunk/point counts+IDs+hashes+versions and drain/close queue. Only then may reconciliation_required=false and state return CANONICAL. Service availability alone cannot transition to CANONICAL;derived Rust vectors are never canonical and are rebuilt only from authoritative content and canonical semantic metadata. COLLECTION-TOPOLOGY:one Rust-Vector-Engine instance and one canonical collection gptbridge_shared_knowledge serve all authorized local models and four RAG behaviors. Physical per-rag-type or per-model canonical collections are forbidden. Logical isolation uses governed point metadata rag_type with one value or rag_types array containing only hybrid-rag,code-rag,agentic-rag,memory-rag;server-side metadata filters and post-result authorization apply. A chunk may carry multiple rag_types only when each membership has evidence and compatible lifecycle/version. RERANKER-OBSERVABILITY:every retrieval response/evidence reports reranker.requested,reranker.active,reranker.fallback,reranker.reason,model/version and timing. If qwen3-reranker-0.6b is unavailable/not cached,the lawful fallback is RRF with active=false,fallback=rrf and a typed reason such as model_not_cached;successful response cannot imply reranker participation. ORDER:this provision supersedes the shorter C63 work order with the binding sequence:1 Canonical Rust-Vector-Engine;2 authoritative metadata validation;3 recoverable cross-store write consistency;4 reconciliation;5 index versioning;6 dual-layer authorization filtering;7 stage observability including reranker;8 Code RAG;9 Agentic RAG;10 Memory RAG;11 retrieval benchmark. Stage N activation requires fresh PASS evidence from 1..N-1;isolated experimental work cannot certify a later stage.;MUTABLE-VALUES:resolve-current-values-from-owner-versioned-contract-or-registry;CODEX:retains-owner+boundary+prohibition+acceptance-dimensions-only"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C68"
+                                },
+                        "proposed":  "IDENTITY:every governed root,directory,store,collection,model,repository,worktree,channel and contract has one current registered stable opaque identity. RESOLUTION:use the responsible directory owner and current generation;labels,paths and implementation names do not establish authority. LIFECYCLE:rename,migration,activation and retirement preserve lineage and prevent duplicate active identities. IMPLEMENTATION:concrete identity vocabulary and locator mapping belong to registered subordinate business contracts;unknown,ambiguous,stale or unauthorized references fail closed."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C68"
+                                },
+                        "proposed":  "FORBID:new mutable literal in Codex+restating a physical value already present in a directory+same physical value repeated as authority+code mapped in multiple registries+consumer inventing alias+historical literal copied forward+resolved value treated as Codex text+secret value stored in Codex+code without owner/type/version/status+changing mapping without new generation and affected evidence.+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C73"
+                                },
+                        "proposed":  "SEARCH:interactive Codex lookup uses formal-authority-owned deterministic indexed projections; every result rehydrates the formal Codex row and verifies identity,lifecycle,current successor,content hash,current seal and access scope. INDEXES:identity,lifecycle,effective status,law code,module membership,command/fault code and dependency edges use dedicated indexes. FULL-TEXT:authorized deterministic full-text search covers authorized subject and rule fields with provision,module and law filters. CACHE:bounded memory cache keys include current version,query,scope,language and search-manifest hash. RECOVERY:missing or corrupt index/cache is discarded and rebuilt from formal Codex rows; unregistered store search is prohibited as current authority or fallback.\n\nPACKAGE-AUTO-DEFER:每24小時偵測一次。未具明確新增套件許可者自動標記DEFERRED_AWAITING_PERMISSION；一般新版發布未滿14日者自動標記DEFERRED_OBSERVATION_WINDOW。遞延不等於拒絕、通過或已安裝，遞延期間禁止下載、安裝、鎖定或執行；條件成熟後於下一次週期自動重新評估。重大安全或相容性事件得立即加跑受管檢查。"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C73"
+                                },
+                        "proposed":  "FORBID:unbounded-interactive-scan+stale-cache+search-result-as-authority+unregistered store-current-search-authority+external-indexing+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C77"
+                                },
+                        "proposed":  "MIRROR:only the expressly authorized read-only Chinese projection may expose the formal Codex to the authorized Xingcheng identity. GENERATION:its complete registered part set is generated from one formal authority generation,verified for identity,count,content,seal,version and quality parity,and published atomically. FAILURE:missing,mixed-version,duplicate,extra or corrupt parts make the projection unavailable without changing formal authority. IMPLEMENTATION:part names,packaging and rendering choices remain subordinate contracts;no projection has adjudication,execution,import,write or authority rights."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C77"
+                                },
+                        "proposed":  "FORBID:part-count-other-than-five+part-as-independent-authority+mixed-generation+unregistered store-as-mirror-source-authority+fourth-or-extra-assembled-copy+partial-publication+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C78"
+                                },
+                        "proposed":  "FORBID:external-Codex-indexing+unregistered store-current-search-authority+derived-index-as-law+stale-search-generation+projection-writing-back-law+unregistered store-active-consumer+unregistered store-runtime-write+unregistered store-fallback+unregistered store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C78"
+                                },
+                        "proposed":  "SUCCESSOR:C78 completely supersedes D74. EXTERNAL-NON-INDEXING:Codex and every derivative are prohibited from RAG,embedding,semantic/vector indexes,training,external search,OS indexing and application-wide indexes. INTERNAL-SEARCH:authorized tooling may maintain Codex search documents,aliases,formal canonical Codex full-text indexes,search manifests,benchmark evidence and module manifests only inside protected formal Codex authority. These are derived non-authoritative projections and are atomically rebuilt from current effective provisions. unregistered store may contain only non-current historical or isolated fixture data and cannot host current Codex search authority."
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C8"
+                                },
+                        "proposed":  "FORBID:direct-mutation-by-permission-sovereign/unauthorized-directory-write+permission-directory-outside-registered-canonical-authority+unregistered-store-or-file-as-directory-authority+directory-write-fallback-outside-registered-authority+unregistered-store-active-consumer+unregistered-store-runtime-write+unregistered-store-fallback+unregistered-store-reconciliation"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C8"
+                                },
+                        "proposed":  "DIRECTORY-WRITE:permission-sovereign-decision; EXEC:governed-executor; STORE:decision-sovereign-declared; BASIS:codex+explicit-authorization;DIRECTORY-STORAGE:every directory managed by permission-core is persisted in the registered canonical structured authority only; the registered canonical store is the sole current structured storage and transaction boundary for directory entries,relationships,lifecycle and write receipts; unregistered stores,files,caches,mirrors or module-private state cannot be directory authority or write fallback."
+                    },
+                    {
+                        "field":  "subject",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C81"
+                                },
+                        "proposed":  "native-sql-authority-retirement-and-evidence-boundaries"
+                    },
+                    {
+                        "field":  "exception",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C81"
+                                },
+                        "proposed":  "A registered read-only emergency scope may expose previously certified legacy structured source data while affected writes remain closed;it cannot use unregistered store to replace central authority."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C81"
+                                },
+                        "proposed":  "SQL-CAPABILITIES:the registered project-owned in-process SQL execution owner performs bounded authorized read,write,migration,audit and recovery work under one canonical authority per domain. No external database tool,service or subprocess performs production SQL. CUTOVER:data,schema,security,permission,transaction,audit,recovery and current-generation parity evidence must be independently verified before atomic activation;preserve a bounded rollback path. LEGACY:previous structured sources remain read-only migration evidence until verified cutover and never become a second active writer. FAILURE:missing,stale,conflicting or regressing evidence blocks affected writes and dependent activation. GOVERNANCE-ENGINE:SQL work remains only a plane of the single C50 governance engine;registered executors gain no independent scheduler,coordinator or governing authority. GIT-BINDING:immutable source identity,migration-chain identity,target generation and actual canonical SQL execution receipts are jointly verified;source history alone never proves applied state. PROHIBITED-TOOLS:PostgreSQL production database execution,psql and Npgsql production SQL consumers are prohibited;legacy read-only capture is restricted to registered bounded migration scope and never normal runtime fallback."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C82"
+                                },
+                        "proposed":  "MIGRATION-AUTOMATION:DIR_DATA_SCHEMA_AUTHORITY+sql-migration contract+sql-governance-closure contract are automatically regenerated and verified from ordered immutable migrations and live canonical SQL schema introspection; INVARIANT:declared_schema_hash=replayed_schema_hash=live_introspected_schema_hash; CHAIN:N.source=N-1.target+gapless+single-head; EVENT:new-migration or catalog change triggers replay+receipt+directory parity+closure evidence; MISMATCH:SQL_SCHEMA_DRIFT fail-closed+read-only/quarantine; only migration executor may apply DDL;GOVERNANCE-UNITY:C50 alone controls orchestration,dependency order,current-generation fencing,cancellation and receipt convergence;domain executors retain their registered scope and create no separate governance authority. Completion requires current permission,execution receipts and independent verification;missing or conflicting evidence isolates the affected scope and remains incomplete."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C83"
+                                },
+                        "proposed":  "SQL-AUTHORITY:one registered project-owned in-process SQL authority per domain owns official structured data,transactional transport and durable audit records. Every official object and mutation resolves through a governed typed contract with current scope,permission,generation and receipt controls. No external database tool,service or subprocess performs production SQL. Legacy sources remain read-only migration evidence until independently verified atomic cutover;no parallel active authority or writer. PROHIBITED-TOOLS:the current centralized production tool prohibitions in B166 and C81 remain controlling;an engine-neutral authority description never permits a prohibited tool,runtime fallback or active legacy writer."
+                    },
+                    {
+                        "field":  "subject",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C84"
+                                },
+                        "proposed":  "canonical-structured-object-schema-authority"
+                    },
+                    {
+                        "field":  "subject",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C86"
+                                },
+                        "proposed":  "canonical-schema-drift-gate"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C91"
+                                },
+                        "proposed":  "AUTOMATIC-CAPABILITY-HEALTH:canonical SQL capabilities are observed independently for official-read/write,transport,audit,migration and maintenance; health events automatically choose healthy,degraded-read-only or fail-closed per registered matrix; no alternate SQL engine exists; recovery automatically replays required verification before reopening and publishes typed status/evidence"
+                    },
+                    {
+                        "field":  "prohibition",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D10"
+                                },
+                        "proposed":  "FORBID:delete-reorder-rewrite-backdate-or-fabricate-Codex-history+introduce-history-gap+append-in-place-to-sealed-generation+use-unrelated-domain-ledger-as-Codex-history-authority"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D11"
+                                },
+                        "proposed":  "AUTHORITY:the current formal Codex is authoritative through permission,transaction,version,current-binding and seal controls;filesystem attributes never create authority. READONLY:only current generated confidential Chinese mirror parts,the registered governance package entry and registered shared-layer enforcement sources require filesystem read-only protection. WRITABLE:architecture projections,renderer inputs and all other non-mirror workspace files are governed writable. PUBLICATION:an authorized publisher may unlock a required protected target only for verified atomic replacement and must restore protection before completion. CANDIDATE:a candidate has no current authority until verified,published,bound and sealed."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D127"
+                                },
+                        "proposed":  "AUTOMATIC-SQL-VERIFICATION:CSharp TestSuiteOrchestrator triggers required canonical SQL migration replay+drift+RLS/security projection+transaction+transport+audit immutability+backup/restore+zero-retired-consumer suites on affected events; evidence is hash/revision/version bound and feeds the release gate automatically; timeout,missing evidence,BLOCKED or failure remains fail-closed"
+                    },
+                    {
+                        "field":  "exception",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D35"
+                                },
+                        "proposed":  "No exception permits retired execution in formal test or audit responsibilities;owner contracts cannot create an exception to current Codex prohibitions."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D35"
+                                },
+                        "proposed":  "TEST-AUDIT-BOUNDARY:the current sole test-orchestration owner controls native test execution and final typed test receipts;the current sole independent audit owner controls audit checks and final typed audit receipts;registered native providers execute bounded deterministic checks and contract validation without acquiring either decision role. DECLARATIONS:implementation language,tool names,versions and per-provider execution assignment resolve through subordinate owner contracts under B166 and B5;they do not amend role identities,authority or decision rights. PYTHON:none in formal test,audit,verification or their gates. FAILURE:unsupported checks,timeouts,crashes,missing or invalid evidence remain BLOCKED or FAIL under the controlling gate and are never delegated to an unregistered or retired fallback."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "D56"
+                                },
+                        "proposed":  "ROLE:星澄 is an independent read-only global audit inspector and never a governance+permission+system+maintenance decision sovereign; SCOPE:official codex+permission-sovereign managed directories+architecture+identity+commands+faults+manuals+tests+implementation obligations+release+runtime health+channels+events+state+canonical structured-data/Rust-Vector-Engine evidence views through information-layer; ACCESS:permission-review-exempt for registered 星澄 identity but still requires official-entry authentication+purpose binding+read-only single-use session+scope+nonce+expiry+audit; POWERS:cross-directory consistency inspection+gap/conflict/drift detection+seal/version/lineage verification+fault pattern correlation+stability/performance/isolation/jailbreak evidence review+independent acceptance challenge+typed noncompliance finding; OUTPUT:finding-code+scope+evidence references+severity+affected authority+required response+deadline recommendation without secret payload; REMEDIATION:none direct and finding routes to responsible sovereign through information-layer; CONFIDENTIALITY:星澄 identity+exclusive directory+Chinese codex+private findings never disclosed exported mirrored or delegated; INDEPENDENCE:no inspected owner may alter suppress or self-close 星澄 finding"
+                    }
+                ]
+}

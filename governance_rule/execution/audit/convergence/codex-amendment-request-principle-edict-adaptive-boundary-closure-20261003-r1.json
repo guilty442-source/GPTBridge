@@ -1,0 +1,286 @@
+{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "principle-edict-adaptive-boundary-closure-20261003-r1",
+    "title":  "Close active principle and edict conflicts under adaptive implementation rules",
+    "summary":  "Complete current active principle/edict alignment after article convergence. Languages and explicit prohibited tools remain normative;per-language roles,approved-tool inventory,versions,configuration and selection are adaptive subordinate business declarations. One authority,current evidence,independent verdict,permission/resource boundaries,native SQL execution,atomic successor,rollback and historical sealed predecessors preserved. 31 active provisions only;superseded P57 remains historical and resolves through current C14.",
+    "requested_by":  "permission-sovereign",
+    "origin":  "user explicit 2026-10-03 instruction",
+    "problem":  "Active principles/edicts still bind retired PostgreSQL,static per-language roles and conflicting source-launch/index authority after article convergence",
+    "acceptance":  [
+                       "eight languages remain principles with no versions or fixed per-language owners",
+                       "prohibited tools remain principles;no external production SQL tools/services/subprocesses",
+                       "adaptive rules cannot change authority,independent verdict,permission or exceed resources",
+                       "active PostgreSQL-exclusive canon/recovery/directory requirements replaced by single registered authority principles",
+                       "DAG,CAG,retrieval,data paths and XRAG maintain exact requested boundaries",
+                       "publication does not certify retirement implementation or release"
+                   ],
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-03T03:12:59Z",
+                        "revision_sequence":  252,
+                        "version_identity":  "E2:2026-10-03T03:12:59Z",
+                        "history_head":  "fd90a6a145329a3ec82e741746442a8319e86def23480d83541ca390c5201cd4"
+                    },
+    "scope":  [
+                  "table:principles",
+                  "field:principles.statement",
+                  "table:edicts",
+                  "field:edicts.edict"
+              ],
+    "changes":  [
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P7"
+                                },
+                        "proposed":  "SEPARATION:source and immutable repository history,canonical structured data and semantic metadata,derived retrieval indexes,caches,retrieval orchestration and model inference have distinct authority roles. STRUCTURED:one registered project-owned in-process SQL authority per domain. DERIVED:retrieval indexes and caches are bounded,rebuildable,scope-aware,revision-bound and non-authoritative;every context candidate requires authoritative validation. DEPENDENCIES:only governed approved inventory;B166 and C81 prohibit retired production SQL tools and external production SQL execution. CONTINUITY:only explicitly authorized previously verified bounded read paths may continue on partial failure;no second active writer,unreconciled fallback or role substitution."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P29"
+                                },
+                        "proposed":  "DIRECTION:formal Codex to authorized citation,derived-status and audit consumers is one-way. NO-MUTATION:consumers,storage engines and their internal mechanisms cannot author,amend,override or canonicalize law. AMENDMENT:only the governed complete successor procedure,with current permission,version,lineage,integrity and seal verification,changes the official Codex;storage technology never grants amendment authority."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P30"
+                                },
+                        "proposed":  "AVAILABILITY:failure of unrelated data,index,network or runtime capabilities does not invalidate an independently verified local read path to the same current formal Codex. BASIS:governance adjudication requires the registered single official entry and current integrity,version,lineage,scope and seal evidence. FAILURE:if that authoritative read path is unavailable or unverified,dependent adjudication fails closed;no mirror,cache,legacy source or older generation becomes fallback authority. PROHIBITED-TOOLS:B166 and C81 remain controlling."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P32"
+                                },
+                        "proposed":  "AUTHENTICITY:the formal Codex has one official entry and one current sealed generation;identity,version,content root,lineage and seal are verified deterministically,not elected or inferred from availability or storage technology. COPIES:non-authoritative consumer copies,mirrors,exports and legacy sources never become official by location,engine name or freshness. MIGRATION:only a complete independently verified governed successor with atomic official-entry activation and rollback may replace the physical store while preserving one logical authority;legacy evidence alone grants no production execution permission. FAILURE:missing or conflicting proof denies authoritative citation;B166 and C81 tool prohibitions remain controlling."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E55"
+                                },
+                        "proposed":  "BOUNDARY:authorized downstream stores may consume Codex citations,derived status and audit results only;they cannot mutate the formal Codex. STORAGE-NO-POWER:database rows,engines,triggers,procedures and storage ownership confer no lawmaking or amendment authority. CHANGE:only the governed complete successor procedure may amend the official Codex with current permission,transaction,version,lineage,integrity and seal verification. HISTORY:sealed predecessor text remains immutable;this successor does not authorize in-place mutation of a sealed generation."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E56"
+                                },
+                        "proposed":  "AVAILABILITY:unrelated structured-data,index,network or runtime failure must not interrupt an independently verified authorized local read path to the same current formal Codex. OFFICIAL-ENTRY:read-only access retains current version,scope,integrity,lineage and seal verification. FAILURE:absence of that verified formal read path blocks dependent adjudication;no projection,legacy source or older law is automatically promoted. BOUNDARY:B166 and C81 production tool prohibitions remain controlling;availability is never an exception permitting prohibited execution."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E58"
+                                },
+                        "proposed":  "AUTHENTICITY:one registered official entry,one current sealed generation and deterministic identity,integrity,version,lineage and seal matching;storage engine choice confers no authenticity or amendment power. COPIES:mirrors,exports,caches and legacy sources are non-authoritative. SUCCESSOR:only independently verified complete governed migration may atomically activate a replacement physical store at the same logical official entry,with rollback and preserved lineage;this is not permission to run a prohibited production tool or legacy fallback. FAILURE:missing,stale or conflicting authority proof denies citation."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E166"
+                                },
+                        "proposed":  "DEPENDENCIES:criticality is determined by the current certified required-capability contract,never by engine,service or tool name. CORE-CRITICAL:failure blocks the dependent core;CAPABILITY-CRITICAL:failure blocks only the dependent capability;OPTIONAL:failure reports bounded degradation without stopping unrelated work. ORDER:follow current B26 and B30 dependency,readiness,deadline and shutdown principles;no legacy fixed sequence controls current execution. PROHIBITED-TOOLS:B166 and C81 remain controlling;criticality or availability never permits a prohibited tool or unverified fallback."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P23"
+                                },
+                        "proposed":  "FORMAL-TOOLS:only registered local-owned tool capabilities with a current owner,scope,permission and verified lifecycle may execute;concrete approved-tool inventory is a subordinate business declaration and cannot create authority. LANGUAGE:only the eight implementation languages permitted by B166;allocation remains owner-contract business detail. PROHIBITIONS:PostgreSQL production database execution,psql,Npgsql production SQL consumers and external production SQL tools,services or subprocesses remain prohibited under B166 and C81;Python remains prohibited. SUBSTITUTION:unregistered,unverified or prohibited tool substitution is forbidden."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E35"
+                                },
+                        "proposed":  "FORMAL-TOOLS:every executing formal tool is local-owned,locally hosted,registered,permission-scoped,owner-bound and lifecycle-verified under the current Codex. DECLARATION:concrete approved tool identities,versions and implementation allocations belong to subordinate business contracts,not an additional authority. PROHIBITIONS:PostgreSQL production execution,psql,Npgsql production SQL consumers and external production SQL tools,services or subprocesses remain prohibited under B166 and C81;Python remains prohibited. SUBSTITUTION:unregistered,unverified,cloud-hosted or prohibited replacements are forbidden."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E30"
+                                },
+                        "proposed":  "FUNCTIONAL-SEPARATION:source history,canonical structured data,derived semantic indexing,retrieval and inference remain distinct governed local roles;one role cannot substitute for another authority. TOOLS:executing tools require current registered identity,owner,permission,scope and verified lifecycle;concrete approved inventory remains a subordinate business declaration. LANGUAGE:follow the eight-language boundary in B166;language choice cannot create authority. UNAVAILABLE:close the affected capability without a hidden fallback. BROWSER:an authorized network channel does not become a formal-tool replacement. PROHIBITIONS:B166 and C81 prohibit PostgreSQL production execution,psql,Npgsql production SQL consumers and external production SQL tools,services or subprocesses;Python remains prohibited."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E178"
+                                },
+                        "proposed":  "LANGUAGE:current B166/B167 permitted-language boundary is normative;PYTHON+NUMPY+JAX:retired and prohibited;TEST-AUDIT-PYTHON:none;ROLES:existing sole test-orchestration+independent audit+independent evaluation verdict owners retain identity and decision rights;DECLARATIONS:per-language duties,tools,versions and UI assignments belong to subordinate business contracts;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E185"
+                                },
+                        "proposed":  "INTERFACE:one stable versioned typed public boundary with explicit ownership+lifetime+compatibility+error semantics;IMPLEMENTATION:one registered native primary owner behind the boundary;PUBLIC-INTERNAL-TYPE-LEAK+DUPLICATE-IMPLEMENTATION:none;PYBIND11:retired+forbidden,no binding/executor/adapter/reference/fallback role;DECLARATIONS:concrete language roles,header/source extensions and ABI realization belong to subordinate business contracts;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E181"
+                                },
+                        "proposed":  "DATA:project-owned in-process native SQL is structured-authority target;external SQL execution tools and PostgreSQL production/fallback are prohibited;legacy data read-only migration-source only until verified atomic cutover;QUERY:parameterized+bounded+scope-bound+set-reduction-before-unnecessary-transfer;SEMANTICS:one registered business owner interprets results without assuming data authority;PYTHON+NUMPY+JAX:retired,no data/business/workflow/SQL role;EVIDENCE:query cost+transferred rows/bytes+semantic parity;FAIL:unbounded-query+semantic-drift=deny+typed-error+audit;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E182"
+                                },
+                        "proposed":  "PLATFORM-BOUNDARY:registered owner\u003eversioned typed platform adapter\u003eauthorized OS facilities;RETURN:typed same-version reverse result;CROSS-PROCESS:information-layer;DIRECT+DUPLICATE+UNTYPED+BYPASS:none;PYTHON+NUMPY+JAX:retired,no control/business/platform role;DECLARATIONS:concrete OS framework,language and adapter selection belongs to subordinate business contracts;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E180"
+                                },
+                        "proposed":  "SOURCE:exact+exclusive+registered canonical extension per permitted language under B166/B167;ONE-FILE:one authored language;DECLARATIONS:concrete extension/parser map belongs to subordinate owner contract;PYTHON+retired-UI-source:forbidden;MISMATCH+HIDDEN-SOURCE+UNREGISTERED-LANGUAGE:none"
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E42"
+                                },
+                        "proposed":  "TEST:owner-native unit coverage+unified governed integration;OWNER:existing sole test-orchestration+independent audit owner identities and decision rights preserved;DECLARATIONS:runner languages,tools,harnesses and commands belong to subordinate owner contracts;PYTHON+PYTEST:forbidden;UNSUPPORTED:BLOCKED+release-denied;PARALLEL-ORCHESTRATOR+SELF-AUDIT+RETIRED-DELEGATION:none;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E31"
+                                },
+                        "proposed":  "INTERFACE-LAYER:presentation+interaction only;AUTHORITY:no-decision+no-direct-execution+no-canonical-data-access;BIND:all modules;DECLARATIONS:UI language,shell,toolkit and annotation choices belong to subordinate owner contracts;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "edict",
+                        "table":  "edicts",
+                        "key":  {
+                                    "provision_id":  "E38"
+                                },
+                        "proposed":  "RETRIEVAL:DAG=sole bounded acyclic global orchestration;CAG=scoped versioned non-authoritative cache;Agentic-RAG=single-agent autonomous retrieval;Multi-Agent-RAG=multi-agent collaborative retrieval;GraphRAG/TAG/Memory/Multimodal=specialized governed data paths;XRAG=context compression,not independent retrieval/cache/authority;OWNER:local-owned+single registered authority;INDEX:derived non-authoritative+scoped+current-generation;DECLARATIONS:concrete tools,index implementations and pipeline order belong to subordinate owner contracts;EXTERNAL-HOSTING+UNREGISTERED-SUBSTITUTION+SCOPE-LEAK+UNCITED-EVIDENCE:none"
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P115"
+                                },
+                        "proposed":  "LANGUAGE:current B166/B167 allowlist is normative;LANGUAGE-ROLE-MAP:subordinate adaptive owner contract,not permanent law;PYTHON+NUMPY+JAX:retired;SQL:project-owned in-process native structured authority;EXTERNAL-SQL-TOOL+POSTGRESQL-PRODUCTION/FALLBACK:none;EXISTING-ROLE-IDENTITY+INDEPENDENT-VERDICT:preserved;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P116"
+                                },
+                        "proposed":  "NATIVE-PHYSICAL-MODEL:one registered typed public interface+mechanically bounded adapter+one primary native implementation;ONE-FILE:one responsibility;DECLARATIONS:language,physical paths and concrete files belong to subordinate owner contracts;OLD-DUPLICATE-DOMAIN-MODEL:none;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P117"
+                                },
+                        "proposed":  "SOURCE:one-file=one permitted language;CLASSIFICATION:exact+exclusive+canonical;CURRENT-LANGUAGE-BOUNDARY:B166/B167;DECLARATIONS:concrete extension and parser inventory belongs to subordinate registered business contract;MISMATCH+COMPETING-LANGUAGE-ALLOWLIST+UNREGISTERED-SOURCE:none"
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P118"
+                                },
+                        "proposed":  "DATA-REDUCTION:bounded parameterized native SQL set reduction before unnecessary transfer;TRANSFER:minimal required rows+columns;SEMANTICS+ORCHESTRATION:registered owner contract under current authority boundary;PYTHON:retired,no orchestration/data/fallback role;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P119"
+                                },
+                        "proposed":  "PLATFORM-BRIDGE:registered application owner\u003eversioned typed native/platform interface\u003eauthorized OS facility;DIRECTION:request-down+typed-result-up;NO-DIRECT-BYPASS+NO-DUPLICATE-OWNER;PYTHON:retired,no orchestration hop;DECLARATIONS:language/framework implementation belongs to subordinate owner contract;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P120"
+                                },
+                        "proposed":  "NATIVE-API:single registered versioned public contract;ROUTING:deterministic+observable+owner-bound+typed-failure;OPTIMIZED-PATH:current measured benefit+semantic parity+resource and permission evidence required;PYTHON+PYBIND11:retired+forbidden,no routing/adapter/fallback role;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P121"
+                                },
+                        "proposed":  "NATIVE-RESILIENCE:unavailable native path retains last verified registered implementation or fails closed;SEMANTICS+INPUT+STATE+CONTRACT:preserved;RETRY:bounded+generation-fenced+idempotent+deadline-bound;UNAUTHORIZED-SIDE-EFFECT+DUPLICATE-EXECUTION:none;PYTHON:retired,no fallback;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P122"
+                                },
+                        "proposed":  "NATIVE-ROLE:versioned typed public interface and internal native implementation have explicit non-overlapping responsibilities;BOUNDARY:lifetime+ownership+compatibility+validation+typed failure;DECLARATIONS:concrete language/ABI choices belong to subordinate owner contracts;DUPLICATE-IMPLEMENTATION+PUBLIC-INTERNAL-TYPE-LEAK:none;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P123"
+                                },
+                        "proposed":  "NATIVE-TREE:one registered public contract+bounded adapter+single-owner native implementation;PHYSICAL-DECLARATIONS:concrete paths,files,language assignment and source extensions belong to subordinate registered owner contracts;PUBLIC-INTERNAL-TYPE-LEAK+DUPLICATE-CORE:none;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P18"
+                                },
+                        "proposed":  "CODE-ORIGIN:local-owned application source in current B166/B167 permitted-language boundary;DEPENDENCIES:explicit identity+inventory+version+license+security review+approved local execution;DECLARATIONS:concrete permitted-tool allocation and dependency versions belong to subordinate owner contracts;EXTERNAL-SERVICE:governed network-data capability only,never external execution authority;UNREGISTERED-DEPENDENCY+LANGUAGE-ALLOWLIST-EXPANSION:none"
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P20"
+                                },
+                        "proposed":  "INTERFACE-LAYER:presentation of decisions/state+interaction only;AUTHORITY:no decision+no direct execution+no canonical data access;BIND:all modules and execution surfaces;DECLARATIONS:UI toolkit,shell,framework and per-capability language assignments belong to subordinate business contracts;ADAPTATION:subject to B166/B167;implementation selection is adaptive subordinate business regulation;single-owner,authority,independent-verdict,permission,scope,resource,current-evidence,atomic-promotion and rollback invariants remain binding."
+                    },
+                    {
+                        "field":  "statement",
+                        "table":  "principles",
+                        "key":  {
+                                    "provision_id":  "P52"
+                                },
+                        "proposed":  "INDEPENDENT-TOOLS:governed owned native source under B166/B167 permitted-language principles;PRODUCTION-LAUNCH:verified precompiled native artifact with current source/build/interface/evidence lineage;SOURCE-INTERPRETATION+RUNTIME-SOURCE-COMPILATION+UNREGISTERED-PACKAGING/FALLBACK:none;DECLARATIONS:build paths,artifact packaging and launch configuration belong to subordinate owner contracts;LANGUAGE-CHOICE:cannot expand permission,resource ceilings or tool authority."
+                    }
+                ]
+}

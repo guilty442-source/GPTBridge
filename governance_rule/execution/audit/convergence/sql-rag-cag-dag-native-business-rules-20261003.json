@@ -1,0 +1,200 @@
+{
+  "schema": "sql-rag-cag-dag-native-business-rules/v1",
+  "generated_at_utc": "2026-10-03T00:00:00Z",
+  "authority": "derived-rebuildable-non-authoritative; source is the PostgreSQL codex authority plus the pending amendment request below; this file writes business rules only and implements nothing",
+  "source": {
+    "codex_version": "2026-10-03T03:20:41Z",
+    "version_identity": "E2:2026-10-03T03:20:41Z",
+    "revision_sequence": 253,
+    "amendment_request": "codex-amendment-request-sql-rag-cag-dag-native-eight-languages-20261003-r1",
+    "base_provision": "C106"
+  },
+  "rule_status": "RULE-ONLY-NO-IMPLEMENTATION",
+  "principle": "SQL+RAG-family+CAG+DAG ride one native integration plane. PostgreSQL is the sole structured business-data authority. Each capability has exactly one of the eight codex languages as owner. No Python hop. No new authority, scheduler, store, governor, or capability. Concrete planners, executors, pipeline order, tool choices, and storage implementations belong to subordinate owner contracts per B5.",
+  "lane_definitions": [
+    {
+      "lane": "DAG",
+      "zh": "工作流編排",
+      "en": "workflow-orchestration",
+      "role": "sole bounded acyclic global orchestration plane; coordinates registered executors without replacing application, permission, resource, or data authority",
+      "never": "never a data authority, permission source, or model"
+    },
+    {
+      "lane": "CAG",
+      "zh": "快取增強",
+      "en": "cache-augmentation",
+      "role": "scoped versioned non-authoritative cache gate in front of retrieval; hit serves, miss passes through, invalidation follows tombstone and version events",
+      "never": "never an authority or a retrieval source of its own"
+    },
+    {
+      "lane": "Agentic-RAG",
+      "zh": "自主檢索決策器",
+      "en": "autonomous-retrieval-decider",
+      "role": "single-agent autonomous retrieval decision: decides whether retrieval is needed, which specialized paths to fan out to, and when to stop, inside the bounded DAG",
+      "never": "never an independent orchestration plane outside the DAG"
+    },
+    {
+      "lane": "RAG",
+      "zh": "文件/語意檢索",
+      "en": "document-semantic-retrieval",
+      "role": "canonical document and semantic retrieval function over governed corpora and the derived vector index",
+      "never": "never a data authority; derived index only"
+    },
+    {
+      "lane": "GraphRAG",
+      "zh": "圖關聯檢索",
+      "en": "graph-association-retrieval",
+      "role": "governed graph-association path over PostgreSQL relations and projected adjacency; answers multi-hop association queries",
+      "never": "never an independent orchestration or authority plane"
+    },
+    {
+      "lane": "TAG",
+      "zh": "結構化資料檢索",
+      "en": "structured-data-retrieval",
+      "role": "governed structured-data path: set-based SQL over PostgreSQL formal schema with RLS, allowlisted queries only",
+      "never": "never a workflow, permission source, or business decision"
+    },
+    {
+      "lane": "Memory-RAG",
+      "zh": "長期記憶檢索",
+      "en": "long-term-memory-retrieval",
+      "role": "governed long-term-memory path: owner-scoped recall with retention, tombstone, and permission filters",
+      "never": "never an independent authority or cross-owner read path"
+    }
+  ],
+  "postgresql_business": {
+    "owns": [
+      "set-based data operations over the formal schema",
+      "integrity constraints and transactional publication barrier PREPARING>INDEXING>VERIFYING>READY",
+      "row-level security and owner-isolated persistent state",
+      "migration replay, drift check, safe structures, generation fences, recovery certification"
+    ],
+    "prohibits": [
+      "workflow orchestration",
+      "permission source or governance decision",
+      "business decision or model inference"
+    ],
+    "access": "all SQL goes through typed allowlisted contracts with module scoping; no direct table spawn outside the governed pool; every cross-engine write is a Saga with PostgreSQL as operation authority and outbox plus inbox dedup"
+  },
+  "eight_language_matrix": [
+    {
+      "language": "C",
+      "owns": "deterministic runtime, permission hot path, stable C ABI, native tests",
+      "prohibits": "UI, business rules, data authority",
+      "optimization": "fixed-width types, thin thunk delegation, zero business semantics"
+    },
+    {
+      "language": "C++23",
+      "owns": "model inference, native runtime, audit engine, resource governor, test execution hot paths",
+      "prohibits": "public application API, UI, workflow, data authority",
+      "optimization": "move semantics, string_view, reserve, release LTO builds"
+    },
+    {
+      "language": "Rust",
+      "owns": "RAG/CAG/DAG execution, vector and CPU-critical work, UI core, state, lifecycle, IPC, security, OS integration",
+      "prohibits": "governance or permission decision, business judgment",
+      "optimization": "borrowed slices, iterator pipelines, with_capacity, bounded concurrency"
+    },
+    {
+      "language": "C#",
+      "owns": "application, API, authorized workflow, Windows integration, sole test orchestration",
+      "prohibits": "F# business semantics, frontend DOM",
+      "optimization": "ValueTask async, Span slicing, struct for small data, Release optimize"
+    },
+    {
+      "language": "F#",
+      "owns": "business rules, validation, transformation, state transition, data analysis, ML and high-correctness computation",
+      "prohibits": "governance, permission, UI, flow orchestration",
+      "optimization": "tail recursion, lazy seq for large data, struct discriminated unions"
+    },
+    {
+      "language": "Go",
+      "owns": "high-concurrency network, search fan-out, file and batch I/O",
+      "prohibits": "governance, permission, business judgment",
+      "optimization": "values over pointers, make with capacity, strings.Builder, sync.Pool, bounded goroutines"
+    },
+    {
+      "language": "JavaScript-ESM-via-Bun",
+      "owns": "UI presentation, interaction, settings, tables, forms, tool panels",
+      "prohibits": "core capability, data authority, direct database, native ABI, permission or business decision",
+      "optimization": "event-driven bounded updates, no polling, vendored registered modules only"
+    },
+    {
+      "language": "SQL-PostgreSQL",
+      "owns": "set-based data operations, integrity, RLS, formal schema",
+      "prohibits": "workflow, permission source, business decision",
+      "optimization": "set-based single round trips, allowlisted statements, pool batching, RLS-filtered reads"
+    }
+  ],
+  "integration_path": "Caller>Information-Channel>Permission/Scope>RagApplicationService>DAG>CAG-Gate>RAG-family(Agentic-decides;RAG/GraphRAG/TAG/Memory-fanout)>Evidence-Fusion>Reranker>Context-Builder>Local-LLM>Citation-Validation>Result",
+  "per_tool_business_rules": [
+    {
+      "tool": "ai-assistant",
+      "business_rule_owner": "F# (rules, validation, risk checks) + C# (authorized workflow) + Rust (retrieval execution) + SQL (gptbridge_trading authority)",
+      "consumes": ["DAG", "CAG", "Agentic-RAG", "RAG", "GraphRAG", "TAG", "Memory-RAG"],
+      "rule": "market signals enter only via the governed intake; every proposal passes risk and mode gates; model output is advisory only; all positions and ledger writes resolve to PostgreSQL authority"
+    },
+    {
+      "tool": "ai-collaboration",
+      "business_rule_owner": "F# + C# + Rust + SQL",
+      "consumes": ["DAG", "CAG", "Agentic-RAG", "RAG", "Memory-RAG"],
+      "rule": "external collaboration passes the governed channel only; no direct cross-tool storage; retrieved external content is untrusted non-authoritative input"
+    },
+    {
+      "tool": "file-sorter",
+      "business_rule_owner": "F# (classification rules) + Rust (scan and hash) + Go (batch file IO) + SQL (index authority)",
+      "consumes": ["DAG", "CAG", "RAG", "TAG"],
+      "rule": "classification is a bounded DAG over file batches; TAG resolves structured file metadata; RAG resolves content semantics; PostgreSQL owns the durable index"
+    },
+    {
+      "tool": "investment-mobile",
+      "business_rule_owner": "F# (strategy validation) + C# (service layer) + C (risk core) + C++23 (strategy engine) + SQL",
+      "consumes": ["DAG", "CAG", "TAG", "Memory-RAG"],
+      "rule": "engine cluster executes under ai-assistant business ownership; relay is investment-mobile>xingcheng>ai-assistant; TAG owns market-data reads; Memory-RAG recalls owner-scoped strategy memory"
+    },
+    {
+      "tool": "local-model",
+      "business_rule_owner": "C++23 (inference) + Rust (lifecycle) + C# (API) + F# (eval and validation)",
+      "consumes": ["DAG", "CAG", "RAG", "Memory-RAG"],
+      "rule": "on-demand resident model; CAG fronts repeated prompts; RAG grounds generation; Memory-RAG recalls session memory; F# validates outputs before delivery"
+    },
+    {
+      "tool": "model-dialogue",
+      "business_rule_owner": "F# (intent, plan, grounding rules) + C# (routing) + Rust (UI core) + JS-ESM (presentation) + SQL",
+      "consumes": ["DAG", "CAG", "Agentic-RAG", "RAG", "GraphRAG", "TAG", "Memory-RAG"],
+      "rule": "intent classifies in F#, plan builds tool lists, Agentic-RAG decides retrieval fan-out, DAG orchestrates, CAG gates cache, evidence fuses before generation, citations validate after"
+    },
+    {
+      "tool": "xingcheng",
+      "business_rule_owner": "F# (evaluation, analysis) + C++23 (training and inference) + Rust (runtime host, data formats) + C# (governance) + SQL (structured metadata authority)",
+      "consumes": ["DAG", "CAG", "Agentic-RAG", "RAG", "GraphRAG", "TAG", "Memory-RAG"],
+      "rule": "single native core; capabilities ride it as descriptors, never as separate runtimes; PostgreSQL owns structured metadata, xstore owns objects and hashes only; every learning cycle passes quality, permission, resource, evaluation, rollback, and activation gates"
+    },
+    {
+      "tool": "vaultly",
+      "business_rule_owner": "F# + C# + Rust + SQL",
+      "consumes": ["DAG", "CAG", "TAG", "Memory-RAG"],
+      "rule": "secret and credential business defers to the security plane; TAG resolves structured vault metadata; Memory-RAG is owner-scoped only; no cross-tool reads"
+    },
+    {
+      "tool": "shared-layer",
+      "business_rule_owner": "C# (contracts, channels) + Rust (transport) + F# (validation) + SQL (transport, outbox, audit authority)",
+      "consumes": ["DAG", "CAG", "RAG", "TAG"],
+      "rule": "owns the information channel, transport priority queue, outbox plus inbox dedup, and Saga operation authority; never owns tool business semantics"
+    },
+    {
+      "tool": "business-logic-hosts",
+      "business_rule_owner": "F# StarDomain owns intent, plan, and grounding pure rules; C# StarBusinessLogic owns routing and orchestration consumption only",
+      "consumes": ["DAG", "CAG", "Agentic-RAG", "RAG", "GraphRAG", "TAG", "Memory-RAG"],
+      "rule": "F# pure functions decide intent, tool lists, evidence selection; C# consumes the typed contracts without redefining them; retrieval executes in Rust, data resolves in SQL"
+    }
+  ],
+  "fail_closed": [
+    "unknown lane name fails closed",
+    "cache treated as authority fails closed",
+    "specialized path claiming orchestration fails closed",
+    "cross-owner read without scope fails closed",
+    "SQL outside allowlist fails closed",
+    "second implementation of an owned capability fails closed"
+  ]
+}

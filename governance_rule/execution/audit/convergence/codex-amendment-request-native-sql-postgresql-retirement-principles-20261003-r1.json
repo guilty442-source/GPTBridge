@@ -1,0 +1,90 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "native-sql-postgresql-retirement-principles-20261003-r1",
+    "title":  "Native SQL authority target and evidence-gated PostgreSQL retirement",
+    "summary":  "Explicit user retirement/native SQL directive. Seven controlling principles target one project-owned in-process SQL authority with no external tools/services/subprocesses. Preserve complete source data and readonly migration access until transactional,permission,audit,recovery,current-generation parity and atomic cutover/rollback gates pass. No production retirement or release certification inferred from this law amendment.",
+    "requested_by":  "permission-sovereign",
+    "origin":  "user explicit 2026-10-03 instruction",
+    "problem":  "Current principles require PostgreSQL whereas user directs in-process native SQL and retirement",
+    "acceptance":  [
+                       "native SQL target registered in controlling storage/language/integration principles",
+                       "no external SQL execution tools in production contract",
+                       "legacy data preserved and cutover fails closed without independent evidence",
+                       "language choice never creates parallel authority"
+                   ],
+    "change_class":  "architecture-authority",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-03T02:53:48Z",
+                        "revision_sequence":  250,
+                        "version_identity":  "E2:2026-10-03T02:53:48Z",
+                        "history_head":  "4a3e832789405fa4f20656c5140d6390e0b96426e0a27fc3b53b1e5ec6e56ff7"
+                    },
+    "scope":  [
+                  "table:articles",
+                  "field:articles.rule"
+              ],
+    "changes":  [
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B166"
+                                },
+                        "proposed":  "LANGUAGE-AUTHORITY:this provision is the sole current Codex-level language-allocation and UI-stack controller and records principles only;per B5 every per-capability language division,tool name,version pin,UI-shell selection and implementation detail is governed outside the Codex by the responsible owner through the registered language contract and governed dependency directories,and such external facts are subordinate operational artifacts that never amend law. NATIVE-ONLY:production uses verified precompiled native artifacts;no interpreter,script engine or runtime-source compiler enters production. PYTHON:total-ban with zero source,runtime,interpreter,environment,package,dependency,build,test,audit,training,inference,script,tool,artifact,proxy,bridge,reference or fallback. ONE-OWNER:each capability has exactly one current primary language owner under a typed boundary;allocation changes only inside the same registered capability contract and resource ceiling with atomic promotion and rollback. NO-AUTHORITY-DRIFT:language choice never creates authority,changes business semantics,bypasses permission or introduces a second scheduler or orchestrator. DATA:project-owned in-process native SQL is the structured authority target;PostgreSQL is retired from the target production contract,not a fallback or application-language owner;one registered canonical store per domain;cutover requires complete data,schema,permission,audit,transaction,recovery and current-generation parity evidence plus atomic promotion and rollback;legacy PostgreSQL data is preserved as a read-only migration source until validated cutover and is never a second active writer;no retirement certification is inferred from language permission or implementation labels. FAILURE:missing or regressing evidence retains the current verified owner or fails closed."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C16"
+                                },
+                        "proposed":  "OFFICIAL-STORAGE:single project-owned in-process native SQL authority;no external database tool,service or subprocess in production SQL execution; SCHEMA:declared+frozen+validated; ACCESS:single-read-entry; MIGRATION:complete-successor-candidate-only with data+schema+transaction+permission+audit+recovery+current-generation parity,atomic cutover and rollback;legacy data preserved until independently verified; PYTHON-READER:retired"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C81"
+                                },
+                        "proposed":  "SQL-AUTHORITY:one registered project-owned in-process native SQL authority;no external SQL tool,service or execution subprocess;PostgreSQL is a read-only legacy migration source only until evidence-gated cutover. GOVERNANCE-ENGINE:SQL inventory,migration,drift,security projection,transport,audit,backup,capacity,maintenance and readiness workflows are scheduled only as the SQL plane of the single C50 governance engine;the SQL plane has registered executors but no independent scheduler,coordinator or governance authority. TRIGGER:migration,schema,role,RLS,index,restore,connection-generation and workload-health events. SAFE-ACTIONS:ordered migration,validated native analysis and compaction,registered additive index,pool or batch adjustment,generation fence,read-only switch and evidence refresh within current authority and permission. GIT-BINDING:SQL migrations carried by Git bind immutable commit identity,migration-chain identity,target schema generation and native SQL execution receipt;Git proves source provenance,the canonical native SQL engine proves applied SQL state,and only the governance engine may join them into a convergence verdict. UNSAFE:destructive DDL,unknown effect,authority conflict,missing receipt or generation mismatch fails closed and quarantines;no alternate SQL engine or manual normal path."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C84"
+                                },
+                        "proposed":  "Every project-owned in-process native SQL schema,table,view,function,trigger,index,policy and role projection has object identity,database,schema,object type,owner module,authority class,data class,introducing migration,current definition hash and status."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C106"
+                                },
+                        "proposed":  "PROJECT-WIDE-HYBRID:DAG=sole global orchestration plane through RagDagPlanner+RagDagExecutor;CAG=scoped versioned non-authoritative cache plane;Agentic-RAG=single-agent autonomous retrieval;Multi-Agent-RAG=multiple-agent collaborative retrieval under the same bounded DAG;GraphRAG+TAG+Memory+Multimodal=specialized governed data paths,never independent orchestration or authority planes;XRAG=context compression after governed evidence retrieval,never independent retrieval,authority or a cache;RAG=canonical retrieval plane;GAG is not a separate architecture and resolves to DAG. PATH:Caller\u003eInformation-Channel\u003ePermission/Scope\u003eRagApplicationService\u003eDAG\u003eCAG-Gate\u003eRAG\u003eEvidence-Fusion\u003eReranker\u003eContext-Builder\u003eLocal-LLM\u003eCitation-Validation\u003eResult. FULL-AUTOMATION:source-revision+lifecycle+permission+contract+schema+migration+chunking+embedding+reranker+model+cache+index+tombstone/deletion events trigger one bounded maintenance DAG; affected scope is calculated automatically; RAG incrementally upserts/tombstones/orphan-scans/rebuilds Rust vector projections; CAG invalidates/verifies/expires/evicts scoped entries; DAG recompiles/validates/switches immutable acyclic generations and recovers verified checkpoints; SQL replays migrations,checks drift,maintains safe structures/fences generations/certifies recovery; low-frequency full reconciliation is compensation only. AUTHORITY:project-owned in-process native SQL structured authority+Rust-Vector-Engine derived index+CAG derived cache; PUBLICATION:PREPARING\u003eINDEXING\u003eVERIFYING\u003eREADY atomically; SAFETY:deterministic reversible work executes automatically;unknown-effect/destructive/authority-conflict fails closed+quarantines; EVIDENCE:each run binds inputs+versions+roots+counts+orphans+invalidations+resources+latency+result"
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C107"
+                                },
+                        "proposed":  "Five-plane integration and automated division of labor: Git is the source and history authority (never a data authority); project-owned in-process native SQL is canonical; RAG is the canonical retrieval plane; CAG is a safe, versioned, scoped, non-authoritative cache; DAG is the bounded acyclic orchestration plane (query / multi-RAG / index / rebuild / repair) and never replaces the Application Service.\nSovereigns decide and divide work only; registered module executors perform it; workers and the self-commit service never push; conflicts stop the cycle for human resolution; timeouts fail closed; a CAG hit is never authority; a DAG must not be cyclic or unbounded; every automatic action is auditable."
+                    },
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C100"
+                                },
+                        "proposed":  "受治理來源經權限驗證、切塊、project-owned in-process native SQL 正式中繼資料、Rust 向量引擎語意候選、融合、重排及證據上下文形成結果。"
+                    }
+                ]
+}

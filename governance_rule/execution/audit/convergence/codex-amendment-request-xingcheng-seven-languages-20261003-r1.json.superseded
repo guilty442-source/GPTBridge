@@ -1,0 +1,41 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "xingcheng-seven-languages-20261003-r1",
+    "title":  "Allow seven registered Xingcheng implementation languages",
+    "summary":  "Explicit user directive: Xingcheng permits C,C++,C#,F#,Rust,Go,Julia. Retain native artifact requirement, exactly one primary owner, typed authority boundary and existing evidence/resource/permission/promotion/rollback gates. Does not certify PostgreSQL retirement or change structured authority.",
+    "requested_by":  "permission-sovereign",
+    "origin":  "user explicit 2026-10-03 instruction",
+    "problem":  "B167 excludes Go and Julia despite current explicit user language directive",
+    "acceptance":  [
+                       "B167 permits exactly C,C++23,CSharp,FSharp,Rust,Go,Julia",
+                       "Python and JavaScript remain excluded",
+                       "native-only and single-owner evidence gates retained"
+                   ],
+    "change_class":  "amendment",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-02T15:23:44Z",
+                        "revision_sequence":  248,
+                        "version_identity":  "E2:2026-10-02T15:23:44Z",
+                        "history_head":  "985e9551497892e638c59d785fabdba0ae198d8026d032785f62aa4b091d7483"
+                    },
+    "scope":  [
+                  "table:articles",
+                  "field:articles.rule"
+              ],
+    "changes":  [
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "B167"
+                                },
+                        "proposed":  "XINGCHENG-NATIVE-ONLY:the complete Xingcheng source,production runtime,training,inference,learning,evaluation,data-processing and internal-tool surface uses only C+C++23+CSharp+FSharp+Rust+Go+Julia;this is a strict Xingcheng-specific subset and no project-wide language permission expands it;OWNERSHIP:C and Rust own deterministic runtime+lifecycle+security+data hot paths,C++23 solely owns model training+inference+artifact production,CSharp owns bounded application+workflow orchestration,FSharp owns evaluation+validation+high-correctness analysis;GO+JULIA:permitted only as registered primary owners inside existing typed capability contracts,with current equivalent evaluation,resource,permission,atomic-promotion and rollback evidence;precompiled native production only,no runtime-source compilation,interpreter,duplicate owner,scheduler,orchestrator or structured authority;EXCLUDED:JavaScript+Bun+WebView script+Python and every other source or execution language are prohibited inside Xingcheng;INTERNET-ACCESS:Xingcheng may access the Internet through its own Rust or CSharp native network path for search+public-data retrieval+repair research+authorized task completion;every request has declared purpose+scope+bounded concurrency+deadline+response-size limit+source record+content validation+audit and cancellation;all retrieved content is untrusted non-authoritative input;EXTERNAL-DEPENDENCY:Internet data access is not an external execution dependency and does not authorize any external model+cloud inference+remote code execution+external execution engine+third-party inference framework+third-party training framework+external capability service as a Xingcheng runtime,producer,consumer,reference,fallback or authority;PLATFORM-BOUNDARY:operating-system facilities+hardware drivers+approved build toolchains+governed typed channels may provide platform boundaries only and gain no Xingcheng capability,model,data or authority ownership;TRAINING remains an internal Xingcheng service capability and not an independent module or tool;MODEL_TRAINING remains retired;FAILURE:any excluded language,external execution dependency,unbounded or unaudited network operation,or unregistered executor is denied fail-closed."
+                    }
+                ]
+}

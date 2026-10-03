@@ -1,0 +1,41 @@
+﻿{
+    "artifact":  "codex-amendment-request",
+    "authority":  "request-only",
+    "schema":  "codex-amendment-request/v2",
+    "request_id":  "retrieval-plane-role-convergence-20261003-r1",
+    "title":  "Align retrieval architecture responsibilities with explicit user directive",
+    "summary":  "DAG global orchestration; CAG cache; Agentic RAG single-agent autonomous retrieval; Multi-Agent RAG collaborative retrieval; GraphRAG,TAG,Memory,Multimodal specialized data paths; XRAG context compression. Existing permissions,evidence,resource,bounded execution and authority gates retained.",
+    "requested_by":  "permission-sovereign",
+    "origin":  "user explicit 2026-10-03 instruction",
+    "problem":  "C106 collapses specialized data paths and cache/context responsibilities",
+    "acceptance":  [
+                       "exact user plane roles recorded",
+                       "no new authority, capability or scheduler created",
+                       "existing canonical authority unchanged pending verified PostgreSQL retirement migration"
+                   ],
+    "change_class":  "provision-scope",
+    "required_review":  "five-sovereign-audit-unanimous-pass",
+    "flow":  "A382/A488-non-disruptive-amendment-flow",
+    "not_executed":  true,
+    "predecessor":  {
+                        "version_epoch":  2,
+                        "codex_version":  "2026-10-03T02:50:14Z",
+                        "revision_sequence":  249,
+                        "version_identity":  "E2:2026-10-03T02:50:14Z",
+                        "history_head":  "0caf7365eb524677d60e4a7bf9df37b2ad95bf236e071946a86855ec1b06dcd5"
+                    },
+    "scope":  [
+                  "table:articles",
+                  "field:articles.rule"
+              ],
+    "changes":  [
+                    {
+                        "field":  "rule",
+                        "table":  "articles",
+                        "key":  {
+                                    "provision_id":  "C106"
+                                },
+                        "proposed":  "PROJECT-WIDE-HYBRID:DAG=sole global orchestration plane through RagDagPlanner+RagDagExecutor;CAG=scoped versioned non-authoritative cache plane;Agentic-RAG=single-agent autonomous retrieval;Multi-Agent-RAG=multiple-agent collaborative retrieval under the same bounded DAG;GraphRAG+TAG+Memory+Multimodal=specialized governed data paths,never independent orchestration or authority planes;XRAG=context compression after governed evidence retrieval,never independent retrieval,authority or a cache;RAG=canonical retrieval plane;GAG is not a separate architecture and resolves to DAG. PATH:Caller\u003eInformation-Channel\u003ePermission/Scope\u003eRagApplicationService\u003eDAG\u003eCAG-Gate\u003eRAG\u003eEvidence-Fusion\u003eReranker\u003eContext-Builder\u003eLocal-LLM\u003eCitation-Validation\u003eResult. FULL-AUTOMATION:source-revision+lifecycle+permission+contract+schema+migration+chunking+embedding+reranker+model+cache+index+tombstone/deletion events trigger one bounded maintenance DAG; affected scope is calculated automatically; RAG incrementally upserts/tombstones/orphan-scans/rebuilds Rust vector projections; CAG invalidates/verifies/expires/evicts scoped entries; DAG recompiles/validates/switches immutable acyclic generations and recovers verified checkpoints; SQL replays migrations,checks drift,maintains safe structures/fences generations/certifies recovery; low-frequency full reconciliation is compensation only. AUTHORITY:PostgreSQL structured authority+Rust-Vector-Engine derived index+CAG derived cache; PUBLICATION:PREPARING\u003eINDEXING\u003eVERIFYING\u003eREADY atomically; SAFETY:deterministic reversible work executes automatically;unknown-effect/destructive/authority-conflict fails closed+quarantines; EVIDENCE:each run binds inputs+versions+roots+counts+orphans+invalidations+resources+latency+result"
+                    }
+                ]
+}

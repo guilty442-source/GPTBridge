@@ -1,0 +1,60 @@
+{
+  "artifact": "codex-amendment-request",
+  "authority": "request-only",
+  "schema": "codex-amendment-request/v2",
+  "request_id": "sql-rag-cag-dag-native-eight-languages-20261003-r2",
+  "title": "SQL/RAG/CAG/DAG native integration with PostgreSQL business ownership and eight-language optimization, rules only",
+  "summary": "Binds SQL+RAG-family+CAG+DAG into one native integration plane; PostgreSQL owns structured business data only; stamps the seven user lane definitions; re-optimizes every lane by the eight codex languages with exactly-one-owner; writes business rules only, no implementation.",
+  "requested_by": "permission-sovereign",
+  "origin": "user explicit 2026-10-03 instruction: SQL/RAG/CAG/DAG native integration, PostgreSQL business ownership, eight-language optimization, all business rules, no implementation",
+  "problem": {
+    "summary": "C106 defines the hybrid plane but does not bind SQL native integration, PostgreSQL business-data ownership, the exact seven user lane definitions, or the eight-language exactly-one-owner optimization; subordinate business rules lack a single native-integration reference and risk parallel authority or duplicated orchestration.",
+    "current": "C106 hybrid plane exists; per-lane native ownership and PostgreSQL business boundary are scattered across language projections and subordinate contracts.",
+    "impact": "Without a single rule binding, SQL/RAG/CAG/DAG work can drift into duplicated orchestration, cache-as-authority, or cross-language reimplementation."
+  },
+  "change_class": "provision-scope",
+  "required_review": "five-sovereign-audit-unanimous-pass",
+  "flow": "A382/A488-non-disruptive-amendment-flow",
+  "not_executed": true,
+  "predecessor": {
+    "codex_version": "2026-10-03T03:26:10Z",
+    "version_identity": "E2:2026-10-03T03:26:10Z",
+    "version_epoch": 2,
+    "history_head": "b67fc0a52b34352282c313dedac083c54d5745744e65d01134e008fa943f2876",
+    "revision_sequence": 254
+  },
+  "scope": [
+    "table:articles",
+    "field:articles.rule"
+  ],
+  "changes": [
+    {
+      "table": "articles",
+      "key": {
+        "provision_id": "C106"
+      },
+      "field": "rule",
+      "proposed": "NATIVE-INTEGRATION:SQL+RAG-family+CAG+DAG ride one native integration plane;no Python hop;no new authority/scheduler/store/governor/capability;PostgreSQL is the sole structured business-data authority (set-based ops+integrity+RLS+formal schema;never workflow/permission-source/business-decision).DEFINITIONS:DAG=workflow-orchestration sole bounded acyclic global orchestration;CAG=cache-augmentation scoped versioned non-authoritative cache gate;Agentic-RAG=autonomous-retrieval-decider single-agent autonomous retrieval decision;RAG=document-semantic-retrieval canonical doc/semantic retrieval;GraphRAG=graph-association-retrieval governed graph path;TAG=structured-data-retrieval governed structured path;Memory-RAG=long-term-memory-retrieval governed memory path;specialized paths never own orchestration/authority.EIGHT-LANGUAGE-OPTIMIZATION:each capability has exactly one owner;C owns deterministic-runtime+stable-ABI+permission-hot-path+native-tests;CPP23 owns model-inference+native-runtime+audit-engine+resource-governor;RUST owns RAG/CAG/DAG+vector+UI-core+state+lifecycle+IPC+security;CSHARP owns app+API+authorized-workflow+sole-test-orchestration;FSHARP owns business-rules+validation+transform+state-transition+analysis;GO owns concurrent-network+search+file+batch-IO;JS-ESM owns UI-presentation only;SQL owns set-based-data only;adapters convert types/errors/lifecycle/transport only.PATH:Caller>Information-Channel>Permission/Scope>RagApplicationService>DAG>CAG-Gate>RAG-family>Evidence-Fusion>Reranker>Context-Builder>Local-LLM>Citation-Validation>Result.RULE-ONLY:this amendment writes business rules only;no implementation;concrete planners/executors/pipeline-order/tool-choices/storage-impls belong to subordinate owner contracts per B5."
+    }
+  ],
+  "acceptance": {
+    "expected_state": "C106 binds native integration, PostgreSQL business-data ownership, the seven lane definitions, and eight-language exactly-one-owner optimization as rules only, with no new authority and no implementation change.",
+    "criteria": [
+      "seven lane definitions recorded with user-given semantics",
+      "PostgreSQL boundary is set-based-data only, never workflow or business decision",
+      "each lane maps to exactly one of the eight codex languages",
+      "no new authority, capability, scheduler, store, or governor created",
+      "no source implementation modified by this amendment"
+    ],
+    "evidence": [
+      "governance_rule/execution/audit/convergence/sql-rag-cag-dag-native-business-rules-20261003.json",
+      "five-sovereign audit unanimous pass on successor candidate"
+    ],
+    "out_of_scope": [
+      "concrete planner/executor code, pipeline order tuning, and storage implementations remain in subordinate owner contracts",
+      "PostgreSQL retirement or authority migration is not certified by this amendment"
+    ]
+  },
+  "supersedes": "sql-rag-cag-dag-native-eight-languages-20261003-r1",
+  "supersede_reason": "r1 predecessor went stale (rev 253) when a concurrent amendment published rev 254; r2 re-anchors to the live head with identical payload"
+}
