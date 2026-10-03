@@ -60,6 +60,7 @@ pub const RECORD_TYPES: &[&str] = &[
     RT_CAP_MATURITY, RT_GENERATION, RT_LIFECYCLE, RT_SELFLEARN,
     RT_MATURATION, RT_TEACHER, RT_GRANT_REF, RT_RES_RECEIPT,
     RT_SCHEMA_META, RT_MIGRATION, RT_ROLE_EXAMPLE, RT_ROLE_PAIR,
+    "rag_generation", "rag_chunk", "rag_resource", "rag_tombstone", "rag_index_state",
 ];
 
 /// Append-only types: a committed record may never be mutated (§5 —

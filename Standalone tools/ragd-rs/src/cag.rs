@@ -3,7 +3,7 @@
 //! Cache-Augmented Generation: bounded L1-L3 caches behind the CAG
 //! Gate. Every lookup runs the gate — a denied or expired entry is
 //! never returned. Caches carry derived/cache authority only and are
-//! never an official fact source (PostgreSQL stays canonical).
+//! never an official fact source (xstore stays canonical).
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};

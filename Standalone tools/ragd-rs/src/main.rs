@@ -1,21 +1,21 @@
 //! ragd — GPTBridge governed Rust RAG orchestration service.
 //!
 //! Contract `ragd/v1` (increment 1): canonical dense query read path.
-//! vectord generates candidates; PostgreSQL stays the sole authority —
-//! every hit is proved against `gptbridge_rag.chunk` + `gptbridge_index.
-//! resource` + `gptbridge_rag.tombstone` + `gptbridge_rag.index_state`
+//! vectord generates candidates; xstore canonical replay supplies authority —
+//! every hit is proved against migrated chunk + resource records;
+//! tombstones and index state are read from the same canonical replay.
 //! before entering the evidence pool (A610/A374, pipeline.py read
-//! barrier).  Loopback-only; PG failure is fail-closed (zero hits).
+//! barrier). Loopback-only; migration or integrity failures reject authority.
 
 mod barrier;
 mod cag;
 mod context;
 mod dag;
-mod dsn;
+
 mod evidence;
 mod fusion;
 mod http;
-mod pg;
+mod native_authority;
 mod retrieve;
 mod vectord;
 
@@ -38,38 +38,24 @@ const MAX_HEADER_BYTES: usize = 16 * 1024;
 
 pub(crate) struct App {
     pub vectord_base: String,
-    pub dsn: Option<String>,
-    pub pg: Mutex<Option<pg::Authority>>,
+    pub metadata_store: Option<std::path::PathBuf>,
+
     pub cache: Mutex<cag::CagCacheStore>,
     pub conn: ConnStats,
     started: Instant,
 }
 
 impl App {
-    /// Lazily (re)connect the authority client. A dead connection is
-    /// dropped and retried once per call — never cached across errors.
-    pub(crate) fn with_pg<T>(
+    /// Every authority closure sees one canonical replay, including all joins.
+    pub(crate) fn with_authority<T>(
         &self,
-        f: impl FnOnce(&mut pg::Authority) -> Result<T, String>,
+        f: impl FnOnce(&mut native_authority::Authority) -> Result<T, String>,
     ) -> Result<T, String> {
-        let mut guard = self.pg.lock().map_err(|_| "PG_LOCK".to_string())?;
-        if guard.is_none() {
-            let dsn = self
-                .dsn
-                .clone()
-                .ok_or_else(|| "DSN_UNAVAILABLE".to_string())?;
-            *guard = Some(pg::Authority::connect(&dsn)?);
-        }
-        match f(guard.as_mut().unwrap()) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                *guard = None;
-                Err(e)
-            }
-        }
+        let path = self.metadata_store.as_ref().ok_or("RAG_METADATA_STORE_REQUIRED")?;
+        let mut authority = native_authority::Authority::open(path)?;
+        f(&mut authority)
     }
 }
-
 fn is_loopback_bind(bind: &str) -> bool {
     let host = bind
         .rsplit_once(':')
@@ -333,7 +319,7 @@ fn handle_query(app: &App, body: &[u8]) -> Value {
     let explicit_gen = req.get("generation_id").and_then(Value::as_str);
     let active_gen: Option<String> = match explicit_gen {
         Some(g) => Some(g.to_string()),
-        None => match app.with_pg(|pg| pg.active_generation(alias)) {
+        None => match app.with_authority(|pg| pg.active_generation(alias)) {
             Ok(g) => g,
             Err(_) => None,
         },
@@ -363,7 +349,7 @@ fn handle_query(app: &App, body: &[u8]) -> Value {
     }
 
     let (chunk_rows, index_states, authority_error) =
-        match app.with_pg(|pg| {
+        match app.with_authority(|pg| {
             let chunks = pg.chunks_for_points(&module_ids, &point_ids)?;
             let mut states = HashMap::new();
             for (mid, rids) in &rids_by_module {
@@ -407,7 +393,8 @@ fn route(app: &Arc<App>, method: &str, path: &str, body: &[u8]) -> Value {
             "service": "ragd",
             "version": VERSION,
             "vectord": app.vectord_base,
-            "dsn_configured": app.dsn.is_some(),
+            "metadata_authority": "xstore",
+            "metadata_store_configured": app.metadata_store.is_some(),
             "uptime_s": app.started.elapsed().as_secs(),
             "cag": app.cache.lock().map(|c| c.stats()).unwrap_or_default(),
             "conn": app.conn.snapshot(),
@@ -415,6 +402,23 @@ fn route(app: &Arc<App>, method: &str, path: &str, body: &[u8]) -> Value {
         ("POST", "/v1/rag/query") => handle_query(app, body),
         ("POST", "/v1/retrieve") => retrieve::handle_retrieve(app, body),
         _ => err("NOT_FOUND"),
+    }
+}
+
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+    #[test]
+    fn explicit_generation_cannot_bypass_unmigrated_authority() {
+        let app=Arc::new(App {
+            vectord_base:DEFAULT_VECTORD.into(),metadata_store:None,
+            cache:Mutex::new(cag::CagCacheStore::new()),conn:ConnStats::new(),started:Instant::now(),
+        });
+        let request=json!({"query":"proof","module_ids":["m"],"generation_id":"caller-generation","use_cache":true});
+        let result=route(&app,"POST","/v1/retrieve",&serde_json::to_vec(&request).unwrap());
+        assert_eq!(result["ok"],false);
+        assert_eq!(result["error"],"AUTHORITY_UNAVAILABLE");
+        assert_eq!(result["authority_error"],"RAG_METADATA_STORE_REQUIRED");
     }
 }
 
@@ -431,7 +435,8 @@ fn main() {
     let mut bind = DEFAULT_BIND.to_string();
     let mut vectord_base = std::env::var("VECTORD_URL")
         .unwrap_or_else(|_| DEFAULT_VECTORD.to_string());
-    let mut dsn_arg: Option<String> = None;
+    let mut metadata_store = std::env::var_os("GPTBRIDGE_RAG_METADATA_STORE").map(std::path::PathBuf::from);
+    let mut migration_source: Option<std::path::PathBuf> = None;
     let args: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i < args.len() {
@@ -444,10 +449,15 @@ fn main() {
                 vectord_base = args[i + 1].clone();
                 i += 2;
             }
-            "--dsn" if i + 1 < args.len() => {
-                dsn_arg = Some(args[i + 1].clone());
+            "--metadata-store" if i + 1 < args.len() => {
+                metadata_store = Some(args[i + 1].clone().into());
                 i += 2;
             }
+            "--migrate-rag-source" if i + 1 < args.len() => {
+                migration_source = Some(args[i + 1].clone().into());
+                i += 2;
+            }
+            "--dsn" => { eprintln!("POSTGRESQL_RETIRED_USE_METADATA_STORE"); std::process::exit(2); }
             _ => i += 1,
         }
     }
@@ -459,18 +469,23 @@ fn main() {
         std::process::exit(2);
     }
 
-    let dsn = match dsn::resolve_dsn(dsn_arg.as_deref()) {
-        Ok(d) => Some(d),
-        Err(e) => {
-            eprintln!("ragd: {} — query path will fail closed", e);
-            None
+    if let Some(source_path) = migration_source {
+        let result = (|| -> Result<Value, String> {
+            let store = metadata_store.as_ref().ok_or("RAG_METADATA_STORE_REQUIRED")?;
+            let bytes = std::fs::read(&source_path).map_err(|e| e.to_string())?;
+            let source: Value = serde_json::from_slice(&bytes).map_err(|e|e.to_string())?;
+            xstore::rag::migrate(store, &source)
+        })();
+        match result {
+            Ok(receipt) => println!("{}", receipt),
+            Err(error) => { eprintln!("{}", error); std::process::exit(2); }
         }
-    };
-
+        return;
+    }
     let app = Arc::new(App {
         vectord_base,
-        dsn,
-        pg: Mutex::new(None),
+        metadata_store,
+
         cache: Mutex::new(cag::CagCacheStore::new()),
         conn: ConnStats::new(),
         started: Instant::now(),

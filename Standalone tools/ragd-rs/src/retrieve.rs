@@ -6,9 +6,9 @@
 //!   retrieval (bounded lane fan-out) -> fusion -> rerank -> context-build
 //!
 //! Retrieval lanes mirror the Python retrievers:
-//!   hybrid : vectord dense + PostgreSQL FTS -> channel_fusion_hybrid (RRF)
-//!   code   : vectord dense + PostgreSQL FTS -> RRF + symbol boost
-//!   memory : vectord dense + PostgreSQL FTS -> RRF -> scope filter
+//!   hybrid : vectord dense + native lexical retrieval -> channel_fusion_hybrid (RRF)
+//!   code   : vectord dense + native lexical retrieval -> RRF + symbol boost
+//!   memory : vectord dense + native lexical retrieval -> RRF -> scope filter
 //!            -> memory_score composite
 //!
 //! Every dense candidate is proved through the canonical PG read
@@ -98,7 +98,7 @@ fn dense_lane(
                 .push(rid.to_string());
         }
     }
-    let (chunk_rows, index_states) = app.with_pg(|pg| {
+    let (chunk_rows, index_states) = app.with_authority(|pg| {
         let chunks = pg.chunks_for_points(module_ids, &point_ids)?;
         let mut states = HashMap::new();
         for (mid, rids) in &rids_by_module {
@@ -126,7 +126,7 @@ fn sparse_lane(
     limit: usize,
     rag_type: RagArchitecture,
 ) -> Result<Vec<RagEvidence>, String> {
-    let rows = app.with_pg(|pg| pg.keyword_search(module_ids, query, limit))?;
+    let rows = app.with_authority(|pg| pg.keyword_search(module_ids, query, limit))?;
     if rows.is_empty() {
         return Ok(Vec::new());
     }
@@ -141,7 +141,7 @@ fn sparse_lane(
                 .push(rid.to_string());
         }
     }
-    let index_states = app.with_pg(|pg| {
+    let index_states = app.with_authority(|pg| {
         let mut states = HashMap::new();
         for (mid, rids) in &rids_by_module {
             for (rid, status) in pg.index_states(mid, rids)? {
@@ -1147,12 +1147,17 @@ pub fn handle_retrieve(app: &Arc<App>, body: &[u8]) -> Value {
         Ok(r) => r,
         Err(v) => return v,
     };
+    // Cached semantic evidence never bypasses current canonical integrity,
+    // even when the caller supplies a generation id.
+    if let Err(error)=app.with_authority(|_|Ok(())) {
+        return json!({"ok":false,"contract":crate::CONTRACT,"error":"AUTHORITY_UNAVAILABLE","authority_error":error});
+    }
 
     // Resolve the active generation once — used by the dense barrier
     // and as CAG key material.
     let alias = "gptbridge_rag";
     let active_generation: Option<String> = if req.generation_id.is_empty() {
-        app.with_pg(|pg| pg.active_generation(alias))
+        app.with_authority(|pg| pg.active_generation(alias))
             .ok()
             .flatten()
     } else {

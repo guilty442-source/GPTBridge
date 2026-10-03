@@ -12,7 +12,7 @@ pub struct Hit {
 }
 
 /// Dense candidates for `text`/`vector` restricted to `module_ids`
-/// (engine-side pre-filter; the PostgreSQL read barrier re-proves every
+/// (engine-side pre-filter; the xstore read barrier re-proves every
 /// hit — scope enforcement never depends on this filter).
 pub fn search(
     base: &str,

@@ -5,7 +5,7 @@ RAG→rust). Loopback-only HTTP/JSON; refuses non-loopback binds.
 
 ## Authority boundary
 
-ragd owns **retrieval orchestration only**. PostgreSQL remains the sole
+ragd owns **retrieval orchestration only**. xstore canonical event replay is the sole
 canonical authority: every vector candidate returned by vectord is
 re-proved against `gptbridge_rag.chunk` ⨝ `gptbridge_index.resource`
 (`index_status NOT IN tombstoned/deleted/purged` ∧ `NOT EXISTS
@@ -15,13 +15,13 @@ the ACTIVE generation — a direct port of
 `core_system/rag/pipeline.py::_apply_read_barrier`.
 
 Fail-closed: unreachable vectord → `CANDIDATE_FETCH_FAILED`; unreachable
-or erroring PostgreSQL → zero hits with `authority_error` set (a hit is
+or invalid/unmigrated xstore → zero hits with `authority_error` set (a hit is
 never returned unproved). An empty `module_ids` scope is rejected.
 
 ## Routes
 
 - `GET /healthz` → `{ok, contract, service:"ragd", version, vectord,
-  dsn_configured, uptime_s, cag}`
+  metadata_authority, metadata_store_configured, uptime_s, cag}`
 - `POST /v1/rag/query` —
   `{collection, module_ids[], text|vector, top_k?, alias?,
   generation_id?}` → `{ok, contract, hits[], candidates,
@@ -69,7 +69,7 @@ canonical.
 
 ## Retrieval lanes (retrieve.rs)
 
-- `hybrid` : vectord dense (barrier-proved) + PG FTS
+- `hybrid` : vectord dense (barrier-proved) + native lexical retrieval
   (`gptbridge_rag.chunk` `to_tsvector`/`plainto_tsquery`, `index_state`
   proof) → `channel_fusion_hybrid` RRF
 - `code`   : dense + FTS → RRF + symbol boost → CODE_SNIPPET
@@ -104,9 +104,7 @@ pending_approx). Never a thread per connection (PERF-04/PERF-05).
 
 - `--bind` (default `127.0.0.1:8094`)
 - `--vectord` (default `http://127.0.0.1:8092`, env `VECTORD_URL`)
-- `--dsn` (else env `GPTBRIDGE_POSTGRES_DSN`); `credman:`-prefixed values
-  resolve through the Windows credential store — mirrors
-  `shared_layer/security/dsn_policy.py` (G89).
+- `--metadata-store` (else env `GPTBRIDGE_RAG_METADATA_STORE`), explicit migrated xstore path.
 
 ## Registry
 
@@ -114,3 +112,37 @@ pending_approx). Never a thread per connection (PERF-04/PERF-05).
 (execution/standalone-service, on-demand, non-canonical — orchestration
 holds no formal authority). Binary: `bin/ragd.exe` (build artifact,
 gitignored; `cargo build --release`).
+
+## PostgreSQL retirement / native authority
+
+Production ragd has no PostgreSQL driver, DSN resolver or credential access.
+It links the existing Rust xstore event engine; no new database service is introduced.
+Set `GPTBRIDGE_RAG_METADATA_STORE` or pass `--metadata-store <directory>`.
+Legacy `--dsn` is rejected explicitly. Missing migration evidence fails closed,
+including CAG cache hits and explicit generation requests.
+
+Explicit source migration:
+
+```powershell
+ragd.exe --metadata-store <directory> --migrate-rag-source <export.json>
+```
+
+The source JSON contains all five arrays: `rag_generation`, `rag_chunk`,
+`rag_resource`, `rag_tombstone`, `rag_index_state`. Every row has a nonempty
+unique `record_id`; field names otherwise preserve the source table columns.
+Chunks include `vector_point_id`, `chunk_id`, `resource_id`, `module_id`,
+`sequence`, `character_start`, `character_end`, and `metadata`. Resources
+include `resource_id`, `index_status`, and `metadata`. All source rows are
+compared with independent target event replay before an append-only migration
+receipt is written. Conflicting existing rows are rejected; matching partial
+imports may resume. Timestamps added by the event engine are excluded from
+source content parity. This receipt proves parity with the supplied export,
+not independent verification that the export exhausts a live database.
+
+This slice admits read-only migrated RAG metadata. Subsequent RAG row changes
+invalidate the migration digest and fail closed pending a governed writer /
+new baseline protocol; do not mutate live canonical rows behind this gate.
+Native sparse ranking uses conjunctive exact Unicode alphanumeric terms and
+frequency divided by token count, with stable chunk-id ties. It replaces
+PostgreSQL `ts_rank`; ranking parity is not claimed. Vector candidates still
+pass resource, tombstone, scope, generation and index-state barriers.

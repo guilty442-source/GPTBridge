@@ -1,6 +1,6 @@
 //! Canonical read barrier — pure port of
 //! `pipeline.py::_apply_read_barrier`.  Every vectord hit must be proved
-//! against the PostgreSQL authority before it enters the evidence pool:
+//! against the xstore canonical authority before it enters the evidence pool:
 //! module scope, generation match, canonical chunk metadata existence +
 //! resource_id consistency, index_state in (indexed, active).
 
