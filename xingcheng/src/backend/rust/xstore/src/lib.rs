@@ -1,5 +1,6 @@
 //! Shared native metadata engine. Consumers replay canonical events, never indexes as authority.
 #![recursion_limit = "512"]
+pub mod codex;
 mod hash;
 mod meta_domain;
 mod meta_index;
