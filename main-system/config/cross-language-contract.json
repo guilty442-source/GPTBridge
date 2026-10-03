@@ -463,6 +463,31 @@
                                                 "production_execution":  "verified-precompiled-native-artifact",
                                                 "registration_required":  true,
                                                 "language_permission_is_execution_evidence":  false,
-                                                "does_not_grant_authority":  true
-                                            }
+                                                "does_not_grant_authority":  true,
+                                                "language_boundary_authority":  "B166/B167",
+                                                "allowed_languages_is_projection":  true
+                                            },
+    "adaptive_implementation_rules":  {
+                                          "owner":  "system-runtime",
+                                          "classification":  "subordinate-adaptive-business-rules",
+                                          "candidate_scope":  "registered-existing-capability-contract",
+                                          "selection_inputs":  [
+                                                                   "current-correctness",
+                                                                   "current-measured-performance",
+                                                                   "independent-evaluation",
+                                                                   "typed-compatibility",
+                                                                   "current-generation-evidence"
+                                                               ],
+                                          "permission_scope":  "existing-authorized-scope-only",
+                                          "resource_scope":  "existing-governor-grant-only",
+                                          "current_primary_implementation_owners":  1,
+                                          "automatic_selection_allowed":  true,
+                                          "activation":  "atomic-promotion-after-all-gates",
+                                          "rollback":  "restore-last-independently-verified-implementation",
+                                          "failure":  "retain-current-verified-owner-or-fail-closed",
+                                          "authority_transfer_allowed":  false,
+                                          "independent_verdict_owner_transfer_allowed":  false,
+                                          "new_runtime_scheduler_store_allowed":  false,
+                                          "prohibited_tools_may_be_selected":  false
+                                      }
 }
