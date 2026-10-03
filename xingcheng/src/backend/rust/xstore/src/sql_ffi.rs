@@ -36,7 +36,13 @@ fn request(bytes: &[u8]) -> Result<Value, String> {
     let params = request["params"]
         .as_array()
         .ok_or("NATIVE_SQL_PARAMETERS_REQUIRED")?;
-    let session = crate::sql::Session::open(std::path::Path::new(store))?;
+    let session = match request["domain"].as_str() {
+        // Absent means the RAG domain for backward compatibility;
+        // "codex" opens the sealed codex store (codex.rs read path).
+        None | Some("rag") => crate::sql::Session::open(std::path::Path::new(store))?,
+        Some("codex") => crate::sql::Session::open_codex(std::path::Path::new(store))?,
+        Some(_) => return Err("NATIVE_SQL_DOMAIN_UNREGISTERED".into()),
+    };
     let rows = session.query(statement, params)?;
     Ok(json!({"format":"xstore-native-sql-result/v1","ok":true,"rows":rows}))
 }
@@ -146,6 +152,31 @@ mod tests {
         let mut invalid = request;
         invalid["sql"] = json!("DELETE FROM rag_generation");
         assert_eq!(call(&serde_json::to_vec(&invalid).unwrap())["ok"], false);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn codex_domain_reads_the_sealed_store_and_unknown_domains_fail() {
+        let root = std::env::temp_dir().join(crate::meta_types::new_id("codex-abi-test"));
+        let tables = json!({"articles":[{"provision_id":"A1","rank":1}]});
+        crate::codex::migrate(
+            &root,
+            &json!({"artifact":crate::codex::SNAPSHOT_FORMAT,"generation":"g",
+                    "row_count":1,"table_count":1,"tables":tables}),
+        )
+        .unwrap();
+        let mut request = json!({"format":"xstore-native-sql-request/v1","store":root,
+            "domain":"codex","sql":"SELECT provision_id FROM articles WHERE rank = $1","params":[1]});
+        assert_eq!(
+            call(&serde_json::to_vec(&request).unwrap())["rows"],
+            json!([{"provision_id":"A1"}])
+        );
+        request["domain"] = json!("oracle");
+        assert_eq!(
+            call(&serde_json::to_vec(&request).unwrap())["error"],
+            "NATIVE_SQL_DOMAIN_UNREGISTERED"
+        );
+        request["domain"] = json!("rag");
+        assert_eq!(call(&serde_json::to_vec(&request).unwrap())["ok"], false);
         std::fs::remove_dir_all(root).unwrap();
     }
 }

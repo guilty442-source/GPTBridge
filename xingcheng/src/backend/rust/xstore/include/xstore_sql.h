@@ -14,7 +14,8 @@ typedef struct XstoreSqlBuffer {
  * A null output means allocation/lock failure or 16 outstanding buffers.
  * Release exactly once, using this engine's free function. Never libc free.
  * Schema: {"format":"xstore-native-sql-request/v1","store":"...",
- *          "sql":"SELECT ... WHERE column = $1","params":[...]}
+ *          "sql":"SELECT ... WHERE column = $1","params":[...],
+ *          "domain":"rag"|"codex"}   (domain optional; absent = "rag")
  * Read-only: unsupported statements fail closed. No external SQL process. */
 XstoreSqlBuffer xstore_sql_query_json(const uint8_t *data, size_t length);
 int32_t xstore_sql_buffer_free(const uint8_t *data);

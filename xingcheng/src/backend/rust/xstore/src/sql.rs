@@ -1,7 +1,13 @@
-//! Bounded native SQL reads over one canonical RAG snapshot. No external engine.
+//! Bounded native SQL reads over one canonical snapshot. No external engine.
 //! Supported: SELECT columns|* FROM registered_table [WHERE predicates joined
 //! by AND] [ORDER BY column [ASC|DESC]] [LIMIT $n]. Predicates are column=$n
 //! or column=ANY($n); values are always bound separately, never SQL text.
+//!
+//! Domains: `Session::open` serves the sealed RAG store (static table and
+//! column registry); `Session::open_codex` serves the sealed codex store
+//! (`codex.rs`), whose registered tables and columns are derived from the
+//! same marker-verified rows — PostgreSQL and external engines are never
+//! consulted.
 //!
 //! `Session` carries a derived column index (`sql/index.rs`): the most
 //! selective indexable predicate narrows candidates and the full
@@ -15,9 +21,20 @@ use std::{
 
 mod index;
 
+#[derive(PartialEq)]
+enum Domain {
+    Rag,
+    Codex,
+}
+
 pub struct Session {
     rows: BTreeMap<String, Value>,
     index: index::Index,
+    domain: Domain,
+    /// Codex-domain registry derived from the sealed rows (unused under
+    /// the RAG domain, which keeps its static registry).
+    codex_tables: BTreeSet<String>,
+    codex_columns: BTreeMap<String, BTreeSet<String>>,
 }
 
 enum Predicate {
@@ -139,7 +156,12 @@ fn column_ok(table: &str, column: &str) -> bool {
     };
     fields.contains(&column)
 }
-fn parse(sql: &str, params: &[Value]) -> Result<Plan, String> {
+fn parse(
+    sql: &str,
+    params: &[Value],
+    table_ok: &dyn Fn(&str) -> bool,
+    column_ok: &dyn Fn(&str, &str) -> bool,
+) -> Result<Plan, String> {
     if params.len() > 64 {
         return Err("NATIVE_SQL_PARAMETER_LIMIT".into());
     }
@@ -159,7 +181,7 @@ fn parse(sql: &str, params: &[Value]) -> Result<Plan, String> {
     }
     p.need("FROM")?;
     let table = p.identifier()?;
-    if !crate::rag::TYPES.contains(&table.as_str()) {
+    if !table_ok(&table) {
         return Err("NATIVE_SQL_TABLE_UNREGISTERED".into());
     }
     let mut predicates = Vec::new();
@@ -273,17 +295,90 @@ fn compare(a: &Value, b: &Value) -> std::cmp::Ordering {
 impl Session {
     pub fn open(store: &Path) -> Result<Self, String> {
         let rows = crate::rag::read(store)?;
+        Ok(Self::rag_rows(rows))
+    }
+    /// Sealed codex store (`codex.rs` read path): `codex_row/{table}/{id}`
+    /// payloads flatten into `{table}/{id}` rows carrying the exported
+    /// columns plus `record_id` (the key suffix, matching RAG layout).
+    /// The registered table/column sets are derived from the same rows
+    /// the VERIFIED marker already pinned, so no separate registry can
+    /// drift from the sealed data.
+    pub fn open_codex(store: &Path) -> Result<Self, String> {
+        let sealed = crate::codex::read(store)?;
+        let mut rows = BTreeMap::new();
+        let mut tables = BTreeSet::new();
+        let mut columns: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for payload in sealed.into_values() {
+            let table = payload["table"]
+                .as_str()
+                .ok_or("CODEX_ROW_TABLE_INVALID")?;
+            let record_id = payload["record_id"]
+                .as_str()
+                .ok_or("CODEX_ROW_ID_INVALID")?;
+            let suffix = record_id
+                .strip_prefix(&format!("{table}/"))
+                .ok_or("CODEX_ROW_ID_MISMATCH")?;
+            let mut row = payload["row"]
+                .as_object()
+                .ok_or("CODEX_ROW_SHAPE")?
+                .clone();
+            row.insert("record_id".into(), Value::from(suffix));
+            tables.insert(table.to_string());
+            columns
+                .entry(table.to_string())
+                .or_default()
+                .extend(row.keys().cloned());
+            rows.insert(record_id.to_string(), Value::Object(row));
+        }
         let index = index::Index::build(&rows);
-        Ok(Self { rows, index })
+        Ok(Self {
+            rows,
+            index,
+            domain: Domain::Codex,
+            codex_tables: tables,
+            codex_columns: columns,
+        })
     }
     /// Pure in-memory evaluation; caller-owned rows carry no authority claim.
     /// Production consumers use `open` or independently verified canonical replay.
     pub fn from_rows(rows: BTreeMap<String, Value>) -> Self {
+        Self::rag_rows(rows)
+    }
+    fn rag_rows(rows: BTreeMap<String, Value>) -> Self {
         let index = index::Index::build(&rows);
-        Self { rows, index }
+        Self {
+            rows,
+            index,
+            domain: Domain::Rag,
+            codex_tables: BTreeSet::new(),
+            codex_columns: BTreeMap::new(),
+        }
+    }
+    fn table_ok(&self, table: &str) -> bool {
+        match self.domain {
+            Domain::Rag => crate::rag::TYPES.contains(&table),
+            Domain::Codex => self.codex_tables.contains(table),
+        }
+    }
+    fn column_ok(&self, table: &str, column: &str) -> bool {
+        match self.domain {
+            Domain::Rag => column_ok(table, column),
+            Domain::Codex => {
+                column == "record_id"
+                    || self
+                        .codex_columns
+                        .get(table)
+                        .is_some_and(|set| set.contains(column))
+            }
+        }
     }
     pub fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Value>, String> {
-        let plan = parse(sql, params)?;
+        let plan = parse(
+            sql,
+            params,
+            &|table| self.table_ok(table),
+            &|table, column| self.column_ok(table, column),
+        )?;
         let keys = self.narrow(&plan, params);
         evaluate(&self.rows, &plan, params, keys)
     }
@@ -314,13 +409,19 @@ impl Session {
         }
         best
     }
-    /// Pure SQL evaluation over a caller-owned snapshot; does not grant authority.
+    /// Pure SQL evaluation over a caller-owned snapshot; does not grant
+    /// authority. Keeps the RAG registry (canonical callers' semantics).
     pub fn query_rows(
         rows: &BTreeMap<String, Value>,
         sql: &str,
         params: &[Value],
     ) -> Result<Vec<Value>, String> {
-        let plan = parse(sql, params)?;
+        let plan = parse(
+            sql,
+            params,
+            &|table| crate::rag::TYPES.contains(&table),
+            &column_ok,
+        )?;
         evaluate(rows, &plan, params, None)
     }
 }
@@ -569,5 +670,97 @@ mod tests {
             let scanned = Session::query_rows(&map, sql, &params).unwrap();
             assert_eq!(indexed, scanned, "{sql}");
         }
+    }
+    #[test]
+    fn codex_domain_serves_sealed_tables_and_fails_closed() {
+        let root = std::env::temp_dir().join(crate::meta_types::new_id("codex-sql-test"));
+        assert!(Session::open_codex(&root)
+            .err()
+            .unwrap()
+            .contains("MIGRATION_REQUIRED"));
+        let tables = json!({
+            "articles":[
+                {"provision_id":"A1","body":"x","rank":2},
+                {"provision_id":"A2","body":"y","rank":1},
+                {"provision_id":"A2","body":"z","rank":3}
+            ],
+            "sovereigns":[{"name":"s","seat":1}]
+        });
+        let row_count: u64 = tables
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|rows| rows.as_array().unwrap().len() as u64)
+            .sum();
+        crate::codex::migrate(
+            &root,
+            &json!({"artifact":crate::codex::SNAPSHOT_FORMAT,
+                "generation":"g","row_count":row_count,
+                "table_count":tables.as_object().unwrap().len(),
+                "tables":tables}),
+        )
+        .unwrap();
+        let session = Session::open_codex(&root).unwrap();
+        assert_eq!(
+            session
+                .query(
+                    "SELECT provision_id, body FROM articles WHERE provision_id = $1 ORDER BY rank ASC",
+                    &[json!("A2")]
+                )
+                .unwrap(),
+            vec![
+                json!({"provision_id":"A2","body":"y"}),
+                json!({"provision_id":"A2","body":"z"})
+            ]
+        );
+        assert_eq!(
+            session
+                .query(
+                    "SELECT record_id FROM articles WHERE provision_id = ANY($1) LIMIT $2",
+                    &[json!(["A1"]), json!(5)]
+                )
+                .unwrap()
+                .len(),
+            1
+        );
+        // Registry is derived from the sealed rows: absent tables and
+        // columns fail closed, RAG tables do not leak across domains.
+        for sql in [
+            "SELECT * FROM no_such_table",
+            "SELECT missing_column FROM articles",
+            "SELECT * FROM rag_chunk",
+            "SELECT * FROM articles WHERE missing_column = $1",
+        ] {
+            assert!(session.query(sql, &[json!("x")]).is_err(), "{sql}");
+        }
+        // Indexed path stays identical to the canonical prefix scan.
+        let scan = |sql: &str, params: &[Value]| {
+            let plan = parse(
+                sql,
+                params,
+                &|table| session.table_ok(table),
+                &|table, column| session.column_ok(table, column),
+            )
+            .unwrap();
+            evaluate(&session.rows, &plan, params, None).unwrap()
+        };
+        for (sql, params) in [
+            ("SELECT * FROM articles", vec![]),
+            (
+                "SELECT * FROM articles WHERE provision_id = $1",
+                vec![json!("A2")],
+            ),
+            (
+                "SELECT * FROM articles WHERE provision_id = ANY($1) ORDER BY rank DESC LIMIT $2",
+                vec![json!(["A1", "A2"]), json!(2)],
+            ),
+            (
+                "SELECT * FROM sovereigns WHERE seat = $1",
+                vec![json!(1)],
+            ),
+        ] {
+            assert_eq!(session.query(sql, &params).unwrap(), scan(sql, &params), "{sql}");
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
