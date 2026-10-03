@@ -106,7 +106,61 @@ internal static class RuntimeIntegration
         if (!(bool)current.Invoke(null, new object[] { row })!) throw new Exception("CURRENT_PROOF_DENIED");
         File.WriteAllText(emptyEvidence, "{\"ok\":false}");
         if ((bool)current.Invoke(null, new object[] { row })!) throw new Exception("ALTERED_PROOF_ACCEPTED");
-        Console.WriteLine(JsonSerializer.Serialize(new { artifact = "pg-free-runtime-integration", passed = 19, failed = 0, fixture = root }));
-        return 19;
+        // ---- fault injection: resource-grant revoke / governor loss
+        // (spec §56-§58 resize/revoke, §75 governor-unavailable fail-closed)
+        var govDir = Path.Combine(root, "main-system", "runtime", "state");
+        Directory.CreateDirectory(Path.Combine(govDir, "resource-requests"));
+        Directory.CreateDirectory(Path.Combine(govDir, "resource-grants"));
+        var govState = Path.Combine(govDir, "resource-governor.json");
+        File.WriteAllText(govState, "{\"interval\":20}");
+        var clientType = assembly.GetType(
+            "GPTBridge.XingchengLearning.ResourceGovernorClient", true)!;
+        var client = Activator.CreateInstance(clientType, root)!;
+        var currentGrant = clientType.GetMethod("CurrentGrant")!;
+        var reqType = assembly.GetType(
+            "GPTBridge.XingchengLearning.ResourceRequest", true)!;
+        var req = Activator.CreateInstance(reqType)!;
+        reqType.GetField("RequestId")!.SetValue(req, "rr-fi-g1");
+        reqType.GetField("WorkloadId")!.SetValue(req, "fi-g1");
+        // silent governor → DEFERRED, never an ungranted admit
+        var reply1 = clientType.GetMethod("Request")!
+            .Invoke(client, new object?[] { req, 2 })!;
+        if (reply1.GetType().GetField("Response")!.GetValue(reply1)
+                ?.ToString() != "Deferred")
+            throw new Exception("GOVERNOR_SILENCE_NOT_DEFERRED");
+        // granted → revoked rewrite: the consumer must drop the grant
+        var grantPath = Path.Combine(govDir, "resource-grants",
+            "rr-fi-g2.json");
+        File.WriteAllText(grantPath, JsonSerializer.Serialize(new
+        {
+            response = "GRANTED", request_id = "rr-fi-g2",
+            grant = new
+            {
+                grant_id = "rg-fi", workload_class = "training",
+                cpu_threads_max = 4,
+                valid_until_s =
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 300,
+            },
+        }));
+        if (currentGrant.Invoke(client, new object?[] { "rr-fi-g2" })
+                == null)
+            throw new Exception("GRANT_NOT_VISIBLE");
+        File.WriteAllText(grantPath, JsonSerializer.Serialize(new
+        {
+            response = "REVOKED", request_id = "rr-fi-g2",
+            reason = "pressure-shed",
+        }));
+        if (currentGrant.Invoke(client, new object?[] { "rr-fi-g2" })
+                != null)
+            throw new Exception("REVOKED_GRANT_STILL_HELD");
+        // governor state file absent → Unavailable (fail-closed)
+        File.Delete(govState);
+        var reply3 = clientType.GetMethod("Request")!
+            .Invoke(client, new object?[] { req, 1 })!;
+        if (!(bool)reply3.GetType().GetField("Unavailable")!
+                .GetValue(reply3)!)
+            throw new Exception("GOVERNOR_ABSENT_NOT_FAILCLOSED");
+        Console.WriteLine(JsonSerializer.Serialize(new { artifact = "pg-free-runtime-integration", passed = 22, failed = 0, fixture = root }));
+        return 22;
     }
 }

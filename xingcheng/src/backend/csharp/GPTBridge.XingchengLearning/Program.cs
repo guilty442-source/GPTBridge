@@ -2822,6 +2822,18 @@ internal static class Program
             (string?)jr.GetValueOrDefault("error_code") ==
                 "MATURATION_SEQUENCE_COMPLETE")
             executeDeniedFrozen = true;
+        // Governor back-pressure: a deferred/denied resource grant is
+        // transient infrastructure, not a governed-chain defect — fall
+        // back to the deterministic artifacts so the lifecycle and
+        // succession mechanics stay exercised.
+        if (report != null &&
+            !TransformerTrainingRepository.Truthy(report["ok"]) &&
+            ((report["job"] is Dictionary<string, object?> rj &&
+              (string?)rj.GetValueOrDefault("error_code") is "RESOURCE_REQUEST_DEFERRED"
+                  or "RESOURCE_REQUEST_DENIED") ||
+             (string?)report.GetValueOrDefault("error_code") is "RESOURCE_REQUEST_DEFERRED"
+                  or "RESOURCE_REQUEST_DENIED"))
+            executeDeniedFrozen = true;
         steps.Add(new Dictionary<string, object?>
         {
             ["step"] = "execute",
@@ -2924,39 +2936,74 @@ internal static class Program
         lc.Transition("INITIALIZED");
         lc.Transition("SFT_TRAINING");
         lc.Transition("INSTRUCT_READY");
-        var meta = new Dictionary<string, object?>
+        Dictionary<string, object?> GenMeta() => new()
         {
             ["config_sha256"] = "selftest-fp",
             ["maturity_level"] = 7,
         };
-        lc.RegisterArtifact("weights",
+        // 世代 succession N → N+3: four activated weight generations,
+        // each recording its predecessor lineage. Under a sealed queue
+        // the first artifacts point at the deterministic snapshots and
+        // the rest at scratch files — registration hashes file content,
+        // so the governed mechanics are identical.
+        var genArtifacts = new List<string>
+        {
             executeDeniedFrozen ? snapshotPath
                                 : Path.Combine(jobDir, "final.xcn"),
-            meta, activate: true);
-        lc.RegisterArtifact("weights",
             executeDeniedFrozen ? pairsPath
                                 : Path.Combine(bundleDir, "weights.bin"),
-            meta, activate: true);
+        };
+        for (int g = genArtifacts.Count + 1; g <= 4; g++)
+        {
+            string extra = Path.Combine(lcDir, $"selftest-gen{g}.bin");
+            File.WriteAllBytes(extra, System.Text.Encoding.UTF8.GetBytes(
+                $"xc-selftest-gen-{g}"));
+            genArtifacts.Add(extra);
+        }
+        // A fresh metadata dict per registration — entries alias the
+        // passed reference, and succeeded_from is written into it on
+        // activation, so a shared dict would collapse every link to
+        // the last writer.
+        foreach (string genPath in genArtifacts)
+            lc.RegisterArtifact("weights", genPath, GenMeta(),
+                                activate: true);
         lc.Save(lcDir);
         var reloaded = ModelLifecycle.Load(lcDir);
-        if (reloaded.ActiveWeightsVersion != 2)
+        if (reloaded.ActiveWeightsVersion != 4)
             throw new InvalidOperationException("lifecycle reload mismatch");
-        // 世代繼任契�?：v2 ?�用?�自?��???v1 完整記�? ?��??�除?�代後其
-        // 資�?仍�??�在?�代 metadata.succeeded_from ?��?
-        bool successionRecorded = false;
-        if (reloaded.Artifacts.TryGetValue("weights", out var wg) &&
-            wg.TryGetValue("versions", out object? wv) &&
-            wv is List<object?> wlist)
-            foreach (object? item in wlist)
-                if (item is Dictionary<string, object?> e &&
-                    Convert.ToInt32(e["version"]) == 2 &&
-                    e["metadata"] is Dictionary<string, object?> em &&
-                    em["succeeded_from"] is Dictionary<string, object?> sf &&
-                    Convert.ToInt32(sf["version"]) == 1 &&
-                    sf["sha256"] is string sfs && sfs.Length > 0)
-                    successionRecorded = true;
+        // 世代繼任契�?：each promoted generation N>1 must carry
+        // metadata.succeeded_from = {version N-1, sha256 of N-1}.
+        List<Dictionary<string, object?>> VersionEntries(
+            ModelLifecycle l)
+        {
+            var rows = new List<Dictionary<string, object?>>();
+            if (l.Artifacts.TryGetValue("weights", out var wg) &&
+                wg.TryGetValue("versions", out object? wv) &&
+                wv is List<object?> wlist)
+                foreach (object? item in wlist)
+                    if (item is Dictionary<string, object?> e)
+                        rows.Add(e);
+            return rows;
+        }
+        var entries = VersionEntries(reloaded);
+        int successionLinks = 0;
+        for (int v = 2; v <= 4; v++)
+        {
+            var entry = entries.FirstOrDefault(
+                e => Convert.ToInt32(e["version"]) == v);
+            var prev = entries.FirstOrDefault(
+                e => Convert.ToInt32(e["version"]) == v - 1);
+            if (entry != null && prev != null &&
+                entry["metadata"] is Dictionary<string, object?> em &&
+                em["succeeded_from"] is Dictionary<string, object?> sf &&
+                Convert.ToInt32(sf["version"]) == v - 1 &&
+                sf["sha256"] is string sfs && sfs.Length > 0 &&
+                string.Equals(sfs, (string?)prev["sha256"],
+                              StringComparison.Ordinal))
+                successionLinks++;
+        }
         reloaded.GovernedRollbackWeights(
-            1, "selftest-fp", excludeVersions: new[] { 2 });
+            1, "selftest-fp", excludeVersions: new[] { 2, 3, 4 });
         if (reloaded.ActiveWeightsVersion != 1)
             throw new InvalidOperationException("governed rollback mismatch");
         bool denied = false;
@@ -2967,22 +3014,39 @@ internal static class Program
         catch (ArgumentException) { denied = true; }
         // Fail-closed: the active generation is never retired by the
         // supersession path even when a successor nominates it.
-        bool retireActiveDenied = reloaded.RetireWeightVersion(1, 2) == null;
+        bool retireActiveDenied = reloaded.RetireWeightVersion(1, 4) == null;
+        // Retire a non-active generation: the entry moves to the
+        // retired list carrying sha256 + data_carried_to so predecessor
+        // metadata survives the successor's cleanup.
+        var movedGen = reloaded.RetireWeightVersion(2, succeededBy: 4);
         var retired = reloaded.RetireWeights(keepLatest: 1);
         reloaded.Save(lcDir);
+        bool lineagePreserved = movedGen != null &&
+            (movedGen["sha256"] as string)?.Length > 0 &&
+            Convert.ToInt32(movedGen["data_carried_to"]) == 4 &&
+            reloaded.Artifacts.TryGetValue("weights", out var wgx) &&
+            wgx.TryGetValue("retired", out object? rl) &&
+            rl is List<object?> retiredList &&
+            retiredList.OfType<Dictionary<string, object?>>().Count(e =>
+                Convert.ToInt32(e["version"]) is >= 2 and <= 3 &&
+                (e["sha256"] as string)?.Length > 0) == 2;
         steps.Add(new Dictionary<string, object?>
         {
             ["step"] = "lifecycle",
             ["active_version"] = reloaded.ActiveWeightsVersion,
+            ["generations"] = 4,
+            ["succession_links"] = successionLinks,
             ["rollback_denied_on_bad_fingerprint"] = denied,
-            ["succession_recorded"] = successionRecorded,
+            ["succession_recorded"] = successionLinks == 3,
             ["retire_active_denied"] = retireActiveDenied,
+            ["retired_lineage_preserved"] = lineagePreserved,
             ["retired_versions"] = retired
                 .Select(e => (object?)e["version"]).ToList(),
         });
         return new Dictionary<string, object?>
         {
-            ["ok"] = denied && successionRecorded && retireActiveDenied &&
+            ["ok"] = denied && successionLinks == 3 && retireActiveDenied &&
+                     lineagePreserved &&
                      reloaded.ActiveWeightsVersion == 1 && evalOk,
             ["frozen_sealed"] = executeDeniedFrozen,
             ["steps"] = steps,

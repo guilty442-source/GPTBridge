@@ -278,18 +278,46 @@ internal sealed class TransformerTrainingRepository
                         ? storedPath
                         : Path.Combine(ToolRoot, storedPath);
                     restored = Path.GetFullPath(restored);
+                    bool repointed = false;
                     if (!restored.StartsWith(
                             ToolRoot + Path.DirectorySeparatorChar,
                             StringComparison.Ordinal))
-                        throw new UnauthorizedAccessException(
-                            "TRANSFORMER_TRAINING_SNAPSHOT_SCOPE_DENIED");
-                    string? parentDir = Path.GetDirectoryName(restored);
-                    if (parentDir != null && !Directory.Exists(parentDir))
-                        Directory.CreateDirectory(parentDir);
-                    File.Copy(snapshotFile, restored, overwrite: true);
-                    if (Sha256File(restored) != storedSha)
-                        throw new InvalidOperationException(
-                            "transformer training snapshot restore failed");
+                    {
+                        // The recorded path belongs to a foreign root
+                        // (the row was written by a sibling worktree or a
+                        // retired layout). Dataset identity is
+                        // content-bound, so repoint the canonical record
+                        // at this run's verified in-scope snapshot rather
+                        // than writing outside the tool root.
+                        restored = snapshotFile;
+                        repointed = true;
+                    }
+                    if (!string.Equals(
+                            restored, snapshotFile,
+                            StringComparison.Ordinal))
+                    {
+                        string? parentDir = Path.GetDirectoryName(restored);
+                        if (parentDir != null && !Directory.Exists(parentDir))
+                            Directory.CreateDirectory(parentDir);
+                        File.Copy(snapshotFile, restored, overwrite: true);
+                        if (Sha256File(restored) != storedSha)
+                            throw new InvalidOperationException(
+                                "transformer training snapshot restore failed");
+                    }
+                    existing["snapshot_path"] = restored;
+                    if (repointed)
+                    {
+                        var repoint = new Dictionary<string, object?>(
+                            existing, StringComparer.Ordinal);
+                        repoint.Remove("revision");
+                        repoint.Remove("event_hash");
+                        repoint["record_id"] = datasetId;
+                        long rev = existing["revision"] is long rl
+                            ? rl : Convert.ToInt64(existing["revision"]);
+                        Meta().PutRecord(
+                            NativeMetadataClient.Types.Dataset, repoint,
+                            expectedRevision: rev);
+                    }
                     Meta().AuditEvent(
                         "dataset-snapshot-restored", "training-dataset",
                         datasetId, new Dictionary<string, object?>
@@ -297,6 +325,8 @@ internal sealed class TransformerTrainingRepository
                             ["content_sha256"] = contentDigest,
                             ["snapshot_sha256"] = storedSha,
                             ["snapshot_path"] = restored,
+                            ["repointed_from"] =
+                                repointed ? storedPath : "",
                         });
                 }
                 existing["inserted"] = false;

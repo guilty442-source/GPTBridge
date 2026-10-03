@@ -325,7 +325,11 @@ public sealed class ResourceGovernorClient
                            rr is string rs ? rs : "";
             if (reply.Response == null)
                 return null; /* 半寫入檔案：下輪再讀 */
-            if (reply.Admitted)
+            // Parse the grant on admit-class replies BEFORE consulting
+            // Admitted — the property itself requires Grant != null, so
+            // gating the parse on it would discard every grant.
+            if (reply.Response is GrantResponseKind.Granted
+                or GrantResponseKind.Partial)
                 reply.Grant = ResourceGrant.FromDict(map);
             return reply;
         }
