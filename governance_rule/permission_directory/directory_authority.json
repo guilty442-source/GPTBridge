@@ -290,6 +290,9 @@
   "SOURCE_OWNERSHIP_REGISTRY_PATH": [
     "governance_rule/permission_directory/registries/permissions/source_ownership.json"
   ],
+  "UNIFIED_RULE_REGISTRY_PATH": [
+    "governance_rule/permission_directory/registries/permissions/unified_rule_registry.json"
+  ],
   "MANAGED_READ_ONLY_REGISTRY_PATHS": [
     [
       "governance_rule/permission_directory/registries/permissions/identity_groups.json"
@@ -305,6 +308,9 @@
     ],
     [
       "governance_rule/permission_directory/registries/permissions/source_ownership.json"
+    ],
+    [
+      "governance_rule/permission_directory/registries/permissions/unified_rule_registry.json"
     ]
   ],
   "PERMISSION_REGISTRY_ACCESS": "read-only-directory-managed",

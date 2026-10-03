@@ -1,0 +1,181 @@
+{
+  "UNIFIED_RULE_REGISTRY": {
+    "$call": "UnifiedRuleRegistrySnapshot",
+    "$args": [],
+    "$kw": {
+      "registry_schema": "unified-rule-registry/v1",
+      "management_owner": "permission-core",
+      "controlling_provisions": [
+        "B5",
+        "B164",
+        "B165"
+      ],
+      "registry_role": "single canonical primary store for all business and implementation rules; module-local files and indexes are generation-bound derived projections, never independent editable rule authorities",
+      "lifecycle_policy": "immutable-history+one-current-generation+atomic-publication+revocation-fences",
+      "access_model": "executors read validated scope-bound current projections through registered typed contracts",
+      "authority_limits": "central management never creates law, grants permission, overrides domain semantics, or assumes execution, resource, independent-verdict or canonical domain data authority",
+      "semantic_responsibility": "registered domain owners propose and validate business meaning under existing authority",
+      "projection_policy": "any module-local rule file not registered here remains a derived view; unregistered primary rule edits are denied fail-closed",
+      "failure_mode": "missing, invalid, stale, conflicting or unauthorized rules fail closed and are never copied into the Codex runtime rule index",
+      "audit_ledger": "main-system/runtime/state/unified-rule-registry.jsonl",
+      "introduced_version": "2026-10-03T03:40:00Z",
+      "rules": [
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "IMPLEMENTATION_LANGUAGE_DECLARATION",
+            "rule_kind": "implementation",
+            "semantic_owner": "system-runtime",
+            "management_owner": "permission-core",
+            "scope": "permitted-language-per-capability-declaration",
+            "controlling_provision_id": "B166",
+            "typed_contract": "main-system/config/cross-language-contract.json#implementation_language_declaration",
+            "source_lineage": "cross-language-contract contract_revision=2 + codex amendment principles-business-adaptive-boundary-convergence-20261003",
+            "source_revision": "2026-10-03T03:26:10Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:7f057e70aeace12300bfb6c5852bee3a30765b15f8e45f180ba58375c11177de",
+            "projection_refs": [
+              "main-system/config/cross-language-contract.json"
+            ],
+            "definition_summary": "eight permitted languages C/C++/C#/F#/Rust/Go/Julia/JavaScript declared as a subordinate business contract; concrete versions and per-capability assignments resolve from registered directories, never from Codex"
+          }
+        },
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "ADAPTIVE_IMPLEMENTATION_RULES",
+            "rule_kind": "business",
+            "semantic_owner": "system-runtime",
+            "management_owner": "permission-core",
+            "scope": "adaptive-implementation-owner-selection",
+            "controlling_provision_id": "B5",
+            "typed_contract": "main-system/config/cross-language-contract.json#adaptive_implementation_rules",
+            "source_lineage": "cross-language-contract contract_revision=2 + codex amendment permission-core-central-business-implementation-rules-20261003-r1",
+            "source_revision": "2026-10-03T03:26:10Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:7f057e70aeace12300bfb6c5852bee3a30765b15f8e45f180ba58375c11177de",
+            "projection_refs": [
+              "main-system/config/cross-language-contract.json"
+            ],
+            "definition_summary": "adaptive allocation selects exactly one current primary implementation owner inside registered capability contracts using current correctness, performance and independent evaluation evidence, within existing authority, permission, scope and resource budgets"
+          }
+        },
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "AUTOMATION_FLOW_TUNABLES",
+            "rule_kind": "business",
+            "semantic_owner": "automation",
+            "management_owner": "permission-core",
+            "scope": "automation-flow-registration-and-cadence",
+            "controlling_provision_id": "B5",
+            "typed_contract": "main-system/config/automation-flows.json",
+            "source_lineage": "automation-flows star-automation-flows/v1 centralization (2026-09-22 governor-approved)",
+            "source_revision": "2026-10-03T03:26:10Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:3002574d07b9ec5a612104b8547d4f547c85c54f91730325797a47b32e4a14fa",
+            "projection_refs": [
+              "main-system/config/automation-flows.json",
+              "main-system/runtime/state/automation-flows-state.json"
+            ],
+            "definition_summary": "single registration point for automation flows; owner, kind, interval, pause and enabled kill-switch tunables are subordinate operational rules; unregistered flows may not schedule"
+          }
+        },
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "RESOURCE_GOVERNOR_RULES",
+            "rule_kind": "business",
+            "semantic_owner": "system-runtime",
+            "management_owner": "permission-core",
+            "scope": "resource-governor-policy",
+            "controlling_provision_id": "B5",
+            "typed_contract": "main-system/config/resource-governor-rules.json",
+            "source_lineage": "resource-governor supervision-plane rules (native C++23 owner)",
+            "source_revision": "2026-10-03T03:26:10Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:00c52e8b92d12cbef0b6bd690eedf9ae9c4cdce3fa72f13d38034997ea3f8fd8",
+            "projection_refs": [
+              "main-system/config/resource-governor-rules.json"
+            ],
+            "definition_summary": "resource governor thresholds, pressure actions and observation policy are operational tunables consumed by the C++23 governor; the kill switch stops actions, never observation"
+          }
+        },
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "XINGCHENG_SELF_LEARNING_POLICY",
+            "rule_kind": "business",
+            "semantic_owner": "xingcheng-internal",
+            "management_owner": "permission-core",
+            "scope": "xingcheng-self-learning-cycle-policy",
+            "controlling_provision_id": "D131",
+            "typed_contract": "xingcheng/xingcheng/runtime/settings/self-learning.json",
+            "source_lineage": "D131 native self-learning lane policy settings",
+            "source_revision": "2026-10-03T03:26:10Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:812080e801e1f525439b5174c14edbc15dc17a69d8129713a41734010b0177d6",
+            "projection_refs": [
+              "xingcheng/xingcheng/runtime/settings/self-learning.json"
+            ],
+            "definition_summary": "self-learning thresholds, quiet hours, min_new_examples, failure breaker, curriculum intent map and auto_activate kill switch are tool-owned business rules scoped xingcheng-internal"
+          }
+        },
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "XINGCHENG_NATIVE_ENGINE_PIN",
+            "rule_kind": "implementation",
+            "semantic_owner": "xingcheng-internal",
+            "management_owner": "permission-core",
+            "scope": "xingcheng-native-engine-artifact-pin",
+            "controlling_provision_id": "B167",
+            "typed_contract": "xingcheng/xingcheng/runtime/settings/native-engine.json",
+            "source_lineage": "native-engine pinned artifact registration under the model lifecycle",
+            "source_revision": "2026-10-03T03:26:10Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:8fbd2c8dd11ea884f66063e71500686eb08134ad0811978734b5b5dfb69191c7",
+            "projection_refs": [
+              "xingcheng/xingcheng/runtime/settings/native-engine.json"
+            ],
+            "definition_summary": "the pinned model artifact and generation for the native engine is a lifecycle-managed implementation fact; activation and rollback stay governed by the model lifecycle, never by file edit"
+          }
+        },
+        {
+          "$call": "UnifiedRuleEntry",
+          "$args": [],
+          "$kw": {
+            "rule_code": "RETRIEVAL_PLANE_LANE_RULES",
+            "rule_kind": "business",
+            "semantic_owner": "shared-layer",
+            "management_owner": "permission-core",
+            "scope": "retrieval-plane-lane-boundaries",
+            "controlling_provision_id": "C106",
+            "typed_contract": "governance_rule/execution/audit/convergence/sql-rag-cag-dag-native-business-rules-20261003.json",
+            "source_lineage": "sql-rag-cag-dag-native-business-rules/v1 declaration over base provision C106",
+            "source_revision": "2026-10-03T03:20:41Z",
+            "current_generation": 1,
+            "status": "active",
+            "integrity_evidence": "sha256:e8fb79ac834b7fc74b17dc17b25b72c5afcff8253f6afff9c292d4bbff48eff0",
+            "projection_refs": [
+              "governance_rule/execution/audit/convergence/sql-rag-cag-dag-native-business-rules-20261003.json"
+            ],
+            "definition_summary": "DAG/CAG/Agentic-RAG/RAG/GraphRAG/TAG/Memory-RAG lane roles, per-tool business rule owners and fail-closed cases on one native integration plane; declaration implements nothing by itself"
+          }
+        }
+      ]
+    }
+  }
+}
