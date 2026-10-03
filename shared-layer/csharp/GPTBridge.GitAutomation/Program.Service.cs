@@ -18,16 +18,21 @@ internal static partial class Program
         private JsonObject _lastSweep = new();
         private JsonObject _lastSync = new();
         private double _nextSyncAt;
-        private bool _running = true;
-        private bool _wake;
-        private bool _wakeAll;
+        private volatile bool _running = true;
+        private volatile bool _wake;
+        private volatile bool _wakeAll;
         private readonly List<FileSystemWatcher> _watchers = new();
         private readonly List<string> _watchRoots = new();
         private readonly HashSet<string> _wakeWorktrees =
             new(StringComparer.OrdinalIgnoreCase);
         private double _lastEventWake;
         private readonly object _gate = new();
-        private bool _push;
+        // Cycle-report state (_lastSweep/_lastSync) is published under
+        // _stateGate so a still-draining tick and the post-loop final
+        // WriteState can never read a half-mutated JsonObject; _dirtySince
+        // is locked on itself for the same drain-window reason.
+        private readonly object _stateGate = new();
+        private volatile bool _push;
 
         public Service(string root, Options options)
         {
@@ -198,27 +203,31 @@ internal static partial class Program
         private async Task CycleTick(
             bool push, IReadOnlySet<string>? scope = null)
         {
-            _lastSweep = await Task.Run(() =>
+            var sweepResult = await Task.Run(() =>
             {
                 var result = Sweep(_root, _options, _dirtySince, scope);
-                _sweeps++;
+                Interlocked.Increment(ref _sweeps);
                 WriteState();
                 return result;
             });
+            lock (_stateGate) _lastSweep = sweepResult;
             var queueEvent = await Task.Run(QueueHasPending);
             var now = Environment.TickCount64 / 1000.0;
             if (queueEvent || now >= _nextSyncAt)
             {
                 var sync = await Task.Run(() => SyncCycle(_root, _options, push));
                 _nextSyncAt = now + _options.SyncInterval;
-                _syncs++;
-                _lastSync = new JsonObject
+                Interlocked.Increment(ref _syncs);
+                var lastSync = new JsonObject
                 {
                     ["at"] = Canon.EpochSeconds(),
                     ["result"] = sync.Status,
                 };
                 if (sync.Sql is not null)
-                    _lastSync["sql"] = sync.Sql;
+                    lastSync["sql"] = sync.Sql;
+                // Publish only a fully-built report — never mutate a
+                // JsonObject another thread may be cloning.
+                lock (_stateGate) _lastSync = lastSync;
                 WriteState();
             }
         }
@@ -267,20 +276,35 @@ internal static partial class Program
                 .Take(16).ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (!worktrees.Contains(_root))
                 worktrees.Add(Path.GetFullPath(_root));
-            for (var i = _watchers.Count - 1; i >= 0; i--)
+            // _watchers/_watchRoots move under _gate together; disposal
+            // stays outside the gate — a queued callback must never wait
+            // on the lock the disposer holds.
+            var retiring = new List<FileSystemWatcher>();
+            lock (_gate)
             {
-                if (worktrees.Contains(_watchRoots[i]))
-                    continue;
-                _watchers[i].EnableRaisingEvents = false;
-                _watchers[i].Dispose();
-                _watchers.RemoveAt(i);
-                lock (_gate) _watchRoots.RemoveAt(i);
+                for (var i = _watchers.Count - 1; i >= 0; i--)
+                {
+                    if (worktrees.Contains(_watchRoots[i]))
+                        continue;
+                    retiring.Add(_watchers[i]);
+                    _watchers.RemoveAt(i);
+                    _watchRoots.RemoveAt(i);
+                }
+            }
+            foreach (var stale in retiring)
+            {
+                stale.EnableRaisingEvents = false;
+                stale.Dispose();
             }
             foreach (var worktree in worktrees)
             {
-                if (_watchRoots.Contains(worktree,
-                        StringComparer.OrdinalIgnoreCase)
-                    || !Directory.Exists(worktree))
+                lock (_gate)
+                {
+                    if (_watchRoots.Contains(worktree,
+                            StringComparer.OrdinalIgnoreCase))
+                        continue;
+                }
+                if (!Directory.Exists(worktree))
                     continue;
                 var watcher = new FileSystemWatcher(worktree)
                 {
@@ -295,8 +319,11 @@ internal static partial class Program
                 watcher.Deleted += (_, e) => OnChanged(e.FullPath);
                 watcher.Renamed += (_, e) => OnChanged(e.FullPath);
                 watcher.Error += (_, _) => OnError();
-                _watchers.Add(watcher);
-                lock (_gate) _watchRoots.Add(worktree);
+                lock (_gate)
+                {
+                    _watchers.Add(watcher);
+                    _watchRoots.Add(worktree);
+                }
             }
         }
 
@@ -361,13 +388,18 @@ internal static partial class Program
 
         private void StopDirwatch()
         {
-            foreach (var watcher in _watchers)
+            List<FileSystemWatcher> retiring;
+            lock (_gate)
+            {
+                retiring = new List<FileSystemWatcher>(_watchers);
+                _watchers.Clear();
+                _watchRoots.Clear();
+            }
+            foreach (var watcher in retiring)
             {
                 watcher.EnableRaisingEvents = false;
                 watcher.Dispose();
             }
-            _watchers.Clear();
-            lock (_gate) _watchRoots.Clear();
         }
 
         private void WriteState()
@@ -376,6 +408,22 @@ internal static partial class Program
                 StateRelative.Replace('/', Path.DirectorySeparatorChar));
             try
             {
+                // Snapshot under the matching gates — a timed-out tick
+                // keeps draining in the background and may still be
+                // mutating _dirtySince/_lastSweep while this runs.
+                string[] pending;
+                int watcherCount;
+                JsonObject lastSweep;
+                JsonObject lastSync;
+                lock (_dirtySince)
+                    pending = _dirtySince.Keys.ToArray();
+                lock (_gate)
+                    watcherCount = _watchers.Count;
+                lock (_stateGate)
+                {
+                    lastSweep = (JsonObject)_lastSweep.DeepClone();
+                    lastSync = (JsonObject)_lastSync.DeepClone();
+                }
                 var payload = new JsonObject
                 {
                     ["updated_at"] = Canon.UtcNow(),
@@ -385,16 +433,16 @@ internal static partial class Program
                     ["sync_interval"] = _options.SyncInterval,
                     ["debounce_seconds"] = _options.Debounce,
                     ["push"] = _push,
-                    ["sweeps"] = _sweeps,
-                    ["syncs"] = _syncs,
+                    ["sweeps"] = Volatile.Read(ref _sweeps),
+                    ["syncs"] = Volatile.Read(ref _syncs),
                     ["pending_debounce"] = new JsonArray(
-                        _dirtySince.Keys.ToArray()
+                        pending
                             .Order(StringComparer.Ordinal)
                             .Select(k => (JsonNode?)JsonValue.Create(k))
                             .ToArray()),
-                    ["dirwatch_worktrees"] = _watchers.Count,
-                    ["last_sweep"] = (JsonObject)_lastSweep.DeepClone(),
-                    ["last_sync"] = (JsonObject)_lastSync.DeepClone(),
+                    ["dirwatch_worktrees"] = watcherCount,
+                    ["last_sweep"] = lastSweep,
+                    ["last_sync"] = lastSync,
                 };
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 using var document =

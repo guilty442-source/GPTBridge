@@ -51,8 +51,9 @@ internal static partial class Program
         // change, plus every worktree still holding a pending debounce
         // marker — a quiet worktree mid-debounce must not starve.
         if (only is not null)
-            worktrees = worktrees.Where(w =>
-                only.Contains(w) || dirtySince.ContainsKey(w)).ToList();
+            lock (dirtySince)
+                worktrees = worktrees.Where(w =>
+                    only.Contains(w) || dirtySince.ContainsKey(w)).ToList();
         foreach (var worktree in worktrees)
         {
             Status.Snapshot snapshot;
@@ -62,25 +63,34 @@ internal static partial class Program
             }
             catch (Exception)
             {
-                dirtySince.Remove(worktree);
+                lock (dirtySince) dirtySince.Remove(worktree);
                 continue;
             }
             if (!snapshot.Dirty)
             {
-                dirtySince.Remove(worktree);
+                lock (dirtySince) dirtySince.Remove(worktree);
                 continue;
             }
             scopes[worktree] = new JsonArray(
                 snapshot.AffectedScopes
                     .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray());
-            if (!dirtySince.TryGetValue(worktree, out var marker)
-                || marker.Item1 != snapshot.Fingerprint)
+            // Marker transitions stay atomic against the state-file
+            // snapshot — a still-draining tick may overlap the
+            // post-loop WriteState.
+            var commit = false;
+            lock (dirtySince)
             {
-                dirtySince[worktree] = (snapshot.Fingerprint, now);
-                results[worktree] = "debounce";
-                continue;
+                if (!dirtySince.TryGetValue(worktree, out var marker)
+                    || marker.Item1 != snapshot.Fingerprint)
+                {
+                    dirtySince[worktree] = (snapshot.Fingerprint, now);
+                }
+                else if (now - marker.Item2 >= options.Debounce)
+                {
+                    commit = true;
+                }
             }
-            if (now - marker.Item2 < options.Debounce)
+            if (!commit)
             {
                 results[worktree] = "debounce";
                 continue;
@@ -89,7 +99,7 @@ internal static partial class Program
                 root, worktree, snapshot: snapshot);
             results[worktree] = status;
             if (status is "committed" or "clean")
-                dirtySince.Remove(worktree);
+                lock (dirtySince) dirtySince.Remove(worktree);
         }
         return new JsonObject
         {
