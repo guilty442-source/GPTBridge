@@ -25,7 +25,7 @@
 | 第三方 Git library（libgit2/LibGit2Sharp/go-git/git2-rs） | **零**——無需退役 |
 | C# 直接 `ProcessStartInfo("git*")` | 僅 `Git.cs` 內部（`ResolveExecutable` 已做原生 git.exe 定位＋hook lane 排除） |
 | Rust/Go/C++ spawn git | 零（`native/git_engine` 自身除外，其為目標引擎） |
-| shell 腳本呼叫 git（.ps1/.bat/.vbs） | 零 |
+| shell/腳本呼叫 git（.ps1/.bat/.vbs） | **已清零**：`native/test_suites/build.ps1`（`git rev-parse HEAD`→直接讀 `.git` plumbing，`940dbb9f9`）與 `native/test_suites/csharp/Orchestrator.Run.cs`（`ProcessStartInfo("git")`→`.git` plumbing，`eb5bfa766`）皆已移除；殘留僅 `.tools/go` vendored Go SDK 內部檔案（非專案建置路徑） |
 | `.git/hooks/*` sh wrapper | git 內部機制：hook 僅 `exec GitAutomation.exe --hook`；git.exe 退役後由引擎接管 hook 語義（M4 課題） |
 | `Git.Exec`（通用 bounded subprocess） | 兼跑 dotnet/cargo 等非 git 二進位——退役範圍僅 git 類呼叫 |
 | `AuditGate` `cmd /c build.bat` | 審計引擎編譯步驟，非 git——不屬本退役面 |
@@ -44,10 +44,19 @@
 
 | ABI verb | milestone | 語義 | 狀態 |
 | --- | --- | --- | --- |
-| `ge_probe_worktree` | M0 | porcelain 狀態探針（bounded、不取 index lock——`GIT_OPTIONAL_LOCKS=0`） | landed `ce415435b` |
-| `ge_diff_summary` / `ge_log_latest` | M1 | numstat 摘要 / tip 歷史探針 | 實作中（工作區） |
-| `ge_sweep_plan` | M2 | sweep 影子決策（verify-only，不 stage/commit） | 實作中（opencode 認領） |
-| `ge_sync_plan` | M3 | ahead/behind＋`merge-tree` 唯讀衝突預檢 | 實作中（工作區） |
+| `ge_probe_worktree` | M0 | porcelain 狀態探針（bounded、不取 index lock——`GIT_OPTIONAL_LOCKS=0`） | LANDED |
+| `ge_diff_summary` / `ge_log_latest` | M1 | numstat 摘要 / tip 歷史探針 | LANDED |
+| `ge_sweep_plan` | M2 | sweep 影子決策（verify-only，不 stage/commit） | LANDED（opencode，對拍 C# host SKIP_STAGED 通過） |
+| `ge_sync_plan` | M3 | ahead/behind＋`merge-tree` 唯讀衝突預檢 | LANDED（read-only merge-tree pre-check） |
+
+`MATURITY.json`（工作區，opencode 產出）記錄 **M0–M3 全落地、
+39/39 測試通過**；對拍證據含 tip==`rev-parse HEAD`、
+porcelain dirty==numstat files、sweep SKIP_STAGED 對拍、
+devin 分歧 ahead=16/behind=13/conflict=1 解釋 syncs=0。
+已知效能熱點：分歧 sync 的 merge-tree 預檢 ~20.2s（單樣本），
+列為 M4 硬化目標。修正案本身**被 lineage lock 阻塞**
+（head rev 254 由 `sql-rag-cag-dag-native-eight-languages-20261003-r2`
+持有），需待其 publish 後 re-anchor。
 
 內部方法：M0–M3 皆為「governed git subprocess」——
 `CreateProcessW` 直啟 git.exe（無 shell、bounded output、逾時殺停）。
@@ -90,10 +99,12 @@
 
 - 「零第三方 Git library」：**已達成**（無任何第三方庫，且引擎為
   project-owned C++23/C）。
-- 「零 shell Git」：**外部消費者面已達成**——除引擎外全專案僅
-  `Git.cs` 一處 ProcessStartInfo（直啟非 shell）；引擎 M0–M3 的
-  `CreateProcessW` 同為直啟非 shell。**剩餘問題是 git.exe 二進位本身**，
-  屬 M4 原生 plumbing 課題。
+- 「零 shell Git」：**消費者＋建置/測試基設面已達成**——全專案呼叫點
+  掃描（.ps1/.bat/.vbs/.sh/.cs/.rs/.go/.cpp/.h）僅剩兩類：
+  `Git.cs` 的 `ProcessStartInfo`（直啟 git.exe，非 shell）與引擎
+  M0–M3 的 `CreateProcessW`（同為直啟）。測試基設的兩處
+  `rev-parse HEAD` 子行程已改為 `.git` plumbing 直讀。
+  **剩餘問題是 git.exe 二進位本身**，屬 M4 原生 plumbing 課題。
 - 「外部 Git 工具全退役」：依階梯推進中；
   M3 切換修正案前不得抽換 `Git.Run` 實作（C# host 仍為唯一 committer，
   抽換會造成並行權威）。
@@ -101,12 +112,14 @@
 ## 五、開放問題
 
 0. **認領/ABI 重疊警示（2026-10-03 觀測）**：兩個活躍認領同時涵蓋
-   `native/git_engine/`——`opencode-git-engine-native`（M2 sweep
-   shadow，延伸 `git_engine.h` ABI）與 `devin-git-native-engine`
+   `native/git_engine/`——`opencode-git-engine-native`（已落地
+   M0–M3，`git_engine.h` ABI）與 `devin-git-native-engine`
    （720min TTL，範圍含 `native/git_engine/`、`native/include/xgit.h`、
-   `Git.cs`、`NativeGit.cs`、build.ps1）。`xgit.h` 目前不存在，
+   `Git.cs`、`NativeGit.cs`、build.ps1）。`xgit.h` 仍不存在，
    若落地將形成第二條 ABI——修正案只註冊單一 `git-engine-native`
-   組件單一 C ABI，並行 ABI 會構成 authority drift，需協調收斂為一；
+   組件單一 C ABI，並行 ABI 會構成 authority drift，需協調收斂為一。
+   devin 認領內非重疊路徑（build.ps1、Orchestrator.Run.cs）的 shell-git
+   清除已完成（`940dbb9f9`/`eb5bfa766`）；引擎目錄實際由 opencode 推進；
 1. **M4 寫面路線**：原生 plumbing vs 受管子行程過渡期長度——
    需治理裁決（push/fetch 協定是最重成本項）；
 2. 引擎 DLL 產物與 C# 綁定專案的落點（`native/git_engine` 目錄
