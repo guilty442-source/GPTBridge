@@ -1,9 +1,11 @@
 //! Bounded native SQL reads over one canonical snapshot. No external engine.
-//! Supported: SELECT columns|* FROM registered_table [WHERE predicates joined
-//! by AND] [ORDER BY column [ASC|DESC]] [LIMIT $n | integer]. Predicates are
-//! column=$n, column=ANY($n), column op $n for op in {=,<,<=,>,>=,<>,!=},
-//! and column IS [NOT] NULL. Values are always bound separately, never SQL
-//! text; ordering comparisons on incomparable types fail closed.
+//! Supported: SELECT columns|*|COUNT(*)|COUNT(col) FROM registered_table
+//! [WHERE predicates joined by AND] [ORDER BY col [ASC|DESC] (, col...)]
+//! [LIMIT $n | integer] [OFFSET $n | integer]. Predicates are column=$n,
+//! column=ANY($n), column op $n for op in {=,<,<=,>,>=,<>,!=},
+//! column BETWEEN $a AND $b, column LIKE $n (single trailing % prefix),
+//! and column IS [NOT] NULL. Values are always bound separately, never
+//! SQL text; ordering comparisons on incomparable types fail closed.
 //!
 //! Domains: `Session::open` serves the sealed RAG store (static table and
 //! column registry); `Session::open_codex` serves the sealed codex store
@@ -52,15 +54,26 @@ enum Predicate {
     Any(String, usize),
     /// column op $n for op in {<,<=,>,>=,<>} (!= folds into <>).
     Compare(String, Cmp, usize),
+    /// column BETWEEN $lo AND $hi — inclusive on both bounds.
+    Between(String, usize, usize),
+    /// column LIKE $n where the parameter is "prefix%" (single
+    /// trailing wildcard, no other % or _ anywhere).
+    Prefix(String, usize),
     /// column IS NULL; bool flag = negated (IS NOT NULL).
     IsNull(String, bool),
 }
 struct Plan {
     table: String,
+    /// Empty = `*`. When `count` is set this must stay empty.
     columns: Vec<String>,
+    /// Some(None) = COUNT(*); Some(Some(col)) = COUNT(col) — non-null
+    /// values of `col` only.
+    count: Option<Option<String>>,
     predicates: Vec<Predicate>,
-    order: Option<(String, bool)>,
+    /// (column, descending) pairs applied left to right.
+    order: Vec<(String, bool)>,
     limit: usize,
+    offset: usize,
 }
 
 fn tokens(sql: &str) -> Result<Vec<String>, String> {
@@ -185,9 +198,28 @@ fn parse(
     };
     p.need("SELECT")?;
     let mut columns = Vec::new();
+    let mut count: Option<Option<String>> = None;
     if !p.eat("*") {
         loop {
-            columns.push(p.identifier()?);
+            if p.peek().eq_ignore_ascii_case("count") {
+                if count.is_some() || !columns.is_empty() {
+                    return Err("NATIVE_SQL_MIXED_PROJECTION".into());
+                }
+                p.take();
+                p.need("(")?;
+                let col = if p.eat("*") {
+                    None
+                } else {
+                    Some(p.identifier()?)
+                };
+                p.need(")")?;
+                count = Some(col);
+            } else {
+                if count.is_some() {
+                    return Err("NATIVE_SQL_MIXED_PROJECTION".into());
+                }
+                columns.push(p.identifier()?);
+            }
             if !p.eat(",") {
                 break;
             }
@@ -206,6 +238,26 @@ fn parse(
                 let negated = p.eat("NOT");
                 p.need("NULL")?;
                 predicates.push(Predicate::IsNull(field, negated));
+            } else if p.eat("BETWEEN") {
+                let lo = p.parameter(params)?;
+                p.need("AND")?;
+                let hi = p.parameter(params)?;
+                if params[lo].is_array() || params[lo].is_object()
+                    || params[hi].is_array() || params[hi].is_object()
+                {
+                    return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
+                }
+                predicates.push(Predicate::Between(field, lo, hi));
+            } else if p.eat("LIKE") {
+                let n = p.parameter(params)?;
+                let valid = params[n]
+                    .as_str()
+                    .and_then(|s| s.strip_suffix('%'))
+                    .is_some_and(|body| !body.contains('%') && !body.contains('_'));
+                if !valid {
+                    return Err("NATIVE_SQL_LIKE_INVALID".into());
+                }
+                predicates.push(Predicate::Prefix(field, n));
             } else {
                 let cmp = if p.eat("=") {
                     None
@@ -259,19 +311,35 @@ fn parse(
             }
         }
     }
-    let order = if p.eat("ORDER") {
+    let mut order = Vec::new();
+    if p.eat("ORDER") {
         p.need("BY")?;
-        let col = p.identifier()?;
-        let descending = p.eat("DESC");
-        if !descending {
-            p.eat("ASC");
+        loop {
+            let col = p.identifier()?;
+            let descending = p.eat("DESC");
+            if !descending {
+                p.eat("ASC");
+            }
+            order.push((col, descending));
+            if !p.eat(",") {
+                break;
+            }
         }
-        Some((col, descending))
-    } else {
-        None
-    };
-    let limit = if p.eat("LIMIT") {
-        if p.peek().starts_with('$') {
+        if order.len() > 4 {
+            return Err("NATIVE_SQL_ORDER_LIMIT".into());
+        }
+    }
+    let mut limit = 10000;
+    let mut offset = 0;
+    loop {
+        let keyword = if p.eat("LIMIT") {
+            true
+        } else if p.eat("OFFSET") {
+            false
+        } else {
+            break;
+        };
+        let value = if p.peek().starts_with('$') {
             let n = p.parameter(params)?;
             params[n]
                 .as_u64()
@@ -283,10 +351,13 @@ fn parse(
                 .ok()
                 .filter(|n| *n <= 10000)
                 .ok_or("NATIVE_SQL_LIMIT_INVALID")? as usize
+        };
+        if keyword {
+            limit = value;
+        } else {
+            offset = value;
         }
-    } else {
-        10000
-    };
+    }
     if p.position != p.tokens.len() {
         return Err("NATIVE_SQL_UNSUPPORTED_SYNTAX".into());
     }
@@ -304,10 +375,15 @@ fn parse(
             Predicate::Equal(c, _)
             | Predicate::Any(c, _)
             | Predicate::Compare(c, _, _)
+            | Predicate::Between(c, _, _)
+            | Predicate::Prefix(c, _)
             | Predicate::IsNull(c, _) => c.clone(),
         });
     }
-    if let Some((c, _)) = &order {
+    for (c, _) in &order {
+        fields.push(c.clone());
+    }
+    if let Some(Some(c)) = &count {
         fields.push(c.clone());
     }
     if fields.iter().any(|c| !column_ok(&table, c)) {
@@ -316,9 +392,11 @@ fn parse(
     Ok(Plan {
         table,
         columns,
+        count,
         predicates,
         order,
         limit,
+        offset,
     })
 }
 fn equal(a: &Value, b: &Value) -> bool {
@@ -457,9 +535,13 @@ impl Session {
                 Predicate::Any(field, n) => params[*n]
                     .as_array()
                     .and_then(|values| self.index.any_candidates(&plan.table, field, values)),
-                // Ordered/null tests are not indexable: they never narrow,
-                // so the canonical candidate set (whole table) stands.
-                Predicate::Compare(..) | Predicate::IsNull(..) => None,
+                // Ordered/null/prefix tests are not indexable: they
+                // never narrow, so the canonical candidate set (whole
+                // table) stands.
+                Predicate::Compare(..)
+                | Predicate::Between(..)
+                | Predicate::Prefix(..)
+                | Predicate::IsNull(..) => None,
             };
             let Some(set) = candidates else { continue };
             if best.as_ref().map(|b| set.len() < b.len()).unwrap_or(true) {
@@ -519,6 +601,28 @@ fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> Result<bool, Stri
                 Some(std::cmp::Ordering::Equal) => matches!(op, Cmp::Le | Cmp::Ge),
                 Some(std::cmp::Ordering::Greater) => matches!(op, Cmp::Gt | Cmp::Ge),
             },
+            Predicate::Between(field, lo, hi) => {
+                if row[field].is_null() {
+                    false
+                } else {
+                    match cmp_scalars(&row[field], &params[*lo])? {
+                        None | Some(std::cmp::Ordering::Less) => false,
+                        _ => match cmp_scalars(&row[field], &params[*hi])? {
+                            None | Some(std::cmp::Ordering::Greater) => false,
+                            _ => true,
+                        },
+                    }
+                }
+            }
+            Predicate::Prefix(field, n) => {
+                let body = params[*n]
+                    .as_str()
+                    .and_then(|s| s.strip_suffix('%'))
+                    .unwrap_or("");
+                row[field]
+                    .as_str()
+                    .is_some_and(|s| s.starts_with(body))
+            }
             Predicate::IsNull(field, negated) => row[field].is_null() != *negated,
         };
         if !ok {
@@ -560,20 +664,36 @@ fn evaluate(
                 .collect::<Result<_, String>>()?
         }
     };
-    if let Some((field, descending)) = &plan.order {
+    if !plan.order.is_empty() {
         result.sort_by(|a, b| {
-            let c = compare(&a[field], &b[field]);
-            if *descending {
-                c.reverse()
-            } else {
-                c
+            for (field, descending) in &plan.order {
+                let c = compare(&a[field], &b[field]);
+                let c = if *descending { c.reverse() } else { c };
+                if c != std::cmp::Ordering::Equal {
+                    return c;
+                }
             }
+            std::cmp::Ordering::Equal
         });
+    }
+    // COUNT answers the filtered set before offset/limit — a scalar
+    // result cannot hide truncation behind a bound.
+    if let Some(col) = &plan.count {
+        let n = match col {
+            None => result.len(),
+            Some(col) => result.iter().filter(|r| !r[col].is_null()).count(),
+        };
+        return Ok(vec![serde_json::json!({"count": n})]);
     }
     // Explicit LIMIT is intentional selection. Implicit overflow is rejected,
     // so missing authority rows can never be hidden by an undocumented cap.
     if result.len() > 10000 {
         return Err("NATIVE_SQL_RESULT_LIMIT".into());
+    }
+    if plan.offset >= result.len() {
+        result.clear();
+    } else {
+        result.drain(..plan.offset);
     }
     result.truncate(plan.limit);
     Ok(result
@@ -853,6 +973,88 @@ mod tests {
         // Missing parameter for the comparison itself also fails closed.
         assert!(session
             .query("SELECT * FROM rag_chunk WHERE sequence < $1", &[])
+            .is_err());
+    }
+    #[test]
+    fn between_like_offset_multiorder_and_count() {
+        let rows = BTreeMap::from([
+            ("rag_chunk/a".into(), json!({"record_id":"a","module_id":"m","chunk_id":"a1","sequence":3,"resource_id":"res-01"})),
+            ("rag_chunk/b".into(), json!({"record_id":"b","module_id":"m","chunk_id":"b2","sequence":1,"resource_id":"res-02"})),
+            ("rag_chunk/c".into(), json!({"record_id":"c","module_id":null,"chunk_id":"c3","sequence":2,"resource_id":"alt-01"})),
+            ("rag_chunk/d".into(), json!({"record_id":"d","module_id":"n","chunk_id":"d4","sequence":4,"resource_id":"res-10"})),
+        ]);
+        let session = Session::from_rows(rows.clone());
+        // BETWEEN is inclusive on both bounds and typed.
+        let between = session
+            .query("SELECT chunk_id FROM rag_chunk WHERE sequence BETWEEN $1 AND $2 ORDER BY sequence ASC", &[json!(2), json!(3)])
+            .unwrap();
+        assert_eq!(between, vec![json!({"chunk_id":"c3"}), json!({"chunk_id":"a1"})]);
+        // LIKE is a bounded prefix: trailing % only.
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk WHERE resource_id LIKE $1 ORDER BY chunk_id", &[json!("res-%")])
+                .unwrap(),
+            vec![json!({"chunk_id":"a1"}), json!({"chunk_id":"b2"}), json!({"chunk_id":"d4"})]
+        );
+        for bad in [json!("%es"), json!("a%b"), json!("re_"), json!(5), Value::Null] {
+            assert!(session
+                .query("SELECT * FROM rag_chunk WHERE resource_id LIKE $1", &[bad])
+                .is_err());
+        }
+        // Multi-column ORDER applies keys left to right.
+        let ordered = session
+            .query("SELECT chunk_id FROM rag_chunk ORDER BY module_id ASC, sequence DESC", &[])
+            .unwrap();
+        assert_eq!(
+            ordered,
+            vec![
+                json!({"chunk_id":"a1"}),
+                json!({"chunk_id":"b2"}),
+                json!({"chunk_id":"d4"}),
+                json!({"chunk_id":"c3"}),
+            ]
+        );
+        // OFFSET skips after sorting; both $n and literal work.
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk ORDER BY sequence ASC LIMIT $1 OFFSET 1", &[json!(2)])
+                .unwrap(),
+            vec![json!({"chunk_id":"c3"}), json!({"chunk_id":"a1"})]
+        );
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk ORDER BY sequence ASC OFFSET $1", &[json!(3)])
+                .unwrap(),
+            vec![json!({"chunk_id":"d4"})]
+        );
+        // COUNT answers the filtered set before OFFSET/LIMIT.
+        assert_eq!(
+            session.query("SELECT COUNT(*) FROM rag_chunk", &[]).unwrap(),
+            vec![json!({"count":4})]
+        );
+        assert_eq!(
+            session.query("SELECT COUNT(*) FROM rag_chunk WHERE module_id = $1 LIMIT 1", &[json!("m")]).unwrap(),
+            vec![json!({"count":2})]
+        );
+        // COUNT(col) skips null values.
+        assert_eq!(
+            session.query("SELECT COUNT(module_id) FROM rag_chunk", &[]).unwrap(),
+            vec![json!({"count":3})]
+        );
+        // Mixed projections and unbounded variants fail closed.
+        for sql in [
+            "SELECT chunk_id, COUNT(*) FROM rag_chunk",
+            "SELECT COUNT(*), chunk_id FROM rag_chunk",
+            "SELECT COUNT(*) FROM rag_chunk WHERE missing BETWEEN $1 AND $2",
+            "SELECT * FROM rag_chunk WHERE sequence BETWEEN $1",
+            "SELECT * FROM rag_chunk ORDER BY sequence DESC, chunk_id ASC, module_id, sequence, resource_id",
+            "SELECT * FROM rag_chunk OFFSET 10001",
+        ] {
+            assert!(session.query(sql, &[json!(1), json!(9)]).is_err(), "{sql}");
+        }
+        // BETWEEN on incomparable bounds fails the query, not the row.
+        assert!(session
+            .query("SELECT * FROM rag_chunk WHERE sequence BETWEEN $1 AND $2", &[json!("x"), json!(9)])
             .is_err());
     }
     #[test]
