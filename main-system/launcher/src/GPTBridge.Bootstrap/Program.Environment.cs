@@ -23,7 +23,6 @@ internal static partial class Program
         {
             "GPTBRIDGE_POSTGRES_DSN",
             "GPTBRIDGE_POSTGRES_ADMIN_DSN",
-            "GPTBRIDGE_MODULE_DSNS",
         })
         {
             var value = ReadUserEnvironment(name);
