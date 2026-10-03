@@ -1,8 +1,10 @@
 //! Bounded native SQL reads over one canonical snapshot. No external engine.
 //! Supported: SELECT columns|*|COUNT(*)|COUNT(col) FROM registered_table
-//! [WHERE predicates joined by AND] [ORDER BY col [ASC|DESC] (, col...)]
-//! [LIMIT $n | integer] [OFFSET $n | integer]. Predicates are column=$n,
-//! column=ANY($n), column op $n for op in {=,<,<=,>,>=,<>,!=},
+//! [WHERE AND-groups joined by OR] [ORDER BY col [ASC|DESC] (, col...)]
+//! [LIMIT $n | integer] [OFFSET $n | integer]. SELECT may be DISTINCT
+//! (dedup over the projection; sort keys must be projected unless `*`).
+//! Predicates are column=$n, column=ANY($n), column IN ($n, ...),
+//! column op $n for op in {=,<,<=,>,>=,<>,!=},
 //! column BETWEEN $a AND $b, column LIKE $n (single trailing % prefix),
 //! and column IS [NOT] NULL. Values are always bound separately, never
 //! SQL text; ordering comparisons on incomparable types fail closed.
@@ -52,6 +54,8 @@ enum Cmp {
 enum Predicate {
     Equal(String, usize),
     Any(String, usize),
+    /// column IN ($n, ...) — each bound scalar checked at parse.
+    In(String, Vec<usize>),
     /// column op $n for op in {<,<=,>,>=,<>} (!= folds into <>).
     Compare(String, Cmp, usize),
     /// column BETWEEN $lo AND $hi — inclusive on both bounds.
@@ -69,9 +73,12 @@ struct Plan {
     /// Some(None) = COUNT(*); Some(Some(col)) = COUNT(col) — non-null
     /// values of `col` only.
     count: Option<Option<String>>,
-    predicates: Vec<Predicate>,
+    /// Conjunction groups joined by OR (standard precedence: AND
+    /// binds tighter). A single group is the pure-AND common case.
+    groups: Vec<Vec<Predicate>>,
     /// (column, descending) pairs applied left to right.
     order: Vec<(String, bool)>,
+    distinct: bool,
     limit: usize,
     offset: usize,
 }
@@ -183,6 +190,95 @@ fn column_ok(table: &str, column: &str) -> bool {
     };
     fields.contains(&column)
 }
+fn parse_predicate(p: &mut Parser, params: &[Value]) -> Result<Predicate, String> {
+    let field = p.identifier()?;
+    if p.eat("IS") {
+        let negated = p.eat("NOT");
+        p.need("NULL")?;
+        return Ok(Predicate::IsNull(field, negated));
+    }
+    if p.eat("BETWEEN") {
+        let lo = p.parameter(params)?;
+        p.need("AND")?;
+        let hi = p.parameter(params)?;
+        if params[lo].is_array() || params[lo].is_object()
+            || params[hi].is_array() || params[hi].is_object()
+        {
+            return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
+        }
+        return Ok(Predicate::Between(field, lo, hi));
+    }
+    if p.eat("IN") {
+        p.need("(")?;
+        let mut ns = Vec::new();
+        loop {
+            let n = p.parameter(params)?;
+            if params[n].is_array() || params[n].is_object() {
+                return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
+            }
+            ns.push(n);
+            if !p.eat(",") {
+                break;
+            }
+        }
+        p.need(")")?;
+        return Ok(Predicate::In(field, ns));
+    }
+    if p.eat("LIKE") {
+        let n = p.parameter(params)?;
+        let valid = params[n]
+            .as_str()
+            .and_then(|s| s.strip_suffix('%'))
+            .is_some_and(|body| !body.contains('%') && !body.contains('_'));
+        if !valid {
+            return Err("NATIVE_SQL_LIKE_INVALID".into());
+        }
+        return Ok(Predicate::Prefix(field, n));
+    }
+    let cmp = if p.eat("=") {
+        None
+    } else if p.eat("<") {
+        if p.eat("=") {
+            Some(Cmp::Le)
+        } else if p.eat(">") {
+            Some(Cmp::Ne)
+        } else {
+            Some(Cmp::Lt)
+        }
+    } else if p.eat(">") {
+        Some(if p.eat("=") { Cmp::Ge } else { Cmp::Gt })
+    } else if p.eat("!") {
+        p.need("=")?;
+        Some(Cmp::Ne)
+    } else {
+        return Err("NATIVE_SQL_OPERATOR_REQUIRED".into());
+    };
+    match cmp {
+        None if p.eat("ANY") => {
+            p.need("(")?;
+            let n = p.parameter(params)?;
+            p.need(")")?;
+            if !params[n].is_array() {
+                return Err("NATIVE_SQL_ARRAY_PARAMETER_REQUIRED".into());
+            }
+            let values = params[n].as_array().unwrap();
+            if values.len() > 4096 || values.iter().any(|v| v.is_array() || v.is_object()) {
+                return Err("NATIVE_SQL_ARRAY_PARAMETER_INVALID".into());
+            }
+            Ok(Predicate::Any(field, n))
+        }
+        _ => {
+            let n = p.parameter(params)?;
+            if params[n].is_array() || params[n].is_object() {
+                return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
+            }
+            match cmp {
+                None => Ok(Predicate::Equal(field, n)),
+                Some(op) => Ok(Predicate::Compare(field, op, n)),
+            }
+        }
+    }
+}
 fn parse(
     sql: &str,
     params: &[Value],
@@ -197,6 +293,7 @@ fn parse(
         position: 0,
     };
     p.need("SELECT")?;
+    let distinct = p.eat("DISTINCT");
     let mut columns = Vec::new();
     let mut count: Option<Option<String>> = None;
     if !p.eat("*") {
@@ -225,90 +322,31 @@ fn parse(
             }
         }
     }
+    if distinct && count.is_some() {
+        return Err("NATIVE_SQL_MIXED_PROJECTION".into());
+    }
     p.need("FROM")?;
     let table = p.identifier()?;
     if !table_ok(&table) {
         return Err("NATIVE_SQL_TABLE_UNREGISTERED".into());
     }
-    let mut predicates = Vec::new();
+    let mut groups: Vec<Vec<Predicate>> = Vec::new();
     if p.eat("WHERE") {
         loop {
-            let field = p.identifier()?;
-            if p.eat("IS") {
-                let negated = p.eat("NOT");
-                p.need("NULL")?;
-                predicates.push(Predicate::IsNull(field, negated));
-            } else if p.eat("BETWEEN") {
-                let lo = p.parameter(params)?;
-                p.need("AND")?;
-                let hi = p.parameter(params)?;
-                if params[lo].is_array() || params[lo].is_object()
-                    || params[hi].is_array() || params[hi].is_object()
-                {
-                    return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
+            let mut group = Vec::new();
+            loop {
+                group.push(parse_predicate(&mut p, params)?);
+                if !p.eat("AND") {
+                    break;
                 }
-                predicates.push(Predicate::Between(field, lo, hi));
-            } else if p.eat("LIKE") {
-                let n = p.parameter(params)?;
-                let valid = params[n]
-                    .as_str()
-                    .and_then(|s| s.strip_suffix('%'))
-                    .is_some_and(|body| !body.contains('%') && !body.contains('_'));
-                if !valid {
-                    return Err("NATIVE_SQL_LIKE_INVALID".into());
-                }
-                predicates.push(Predicate::Prefix(field, n));
-            } else {
-                let cmp = if p.eat("=") {
-                    None
-                } else if p.eat("<") {
-                    if p.eat("=") {
-                        Some(Cmp::Le)
-                    } else if p.eat(">") {
-                        Some(Cmp::Ne)
-                    } else {
-                        Some(Cmp::Lt)
-                    }
-                } else if p.eat(">") {
-                    Some(if p.eat("=") { Cmp::Ge } else { Cmp::Gt })
-                } else if p.eat("!") {
-                    p.need("=")?;
-                    Some(Cmp::Ne)
-                } else {
-                    return Err("NATIVE_SQL_OPERATOR_REQUIRED".into());
-                };
-                let predicate = match cmp {
-                    None if p.eat("ANY") => {
-                        p.need("(")?;
-                        let n = p.parameter(params)?;
-                        p.need(")")?;
-                        if !params[n].is_array() {
-                            return Err("NATIVE_SQL_ARRAY_PARAMETER_REQUIRED".into());
-                        }
-                        let values = params[n].as_array().unwrap();
-                        if values.len() > 4096
-                            || values.iter().any(|v| v.is_array() || v.is_object())
-                        {
-                            return Err("NATIVE_SQL_ARRAY_PARAMETER_INVALID".into());
-                        }
-                        Predicate::Any(field, n)
-                    }
-                    _ => {
-                        let n = p.parameter(params)?;
-                        if params[n].is_array() || params[n].is_object() {
-                            return Err("NATIVE_SQL_SCALAR_PARAMETER_REQUIRED".into());
-                        }
-                        match cmp {
-                            None => Predicate::Equal(field, n),
-                            Some(op) => Predicate::Compare(field, op, n),
-                        }
-                    }
-                };
-                predicates.push(predicate);
             }
-            if !p.eat("AND") {
+            groups.push(group);
+            if !p.eat("OR") {
                 break;
             }
+        }
+        if groups.len() > 16 {
+            return Err("NATIVE_SQL_GROUP_LIMIT".into());
         }
     }
     let mut order = Vec::new();
@@ -370,15 +408,18 @@ fn parse(
     {
         return Err("NATIVE_SQL_DUPLICATE_COLUMN".into());
     }
-    for pred in &predicates {
-        fields.push(match pred {
-            Predicate::Equal(c, _)
-            | Predicate::Any(c, _)
-            | Predicate::Compare(c, _, _)
-            | Predicate::Between(c, _, _)
-            | Predicate::Prefix(c, _)
-            | Predicate::IsNull(c, _) => c.clone(),
-        });
+    for group in &groups {
+        for pred in group {
+            fields.push(match pred {
+                Predicate::Equal(c, _)
+                | Predicate::Any(c, _)
+                | Predicate::In(c, _)
+                | Predicate::Compare(c, _, _)
+                | Predicate::Between(c, _, _)
+                | Predicate::Prefix(c, _)
+                | Predicate::IsNull(c, _) => c.clone(),
+            });
+        }
     }
     for (c, _) in &order {
         fields.push(c.clone());
@@ -389,12 +430,22 @@ fn parse(
     if fields.iter().any(|c| !column_ok(&table, c)) {
         return Err("NATIVE_SQL_COLUMN_UNREGISTERED".into());
     }
+    // With DISTINCT the sort keys must survive projection — SQL
+    // requires them in the select list (`*` projects everything).
+    if distinct && !columns.is_empty() {
+        for (c, _) in &order {
+            if !columns.contains(c) {
+                return Err("NATIVE_SQL_ORDER_DISTINCT".into());
+            }
+        }
+    }
     Ok(Plan {
         table,
         columns,
         count,
-        predicates,
+        groups,
         order,
+        distinct,
         limit,
         offset,
     })
@@ -520,13 +571,18 @@ impl Session {
     /// set; the full predicate filter still runs on every candidate,
     /// so an index lookup can only shorten the scan, never lose a row.
     /// `None` = no indexable predicate — canonical prefix scan.
+    /// Multi-group (OR) queries never narrow: a candidate set that
+    /// satisfies only one branch would silently drop other branches.
     fn narrow(
         &self,
         plan: &Plan,
         params: &[Value],
     ) -> Option<BTreeSet<String>> {
+        if plan.groups.len() != 1 {
+            return None;
+        }
         let mut best: Option<BTreeSet<String>> = None;
-        for pred in &plan.predicates {
+        for pred in &plan.groups[0] {
             let candidates = match pred {
                 Predicate::Equal(field, n) => self
                     .index
@@ -535,6 +591,11 @@ impl Session {
                 Predicate::Any(field, n) => params[*n]
                     .as_array()
                     .and_then(|values| self.index.any_candidates(&plan.table, field, values)),
+                Predicate::In(field, ns) => {
+                    let values: Vec<Value> =
+                        ns.iter().map(|n| params[*n].clone()).collect();
+                    self.index.any_candidates(&plan.table, field, &values)
+                }
                 // Ordered/null/prefix tests are not indexable: they
                 // never narrow, so the canonical candidate set (whole
                 // table) stands.
@@ -583,15 +644,15 @@ fn cmp_scalars(a: &Value, b: &Value) -> Result<Option<std::cmp::Ordering>, Strin
         _ => Err("NATIVE_SQL_INCOMPARABLE".into()),
     }
 }
-fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> Result<bool, String> {
-    for pred in &plan.predicates {
-        let ok = match pred {
+fn single_ok(row: &Value, pred: &Predicate, params: &[Value]) -> Result<bool, String> {
+    Ok(match pred {
             Predicate::Equal(field, n) => equal(&row[field], &params[*n]),
             Predicate::Any(field, n) => params[*n]
                 .as_array()
                 .unwrap()
                 .iter()
                 .any(|v| equal(&row[field], v)),
+            Predicate::In(field, ns) => ns.iter().any(|n| equal(&row[field], &params[*n])),
             Predicate::Compare(field, Cmp::Ne, n) => {
                 !row[field].is_null() && !params[*n].is_null() && row[field] != params[*n]
             }
@@ -624,12 +685,27 @@ fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> Result<bool, Stri
                     .is_some_and(|s| s.starts_with(body))
             }
             Predicate::IsNull(field, negated) => row[field].is_null() != *negated,
-        };
-        if !ok {
-            return Ok(false);
-        }
+    })
+}
+fn predicate_ok(row: &Value, plan: &Plan, params: &[Value]) -> Result<bool, String> {
+    // Every group is evaluated (not short-circuited): a match in one
+    // branch must not hide an incomparable-typed branch elsewhere.
+    // No WHERE at all keeps every row (empty group set = unconditional).
+    if plan.groups.is_empty() {
+        return Ok(true);
     }
-    Ok(true)
+    let mut any = false;
+    for group in &plan.groups {
+        let mut ok = true;
+        for pred in group {
+            if !single_ok(row, pred, params)? {
+                ok = false;
+                break;
+            }
+        }
+        any = any || ok;
+    }
+    Ok(any)
 }
 
 fn evaluate(
@@ -664,6 +740,38 @@ fn evaluate(
                 .collect::<Result<_, String>>()?
         }
     };
+    // DISTINCT runs over the projection before ordering and paging
+    // (SQL evaluation order); sort keys are guaranteed projected —
+    // parse rejects non-projected order columns unless `*`.
+    if plan.distinct {
+        let mut seen = std::collections::BTreeSet::new();
+        let mut projected: Vec<Value> = Vec::new();
+        for row in &result {
+            let v = project(row, plan);
+            if seen.insert(v.to_string()) {
+                projected.push(v);
+            }
+        }
+        if projected.len() > 10000 {
+            return Err("NATIVE_SQL_RESULT_LIMIT".into());
+        }
+        if !plan.order.is_empty() {
+            projected.sort_by(|a, b| {
+                for (field, descending) in &plan.order {
+                    let c = compare(&a[field], &b[field]);
+                    let c = if *descending { c.reverse() } else { c };
+                    if c != std::cmp::Ordering::Equal {
+                        return c;
+                    }
+                }
+                std::cmp::Ordering::Equal
+            });
+        }
+        let offset = plan.offset.min(projected.len());
+        projected.drain(..offset);
+        projected.truncate(plan.limit);
+        return Ok(projected);
+    }
     if !plan.order.is_empty() {
         result.sort_by(|a, b| {
             for (field, descending) in &plan.order {
@@ -696,21 +804,19 @@ fn evaluate(
         result.drain(..plan.offset);
     }
     result.truncate(plan.limit);
-    Ok(result
-        .into_iter()
-        .map(|row| {
-            if plan.columns.is_empty() {
-                row.clone()
-            } else {
-                Value::Object(
-                    plan.columns
-                        .iter()
-                        .map(|c| (c.clone(), row[c].clone()))
-                        .collect::<Map<_, _>>(),
-                )
-            }
-        })
-        .collect())
+    Ok(result.into_iter().map(|row| project(row, plan)).collect())
+}
+fn project(row: &Value, plan: &Plan) -> Value {
+    if plan.columns.is_empty() {
+        row.clone()
+    } else {
+        Value::Object(
+            plan.columns
+                .iter()
+                .map(|c| (c.clone(), row[c].clone()))
+                .collect::<Map<_, _>>(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -1055,6 +1161,79 @@ mod tests {
         // BETWEEN on incomparable bounds fails the query, not the row.
         assert!(session
             .query("SELECT * FROM rag_chunk WHERE sequence BETWEEN $1 AND $2", &[json!("x"), json!(9)])
+            .is_err());
+    }
+    #[test]
+    fn in_list_or_groups_and_distinct() {
+        let rows = BTreeMap::from([
+            ("rag_chunk/a".into(), json!({"record_id":"a","module_id":"m","chunk_id":"a1","sequence":3})),
+            ("rag_chunk/b".into(), json!({"record_id":"b","module_id":"m","chunk_id":"b2","sequence":1})),
+            ("rag_chunk/c".into(), json!({"record_id":"c","module_id":"n","chunk_id":"c3","sequence":2})),
+            ("rag_chunk/d".into(), json!({"record_id":"d","module_id":"n","chunk_id":"a1","sequence":4})),
+        ]);
+        let session = Session::from_rows(rows.clone());
+        // IN is an equality set over individually bound scalars.
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk WHERE sequence IN ($1, $2) ORDER BY sequence", &[json!(1), json!(4)])
+                .unwrap(),
+            vec![json!({"chunk_id":"b2"}), json!({"chunk_id":"a1"})]
+        );
+        // OR joins AND-groups; AND binds tighter — here:
+        // (module_id = m AND sequence = 3) OR (module_id = n AND sequence = 2)
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk WHERE module_id = $1 AND sequence = $2 OR module_id = $3 AND sequence = $4 ORDER BY chunk_id", &[json!("m"), json!(3), json!("n"), json!(2)])
+                .unwrap(),
+            vec![json!({"chunk_id":"a1"}), json!({"chunk_id":"c3"})]
+        );
+        // OR results equal the union of each branch evaluated alone —
+        // multi-group queries never take an index path that could drop
+        // one branch's candidates.
+        let left = session
+            .query("SELECT chunk_id FROM rag_chunk WHERE module_id = $1 AND sequence = $2 ORDER BY chunk_id", &[json!("m"), json!(3)])
+            .unwrap();
+        let right = session
+            .query("SELECT chunk_id FROM rag_chunk WHERE module_id = $1 AND sequence = $2 ORDER BY chunk_id", &[json!("n"), json!(2)])
+            .unwrap();
+        let mut union = left;
+        union.extend(right);
+        union.sort_by(|a, b| a["chunk_id"].as_str().cmp(&b["chunk_id"].as_str()));
+        assert_eq!(
+            session
+                .query("SELECT chunk_id FROM rag_chunk WHERE module_id = $1 AND sequence = $2 OR module_id = $3 AND sequence = $4 ORDER BY chunk_id", &[json!("m"), json!(3), json!("n"), json!(2)])
+                .unwrap(),
+            union
+        );
+        // DISTINCT dedups over the projection.
+        assert_eq!(
+            session
+                .query("SELECT DISTINCT module_id FROM rag_chunk ORDER BY module_id", &[])
+                .unwrap(),
+            vec![json!({"module_id":"m"}), json!({"module_id":"n"})]
+        );
+        // DISTINCT applies before OFFSET/LIMIT.
+        assert_eq!(
+            session
+                .query("SELECT DISTINCT chunk_id FROM rag_chunk ORDER BY chunk_id LIMIT 1 OFFSET 1", &[])
+                .unwrap(),
+            vec![json!({"chunk_id":"b2"})]
+        );
+        // Fail-closed forms: IN list shape, DISTINCT + COUNT, DISTINCT
+        // ordering on a non-projected column, group fan-out limit.
+        for sql in [
+            "SELECT * FROM rag_chunk WHERE sequence IN $1",
+            "SELECT * FROM rag_chunk WHERE sequence IN ()",
+            "SELECT DISTINCT COUNT(*) FROM rag_chunk",
+            "SELECT DISTINCT chunk_id FROM rag_chunk ORDER BY sequence",
+            "SELECT * FROM rag_chunk WHERE sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1 OR sequence=$1",
+        ] {
+            assert!(session.query(sql, &[json!(1)]).is_err(), "{sql}");
+        }
+        // An incomparable operand in a non-matching OR branch still
+        // fails the whole query — branches are never skipped.
+        assert!(session
+            .query("SELECT * FROM rag_chunk WHERE module_id = $1 OR sequence < $2", &[json!("missing"), json!("not-a-number")])
             .is_err());
     }
     #[test]
