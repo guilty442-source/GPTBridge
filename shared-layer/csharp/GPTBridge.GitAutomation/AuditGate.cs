@@ -164,48 +164,45 @@ internal static class AuditGate
 
     /// <summary>
     /// Codex authority imported_at probe (parity with
-    /// codex_postgresql.authority_state) via psql — the runtime DSN env
-    /// var is the same one the Python lane required; anything missing or
-    /// unreadable is treated as stale (fail-closed regeneration request).
+    /// codex_postgresql.authority_state) via the governed CodexPipeline
+    /// read lane — never a raw SQL client: --authority-state emits the
+    /// authority row through PgDsn.Readonly, so this gate rides the same
+    /// credential boundary as every other governed read and no external
+    /// SQL binary is required. Anything missing or unreadable is treated
+    /// as stale (fail-closed regeneration request).
     /// </summary>
     private static double? CodexAuthorityEpoch(string root)
     {
-        var dsn = Environment.GetEnvironmentVariable("GPTBRIDGE_POSTGRES_DSN");
-        if (string.IsNullOrWhiteSpace(dsn))
+        var exe = SqlSync.PipelineExe();
+        if (exe is null)
             return null;
-        var startInfo = new ProcessStartInfo("psql")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        startInfo.ArgumentList.Add(dsn);
-        startInfo.ArgumentList.Add("-t");
-        startInfo.ArgumentList.Add("-A");
-        startInfo.ArgumentList.Add("-c");
-        startInfo.ArgumentList.Add(
-            "SELECT extract(epoch from imported_at) " +
-            "FROM gptbridge_codex.codex_authority_state");
+        var run = Git.Exec(exe, null,
+            new[] { "--authority-state" }, 60_000);
+        if (run.TimedOut || run.Code != 0)
+            return null;
+        var text = run.Stdout.Trim();
+        var start = text.IndexOf('{');
+        if (start < 0)
+            return null;
         try
         {
-            using var process = Process.Start(startInfo)!;
-            var stdout = process.StandardOutput.ReadToEnd();
-            process.StandardError.ReadToEnd();
-            if (!process.WaitForExit(15_000))
-            {
-                try { process.Kill(); } catch (InvalidOperationException) { }
+            if (JsonNode.Parse(text[start..]) is not JsonObject row)
                 return null;
-            }
-            return process.ExitCode == 0
-                && double.TryParse(stdout.Trim(),
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var epoch)
-                ? epoch
+            var imported = row["imported_at"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(imported))
+                return null;
+            // CanonJson PyStr(datetime): "YYYY-MM-DD HH:MM:SS[.ffffff]";
+            // codex_authority_state.imported_at is timestamptz read back
+            // as UTC without a zone marker.
+            return DateTime.TryParse(imported,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal
+                | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var at)
+                ? new DateTimeOffset(at).ToUnixTimeSeconds()
                 : null;
         }
-        catch (Exception)
+        catch (JsonException)
         {
             return null;
         }
