@@ -303,7 +303,7 @@ internal static partial class GenerationProjections
         var sync = Records(connection,
             "architecture_diagram_sync_evidence")
             .Where(r => Text(r, "status") == "current").ToList();
-        var projectionOpen = sync.Count(r =>
+        var projectionOpen = ClosureEvidence.CountOpen(sync, r =>
             Text(r, "result") != "PASS"
             || Int(r, "hash_match_count") != Int(r, "required_count")
             || Int(r, "stale_count") != 0 || Int(r, "missing_count") != 0);

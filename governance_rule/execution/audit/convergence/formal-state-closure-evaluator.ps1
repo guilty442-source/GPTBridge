@@ -132,7 +132,8 @@ if ($Verify) {
     $closure=@(Get-CodexRows 'codex_convergence_closure' | Where-Object status -eq 'current')
     Assert-State (@($closure | Where-Object version_identity -ne $head.version).Count -eq 0) 'all-convergence-closure-rows-current'
     $formalClosure=$closure | Where-Object closure_id -eq 'FORMAL_RULE_CLOSURE'
-    Assert-State ($formalClosure.open_finding_count -eq $formalFindings.Count -and $formalClosure.result -eq 'INCOMPLETE_EVIDENCE') 'formal-findings-recomputed-not-status-only-pass'
+    $formalExpectedResult = if ($formalFindings.Count -gt 0) { 'INCOMPLETE_EVIDENCE' } else { 'PASS' }
+    Assert-State ($formalClosure.open_finding_count -eq $formalFindings.Count -and $formalClosure.result -eq $formalExpectedResult) 'formal-findings-recomputed-not-status-only-pass'
     $schemaClosure=$closure | Where-Object closure_id -eq 'MACHINE_SCHEMA_CLOSURE'
     $schemaExpectedResult = if ($schemaOpen.Count -gt 0) { 'INCOMPLETE_EVIDENCE' } else { 'PASS' }
     Assert-State ($schemaClosure.open_finding_count -eq $schemaOpen.Count -and $schemaClosure.result -eq $schemaExpectedResult) 'schema-dependent-closure-fail-closed'
@@ -207,7 +208,7 @@ Update-Closure 'NORMATIVE_SURFACE_CLOSURE' 'active lifecycle identities require 
 Update-Closure 'DIRECTORY_CLOSURE' 'canonical normalized project parity and registered directory governance acceptance' "project=$($canonical.Count)/$($normalized.Count);semantic-mismatches=$($directoryMismatch.Count);catalog=$($directories.Count);catalog-open=$($directoryOpen.Count);input-sha256=$($report.directory.input_digest)" ($directoryMismatch.Count+$directoryOpen.Count) $(if ($directoryMismatch.Count+$directoryOpen.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
 Update-Closure 'DUPLICATION_CLOSURE' 'exact active-payload uniqueness and current independent semantic duplication review' "exact-duplicate-groups=$($duplicateGroups.Count);semantic-review=PENDING_CURRENT_SEMANTIC_REVIEW" ($duplicateGroups.Count+1) 'INCOMPLETE_EVIDENCE'
 Update-Closure 'SEARCH_CURRENTNESS_CLOSURE' 'search lifecycle and generation joined to canonical lifecycle;nonactive default visibility denied;candidate search is rebuilt by the governed pipeline' "checked=$($search.Count);source-stale=$($staleSearch.Count);source-nonactive-default-flags=$($hiddenNonactive.Count);nonactive-default-flags-explicitly-cleared=$($hiddenNonactive.Count);input-sha256=$($report.search.input_digest);candidate-publication-requires-search-rebuild" $staleSearch.Count $(if ($staleSearch.Count) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
-$projectionOpen=@($sync | Where-Object { $_.result -ne 'PASS' -or $_.hash_match_count -ne $_.required_count -or $_.stale_count -ne 0 -or $_.missing_count -ne 0 }).Count
+$projectionOpen=if ($sync.Count -eq 0) { 1 } else { @($sync | Where-Object { $_.result -ne 'PASS' -or $_.hash_match_count -ne $_.required_count -or $_.stale_count -ne 0 -or $_.missing_count -ne 0 }).Count }
 Update-Closure 'PROJECTION_PARITY_CLOSURE' 'current measured architecture file registry parity;candidate seal/mirror/SQL parity validated by publication pipeline;not implementation certification' "diagram-required=$($sync.required_count);diagram-match=$($sync.hash_match_count);source-result=$($sync.result);independent-mirror-and-SQL-publication-gate=REQUIRED" $projectionOpen $(if ($projectionOpen) {'INCOMPLETE_EVIDENCE'} else {'PASS'})
 $stateParts=@($obligationCounts.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ','
 $totalOpen=$formalFindings.Count+$schemaOpen.Count+$surfaceUnknown.Count+$directoryMismatch.Count+$directoryOpen.Count+$duplicateGroups.Count+1+$staleSearch.Count+$projectionOpen+$openObligations.Count+1
