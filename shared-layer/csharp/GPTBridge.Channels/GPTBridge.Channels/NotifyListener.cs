@@ -1,9 +1,10 @@
-// Transport LISTEN/NOTIFY consumer — §10.63/G26/INT-4 (event over polling).
+// Native wake-hint consumer — §10.63/G26/INT-4 (event over polling).
 //
 // C# port of shared-layer/src/shared_layer/transport_notify.py
-// (python_residency target: csharp-channel).  One dedicated connection
-// LISTENs tool_request_<channel> for every subscribed channel id and
-// re-dispatches request ids to subscriber callbacks.
+// (python_residency target: csharp-channel). One local native transport
+// observes tool_request_<channel> hints for every subscribed channel id
+// and re-dispatches request ids to subscriber callbacks. No database
+// connection or DSN is accepted by the production factory.
 //
 // Contract parity with the Python side:
 //   * the notification is only a wake-hint — loss is covered by the
@@ -74,7 +75,7 @@ public sealed class NotifyListener : IAsyncDisposable
 
     /// <param name="transportFactory">
     /// Opens one dedicated LISTEN session per call (injectable for tests;
-    /// production uses <see cref="ForPostgreSql"/>).
+    /// production uses <see cref="ForNative"/>).
     /// </param>
     public NotifyListener(
         Func<CancellationToken, Task<INotifyTransport>> transportFactory,
@@ -94,16 +95,16 @@ public sealed class NotifyListener : IAsyncDisposable
         _callbackDeadline = callbackDeadline ?? CallbackDeadline;
     }
 
-    /// <summary>Production listener over a PostgreSQL DSN.</summary>
-    public static NotifyListener ForPostgreSql(
-        string dsn,
+    /// <summary>Production listener over native local wake hints.</summary>
+    public static NotifyListener ForNative(
+        string root,
         TimeSpan? minBackoff = null,
         TimeSpan? maxBackoff = null,
         TimeSpan? pollSlice = null) =>
         new(
             ct =>
             {
-                var transport = new NpgsqlNotifyTransport(dsn);
+                var transport = new NativeNotifyTransport(root);
                 return Task.FromResult<INotifyTransport>(transport);
             },
             minBackoff, maxBackoff, pollSlice);

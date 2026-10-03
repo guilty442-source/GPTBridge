@@ -9,9 +9,4 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Same pinned version as GPTBridge.CodexPipeline/GPTBridge.MainSystem -->
-    <PackageReference Include="Npgsql" Version="9.0.3" />
-  </ItemGroup>
-
 </Project>

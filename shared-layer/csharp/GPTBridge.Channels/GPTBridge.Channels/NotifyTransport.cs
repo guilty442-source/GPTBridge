@@ -1,120 +1,122 @@
-// Transport LISTEN/NOTIFY transport seam — information layer (C27).
-//
-// C# port of the connection surface inside
-// shared-layer/src/shared_layer/transport_notify.py
-// (python_residency target: csharp-channel).  The seam is injectable so
-// the listener loop is unit-testable without a live PostgreSQL; the
-// production adapter wraps Npgsql on a dedicated connection — never the
-// lane pool, same as the Python dedicated_connection contract.
-//
-// Contract parity with the Python side:
-//   * LISTEN tool_request_<channel>; payload is a wake-hint only —
-//     subscriber-side periodic polling covers loss (fail-closed)
-//   * WaitAsync returns null on poll-slice timeout, letting the loop
-//     check stop/resubscribe flags between slices
-//   * one transport instance == one LISTEN session; resubscribe starts a
-//     new session (the Python listener reconnects the same way)
-
-using Npgsql;
-
+﻿// Native transient wake hints; request authority remains in the governed store.
+using System.Text.Json;
+using System.Text.RegularExpressions;
 namespace GPTBridge.Channels;
-
-/// <summary>One LISTEN/NOTIFY notification: PG channel + payload.</summary>
 public readonly record struct NotifyMessage(string Channel, string Payload);
-
-/// <summary>Dedicated LISTEN session abstraction (information layer).</summary>
 public interface INotifyTransport : IAsyncDisposable
 {
-    /// <summary>Open the dedicated connection.</summary>
     Task OpenAsync(CancellationToken cancellationToken);
-
-    /// <summary>LISTEN one fully-qualified PG channel name.</summary>
-    Task ListenAsync(string pgChannel, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Next notification, or <c>null</c> when <paramref name="slice"/>
-    /// elapsed with no traffic (poll-slice timeout, not an error).
-    /// </summary>
-    Task<NotifyMessage?> WaitAsync(
-        TimeSpan slice, CancellationToken cancellationToken);
+    Task ListenAsync(string channel, CancellationToken cancellationToken);
+    Task<NotifyMessage?> WaitAsync(TimeSpan slice, CancellationToken cancellationToken);
 }
-
-/// <summary>Npgsql-backed <see cref="INotifyTransport"/>.</summary>
-public sealed class NpgsqlNotifyTransport : INotifyTransport
+public sealed class NativeNotifyTransport : INotifyTransport
 {
-    private readonly string _dsn;
-    private NpgsqlConnection? _connection;
-    private readonly Queue<NotifyMessage> _pending = new();
-    private readonly object _pendingLock = new();
-
-    public NpgsqlNotifyTransport(string dsn)
+    private static readonly Regex ChannelName = new("^tool_request_[a-z0-9_]+$", RegexOptions.Compiled);
+    private readonly string _root;
+    private readonly Dictionary<string, string> _seen = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _signal = new(0, 1);
+    private FileSystemWatcher? _watcher;
+    private bool _disposed;
+    private sealed record Hint(string Id, string Channel, string Payload);
+    public NativeNotifyTransport(string root)
     {
-        if (string.IsNullOrWhiteSpace(dsn))
-            throw new ArgumentException("NOTIFY_DSN_EMPTY", nameof(dsn));
-        _dsn = dsn;
+        ArgumentException.ThrowIfNullOrWhiteSpace(root);
+        if (!Path.IsPathFullyQualified(root)) throw new ArgumentException("NOTIFY_ROOT_MUST_BE_ABSOLUTE", nameof(root));
+        _root = Path.GetFullPath(root);
     }
-
-    public async Task OpenAsync(CancellationToken cancellationToken)
+    public Task OpenAsync(CancellationToken cancellationToken)
     {
-        var connection = new NpgsqlConnection(_dsn);
-        connection.Notification += (_, args) =>
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_watcher is not null) throw new InvalidOperationException("NOTIFY_ALREADY_OPEN");
+        Directory.CreateDirectory(_root);
+        _watcher = new FileSystemWatcher(_root, "tool_request_*.json")
+        { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+        _watcher.Changed += (_, _) => Signal();
+        _watcher.Created += (_, _) => Signal();
+        _watcher.Renamed += (_, _) => Signal();
+        _watcher.Error += (_, _) => Signal();
+        _watcher.EnableRaisingEvents = true;
+        return Task.CompletedTask;
+    }
+    public Task ListenAsync(string channel, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested(); EnsureOpen(); ValidateChannel(channel);
+        if (!_seen.ContainsKey(channel)) _seen[channel] = Read(channel)?.Id ?? "";
+        return Task.CompletedTask;
+    }
+    public async Task<NotifyMessage?> WaitAsync(TimeSpan slice, CancellationToken cancellationToken)
+    {
+        EnsureOpen(); cancellationToken.ThrowIfCancellationRequested();
+        var next = Scan();
+        if (next is not null) return next;
+        await _signal.WaitAsync(slice, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Scan();
+    }
+    private NotifyMessage? Scan()
+    {
+        foreach (var channel in _seen.Keys.ToArray())
         {
-            lock (_pendingLock)
-            {
-                _pending.Enqueue(new NotifyMessage(args.Channel, args.Payload));
-            }
-        };
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        _connection = connection;
-    }
-
-    public async Task ListenAsync(
-        string pgChannel, CancellationToken cancellationToken)
-    {
-        var connection = _connection
-            ?? throw new InvalidOperationException("NOTIFY_TRANSPORT_NOT_OPEN");
-        // Channel names are regex-validated upstream ([a-z0-9_]+ plus the
-        // tool_request_ prefix); identifier quoting is defence in depth.
-        await using var command = new NpgsqlCommand(
-            $"LISTEN \"{pgChannel}\"", connection);
-        await command.ExecuteNonQueryAsync(cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    public async Task<NotifyMessage?> WaitAsync(
-        TimeSpan slice, CancellationToken cancellationToken)
-    {
-        lock (_pendingLock)
-        {
-            if (_pending.Count > 0)
-                return _pending.Dequeue();
+            var hint = Read(channel);
+            if (hint is null || hint.Id == _seen[channel]) continue;
+            _seen[channel] = hint.Id;
+            return new NotifyMessage(channel, hint.Payload);
         }
-        var connection = _connection
-            ?? throw new InvalidOperationException("NOTIFY_TRANSPORT_NOT_OPEN");
-        using var sliceCts = CancellationTokenSource
-            .CreateLinkedTokenSource(cancellationToken);
-        sliceCts.CancelAfter(slice);
+        return null;
+    }
+    private Hint? Read(string channel)
+    {
         try
         {
-            await connection.WaitAsync(sliceCts.Token).ConfigureAwait(false);
+            using var stream = new FileStream(Path.Combine(_root, channel + ".json"), FileMode.Open,
+                FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (stream.Length > 16384) throw new InvalidDataException("NOTIFY_HINT_TOO_LARGE");
+            var hint = JsonSerializer.Deserialize<Hint>(stream);
+            if (hint is null || !Guid.TryParseExact(hint.Id, "N", out _) || hint.Channel != channel || hint.Payload is null)
+                throw new InvalidDataException("NOTIFY_HINT_INVALID");
+            return hint;
         }
-        catch (OperationCanceledException)
-            when (sliceCts.IsCancellationRequested
-                && !cancellationToken.IsCancellationRequested)
-        {
-            return null; // poll-slice timeout — not an error
-        }
-        lock (_pendingLock)
-        {
-            return _pending.Count > 0 ? _pending.Dequeue() : null;
-        }
+        catch (FileNotFoundException) { return null; }
     }
-
-    public async ValueTask DisposeAsync()
+    // Atomic publication broadcasts to independent subscribers; bursts may coalesce.
+    // Periodic request polling remains mandatory and covers any missed hint.
+    public static async Task PublishAsync(string root, string channel, string payload,
+        CancellationToken cancellationToken = default)
     {
-        var connection = _connection;
-        _connection = null;
-        if (connection is not null)
-            await connection.DisposeAsync().ConfigureAwait(false);
+        ValidateChannel(channel); ArgumentException.ThrowIfNullOrWhiteSpace(root);
+        if (!Path.IsPathFullyQualified(root)) throw new ArgumentException("NOTIFY_ROOT_MUST_BE_ABSOLUTE", nameof(root));
+        ArgumentNullException.ThrowIfNull(payload);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new Hint(Guid.NewGuid().ToString("N"), channel, payload));
+        if (bytes.Length > 16384) throw new ArgumentException("NOTIFY_HINT_TOO_LARGE", nameof(payload));
+        var directory = Path.GetFullPath(root); Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, ".hint-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await File.WriteAllBytesAsync(temporary, bytes, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporary, Path.Combine(directory, channel + ".json"), overwrite: true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+    private static void ValidateChannel(string channel)
+    {
+        if (channel is null || !ChannelName.IsMatch(channel)) throw new ArgumentException("INVALID_NOTIFY_CHANNEL", nameof(channel));
+    }
+    private void EnsureOpen()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_watcher is null) throw new InvalidOperationException("NOTIFY_TRANSPORT_NOT_OPEN");
+    }
+    private void Signal()
+    {
+        try { _signal.Release(); }
+        catch (SemaphoreFullException) { }
+        catch (ObjectDisposedException) { }
+    }
+    public ValueTask DisposeAsync()
+    {
+        _disposed = true; _watcher?.Dispose(); _watcher = null; _signal.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
